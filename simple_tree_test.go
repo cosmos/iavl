@@ -3,8 +3,8 @@ package merkle
 import (
 	"bytes"
 
-	. "github.com/tendermint/tendermint/common"
-	. "github.com/tendermint/tendermint/common/test"
+	. "github.com/tendermint/go-common"
+	. "github.com/tendermint/go-common/test"
 
 	"fmt"
 	"testing"

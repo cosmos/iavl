@@ -5,9 +5,9 @@ import (
 	"container/list"
 	"sync"
 
-	"github.com/tendermint/tendermint/wire"
-	. "github.com/tendermint/tendermint/common"
-	dbm "github.com/tendermint/tendermint/db"
+	. "github.com/tendermint/go-common"
+	dbm "github.com/tendermint/go-db"
+	"github.com/tendermint/go-wire"
 )
 
 /*
@@ -210,7 +210,7 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 		// Doesn't exist, load.
 		buf := ndb.db.Get(hash)
 		if len(buf) == 0 {
-			ndb.db.(*dbm.LevelDB).Print()
+			ndb.db.Print()
 			PanicSanity(Fmt("Value missing for key %X", hash))
 		}
 		r := bytes.NewReader(buf)
