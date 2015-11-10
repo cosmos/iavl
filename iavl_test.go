@@ -6,11 +6,14 @@ import (
 
 	. "github.com/tendermint/go-common"
 	. "github.com/tendermint/go-common/test"
+	"github.com/tendermint/go-db"
 	"github.com/tendermint/go-wire"
 
 	"runtime"
 	"testing"
 )
+
+const testReadLimit = 1 << 20 // Some reasonable limit for wire.Read*() lmt
 
 func randstr(length int) string {
 	return RandStr(length)
@@ -245,8 +248,8 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHash []
 	}
 	// Write/Read then verify.
 	proofBytes := wire.BinaryBytes(proof)
-	n, err := int64(0), error(nil)
-	proof2 := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(proofBytes), &n, &err).(*IAVLProof)
+	n, err := int(0), error(nil)
+	proof2 := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(proofBytes), 0, &n, &err).(*IAVLProof)
 	if err != nil {
 		t.Errorf("Failed to read IAVLProof from bytes: %v", err)
 		return
@@ -259,8 +262,8 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHash []
 	// Random mutations must not verify
 	for i := 0; i < 5; i++ {
 		badProofBytes := MutateByteSlice(proofBytes)
-		n, err := int64(0), error(nil)
-		badProof := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(badProofBytes), &n, &err).(*IAVLProof)
+		n, err := int(0), error(nil)
+		badProof := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(badProofBytes), testReadLimit, &n, &err).(*IAVLProof)
 		if err != nil {
 			continue // This is fine.
 		}
@@ -274,7 +277,7 @@ func TestIAVLProof(t *testing.T) {
 
 	// Convenient wrapper around wire.BasicCodec.
 	toBytes := func(o interface{}) []byte {
-		buf, n, err := new(bytes.Buffer), int64(0), error(nil)
+		buf, n, err := new(bytes.Buffer), int(0), error(nil)
 		wire.BasicCodec.Encode(o, buf, &n, &err)
 		if err != nil {
 			panic(Fmt("Failed to encode thing: %v", err))

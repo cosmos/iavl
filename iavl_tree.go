@@ -214,7 +214,7 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 			PanicSanity(Fmt("Value missing for key %X", hash))
 		}
 		r := bytes.NewReader(buf)
-		var n int64
+		var n int
 		var err error
 		node := ReadIAVLNode(t, r, &n, &err)
 		if err != nil {

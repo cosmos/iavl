@@ -35,7 +35,7 @@ func NewIAVLNode(key interface{}, value interface{}) *IAVLNode {
 
 // NOTE: The hash is not saved or set.  The caller should set the hash afterwards.
 // (Presumably the caller already has the hash)
-func ReadIAVLNode(t *IAVLTree, r io.Reader, n *int64, err *error) *IAVLNode {
+func ReadIAVLNode(t *IAVLTree, r io.Reader, n *int, err *error) *IAVLNode {
 	node := &IAVLNode{}
 
 	// node header
@@ -48,8 +48,8 @@ func ReadIAVLNode(t *IAVLTree, r io.Reader, n *int64, err *error) *IAVLNode {
 		node.value = decodeByteSlice(t.valueCodec, r, n, err)
 	} else {
 		// children
-		node.leftHash = wire.ReadByteSlice(r, n, err)
-		node.rightHash = wire.ReadByteSlice(r, n, err)
+		node.leftHash = wire.ReadByteSlice(r, 0, n, err)
+		node.rightHash = wire.ReadByteSlice(r, 0, n, err)
 	}
 	return node
 }
@@ -146,7 +146,7 @@ func (node *IAVLNode) hashWithCount(t *IAVLTree) ([]byte, int) {
 }
 
 // NOTE: sets hashes recursively
-func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int64, hashCount int, err error) {
+func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount int, err error) {
 	// height & size
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
@@ -207,7 +207,7 @@ func (node *IAVLNode) save(t *IAVLTree) []byte {
 }
 
 // NOTE: sets hashes recursively
-func (node *IAVLNode) writePersistBytes(t *IAVLTree, w io.Writer) (n int64, err error) {
+func (node *IAVLNode) writePersistBytes(t *IAVLTree, w io.Writer) (n int, err error) {
 	// node header
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
@@ -439,18 +439,18 @@ func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
 //--------------------------------------------------------------------------------
 
 // Read a (length prefixed) byteslice then decode the object using the codec
-func decodeByteSlice(codec wire.Codec, r io.Reader, n *int64, err *error) interface{} {
-	bytez := wire.ReadByteSlice(r, n, err)
+func decodeByteSlice(codec wire.Codec, r io.Reader, n *int, err *error) interface{} {
+	bytez := wire.ReadByteSlice(r, 0, n, err)
 	if *err != nil {
 		return nil
 	}
-	n_ := new(int64)
+	n_ := new(int)
 	return codec.Decode(bytes.NewBuffer(bytez), n_, err)
 }
 
 // Encode object using codec, then write a (length prefixed) byteslice.
-func encodeByteSlice(o interface{}, codec wire.Codec, w io.Writer, n *int64, err *error) {
-	buf, n_ := new(bytes.Buffer), new(int64)
+func encodeByteSlice(o interface{}, codec wire.Codec, w io.Writer, n *int, err *error) {
+	buf, n_ := new(bytes.Buffer), new(int)
 	codec.Encode(o, buf, n_, err)
 	if *err != nil {
 		return

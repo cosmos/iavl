@@ -36,7 +36,7 @@ import (
 )
 
 func SimpleHashFromTwoHashes(left []byte, right []byte) []byte {
-	var n int64
+	var n int
 	var err error
 	var hasher = ripemd160.New()
 	wire.WriteByteSlice(left, hasher, &n, &err)
@@ -72,7 +72,7 @@ func SimpleHashFromBinaries(items []interface{}) []byte {
 
 // General Convenience
 func SimpleHashFromBinary(item interface{}) []byte {
-	hasher, n, err := ripemd160.New(), new(int64), new(error)
+	hasher, n, err := ripemd160.New(), new(int), new(error)
 	wire.WriteBinary(item, hasher, n, err)
 	if *err != nil {
 		PanicCrisis(err)
@@ -109,7 +109,7 @@ type KVPair struct {
 }
 
 func (kv KVPair) Hash() []byte {
-	hasher, n, err := ripemd160.New(), new(int64), new(error)
+	hasher, n, err := ripemd160.New(), new(int), new(error)
 	wire.WriteString(kv.Key, hasher, n, err)
 	if kvH, ok := kv.Value.(Hashable); ok {
 		wire.WriteByteSlice(kvH.Hash(), hasher, n, err)

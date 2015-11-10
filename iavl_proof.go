@@ -45,7 +45,7 @@ type IAVLProofInnerNode struct {
 func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	n, err := int64(0), error(nil)
+	n, err := int(0), error(nil)
 	wire.WriteInt8(branch.Height, buf, &n, &err)
 	wire.WriteVarint(branch.Size, buf, &n, &err)
 	if len(branch.Left) == 0 {
@@ -71,7 +71,7 @@ type IAVLProofLeafNode struct {
 func (leaf IAVLProofLeafNode) Hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	n, err := int64(0), error(nil)
+	n, err := int(0), error(nil)
 	wire.WriteInt8(0, buf, &n, &err)
 	wire.WriteVarint(1, buf, &n, &err)
 	wire.WriteByteSlice(leaf.KeyBytes, buf, &n, &err)
@@ -88,7 +88,7 @@ func (node *IAVLNode) constructProof(t *IAVLTree, key interface{}, proof *IAVLPr
 	if node.height == 0 {
 		if t.keyCodec.Compare(node.key, key) == 0 {
 			keyBuf, valueBuf := new(bytes.Buffer), new(bytes.Buffer)
-			n, err := int64(0), error(nil)
+			n, err := int(0), error(nil)
 			t.keyCodec.Encode(node.key, keyBuf, &n, &err)
 			if err != nil {
 				PanicCrisis(Fmt("Failed to encode node.key: %v", err))
