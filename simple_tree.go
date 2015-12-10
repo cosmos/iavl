@@ -145,24 +145,17 @@ func MakeSortedKVPairs(m map[string]interface{}) []Hashable {
 //--------------------------------------------------------------------------------
 
 type SimpleProof struct {
-	Index       int      `json:"index"`
-	Total       int      `json:"total"`
-	LeafHash    []byte   `json:"leaf_hash"`
-	InnerHashes [][]byte `json:"inner_hashes"` // Hashes from leaf's sibling to a root's child.
-	RootHash    []byte   `json:"root_hash"`
+	Aunts [][]byte `json:"aunts"` // Hashes from leaf's sibling to a root's child.
 }
 
 // proofs[0] is the proof for items[0].
-func SimpleProofsFromHashables(items []Hashable) (proofs []*SimpleProof) {
-	trails, root := trailsFromHashables(items)
+func SimpleProofsFromHashables(items []Hashable) (rootHash []byte, proofs []*SimpleProof) {
+	trails, rootSPN := trailsFromHashables(items)
+	rootHash = rootSPN.Hash
 	proofs = make([]*SimpleProof, len(items))
 	for i, trail := range trails {
 		proofs[i] = &SimpleProof{
-			Index:       i,
-			Total:       len(items),
-			LeafHash:    trail.Hash,
-			InnerHashes: trail.FlattenInnerHashes(),
-			RootHash:    root.Hash,
+			Aunts: trail.FlattenAunts(),
 		}
 	}
 	return
@@ -170,14 +163,8 @@ func SimpleProofsFromHashables(items []Hashable) (proofs []*SimpleProof) {
 
 // Verify that leafHash is a leaf hash of the simple-merkle-tree
 // which hashes to rootHash.
-func (sp *SimpleProof) Verify(leafHash []byte, rootHash []byte) bool {
-	if !bytes.Equal(leafHash, sp.LeafHash) {
-		return false
-	}
-	if !bytes.Equal(rootHash, sp.RootHash) {
-		return false
-	}
-	computedHash := computeHashFromInnerHashes(sp.Index, sp.Total, sp.LeafHash, sp.InnerHashes)
+func (sp *SimpleProof) Verify(index int, total int, leafHash []byte, rootHash []byte) bool {
+	computedHash := computeHashFromAunts(index, total, leafHash, sp.Aunts)
 	if computedHash == nil {
 		return false
 	}
@@ -193,30 +180,22 @@ func (sp *SimpleProof) String() string {
 
 func (sp *SimpleProof) StringIndented(indent string) string {
 	return fmt.Sprintf(`SimpleProof{
-%s  Index:       %v
-%s  Total:       %v
-%s  LeafHash:    %X
-%s  InnerHashes: %X
-%s  RootHash:    %X
+%s  Aunts: %X
 %s}`,
-		indent, sp.Index,
-		indent, sp.Total,
-		indent, sp.LeafHash,
-		indent, sp.InnerHashes,
-		indent, sp.RootHash,
+		indent, sp.Aunts,
 		indent)
 }
 
 // Use the leafHash and innerHashes to get the root merkle hash.
 // If the length of the innerHashes slice isn't exactly correct, the result is nil.
-func computeHashFromInnerHashes(index int, total int, leafHash []byte, innerHashes [][]byte) []byte {
+func computeHashFromAunts(index int, total int, leafHash []byte, innerHashes [][]byte) []byte {
 	// Recursive impl.
 	if index >= total {
 		return nil
 	}
 	switch total {
 	case 0:
-		PanicSanity("Cannot call computeHashFromInnerHashes() with 0 total")
+		PanicSanity("Cannot call computeHashFromAunts() with 0 total")
 		return nil
 	case 1:
 		if len(innerHashes) != 0 {
@@ -229,13 +208,13 @@ func computeHashFromInnerHashes(index int, total int, leafHash []byte, innerHash
 		}
 		numLeft := (total + 1) / 2
 		if index < numLeft {
-			leftHash := computeHashFromInnerHashes(index, numLeft, leafHash, innerHashes[:len(innerHashes)-1])
+			leftHash := computeHashFromAunts(index, numLeft, leafHash, innerHashes[:len(innerHashes)-1])
 			if leftHash == nil {
 				return nil
 			}
 			return SimpleHashFromTwoHashes(leftHash, innerHashes[len(innerHashes)-1])
 		} else {
-			rightHash := computeHashFromInnerHashes(index-numLeft, total-numLeft, leafHash, innerHashes[:len(innerHashes)-1])
+			rightHash := computeHashFromAunts(index-numLeft, total-numLeft, leafHash, innerHashes[:len(innerHashes)-1])
 			if rightHash == nil {
 				return nil
 			}
@@ -256,9 +235,9 @@ type SimpleProofNode struct {
 	Right  *SimpleProofNode // Right sibling (only one of Left,Right is set)
 }
 
-// Starting from a leaf SimpleProofNode, FlattenInnerHashes() will return
+// Starting from a leaf SimpleProofNode, FlattenAunts() will return
 // the inner hashes for the item corresponding to the leaf.
-func (spn *SimpleProofNode) FlattenInnerHashes() [][]byte {
+func (spn *SimpleProofNode) FlattenAunts() [][]byte {
 	// Nonrecursive impl.
 	innerHashes := [][]byte{}
 	for spn != nil {
