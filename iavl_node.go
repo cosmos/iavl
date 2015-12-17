@@ -2,7 +2,7 @@ package merkle
 
 import (
 	"bytes"
-	"code.google.com/p/go.crypto/ripemd160"
+	"golang.org/x/crypto/ripemd160"
 	"io"
 
 	. "github.com/tendermint/go-common"
