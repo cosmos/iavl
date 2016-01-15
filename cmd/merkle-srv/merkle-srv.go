@@ -19,7 +19,7 @@ func main() {
 			Flags: []cli.Flag{
 				cli.StringFlag{
 					Name:  "address",
-					Value: "tcp://127.0.0.1:46659",
+					Value: "unix://test.sock",
 					Usage: "MerkleEyes server listen address",
 				},
 			},

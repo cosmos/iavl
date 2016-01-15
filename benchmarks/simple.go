@@ -13,7 +13,7 @@ import (
 
 func main() {
 
-	conn, err := Connect("tcp://127.0.0.1:46659")
+	conn, err := Connect("unix://test.sock")
 	if err != nil {
 		Exit(err.Error())
 	}
