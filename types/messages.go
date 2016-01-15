@@ -3,10 +3,10 @@ package types
 import "github.com/tendermint/go-wire"
 
 const (
-	requestTypeEcho   = byte(0x01)
-	requestTypeFlush  = byte(0x02)
-	responseTypeEcho  = byte(0x11)
-	responseTypeFlush = byte(0x12)
+	RequestTypeEcho   = byte(0x01)
+	RequestTypeFlush  = byte(0x02)
+	ResponseTypeEcho  = byte(0x11)
+	ResponseTypeFlush = byte(0x12)
 )
 
 //----------------------------------------
@@ -27,8 +27,8 @@ func (_ RequestFlush) AssertRequestType() {}
 
 var _ = wire.RegisterInterface(
 	struct{ Request }{},
-	wire.ConcreteType{RequestEcho{}, requestTypeEcho},
-	wire.ConcreteType{RequestFlush{}, requestTypeFlush},
+	wire.ConcreteType{RequestEcho{}, RequestTypeEcho},
+	wire.ConcreteType{RequestFlush{}, RequestTypeFlush},
 )
 
 //----------------------------------------
@@ -49,6 +49,6 @@ func (_ ResponseFlush) AssertResponseType() {}
 
 var _ = wire.RegisterInterface(
 	struct{ Response }{},
-	wire.ConcreteType{ResponseEcho{}, responseTypeEcho},
-	wire.ConcreteType{ResponseFlush{}, responseTypeFlush},
+	wire.ConcreteType{ResponseEcho{}, ResponseTypeEcho},
+	wire.ConcreteType{ResponseFlush{}, ResponseTypeFlush},
 )

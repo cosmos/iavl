@@ -106,10 +106,12 @@ func handleResponses(closeConn chan error, responses <-chan types.Response, conn
 			closeConn <- fmt.Errorf("Error in handleResponses: %v", err.Error())
 			return
 		}
-		err = bufWriter.Flush()
-		if err != nil {
-			closeConn <- fmt.Errorf("Error in handleResponses: %v", err.Error())
-			return
+		if _, ok := res.(types.ResponseFlush); ok {
+			err = bufWriter.Flush()
+			if err != nil {
+				closeConn <- fmt.Errorf("Error in handleResponses: %v", err.Error())
+				return
+			}
 		}
 	}
 }
