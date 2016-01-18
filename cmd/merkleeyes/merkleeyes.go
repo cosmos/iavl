@@ -3,9 +3,10 @@ package main
 import (
 	"github.com/codegangsta/cli"
 	. "github.com/tendermint/go-common"
+	"github.com/tendermint/tmsp/server"
 	"os"
 
-	"github.com/tendermint/merkleeyes/server"
+	application "github.com/tendermint/merkleeyes/app"
 )
 
 func main() {
@@ -36,12 +37,16 @@ func main() {
 
 func cmdServer(app *cli.App, c *cli.Context) {
 	addr := c.String("address")
-	_, err := server.StartListener(addr)
+	mApp := application.NewMerkleEyesApp()
+
+	// Start the listener
+	_, err := server.StartListener(addr, mApp)
 	if err != nil {
 		Exit(err.Error())
 	}
 
-	// Sleep forever and then...
+	// Wait forever
 	TrapSignal(func() {
+		// Cleanup
 	})
 }
