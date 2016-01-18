@@ -71,6 +71,83 @@ func P(n *IAVLNode) string {
 	}
 }
 
+func TestBasic(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var up bool
+	up = tree.Set([]byte("1"), []byte("one"))
+	if up {
+		t.Error("Did not expect an update (should have been create)")
+	}
+	up = tree.Set([]byte("2"), []byte("two"))
+	if up {
+		t.Error("Did not expect an update (should have been create)")
+	}
+	up = tree.Set([]byte("2"), []byte("TWO"))
+	if !up {
+		t.Error("Expected an update")
+	}
+	up = tree.Set([]byte("5"), []byte("five"))
+	if up {
+		t.Error("Did not expect an update (should have been create)")
+	}
+
+	// Test 0x00
+	{
+		idx, val, exists := tree.Get([]byte{0x00})
+		if exists {
+			t.Errorf("Expected no value to exist")
+		}
+		if idx != 0 {
+			t.Errorf("Unexpected idx %x", idx)
+		}
+		if string(val) != "" {
+			t.Errorf("Unexpected value %v", string(val))
+		}
+	}
+
+	// Test "1"
+	{
+		idx, val, exists := tree.Get([]byte("1"))
+		if !exists {
+			t.Errorf("Expected value to exist")
+		}
+		if idx != 0 {
+			t.Errorf("Unexpected idx %x", idx)
+		}
+		if string(val) != "one" {
+			t.Errorf("Unexpected value %v", string(val))
+		}
+	}
+
+	// Test "2"
+	{
+		idx, val, exists := tree.Get([]byte("2"))
+		if !exists {
+			t.Errorf("Expected value to exist")
+		}
+		if idx != 1 {
+			t.Errorf("Unexpected idx %x", idx)
+		}
+		if string(val) != "TWO" {
+			t.Errorf("Unexpected value %v", string(val))
+		}
+	}
+
+	// Test "4"
+	{
+		idx, val, exists := tree.Get([]byte("4"))
+		if exists {
+			t.Errorf("Expected no value to exist")
+		}
+		if idx != 2 {
+			t.Errorf("Unexpected idx %x", idx)
+		}
+		if string(val) != "" {
+			t.Errorf("Unexpected value %v", string(val))
+		}
+	}
+}
+
 func TestUnit(t *testing.T) {
 
 	expectHash := func(tree *IAVLTree, hashCount int) {
@@ -193,7 +270,7 @@ func TestIntegration(t *testing.T) {
 		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
-		if _, val := tree.Get([]byte(r.key)); string(val) != string(r.value) {
+		if _, val, _ := tree.Get([]byte(r.key)); string(val) != string(r.value) {
 			t.Error("wrong value")
 		}
 	}
@@ -211,7 +288,7 @@ func TestIntegration(t *testing.T) {
 			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
-			_, val := tree.Get([]byte(r.key))
+			_, val, _ := tree.Get([]byte(r.key))
 			if string(val) != string(r.value) {
 				t.Error("wrong value")
 			}
@@ -244,7 +321,7 @@ func TestPersistence(t *testing.T) {
 	t2 := NewIAVLTree(0, db)
 	t2.Load(hash)
 	for key, value := range records {
-		_, t2value := t2.Get([]byte(key))
+		_, t2value, _ := t2.Get([]byte(key))
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}

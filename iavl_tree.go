@@ -118,9 +118,9 @@ func (t *IAVLTree) Load(hash []byte) {
 	}
 }
 
-func (t *IAVLTree) Get(key []byte) (index int, value []byte) {
+func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
 	if t.root == nil {
-		return 0, nil
+		return 0, nil, false
 	}
 	return t.root.get(t, key)
 }

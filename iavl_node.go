@@ -109,21 +109,24 @@ func (node *IAVLNode) has(t *IAVLTree, key []byte) (has bool) {
 	}
 }
 
-func (node *IAVLNode) get(t *IAVLTree, key []byte) (index int, value []byte) {
+func (node *IAVLNode) get(t *IAVLTree, key []byte) (index int, value []byte, exists bool) {
 	if node.height == 0 {
-		if bytes.Compare(node.key, key) == 0 {
-			return 0, node.value
+		cmp := bytes.Compare(node.key, key)
+		if cmp == 0 {
+			return 0, node.value, true
+		} else if cmp == -1 {
+			return 1, nil, false
 		} else {
-			return 0, nil
+			return 0, nil, false
 		}
 	} else {
 		if bytes.Compare(key, node.key) < 0 {
 			return node.getLeftNode(t).get(t, key)
 		} else {
 			rightNode := node.getRightNode(t)
-			index, value = rightNode.get(t, key)
+			index, value, exists = rightNode.get(t, key)
 			index += node.size - rightNode.size
-			return index, value
+			return index, value, exists
 		}
 	}
 }
