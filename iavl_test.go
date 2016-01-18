@@ -19,23 +19,34 @@ func randstr(length int) string {
 	return RandStr(length)
 }
 
+func i2b(i int) []byte {
+	bz := make([]byte, 4)
+	wire.PutInt32(bz, int32(i))
+	return bz
+}
+
+func b2i(bz []byte) int {
+	i := wire.GetInt32(bz)
+	return int(i)
+}
+
 // Convenience for a new node
 func N(l, r interface{}) *IAVLNode {
 	var left, right *IAVLNode
 	if _, ok := l.(*IAVLNode); ok {
 		left = l.(*IAVLNode)
 	} else {
-		left = NewIAVLNode(l, "")
+		left = NewIAVLNode(i2b(l.(int)), nil)
 	}
 	if _, ok := r.(*IAVLNode); ok {
 		right = r.(*IAVLNode)
 	} else {
-		right = NewIAVLNode(r, "")
+		right = NewIAVLNode(i2b(r.(int)), nil)
 	}
 
 	n := &IAVLNode{
 		key:       right.lmd(nil).key,
-		value:     "",
+		value:     nil,
 		leftNode:  left,
 		rightNode: right,
 	}
@@ -45,7 +56,7 @@ func N(l, r interface{}) *IAVLNode {
 
 // Setup a deep node
 func T(n *IAVLNode) *IAVLTree {
-	t := NewIAVLTree(wire.BasicCodec, wire.BasicCodec, 0, nil)
+	t := NewIAVLTree(0, nil)
 	n.hashWithCount(t)
 	t.root = n
 	return t
@@ -54,7 +65,7 @@ func T(n *IAVLNode) *IAVLTree {
 // Convenience for simple printing of keys & tree structure
 func P(n *IAVLNode) string {
 	if n.height == 0 {
-		return fmt.Sprintf("%v", n.key)
+		return fmt.Sprintf("%v", b2i(n.key))
 	} else {
 		return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
 	}
@@ -82,7 +93,7 @@ func TestUnit(t *testing.T) {
 
 	expectSet := func(tree *IAVLTree, i int, repr string, hashCount int) {
 		origNode := tree.root
-		updated := tree.Set(i, "")
+		updated := tree.Set(i2b(i), nil)
 		// ensure node was added & structure is as expected.
 		if updated == true || P(tree.root) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
@@ -95,9 +106,9 @@ func TestUnit(t *testing.T) {
 
 	expectRemove := func(tree *IAVLTree, i int, repr string, hashCount int) {
 		origNode := tree.root
-		value, removed := tree.Remove(i)
+		value, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
-		if value != "" || !removed || P(tree.root) != repr {
+		if len(value) != 0 || !removed || P(tree.root) != repr {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
 				i, P(origNode), repr, P(tree.root), value, removed)
 		}
@@ -151,7 +162,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	var tree *IAVLTree = NewIAVLTree(wire.BasicCodec, wire.BasicCodec, 0, nil)
+	var tree *IAVLTree = NewIAVLTree(0, nil)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -162,11 +173,11 @@ func TestIntegration(t *testing.T) {
 		records[i] = r
 		//t.Log("New record", r)
 		//PrintIAVLNode(tree.root)
-		updated := tree.Set(r.key, "")
+		updated := tree.Set([]byte(r.key), nil)
 		if updated {
 			t.Error("should have not been updated")
 		}
-		updated = tree.Set(r.key, r.value)
+		updated = tree.Set([]byte(r.key), []byte(r.value))
 		if !updated {
 			t.Error("should have been updated")
 		}
@@ -176,32 +187,32 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for _, r := range records {
-		if has := tree.Has(r.key); !has {
+		if has := tree.Has([]byte(r.key)); !has {
 			t.Error("Missing key", r.key)
 		}
-		if has := tree.Has(randstr(12)); has {
+		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
-		if _, val := tree.Get(r.key); val.(string) != r.value {
+		if _, val := tree.Get([]byte(r.key)); string(val) != string(r.value) {
 			t.Error("wrong value")
 		}
 	}
 
 	for i, x := range records {
-		if val, removed := tree.Remove(x.key); !removed {
+		if val, removed := tree.Remove([]byte(x.key)); !removed {
 			t.Error("Wasn't removed")
-		} else if val != x.value {
+		} else if string(val) != string(x.value) {
 			t.Error("Wrong value")
 		}
 		for _, r := range records[i+1:] {
-			if has := tree.Has(r.key); !has {
+			if has := tree.Has([]byte(r.key)); !has {
 				t.Error("Missing key", r.key)
 			}
-			if has := tree.Has(randstr(12)); has {
+			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
-			_, val := tree.Get(r.key)
-			if val != r.value {
+			_, val := tree.Get([]byte(r.key))
+			if string(val) != string(r.value) {
 				t.Error("wrong value")
 			}
 		}
@@ -221,20 +232,20 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1 := NewIAVLTree(wire.BasicCodec, wire.BasicCodec, 0, db)
+	t1 := NewIAVLTree(0, db)
 	for key, value := range records {
-		t1.Set(key, value)
+		t1.Set([]byte(key), []byte(value))
 	}
 	t1.Save()
 
 	hash, _ := t1.HashWithCount()
 
 	// Load a tree
-	t2 := NewIAVLTree(wire.BasicCodec, wire.BasicCodec, 0, db)
+	t2 := NewIAVLTree(0, db)
 	t2.Load(hash)
 	for key, value := range records {
-		_, t2value := t2.Get(key)
-		if t2value != value {
+		_, t2value := t2.Get([]byte(key))
+		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}
 	}
@@ -275,22 +286,12 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHash []
 
 func TestIAVLProof(t *testing.T) {
 
-	// Convenient wrapper around wire.BasicCodec.
-	toBytes := func(o interface{}) []byte {
-		buf, n, err := new(bytes.Buffer), int(0), error(nil)
-		wire.BasicCodec.Encode(o, buf, &n, &err)
-		if err != nil {
-			panic(Fmt("Failed to encode thing: %v", err))
-		}
-		return buf.Bytes()
-	}
-
 	// Construct some random tree
 	db := db.NewMemDB()
-	var tree *IAVLTree = NewIAVLTree(wire.BasicCodec, wire.BasicCodec, 100, db)
+	var tree *IAVLTree = NewIAVLTree(100, db)
 	for i := 0; i < 1000; i++ {
 		key, value := randstr(20), randstr(20)
-		tree.Set(key, value)
+		tree.Set([]byte(key), []byte(value))
 	}
 
 	// Persist the items so far
@@ -299,16 +300,16 @@ func TestIAVLProof(t *testing.T) {
 	// Add more items so it's not all persisted
 	for i := 0; i < 100; i++ {
 		key, value := randstr(20), randstr(20)
-		tree.Set(key, value)
+		tree.Set([]byte(key), []byte(value))
 	}
 
 	// Now for each item, construct a proof and verify
-	tree.Iterate(func(key interface{}, value interface{}) bool {
+	tree.Iterate(func(key []byte, value []byte) bool {
 		proof := tree.ConstructProof(key)
 		if !bytes.Equal(proof.RootHash, tree.Hash()) {
 			t.Errorf("Invalid proof. Expected root %X, got %X", tree.Hash(), proof.RootHash)
 		}
-		testProof(t, proof, toBytes(key), toBytes(value), tree.Hash())
+		testProof(t, proof, key, value, tree.Hash())
 		return false
 	})
 
@@ -317,12 +318,14 @@ func TestIAVLProof(t *testing.T) {
 func BenchmarkImmutableAvlTree(b *testing.B) {
 	b.StopTimer()
 
-	t := NewIAVLTree(wire.BasicCodec, wire.BasicCodec, 0, nil)
+	db := db.NewMemDB()
+	t := NewIAVLTree(0, db)
 	// 23000ns/op, 43000ops/s
 	// for i := 0; i < 10000000; i++ {
 	for i := 0; i < 1000000; i++ {
-		t.Set(RandInt64(), "")
+		t.Set(i2b(int(RandInt32())), nil)
 	}
+	t.Save()
 
 	fmt.Println("ok, starting")
 
@@ -330,8 +333,11 @@ func BenchmarkImmutableAvlTree(b *testing.B) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		ri := RandInt64()
-		t.Set(ri, "")
+		ri := i2b(int(RandInt32()))
+		t.Set(ri, nil)
 		t.Remove(ri)
+		if i%1000 == 0 {
+			t.Save()
+		}
 	}
 }

@@ -12,8 +12,8 @@ import (
 // Node
 
 type IAVLNode struct {
-	key       interface{}
-	value     interface{}
+	key       []byte
+	value     []byte
 	height    int8
 	size      int
 	hash      []byte
@@ -24,7 +24,7 @@ type IAVLNode struct {
 	persisted bool
 }
 
-func NewIAVLNode(key interface{}, value interface{}) *IAVLNode {
+func NewIAVLNode(key []byte, value []byte) *IAVLNode {
 	return &IAVLNode{
 		key:    key,
 		value:  value,
@@ -35,23 +35,46 @@ func NewIAVLNode(key interface{}, value interface{}) *IAVLNode {
 
 // NOTE: The hash is not saved or set.  The caller should set the hash afterwards.
 // (Presumably the caller already has the hash)
-func ReadIAVLNode(t *IAVLTree, r io.Reader, n *int, err *error) *IAVLNode {
-	node := &IAVLNode{}
+func MakeIAVLNode(buf []byte, t *IAVLTree) (node *IAVLNode, err error) {
+	node = &IAVLNode{}
 
 	// node header
-	node.height = wire.ReadInt8(r, n, err)
-	node.size = wire.ReadVarint(r, n, err)
-	node.key = decodeByteSlice(t.keyCodec, r, n, err)
-
+	node.height = int8(buf[0])
+	buf = buf[1:]
+	var n int
+	node.size, n, err = wire.GetVarint(buf)
+	if err != nil {
+		return nil, err
+	}
+	buf = buf[n:]
+	node.key, n, err = wire.GetByteSlice(buf)
+	if err != nil {
+		return nil, err
+	}
+	buf = buf[n:]
 	if node.height == 0 {
 		// value
-		node.value = decodeByteSlice(t.valueCodec, r, n, err)
+		node.value, n, err = wire.GetByteSlice(buf)
+		if err != nil {
+			return nil, err
+		}
+		buf = buf[n:]
 	} else {
 		// children
-		node.leftHash = wire.ReadByteSlice(r, 0, n, err)
-		node.rightHash = wire.ReadByteSlice(r, 0, n, err)
+		leftHash, n, err := wire.GetByteSlice(buf)
+		if err != nil {
+			return nil, err
+		}
+		buf = buf[n:]
+		rightHash, n, err := wire.GetByteSlice(buf)
+		if err != nil {
+			return nil, err
+		}
+		buf = buf[n:]
+		node.leftHash = leftHash
+		node.rightHash = rightHash
 	}
-	return node
+	return node, nil
 }
 
 func (node *IAVLNode) _copy() *IAVLNode {
@@ -71,14 +94,14 @@ func (node *IAVLNode) _copy() *IAVLNode {
 	}
 }
 
-func (node *IAVLNode) has(t *IAVLTree, key interface{}) (has bool) {
-	if t.keyCodec.Compare(node.key, key) == 0 {
+func (node *IAVLNode) has(t *IAVLTree, key []byte) (has bool) {
+	if bytes.Compare(node.key, key) == 0 {
 		return true
 	}
 	if node.height == 0 {
 		return false
 	} else {
-		if t.keyCodec.Compare(key, node.key) < 0 {
+		if bytes.Compare(key, node.key) < 0 {
 			return node.getLeftNode(t).has(t, key)
 		} else {
 			return node.getRightNode(t).has(t, key)
@@ -86,15 +109,15 @@ func (node *IAVLNode) has(t *IAVLTree, key interface{}) (has bool) {
 	}
 }
 
-func (node *IAVLNode) get(t *IAVLTree, key interface{}) (index int, value interface{}) {
+func (node *IAVLNode) get(t *IAVLTree, key []byte) (index int, value []byte) {
 	if node.height == 0 {
-		if t.keyCodec.Compare(node.key, key) == 0 {
+		if bytes.Compare(node.key, key) == 0 {
 			return 0, node.value
 		} else {
 			return 0, nil
 		}
 	} else {
-		if t.keyCodec.Compare(key, node.key) < 0 {
+		if bytes.Compare(key, node.key) < 0 {
 			return node.getLeftNode(t).get(t, key)
 		} else {
 			rightNode := node.getRightNode(t)
@@ -105,7 +128,7 @@ func (node *IAVLNode) get(t *IAVLTree, key interface{}) (index int, value interf
 	}
 }
 
-func (node *IAVLNode) getByIndex(t *IAVLTree, index int) (key interface{}, value interface{}) {
+func (node *IAVLNode) getByIndex(t *IAVLTree, index int) (key []byte, value []byte) {
 	if node.height == 0 {
 		if index == 0 {
 			return node.key, node.value
@@ -154,8 +177,8 @@ func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount
 
 	if node.height == 0 {
 		// key & value
-		encodeByteSlice(node.key, t.keyCodec, w, &n, &err)
-		encodeByteSlice(node.value, t.valueCodec, w, &n, &err)
+		wire.WriteByteSlice(node.key, w, &n, &err)
+		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
 		// left
 		if node.leftNode != nil {
@@ -212,11 +235,11 @@ func (node *IAVLNode) writePersistBytes(t *IAVLTree, w io.Writer) (n int, err er
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
 	// key (unlike writeHashBytes, key is written for inner nodes)
-	encodeByteSlice(node.key, t.keyCodec, w, &n, &err)
+	wire.WriteByteSlice(node.key, w, &n, &err)
 
 	if node.height == 0 {
 		// value
-		encodeByteSlice(node.value, t.valueCodec, w, &n, &err)
+		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
 		// left
 		if node.leftHash == nil {
@@ -232,9 +255,9 @@ func (node *IAVLNode) writePersistBytes(t *IAVLTree, w io.Writer) (n int, err er
 	return
 }
 
-func (node *IAVLNode) set(t *IAVLTree, key interface{}, value interface{}) (newSelf *IAVLNode, updated bool) {
+func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLNode, updated bool) {
 	if node.height == 0 {
-		cmp := t.keyCodec.Compare(key, node.key)
+		cmp := bytes.Compare(key, node.key)
 		if cmp < 0 {
 			return &IAVLNode{
 				key:       node.key,
@@ -256,7 +279,7 @@ func (node *IAVLNode) set(t *IAVLTree, key interface{}, value interface{}) (newS
 		}
 	} else {
 		node = node._copy()
-		if t.keyCodec.Compare(key, node.key) < 0 {
+		if bytes.Compare(key, node.key) < 0 {
 			node.leftNode, updated = node.getLeftNode(t).set(t, key, value)
 			node.leftHash = nil
 		} else {
@@ -275,16 +298,16 @@ func (node *IAVLNode) set(t *IAVLTree, key interface{}, value interface{}) (newS
 // newHash/newNode: The new hash or node to replace node after remove.
 // newKey: new leftmost leaf key for tree after successfully removing 'key' if changed.
 // value: removed value.
-func (node *IAVLNode) remove(t *IAVLTree, key interface{}) (
-	newHash []byte, newNode *IAVLNode, newKey interface{}, value interface{}, removed bool) {
+func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
+	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, removed bool) {
 	if node.height == 0 {
-		if t.keyCodec.Compare(key, node.key) == 0 {
+		if bytes.Compare(key, node.key) == 0 {
 			return nil, nil, nil, node.value, true
 		} else {
 			return nil, node, nil, nil, false
 		}
 	} else {
-		if t.keyCodec.Compare(key, node.key) < 0 {
+		if bytes.Compare(key, node.key) < 0 {
 			var newLeftHash []byte
 			var newLeftNode *IAVLNode
 			newLeftHash, newLeftNode, newKey, value, removed = node.getLeftNode(t).remove(t, key)
@@ -434,26 +457,4 @@ func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
 		return node
 	}
 	return node.getRightNode(t).rmd(t)
-}
-
-//--------------------------------------------------------------------------------
-
-// Read a (length prefixed) byteslice then decode the object using the codec
-func decodeByteSlice(codec wire.Codec, r io.Reader, n *int, err *error) interface{} {
-	bytez := wire.ReadByteSlice(r, 0, n, err)
-	if *err != nil {
-		return nil
-	}
-	n_ := new(int)
-	return codec.Decode(bytes.NewBuffer(bytez), n_, err)
-}
-
-// Encode object using codec, then write a (length prefixed) byteslice.
-func encodeByteSlice(o interface{}, codec wire.Codec, w io.Writer, n *int, err *error) {
-	buf, n_ := new(bytes.Buffer), new(int)
-	codec.Encode(o, buf, n_, err)
-	if *err != nil {
-		return
-	}
-	wire.WriteByteSlice(buf.Bytes(), w, n, err)
 }

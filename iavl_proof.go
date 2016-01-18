@@ -84,22 +84,12 @@ func (leaf IAVLProofLeafNode) Hash() []byte {
 	return hasher.Sum(nil)
 }
 
-func (node *IAVLNode) constructProof(t *IAVLTree, key interface{}, proof *IAVLProof) (exists bool) {
+func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, proof *IAVLProof) (exists bool) {
 	if node.height == 0 {
-		if t.keyCodec.Compare(node.key, key) == 0 {
-			keyBuf, valueBuf := new(bytes.Buffer), new(bytes.Buffer)
-			n, err := int(0), error(nil)
-			t.keyCodec.Encode(node.key, keyBuf, &n, &err)
-			if err != nil {
-				PanicCrisis(Fmt("Failed to encode node.key: %v", err))
-			}
-			t.valueCodec.Encode(node.value, valueBuf, &n, &err)
-			if err != nil {
-				PanicCrisis(Fmt("Failed to encode node.value: %v", err))
-			}
+		if bytes.Compare(node.key, key) == 0 {
 			leaf := IAVLProofLeafNode{
-				KeyBytes:   keyBuf.Bytes(),
-				ValueBytes: valueBuf.Bytes(),
+				KeyBytes:   node.key,
+				ValueBytes: node.value,
 			}
 			proof.LeafNode = leaf
 			return true
@@ -107,7 +97,7 @@ func (node *IAVLNode) constructProof(t *IAVLTree, key interface{}, proof *IAVLPr
 			return false
 		}
 	} else {
-		if t.keyCodec.Compare(key, node.key) < 0 {
+		if bytes.Compare(key, node.key) < 0 {
 			exists := node.getLeftNode(t).constructProof(t, key, proof)
 			if !exists {
 				return false
@@ -138,7 +128,7 @@ func (node *IAVLNode) constructProof(t *IAVLTree, key interface{}, proof *IAVLPr
 }
 
 // Returns nil if key is not in tree.
-func (t *IAVLTree) ConstructProof(key interface{}) *IAVLProof {
+func (t *IAVLTree) ConstructProof(key []byte) *IAVLProof {
 	if t.root == nil {
 		return nil
 	}

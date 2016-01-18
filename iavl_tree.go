@@ -7,7 +7,6 @@ import (
 
 	. "github.com/tendermint/go-common"
 	dbm "github.com/tendermint/go-db"
-	"github.com/tendermint/go-wire"
 )
 
 /*
@@ -15,25 +14,18 @@ Immutable AVL Tree (wraps the Node root)
 This tree is not goroutine safe.
 */
 type IAVLTree struct {
-	keyCodec   wire.Codec
-	valueCodec wire.Codec
-	root       *IAVLNode
-	ndb        *nodeDB
+	root *IAVLNode
+	ndb  *nodeDB
 }
 
-func NewIAVLTree(keyCodec, valueCodec wire.Codec, cacheSize int, db dbm.DB) *IAVLTree {
+func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
 	if db == nil {
 		// In-memory IAVLTree
-		return &IAVLTree{
-			keyCodec:   keyCodec,
-			valueCodec: valueCodec,
-		}
+		return &IAVLTree{}
 	} else {
 		// Persistent IAVLTree
 		return &IAVLTree{
-			keyCodec:   keyCodec,
-			valueCodec: valueCodec,
-			ndb:        newNodeDB(cacheSize, db),
+			ndb: newNodeDB(cacheSize, db),
 		}
 	}
 }
@@ -43,10 +35,8 @@ func NewIAVLTree(keyCodec, valueCodec wire.Codec, cacheSize int, db dbm.DB) *IAV
 func (t *IAVLTree) Copy() Tree {
 	if t.root == nil {
 		return &IAVLTree{
-			keyCodec:   t.keyCodec,
-			valueCodec: t.valueCodec,
-			root:       nil,
-			ndb:        t.ndb,
+			root: nil,
+			ndb:  t.ndb,
 		}
 	}
 	if t.ndb != nil && !t.root.persisted {
@@ -61,10 +51,8 @@ func (t *IAVLTree) Copy() Tree {
 		t.root.hashWithCount(t)
 	}
 	return &IAVLTree{
-		keyCodec:   t.keyCodec,
-		valueCodec: t.valueCodec,
-		root:       t.root,
-		ndb:        t.ndb,
+		root: t.root,
+		ndb:  t.ndb,
 	}
 }
 
@@ -82,14 +70,14 @@ func (t *IAVLTree) Height() int8 {
 	return t.root.height
 }
 
-func (t *IAVLTree) Has(key interface{}) bool {
+func (t *IAVLTree) Has(key []byte) bool {
 	if t.root == nil {
 		return false
 	}
 	return t.root.has(t, key)
 }
 
-func (t *IAVLTree) Set(key interface{}, value interface{}) (updated bool) {
+func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
 	if t.root == nil {
 		t.root = NewIAVLNode(key, value)
 		return false
@@ -130,21 +118,21 @@ func (t *IAVLTree) Load(hash []byte) {
 	}
 }
 
-func (t *IAVLTree) Get(key interface{}) (index int, value interface{}) {
+func (t *IAVLTree) Get(key []byte) (index int, value []byte) {
 	if t.root == nil {
 		return 0, nil
 	}
 	return t.root.get(t, key)
 }
 
-func (t *IAVLTree) GetByIndex(index int) (key interface{}, value interface{}) {
+func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	if t.root == nil {
 		return nil, nil
 	}
 	return t.root.getByIndex(t, index)
 }
 
-func (t *IAVLTree) Remove(key interface{}) (value interface{}, removed bool) {
+func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
 	if t.root == nil {
 		return nil, false
 	}
@@ -160,7 +148,7 @@ func (t *IAVLTree) Remove(key interface{}) (value interface{}, removed bool) {
 	return value, true
 }
 
-func (t *IAVLTree) Iterate(fn func(key interface{}, value interface{}) bool) (stopped bool) {
+func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
@@ -213,10 +201,7 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 			ndb.db.Print()
 			PanicSanity(Fmt("Value missing for key %X", hash))
 		}
-		r := bytes.NewReader(buf)
-		var n int
-		var err error
-		node := ReadIAVLNode(t, r, &n, &err)
+		node, err := MakeIAVLNode(buf, t)
 		if err != nil {
 			PanicCrisis(Fmt("Error reading IAVLNode. bytes: %X  error: %v", buf, err))
 		}
