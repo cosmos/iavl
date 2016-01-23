@@ -118,9 +118,9 @@ func (app *MerkleEyesApp) RemListener(key string) types.RetCode {
 	return types.RetCodeUnknownRequest
 }
 
-func (app *MerkleEyesApp) Query(query []byte) (types.RetCode, []byte) {
+func (app *MerkleEyesApp) Query(query []byte) ([]byte, types.RetCode) {
 	if len(query) == 0 {
-		return types.RetCodeEncodingError, nil
+		return nil, types.RetCodeEncodingError
 	}
 	typeByte := query[0]
 	query = query[1:]
@@ -128,22 +128,22 @@ func (app *MerkleEyesApp) Query(query []byte) (types.RetCode, []byte) {
 	case 0x01: // Get
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
-			return types.RetCodeEncodingError, nil
+			return nil, types.RetCodeEncodingError
 		}
 		query = query[n:]
 		if len(query) != 0 {
-			return types.RetCodeEncodingError, nil
+			return nil, types.RetCodeEncodingError
 		}
 		index, value, exists := app.tree.Get(key)
 		res := make([]byte, wire.UvarintSize(uint64(index))+wire.UvarintSize(uint64(len(value)))+len(value)+1)
 		n, err = wire.PutVarint(res, index)
 		if err != nil {
-			return types.RetCodeInternalError, nil
+			return nil, types.RetCodeInternalError
 		}
 		res = res[n:]
 		n, err = wire.PutByteSlice(res, value)
 		if err != nil {
-			return types.RetCodeInternalError, nil
+			return nil, types.RetCodeInternalError
 		}
 		res = res[n:]
 		if exists {
@@ -151,8 +151,8 @@ func (app *MerkleEyesApp) Query(query []byte) (types.RetCode, []byte) {
 		} else {
 			res[0] = 0x00
 		}
-		return types.RetCodeOK, res
+		return nil, types.RetCodeOK
 	default:
-		return types.RetCodeUnknownRequest, nil
+		return nil, types.RetCodeUnknownRequest
 	}
 }
