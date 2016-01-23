@@ -135,23 +135,24 @@ func (app *MerkleEyesApp) Query(query []byte) ([]byte, types.RetCode) {
 			return nil, types.RetCodeEncodingError
 		}
 		index, value, exists := app.tree.Get(key)
-		res := make([]byte, wire.UvarintSize(uint64(index))+wire.UvarintSize(uint64(len(value)))+len(value)+1)
-		n, err = wire.PutVarint(res, index)
+		res := make([]byte, wire.UvarintSize(uint64(index))+wire.ByteSliceSize(value)+1)
+		buf := res
+		n, err = wire.PutVarint(buf, index)
 		if err != nil {
 			return nil, types.RetCodeInternalError
 		}
-		res = res[n:]
-		n, err = wire.PutByteSlice(res, value)
+		buf = buf[n:]
+		n, err = wire.PutByteSlice(buf, value)
 		if err != nil {
 			return nil, types.RetCodeInternalError
 		}
-		res = res[n:]
+		buf = buf[n:]
 		if exists {
-			res[0] = 0x01
+			buf[0] = 0x01
 		} else {
-			res[0] = 0x00
+			buf[0] = 0x00
 		}
-		return nil, types.RetCodeOK
+		return res, types.RetCodeOK
 	default:
 		return nil, types.RetCodeUnknownRequest
 	}
