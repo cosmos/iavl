@@ -32,14 +32,33 @@ func TestClient(t *testing.T) {
 	cli := mecli.NewMEClient(conn, 100)
 	defer conn.Close()
 
+	// Empty
+	getHash(t, cli, "")
 	get(t, cli, "foo", 0, "", false, "")
 	get(t, cli, "bar", 0, "", false, "")
+	// Set foo=FOO
 	set(t, cli, "foo", "FOO")
+	getHash(t, cli, "68DECA470D80183B5E979D167E3DD0956631A952")
 	get(t, cli, "foo", 0, "FOO", true, "")
 	get(t, cli, "foa", 0, "", false, "")
 	get(t, cli, "foz", 1, "", false, "")
 	rem(t, cli, "foo")
+	// Empty
 	get(t, cli, "foo", 0, "", false, "")
+	getHash(t, cli, "")
+	// Set foo1, foo2, foo3...
+	set(t, cli, "foo1", "1")
+	set(t, cli, "foo2", "2")
+	set(t, cli, "foo3", "3")
+	set(t, cli, "foo1", "4")
+	get(t, cli, "foo1", 0, "4", true, "")
+	get(t, cli, "foo2", 1, "2", true, "")
+	get(t, cli, "foo3", 2, "3", true, "")
+	rem(t, cli, "foo3")
+	rem(t, cli, "foo2")
+	rem(t, cli, "foo1")
+	// Empty
+	getHash(t, cli, "")
 
 }
 
@@ -73,12 +92,12 @@ func rem(t *testing.T, cli *mecli.MEClient, key string) {
 	cli.RemSync([]byte(key))
 }
 
-func getHash(t *testing.T, cli *mecli.MEClient, hash []byte) {
+func getHash(t *testing.T, cli *mecli.MEClient, hash string) {
 	_hash, err := cli.GetHashSync()
 	if err != nil {
 		t.Error("Unexpected error getting hash", err.Error())
 	}
-	if !bytes.Equal(hash, _hash) {
-		t.Errorf("Expected hash 0x%X but got 0x%X", hash, _hash)
+	if hash != Fmt("%X", _hash) {
+		t.Errorf("Expected hash 0x%v but got 0x%X", hash, _hash)
 	}
 }
