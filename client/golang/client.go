@@ -2,10 +2,12 @@ package mecli
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/tendermint/go-wire"
-	tmspcli "github.com/tendermint/tmsp/client/golang"
+	tmspcli "github.com/tendermint/tmsp/client"
+	tmsp "github.com/tendermint/tmsp/types"
 )
 
 type MEClient struct {
@@ -19,31 +21,24 @@ func NewMEClient(conn net.Conn, bufferSize int) *MEClient {
 	return client
 }
 
-func (client *MEClient) GetSync(key []byte) (idx int, value []byte, exists bool, err error) {
+func (client *MEClient) GetSync(key []byte) (value []byte, err error) {
 	query := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := query
 	buf[0] = 0x01 // Get TypeByte
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
-	result, err := client.TMSPClient.QuerySync(query)
+	code, result, _, err := client.TMSPClient.QuerySync(query)
 	if err != nil {
 		return
 	}
-	idx, n, err := wire.GetVarint(result)
+	if code != tmsp.RetCodeOK {
+		return nil, fmt.Errorf("Got unexpected code %v", code)
+	}
+	value, n, err := wire.GetByteSlice(result)
 	if err != nil {
 		return
 	}
 	result = result[n:]
-	value, n, err = wire.GetByteSlice(result)
-	if err != nil {
-		return
-	}
-	result = result[n:]
-	exists, err = wire.GetBool(result)
-	if err != nil {
-		return
-	}
-	result = result[1:]
 	if len(result) != 0 {
 		err = errors.New("Result too short for GetSync")
 		return
@@ -65,7 +60,7 @@ func (client *MEClient) SetSync(key []byte, value []byte) (err error) {
 	if err != nil {
 		return
 	}
-	err = client.TMSPClient.AppendTxSync(tx)
+	_, _, _, err = client.TMSPClient.AppendTxSync(tx)
 	return err
 }
 
@@ -78,6 +73,6 @@ func (client *MEClient) RemSync(key []byte) (err error) {
 	if err != nil {
 		return
 	}
-	err = client.TMSPClient.AppendTxSync(tx)
+	_, _, _, err = client.TMSPClient.AppendTxSync(tx)
 	return err
 }

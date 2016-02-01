@@ -34,26 +34,26 @@ func TestClient(t *testing.T) {
 
 	// Empty
 	getHash(t, cli, "")
-	get(t, cli, "foo", 0, "", false, "")
-	get(t, cli, "bar", 0, "", false, "")
+	get(t, cli, "foo", "", "")
+	get(t, cli, "bar", "", "")
 	// Set foo=FOO
 	set(t, cli, "foo", "FOO")
 	getHash(t, cli, "68DECA470D80183B5E979D167E3DD0956631A952")
-	get(t, cli, "foo", 0, "FOO", true, "")
-	get(t, cli, "foa", 0, "", false, "")
-	get(t, cli, "foz", 1, "", false, "")
+	get(t, cli, "foo", "FOO", "")
+	get(t, cli, "foa", "", "")
+	get(t, cli, "foz", "", "")
 	rem(t, cli, "foo")
 	// Empty
-	get(t, cli, "foo", 0, "", false, "")
+	get(t, cli, "foo", "", "")
 	getHash(t, cli, "")
 	// Set foo1, foo2, foo3...
 	set(t, cli, "foo1", "1")
 	set(t, cli, "foo2", "2")
 	set(t, cli, "foo3", "3")
 	set(t, cli, "foo1", "4")
-	get(t, cli, "foo1", 0, "4", true, "")
-	get(t, cli, "foo2", 1, "2", true, "")
-	get(t, cli, "foo3", 2, "3", true, "")
+	get(t, cli, "foo1", "4", "")
+	get(t, cli, "foo2", "2", "")
+	get(t, cli, "foo3", "3", "")
 	rem(t, cli, "foo3")
 	rem(t, cli, "foo2")
 	rem(t, cli, "foo1")
@@ -62,16 +62,10 @@ func TestClient(t *testing.T) {
 
 }
 
-func get(t *testing.T, cli *mecli.MEClient, key string, idx int, value string, exists bool, err string) {
-	_idx, _value, _exists, _err := cli.GetSync([]byte(key))
-	if idx != _idx {
-		t.Errorf("Expected index %v but got %v", idx, _idx)
-	}
+func get(t *testing.T, cli *mecli.MEClient, key string, value string, err string) {
+	_value, _err := cli.GetSync([]byte(key))
 	if !bytes.Equal([]byte(value), _value) {
 		t.Errorf("Expected value 0x%X (%v) but got 0x%X", []byte(value), value, _value)
-	}
-	if exists != _exists {
-		t.Errorf("Expected exists %v but got %v", exists, _exists)
 	}
 	if _err == nil {
 		if err != "" {
@@ -93,7 +87,7 @@ func rem(t *testing.T, cli *mecli.MEClient, key string) {
 }
 
 func getHash(t *testing.T, cli *mecli.MEClient, hash string) {
-	_hash, err := cli.GetHashSync()
+	_hash, _, err := cli.GetHashSync()
 	if err != nil {
 		t.Error("Unexpected error getting hash", err.Error())
 	}

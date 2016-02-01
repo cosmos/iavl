@@ -4,7 +4,7 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
-	"github.com/tendermint/tmsp/types"
+	tmsp "github.com/tendermint/tmsp/types"
 )
 
 type MerkleEyesApp struct {
@@ -19,21 +19,17 @@ func NewMerkleEyesApp() *MerkleEyesApp {
 	return &MerkleEyesApp{tree: tree}
 }
 
-func (app *MerkleEyesApp) Echo(message string) string {
-	return message
+func (app *MerkleEyesApp) Info() string {
+	return Fmt("size:%v", app.tree.Size())
 }
 
-func (app *MerkleEyesApp) Info() []string {
-	return []string{Fmt("size:%v", app.tree.Size())}
+func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
+	return "No options are supported yet"
 }
 
-func (app *MerkleEyesApp) SetOption(key string, value string) types.RetCode {
-	return types.RetCodeOK
-}
-
-func (app *MerkleEyesApp) AppendTx(tx []byte) ([]types.Event, types.RetCode) {
+func (app *MerkleEyesApp) AppendTx(tx []byte) (code tmsp.RetCode, result []byte, log string) {
 	if len(tx) == 0 {
-		return nil, types.RetCodeEncodingError
+		return tmsp.RetCodeEncodingError, nil, "Tx length cannot be zero"
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
@@ -41,35 +37,37 @@ func (app *MerkleEyesApp) AppendTx(tx []byte) ([]types.Event, types.RetCode) {
 	case 0x01: // Set
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting key: %v", err.Error())
 		}
 		tx = tx[n:]
 		value, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting value: %v", err.Error())
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Got bytes left over")
 		}
 		app.tree.Set(key, value)
 	case 0x02: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting key: %v", err.Error())
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Got bytes left over")
 		}
 		app.tree.Remove(key)
+	default:
+		return tmsp.RetCodeUnknownRequest, nil, Fmt("Unexpected type byte %X", typeByte)
 	}
-	return nil, types.RetCodeOK
+	return tmsp.RetCodeOK, nil, ""
 }
 
-func (app *MerkleEyesApp) CheckTx(tx []byte) types.RetCode {
+func (app *MerkleEyesApp) CheckTx(tx []byte) (code tmsp.RetCode, result []byte, log string) {
 	if len(tx) == 0 {
-		return types.RetCodeEncodingError
+		return tmsp.RetCodeEncodingError, nil, "Tx length cannot be zero"
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
@@ -77,50 +75,42 @@ func (app *MerkleEyesApp) CheckTx(tx []byte) types.RetCode {
 	case 0x01: // Set
 		_, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting key: %v", err.Error())
 		}
 		tx = tx[n:]
 		_, n, err = wire.GetByteSlice(tx)
 		if err != nil {
-			return types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting value: %v", err.Error())
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Got bytes left over")
 		}
 		//app.tree.Set(key, value)
 	case 0x02: // Remove
 		_, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting key: %v", err.Error())
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Got bytes left over")
 		}
 		//app.tree.Remove(key)
 	default:
-		return types.RetCodeUnknownRequest
+		return tmsp.RetCodeUnknownRequest, nil, Fmt("Unexpected type byte %X", typeByte)
 	}
-	return types.RetCodeOK
+	return tmsp.RetCodeOK, nil, ""
 }
 
-func (app *MerkleEyesApp) GetHash() ([]byte, types.RetCode) {
-	hash := app.tree.Hash()
-	return hash, types.RetCodeOK
+func (app *MerkleEyesApp) GetHash() (hash []byte, log string) {
+	hash = app.tree.Hash()
+	return hash, ""
 }
 
-func (app *MerkleEyesApp) AddListener(key string) types.RetCode {
-	return types.RetCodeUnknownRequest
-}
-
-func (app *MerkleEyesApp) RemListener(key string) types.RetCode {
-	return types.RetCodeUnknownRequest
-}
-
-func (app *MerkleEyesApp) Query(query []byte) ([]byte, types.RetCode) {
+func (app *MerkleEyesApp) Query(query []byte) (code tmsp.RetCode, result []byte, log string) {
 	if len(query) == 0 {
-		return nil, types.RetCodeEncodingError
+		return tmsp.RetCodeOK, nil, "Query length cannot be zero"
 	}
 	typeByte := query[0]
 	query = query[1:]
@@ -128,32 +118,22 @@ func (app *MerkleEyesApp) Query(query []byte) ([]byte, types.RetCode) {
 	case 0x01: // Get
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error getting key: %v", err.Error())
 		}
 		query = query[n:]
 		if len(query) != 0 {
-			return nil, types.RetCodeEncodingError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Got bytes left over")
 		}
-		index, value, exists := app.tree.Get(key)
-		res := make([]byte, wire.UvarintSize(uint64(index))+wire.ByteSliceSize(value)+1)
+		_, value, _ := app.tree.Get(key)
+		res := make([]byte, wire.ByteSliceSize(value))
 		buf := res
-		n, err = wire.PutVarint(buf, index)
-		if err != nil {
-			return nil, types.RetCodeInternalError
-		}
-		buf = buf[n:]
 		n, err = wire.PutByteSlice(buf, value)
 		if err != nil {
-			return nil, types.RetCodeInternalError
+			return tmsp.RetCodeEncodingError, nil, Fmt("Error putting value: %v", err.Error())
 		}
 		buf = buf[n:]
-		if exists {
-			buf[0] = 0x01
-		} else {
-			buf[0] = 0x00
-		}
-		return res, types.RetCodeOK
+		return tmsp.RetCodeOK, res, ""
 	default:
-		return nil, types.RetCodeUnknownRequest
+		return tmsp.RetCodeUnknownRequest, nil, Fmt("Unexpected type byte %X", typeByte)
 	}
 }
