@@ -31,7 +31,7 @@ func (client *MEClient) GetSync(key []byte) (value []byte, err error) {
 	if err != nil {
 		return
 	}
-	if code != tmsp.RetCodeOK {
+	if code != tmsp.CodeType_OK {
 		return nil, fmt.Errorf("Got unexpected code %v", code)
 	}
 	value, n, err := wire.GetByteSlice(result)
