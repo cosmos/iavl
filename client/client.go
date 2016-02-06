@@ -1,4 +1,4 @@
-package mecli
+package eyes
 
 import (
 	"errors"
@@ -10,18 +10,18 @@ import (
 	tmsp "github.com/tendermint/tmsp/types"
 )
 
-type MEClient struct {
+type MerkleEyesClient struct {
 	*tmspcli.TMSPClient
 }
 
-func NewMEClient(conn net.Conn, bufferSize int) *MEClient {
-	client := &MEClient{
+func NewMerkleEyesClient(conn net.Conn, bufferSize int) *MerkleEyesClient {
+	client := &MerkleEyesClient{
 		TMSPClient: tmspcli.NewTMSPClient(conn, bufferSize),
 	}
 	return client
 }
 
-func (client *MEClient) GetSync(key []byte) (value []byte, err error) {
+func (client *MerkleEyesClient) GetSync(key []byte) (value []byte, err error) {
 	query := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := query
 	buf[0] = 0x01 // Get TypeByte
@@ -46,7 +46,7 @@ func (client *MEClient) GetSync(key []byte) (value []byte, err error) {
 	return
 }
 
-func (client *MEClient) SetSync(key []byte, value []byte) (err error) {
+func (client *MerkleEyesClient) SetSync(key []byte, value []byte) (err error) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
 	buf[0] = 0x01 // Set TypeByte
@@ -64,7 +64,7 @@ func (client *MEClient) SetSync(key []byte, value []byte) (err error) {
 	return err
 }
 
-func (client *MEClient) RemSync(key []byte) (err error) {
+func (client *MerkleEyesClient) RemSync(key []byte) (err error) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
 	buf[0] = 0x02 // Rem TypeByte
