@@ -1,6 +1,7 @@
 package app
 
 import (
+	"fmt"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
@@ -49,6 +50,7 @@ func (app *MerkleEyesApp) AppendTx(tx []byte) (code tmsp.CodeType, result []byte
 			return tmsp.CodeType_EncodingError, nil, Fmt("Got bytes left over")
 		}
 		app.tree.Set(key, value)
+		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case 0x02: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
