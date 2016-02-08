@@ -3,7 +3,6 @@ package eyes
 import (
 	"errors"
 	"fmt"
-	"net"
 
 	"github.com/tendermint/go-wire"
 	tmspcli "github.com/tendermint/tmsp/client"
@@ -14,11 +13,15 @@ type MerkleEyesClient struct {
 	*tmspcli.TMSPClient
 }
 
-func NewMerkleEyesClient(conn net.Conn, bufferSize int) *MerkleEyesClient {
-	client := &MerkleEyesClient{
-		TMSPClient: tmspcli.NewTMSPClient(conn, bufferSize),
+func NewMerkleEyesClient(addr string) (*MerkleEyesClient, error) {
+	tmspClient, err := tmspcli.NewTMSPClient(addr)
+	if err != nil {
+		return nil, err
 	}
-	return client
+	client := &MerkleEyesClient{
+		TMSPClient: tmspClient,
+	}
+	return client, nil
 }
 
 func (client *MerkleEyesClient) GetSync(key []byte) (value []byte, err error) {
