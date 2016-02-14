@@ -32,19 +32,19 @@ func TestClient(t *testing.T) {
 	defer cli.Stop()
 
 	// Empty
-	getHash(t, cli, "")
+	commit(t, cli, "")
 	get(t, cli, "foo", "", "")
 	get(t, cli, "bar", "", "")
 	// Set foo=FOO
 	set(t, cli, "foo", "FOO")
-	getHash(t, cli, "68DECA470D80183B5E979D167E3DD0956631A952")
+	commit(t, cli, "68DECA470D80183B5E979D167E3DD0956631A952")
 	get(t, cli, "foo", "FOO", "")
 	get(t, cli, "foa", "", "")
 	get(t, cli, "foz", "", "")
 	rem(t, cli, "foo")
 	// Empty
 	get(t, cli, "foo", "", "")
-	getHash(t, cli, "")
+	commit(t, cli, "")
 	// Set foo1, foo2, foo3...
 	set(t, cli, "foo1", "1")
 	set(t, cli, "foo2", "2")
@@ -57,7 +57,7 @@ func TestClient(t *testing.T) {
 	rem(t, cli, "foo2")
 	rem(t, cli, "foo1")
 	// Empty
-	getHash(t, cli, "")
+	commit(t, cli, "")
 
 }
 
@@ -85,8 +85,8 @@ func rem(t *testing.T, cli *eyes.MerkleEyesClient, key string) {
 	cli.RemSync([]byte(key))
 }
 
-func getHash(t *testing.T, cli *eyes.MerkleEyesClient, hash string) {
-	_hash, _, err := cli.GetHashSync()
+func commit(t *testing.T, cli *eyes.MerkleEyesClient, hash string) {
+	_hash, _, err := cli.CommitSync()
 	if err != nil {
 		t.Error("Unexpected error getting hash", err.Error())
 	}

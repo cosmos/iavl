@@ -105,7 +105,7 @@ func (app *MerkleEyesApp) CheckTx(tx []byte) (code tmsp.CodeType, result []byte,
 	return tmsp.CodeType_OK, nil, ""
 }
 
-func (app *MerkleEyesApp) GetHash() (hash []byte, log string) {
+func (app *MerkleEyesApp) Commit() (hash []byte, log string) {
 	if app.tree.Size() == 0 {
 		return nil, "Empty hash for empty tree"
 	}
