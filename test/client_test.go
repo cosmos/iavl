@@ -24,7 +24,7 @@ func TestClient(t *testing.T) {
 	defer ln.Close()
 
 	// Create client
-	cli, err := eyes.NewMerkleEyesClient(addr)
+	cli, err := eyes.NewClient(addr)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
@@ -61,7 +61,7 @@ func TestClient(t *testing.T) {
 
 }
 
-func get(t *testing.T, cli *eyes.MerkleEyesClient, key string, value string, err string) {
+func get(t *testing.T, cli *eyes.Client, key string, value string, err string) {
 	_value, _err := cli.GetSync([]byte(key))
 	if !bytes.Equal([]byte(value), _value) {
 		t.Errorf("Expected value 0x%X (%v) but got 0x%X", []byte(value), value, _value)
@@ -77,15 +77,15 @@ func get(t *testing.T, cli *eyes.MerkleEyesClient, key string, value string, err
 	}
 }
 
-func set(t *testing.T, cli *eyes.MerkleEyesClient, key string, value string) {
+func set(t *testing.T, cli *eyes.Client, key string, value string) {
 	cli.SetSync([]byte(key), []byte(value))
 }
 
-func rem(t *testing.T, cli *eyes.MerkleEyesClient, key string) {
+func rem(t *testing.T, cli *eyes.Client, key string) {
 	cli.RemSync([]byte(key))
 }
 
-func commit(t *testing.T, cli *eyes.MerkleEyesClient, hash string) {
+func commit(t *testing.T, cli *eyes.Client, hash string) {
 	_hash, _, err := cli.CommitSync()
 	if err != nil {
 		t.Error("Unexpected error getting hash", err.Error())
