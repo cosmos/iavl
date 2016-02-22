@@ -10,16 +10,16 @@ import (
 )
 
 type Client struct {
-	*tmspcli.TMSPClient
+	*tmspcli.Client
 }
 
 func NewClient(addr string) (*Client, error) {
-	tmspClient, err := tmspcli.NewTMSPClient(addr)
+	tmspClient, err := tmspcli.NewClient(addr)
 	if err != nil {
 		return nil, err
 	}
 	client := &Client{
-		TMSPClient: tmspClient,
+		Client: tmspClient,
 	}
 	return client, nil
 }
@@ -30,7 +30,7 @@ func (client *Client) GetSync(key []byte) (value []byte, err error) {
 	buf[0] = 0x01 // Get TypeByte
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
-	code, result, _, err := client.TMSPClient.QuerySync(query)
+	code, result, _, err := client.QuerySync(query)
 	if err != nil {
 		return
 	}
@@ -63,7 +63,7 @@ func (client *Client) SetSync(key []byte, value []byte) (err error) {
 	if err != nil {
 		return
 	}
-	_, _, _, err = client.TMSPClient.AppendTxSync(tx)
+	_, _, _, err = client.AppendTxSync(tx)
 	return err
 }
 
@@ -76,6 +76,6 @@ func (client *Client) RemSync(key []byte) (err error) {
 	if err != nil {
 		return
 	}
-	_, _, _, err = client.TMSPClient.AppendTxSync(tx)
+	_, _, _, err = client.AppendTxSync(tx)
 	return err
 }
