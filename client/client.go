@@ -43,7 +43,7 @@ func (client *Client) GetSync(key []byte) (value []byte, err error) {
 	}
 	result = result[n:]
 	if len(result) != 0 {
-		err = errors.New("Result too short for GetSync")
+		err = errors.New("Got unexpected trailing bytes")
 		return
 	}
 	return
