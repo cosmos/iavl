@@ -16,12 +16,12 @@ func TestClient(t *testing.T) {
 
 	// Start the listener
 	mApp := app.NewMerkleEyesApp()
-	ln, err := server.StartListener(addr, mApp)
+	s, err := server.NewServer(addr, mApp)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
 	}
-	defer ln.Close()
+	defer s.Stop()
 
 	// Create client
 	cli, err := eyes.NewClient(addr)
