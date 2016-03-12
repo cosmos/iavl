@@ -63,9 +63,9 @@ func SimpleHashFromHashes(hashes [][]byte) []byte {
 
 // Convenience for SimpleHashFromHashes.
 func SimpleHashFromBinaries(items []interface{}) []byte {
-	hashes := [][]byte{}
-	for _, item := range items {
-		hashes = append(hashes, SimpleHashFromBinary(item))
+	hashes := make([][]byte, len(items))
+	for i, item := range items {
+		hashes[i] = SimpleHashFromBinary(item)
 	}
 	return SimpleHashFromHashes(hashes)
 }
@@ -82,10 +82,10 @@ func SimpleHashFromBinary(item interface{}) []byte {
 
 // Convenience for SimpleHashFromHashes.
 func SimpleHashFromHashables(items []Hashable) []byte {
-	hashes := [][]byte{}
-	for _, item := range items {
+	hashes := make([][]byte, len(items))
+	for i, item := range items {
 		hash := item.Hash()
-		hashes = append(hashes, hash)
+		hashes[i] = hash
 	}
 	return SimpleHashFromHashes(hashes)
 }
