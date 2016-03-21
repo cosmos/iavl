@@ -28,9 +28,9 @@ func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 	return "No options are supported yet"
 }
 
-func (app *MerkleEyesApp) AppendTx(tx []byte) (code tmsp.CodeType, result []byte, log string) {
+func (app *MerkleEyesApp) AppendTx(tx []byte) tmsp.Result {
 	if len(tx) == 0 {
-		return tmsp.CodeType_EncodingError, nil, "Tx length cannot be zero"
+		return tmsp.NewError(tmsp.CodeType_EncodingError, "Tx length cannot be zero")
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
@@ -38,38 +38,38 @@ func (app *MerkleEyesApp) AppendTx(tx []byte) (code tmsp.CodeType, result []byte
 	case 0x01: // Set
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting key: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		value, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting value: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting value: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Got bytes left over")
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Got bytes left over"))
 		}
 		app.tree.Set(key, value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case 0x02: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting key: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Got bytes left over")
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Got bytes left over"))
 		}
 		app.tree.Remove(key)
 	default:
-		return tmsp.CodeType_UnknownRequest, nil, Fmt("Unexpected type byte %X", typeByte)
+		return tmsp.NewError(tmsp.CodeType_UnknownRequest, Fmt("Unexpected type byte %X", typeByte))
 	}
-	return tmsp.CodeType_OK, nil, ""
+	return tmsp.NewResultOK(nil, "")
 }
 
-func (app *MerkleEyesApp) CheckTx(tx []byte) (code tmsp.CodeType, result []byte, log string) {
+func (app *MerkleEyesApp) CheckTx(tx []byte) tmsp.Result {
 	if len(tx) == 0 {
-		return tmsp.CodeType_EncodingError, nil, "Tx length cannot be zero"
+		return tmsp.NewError(tmsp.CodeType_EncodingError, "Tx length cannot be zero")
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
@@ -77,32 +77,32 @@ func (app *MerkleEyesApp) CheckTx(tx []byte) (code tmsp.CodeType, result []byte,
 	case 0x01: // Set
 		_, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting key: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		_, n, err = wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting value: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting value: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Got bytes left over")
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Got bytes left over"))
 		}
 		//app.tree.Set(key, value)
 	case 0x02: // Remove
 		_, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting key: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Got bytes left over")
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Got bytes left over"))
 		}
 		//app.tree.Remove(key)
 	default:
-		return tmsp.CodeType_UnknownRequest, nil, Fmt("Unexpected type byte %X", typeByte)
+		return tmsp.NewError(tmsp.CodeType_UnknownRequest, Fmt("Unexpected type byte %X", typeByte))
 	}
-	return tmsp.CodeType_OK, nil, ""
+	return tmsp.NewResultOK(nil, "")
 }
 
 func (app *MerkleEyesApp) Commit() (hash []byte, log string) {
@@ -113,9 +113,9 @@ func (app *MerkleEyesApp) Commit() (hash []byte, log string) {
 	return hash, ""
 }
 
-func (app *MerkleEyesApp) Query(query []byte) (code tmsp.CodeType, result []byte, log string) {
+func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 	if len(query) == 0 {
-		return tmsp.CodeType_OK, nil, "Query length cannot be zero"
+		return tmsp.NewResultOK(nil, "")
 	}
 	typeByte := query[0]
 	query = query[1:]
@@ -123,22 +123,22 @@ func (app *MerkleEyesApp) Query(query []byte) (code tmsp.CodeType, result []byte
 	case 0x01: // Get
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error getting key: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error getting key: %v", err.Error()))
 		}
 		query = query[n:]
 		if len(query) != 0 {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Got bytes left over")
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Got bytes left over"))
 		}
 		_, value, _ := app.tree.Get(key)
 		res := make([]byte, wire.ByteSliceSize(value))
 		buf := res
 		n, err = wire.PutByteSlice(buf, value)
 		if err != nil {
-			return tmsp.CodeType_EncodingError, nil, Fmt("Error putting value: %v", err.Error())
+			return tmsp.NewError(tmsp.CodeType_EncodingError, Fmt("Error putting value: %v", err.Error()))
 		}
 		buf = buf[n:]
-		return tmsp.CodeType_OK, res, ""
+		return tmsp.NewResultOK(res, "")
 	default:
-		return tmsp.CodeType_UnknownRequest, nil, Fmt("Unexpected type byte %X", typeByte)
+		return tmsp.NewError(tmsp.CodeType_UnknownRequest, Fmt("Unexpected type byte %X", typeByte))
 	}
 }
