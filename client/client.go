@@ -1,9 +1,6 @@
 package eyes
 
 import (
-	"errors"
-	"fmt"
-
 	"github.com/tendermint/go-wire"
 	tmspcli "github.com/tendermint/tmsp/client"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -24,58 +21,53 @@ func NewClient(addr string) (*Client, error) {
 	return client, nil
 }
 
-func (client *Client) GetSync(key []byte) (value []byte, err error) {
+func (client *Client) GetSync(key []byte) (res tmsp.Result) {
 	query := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := query
 	buf[0] = 0x01 // Get TypeByte
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
-	code, result, _, err := client.QuerySync(query)
-	if err != nil {
-		return
+	res = client.QuerySync(query)
+	if res.IsErr() {
+		return res
 	}
-	if code != tmsp.CodeType_OK {
-		return nil, fmt.Errorf("Got unexpected code %v", code)
-	}
+	result := res.Data
 	value, n, err := wire.GetByteSlice(result)
 	if err != nil {
-		return
+		return tmsp.ErrInternalError.SetLog("decoding value byteslice: " + err.Error())
 	}
 	result = result[n:]
 	if len(result) != 0 {
-		err = errors.New("Got unexpected trailing bytes")
-		return
+		return tmsp.ErrInternalError.SetLog("Got unexpected trailing bytes")
 	}
-	return
+	return tmsp.NewResultOK(value, "")
 }
 
-func (client *Client) SetSync(key []byte, value []byte) (err error) {
+func (client *Client) SetSync(key []byte, value []byte) (res tmsp.Result) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
 	buf[0] = 0x01 // Set TypeByte
 	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
-		return
+		return tmsp.ErrInternalError.SetLog("encoding key byteslice: " + err.Error())
 	}
 	buf = buf[n:]
 	n, err = wire.PutByteSlice(buf, value)
 	if err != nil {
-		return
+		return tmsp.ErrInternalError.SetLog("encoding value byteslice: " + err.Error())
 	}
-	_, _, _, err = client.AppendTxSync(tx)
-	return err
+	return client.AppendTxSync(tx)
 }
 
-func (client *Client) RemSync(key []byte) (err error) {
+func (client *Client) RemSync(key []byte) (res tmsp.Result) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
 	buf[0] = 0x02 // Rem TypeByte
 	buf = buf[1:]
-	_, err = wire.PutByteSlice(buf, key)
+	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {
-		return
+		return tmsp.ErrInternalError.SetLog("encoding key byteslice: " + err.Error())
 	}
-	_, _, _, err = client.AppendTxSync(tx)
-	return err
+	return client.AppendTxSync(tx)
 }

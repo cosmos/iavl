@@ -62,17 +62,17 @@ func TestClient(t *testing.T) {
 }
 
 func get(t *testing.T, cli *eyes.Client, key string, value string, err string) {
-	_value, _err := cli.GetSync([]byte(key))
-	if !bytes.Equal([]byte(value), _value) {
-		t.Errorf("Expected value 0x%X (%v) but got 0x%X", []byte(value), value, _value)
+	res := cli.GetSync([]byte(key))
+	if !bytes.Equal([]byte(value), res.Data) {
+		t.Errorf("Expected value 0x%X (%v) but got 0x%X", []byte(value), value, res.Data)
 	}
-	if _err == nil {
+	if res.IsOK() {
 		if err != "" {
 			t.Errorf("Expected error %v but got no error", err)
 		}
 	} else {
 		if err == "" {
-			t.Errorf("Expected no error but got error %v", _err.Error())
+			t.Errorf("Expected no error but got error %v", res.Error())
 		}
 	}
 }
@@ -86,11 +86,11 @@ func rem(t *testing.T, cli *eyes.Client, key string) {
 }
 
 func commit(t *testing.T, cli *eyes.Client, hash string) {
-	_hash, _, err := cli.CommitSync()
-	if err != nil {
-		t.Error("Unexpected error getting hash", err.Error())
+	res := cli.CommitSync()
+	if res.IsErr() {
+		t.Error("Unexpected error getting hash", res.Error())
 	}
-	if hash != Fmt("%X", _hash) {
-		t.Errorf("Expected hash 0x%v but got 0x%X", hash, _hash)
+	if hash != Fmt("%X", res.Data) {
+		t.Errorf("Expected hash 0x%v but got 0x%X", hash, res.Data)
 	}
 }
