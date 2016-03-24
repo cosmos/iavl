@@ -2,12 +2,13 @@ package eyes
 
 import (
 	"github.com/tendermint/go-wire"
+	"github.com/tendermint/merkleeyes/app"
 	tmspcli "github.com/tendermint/tmsp/client"
 	tmsp "github.com/tendermint/tmsp/types"
 )
 
 type Client struct {
-	*tmspcli.Client
+	tmspcli.Client
 }
 
 func NewClient(addr string) (*Client, error) {
@@ -19,6 +20,14 @@ func NewClient(addr string) (*Client, error) {
 		Client: tmspClient,
 	}
 	return client, nil
+}
+
+func NewLocalClient() *Client {
+	eyesApp := app.NewMerkleEyesApp()
+	tmspClient := tmspcli.NewLocalClient(nil, eyesApp)
+	return &Client{
+		Client: tmspClient,
+	}
 }
 
 func (client *Client) GetSync(key []byte) (res tmsp.Result) {
