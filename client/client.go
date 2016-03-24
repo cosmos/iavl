@@ -11,7 +11,7 @@ type Client struct {
 }
 
 func NewClient(addr string) (*Client, error) {
-	tmspClient, err := tmspcli.NewClient(addr)
+	tmspClient, err := tmspcli.NewClient(addr, false)
 	if err != nil {
 		return nil, err
 	}
