@@ -11,7 +11,11 @@ type Client struct {
 	tmspcli.Client
 }
 
+// 'addr': if "local", will start an embedded one.
 func NewClient(addr string) (*Client, error) {
+	if addr == "local" {
+		return NewLocalClient(), nil
+	}
 	tmspClient, err := tmspcli.NewClient(addr, false)
 	if err != nil {
 		return nil, err
