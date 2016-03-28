@@ -120,7 +120,7 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 	typeByte := query[0]
 	query = query[1:]
 	switch typeByte {
-	case 0x01: // Get
+	case 0x01: // Get by key
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
 			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
@@ -137,6 +137,28 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog(Fmt("Error putting value: %v", err.Error()))
 		}
 		buf = buf[n:]
+		return tmsp.NewResultOK(res, "")
+	case 0x02: // Get by index
+		index, n, err := wire.GetVarint(query)
+		if err != nil {
+			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting index: %v", err.Error()))
+		}
+		query = query[n:]
+		if len(query) != 0 {
+			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+		}
+		_, value := app.tree.GetByIndex(index)
+		res := make([]byte, wire.ByteSliceSize(value))
+		buf := res
+		n, err = wire.PutByteSlice(buf, value)
+		if err != nil {
+			return tmsp.ErrEncodingError.SetLog(Fmt("Error putting value: %v", err.Error()))
+		}
+		buf = buf[n:]
+		return tmsp.NewResultOK(res, "")
+	case 0x03: // Get size
+		size := app.tree.Size()
+		res := wire.BinaryBytes(size)
 		return tmsp.NewResultOK(res, "")
 	default:
 		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected type byte %X", typeByte))
