@@ -62,7 +62,7 @@ func (app *MerkleEyesApp) AppendTx(tx []byte) tmsp.Result {
 		}
 		app.tree.Remove(key)
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected AppendTx type byte %X", typeByte))
 	}
 	return tmsp.OK
 }
@@ -100,7 +100,7 @@ func (app *MerkleEyesApp) CheckTx(tx []byte) tmsp.Result {
 		}
 		//app.tree.Remove(key)
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected CheckTx type byte %X", typeByte))
 	}
 	return tmsp.OK
 }
@@ -130,14 +130,7 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		_, value, _ := app.tree.Get(key)
-		res := make([]byte, wire.ByteSliceSize(value))
-		buf := res
-		n, err = wire.PutByteSlice(buf, value)
-		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error putting value: %v", err.Error()))
-		}
-		buf = buf[n:]
-		return tmsp.NewResultOK(res, "")
+		return tmsp.NewResultOK(value, "")
 	case 0x02: // Get by index
 		index, n, err := wire.GetVarint(query)
 		if err != nil {
@@ -148,19 +141,12 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		_, value := app.tree.GetByIndex(index)
-		res := make([]byte, wire.ByteSliceSize(value))
-		buf := res
-		n, err = wire.PutByteSlice(buf, value)
-		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error putting value: %v", err.Error()))
-		}
-		buf = buf[n:]
-		return tmsp.NewResultOK(res, "")
+		return tmsp.NewResultOK(value, "")
 	case 0x03: // Get size
 		size := app.tree.Size()
 		res := wire.BinaryBytes(size)
 		return tmsp.NewResultOK(res, "")
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected type byte %X", typeByte))
+		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
 	}
 }

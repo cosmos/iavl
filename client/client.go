@@ -44,15 +44,7 @@ func (client *Client) GetSync(key []byte) (res tmsp.Result) {
 	if res.IsErr() {
 		return res
 	}
-	result := res.Data
-	value, n, err := wire.GetByteSlice(result)
-	if err != nil {
-		return tmsp.ErrInternalError.SetLog("decoding value byteslice: " + err.Error())
-	}
-	result = result[n:]
-	if len(result) != 0 {
-		return tmsp.ErrInternalError.SetLog("Got unexpected trailing bytes")
-	}
+	value := res.Data
 	return tmsp.NewResultOK(value, "")
 }
 
@@ -83,4 +75,22 @@ func (client *Client) RemSync(key []byte) (res tmsp.Result) {
 		return tmsp.ErrInternalError.SetLog("encoding key byteslice: " + err.Error())
 	}
 	return client.AppendTxSync(tx)
+}
+
+//----------------------------------------
+// Convenience
+
+func (client *Client) Get(key []byte) (value []byte) {
+	res := client.GetSync(key)
+	if res.IsErr() {
+		panic(res.Error())
+	}
+	return res.Data
+}
+
+func (client *Client) Set(key []byte, value []byte) {
+	res := client.SetSync(key, value)
+	if res.IsErr() {
+		panic(res.Error())
+	}
 }
