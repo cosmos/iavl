@@ -1,3 +1,10 @@
+# merkleeyes
+
+[![CircleCI](https://circleci.com/gh/tendermint/merkleeyes.svg?style=svg)](https://circleci.com/gh/tendermint/merkleeyes)
+
+A simple [TMSP application](github.com/tendermint/tmsp) serving a [merkle-tree key-value store](github.com/tendermint/go-merkle) 
+
+
 ```
 writing down, my checksum
 waiting for the, data to come
