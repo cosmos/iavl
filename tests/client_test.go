@@ -10,13 +10,15 @@ import (
 	"github.com/tendermint/tmsp/server"
 )
 
+var tmspType = "socket"
+
 func TestClient(t *testing.T) {
 
 	addr := "tcp://127.0.0.1:46659"
 
 	// Start the listener
 	mApp := app.NewMerkleEyesApp()
-	s, err := server.NewServer(addr, mApp)
+	s, err := server.NewServer(addr, tmspType, mApp)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
@@ -24,7 +26,7 @@ func TestClient(t *testing.T) {
 	defer s.Stop()
 
 	// Create client
-	cli, err := eyes.NewClient(addr)
+	cli, err := eyes.NewClient(addr, tmspType)
 	if err != nil {
 		t.Fatal(err.Error())
 		return

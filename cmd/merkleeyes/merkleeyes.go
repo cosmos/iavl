@@ -23,6 +23,11 @@ func main() {
 					Value: "unix://data.sock",
 					Usage: "MerkleEyes server listen address",
 				},
+				cli.StringFlag{
+					Name:  "tmsp",
+					Value: "socket",
+					Usage: "socket | grpc",
+				},
 			},
 			Action: func(c *cli.Context) {
 				cmdServer(app, c)
@@ -37,10 +42,11 @@ func main() {
 
 func cmdServer(app *cli.App, c *cli.Context) {
 	addr := c.String("address")
+	tmsp := c.String("tmsp")
 	mApp := application.NewMerkleEyesApp()
 
 	// Start the listener
-	s, err := server.NewServer(addr, mApp)
+	s, err := server.NewServer(addr, tmsp, mApp)
 	if err != nil {
 		Exit(err.Error())
 	}
