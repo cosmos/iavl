@@ -465,6 +465,38 @@ func (node *IAVLNode) traverse(t *IAVLTree, cb func(*IAVLNode) bool) bool {
 	return false
 }
 
+func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, cb func(*IAVLNode) bool) bool {
+	stop := false
+
+	// make the callback if we are in range
+	// IterateRange ignores this if not leaf
+	if (start == nil || bytes.Compare(start, node.key) <= 0) &&
+		(end == nil || bytes.Compare(node.key, end) <= 0) {
+		stop = cb(node)
+	}
+	if stop {
+		return stop
+	}
+
+	if node.height > 0 {
+		// if the node's key is greater than start, check the left branch
+		if start == nil || bytes.Compare(start, node.key) < 0 {
+			stop = node.getLeftNode(t).traverseInRange(t, start, end, cb)
+		}
+		// abort early if needed...
+		if stop {
+			return stop
+		}
+
+		// if the node's key is lower than stop, check right branch
+		if end == nil || bytes.Compare(node.key, end) < 0 {
+			stop = node.getRightNode(t).traverseInRange(t, start, end, cb)
+		}
+	}
+
+	return stop
+}
+
 // Only used in testing...
 func (node *IAVLNode) lmd(t *IAVLTree) *IAVLNode {
 	if node.height == 0 {

@@ -168,6 +168,21 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 	})
 }
 
+// IterateRange makes a callback for all nodes with key between start and end inclusive
+// If either are nil, then it is open on that side (nil, nil is the same as Iterate)
+func (t *IAVLTree) IterateRange(start, end []byte, fn func(key []byte, value []byte) bool) (stopped bool) {
+	if t.root == nil {
+		return false
+	}
+	return t.root.traverseInRange(t, start, end, func(node *IAVLNode) bool {
+		if node.height == 0 {
+			return fn(node.key, node.value)
+		} else {
+			return false
+		}
+	})
+}
+
 //-----------------------------------------------------------------------------
 
 type nodeDB struct {
