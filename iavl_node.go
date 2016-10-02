@@ -465,13 +465,18 @@ func (node *IAVLNode) traverse(t *IAVLTree, cb func(*IAVLNode) bool) bool {
 	return false
 }
 
-func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, cb func(*IAVLNode) bool) bool {
-	stop := false
+func (node *IAVLNode) fitsStart(start []byte) bool {
+	return (start == nil || bytes.Compare(start, node.key) <= 0)
+}
 
-	// make the callback if we are in range
-	// IterateRange ignores this if not leaf
-	if (start == nil || bytes.Compare(start, node.key) <= 0) &&
-		(end == nil || bytes.Compare(node.key, end) <= 0) {
+func (node *IAVLNode) fitsEnd(end []byte) bool {
+	return (end == nil || bytes.Compare(node.key, end) <= 0)
+}
+
+func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending bool, cb func(*IAVLNode) bool) bool {
+	stop := false
+	if node.fitsStart(start) && node.fitsEnd(end) {
+		// IterateRange ignores this if not leaf
 		stop = cb(node)
 	}
 	if stop {
@@ -479,18 +484,28 @@ func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, cb func(*I
 	}
 
 	if node.height > 0 {
-		// if the node's key is greater than start, check the left branch
-		if start == nil || bytes.Compare(start, node.key) < 0 {
-			stop = node.getLeftNode(t).traverseInRange(t, start, end, cb)
-		}
-		// abort early if needed...
-		if stop {
-			return stop
-		}
-
-		// if the node's key is lower than stop, check right branch
-		if end == nil || bytes.Compare(node.key, end) < 0 {
-			stop = node.getRightNode(t).traverseInRange(t, start, end, cb)
+		if ascending {
+			// check lower nodes, then higher
+			if node.fitsStart(start) {
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, cb)
+			}
+			if stop {
+				return stop
+			}
+			if node.fitsEnd(end) {
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, cb)
+			}
+		} else {
+			// check the higher nodes first
+			if node.fitsEnd(end) {
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, cb)
+			}
+			if stop {
+				return stop
+			}
+			if node.fitsStart(start) {
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, cb)
+			}
 		}
 	}
 

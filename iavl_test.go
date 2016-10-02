@@ -352,20 +352,31 @@ func TestIterateRange(t *testing.T) {
 	}
 
 	trav := traverser{}
-	tree.IterateRange([]byte("foo"), []byte("goo"), trav.view)
+	tree.IterateRange([]byte("foo"), []byte("goo"), true, trav.view)
 	expectTraverse(t, trav, "foo", "food", 5)
 
 	trav = traverser{}
-	tree.IterateRange(nil, []byte("flap"), trav.view)
+	tree.IterateRange(nil, []byte("flap"), true, trav.view)
 	expectTraverse(t, trav, "abc", "fan", 2)
 
 	trav = traverser{}
-	tree.IterateRange([]byte("foob"), nil, trav.view)
+	tree.IterateRange([]byte("foob"), nil, true, trav.view)
 	expectTraverse(t, trav, "foobang", "low", 6)
 
 	trav = traverser{}
-	tree.IterateRange([]byte("very"), nil, trav.view)
+	tree.IterateRange([]byte("very"), nil, true, trav.view)
 	expectTraverse(t, trav, "", "", 0)
+
+	// make sure backwards also works...
+	trav = traverser{}
+	tree.IterateRange([]byte("fooba"), []byte("food"), false, trav.view)
+	expectTraverse(t, trav, "food", "foobang", 4)
+
+	// make sure backwards also works...
+	trav = traverser{}
+	tree.IterateRange([]byte("g"), nil, false, trav.view)
+	expectTraverse(t, trav, "low", "good", 2)
+
 }
 
 type traverser struct {
