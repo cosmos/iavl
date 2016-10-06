@@ -447,35 +447,17 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode) {
 	return node
 }
 
-func (node *IAVLNode) traverse(t *IAVLTree, cb func(*IAVLNode) bool) bool {
-	stop := cb(node)
-	if stop {
-		return stop
-	}
-	if node.height > 0 {
-		stop = node.getLeftNode(t).traverse(t, cb)
-		if stop {
-			return stop
-		}
-		stop = node.getRightNode(t).traverse(t, cb)
-		if stop {
-			return stop
-		}
-	}
-	return false
-}
-
-func (node *IAVLNode) fitsStart(start []byte) bool {
-	return (start == nil || bytes.Compare(start, node.key) <= 0)
-}
-
-func (node *IAVLNode) fitsEnd(end []byte) bool {
-	return (end == nil || bytes.Compare(node.key, end) <= 0)
+// traverse is a wrapper over traverseInRange when we want the whole tree
+func (node *IAVLNode) traverse(t *IAVLTree, ascending bool, cb func(*IAVLNode) bool) bool {
+	return node.traverseInRange(t, nil, nil, ascending, cb)
 }
 
 func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending bool, cb func(*IAVLNode) bool) bool {
+	afterStart := (start == nil || bytes.Compare(start, node.key) <= 0)
+	beforeEnd := (end == nil || bytes.Compare(node.key, end) <= 0)
+
 	stop := false
-	if node.fitsStart(start) && node.fitsEnd(end) {
+	if afterStart && beforeEnd {
 		// IterateRange ignores this if not leaf
 		stop = cb(node)
 	}
@@ -486,24 +468,24 @@ func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending 
 	if node.height > 0 {
 		if ascending {
 			// check lower nodes, then higher
-			if node.fitsStart(start) {
+			if afterStart {
 				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, cb)
 			}
 			if stop {
 				return stop
 			}
-			if node.fitsEnd(end) {
+			if beforeEnd {
 				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, cb)
 			}
 		} else {
 			// check the higher nodes first
-			if node.fitsEnd(end) {
+			if beforeEnd {
 				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, cb)
 			}
 			if stop {
 				return stop
 			}
-			if node.fitsStart(start) {
+			if afterStart {
 				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, cb)
 			}
 		}

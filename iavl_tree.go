@@ -159,7 +159,7 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverse(t, func(node *IAVLNode) bool {
+	return t.root.traverse(t, true, func(node *IAVLNode) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {
