@@ -1,5 +1,5 @@
-hash: 8e71cededa2f69a90178930fab27338a7818e706ac990c95399037e59cab3dc6
-updated: 2016-11-05T16:12:29.042326731Z
+hash: 71f0a268c69be4ac1d184bfd92854795f174e5068035428e7dbd06c15c19ab5c
+updated: 2016-11-05T16:23:57.820076736Z
 imports:
 - name: github.com/codegangsta/cli
   version: d86a009f5e13f83df65d0d6cee9a2e3f1445f0da
@@ -46,6 +46,11 @@ imports:
   version: 9545b249b3aacafa97f79e0838b02b274adc6f5f
   subpackages:
   - term
+- name: github.com/tendermint/merkleeyes
+  version: 144b4aa050886efe8e4ec69656fb2704800adab8
+  subpackages:
+  - app
+  - client
 - name: github.com/tendermint/tmsp
   version: 5d3eb0328a615ba55b580ce871033e605aa8b97d
   subpackages:

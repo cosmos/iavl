@@ -1,4 +1,4 @@
-package: github.com/tendermint/merkleeyes
+package: github.com/sahilkathpal/merkleeyes
 import:
 - package: github.com/tendermint/go-common
   subpackages:
