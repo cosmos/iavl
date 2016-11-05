@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/codegangsta/cli"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/tmsp/server"
+	"github.com/urfave/cli"
 	"os"
 
 	application "github.com/tendermint/merkleeyes/app"
