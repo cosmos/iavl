@@ -1,0 +1,9 @@
+package: github.com/tendermint/merkleeyes
+import:
+- package: github.com/tendermint/go-common
+  subpackages:
+  - upnp
+- package: github.com/codegangsta/cli
+- package: github.com/tendermint/tmsp
+  subpackages:
+  - server

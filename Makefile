@@ -2,7 +2,7 @@
 
 all: test install
 
-install: get_deps
+install: 
 	go install github.com/tendermint/merkleeyes/cmd/...
 
 test:
@@ -10,3 +10,7 @@ test:
 
 get_deps:
 	go get -d github.com/tendermint/merkleeyes/...
+
+get_vendor_deps:
+	go get github.com/Masterminds/glide
+	glide install
