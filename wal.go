@@ -2,6 +2,9 @@ package merkle
 
 import (
 	"encoding/base64"
+	"io"
+	"strconv"
+	"strings"
 	"time"
 
 	auto "github.com/tendermint/go-autofile"
@@ -124,28 +127,30 @@ func NewWAL(walDir string, db dbm.DB) (*WAL, error) {
 		group: group,
 		db:    db,
 	}
-	wal.BaseService = *NewBaseService(log, "WAL", wal)
+	wal.BaseService = *NewBaseService(nil, "WAL", wal)
 	return wal, nil
 }
 
-func (wal *wal) OnStart() {
+func (wal *WAL) OnStart() error {
 	// Run the processor
 	go wal.processRoutine()
+	return nil
 }
 
-func (wal *wal) OnStop() {
+func (wal *WAL) OnStop() {
 	wal.BaseService.OnStop()
 	wal.group.Head.Close()
 	wal.group.Close()
+	return
 }
 
 func (wal *WAL) write(msg WALMessage) {
 	// We need to b64 encode them, newlines not allowed within message
 	var msgBytes = wire.BinaryBytes(struct{ WALMessage }{msg})
 	var msgBytesB64 = base64.StdEncoding.EncodeToString(msgBytes)
-	err := wal.group.WriteLine(string(wmsgBytesB64))
+	err := wal.group.WriteLine(string(msgBytesB64))
 	if err != nil {
-		panic(Fmt("Error writing msg to WAL: %v \n\nMessage: %v", err, wmsg))
+		panic(Fmt("Error writing msg to WAL: %v \n\nMessage: %v", err, msg))
 	}
 
 	// Write markers for certain messages
@@ -266,12 +271,12 @@ func (wal *WAL) processRoutine() {
 	}
 }
 
-func (wal *WAL) processWAL(height int, msgs []WALMessage) {
+func (wal *WAL) processWALMessages(height int, msgs []WALMessage) {
 	// Write BatchEnded
 	wal.write(walMsgBatchStarted{height})
 
 	// Process messages
-	for msg := range msgs {
+	for _, msg := range msgs {
 		switch msg := msg.(type) {
 		case walMsgAddNode:
 			wal.db.Set(msg.Key, msg.Value)
@@ -286,7 +291,7 @@ func (wal *WAL) processWAL(height int, msgs []WALMessage) {
 	// Flush db
 	// TODO: need an official API
 	// TODO: verify that this does what we think it does.
-	wal.db.SetSync("", "")
+	wal.db.SetSync(nil, nil)
 }
 
 //----------------------------------------
