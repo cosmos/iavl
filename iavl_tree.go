@@ -24,14 +24,19 @@ func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
 		return &IAVLTree{}
 	} else {
 		// Persistent IAVLTree
+		ndb := newNodeDB(cacheSize, db)
 		return &IAVLTree{
-			ndb: newNodeDB(cacheSize, db),
+			ndb: ndb,
 		}
 	}
 }
 
 // The returned tree and the original tree are goroutine independent.
 // That is, they can each run in their own goroutine.
+// However, upon Save(), any other trees that share a db will become
+// outdated, as some nodes will become orphaned.
+// Note that Save() clears leftNode and rightNode.  Otherwise,
+// two copies would not be goroutine independent.
 func (t *IAVLTree) Copy() Tree {
 	if t.root == nil {
 		return &IAVLTree{
@@ -105,7 +110,8 @@ func (t *IAVLTree) Save() []byte {
 	if t.root == nil {
 		return nil
 	}
-	return t.root.save(t)
+	t.root.save(t)
+	return t.root.hash
 }
 
 // Sets the root node by reading from db.
@@ -161,16 +167,21 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 	})
 }
 
-//-----------------------------------------------------------------------------
-
-type nodeElement struct {
-	node *IAVLNode
-	elem *list.Element
+func (t *IAVLTree) addOrphan(node *IAVLNode) {
+	if !node.persisted {
+		return
+	}
+	if t.ndb == nil {
+		return
+	}
+	t.ndb.RemoveNode(t, node)
 }
+
+//-----------------------------------------------------------------------------
 
 type nodeDB struct {
 	mtx        sync.Mutex
-	cache      map[string]nodeElement
+	cache      map[string]*list.Element
 	cacheSize  int
 	cacheQueue *list.List
 	db         dbm.DB
@@ -178,7 +189,7 @@ type nodeDB struct {
 
 func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 	return &nodeDB{
-		cache:      make(map[string]nodeElement),
+		cache:      make(map[string]*list.Element),
 		cacheSize:  cacheSize,
 		cacheQueue: list.New(),
 		db:         db,
@@ -189,11 +200,11 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	// Check the cache.
-	nodeElem, ok := ndb.cache[string(hash)]
+	elem, ok := ndb.cache[string(hash)]
 	if ok {
 		// Already exists. Move to back of cacheQueue.
-		ndb.cacheQueue.MoveToBack(nodeElem.elem)
-		return nodeElem.node
+		ndb.cacheQueue.MoveToBack(elem)
+		return elem.Value.(*IAVLNode)
 	} else {
 		// Doesn't exist, load.
 		buf := ndb.db.Get(hash)
@@ -235,13 +246,29 @@ func (ndb *nodeDB) SaveNode(t *IAVLTree, node *IAVLNode) {
 	ndb.cacheNode(node)
 }
 
+func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	if node.hash == nil {
+		PanicSanity("Expected to find node.hash, but none found.")
+	}
+	if !node.persisted {
+		PanicSanity("Shouldn't be calling remove on a non-persisted node.")
+	}
+	elem, ok := ndb.cache[string(node.hash)]
+	if ok {
+		ndb.cacheQueue.Remove(elem)
+		delete(ndb.cache, string(node.hash))
+	}
+}
+
 func (ndb *nodeDB) cacheNode(node *IAVLNode) {
 	// Create entry in cache and append to cacheQueue.
-	elem := ndb.cacheQueue.PushBack(node.hash)
-	ndb.cache[string(node.hash)] = nodeElement{node, elem}
+	elem := ndb.cacheQueue.PushBack(node)
+	ndb.cache[string(node.hash)] = elem
 	// Maybe expire an item.
 	if ndb.cacheQueue.Len() > ndb.cacheSize {
-		hash := ndb.cacheQueue.Remove(ndb.cacheQueue.Front()).([]byte)
+		hash := ndb.cacheQueue.Remove(ndb.cacheQueue.Front()).(*IAVLNode).hash
 		delete(ndb.cache, string(hash))
 	}
 }
