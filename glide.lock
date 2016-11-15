@@ -1,8 +1,6 @@
-hash: 71f0a268c69be4ac1d184bfd92854795f174e5068035428e7dbd06c15c19ab5c
-updated: 2016-11-05T16:23:57.820076736Z
+hash: cf5040883846897ba61ac4df2d746c12991dca32d3b6701221cc059d505788db
+updated: 2016-11-15T13:07:25.904960096-05:00
 imports:
-- name: github.com/urfave/cli
-  version: d86a009f5e13f83df65d0d6cee9a2e3f1445f0da
 - name: github.com/go-stack/stack
   version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
 - name: github.com/golang/protobuf
@@ -46,17 +44,14 @@ imports:
   version: 9545b249b3aacafa97f79e0838b02b274adc6f5f
   subpackages:
   - term
-- name: github.com/tendermint/merkleeyes
-  version: 144b4aa050886efe8e4ec69656fb2704800adab8
-  subpackages:
-  - app
-  - client
 - name: github.com/tendermint/tmsp
-  version: 5d3eb0328a615ba55b580ce871033e605aa8b97d
+  version: fe96cfc56da22842c185bd84601b156f8ecee78a
   subpackages:
   - client
   - server
   - types
+- name: github.com/urfave/cli
+  version: b4f4786f378c0c1d3336b5bb798094b166edf5a9
 - name: golang.org/x/crypto
   version: aa2481cbfe81d911eb62b642b7a6b5ec58bbea71
   subpackages:
