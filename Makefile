@@ -2,11 +2,13 @@
 
 all: test install
 
+NOVENDOR = go list github.com/tendermint/merkleeyes/... | grep -v /vendor/
+
 install: 
 	go install github.com/tendermint/merkleeyes/cmd/...
 
 test:
-	go test --race github.com/tendermint/merkleeyes/...
+	go test --race `${NOVENDOR}`
 
 get_deps:
 	go get -d github.com/tendermint/merkleeyes/...
