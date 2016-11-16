@@ -18,13 +18,13 @@ type IAVLTree struct {
 	ndb  *nodeDB
 }
 
-func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
+func NewIAVLTree(cacheSize int, walDir string, db dbm.DB) *IAVLTree {
 	if db == nil {
 		// In-memory IAVLTree
 		return &IAVLTree{}
 	} else {
 		// Persistent IAVLTree
-		ndb := newNodeDB(cacheSize, db)
+		ndb := newNodeDB(cacheSize, walDir, db)
 		return &IAVLTree{
 			ndb: ndb,
 		}
@@ -111,6 +111,7 @@ func (t *IAVLTree) Save() []byte {
 		return nil
 	}
 	t.root.save(t)
+	t.ndb.Commit()
 	return t.root.hash
 }
 
@@ -167,16 +168,6 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 	})
 }
 
-func (t *IAVLTree) addOrphan(node *IAVLNode) {
-	if !node.persisted {
-		return
-	}
-	if t.ndb == nil {
-		return
-	}
-	t.ndb.RemoveNode(t, node)
-}
-
 //-----------------------------------------------------------------------------
 
 type nodeDB struct {
@@ -185,15 +176,24 @@ type nodeDB struct {
 	cacheSize  int
 	cacheQueue *list.List
 	db         dbm.DB
+	wal        *WAL
 }
 
-func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
-	return &nodeDB{
+func newNodeDB(cacheSize int, walDir string, db dbm.DB) *nodeDB {
+	wal, err := NewWAL(walDir, db)
+	if err != nil {
+		panic(Fmt("Error opening nodeDB WAL: %v", err))
+	}
+	ndb := &nodeDB{
 		cache:      make(map[string]*list.Element),
 		cacheSize:  cacheSize,
 		cacheQueue: list.New(),
 		db:         db,
+		wal:        wal,
 	}
+	wal.Start()
+	wal.OpenBatch()
+	return ndb
 }
 
 func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
@@ -241,7 +241,7 @@ func (ndb *nodeDB) SaveNode(t *IAVLTree, node *IAVLNode) {
 	if err != nil {
 		PanicCrisis(err)
 	}
-	ndb.db.Set(node.hash, buf.Bytes())
+	ndb.wal.AddNode(node.hash, buf.Bytes())
 	node.persisted = true
 	ndb.cacheNode(node)
 }
@@ -255,6 +255,7 @@ func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
 	if !node.persisted {
 		PanicSanity("Shouldn't be calling remove on a non-persisted node.")
 	}
+	ndb.wal.DelNode(node.hash)
 	elem, ok := ndb.cache[string(node.hash)]
 	if ok {
 		ndb.cacheQueue.Remove(elem)
@@ -271,4 +272,10 @@ func (ndb *nodeDB) cacheNode(node *IAVLNode) {
 		hash := ndb.cacheQueue.Remove(ndb.cacheQueue.Front()).(*IAVLNode).hash
 		delete(ndb.cache, string(hash))
 	}
+}
+
+func (ndb *nodeDB) Commit() {
+	ndb.wal.CloseBatchSync()
+	ndb.wal.ProcessBatchSync()
+	ndb.wal.OpenBatch()
 }

@@ -2,10 +2,9 @@ package merkle
 
 import (
 	"encoding/base64"
-	"io"
+	"reflect"
 	"strconv"
 	"strings"
-	"time"
 
 	auto "github.com/tendermint/go-autofile"
 	. "github.com/tendermint/go-common"
@@ -24,38 +23,35 @@ Before the Merkle tree is modified at the underlying DB layer with Save(), new
 nodes and orphaned nodes are written to the WAL.  The producer of these
 messages writes messages like so:
 
-> BatchHead			height
-> AddNode				key, value
-> AddNode				key, value
+> OpenBatch      height
+> AddNode        key value
+> AddNode        key value
 > ...
-> DelNode				key
-> DelNode				key
+> DelNode        key
+> DelNode        key
 > ...
-> BatchEnd			height
+> CloseBatch     height
 
-Failures may happen at any time, so it is possible for some BatchHead's to be
+Failures may happen at any time, so it is possible for some OpenBatch's to be
 unmatched and repeated (restarted at the same height).
 
-> BatchHead			height
+> OpenBatch    	 height
 > ...
-> BatchHead			height
+> OpenBatch      height
 > ...
-> BatchEnd			height
+> CloseBatch     height
 
-The processor also writes messages as it processes batches.  These  messages
-are interwoven in the same file, so might look like the following:
+After a batch is closed, we process them.
 
-> BatchHead 		height
-> AddNode 			key, value
-> BatchStarted  height-10     <--
-> AddNode   		key, value
+> OpenBatch      height
 > ...
-> DelNode   		key
-> BatchEnded    height-10     <--
-> BatchStarted  height-9    	<--
-> ...
+> CloseBatch     height
+> BatchStarted   height
+> BatchEnded     height
+> OpenBatch      height+1
 
-It's possible for BatchStarted to be unmatched and repeated.
+It's possible for BatchStarted to also be unmatched and repeated.
+The next batch should not open until the previous batch is closed.
 */
 
 //--------------------------------------------------------------------------------
@@ -65,19 +61,19 @@ type WALMessage interface{}
 
 var _ = wire.RegisterInterface(
 	struct{ WALMessage }{},
-	wire.ConcreteType{walMsgBatchHead{}, 0x01},    // Beginning of msgs for batch
-	wire.ConcreteType{walMsgBatchFoot{}, 0x02},    // End of msgs for batch
+	wire.ConcreteType{walMsgOpenBatch{}, 0x01},    // Beginning of msgs for batch
+	wire.ConcreteType{walMsgCloseBatch{}, 0x02},   // End of msgs for batch
 	wire.ConcreteType{walMsgAddNode{}, 0x03},      // Operation: Create a node
 	wire.ConcreteType{walMsgDelNode{}, 0x04},      // Operation: Delete a node
 	wire.ConcreteType{walMsgBatchStarted{}, 0x05}, // Processing of batch started
 	wire.ConcreteType{walMsgBatchEnded{}, 0x06},   // Processing of batch ended
 )
 
-type walMsgBatchHead struct {
+type walMsgOpenBatch struct {
 	Height int
 }
 
-type walMsgBatchFoot struct {
+type walMsgCloseBatch struct {
 	Height int
 }
 
@@ -101,8 +97,19 @@ type walMsgBatchEnded struct {
 //----------------------------------------
 
 const (
-	walMarkerBatchFoot  = "#BF:"
+	walMarkerOpenBatch  = "#OB:"
+	walMarkerCloseBatch = "#CB:"
 	walMarkerBatchEnded = "#BE:"
+)
+
+type BatchStatus int
+
+const (
+	batchStatusPending = 1
+	batchStatusOpened  = 2
+	batchStatusClosed  = 3
+	batchStatusStarted = 4
+	batchStatusEnded   = 5
 )
 
 //--------------------------------------------------------------------------------
@@ -110,8 +117,11 @@ const (
 type WAL struct {
 	BaseService
 
-	group *auto.Group
-	db    dbm.DB
+	group       *auto.Group
+	db          dbm.DB
+	batchHeight int
+	batchStatus BatchStatus
+	batchMsgs   []WALMessage
 }
 
 func NewWAL(walDir string, db dbm.DB) (*WAL, error) {
@@ -128,12 +138,11 @@ func NewWAL(walDir string, db dbm.DB) (*WAL, error) {
 		db:    db,
 	}
 	wal.BaseService = *NewBaseService(nil, "WAL", wal)
+	wal.doRecover()
 	return wal, nil
 }
 
 func (wal *WAL) OnStart() error {
-	// Run the processor
-	go wal.processRoutine()
 	return nil
 }
 
@@ -144,87 +153,76 @@ func (wal *WAL) OnStop() {
 	return
 }
 
-func (wal *WAL) write(msg WALMessage) {
-	// We need to b64 encode them, newlines not allowed within message
-	var msgBytes = wire.BinaryBytes(struct{ WALMessage }{msg})
-	var msgBytesB64 = base64.StdEncoding.EncodeToString(msgBytes)
-	err := wal.group.WriteLine(string(msgBytesB64))
-	if err != nil {
-		panic(Fmt("Error writing msg to WAL: %v \n\nMessage: %v", err, msg))
+func (wal *WAL) doRecover() {
+	closeBatchHeight := wal.findLastCloseBatchHeight()
+	batchEndedHeight := wal.findLastBatchEndedHeight()
+	if closeBatchHeight == batchEndedHeight {
+		wal.batchHeight = closeBatchHeight + 1
+		wal.batchStatus = batchStatusPending
+		return
 	}
-
-	// Write markers for certain messages
-	switch msg := msg.(type) {
-	case walMsgBatchFoot:
-		err := wal.group.WriteLine(walMarkerBatchFoot + Fmt("%v", msg.Height))
-		if err != nil {
-			panic(Fmt("Error writing BatchFoot marker to WAL: %v", err))
-		}
-	case walMsgBatchEnded:
-		err := wal.group.WriteLine(walMarkerBatchEnded + Fmt("%v", msg.Height))
-		if err != nil {
-			panic(Fmt("Error writing BatchEnded marker to WAL: %v", err))
-		}
+	if closeBatchHeight == batchEndedHeight+1 {
+		wal.batchHeight = closeBatchHeight
+		wal.batchStatus = batchStatusClosed
+		msgs := wal.getMsgsForBatch(closeBatchHeight)
+		wal.processWALMessages(closeBatchHeight, msgs)
+		return
 	}
+	panic(Fmt("Inconsistent closeBatch height %v vs batchEnded height %v", closeBatchHeight, batchEndedHeight))
 }
 
-// This routine will process batches, creating new nodes
-// and deleting orphaned nodes.
-func (wal *WAL) processRoutine() {
-
-	var gr *auto.GroupReader
-	var height int
-	var err error
-
-	// Create a reader to stream msgs
-	// Search for latest BatchEnded message, and play from there.
-	match, found, err := wal.group.FindLast(walMarkerBatchEnded)
+func (wal *WAL) findLastCloseBatchHeight() int {
+	match, found, err := wal.group.FindLast(walMarkerCloseBatch)
 	if err != nil {
-		panic(err)
+		panic(Fmt("Could not find last CloseBatch: %v", err))
 	}
 	if !found {
-		// No BatchEnded has been found, so presumably this is a new WAL.
+		return 0
+	}
+	height, err := strconv.Atoi(match[len(walMarkerCloseBatch):])
+	if err != nil {
+		panic(Fmt("Error parsing CloseBatch marker: %v", err))
+	}
+	return height
+}
+
+func (wal *WAL) findLastBatchEndedHeight() int {
+	match, found, err := wal.group.FindLast(walMarkerBatchEnded)
+	if err != nil {
+		panic(Fmt("Could not find last BatchEnded: %v", err))
+	}
+	if !found {
+		return 0
+	}
+	height, err := strconv.Atoi(match[len(walMarkerBatchEnded):])
+	if err != nil {
+		panic(Fmt("Error parsing BatchEnded marker: %v", err))
+	}
+	return height
+}
+
+func (wal *WAL) getMsgsForBatch(height int) []WALMessage {
+	gr, found, err := wal.group.Search(walMarkerOpenBatch,
+		auto.MakeSimpleSearchFunc(walMarkerOpenBatch, height),
+	)
+	if err != nil {
+		panic(Fmt("Error searching for OpenBatch@%v: %v", height, err))
+	}
+	if !found {
+		// No OpenBatch has been found, so presumably this is a new WAL.
 		gr, err = wal.group.NewReader(0)
 		if err != nil {
-			panic(Fmt("Error loading WAL file index 0 for processing: %v", err))
-		}
-	} else {
-		// Search again to get the reader for matched marker.
-		height, err = strconv.Atoi(match[len(walMarkerBatchEnded):])
-		if err != nil {
-			panic(Fmt("Error parsing BatchEnded marker: %v", err))
-		}
-		var found bool
-		gr, found, err = wal.group.Search(walMarkerBatchEnded,
-			auto.MakeSimpleSearchFunc(walMarkerBatchEnded, height),
-		)
-		if err != nil {
-			panic(Fmt("Error searching for BatchEnded@%v: %v", height, err))
-		}
-		if !found {
-			panic(Fmt("Expected BatchEnded@%v, but found something else", height))
+			panic(Fmt("Error loading WAL file index 0: %v", err))
 		}
 	}
+	defer gr.Close()
 
-	// Processor collects batch msgs for height before proceeding
-	batchMsgs := []WALMessage{}
-
-	// Read every line and process each block after reading it all.
+	// Read lines from gr for batch @ height
+	var batchMsgs = []WALMessage{}
 	for {
-		if !wal.IsRunning() {
-			break
-		}
-
-		// Read a line
 		line, err := gr.ReadLine()
 		if err != nil {
-			if err == io.EOF {
-				// Nothing more to read, sleep for a bit
-				time.Sleep(time.Second)
-				continue
-			} else {
-				panic(Fmt("Error reading line from WAL: %v", err))
-			}
+			panic(Fmt("Error reading line from WAL: %v", err))
 		}
 
 		// If line is a marker, ignore it.
@@ -233,7 +231,6 @@ func (wal *WAL) processRoutine() {
 		}
 
 		// Parse message
-		line = strings.TrimRight(line, "\n")
 		msgBytes, err := base64.StdEncoding.DecodeString(line)
 		if err != nil {
 			panic(Fmt("Error parsing line from WAL: %v", err))
@@ -244,71 +241,137 @@ func (wal *WAL) processRoutine() {
 			panic(Fmt("Error parsing line from WAL: %v", err))
 		}
 
-		// Process message
 		switch msg := msg.(type) {
-		case walMsgBatchHead:
-			if height == msg.Height {
-				// It is possible for a batch to be opened multiple times.
-				// Just reset the batch.
-				batchMsgs = []WALMessage{}
-			} else if height+1 != msg.Height {
-				panic(Fmt("Unexpected BatchHead height %v, expected %v", msg.Height, height+1))
-			} else if len(batchMsgs) != 0 {
-				panic(Fmt("Variable batchMsgs has unexpected msgs"))
-			}
-			height = msg.Height
-		case walMsgBatchFoot:
+		case walMsgCloseBatch:
 			if height != msg.Height {
-				panic(Fmt("Unexpected BatchFoot height %v, expected %v", msg.Height, height))
+				panic(Fmt("Unexpected CloseBatch height %v, expected %v", msg.Height, height))
 			}
-			// Process batchMsgs
-			wal.processWALMessages(height, batchMsgs)
-			// Clear batchMsgs
-			batchMsgs = []WALMessage{}
+			return batchMsgs
 		case walMsgAddNode, walMsgDelNode:
 			batchMsgs = append(batchMsgs, msg)
+		default:
+			panic(Fmt("Unexpected message %v (%v)", msg, reflect.TypeOf(msg)))
+		}
+	}
+}
+
+func (wal *WAL) write(msg WALMessage) {
+	// Write markers for certain messages
+	switch msg := msg.(type) {
+	case walMsgOpenBatch:
+		err := wal.group.WriteLine(walMarkerOpenBatch + Fmt("%v", msg.Height))
+		if err != nil {
+			panic(Fmt("Error writing OpenBatch marker to WAL: %v", err))
+		}
+	}
+
+	// We need to b64 encode them, newlines not allowed within message
+	var msgBytes = wire.BinaryBytes(struct{ WALMessage }{msg})
+	var msgBytesB64 = base64.StdEncoding.EncodeToString(msgBytes)
+	err := wal.group.WriteLine(string(msgBytesB64))
+	if err != nil {
+		panic(Fmt("Error writing msg to WAL: %v \n\nMessage: %v", err, msg))
+	}
+
+	// Write markers for certain messages
+	switch msg := msg.(type) {
+	case walMsgCloseBatch:
+		err := wal.group.WriteLine(walMarkerCloseBatch + Fmt("%v", msg.Height))
+		if err != nil {
+			panic(Fmt("Error writing CloseBatch marker to WAL: %v", err))
+		}
+	case walMsgBatchEnded:
+		err := wal.group.WriteLine(walMarkerBatchEnded + Fmt("%v", msg.Height))
+		if err != nil {
+			panic(Fmt("Error writing BatchEnded marker to WAL: %v", err))
 		}
 	}
 }
 
 func (wal *WAL) processWALMessages(height int, msgs []WALMessage) {
-	// Write BatchEnded
+	if wal.batchHeight != height {
+		panic(Fmt("Unexpected height in processWALMessages. Got %v, expected %v", height, wal.batchHeight))
+	}
+	if wal.batchStatus != batchStatusClosed {
+		panic(Fmt("Unexpected status in processWALMessages. Got %v, expected %v", wal.batchStatus, batchStatusClosed))
+	}
+
+	// Write BatchStarted
 	wal.write(walMsgBatchStarted{height})
+
+	// TODO: consider compressing add/dels,
+	// Sometimes we delete and add the same ndoe in the same batch.
 
 	// Process messages
 	for _, msg := range msgs {
 		switch msg := msg.(type) {
 		case walMsgAddNode:
+			// fmt.Printf("ADDNODE %X\n", msg.Key)
 			wal.db.Set(msg.Key, msg.Value)
 		case walMsgDelNode:
+			// fmt.Printf("DELNODE %X\n", msg.Key)
 			wal.db.Delete(msg.Key)
 		}
 	}
-
-	// Write BatchEnded
-	wal.write(walMsgBatchEnded{height})
 
 	// Flush db
 	// TODO: need an official API
 	// TODO: verify that this does what we think it does.
 	wal.db.SetSync(nil, nil)
+
+	// Write BatchEnded
+	wal.write(walMsgBatchEnded{height})
+	wal.group.Head.Sync()
+
+	wal.batchHeight += 1
+	wal.batchStatus = batchStatusPending
 }
 
 //----------------------------------------
+// NOTE: Not goroutine safe
 
-func (wal *WAL) StartHeight(height int) {
-	wal.write(walMsgBatchHead{height})
+func (wal *WAL) OpenBatch() {
+	if wal.batchStatus != batchStatusPending {
+		panic(Fmt("Expected batchStatusPending, got %v", wal.batchStatus))
+	}
+	height := wal.batchHeight
+	wal.batchStatus = batchStatusOpened
+	wal.write(walMsgOpenBatch{height})
 }
 
 func (wal *WAL) AddNode(key []byte, value []byte) {
-	wal.write(walMsgAddNode{key, value})
+	if wal.batchStatus != batchStatusOpened {
+		panic(Fmt("Expected batchStatusOpened, got %v", wal.batchStatus))
+	}
+	msg := walMsgAddNode{key, value}
+	wal.batchMsgs = append(wal.batchMsgs, msg)
+	wal.write(msg)
 }
 
 func (wal *WAL) DelNode(key []byte) {
-	wal.write(walMsgDelNode{key})
+	if wal.batchStatus != batchStatusOpened {
+		panic(Fmt("Expected batchStatusOpened, got %v", wal.batchStatus))
+	}
+	// fmt.Printf("!DELNODE %X\n", key)
+	msg := walMsgDelNode{key}
+	wal.batchMsgs = append(wal.batchMsgs, msg)
+	wal.write(msg)
 }
 
-func (wal *WAL) EndHeightSync(height int) {
-	wal.write(walMsgBatchFoot{height})
+func (wal *WAL) CloseBatchSync() {
+	if wal.batchStatus != batchStatusOpened {
+		panic(Fmt("Expected batchStatusOpened, got %v", wal.batchStatus))
+	}
+	height := wal.batchHeight
+	wal.write(walMsgCloseBatch{height})
 	wal.group.Head.Sync()
+	wal.batchStatus = batchStatusClosed
+}
+
+func (wal *WAL) ProcessBatchSync() {
+	if wal.batchStatus != batchStatusClosed {
+		panic(Fmt("Expected batchStatusClosed, got %v", wal.batchStatus))
+	}
+	wal.processWALMessages(wal.batchHeight, wal.batchMsgs)
+	wal.batchMsgs = nil
 }

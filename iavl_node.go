@@ -2,8 +2,9 @@ package merkle
 
 import (
 	"bytes"
-	"golang.org/x/crypto/ripemd160"
 	"io"
+
+	"golang.org/x/crypto/ripemd160"
 
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-wire"
@@ -163,10 +164,8 @@ func (node *IAVLNode) hashWithCount(t *IAVLTree) ([]byte, int) {
 	if err != nil {
 		PanicCrisis(err)
 	}
-	// fmt.Printf("Wrote IAVL hash bytes: %X\n", buf.Bytes())
 	hasher.Write(buf.Bytes())
 	node.hash = hasher.Sum(nil)
-	// fmt.Printf("Write IAVL hash: %X\n", node.hash)
 
 	return node.hash, hashCount + 1
 }
@@ -270,7 +269,7 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 				rightNode: node,
 			}, false
 		} else if cmp == 0 {
-			t.addOrphan(node)
+			removeOrphan(t, node)
 			return NewIAVLNode(key, value), true
 		} else {
 			return &IAVLNode{
@@ -282,7 +281,7 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 			}, false
 		}
 	} else {
-		t.addOrphan(node)
+		removeOrphan(t, node)
 		node = node._copy()
 		if bytes.Compare(key, node.key) < 0 {
 			node.leftNode, updated = node.getLeftNode(t).set(t, key, value)
@@ -307,7 +306,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, removed bool) {
 	if node.height == 0 {
 		if bytes.Compare(key, node.key) == 0 {
-			t.addOrphan(node)
+			removeOrphan(t, node)
 			return nil, nil, nil, node.value, true
 		} else {
 			return node.hash, node, nil, nil, false
@@ -322,7 +321,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 			} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
 				return node.rightHash, node.rightNode, node.key, value, true
 			}
-			t.addOrphan(node)
+			removeOrphan(t, node)
 			node = node._copy()
 			node.leftHash, node.leftNode = newLeftHash, newLeftNode
 			node.calcHeightAndSize(t)
@@ -337,7 +336,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 			} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
 				return node.leftHash, node.leftNode, nil, value, true
 			}
-			t.addOrphan(node)
+			removeOrphan(t, node)
 			node = node._copy()
 			node.rightHash, node.rightNode = newRightHash, newRightNode
 			if newKey != nil {
@@ -371,7 +370,7 @@ func (node *IAVLNode) getRightNode(t *IAVLTree) *IAVLNode {
 func (node *IAVLNode) rotateRight(t *IAVLTree) *IAVLNode {
 	// node = node._copy()
 	l := node.getLeftNode(t)
-	t.addOrphan(l)
+	removeOrphan(t, l)
 	_l := l._copy()
 
 	_lrHash, _lrCached := _l.rightHash, _l.rightNode
@@ -388,7 +387,7 @@ func (node *IAVLNode) rotateRight(t *IAVLTree) *IAVLNode {
 func (node *IAVLNode) rotateLeft(t *IAVLTree) *IAVLNode {
 	// node = node._copy()
 	r := node.getRightNode(t)
-	t.addOrphan(r)
+	removeOrphan(t, r)
 	_r := r._copy()
 
 	_rlHash, _rlCached := _r.leftHash, _r.leftNode
@@ -425,7 +424,7 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode) {
 			// Left Right Case
 			// node = node._copy()
 			left := node.getLeftNode(t)
-			t.addOrphan(left)
+			removeOrphan(t, left)
 			node.leftHash, node.leftNode = nil, left.rotateLeft(t)
 			//node.calcHeightAndSize()
 			return node.rotateRight(t)
@@ -439,7 +438,7 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode) {
 			// Right Left Case
 			// node = node._copy()
 			right := node.getRightNode(t)
-			t.addOrphan(right)
+			removeOrphan(t, right)
 			node.rightHash, node.rightNode = nil, right.rotateRight(t)
 			//node.calcHeightAndSize()
 			return node.rotateLeft(t)
@@ -481,4 +480,16 @@ func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
 		return node
 	}
 	return node.getRightNode(t).rmd(t)
+}
+
+//----------------------------------------
+
+func removeOrphan(t *IAVLTree, node *IAVLNode) {
+	if !node.persisted {
+		return
+	}
+	if t.ndb == nil {
+		return
+	}
+	t.ndb.RemoveNode(t, node)
 }
