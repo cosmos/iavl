@@ -125,11 +125,7 @@ type WAL struct {
 }
 
 func NewWAL(walDir string, db dbm.DB) (*WAL, error) {
-	head, err := auto.OpenAutoFile(walDir + "/wal")
-	if err != nil {
-		return nil, err
-	}
-	group, err := auto.OpenGroup(head)
+	group, err := auto.OpenGroup(walDir + "/wal")
 	if err != nil {
 		return nil, err
 	}
@@ -138,18 +134,18 @@ func NewWAL(walDir string, db dbm.DB) (*WAL, error) {
 		db:    db,
 	}
 	wal.BaseService = *NewBaseService(nil, "WAL", wal)
-	wal.doRecover()
 	return wal, nil
 }
 
 func (wal *WAL) OnStart() error {
+	wal.doRecover()   // NOTE: must happen before wal.group.Start()
+	wal.group.Start() // NOTE: group cleanup starts after .Start()
 	return nil
 }
 
 func (wal *WAL) OnStop() {
 	wal.BaseService.OnStop()
-	wal.group.Head.Close()
-	wal.group.Close()
+	wal.group.Stop()
 	return
 }
 
@@ -306,10 +302,8 @@ func (wal *WAL) processWALMessages(height int, msgs []WALMessage) {
 	for _, msg := range msgs {
 		switch msg := msg.(type) {
 		case walMsgAddNode:
-			// fmt.Printf("ADDNODE %X\n", msg.Key)
 			wal.db.Set(msg.Key, msg.Value)
 		case walMsgDelNode:
-			// fmt.Printf("DELNODE %X\n", msg.Key)
 			wal.db.Delete(msg.Key)
 		}
 	}
@@ -352,7 +346,6 @@ func (wal *WAL) DelNode(key []byte) {
 	if wal.batchStatus != batchStatusOpened {
 		panic(Fmt("Expected batchStatusOpened, got %v", wal.batchStatus))
 	}
-	// fmt.Printf("!DELNODE %X\n", key)
 	msg := walMsgDelNode{key}
 	wal.batchMsgs = append(wal.batchMsgs, msg)
 	wal.write(msg)
