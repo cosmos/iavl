@@ -7,3 +7,6 @@ test:
 
 get_deps:
 	go get github.com/tendermint/go-merkle/...
+
+bench:
+	go test github.com/tendermint/go-merkle/... -tags gcc -bench=.
