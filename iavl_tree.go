@@ -171,21 +171,25 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 //-----------------------------------------------------------------------------
 
 type nodeDB struct {
-	mtx        sync.Mutex
-	cache      map[string]*list.Element
-	cacheSize  int
-	cacheQueue *list.List
-	db         dbm.DB
-	batch      dbm.Batch
+	mtx         sync.Mutex
+	cache       map[string]*list.Element
+	cacheSize   int
+	cacheQueue  *list.List
+	db          dbm.DB
+	batch       dbm.Batch
+	orphans     map[string]struct{}
+	orphansPrev map[string]struct{}
 }
 
 func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 	ndb := &nodeDB{
-		cache:      make(map[string]*list.Element),
-		cacheSize:  cacheSize,
-		cacheQueue: list.New(),
-		db:         db,
-		batch:      db.NewBatch(),
+		cache:       make(map[string]*list.Element),
+		cacheSize:   cacheSize,
+		cacheQueue:  list.New(),
+		db:          db,
+		batch:       db.NewBatch(),
+		orphans:     make(map[string]struct{}),
+		orphansPrev: make(map[string]struct{}),
 	}
 	return ndb
 }
@@ -238,6 +242,10 @@ func (ndb *nodeDB) SaveNode(t *IAVLTree, node *IAVLNode) {
 	ndb.batch.Set(node.hash, buf.Bytes())
 	node.persisted = true
 	ndb.cacheNode(node)
+	// Re-creating the orphan,
+	// Do not garbage collect.
+	delete(ndb.orphans, string(node.hash))
+	delete(ndb.orphansPrev, string(node.hash))
 }
 
 func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
@@ -249,12 +257,12 @@ func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
 	if !node.persisted {
 		PanicSanity("Shouldn't be calling remove on a non-persisted node.")
 	}
-	ndb.batch.Delete(node.hash)
 	elem, ok := ndb.cache[string(node.hash)]
 	if ok {
 		ndb.cacheQueue.Remove(elem)
 		delete(ndb.cache, string(node.hash))
 	}
+	ndb.orphans[string(node.hash)] = struct{}{}
 }
 
 func (ndb *nodeDB) cacheNode(node *IAVLNode) {
@@ -269,7 +277,17 @@ func (ndb *nodeDB) cacheNode(node *IAVLNode) {
 }
 
 func (ndb *nodeDB) Commit() {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	// Delete orphans from previous block
+	for orphanHashStr, _ := range ndb.orphansPrev {
+		ndb.batch.Delete([]byte(orphanHashStr))
+	}
+	// Write saves & orphan deletes
 	ndb.batch.Write()
 	ndb.db.SetSync(nil, nil)
 	ndb.batch = ndb.db.NewBatch()
+	// Shift orphans
+	ndb.orphansPrev = ndb.orphans
+	ndb.orphans = make(map[string]struct{})
 }
