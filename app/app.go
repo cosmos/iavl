@@ -5,6 +5,7 @@ import (
 
 	abci "github.com/tendermint/abci/types"
 	. "github.com/tendermint/go-common"
+	dbm "github.com/tendermint/go-db"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
 )
@@ -13,11 +14,49 @@ type MerkleEyesApp struct {
 	state State
 }
 
-func NewMerkleEyesApp() *MerkleEyesApp {
-	tree := merkle.NewIAVLTree(
-		0,
-		nil,
-	)
+func NewMerkleEyesApp(dbPath string) *MerkleEyesApp {
+
+	if dbPath == "" {
+
+		tree := merkle.NewIAVLTree(
+			0,
+			nil,
+		)
+		return &MerkleEyesApp{state: NewState(tree)}
+	}
+
+	/////////////////////
+	//  Load Database
+
+	//Keyz for db values which hold information which isn't the contents of a Merkle tree
+	dBKeyMerkleHash := []byte(cmn.DBKeyMerkleHash)
+
+	//setup the persistent merkle tree to be used by both the UI and TMSP
+	oldDBNotPresent, _ := cmn.IsDirEmpty(path.Join(dBName, dBName) + ".db")
+
+	if oldDBNotPresent {
+		fmt.Println("no existing db, creating new db")
+	} else {
+		fmt.Println("loading existing db")
+	}
+
+	//open the db, if the db doesn't exist it will be created
+	pwkDB := dbm.NewDB(dBName, dbm.DBBackendLevelDB, dBName)
+
+	/////////////////////
+	// Load Tree
+
+	tree := merkle.NewIAVLTree(cacheSize, pwkDB)
+
+	//for WAL version of go-merkle
+	//state = merkle.NewIAVLTree(cacheSize, path.Join(dBName, cmn.WalSubDir), pwkDB)
+
+	//either load, or set and load the merkle state
+	if oldDBNotPresent {
+		pwkDB.Set(dBKeyMerkleHash, tree.Save())
+	}
+	tree.Load(pwkDB.Get([]byte(dBKeyMerkleHash)))
+
 	return &MerkleEyesApp{state: NewState(tree)}
 }
 

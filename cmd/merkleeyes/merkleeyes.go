@@ -1,8 +1,8 @@
 package main
 
 import (
-	. "github.com/tendermint/go-common"
 	"github.com/tendermint/abci/server"
+	. "github.com/tendermint/go-common"
 	"github.com/urfave/cli"
 	"os"
 
@@ -28,6 +28,11 @@ func main() {
 					Value: "socket",
 					Usage: "socket | grpc",
 				},
+				cli.StringFlag{
+					Name:  "dbPath",
+					Value: "",
+					Usage: "specifies relative path for saving db file for persistence",
+				},
 			},
 			Action: func(c *cli.Context) {
 				cmdServer(app, c)
@@ -43,7 +48,8 @@ func main() {
 func cmdServer(app *cli.App, c *cli.Context) {
 	addr := c.String("address")
 	abci := c.String("abci")
-	mApp := application.NewMerkleEyesApp()
+	dbPath := c.String("dbPath")
+	mApp := application.NewMerkleEyesApp(dbPath)
 
 	// Start the listener
 	s, err := server.NewServer(addr, abci, mApp)
