@@ -392,10 +392,10 @@ func TestIAVLProof(t *testing.T) {
 
 }
 
-func BenchmarkImmutableAvlTreeLevelDB2(b *testing.B) {
+func BenchmarkImmutableAvlTreeGoLevelDB(b *testing.B) {
 	b.StopTimer()
 
-	db := db.NewDB("test", "leveldb2", "./")
+	db := db.NewDB("test", "goleveldb", "./")
 	t := NewIAVLTree(100000, db)
 	// for i := 0; i < 10000000; i++ {
 	for i := 0; i < 1000000; i++ {

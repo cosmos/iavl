@@ -6,6 +6,7 @@ test:
 	go test `glide novendor`
 
 bench:
+	rm -rf ./test.db
 	go test -bench .
 
 get_deps:
