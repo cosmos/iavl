@@ -6,7 +6,7 @@ test:
 	go test -v -race `glide novendor`
 
 bench:
-	go test `glide novendor` -tags gcc -bench=.
+	go test `glide novendor` -bench=.
 
 get_deps:
 	go get github.com/Masterminds/glide
