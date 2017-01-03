@@ -328,8 +328,6 @@ func TestIterateRange(t *testing.T) {
 
 	// insert all the data
 	for _, r := range records {
-		//t.Log("New record", r)
-		//PrintIAVLNode(tree.root)
 		updated := tree.Set([]byte(r.key), []byte(r.value))
 		if updated {
 			t.Error("should have not been updated")
