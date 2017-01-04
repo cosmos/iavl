@@ -34,6 +34,7 @@ Thus, we would see the same benchmark run against memdb with 100K items, golevel
 Scenarios to run after db is set up.
   * Pure query time (known/hits, vs. random/misses)
   * Write timing (known/updates, vs. random/inserts)
+  * Delete timing (existing keys only)
   * TMSP Usage:
     * For each block size:
       * 2x copy "last commit" -> check and real
@@ -69,6 +70,14 @@ Some guides:
   * [Profiling running programs](http://blog.ralch.com/tutorial/golang-performance-and-memory-analysis/)
   * [Dave Chenny's profiler pkg](https://github.com/pkg/profile)
 
+Some ideas for speedups:
+
+  * [Speedup SHA256 100x on ARM](https://blog.minio.io/accelerating-sha256-by-100x-in-golang-on-arm-1517225f5ff4#.pybt7bb3w)
+  * [Faster SHA256 golang implementation](https://github.com/minio/sha256-simd)
+  * [Data structure alignment](http://stackoverflow.com/questions/39063530/optimising-datastructure-word-alignment-padding-in-golang)
+  * [Slice alignment](http://blog.chewxy.com/2016/07/25/on-the-memory-alignment-of-go-slice-values/)
+  * [Tool to analyze your structs](https://github.com/dominikh/go-structlayout)
+
 ## Tree Re-implementation
 
 If we want to copy lots of objects, it becomes better to think of using memcpy on large (eg. 4-16KB) buffers than copying individual structs.  We also could allocate arrays of structs and align them to remove a lot of memory management and gc overhead. That means going down to some C-level coding...
@@ -89,8 +98,6 @@ Storing each link in the tree in leveldb treats each node as an isolated item.  
 Inspired by the [Array representation](http://www.cse.hut.fi/en/research/SVG/TRAKLA2/tutorials/heap_tutorial/taulukkona.html) link above, we could consider other layouts for the nodes. For example, rather than store them alone, or the entire tree in one big array, the nodes could be placed in groups of 15 based on the parent (parent and 3 generations of children).  Then we have 4 levels before jumping to another location.  Maybe we just store this larger chunk as one leveldb location, or really try to do the mmap ourselves...
 
 In any case, assuming around 100 bytes for one non-leaf node (3 sha hashes, plus prefix, plus other data), 15 nodes would be a little less than 2K, maybe even go one more level to 31 nodes and 3-4KB, where we could take best advantage of the memory/disk page size.
-
-
 
 Some links for thought:
 
