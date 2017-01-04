@@ -26,6 +26,9 @@ exploremem:
 	cd benchmarks && \
 		go tool pprof --alloc_objects benchmarks.test mem.out
 
+delve:
+	dlv test ./benchmarks -- -test.bench=.
+
 get_deps:
 	go get github.com/Masterminds/glide
 	rm -rf ./vendor

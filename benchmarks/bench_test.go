@@ -48,7 +48,7 @@ func runKnownQueries(b *testing.B, t merkle.Tree, keys [][]byte) {
 	}
 }
 
-func runInsert(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int) {
+func runInsert(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int) merkle.Tree {
 	for i := 1; i <= b.N; i++ {
 		t.Set(randBytes(keyLen), randBytes(dataLen))
 		if i%blockSize == 0 {
@@ -56,9 +56,10 @@ func runInsert(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int) {
 			t.Save()
 		}
 	}
+	return t
 }
 
-func runUpdate(b *testing.B, t merkle.Tree, dataLen, blockSize int, keys [][]byte) {
+func runUpdate(b *testing.B, t merkle.Tree, dataLen, blockSize int, keys [][]byte) merkle.Tree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
@@ -68,12 +69,15 @@ func runUpdate(b *testing.B, t merkle.Tree, dataLen, blockSize int, keys [][]byt
 			t.Save()
 		}
 	}
+	return t
 }
 
-func runDelete(b *testing.B, t merkle.Tree, blockSize int, keys [][]byte) {
+func runDelete(b *testing.B, t merkle.Tree, blockSize int, keys [][]byte) merkle.Tree {
+	var key []byte
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
-		key := keys[rand.Int31n(l)]
+		key = keys[rand.Int31n(l)]
+		// key = randBytes(16)
 		// TODO: test if removed, use more keys (from insert)
 		t.Remove(key)
 		if i%blockSize == 0 {
@@ -81,9 +85,10 @@ func runDelete(b *testing.B, t merkle.Tree, blockSize int, keys [][]byte) {
 			t.Save()
 		}
 	}
+	return t
 }
 
-func runTMSP(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [][]byte) {
+func runTMSP(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [][]byte) merkle.Tree {
 	l := int32(len(keys))
 
 	lastCommit := t
@@ -115,6 +120,10 @@ func runTMSP(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [
 			check = lastCommit.Copy()
 		}
 	}
+
+	real.Hash()
+	real.Save()
+	return real
 }
 
 func xxxBenchmarkRandomBytes(b *testing.B) {
@@ -140,7 +149,7 @@ func BenchmarkAllTrees(b *testing.B) {
 		initSize, blockSize int
 		keyLen, dataLen     int
 	}{
-		{"", 100000, 100, 16, 40},
+		{"nodb", 100000, 100, 16, 40},
 		{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
 		// FIXME: this crashes on init! Either remove support, or make it work.
@@ -149,11 +158,7 @@ func BenchmarkAllTrees(b *testing.B) {
 	}
 
 	for _, bb := range benchmarks {
-		name := bb.dbType
-		if name == "" {
-			name = "nodb"
-		}
-		prefix := fmt.Sprintf("%s-%d-%d-%d-%d", name, bb.initSize,
+		prefix := fmt.Sprintf("%s-%d-%d-%d-%d", bb.dbType, bb.initSize,
 			bb.blockSize, bb.keyLen, bb.dataLen)
 
 		// prepare a dir for the db and cleanup afterwards
@@ -167,7 +172,7 @@ func BenchmarkAllTrees(b *testing.B) {
 
 		// note that "" leads to nil backing db!
 		var d db.DB
-		if bb.dbType != "" {
+		if bb.dbType != "nodb" {
 			d = db.NewDB("test", bb.dbType, dirName)
 			defer d.Close()
 		}
@@ -189,19 +194,16 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 		runKnownQueries(sub, t, keys)
 	})
 	b.Run("update", func(sub *testing.B) {
-		runUpdate(sub, t, dataLen, blockSize, keys)
+		t = runUpdate(sub, t, dataLen, blockSize, keys)
 	})
 	b.Run("insert", func(sub *testing.B) {
-		runInsert(sub, t, keyLen, dataLen, blockSize)
+		t = runInsert(sub, t, keyLen, dataLen, blockSize)
 	})
-
-	// FIXME: this consistently causes a panic, but it doesn't show up in a simple test....
-	// needs more investigation
-	// b.Run("delete", func(sub *testing.B) {
-	// 	runDelete(sub, t, blockSize, keys)
-	// })
-	// b.Run("tmsp", func(sub *testing.B) {
-	// 	runTMSP(sub, t, keyLen, dataLen, blockSize, keys)
-	// })
+	b.Run("delete", func(sub *testing.B) {
+		t = runDelete(sub, t, blockSize, keys)
+	})
+	b.Run("tmsp", func(sub *testing.B) {
+		t = runTMSP(sub, t, keyLen, dataLen, blockSize, keys)
+	})
 
 }
