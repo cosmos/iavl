@@ -1,11 +1,16 @@
-go test -bench .
-ok, starting
-BenchmarkImmutableAvlTreeLevelDB2-4     ok, starting
-ok, starting
-    2000      813477 ns/op
-ok, starting
-BenchmarkImmutableAvlTreeMemDB-4        ok, starting
-ok, starting
-   10000      104649 ns/op
-PASS
-ok    github.com/tendermint/go-merkle 229.565s
+BenchmarkAllTrees/nodb-100000-100-16-40-query-miss-4              1000000          1196 ns/op
+BenchmarkAllTrees/nodb-100000-100-16-40-query-hits-4              1000000          1260 ns/op
+BenchmarkAllTrees/nodb-100000-100-16-40-update-4                    50000         31754 ns/op
+BenchmarkAllTrees/nodb-100000-100-16-40-insert-4                    50000         31604 ns/op
+BenchmarkAllTrees/memdb-100000-100-16-40-query-miss-4              200000          9774 ns/op
+BenchmarkAllTrees/memdb-100000-100-16-40-query-hits-4              200000          9903 ns/op
+BenchmarkAllTrees/memdb-100000-100-16-40-update-4                   20000         69031 ns/op
+BenchmarkAllTrees/memdb-100000-100-16-40-insert-4                   20000         91232 ns/op
+BenchmarkAllTrees/goleveldb-100000-100-16-40-query-miss-4          100000         20575 ns/op
+BenchmarkAllTrees/goleveldb-100000-100-16-40-query-hits-4           50000         24519 ns/op
+BenchmarkAllTrees/goleveldb-100000-100-16-40-update-4               10000        155247 ns/op
+BenchmarkAllTrees/goleveldb-100000-100-16-40-insert-4               10000        212377 ns/op
+BenchmarkAllTrees/leveldb-100000-100-16-40-query-miss-4             50000         21785 ns/op
+BenchmarkAllTrees/leveldb-100000-100-16-40-query-hits-4             50000         26326 ns/op
+BenchmarkAllTrees/leveldb-100000-100-16-40-update-4                 10000        145976 ns/op
+BenchmarkAllTrees/leveldb-100000-100-16-40-insert-4                 10000        216629 ns/op

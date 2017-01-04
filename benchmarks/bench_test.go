@@ -27,6 +27,7 @@ func prepareTree(db db.DB, size, keyLen, dataLen int) (merkle.Tree, [][]byte) {
 		t.Set(key, randBytes(dataLen))
 		keys[i] = key
 	}
+	t.Hash()
 	t.Save()
 	runtime.GC()
 	return t, keys
@@ -116,7 +117,7 @@ func runTMSP(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [
 	}
 }
 
-func bbenchmarkRandomBytes(b *testing.B) {
+func xxxBenchmarkRandomBytes(b *testing.B) {
 	benchmarks := []struct {
 		length int
 	}{
@@ -142,7 +143,7 @@ func BenchmarkAllTrees(b *testing.B) {
 		{"", 100000, 100, 16, 40},
 		{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
-		// FIXME: this crashes on init!
+		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
 		{"leveldb", 100000, 100, 16, 40},
 	}
@@ -152,7 +153,7 @@ func BenchmarkAllTrees(b *testing.B) {
 		if name == "" {
 			name = "nodb"
 		}
-		prefix := fmt.Sprintf("%s-%d-%d-%d-%d-", name, bb.initSize,
+		prefix := fmt.Sprintf("%s-%d-%d-%d-%d", name, bb.initSize,
 			bb.blockSize, bb.keyLen, bb.dataLen)
 
 		// prepare a dir for the db and cleanup afterwards
@@ -170,35 +171,37 @@ func BenchmarkAllTrees(b *testing.B) {
 			d = db.NewDB("test", bb.dbType, dirName)
 			defer d.Close()
 		}
-		runSuite(b, prefix, d, bb.initSize, bb.blockSize, bb.keyLen, bb.dataLen)
+		b.Run(prefix, func(sub *testing.B) {
+			runSuite(sub, d, bb.initSize, bb.blockSize, bb.keyLen, bb.dataLen)
+		})
 	}
 }
 
-func runSuite(b *testing.B, prefix string, d db.DB, initSize, blockSize, keyLen, dataLen int) {
+func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	// setup code
 	t, keys := prepareTree(d, initSize, keyLen, dataLen)
 	b.ResetTimer()
 
-	b.Run(prefix+"query-miss", func(b *testing.B) {
-		runQueries(b, t, keyLen)
+	b.Run("query-miss", func(sub *testing.B) {
+		runQueries(sub, t, keyLen)
 	})
-	b.Run(prefix+"query-hits", func(b *testing.B) {
-		runKnownQueries(b, t, keys)
+	b.Run("query-hits", func(sub *testing.B) {
+		runKnownQueries(sub, t, keys)
 	})
-	b.Run(prefix+"update", func(b *testing.B) {
-		runUpdate(b, t, dataLen, blockSize, keys)
+	b.Run("update", func(sub *testing.B) {
+		runUpdate(sub, t, dataLen, blockSize, keys)
 	})
-	b.Run(prefix+"insert", func(b *testing.B) {
-		runInsert(b, t, keyLen, dataLen, blockSize)
+	b.Run("insert", func(sub *testing.B) {
+		runInsert(sub, t, keyLen, dataLen, blockSize)
 	})
 
 	// FIXME: this consistently causes a panic, but it doesn't show up in a simple test....
 	// needs more investigation
-	// b.Run(prefix+"delete", func(b *testing.B) {
-	// 	runDelete(b, t, blockSize, keys)
+	// b.Run("delete", func(sub *testing.B) {
+	// 	runDelete(sub, t, blockSize, keys)
 	// })
-	// b.Run(prefix+"tmsp", func(b *testing.B) {
-	// 	runTMSP(b, t, keyLen, dataLen, blockSize, keys)
+	// b.Run("tmsp", func(sub *testing.B) {
+	// 	runTMSP(sub, t, keyLen, dataLen, blockSize, keys)
 	// })
 
 }
