@@ -58,7 +58,9 @@ func N(l, r interface{}) *IAVLNode {
 
 // Setup a deep node
 func T(n *IAVLNode) *IAVLTree {
-	t := NewIAVLTree(0, nil)
+	d := db.NewDB("test", "memdb", "")
+	t := NewIAVLTree(0, d)
+
 	n.hashWithCount(t)
 	t.root = n
 	return t
