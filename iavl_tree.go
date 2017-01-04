@@ -207,7 +207,7 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 		// Doesn't exist, load.
 		buf := ndb.db.Get(hash)
 		if len(buf) == 0 {
-			ndb.db.Print()
+			// ndb.db.Print()
 			PanicSanity(Fmt("Value missing for key %X", hash))
 		}
 		node, err := MakeIAVLNode(buf, t)

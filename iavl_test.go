@@ -3,6 +3,7 @@ package merkle
 import (
 	"bytes"
 	"fmt"
+	mrand "math/rand"
 
 	. "github.com/tendermint/go-common"
 	. "github.com/tendermint/go-common/test"
@@ -228,6 +229,43 @@ func TestUnit(t *testing.T) {
 
 	expectRemove(t11, 4, "((1 2) (3 5))", 2)
 	expectRemove(t11, 3, "((1 2) (4 5))", 1)
+
+}
+
+func randBytes(length int) []byte {
+	key := make([]byte, length)
+	// math.rand.Read always returns err=nil
+	mrand.Read(key)
+	return key
+}
+
+func TestRemove(t *testing.T) {
+	size := 10000
+	keyLen, dataLen := 16, 40
+
+	d := db.NewDB("test", "memdb", "")
+	defer d.Close()
+	t1 := NewIAVLTree(size, d)
+
+	// insert a bunch of random nodes
+	keys := make([][]byte, size)
+	l := int32(len(keys))
+	for i := 0; i < size; i++ {
+		key := randBytes(keyLen)
+		t1.Set(key, randBytes(dataLen))
+		keys[i] = key
+	}
+
+	for i := 0; i < 10; i++ {
+		step := 50 * i
+		// remove a bunch of existing keys (may have been deleted twice)
+		for j := 0; j < step; j++ {
+			key := keys[mrand.Int31n(l)]
+			t1.Remove(key)
+		}
+		// FIXME: this Save() causes a panic!
+		t1.Save()
+	}
 
 }
 
