@@ -143,12 +143,14 @@ func xxxBenchmarkRandomBytes(b *testing.B) {
 	}
 }
 
-func BenchmarkAllTrees(b *testing.B) {
-	benchmarks := []struct {
-		dbType              string
-		initSize, blockSize int
-		keyLen, dataLen     int
-	}{
+type benchmark struct {
+	dbType              string
+	initSize, blockSize int
+	keyLen, dataLen     int
+}
+
+func BenchmarkMedium(b *testing.B) {
+	benchmarks := []benchmark{
 		{"nodb", 100000, 100, 16, 40},
 		{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
@@ -156,7 +158,65 @@ func BenchmarkAllTrees(b *testing.B) {
 		// {"cleveldb", 100000, 100, 16, 40},
 		{"leveldb", 100000, 100, 16, 40},
 	}
+	runBenchmarks(b, benchmarks)
+}
 
+func BenchmarkSmall(b *testing.B) {
+	benchmarks := []benchmark{
+		{"nodb", 1000, 100, 4, 10},
+		{"memdb", 1000, 100, 4, 10},
+		{"goleveldb", 1000, 100, 4, 10},
+		// FIXME: this crashes on init! Either remove support, or make it work.
+		// {"cleveldb", 100000, 100, 16, 40},
+		{"leveldb", 1000, 100, 4, 10},
+	}
+	runBenchmarks(b, benchmarks)
+}
+
+func BenchmarkLarge(b *testing.B) {
+	benchmarks := []benchmark{
+		{"nodb", 1000000, 100, 16, 40},
+		{"memdb", 1000000, 100, 16, 40},
+		{"goleveldb", 1000000, 100, 16, 40},
+		// FIXME: this crashes on init! Either remove support, or make it work.
+		// {"cleveldb", 100000, 100, 16, 40},
+		{"leveldb", 1000000, 100, 16, 40},
+	}
+	runBenchmarks(b, benchmarks)
+}
+
+func BenchmarkMemInitSizes(b *testing.B) {
+	benchmarks := []benchmark{
+		{"nodb", 10000, 100, 16, 40},
+		{"nodb", 1000000, 100, 16, 40},
+		{"nodb", 10000000, 100, 16, 40},
+	}
+	runBenchmarks(b, benchmarks)
+}
+
+func BenchmarkMemKeySizes(b *testing.B) {
+	benchmarks := []benchmark{
+		{"nodb", 100000, 100, 4, 80},
+		{"nodb", 100000, 100, 16, 80},
+		{"nodb", 100000, 100, 32, 80},
+		{"nodb", 100000, 100, 64, 80},
+		{"nodb", 100000, 100, 128, 80},
+	}
+	runBenchmarks(b, benchmarks)
+}
+
+func BenchmarkLevelDBBatchSizes(b *testing.B) {
+	benchmarks := []benchmark{
+		{"goleveldb", 100000, 5, 16, 40},
+		{"goleveldb", 100000, 25, 16, 40},
+		{"goleveldb", 100000, 100, 16, 40},
+		{"goleveldb", 100000, 400, 16, 40},
+		{"goleveldb", 100000, 2000, 16, 40},
+	}
+	runBenchmarks(b, benchmarks)
+}
+
+func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 	for _, bb := range benchmarks {
 		prefix := fmt.Sprintf("%s-%d-%d-%d-%d", bb.dbType, bb.initSize,
 			bb.blockSize, bb.keyLen, bb.dataLen)

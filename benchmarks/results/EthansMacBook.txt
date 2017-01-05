@@ -1,16 +1,141 @@
-BenchmarkAllTrees/nodb-100000-100-16-40-query-miss-4              1000000          1196 ns/op
-BenchmarkAllTrees/nodb-100000-100-16-40-query-hits-4              1000000          1260 ns/op
-BenchmarkAllTrees/nodb-100000-100-16-40-update-4                    50000         31754 ns/op
-BenchmarkAllTrees/nodb-100000-100-16-40-insert-4                    50000         31604 ns/op
-BenchmarkAllTrees/memdb-100000-100-16-40-query-miss-4              200000          9774 ns/op
-BenchmarkAllTrees/memdb-100000-100-16-40-query-hits-4              200000          9903 ns/op
-BenchmarkAllTrees/memdb-100000-100-16-40-update-4                   20000         69031 ns/op
-BenchmarkAllTrees/memdb-100000-100-16-40-insert-4                   20000         91232 ns/op
-BenchmarkAllTrees/goleveldb-100000-100-16-40-query-miss-4          100000         20575 ns/op
-BenchmarkAllTrees/goleveldb-100000-100-16-40-query-hits-4           50000         24519 ns/op
-BenchmarkAllTrees/goleveldb-100000-100-16-40-update-4               10000        155247 ns/op
-BenchmarkAllTrees/goleveldb-100000-100-16-40-insert-4               10000        212377 ns/op
-BenchmarkAllTrees/leveldb-100000-100-16-40-query-miss-4             50000         21785 ns/op
-BenchmarkAllTrees/leveldb-100000-100-16-40-query-hits-4             50000         26326 ns/op
-BenchmarkAllTrees/leveldb-100000-100-16-40-update-4                 10000        145976 ns/op
-BenchmarkAllTrees/leveldb-100000-100-16-40-insert-4                 10000        216629 ns/op
+cd benchmarks && \
+		go test -bench=Small . && \
+		go test -bench=Medium . && \
+		go test -bench=Large . && \
+		go test -bench=Mem . && \
+		go test -bench=LevelDB .
+BenchmarkSmall/nodb-1000-100-4-10/query-miss-4         	 5000000	       334 ns/op
+BenchmarkSmall/nodb-1000-100-4-10/query-hits-4         	 5000000	       307 ns/op
+BenchmarkSmall/nodb-1000-100-4-10/update-4             	  200000	      7987 ns/op
+BenchmarkSmall/nodb-1000-100-4-10/insert-4             	  100000	     27858 ns/op
+BenchmarkSmall/nodb-1000-100-4-10/tmsp-4               	   50000	     36634 ns/op
+BenchmarkSmall/memdb-1000-100-4-10/query-miss-4        	  300000	      3384 ns/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-4        	  200000	      5270 ns/op
+BenchmarkSmall/memdb-1000-100-4-10/update-4            	   50000	     26320 ns/op
+BenchmarkSmall/memdb-1000-100-4-10/insert-4            	   30000	     70963 ns/op
+BenchmarkSmall/memdb-1000-100-4-10/tmsp-4              	   10000	    119217 ns/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-miss-4    	  300000	      5227 ns/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-4    	  200000	      6958 ns/op
+BenchmarkSmall/goleveldb-1000-100-4-10/update-4        	   30000	     54472 ns/op
+BenchmarkSmall/goleveldb-1000-100-4-10/insert-4        	   10000	    128620 ns/op
+BenchmarkSmall/goleveldb-1000-100-4-10/tmsp-4          	   10000	    226659 ns/op
+BenchmarkSmall/leveldb-1000-100-4-10/query-miss-4      	  300000	      5535 ns/op
+BenchmarkSmall/leveldb-1000-100-4-10/query-hits-4      	  200000	      6398 ns/op
+BenchmarkSmall/leveldb-1000-100-4-10/update-4          	   20000	     72677 ns/op
+BenchmarkSmall/leveldb-1000-100-4-10/insert-4          	   10000	    143344 ns/op
+BenchmarkSmall/leveldb-1000-100-4-10/tmsp-4            	   10000	    218393 ns/op
+PASS
+ok  	github.com/tendermint/go-merkle/benchmarks	37.309s
+BenchmarkMedium/nodb-100000-100-16-40/query-miss-4         	 1000000	      1326 ns/op
+BenchmarkMedium/nodb-100000-100-16-40/query-hits-4         	 1000000	      1379 ns/op
+BenchmarkMedium/nodb-100000-100-16-40/update-4             	   50000	     27912 ns/op
+BenchmarkMedium/nodb-100000-100-16-40/insert-4             	   50000	     30155 ns/op
+BenchmarkMedium/nodb-100000-100-16-40/tmsp-4               	   50000	     38784 ns/op
+BenchmarkMedium/memdb-100000-100-16-40/query-miss-4        	  200000	      8959 ns/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-4        	  200000	     10615 ns/op
+BenchmarkMedium/memdb-100000-100-16-40/update-4            	   20000	     68511 ns/op
+BenchmarkMedium/memdb-100000-100-16-40/insert-4            	   20000	     94676 ns/op
+BenchmarkMedium/memdb-100000-100-16-40/tmsp-4              	   10000	    118835 ns/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-miss-4    	   50000	     22073 ns/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-4    	   50000	     25451 ns/op
+BenchmarkMedium/goleveldb-100000-100-16-40/update-4        	   10000	    169525 ns/op
+BenchmarkMedium/goleveldb-100000-100-16-40/insert-4        	   10000	    249394 ns/op
+BenchmarkMedium/goleveldb-100000-100-16-40/tmsp-4          	    5000	    339975 ns/op
+BenchmarkMedium/leveldb-100000-100-16-40/query-miss-4      	   50000	     20187 ns/op
+BenchmarkMedium/leveldb-100000-100-16-40/query-hits-4      	  100000	     25835 ns/op
+BenchmarkMedium/leveldb-100000-100-16-40/update-4          	   10000	    158235 ns/op
+BenchmarkMedium/leveldb-100000-100-16-40/insert-4          	   10000	    249980 ns/op
+BenchmarkMedium/leveldb-100000-100-16-40/tmsp-4            	    5000	    365689 ns/op
+PASS
+ok  	github.com/tendermint/go-merkle/benchmarks	55.455s
+BenchmarkLarge/nodb-1000000-100-16-40/query-miss-4         	 1000000	      2075 ns/op
+BenchmarkLarge/nodb-1000000-100-16-40/query-hits-4         	  500000	      2267 ns/op
+BenchmarkLarge/nodb-1000000-100-16-40/update-4             	   50000	     29070 ns/op
+BenchmarkLarge/nodb-1000000-100-16-40/insert-4             	   50000	     30913 ns/op
+BenchmarkLarge/nodb-1000000-100-16-40/tmsp-4               	   50000	     49821 ns/op
+BenchmarkLarge/memdb-1000000-100-16-40/query-miss-4        	  100000	     15176 ns/op
+BenchmarkLarge/memdb-1000000-100-16-40/query-hits-4        	  100000	     13926 ns/op
+BenchmarkLarge/memdb-1000000-100-16-40/update-4            	   20000	     72578 ns/op
+BenchmarkLarge/memdb-1000000-100-16-40/insert-4            	   10000	    100763 ns/op
+BenchmarkLarge/memdb-1000000-100-16-40/tmsp-4              	   10000	    127303 ns/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/query-miss-4    	   20000	     59199 ns/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/query-hits-4    	   20000	     57344 ns/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/update-4        	   10000	    277427 ns/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/insert-4        	    3000	    703269 ns/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/tmsp-4          	    2000	   1235629 ns/op
+BenchmarkLarge/leveldb-1000000-100-16-40/query-miss-4      	   20000	     62885 ns/op
+BenchmarkLarge/leveldb-1000000-100-16-40/query-hits-4      	   30000	     51278 ns/op
+BenchmarkLarge/leveldb-1000000-100-16-40/update-4          	   10000	    284281 ns/op
+BenchmarkLarge/leveldb-1000000-100-16-40/insert-4          	    3000	    665288 ns/op
+BenchmarkLarge/leveldb-1000000-100-16-40/tmsp-4            	    2000	   1045413 ns/op
+PASS
+ok  	github.com/tendermint/go-merkle/benchmarks	357.165s
+BenchmarkMemInitSizes/nodb-10000-100-16-40/query-miss-4         	 2000000	       677 ns/op
+BenchmarkMemInitSizes/nodb-10000-100-16-40/query-hits-4         	 2000000	       669 ns/op
+BenchmarkMemInitSizes/nodb-10000-100-16-40/update-4             	  100000	     19059 ns/op
+BenchmarkMemInitSizes/nodb-10000-100-16-40/insert-4             	  100000	     27675 ns/op
+BenchmarkMemInitSizes/nodb-10000-100-16-40/tmsp-4               	   50000	     36321 ns/op
+BenchmarkMemInitSizes/nodb-1000000-100-16-40/query-miss-4       	 1000000	      2156 ns/op
+BenchmarkMemInitSizes/nodb-1000000-100-16-40/query-hits-4       	 1000000	      2210 ns/op
+BenchmarkMemInitSizes/nodb-1000000-100-16-40/update-4           	   50000	     29428 ns/op
+BenchmarkMemInitSizes/nodb-1000000-100-16-40/insert-4           	   50000	     30960 ns/op
+BenchmarkMemInitSizes/nodb-1000000-100-16-40/tmsp-4             	   50000	     56977 ns/op
+BenchmarkMemInitSizes/nodb-10000000-100-16-40/query-miss-4      	  500000	      3213 ns/op
+BenchmarkMemInitSizes/nodb-10000000-100-16-40/query-hits-4      	  500000	      3203 ns/op
+BenchmarkMemInitSizes/nodb-10000000-100-16-40/update-4          	   20000	     61206 ns/op
+BenchmarkMemInitSizes/nodb-10000000-100-16-40/insert-4          	   30000	     64460 ns/op
+BenchmarkMemInitSizes/nodb-10000000-100-16-40/tmsp-4            	   30000	     53596 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-4-80/query-miss-4          	 1000000	      1359 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-4-80/query-hits-4          	 1000000	      1419 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-4-80/update-4              	   50000	     36436 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-4-80/insert-4              	   50000	     37531 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-4-80/tmsp-4                	   30000	     43264 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-16-80/query-miss-4         	 1000000	      1352 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-16-80/query-hits-4         	 1000000	      1328 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-16-80/update-4             	   50000	     34511 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-16-80/insert-4             	   50000	     36571 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-16-80/tmsp-4               	   30000	     42617 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-32-80/query-miss-4         	 1000000	      1319 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-32-80/query-hits-4         	 1000000	      1381 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-32-80/update-4             	   50000	     36739 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-32-80/insert-4             	   50000	     36433 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-32-80/tmsp-4               	   30000	     43048 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-64-80/query-miss-4         	 1000000	      1601 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-64-80/query-hits-4         	 1000000	      1469 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-64-80/update-4             	   50000	     32615 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-64-80/insert-4             	   50000	     37094 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-64-80/tmsp-4               	   30000	     43121 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-128-80/query-miss-4        	 1000000	      1799 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-128-80/query-hits-4        	 1000000	      1420 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-128-80/update-4            	   50000	     34302 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-128-80/insert-4            	   30000	     39611 ns/op
+BenchmarkMemKeySizes/nodb-100000-100-128-80/tmsp-4              	   30000	     42640 ns/op
+PASS
+ok  	github.com/tendermint/go-merkle/benchmarks	466.955s
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/query-miss-4         	   50000	     24787 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/query-hits-4         	   50000	     27590 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/update-4             	   10000	    271492 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/insert-4             	    5000	    347626 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/tmsp-4               	    3000	    528595 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/query-miss-4        	   50000	     23646 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/query-hits-4        	   50000	     27500 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/update-4            	   10000	    208701 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/insert-4            	    5000	    268903 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/tmsp-4              	    5000	    447204 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/query-miss-4       	   50000	     20994 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/query-hits-4       	   50000	     26444 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/update-4           	   10000	    158149 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/insert-4           	   10000	    225172 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/tmsp-4             	    5000	    364781 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/query-miss-4       	   50000	     21196 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/query-hits-4       	   50000	     25626 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/update-4           	   10000	    130477 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/insert-4           	   10000	    180389 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/tmsp-4             	    5000	    309904 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/query-miss-4      	   50000	     22159 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/query-hits-4      	   50000	     26988 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/update-4          	   20000	    111168 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/insert-4          	   10000	    183434 ns/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/tmsp-4            	   10000	    254570 ns/op
+PASS
+ok  	github.com/tendermint/go-merkle/benchmarks	68.654s
