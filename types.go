@@ -14,6 +14,7 @@ type Tree interface {
 	Load(hash []byte)
 	Copy() Tree
 	Iterate(func(key []byte, value []byte) (stop bool)) (stopped bool)
+	IterateRange(start []byte, end []byte, ascending bool, fx func(key []byte, value []byte) (stop bool)) (stopped bool)
 }
 
 type Hashable interface {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	mrand "math/rand"
+	"sort"
 
 	. "github.com/tendermint/go-common"
 	. "github.com/tendermint/go-common/test"
@@ -158,7 +159,7 @@ func TestUnit(t *testing.T) {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
 		// nuke hashes and reconstruct hash, ensure it's the same.
-		tree.root.traverse(tree, func(node *IAVLNode) bool {
+		tree.root.traverse(tree, true, func(node *IAVLNode) bool {
 			node.hash = nil
 			return false
 		})
@@ -334,6 +335,110 @@ func TestIntegration(t *testing.T) {
 		if tree.Size() != len(records)-(i+1) {
 			t.Error("size was wrong", tree.Size(), (len(records) - (i + 1)))
 		}
+	}
+}
+
+func TestIterateRange(t *testing.T) {
+	type record struct {
+		key   string
+		value string
+	}
+
+	records := []record{
+		{"abc", "123"},
+		{"low", "high"},
+		{"fan", "456"},
+		{"foo", "a"},
+		{"foobaz", "c"},
+		{"good", "bye"},
+		{"foobang", "d"},
+		{"foobar", "b"},
+		{"food", "e"},
+		{"foml", "f"},
+	}
+	keys := make([]string, len(records))
+	for i, r := range records {
+		keys[i] = r.key
+	}
+	sort.Strings(keys)
+
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+
+	// insert all the data
+	for _, r := range records {
+		updated := tree.Set([]byte(r.key), []byte(r.value))
+		if updated {
+			t.Error("should have not been updated")
+		}
+	}
+
+	// test traversing the whole node works... in order
+	viewed := []string{}
+	tree.Iterate(func(key []byte, value []byte) bool {
+		viewed = append(viewed, string(key))
+		return false
+	})
+	if len(viewed) != len(keys) {
+		t.Error("not the same number of keys as expected")
+	}
+	for i, v := range viewed {
+		if v != keys[i] {
+			t.Error("Keys out of order", v, keys[i])
+		}
+	}
+
+	trav := traverser{}
+	tree.IterateRange([]byte("foo"), []byte("goo"), true, trav.view)
+	expectTraverse(t, trav, "foo", "food", 5)
+
+	trav = traverser{}
+	tree.IterateRange(nil, []byte("flap"), true, trav.view)
+	expectTraverse(t, trav, "abc", "fan", 2)
+
+	trav = traverser{}
+	tree.IterateRange([]byte("foob"), nil, true, trav.view)
+	expectTraverse(t, trav, "foobang", "low", 6)
+
+	trav = traverser{}
+	tree.IterateRange([]byte("very"), nil, true, trav.view)
+	expectTraverse(t, trav, "", "", 0)
+
+	// make sure backwards also works...
+	trav = traverser{}
+	tree.IterateRange([]byte("fooba"), []byte("food"), false, trav.view)
+	expectTraverse(t, trav, "food", "foobang", 4)
+
+	// make sure backwards also works...
+	trav = traverser{}
+	tree.IterateRange([]byte("g"), nil, false, trav.view)
+	expectTraverse(t, trav, "low", "good", 2)
+
+}
+
+type traverser struct {
+	first string
+	last  string
+	count int
+}
+
+func (t *traverser) view(key, value []byte) bool {
+	if t.first == "" {
+		t.first = string(key)
+	}
+	t.last = string(key)
+	t.count += 1
+	return false
+}
+
+func expectTraverse(t *testing.T, trav traverser, start, end string, count int) {
+	if trav.first != start {
+		t.Error("Bad start", start, trav.first)
+	}
+	if trav.last != end {
+		t.Error("Bad end", end, trav.last)
+	}
+	if trav.count != count {
+		t.Error("Bad count", count, trav.count)
 	}
 }
 
