@@ -366,8 +366,9 @@ func (node *IAVLNode) getRightNode(t *IAVLTree) *IAVLNode {
 }
 
 // NOTE: overwrites node
+// TODO: optimize balance & rotate
 func (node *IAVLNode) rotateRight(t *IAVLTree) *IAVLNode {
-	// node = node._copy()
+	node = node._copy()
 	l := node.getLeftNode(t)
 	removeOrphan(t, l)
 	_l := l._copy()
@@ -383,8 +384,9 @@ func (node *IAVLNode) rotateRight(t *IAVLTree) *IAVLNode {
 }
 
 // NOTE: overwrites node
+// TODO: optimize balance & rotate
 func (node *IAVLNode) rotateLeft(t *IAVLTree) *IAVLNode {
-	// node = node._copy()
+	node = node._copy()
 	r := node.getRightNode(t)
 	removeOrphan(t, r)
 	_r := r._copy()
@@ -410,6 +412,7 @@ func (node *IAVLNode) calcBalance(t *IAVLTree) int {
 }
 
 // NOTE: assumes that node can be modified
+// TODO: optimize balance & rotate
 func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode) {
 	if node.persisted {
 		panic("Unexpected balance() call on persisted node")
