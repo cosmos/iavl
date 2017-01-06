@@ -3,7 +3,7 @@
 all: test
 
 test:
-	go test `glide novendor`
+	go test -v -race `glide novendor`
 
 bench:
 	go test `glide novendor` -tags gcc -bench=.
