@@ -1,12 +1,14 @@
-.PHONY: get_deps build all list_deps install test
+.PHONY: get_deps all bench test
 
 all: test
 
 test:
-	go test github.com/tendermint/go-merkle/...
-
-get_deps:
-	go get github.com/tendermint/go-merkle/...
+	go test `glide novendor`
 
 bench:
-	go test github.com/tendermint/go-merkle/... -tags gcc -bench=.
+	go test `glide novendor` -tags gcc -bench=.
+
+get_deps:
+	go get github.com/Masterminds/glide
+	rm -rf ./vendor
+	glide install

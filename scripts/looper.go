@@ -9,7 +9,6 @@ import (
 )
 
 func main() {
-
 	db := db.NewMemDB()
 	t := merkle.NewIAVLTree(0, db)
 	// 23000ns/op, 43000ops/s

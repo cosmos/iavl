@@ -535,7 +535,7 @@ func TestIAVLProof(t *testing.T) {
 
 }
 
-func BenchmarkImmutableAvlTreeLevelDB(b *testing.B) {
+func BenchmarkImmutableAvlTreeCLevelDB(b *testing.B) {
 	b.StopTimer()
 
 	db := db.NewDB("test", db.CLevelDBBackendStr, "./")
