@@ -11,7 +11,16 @@ test:
 record:
 	make bench | tee benchmarks/results/${BENCH_FILE}
 
+# bench is the basic tests that shouldn't crash an aws instance
 bench:
+	cd benchmarks && \
+		go test -bench=RandomBytes . && \
+		go test -bench=Small . && \
+		go test -bench=Medium . && \
+		go test -bench=BenchmarkMemKeySizes .
+
+# fullbench is extra tests needing lots of memory and to run locally
+fullbench:
 	cd benchmarks && \
 		go test -bench=RandomBytes . && \
 		go test -bench=Small . && \
@@ -19,6 +28,7 @@ bench:
 		go test -timeout=30m -bench=Large . && \
 		go test -bench=Mem . && \
 		go test -timeout=60m -bench=LevelDB .
+
 
 # note that this just profiles the in-memory version, not persistence
 profile:

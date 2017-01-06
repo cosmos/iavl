@@ -191,9 +191,9 @@ func BenchmarkMemInitSizes(b *testing.B) {
 		{"nodb", 70000, 100, 16, 40},
 		{"nodb", 500000, 100, 16, 40},
 		// This uses something like 1.5-2GB RAM
-		// {"nodb", 3500000, 100, 16, 40},
+		{"nodb", 3500000, 100, 16, 40},
 		// This requires something like 5GB RAM and may crash on some AWS instances
-		// {"nodb", 10000000, 100, 16, 40},
+		{"nodb", 10000000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -294,7 +294,7 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 
 	// both of these edit size of the tree too much
 	// need to run with their own tree
-	t = nil
+	t = nil // for gc
 	b.Run("insert", func(sub *testing.B) {
 		it, _ := prepareTree(d, initSize, keyLen, dataLen)
 		sub.ResetTimer()
