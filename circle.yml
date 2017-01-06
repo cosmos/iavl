@@ -1,7 +1,8 @@
 dependencies:
   override:
-    - make get_deps
+    - GOVENDOREXPERIMENT=1 make get_deps
 
 test:
   override:
-    - make test
+    - go version
+    - GOVENDOREXPERIMENT=1 make test
