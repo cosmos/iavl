@@ -18,7 +18,7 @@ The rest of this document is the planned or completed actions for the above-list
 
 ## Cleanup
 
-Done in branch `cleanup_deps` (awaiting PR approval):
+Done in branch `cleanup_deps`:
   * Fixed up dependeny management (go-db etc in glide/vendor)
   * Updated Makefile (test, bench, get_deps)
   * Fixed broken code - `looper.go` and one benchmark didn't run
@@ -49,11 +49,13 @@ Scenarios to run after db is set up.
 
 ## Benchmarks
 
-After writing the benchmarks, I would run them under various environments and store the results under benchmarks directory.  Some useful environments to test:
+After writing the benchmarks, we can run them under various environments and store the results under benchmarks directory.  Some useful environments to test:
 
   * Dev machines
   * Digital ocean small/large machine
   * Various AWS setups
+
+Please run the benchmark on more machines and add the result.  Just type: `make record` in the directory and wait a (long) while (with little other load on the machine).
 
 This will require also a quick setup script to install go and run tests in these environments.  Maybe some scripts even. Also, this will produce a lot of files and we may have to graph them to see something useful...
 

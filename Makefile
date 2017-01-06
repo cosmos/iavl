@@ -1,19 +1,24 @@
 .PHONY: get_deps all bench test profile
 
 PDFFLAGS=-pdf --nodefraction=0.1
+BENCH_FILE=`hostname -s`-`git rev-parse --short HEAD`.txt
 
 all: test
 
 test:
 	go test -v -race `glide novendor`
 
+record:
+	make bench | tee benchmarks/results/${BENCH_FILE}
+
 bench:
 	cd benchmarks && \
+		go test -bench=RandomBytes . && \
 		go test -bench=Small . && \
 		go test -bench=Medium . && \
-		go test -bench=Large . && \
+		go test -timeout=30m -bench=Large . && \
 		go test -bench=Mem . && \
-		go test -bench=LevelDB .
+		go test -timeout=60m -bench=LevelDB .
 
 # note that this just profiles the in-memory version, not persistence
 profile:

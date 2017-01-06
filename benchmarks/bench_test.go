@@ -126,11 +126,11 @@ func runTMSP(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [
 	return real
 }
 
-func xxxBenchmarkRandomBytes(b *testing.B) {
+func BenchmarkRandomBytes(b *testing.B) {
 	benchmarks := []struct {
 		length int
 	}{
-		{4}, {16}, {32},
+		{4}, {16}, {32}, {100}, {1000},
 	}
 	for _, bench := range benchmarks {
 		name := fmt.Sprintf("random-%d", bench.length)
@@ -188,8 +188,12 @@ func BenchmarkLarge(b *testing.B) {
 func BenchmarkMemInitSizes(b *testing.B) {
 	benchmarks := []benchmark{
 		{"nodb", 10000, 100, 16, 40},
-		{"nodb", 1000000, 100, 16, 40},
-		{"nodb", 10000000, 100, 16, 40},
+		{"nodb", 70000, 100, 16, 40},
+		{"nodb", 500000, 100, 16, 40},
+		// This uses something like 1.5-2GB RAM
+		{"nodb", 3500000, 100, 16, 40},
+		// This requires something like 5GB RAM and may crash on some AWS instances
+		// {"nodb", 10000000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -201,6 +205,7 @@ func BenchmarkMemKeySizes(b *testing.B) {
 		{"nodb", 100000, 100, 32, 80},
 		{"nodb", 100000, 100, 64, 80},
 		{"nodb", 100000, 100, 128, 80},
+		{"nodb", 100000, 100, 256, 80},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -212,6 +217,18 @@ func BenchmarkLevelDBBatchSizes(b *testing.B) {
 		{"goleveldb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 400, 16, 40},
 		{"goleveldb", 100000, 2000, 16, 40},
+	}
+	runBenchmarks(b, benchmarks)
+}
+
+// BenchmarkLevelDBLargeData is intended to push disk limits
+// in the leveldb, to make sure not everything is cached
+func BenchmarkLevelDBLargeData(b *testing.B) {
+	benchmarks := []benchmark{
+		{"goleveldb", 50000, 100, 32, 100},
+		{"goleveldb", 50000, 100, 32, 1000},
+		{"goleveldb", 50000, 100, 32, 10000},
+		{"goleveldb", 50000, 100, 32, 100000},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -242,9 +259,24 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 	}
 }
 
+// returns number of MB in use
+func memUseMB() float64 {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	asize := mem.Alloc
+	mb := float64(asize) / 1000000
+	return mb
+}
+
 func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
-	// setup code
+	// measure mem usage
+	runtime.GC()
+	init := memUseMB()
+
 	t, keys := prepareTree(d, initSize, keyLen, dataLen)
+	used := memUseMB() - init
+	fmt.Printf("Init Tree took %0.2f MB\n", used)
+
 	b.ResetTimer()
 
 	b.Run("query-miss", func(sub *testing.B) {
@@ -256,14 +288,21 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	b.Run("update", func(sub *testing.B) {
 		t = runUpdate(sub, t, dataLen, blockSize, keys)
 	})
-	b.Run("insert", func(sub *testing.B) {
-		t = runInsert(sub, t, keyLen, dataLen, blockSize)
-	})
-	b.Run("delete", func(sub *testing.B) {
-		t = runDelete(sub, t, blockSize, keys)
-	})
 	b.Run("tmsp", func(sub *testing.B) {
 		t = runTMSP(sub, t, keyLen, dataLen, blockSize, keys)
 	})
 
+	// both of these edit size of the tree too much
+	// need to run with their own tree
+	b.Run("insert", func(sub *testing.B) {
+		it, _ := prepareTree(d, initSize, keyLen, dataLen)
+		sub.ResetTimer()
+		runInsert(sub, it, keyLen, dataLen, blockSize)
+	})
+
+	b.Run("delete", func(sub *testing.B) {
+		dt, dkeys := prepareTree(d, initSize+sub.N, keyLen, dataLen)
+		sub.ResetTimer()
+		runDelete(sub, dt, blockSize, dkeys)
+	})
 }
