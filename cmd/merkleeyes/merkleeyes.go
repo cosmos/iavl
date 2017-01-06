@@ -29,9 +29,14 @@ func main() {
 					Usage: "socket | grpc",
 				},
 				cli.StringFlag{
-					Name:  "dbPath",
-					Value: "",
-					Usage: "specifies relative path for saving db file for persistence",
+					Name:  "dbName",
+					Value: "", //empty strings create non-persistent db
+					Usage: "database name",
+				},
+				cli.IntFlag{
+					Name:  "cache",
+					Value: 0,
+					Usage: "database cache size",
 				},
 			},
 			Action: func(c *cli.Context) {
@@ -48,8 +53,10 @@ func main() {
 func cmdServer(app *cli.App, c *cli.Context) {
 	addr := c.String("address")
 	abci := c.String("abci")
-	dbPath := c.String("dbPath")
-	mApp := application.NewMerkleEyesApp(dbPath)
+	dbName := c.String("dbName")
+	cache := c.Int("cache")
+
+	mApp := application.NewMerkleEyesApp(dbName, cache)
 
 	// Start the listener
 	s, err := server.NewServer(addr, abci, mApp)

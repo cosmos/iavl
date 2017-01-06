@@ -5,10 +5,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/abci/server"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"
-	"github.com/tendermint/abci/server"
 )
 
 var abciType = "socket"
@@ -18,7 +18,7 @@ func TestClient(t *testing.T) {
 	addr := "tcp://127.0.0.1:46659"
 
 	// Start the listener
-	mApp := app.NewMerkleEyesApp()
+	mApp := app.NewMerkleEyesApp("", 0)
 	s, err := server.NewServer(addr, abciType, mApp)
 	if err != nil {
 		t.Fatal(err.Error())

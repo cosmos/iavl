@@ -3,10 +3,10 @@ package testutil
 import (
 	"testing"
 
+	"github.com/tendermint/abci/server"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"
-	"github.com/tendermint/abci/server"
 )
 
 var abciType = "socket"
@@ -16,7 +16,7 @@ func CreateEyes(t *testing.T) (svr Service, cli *eyes.Client) {
 	addr := "unix://eyes.sock"
 
 	// Start the listener
-	mApp := app.NewMerkleEyesApp()
+	mApp := app.NewMerkleEyesApp("", 0)
 	svr, err := server.NewServer(addr, abciType, mApp)
 	if err != nil {
 		(err.Error())

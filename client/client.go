@@ -27,7 +27,7 @@ func NewClient(addr, abci string) (*Client, error) {
 }
 
 func NewLocalClient() *Client {
-	eyesApp := app.NewMerkleEyesApp()
+	eyesApp := app.NewMerkleEyesApp("", 0) //TODO does this make sense? create a non-persistent instance if a local client?
 	abciClient := abcicli.NewLocalClient(nil, eyesApp)
 	return &Client{
 		Client: abciClient,

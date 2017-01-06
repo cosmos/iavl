@@ -2,6 +2,9 @@ package app
 
 import (
 	"fmt"
+	"io"
+	"os"
+	"path"
 
 	abci "github.com/tendermint/abci/types"
 	. "github.com/tendermint/go-common"
@@ -12,52 +15,69 @@ import (
 
 type MerkleEyesApp struct {
 	state State
+	db    dbm.DB
 }
 
-func NewMerkleEyesApp(dbPath string) *MerkleEyesApp {
+var saveKey []byte = []byte{0x00} //Key for merkle tree save value db values
+var prefix []byte = []byte{0x01}  //Prefix byte for all data saved in the merkle tree, used to prevent key collision with the savekey record
 
-	if dbPath == "" {
+func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 
+	//non-persistent case
+	if dbName == "" {
 		tree := merkle.NewIAVLTree(
 			0,
 			nil,
 		)
-		return &MerkleEyesApp{state: NewState(tree)}
+		return &MerkleEyesApp{
+			state: NewState(tree),
+			db:    nil,
+		}
 	}
 
-	/////////////////////
-	//  Load Database
+	//setup the persistent merkle tree
+	present, _ := IsDirEmpty(path.Join(dbName, dbName+".db"))
 
-	//Keyz for db values which hold information which isn't the contents of a Merkle tree
-	dBKeyMerkleHash := []byte(cmn.DBKeyMerkleHash)
+	//open the db, if the db doesn't exist it will be created
+	db := dbm.NewDB(dbName, dbm.DBBackendLevelDB, dbName)
 
-	//setup the persistent merkle tree to be used by both the UI and TMSP
-	oldDBNotPresent, _ := cmn.IsDirEmpty(path.Join(dBName, dBName) + ".db")
+	// Load Tree
+	tree := merkle.NewIAVLTree(cache, db)
 
-	if oldDBNotPresent {
+	if present {
 		fmt.Println("no existing db, creating new db")
+		db.Set(saveKey, tree.Save())
 	} else {
 		fmt.Println("loading existing db")
 	}
 
-	//open the db, if the db doesn't exist it will be created
-	pwkDB := dbm.NewDB(dBName, dbm.DBBackendLevelDB, dBName)
+	//load merkle state
+	tree.Load(db.Get(saveKey))
 
-	/////////////////////
-	// Load Tree
-
-	tree := merkle.NewIAVLTree(cacheSize, pwkDB)
-
-	//for WAL version of go-merkle
-	//state = merkle.NewIAVLTree(cacheSize, path.Join(dBName, cmn.WalSubDir), pwkDB)
-
-	//either load, or set and load the merkle state
-	if oldDBNotPresent {
-		pwkDB.Set(dBKeyMerkleHash, tree.Save())
+	return &MerkleEyesApp{
+		state: NewState(tree),
+		db:    db,
 	}
-	tree.Load(pwkDB.Get([]byte(dBKeyMerkleHash)))
+}
 
-	return &MerkleEyesApp{state: NewState(tree)}
+//append the prefix before the key, used to prevent db collisions
+func addPrefix(key []byte) []byte {
+	return append(prefix, key...)
+
+}
+
+func IsDirEmpty(name string) (bool, error) {
+	f, err := os.Open(name)
+	if err != nil {
+		return true, err //folder is non-existent
+	}
+	defer f.Close()
+
+	_, err = f.Readdirnames(1) // Or f.Readdir(1)
+	if err == io.EOF {
+		return true, nil
+	}
+	return false, err // Either not empty or error, suits both cases
 }
 
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
@@ -99,7 +119,8 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 		if len(tx) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		tree.Set(key, value)
+
+		tree.Set(addPrefix(key), value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case 0x02: // Remove
 		key, n, err := wire.GetByteSlice(tx)
@@ -110,7 +131,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 		if len(tx) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		tree.Remove(key)
+		tree.Remove(addPrefix(key))
 	default:
 		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
 	}
@@ -118,7 +139,10 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 }
 
 func (app *MerkleEyesApp) Commit() abci.Result {
+
 	hash := app.state.Commit()
+	app.db.Set(saveKey, app.tree.Save())
+
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
@@ -143,7 +167,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 		if len(query) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		_, value, _ := tree.Get(key)
+		_, value, _ := tree.Get(addPrefix(key))
 		return abci.NewResultOK(value, "")
 	case 0x02: // Get by index
 		index, n, err := wire.GetVarint(query)
