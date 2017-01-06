@@ -18,6 +18,7 @@ Run the install scripts (once per machine)
 
 ```
 cd setup
+chmod +x *
 sudo ./INSTALL_ROOT.sh
 ./INSTALL_USER.sh
 ```
