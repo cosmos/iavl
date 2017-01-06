@@ -7,7 +7,7 @@ This has only been tested on Ubuntu 16.04.  It *should* work on Ubuntu 14.04 as 
 
 ## Setting up the machine
 
-Put the files on the machine and login
+Put the files on the machine and login (all code assumes you are in this directory locally)
 
 ```
 scp -r setup user@host:
@@ -36,5 +36,11 @@ Run the benchmarks in a screen:
 ```
 screen
 ~/RUN_BENCHMARKS.sh
-# TODO: copy the results locally and commit to git!
+```
+
+Copy them back from your local machine:
+
+```
+scp user@host:go/src/github.com/tendermint/go-merkle/benchmarks/results/* results
+git add results
 ```
