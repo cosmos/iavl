@@ -1,0 +1,7 @@
+dependencies:
+  override:
+    - make get_deps
+
+test:
+  override:
+    - make test
