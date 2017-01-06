@@ -35,6 +35,7 @@ func NewLocalClient() *Client {
 }
 
 func (client *Client) GetSync(key []byte) (res abci.Result) {
+	key = app.AddPrefix(key)
 	query := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := query
 	buf[0] = 0x01 // Get TypeByte
@@ -49,6 +50,7 @@ func (client *Client) GetSync(key []byte) (res abci.Result) {
 }
 
 func (client *Client) SetSync(key []byte, value []byte) (res abci.Result) {
+	key = app.AddPrefix(key)
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
 	buf[0] = 0x01 // Set TypeByte
@@ -66,6 +68,7 @@ func (client *Client) SetSync(key []byte, value []byte) (res abci.Result) {
 }
 
 func (client *Client) RemSync(key []byte) (res abci.Result) {
+	key = app.AddPrefix(key)
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
 	buf[0] = 0x02 // Rem TypeByte

@@ -14,8 +14,9 @@ import (
 )
 
 type MerkleEyesApp struct {
-	state State
-	db    dbm.DB
+	state      State
+	db         dbm.DB
+	persistent bool
 }
 
 var saveKey []byte = []byte{0x00} //Key for merkle tree save value db values
@@ -30,8 +31,9 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 			nil,
 		)
 		return &MerkleEyesApp{
-			state: NewState(tree),
-			db:    nil,
+			state:      NewState(tree),
+			db:         nil,
+			persistent: false,
 		}
 	}
 
@@ -55,15 +57,16 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 	tree.Load(db.Get(saveKey))
 
 	return &MerkleEyesApp{
-		state: NewState(tree),
-		db:    db,
+		state:      NewState(tree),
+		tree:       tree,
+		db:         db,
+		persistent: true,
 	}
 }
 
 //append the prefix before the key, used to prevent db collisions
-func addPrefix(key []byte) []byte {
+func AddPrefix(key []byte) []byte {
 	return append(prefix, key...)
-
 }
 
 func IsDirEmpty(name string) (bool, error) {
@@ -78,6 +81,10 @@ func IsDirEmpty(name string) (bool, error) {
 		return true, nil
 	}
 	return false, err // Either not empty or error, suits both cases
+}
+
+func (app *MerkleEyesApp) CloseDb() {
+	app.db.Close()
 }
 
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
@@ -120,7 +127,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 
-		tree.Set(addPrefix(key), value)
+		tree.Set(AddPrefix(key), value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case 0x02: // Remove
 		key, n, err := wire.GetByteSlice(tx)
@@ -131,7 +138,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 		if len(tx) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		tree.Remove(addPrefix(key))
+		tree.Remove(AddPrefix(key))
 	default:
 		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
 	}
@@ -141,7 +148,10 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 func (app *MerkleEyesApp) Commit() abci.Result {
 
 	hash := app.state.Commit()
-	app.db.Set(saveKey, app.tree.Save())
+
+	if app.persistent {
+		app.db.Set(saveKey, app.tree.Save())
+	}
 
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
