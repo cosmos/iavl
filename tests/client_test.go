@@ -1,6 +1,8 @@
 package test
 
 import (
+	"bytes"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,35 +14,49 @@ import (
 )
 
 var abciType = "socket"
+var tmspAddr = "tcp://127.0.0.1:46659"
 
 func TestNonPersistent(t *testing.T) {
-	testProcedure(t, "tcp://127.0.0.1:46659", "", 0, false, true)
+	testProcedure(t, tmspAddr, "", 0, false, true)
 }
 
 func TestPersistent(t *testing.T) {
-	testProcedure(t, "tcp://127.0.0.1:46659", "", 0, false, false)
-	//testProcedure(t, "tcp://127.0.0.1:46669", "", 0, true, true)
+	dbName := "testDb"
+	os.RemoveAll(dbName) //remove the database if exists for any reason
+	testProcedure(t, tmspAddr, dbName, 0, false, false)
+	testProcedure(t, tmspAddr, dbName, 0, true, true)
+	os.RemoveAll(dbName) //cleanup, remove database that was created by testProcedure
 }
 
 func testProcedure(t *testing.T, addr, dbName string, cache int, testPersistence, clearRecords bool) {
+
+	checkErr := func(err error) {
+		if err != nil {
+			t.Fatal(err.Error())
+			return
+		}
+	}
 
 	// Start the listener
 	mApp := app.NewMerkleEyesApp(dbName, cache)
 	s, err := server.NewServer(addr, abciType, mApp)
 
-	if err != nil {
-		t.Fatal(err.Error())
-		return
-	}
-	defer s.Stop()
+	defer func() { //Close the database, and server
+		mApp.CloseDb()
+		s.Stop()
+	}()
+	checkErr(err)
 
 	// Create client
 	cli, err := eyes.NewClient(addr, abciType)
-	if err != nil {
-		t.Fatal(err.Error())
-		return
-	}
-	defer cli.Stop()
+
+	//Overwrite previous defer statement
+	defer func() { //Close the database, server, and client
+		mApp.CloseDb()
+		s.Stop()
+		cli.Stop()
+	}()
+	checkErr(err)
 
 	if !testPersistence {
 		// Empty

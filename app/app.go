@@ -19,8 +19,16 @@ type MerkleEyesApp struct {
 	persistent bool
 }
 
+//Database Keys
 var saveKey []byte = []byte{0x00} //Key for merkle tree save value db values
 var prefix []byte = []byte{0x01}  //Prefix byte for all data saved in the merkle tree, used to prevent key collision with the savekey record
+
+//App Usage Keys
+const WriteSet byte = 0x01
+const WriteRem byte = 0x02
+const ReadByKey byte = 0x01
+const ReadByIndex byte = 0x02
+const ReadSize byte = 0x03
 
 func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 
@@ -84,7 +92,9 @@ func IsDirEmpty(name string) (bool, error) {
 }
 
 func (app *MerkleEyesApp) CloseDb() {
-	app.db.Close()
+	if app.db != nil {
+		app.db.Close()
+	}
 }
 
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
@@ -112,7 +122,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 	typeByte := tx[0]
 	tx = tx[1:]
 	switch typeByte {
-	case 0x01: // Set
+	case WriteSet: // Set
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
 			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
@@ -129,7 +139,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 
 		tree.Set(AddPrefix(key), value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
-	case 0x02: // Remove
+	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
 			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
@@ -168,7 +178,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 	typeByte := query[0]
 	query = query[1:]
 	switch typeByte {
-	case 0x01: // Get by key
+	case ReadByKey: // Get by key
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
 			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
@@ -179,7 +189,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 		}
 		_, value, _ := tree.Get(addPrefix(key))
 		return abci.NewResultOK(value, "")
-	case 0x02: // Get by index
+	case ReadByIndex: // Get by index
 		index, n, err := wire.GetVarint(query)
 		if err != nil {
 			return abci.ErrEncodingError.SetLog(Fmt("Error getting index: %v", err.Error()))
@@ -190,7 +200,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 		}
 		_, value := tree.GetByIndex(index)
 		return abci.NewResultOK(value, "")
-	case 0x03: // Get size
+	case ReadSize: // Get size
 		size := tree.Size()
 		res := wire.BinaryBytes(size)
 		return abci.NewResultOK(res, "")

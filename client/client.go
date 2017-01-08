@@ -38,7 +38,7 @@ func (client *Client) GetSync(key []byte) (res abci.Result) {
 	key = app.AddPrefix(key)
 	query := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := query
-	buf[0] = 0x01 // Get TypeByte
+	buf[0] = app.ReadByKey // Get TypeByte
 	buf = buf[1:]
 	wire.PutByteSlice(buf, key)
 	res = client.QuerySync(query)
@@ -53,7 +53,7 @@ func (client *Client) SetSync(key []byte, value []byte) (res abci.Result) {
 	key = app.AddPrefix(key)
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
-	buf[0] = 0x01 // Set TypeByte
+	buf[0] = app.WriteSet // Set TypeByte
 	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
@@ -71,7 +71,7 @@ func (client *Client) RemSync(key []byte) (res abci.Result) {
 	key = app.AddPrefix(key)
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
-	buf[0] = 0x02 // Rem TypeByte
+	buf[0] = app.WriteRem // Rem TypeByte
 	buf = buf[1:]
 	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {
