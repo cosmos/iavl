@@ -4,6 +4,7 @@ type Tree interface {
 	Size() (size int)
 	Height() (height int8)
 	Has(key []byte) (has bool)
+	Proof(key []byte) (proof []byte)
 	Get(key []byte) (index int, value []byte, exists bool)
 	GetByIndex(index int) (key []byte, value []byte)
 	Set(key []byte, value []byte) (updated bool)

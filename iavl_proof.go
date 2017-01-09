@@ -15,23 +15,23 @@ type IAVLProof struct {
 	RootHash   []byte
 }
 
-func (proof *IAVLProof) Verify(keyBytes, valueBytes, rootHash []byte) bool {
-	if !bytes.Equal(keyBytes, proof.LeafNode.KeyBytes) {
-		return false
-	}
-	if !bytes.Equal(valueBytes, proof.LeafNode.ValueBytes) {
-		return false
-	}
-	if !bytes.Equal(rootHash, proof.RootHash) {
-		return false
-	}
+func (proof *IAVLProof) Key() []byte {
+	return proof.LeafNode.KeyBytes
+}
+
+func (proof *IAVLProof) Value() []byte {
+	return proof.LeafNode.ValueBytes
+}
+
+func (proof *IAVLProof) Root() []byte {
+	return proof.RootHash
+}
+
+func (proof *IAVLProof) Valid() bool {
 	hash := proof.LeafNode.Hash()
-	// fmt.Printf("leaf hash: %X\n", hash)
 	for _, branch := range proof.InnerNodes {
 		hash = branch.Hash(hash)
-		// fmt.Printf("branch hash: %X\n", hash)
 	}
-	// fmt.Printf("root: %X, computed: %X\n", proof.RootHash, hash)
 	return bytes.Equal(proof.RootHash, hash)
 }
 

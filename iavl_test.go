@@ -6,6 +6,8 @@ import (
 	mrand "math/rand"
 	"sort"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	. "github.com/tendermint/go-common"
 	. "github.com/tendermint/go-common/test"
 	"github.com/tendermint/go-db"
@@ -471,35 +473,32 @@ func TestPersistence(t *testing.T) {
 	}
 }
 
-func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHash []byte) {
+func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes []byte) {
 	// Proof must verify.
-	if !proof.Verify(keyBytes, valueBytes, rootHash) {
-		t.Errorf("Invalid proof. Verification failed.")
-		return
-	}
+	require.Equal(t, keyBytes, proof.Key())
+	require.Equal(t, valueBytes, proof.Value())
+	require.True(t, proof.Valid())
+
 	// Write/Read then verify.
 	proofBytes := wire.BinaryBytes(proof)
 	n, err := int(0), error(nil)
 	proof2 := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(proofBytes), 0, &n, &err).(*IAVLProof)
-	if err != nil {
-		t.Errorf("Failed to read IAVLProof from bytes: %v", err)
-		return
-	}
-	if !proof2.Verify(keyBytes, valueBytes, rootHash) {
-		// t.Log(Fmt("%X\n%X\n", proofBytes, wire.BinaryBytes(proof2)))
-		t.Errorf("Invalid proof after write/read. Verification failed.")
-		return
-	}
+	require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
+	require.Equal(t, proof.Key(), proof2.Key())
+	require.Equal(t, proof.Value(), proof2.Value())
+	require.Equal(t, proof.Root(), proof2.Root())
+	require.True(t, proof2.Valid())
+
 	// Random mutations must not verify
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
 		badProofBytes := MutateByteSlice(proofBytes)
 		n, err := int(0), error(nil)
 		badProof := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(badProofBytes), testReadLimit, &n, &err).(*IAVLProof)
-		if err != nil {
-			continue // This is fine.
-		}
-		if badProof.Verify(keyBytes, valueBytes, rootHash) {
-			t.Errorf("Proof was still valid after a random mutation:\n%X\n%X", proofBytes, badProofBytes)
+		// may be invalid... errors are okay
+		if err == nil {
+			assert.False(t, badProof.Valid(),
+				"Proof was still valid after a random mutation:\n%X\n%X",
+				proofBytes, badProofBytes)
 		}
 	}
 }
@@ -526,10 +525,9 @@ func TestIAVLProof(t *testing.T) {
 	// Now for each item, construct a proof and verify
 	tree.Iterate(func(key []byte, value []byte) bool {
 		proof := tree.ConstructProof(key)
-		if !bytes.Equal(proof.RootHash, tree.Hash()) {
-			t.Errorf("Invalid proof. Expected root %X, got %X", tree.Hash(), proof.RootHash)
+		if assert.Equal(t, proof.RootHash, tree.Hash()) {
+			testProof(t, proof, key, value)
 		}
-		testProof(t, proof, key, value, tree.Hash())
 		return false
 	})
 

@@ -7,6 +7,7 @@ import (
 
 	. "github.com/tendermint/go-common"
 	dbm "github.com/tendermint/go-db"
+	wire "github.com/tendermint/go-wire"
 )
 
 /*
@@ -80,6 +81,15 @@ func (t *IAVLTree) Has(key []byte) bool {
 		return false
 	}
 	return t.root.has(t, key)
+}
+
+func (t *IAVLTree) Proof(key []byte) []byte {
+	if t.root == nil {
+		return nil
+	}
+	proof := t.ConstructProof(key)
+	proofBytes := wire.BinaryBytes(proof)
+	return proofBytes
 }
 
 func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
