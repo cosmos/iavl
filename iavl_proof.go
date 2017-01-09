@@ -9,6 +9,8 @@ import (
 	"github.com/tendermint/go-wire"
 )
 
+const proofLimit = 1 << 16 // 64 KB
+
 type IAVLProof struct {
 	LeafNode   IAVLProofLeafNode
 	InnerNodes []IAVLProofInnerNode
@@ -33,6 +35,14 @@ func (proof *IAVLProof) Valid() bool {
 		hash = branch.Hash(hash)
 	}
 	return bytes.Equal(proof.RootHash, hash)
+}
+
+// LoadProof will deserialize a IAVLProof from bytes
+func LoadProof(data []byte) (*IAVLProof, error) {
+	// TODO: make go-wire never panic
+	n, err := int(0), error(nil)
+	proof := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(data), proofLimit, &n, &err).(*IAVLProof)
+	return proof, err
 }
 
 type IAVLProofInnerNode struct {
@@ -136,6 +146,10 @@ func (t *IAVLTree) ConstructProof(key []byte) *IAVLProof {
 	proof := &IAVLProof{
 		RootHash: t.root.hash,
 	}
-	t.root.constructProof(t, key, proof)
-	return proof
+	exists := t.root.constructProof(t, key, proof)
+	if exists {
+		return proof
+	} else {
+		return nil
+	}
 }
