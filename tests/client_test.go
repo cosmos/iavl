@@ -49,13 +49,7 @@ func testProcedure(t *testing.T, addr, dbName string, cache int, testPersistence
 
 	// Create client
 	cli, err := eyes.NewClient(addr, abciType)
-
-	//Overwrite previous defer statement
-	defer func() { //Close the database, server, and client
-		mApp.CloseDb()
-		s.Stop()
-		cli.Stop()
-	}()
+	defer cli.Stop()
 	checkErr(err)
 
 	if !testPersistence {
