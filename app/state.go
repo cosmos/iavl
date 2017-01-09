@@ -34,7 +34,8 @@ func (s State) Check() merkle.Tree {
 // starts new Append/Check state, and
 // returns the hash for the commit
 func (s *State) Commit() []byte {
-	hash := s.appendTx.Save()
+	// TODO: use save, broken for now, cuz it requires a backing db
+	hash := s.appendTx.Hash()
 	s.committed = s.appendTx
 	s.appendTx = s.committed.Copy()
 	s.checkTx = s.committed.Copy()

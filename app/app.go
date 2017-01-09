@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	. "github.com/tendermint/go-common"
-	db "github.com/tendermint/go-db"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
 	tmsp "github.com/tendermint/tmsp/types"
@@ -16,8 +15,8 @@ type MerkleEyesApp struct {
 
 func NewMerkleEyesApp() *MerkleEyesApp {
 	tree := merkle.NewIAVLTree(
-		10,
-		db.NewMemDB(),
+		0,
+		nil,
 	)
 	return &MerkleEyesApp{state: NewState(tree)}
 }
