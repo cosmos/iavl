@@ -88,42 +88,41 @@ func runDelete(b *testing.B, t merkle.Tree, blockSize int, keys [][]byte) merkle
 	return t
 }
 
-func runTMSP(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [][]byte) merkle.Tree {
+// runBlock measures time for an entire block, not just one tx
+func runBlock(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [][]byte) merkle.Tree {
 	l := int32(len(keys))
 
 	lastCommit := t
 	real := t.Copy()
 	check := t.Copy()
 
-	for i := 1; i <= b.N; i++ {
-		// 50% insert, 50% update
-		var key []byte
-		if i%2 == 0 {
-			key = keys[rand.Int31n(l)]
-		} else {
-			key = randBytes(keyLen)
-		}
-		data := randBytes(dataLen)
+	for i := 0; i < b.N; i++ {
+		for j := 0; j < blockSize; j++ {
+			// 50% insert, 50% update
+			var key []byte
+			if i%2 == 0 {
+				key = keys[rand.Int31n(l)]
+			} else {
+				key = randBytes(keyLen)
+			}
+			data := randBytes(dataLen)
 
-		// perform query and write on check and then real
-		check.Get(key)
-		check.Set(key, data)
-		real.Get(key)
-		real.Set(key, data)
+			// perform query and write on check and then real
+			check.Get(key)
+			check.Set(key, data)
+			real.Get(key)
+			real.Set(key, data)
+		}
 
 		// at the end of a block, move it all along....
-		if i%blockSize == 0 {
-			real.Hash()
-			real.Save()
-			lastCommit = real
-			real = lastCommit.Copy()
-			check = lastCommit.Copy()
-		}
+		real.Hash()
+		real.Save()
+		lastCommit = real
+		real = lastCommit.Copy()
+		check = lastCommit.Copy()
 	}
 
-	real.Hash()
-	real.Save()
-	return real
+	return lastCommit
 }
 
 func BenchmarkRandomBytes(b *testing.B) {
@@ -288,8 +287,8 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	b.Run("update", func(sub *testing.B) {
 		t = runUpdate(sub, t, dataLen, blockSize, keys)
 	})
-	b.Run("tmsp", func(sub *testing.B) {
-		t = runTMSP(sub, t, keyLen, dataLen, blockSize, keys)
+	b.Run("block", func(sub *testing.B) {
+		t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
 	})
 
 	// both of these edit size of the tree too much
