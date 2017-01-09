@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
@@ -149,4 +150,10 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 	default:
 		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
 	}
+}
+
+func (app *MerkleEyesApp) Proof(key []byte) tmsp.Result {
+	// TODO: we really need to return some sort of error if not there... but what?
+	proof, _ := app.tree.Proof(key)
+	return tmsp.NewResultOK(proof, "")
 }

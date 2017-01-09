@@ -33,11 +33,11 @@ imports:
   subpackages:
   - upnp
 - name: github.com/tendermint/go-db
-  version: 31fdd21c7eaeed53e0ea7ca597fb1e960e2988a5
+  version: 2645626c33d8702739e52a61a55d705c2dfe4530
 - name: github.com/tendermint/go-logger
   version: cefb3a45c0bf3c493a04e9bcd9b1540528be59f2
 - name: github.com/tendermint/go-merkle
-  version: 05042c6ab9cad51d12e4cecf717ae68e3b1409a8
+  version: 1bc9a24706d715cd45403593c6d0a870d70011bb
 - name: github.com/tendermint/go-wire
   version: 3b0adbc86ed8425eaed98516165b6788d9f4de7a
 - name: github.com/tendermint/log15
