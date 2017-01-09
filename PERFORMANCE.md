@@ -1,8 +1,12 @@
 # Performance
 
-After some discussion with Jae on the usability, it seems performance is a big concern.  If every write takes around 1ms, that puts a serious upper limit on the speed of the consensus engine (especially since with the check/tx dichotomy, we need at least two writes and likely two or more queries to handle any transaction).
+After some discussion with Jae on the usability, it seems performance is a big concern.  If every write takes around 1ms, that puts a serious upper limit on the speed of the consensus engine (especially since with the check/tx dichotomy, we need at least two writes (to cache, only one to disk) and likely two or more queries to handle any transaction).
 
-Maybe an ambitious aim, but if a query / insert check / query / insert real sequence can be brought down to 100µs for a database with persistence and a realistic data size, then we could see the potential for 1-2K transactions per block finishing in a second or so (the limiting factor becoming consensus rather than the backing datastore).
+As Jae notes: for CheckTx, a copy of IAVLTree doesn't need to be saved. During CheckTx it'll load inner nodes into the cache. The cache is shared w/ the AppendTx state IAVLTree, so during AppendTx we should save some time. There would only be 1 set of writes. Also, there's quite a bit of free time in between blocks as provided by Tendermint, during which CheckTx can run priming the cache, so hopefully this helps as well.
+
+Jae: That said, I'm not sure exactly what the tx throughput would be during normal running times. I'm hoping that we can have e.g. 3 second blocks w/ say over a hundred txs per sec per block w/ 1 million items. That will get us through for some time, but that time is limited.
+
+Ethan: I agree, and think this works now with goleveldb backing on most host machines.  For public chains, maybe it is desired to push 1000 tx every 3 sec to a block, with a db size of 1 billion items.  10x the throughput with 1000x the data.  That could be a long-term goal, and would scale to the cosmos and beyond.
 
 ## Plan
 
