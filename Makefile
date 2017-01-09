@@ -8,6 +8,9 @@ all: test
 test:
 	go test -v -race `glide novendor`
 
+install:
+	go install ./cmd/...
+
 record:
 	make bench | tee benchmarks/results/${BENCH_FILE}
 

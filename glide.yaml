@@ -2,8 +2,10 @@ package: github.com/tendermint/go-merkle
 import:
 - package: github.com/tendermint/go-common
 - package: github.com/tendermint/go-db
-  branch: develop
+  version: 2645626c33d8702739e52a61a55d705c2dfe4530
 - package: github.com/tendermint/go-wire
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
+- package: gopkg.in/alecthomas/kingpin.v2
+  version: ^2.2.3
