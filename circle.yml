@@ -1,8 +1,11 @@
+machine:
+  environment:
+    GO15VENDOREXPERIMENT: 1
+
 dependencies:
-  override:
-    - GOVENDOREXPERIMENT=1 make get_deps
+  pre:
+    - make get_deps
 
 test:
   override:
-    - go version
-    - GOVENDOREXPERIMENT=1 make test
+    - make test
