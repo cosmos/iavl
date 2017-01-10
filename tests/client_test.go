@@ -1,9 +1,10 @@
 package test
 
 import (
-	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"
@@ -44,7 +45,9 @@ func TestClient(t *testing.T) {
 	get(t, cli, "foa", "", "")
 	get(t, cli, "foz", "", "")
 	rem(t, cli, "foo")
-	// Empty
+	// Not empty until committed...
+	get(t, cli, "foo", "FOO", "")
+	commit(t, cli, "")
 	get(t, cli, "foo", "", "")
 	commit(t, cli, "")
 	// Set foo1, foo2, foo3...
@@ -52,6 +55,10 @@ func TestClient(t *testing.T) {
 	set(t, cli, "foo2", "2")
 	set(t, cli, "foo3", "3")
 	set(t, cli, "foo1", "4")
+	// nothing commited yet...
+	get(t, cli, "foo1", "", "")
+	commit(t, cli, "45B7F856A16CB2F8BB9A4A25587FC71D062BD631")
+	// now we got info
 	get(t, cli, "foo1", "4", "")
 	get(t, cli, "foo2", "2", "")
 	get(t, cli, "foo3", "3", "")
@@ -60,22 +67,19 @@ func TestClient(t *testing.T) {
 	rem(t, cli, "foo1")
 	// Empty
 	commit(t, cli, "")
-
 }
 
 func get(t *testing.T, cli *eyes.Client, key string, value string, err string) {
 	res := cli.GetSync([]byte(key))
-	if !bytes.Equal([]byte(value), res.Data) {
-		t.Errorf("Expected value 0x%X (%v) but got 0x%X", []byte(value), value, res.Data)
+	val := []byte(nil)
+	if value != "" {
+		val = []byte(value)
 	}
+	require.EqualValues(t, val, res.Data)
 	if res.IsOK() {
-		if err != "" {
-			t.Errorf("Expected error %v but got no error", err)
-		}
+		assert.Equal(t, "", err)
 	} else {
-		if err == "" {
-			t.Errorf("Expected no error but got error %v", res.Error())
-		}
+		assert.NotEqual(t, "", err)
 	}
 }
 
@@ -89,10 +93,6 @@ func rem(t *testing.T, cli *eyes.Client, key string) {
 
 func commit(t *testing.T, cli *eyes.Client, hash string) {
 	res := cli.CommitSync()
-	if res.IsErr() {
-		t.Error("Unexpected error getting hash", res.Error())
-	}
-	if hash != Fmt("%X", res.Data) {
-		t.Errorf("Expected hash 0x%v but got 0x%X", hash, res.Data)
-	}
+	require.False(t, res.IsErr(), res.Error())
+	assert.Equal(t, hash, Fmt("%X", res.Data))
 }
