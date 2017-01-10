@@ -95,7 +95,10 @@ func TestAppQueries(t *testing.T) {
 	// proofs come from the last commited state, not working state
 	append = app.AppendTx(removeTx)
 	assert.True(append.IsOK(), append.Log)
-	proof := app.Proof(key)
+	// currently don't support specifying block height
+	proof := app.Proof(key, 1)
+	assert.True(proof.IsErr(), proof.Log)
+	proof = app.Proof(key, 0)
 	if assert.NotEmpty(proof.Data) {
 		loaded, err := merkle.LoadProof(proof.Data)
 		if assert.Nil(err) {
@@ -118,6 +121,6 @@ func TestAppQueries(t *testing.T) {
 	query = app.Query(queryTx)
 	assert.True(query.IsOK(), query.Log)
 	assert.Equal([]byte(nil), query.Data)
-	proof = app.Proof(key)
+	proof = app.Proof(key, 0)
 	assert.Empty(proof.Data)
 }

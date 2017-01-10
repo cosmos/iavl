@@ -126,8 +126,18 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 	}
 }
 
-func (app *MerkleEyesApp) Proof(key []byte) tmsp.Result {
-	// TODO: we really need to return some sort of error if not there... but what?
-	proof, _ := app.state.Committed().Proof(key)
+// Proof fulfills the TMSP app interface. key is the one for which we
+// request a proof.  blockHeight is the height for which we want the proof.
+// If blockHeight is 0, return the last commit.
+func (app *MerkleEyesApp) Proof(key []byte, blockHeight int) tmsp.Result {
+	// TODO: support older commits - right now we don't save the info
+	if blockHeight != 0 {
+		return tmsp.ErrInternalError.SetLog("merkleeyes only supports proofs on latest commit")
+	}
+
+	proof, exists := app.state.Committed().Proof(key)
+	if !exists {
+		return tmsp.NewResultOK(nil, "Key not found")
+	}
 	return tmsp.NewResultOK(proof, "")
 }
