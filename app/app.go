@@ -23,11 +23,13 @@ var saveKey []byte = []byte{0x00} //Key for merkle tree save value db values
 var prefix []byte = []byte{0x01}  //Prefix byte for all data saved in the merkle tree, used to prevent key collision with the savekey record
 
 //App Usage Keys
-const WriteSet byte = 0x01
-const WriteRem byte = 0x02
-const ReadByKey byte = 0x01
-const ReadByIndex byte = 0x02
-const ReadSize byte = 0x03
+const (
+	WriteSet    byte = 0x01
+	WriteRem    byte = 0x02
+	ReadByKey   byte = 0x01
+	ReadByIndex byte = 0x02
+	ReadSize    byte = 0x03
+)
 
 func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 
@@ -47,7 +49,7 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 	present, _ := IsDirEmpty(path.Join(dbName, dbName+".db"))
 
 	//open the db, if the db doesn't exist it will be created
-	db := dbm.NewDB(dbName, dbm.DBBackendLevelDB, dbName)
+	db := dbm.NewDB(dbName, dbm.LevelDBBackendStr, dbName)
 
 	// Load Tree
 	tree := merkle.NewIAVLTree(cache, db)
@@ -103,12 +105,12 @@ func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 
 func (app *MerkleEyesApp) DeliverTx(tx []byte) abci.Result {
 	tree := app.state.Append()
-	return app.DoTx(tree, tx)
+	return app.doTx(tree, tx)
 }
 
 func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	tree := app.state.Check()
-	return app.DoTx(tree, tx)
+	return app.doTx(tree, tx)
 }
 
 func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {

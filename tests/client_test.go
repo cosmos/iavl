@@ -1,7 +1,6 @@
 package test
 
 import (
-	"bytes"
 	"os"
 	"testing"
 
