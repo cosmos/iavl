@@ -10,7 +10,7 @@ type State struct {
 	checkTx   merkle.Tree
 }
 
-func NewState(tree merkle.Tree) State {
+func NewState(tree merkle.Tree, persistent bool) State {
 	return State{
 		committed: tree,
 		deliverTx: tree.Copy(),

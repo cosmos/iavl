@@ -14,9 +14,8 @@ import (
 )
 
 type MerkleEyesApp struct {
-	state      State
-	db         dbm.DB
-	persistent bool
+	state State
+	db    dbm.DB
 }
 
 //Database Keys
@@ -39,9 +38,8 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 			nil,
 		)
 		return &MerkleEyesApp{
-			state:      NewState(tree),
-			db:         nil,
-			persistent: false,
+			state: NewState(tree, false),
+			db:    nil,
 		}
 	}
 
@@ -65,10 +63,8 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 	tree.Load(db.Get(saveKey))
 
 	return &MerkleEyesApp{
-		state:      NewState(tree),
-		tree:       tree,
-		db:         db,
-		persistent: true,
+		state: NewState(tree, true),
+		db:    db,
 	}
 }
 
@@ -159,8 +155,8 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 
 	hash := app.state.Commit()
 
-	if app.persistent {
-		app.db.Set(saveKey, app.tree.Save())
+	if app.db != nil {
+		app.db.Set(saveKey, hash)
 	}
 
 	if app.state.Committed().Size() == 0 {
