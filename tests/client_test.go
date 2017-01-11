@@ -64,23 +64,28 @@ func testProcedure(t *testing.T, addr, dbName string, cache int, testPersistence
 		get(t, cli, "foa", "", "")
 		get(t, cli, "foz", "", "")
 		rem(t, cli, "foo")
-		// Empty
-		get(t, cli, "foo", "", "")
+
+		// Not empty until commit....
+		get(t, cli, "foo", "FOO", "")
 		commit(t, cli, "")
+		get(t, cli, "foo", "", "")
+
 		// Set foo1, foo2, foo3...
 		set(t, cli, "foo1", "1")
 		set(t, cli, "foo2", "2")
 		set(t, cli, "foo3", "3")
 		set(t, cli, "foo1", "4")
+		// nothing commited yet...
+		get(t, cli, "foo1", "", "")
+		commit(t, cli, "FB3B1F101D5059C75455F8476A772CDFCF12B440")
+		// now we got info
 		get(t, cli, "foo1", "4", "")
 		get(t, cli, "foo2", "2", "")
 		get(t, cli, "foo3", "3", "")
-		commit(t, cli, "FB3B1F101D5059C75455F8476A772CDFCF12B440")
 	} else {
 		get(t, cli, "foo1", "4", "")
 		get(t, cli, "foo2", "2", "")
 		get(t, cli, "foo3", "3", "")
-
 	}
 
 	if clearRecords {

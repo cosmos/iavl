@@ -5,6 +5,7 @@ import (
 	abci "github.com/tendermint/abci/types"
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/merkleeyes/app"
+	cmn "github.com/tendermint/merkleeyes/common"
 )
 
 type Client struct {

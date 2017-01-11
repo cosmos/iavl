@@ -2,8 +2,6 @@ package app
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"path"
 
 	abci "github.com/tendermint/abci/types"
@@ -11,6 +9,7 @@ import (
 	dbm "github.com/tendermint/go-db"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
+	cmn "github.com/tendermint/merkleeyes/common"
 )
 
 type MerkleEyesApp struct {
@@ -18,9 +17,7 @@ type MerkleEyesApp struct {
 	db    dbm.DB
 }
 
-//Database Keys
-var saveKey []byte = []byte{0x00} //Key for merkle tree save value db values
-var prefix []byte = []byte{0x01}  //Prefix byte for all data saved in the merkle tree, used to prevent key collision with the savekey record
+var saveKey []byte = []byte{0x00} //Database key for merkle tree save value db values
 
 //App Usage Keys
 const (
@@ -46,7 +43,7 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 	}
 
 	//setup the persistent merkle tree
-	present, _ := IsDirEmpty(path.Join(dbName, dbName+".db"))
+	present, _ := cmn.IsDirEmpty(path.Join(dbName, dbName+".db"))
 
 	//open the db, if the db doesn't exist it will be created
 	db := dbm.NewDB(dbName, dbm.LevelDBBackendStr, dbName)
@@ -68,25 +65,6 @@ func NewMerkleEyesApp(dbName string, cache int) *MerkleEyesApp {
 		state: NewState(tree, true),
 		db:    db,
 	}
-}
-
-//append the prefix before the key, used to prevent db collisions
-func AddPrefix(key []byte) []byte {
-	return append(prefix, key...)
-}
-
-func IsDirEmpty(name string) (bool, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		return true, err //folder is non-existent
-	}
-	defer f.Close()
-
-	_, err = f.Readdirnames(1) // Or f.Readdir(1)
-	if err == io.EOF {
-		return true, nil
-	}
-	return false, err // Either not empty or error, suits both cases
 }
 
 func (app *MerkleEyesApp) CloseDb() {
@@ -135,7 +113,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 
-		tree.Set(AddPrefix(key), value)
+		tree.Set(cmn.AddPrefix(key), value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
@@ -146,7 +124,7 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 		if len(tx) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		tree.Remove(AddPrefix(key))
+		tree.Remove(cmn.AddPrefix(key))
 	default:
 		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
 	}
@@ -185,7 +163,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 		if len(query) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		_, value, _ := tree.Get(addPrefix(key))
+		_, value, _ := tree.Get(cmn.AddPrefix(key))
 		return abci.NewResultOK(value, "")
 	case ReadByIndex: // Get by index
 		index, n, err := wire.GetVarint(query)
