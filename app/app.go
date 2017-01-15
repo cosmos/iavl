@@ -3,10 +3,10 @@ package app
 import (
 	"fmt"
 
+	abci "github.com/tendermint/abci/types"
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
-	tmsp "github.com/tendermint/tmsp/types"
 )
 
 type MerkleEyesApp struct {
@@ -21,27 +21,27 @@ func NewMerkleEyesApp() *MerkleEyesApp {
 	return &MerkleEyesApp{state: NewState(tree)}
 }
 
-func (app *MerkleEyesApp) Info() string {
-	return Fmt("size:%v", app.state.Committed().Size())
+func (app *MerkleEyesApp) Info() abci.ResponseInfo {
+	return abci.ResponseInfo{Data: Fmt("size:%v", app.state.Committed().Size())}
 }
 
 func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 	return "No options are supported yet"
 }
 
-func (app *MerkleEyesApp) AppendTx(tx []byte) tmsp.Result {
+func (app *MerkleEyesApp) DeliverTx(tx []byte) abci.Result {
 	tree := app.state.Append()
 	return app.DoTx(tree, tx)
 }
 
-func (app *MerkleEyesApp) CheckTx(tx []byte) tmsp.Result {
+func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	tree := app.state.Check()
 	return app.DoTx(tree, tx)
 }
 
-func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) tmsp.Result {
+func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
 	if len(tx) == 0 {
-		return tmsp.ErrEncodingError.SetLog("Tx length cannot be zero")
+		return abci.ErrEncodingError.SetLog("Tx length cannot be zero")
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
@@ -49,46 +49,46 @@ func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) tmsp.Result {
 	case 0x01: // Set
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		value, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting value: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(Fmt("Error getting value: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		tree.Set(key, value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case 0x02: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		tree.Remove(key)
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
+		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
 	}
-	return tmsp.OK
+	return abci.OK
 }
 
-func (app *MerkleEyesApp) Commit() tmsp.Result {
+func (app *MerkleEyesApp) Commit() abci.Result {
 	hash := app.state.Commit()
 	if app.state.Committed().Size() == 0 {
-		return tmsp.NewResultOK(nil, "Empty hash for empty tree")
+		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
-	return tmsp.NewResultOK(hash, "")
+	return abci.NewResultOK(hash, "")
 }
 
-func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
+func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 	if len(query) == 0 {
-		return tmsp.OK
+		return abci.OK
 	}
 	tree := app.state.Committed()
 
@@ -98,46 +98,46 @@ func (app *MerkleEyesApp) Query(query []byte) tmsp.Result {
 	case 0x01: // Get by key
 		key, n, err := wire.GetByteSlice(query)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
 		}
 		query = query[n:]
 		if len(query) != 0 {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		_, value, _ := tree.Get(key)
-		return tmsp.NewResultOK(value, "")
+		return abci.NewResultOK(value, "")
 	case 0x02: // Get by index
 		index, n, err := wire.GetVarint(query)
 		if err != nil {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Error getting index: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(Fmt("Error getting index: %v", err.Error()))
 		}
 		query = query[n:]
 		if len(query) != 0 {
-			return tmsp.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 		_, value := tree.GetByIndex(index)
-		return tmsp.NewResultOK(value, "")
+		return abci.NewResultOK(value, "")
 	case 0x03: // Get size
 		size := tree.Size()
 		res := wire.BinaryBytes(size)
-		return tmsp.NewResultOK(res, "")
+		return abci.NewResultOK(res, "")
 	default:
-		return tmsp.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
+		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
 	}
 }
 
-// Proof fulfills the TMSP app interface. key is the one for which we
+// Proof fulfills the ABCI app interface. key is the one for which we
 // request a proof.  blockHeight is the height for which we want the proof.
 // If blockHeight is 0, return the last commit.
-func (app *MerkleEyesApp) Proof(key []byte, blockHeight int) tmsp.Result {
+func (app *MerkleEyesApp) Proof(key []byte, blockHeight int) abci.Result {
 	// TODO: support older commits - right now we don't save the info
 	if blockHeight != 0 {
-		return tmsp.ErrInternalError.SetLog("merkleeyes only supports proofs on latest commit")
+		return abci.ErrInternalError.SetLog("merkleeyes only supports proofs on latest commit")
 	}
 
 	proof, exists := app.state.Committed().Proof(key)
 	if !exists {
-		return tmsp.NewResultOK(nil, "Key not found")
+		return abci.NewResultOK(nil, "Key not found")
 	}
-	return tmsp.NewResultOK(proof, "")
+	return abci.NewResultOK(proof, "")
 }

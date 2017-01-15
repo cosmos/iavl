@@ -8,10 +8,10 @@ import (
 	. "github.com/tendermint/go-common"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"
-	"github.com/tendermint/tmsp/server"
+	"github.com/tendermint/abci/server"
 )
 
-var tmspType = "socket"
+var abciType = "socket"
 
 func TestClient(t *testing.T) {
 
@@ -19,7 +19,7 @@ func TestClient(t *testing.T) {
 
 	// Start the listener
 	mApp := app.NewMerkleEyesApp()
-	s, err := server.NewServer(addr, tmspType, mApp)
+	s, err := server.NewServer(addr, abciType, mApp)
 	if err != nil {
 		t.Fatal(err.Error())
 		return
@@ -27,7 +27,7 @@ func TestClient(t *testing.T) {
 	defer s.Stop()
 
 	// Create client
-	cli, err := eyes.NewClient(addr, tmspType)
+	cli, err := eyes.NewClient(addr, abciType)
 	if err != nil {
 		t.Fatal(err.Error())
 		return

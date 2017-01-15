@@ -1,10 +1,10 @@
 package types
 
-import tmsp "github.com/tendermint/tmsp/types"
+import abci "github.com/tendermint/abci/types"
 
 type MerkleEyser interface {
-	GetSync(key []byte) tmsp.Result
-	SetSync(key []byte, value []byte) tmsp.Result
-	RemSync(key []byte) tmsp.Result
-	CommitSync() tmsp.Result
+	GetSync(key []byte) abci.Result
+	SetSync(key []byte, value []byte) abci.Result
+	RemSync(key []byte) abci.Result
+	CommitSync() abci.Result
 }

@@ -53,7 +53,7 @@ func TestAppQueries(t *testing.T) {
 	assert := assert.New(t)
 
 	app := NewMerkleEyesApp()
-	info := app.Info()
+	info := app.Info().Data
 	assert.Equal("size:0", info)
 	com := app.Commit()
 	assert.Equal([]byte(nil), com.Data)
@@ -65,9 +65,9 @@ func TestAppQueries(t *testing.T) {
 	queryTx := makeQuery(key)
 
 	// need to commit append before it shows in queries
-	append := app.AppendTx(addTx)
+	append := app.DeliverTx(addTx)
 	assert.True(append.IsOK(), append.Log)
-	info = app.Info()
+	info = app.Info().Data
 	assert.Equal("size:0", info)
 	query := app.Query(queryTx)
 	assert.True(query.IsOK(), query.Log)
@@ -76,7 +76,7 @@ func TestAppQueries(t *testing.T) {
 	com = app.Commit()
 	hash := com.Data
 	assert.NotEqual(t, nil, hash)
-	info = app.Info()
+	info = app.Info().Data
 	assert.Equal("size:1", info)
 	query = app.Query(queryTx)
 	assert.True(query.IsOK(), query.Log)
@@ -89,11 +89,11 @@ func TestAppQueries(t *testing.T) {
 	assert.True(com.IsOK(), com.Log)
 	hash2 := com.Data
 	assert.Equal(hash, hash2)
-	info = app.Info()
+	info = app.Info().Data
 	assert.Equal("size:1", info)
 
 	// proofs come from the last commited state, not working state
-	append = app.AppendTx(removeTx)
+	append = app.DeliverTx(removeTx)
 	assert.True(append.IsOK(), append.Log)
 	// currently don't support specifying block height
 	proof := app.Proof(key, 1)
@@ -114,7 +114,7 @@ func TestAppQueries(t *testing.T) {
 	assert.True(com.IsOK(), com.Log)
 	hash3 := com.Data
 	assert.NotEqual(hash, hash3)
-	info = app.Info()
+	info = app.Info().Data
 	assert.Equal("size:0", info)
 
 	// nothing here...

@@ -2,13 +2,13 @@
 
 [![CircleCI](https://circleci.com/gh/tendermint/merkleeyes.svg?style=svg)](https://circleci.com/gh/tendermint/merkleeyes)
 
-A simple [TMSP application](github.com/tendermint/tmsp) serving a [merkle-tree key-value store](github.com/tendermint/go-merkle) 
+A simple [ABCI application](github.com/tendermint/abci) serving a [merkle-tree key-value store](github.com/tendermint/go-merkle) 
 
 # Use
 
 Merkleeyes allows inserts and removes by key, and queries by key or index.
-Inserts and removes happen through the `AppendTx` message, while queries happen through the `Query` message.
-`CheckTx` simply mirrors `AppendTx`.
+Inserts and removes happen through the `DeliverTx` message, while queries happen through the `Query` message.
+`CheckTx` simply mirrors `DeliverTx`.
 
 # Formatting
 
@@ -18,7 +18,7 @@ for serialization.
 Each function (set/insert, remove, get-by-key, get-by-index) has a corresponding type byte:
 
 ```
-AppendTx/CheckTx
+DeliverTx/CheckTx
 --------
 - 0x01 for a set
 - 0x02 for a remove
@@ -41,13 +41,13 @@ which translates to (where `Encode()` is the `go-wire` encoding function):
 ByteType ByteVarintSizeKey BytesVarintKey BytesKey ByteVarintSizeValue BytesVarintValue BytesValue
 ```
 
-For instance, to insert the key-value pair `(eric, clapton)`, you would submit the following bytes in an AppendTx:
+For instance, to insert the key-value pair `(eric, clapton)`, you would submit the following bytes in an DeliverTx:
 
 ```
 010104657269630107636c6170746f6e
 ```
 
-Here's a session from the [tmsp-cli](http://tendermint.com/guide/run-your-first-tmsp-application/):
+Here's a session from the [abci-cli](http://tendermint.com/guide/run-your-first-abci-application/):
 
 ```
 > append_tx 0x010104657269630107636c6170746f6e

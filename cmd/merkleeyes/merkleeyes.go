@@ -2,7 +2,7 @@ package main
 
 import (
 	. "github.com/tendermint/go-common"
-	"github.com/tendermint/tmsp/server"
+	"github.com/tendermint/abci/server"
 	"github.com/urfave/cli"
 	"os"
 
@@ -24,7 +24,7 @@ func main() {
 					Usage: "MerkleEyes server listen address",
 				},
 				cli.StringFlag{
-					Name:  "tmsp",
+					Name:  "abci",
 					Value: "socket",
 					Usage: "socket | grpc",
 				},
@@ -42,11 +42,11 @@ func main() {
 
 func cmdServer(app *cli.App, c *cli.Context) {
 	addr := c.String("address")
-	tmsp := c.String("tmsp")
+	abci := c.String("abci")
 	mApp := application.NewMerkleEyesApp()
 
 	// Start the listener
-	s, err := server.NewServer(addr, tmsp, mApp)
+	s, err := server.NewServer(addr, abci, mApp)
 	if err != nil {
 		Exit(err.Error())
 	}
