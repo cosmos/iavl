@@ -6,14 +6,14 @@ import merkle "github.com/tendermint/go-merkle"
 // from the working state (for CheckTx and AppendTx)
 type State struct {
 	committed merkle.Tree
-	appendTx  merkle.Tree
+	deliverTx merkle.Tree
 	checkTx   merkle.Tree
 }
 
 func NewState(tree merkle.Tree) State {
 	return State{
 		committed: tree,
-		appendTx:  tree.Copy(),
+		deliverTx: tree.Copy(),
 		checkTx:   tree.Copy(),
 	}
 }
@@ -23,7 +23,7 @@ func (s State) Committed() merkle.Tree {
 }
 
 func (s State) Append() merkle.Tree {
-	return s.appendTx
+	return s.deliverTx
 }
 
 func (s State) Check() merkle.Tree {
@@ -35,9 +35,9 @@ func (s State) Check() merkle.Tree {
 // returns the hash for the commit
 func (s *State) Commit() []byte {
 	// TODO: use save, broken for now, cuz it requires a backing db
-	hash := s.appendTx.Hash()
-	s.committed = s.appendTx
-	s.appendTx = s.committed.Copy()
+	hash := s.deliverTx.Hash()
+	s.committed = s.deliverTx
+	s.deliverTx = s.committed.Copy()
 	s.checkTx = s.committed.Copy()
 	return hash
 }
