@@ -129,7 +129,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 // Proof fulfills the ABCI app interface. key is the one for which we
 // request a proof.  blockHeight is the height for which we want the proof.
 // If blockHeight is 0, return the last commit.
-func (app *MerkleEyesApp) Proof(key []byte, blockHeight int) abci.Result {
+func (app *MerkleEyesApp) Proof(key []byte, blockHeight uint64) abci.Result {
 	// TODO: support older commits - right now we don't save the info
 	if blockHeight != 0 {
 		return abci.ErrInternalError.SetLog("merkleeyes only supports proofs on latest commit")
