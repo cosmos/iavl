@@ -6,7 +6,7 @@ import (
 	"github.com/urfave/cli"
 	"os"
 
-	mApp "github.com/tendermint/merkleeyes/app"
+	application "github.com/tendermint/merkleeyes/app"
 )
 
 func main() {
@@ -57,7 +57,7 @@ func cmdServer(app *cli.App, c *cli.Context) {
 	cache := c.Int("cache")
 
 	// Start the listener
-	appInstance := mApp.NewMerkleEyesApp(dbName, cache)
+	mApp := application.NewMerkleEyesApp(dbName, cache)
 	s, err := server.NewServer(addr, abci, mApp)
 
 	if err != nil {
@@ -67,7 +67,7 @@ func cmdServer(app *cli.App, c *cli.Context) {
 	// Wait forever
 	TrapSignal(func() {
 		// Cleanup
-		appInstance.CloseDb()
+		mApp.CloseDb()
 		s.Stop()
 	})
 }

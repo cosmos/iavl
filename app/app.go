@@ -91,7 +91,7 @@ func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	return app.doTx(tree, tx)
 }
 
-func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
+func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 	if len(tx) == 0 {
 		return abci.ErrEncodingError.SetLog("Tx length cannot be zero")
 	}
