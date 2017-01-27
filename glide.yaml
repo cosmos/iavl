@@ -6,8 +6,10 @@ import:
   version: develop
 - package: github.com/tendermint/go-wire
   version: develop
+- package: github.com/tendermint/go-merkle
+  version: develop
 - package: github.com/tendermint/abci
-  version: abci_proof
+  version: abci_proof_jae
 - package: github.com/urfave/cli
 - package: github.com/stretchr/testify
   version: ^1.1.4

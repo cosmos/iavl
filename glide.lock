@@ -1,5 +1,5 @@
-hash: a270d15e8a2dc52282408f869e2335c81a5329834e763ea1a6191c046a84af3e
-updated: 2017-01-14T20:26:59.838839705-08:00
+hash: 6159eafbee433ef13ac9959fe636a2007a084da06dcf32152f406822479ff010
+updated: 2017-01-27T10:52:48.901361453-08:00
 imports:
 - name: github.com/go-stack/stack
   version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
@@ -36,7 +36,7 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/abci
-  version: fdc047ae7af0f0189dd9f21b932eb92ce455ffa5
+  version: 2a4894310d5b0c8f69e99782d7d905f21236f947
   subpackages:
   - client
   - server
@@ -48,7 +48,7 @@ imports:
 - name: github.com/tendermint/go-logger
   version: cefb3a45c0bf3c493a04e9bcd9b1540528be59f2
 - name: github.com/tendermint/go-merkle
-  version: 1bc9a24706d715cd45403593c6d0a870d70011bb
+  version: 653cb1f631528351ddbc359b994eb0c96f0341cd
 - name: github.com/tendermint/go-wire
   version: 2f3b7aafe21c80b19b6ee3210ecb3e3d07c7a471
 - name: github.com/tendermint/log15

@@ -34,62 +34,85 @@ func NewLocalClient() *Client {
 	}
 }
 
-func (client *Client) GetSync(key []byte) (res abci.Result) {
-	query := make([]byte, 1+wire.ByteSliceSize(key))
-	buf := query
-	buf[0] = 0x01 // Get TypeByte
-	buf = buf[1:]
-	wire.PutByteSlice(buf, key)
-	res = client.QuerySync(query)
-	if res.IsErr() {
-		return res
+// Convenience KVStore interface
+func (client *Client) Get(key []byte) (value []byte) {
+	_, value, err := client.GetByKey(key)
+	if err != nil {
+		panic("requesting ABCI Query: " + err.Error())
 	}
-	value := res.Data
-	return abci.NewResultOK(value, "")
+	return value
 }
 
-func (client *Client) SetSync(key []byte, value []byte) (res abci.Result) {
+func (client *Client) GetByKey(key []byte) (index int64, value []byte, err error) {
+	resQuery, err := client.QuerySync(abci.RequestQuery{
+		Path:   "/key",
+		Data:   key,
+		Height: 0,
+	})
+	if err != nil {
+		return
+	}
+	return resQuery.Index, resQuery.Value, nil
+}
+
+// TODO: Support returning index too?
+func (client *Client) GetByKeyWithProof(key []byte) (value []byte, proof []byte, err error) {
+	resQuery, err := client.QuerySync(abci.RequestQuery{
+		Path:   "/key",
+		Data:   key,
+		Height: 0,
+		Prove:  true,
+	})
+	if err != nil {
+		return
+	}
+	return resQuery.Value, resQuery.Proof, nil
+}
+
+func (client *Client) GetByIndex(index int64) (key []byte, value []byte, err error) {
+	resQuery, err := client.QuerySync(abci.RequestQuery{
+		Path:   "/index",
+		Data:   wire.BinaryBytes(index),
+		Height: 0,
+	})
+	if err != nil {
+		return
+	}
+	return resQuery.Key, resQuery.Value, nil
+}
+
+// Convenience KVStore interface
+func (client *Client) Set(key []byte, value []byte) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
 	buf[0] = 0x01 // Set TypeByte
 	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
-		return abci.ErrInternalError.SetLog("encoding key byteslice: " + err.Error())
+		panic("encoding key byteslice: " + err.Error())
 	}
 	buf = buf[n:]
 	n, err = wire.PutByteSlice(buf, value)
 	if err != nil {
-		return abci.ErrInternalError.SetLog("encoding value byteslice: " + err.Error())
+		panic("encoding value byteslice: " + err.Error())
 	}
-	return client.DeliverTxSync(tx)
+	res := client.DeliverTxSync(tx)
+	if res.IsErr() {
+		panic(res.Error())
+	}
 }
 
-func (client *Client) RemSync(key []byte) (res abci.Result) {
+// Convenience
+func (client *Client) Remove(key []byte) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
 	buf[0] = 0x02 // Rem TypeByte
 	buf = buf[1:]
 	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {
-		return abci.ErrInternalError.SetLog("encoding key byteslice: " + err.Error())
+		panic("encoding key byteslice: " + err.Error())
 	}
-	return client.DeliverTxSync(tx)
-}
-
-//----------------------------------------
-// Convenience
-
-func (client *Client) Get(key []byte) (value []byte) {
-	res := client.GetSync(key)
-	if res.IsErr() {
-		panic(res.Error())
-	}
-	return res.Data
-}
-
-func (client *Client) Set(key []byte, value []byte) {
-	res := client.SetSync(key, value)
+	res := client.DeliverTxSync(tx)
 	if res.IsErr() {
 		panic(res.Error())
 	}
