@@ -33,8 +33,8 @@ func (proof *IAVLProof) Verify(key []byte, value []byte, root []byte) bool {
 	return bytes.Equal(proof.RootHash, hash)
 }
 
-// LoadProof will deserialize a IAVLProof from bytes
-func LoadProof(data []byte) (*IAVLProof, error) {
+// ReadProof will deserialize a IAVLProof from bytes
+func ReadProof(data []byte) (*IAVLProof, error) {
 	// TODO: make go-wire never panic
 	n, err := int(0), error(nil)
 	proof := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(data), proofLimit, &n, &err).(*IAVLProof)

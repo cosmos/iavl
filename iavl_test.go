@@ -481,14 +481,14 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHashByt
 
 	// Write/Read then verify.
 	proofBytes := wire.BinaryBytes(proof)
-	proof2, err := LoadProof(proofBytes)
+	proof2, err := ReadProof(proofBytes)
 	require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
 	require.True(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
 
 	// Random mutations must not verify
 	for i := 0; i < 10; i++ {
 		badProofBytes := MutateByteSlice(proofBytes)
-		badProof, err := LoadProof(badProofBytes)
+		badProof, err := ReadProof(badProofBytes)
 		// may be invalid... errors are okay
 		if err == nil {
 			assert.False(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),
@@ -558,7 +558,7 @@ func TestIAVLTreeProof(t *testing.T) {
 	for _, key := range keys {
 		value, proofBytes, exists := tree.Proof(key)
 		if assert.True(t, exists) {
-			proof, err := LoadProof(proofBytes)
+			proof, err := ReadProof(proofBytes)
 			require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
 			assert.True(t, proof.Verify(key, value, root))
 		}
