@@ -477,13 +477,13 @@ func TestPersistence(t *testing.T) {
 
 func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHashBytes []byte) {
 	// Proof must verify.
-	require.True(t, proof.Valid(keyBytes, valueBytes, rootHashBytes))
+	require.True(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
 
 	// Write/Read then verify.
 	proofBytes := wire.BinaryBytes(proof)
 	proof2, err := LoadProof(proofBytes)
 	require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
-	require.True(t, proof2.Valid(keyBytes, valueBytes, proof.RootHash))
+	require.True(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
 
 	// Random mutations must not verify
 	for i := 0; i < 10; i++ {
@@ -491,7 +491,7 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHashByt
 		badProof, err := LoadProof(badProofBytes)
 		// may be invalid... errors are okay
 		if err == nil {
-			assert.False(t, badProof.Valid(keyBytes, valueBytes, rootHashBytes),
+			assert.False(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),
 				"Proof was still valid after a random mutation:\n%X\n%X",
 				proofBytes, badProofBytes)
 		}
@@ -499,9 +499,9 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHashByt
 
 	// targetted changes fails...
 	proof.RootHash = MutateByteSlice(proof.RootHash)
-	assert.False(t, proof.Valid(keyBytes, valueBytes, rootHashBytes))
+	assert.False(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
 	proof2.LeafHash = MutateByteSlice(proof2.LeafHash)
-	assert.False(t, proof2.Valid(keyBytes, valueBytes, rootHashBytes))
+	assert.False(t, proof2.Verify(keyBytes, valueBytes, rootHashBytes))
 }
 
 func TestIAVLProof(t *testing.T) {
@@ -560,7 +560,7 @@ func TestIAVLTreeProof(t *testing.T) {
 		if assert.True(t, exists) {
 			proof, err := LoadProof(proofBytes)
 			require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
-			assert.True(t, proof.Valid(key, value, root))
+			assert.True(t, proof.Verify(key, value, root))
 		}
 	}
 }

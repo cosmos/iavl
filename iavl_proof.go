@@ -17,7 +17,7 @@ type IAVLProof struct {
 	RootHash   []byte
 }
 
-func (proof *IAVLProof) Valid(key []byte, value []byte, root []byte) bool {
+func (proof *IAVLProof) Verify(key []byte, value []byte, root []byte) bool {
 	if !bytes.Equal(proof.RootHash, root) {
 		return false
 	}
