@@ -5,7 +5,6 @@ import (
 	abci "github.com/tendermint/abci/types"
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/merkleeyes/app"
-	cmn "github.com/tendermint/merkleeyes/common"
 )
 
 type Client struct {
@@ -36,7 +35,7 @@ func NewLocalClient() *Client {
 }
 
 func (client *Client) GetSync(key []byte) (res abci.Result) {
-	key = cmn.AddPrefix(key)
+	key = append([]byte{0x01}, key...)
 	query := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := query
 	buf[0] = app.ReadByKey // Get TypeByte
@@ -51,7 +50,7 @@ func (client *Client) GetSync(key []byte) (res abci.Result) {
 }
 
 func (client *Client) SetSync(key []byte, value []byte) (res abci.Result) {
-	key = cmn.AddPrefix(key)
+	key = append([]byte{0x01}, key...)
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
 	buf[0] = app.WriteSet // Set TypeByte
@@ -69,7 +68,7 @@ func (client *Client) SetSync(key []byte, value []byte) (res abci.Result) {
 }
 
 func (client *Client) RemSync(key []byte) (res abci.Result) {
-	key = cmn.AddPrefix(key)
+	key = append([]byte{0x01}, key...)
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
 	buf[0] = app.WriteRem // Rem TypeByte

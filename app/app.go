@@ -6,10 +6,10 @@ import (
 
 	abci "github.com/tendermint/abci/types"
 	. "github.com/tendermint/go-common"
+	cmn "github.com/tendermint/go-common"
 	dbm "github.com/tendermint/go-db"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/merkleeyes/common"
 )
 
 type MerkleEyesApp struct {
@@ -113,7 +113,7 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
 
-		tree.Set(cmn.AddPrefix(key), value)
+		tree.Set(append([]byte{0x01}, key...), value)
 		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
 	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
@@ -124,7 +124,7 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 		if len(tx) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		tree.Remove(cmn.AddPrefix(key))
+		tree.Remove(append([]byte{0x01}, key...))
 	default:
 		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
 	}
@@ -163,7 +163,7 @@ func (app *MerkleEyesApp) Query(query []byte) abci.Result {
 		if len(query) != 0 {
 			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
 		}
-		_, value, _ := tree.Get(cmn.AddPrefix(key))
+		_, value, _ := tree.Get(append([]byte{0x01}, key...))
 		return abci.NewResultOK(value, "")
 	case ReadByIndex: // Get by index
 		index, n, err := wire.GetVarint(query)
