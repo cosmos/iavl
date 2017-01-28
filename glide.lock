@@ -1,5 +1,5 @@
-hash: 20a2d96fbd9576f476d0512dbba9fb131c8fbb8f40b56ece8cf238d6e3a5377d
-updated: 2017-01-27T21:18:29.483392665-08:00
+hash: 716eeb547fb6897b26dba2abc1fac8144170d5e25cf2a621411191ef10d2dd52
+updated: 2017-01-28T09:15:40.462502741-08:00
 imports:
 - name: github.com/go-stack/stack
   version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
@@ -36,7 +36,7 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/abci
-  version: 2a4894310d5b0c8f69e99782d7d905f21236f947
+  version: 8df0bc3a40ccad0d2be10e33c62c404e65c92502
   subpackages:
   - client
   - server
