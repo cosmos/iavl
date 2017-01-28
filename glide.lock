@@ -1,5 +1,5 @@
-hash: 6159eafbee433ef13ac9959fe636a2007a084da06dcf32152f406822479ff010
-updated: 2017-01-27T10:52:48.901361453-08:00
+hash: 20a2d96fbd9576f476d0512dbba9fb131c8fbb8f40b56ece8cf238d6e3a5377d
+updated: 2017-01-27T21:18:29.483392665-08:00
 imports:
 - name: github.com/go-stack/stack
   version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
@@ -42,7 +42,7 @@ imports:
   - server
   - types
 - name: github.com/tendermint/go-common
-  version: 70e694ee76f09058ea38c9ba81b4aa621bd54df1
+  version: 339e135776142939d82bc8e699db0bf391fd938d
 - name: github.com/tendermint/go-db
   version: 2645626c33d8702739e52a61a55d705c2dfe4530
 - name: github.com/tendermint/go-logger

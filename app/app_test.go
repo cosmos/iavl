@@ -12,7 +12,7 @@ import (
 func makeSet(key, value []byte) []byte {
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
-	buf[0] = 0x01 // Set TypeByte
+	buf[0] = WriteSet // Set TypeByte
 	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
@@ -29,7 +29,7 @@ func makeSet(key, value []byte) []byte {
 func makeRemove(key []byte) []byte {
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
-	buf[0] = 0x02 // Set TypeByte
+	buf[0] = WriteRem // Set TypeByte
 	buf = buf[1:]
 	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {
@@ -49,7 +49,7 @@ func makeQuery(key []byte, prove bool, height uint64) (reqQuery abci.RequestQuer
 func TestAppQueries(t *testing.T) {
 	assert := assert.New(t)
 
-	app := NewMerkleEyesApp()
+	app := NewMerkleEyesApp("", 0)
 	info := app.Info().Data
 	assert.Equal("size:0", info)
 	com := app.Commit()

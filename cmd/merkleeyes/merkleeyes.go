@@ -1,8 +1,8 @@
 package main
 
 import (
-	. "github.com/tendermint/go-common"
 	"github.com/tendermint/abci/server"
+	. "github.com/tendermint/go-common"
 	"github.com/urfave/cli"
 	"os"
 
@@ -28,6 +28,16 @@ func main() {
 					Value: "socket",
 					Usage: "socket | grpc",
 				},
+				cli.StringFlag{
+					Name:  "dbName",
+					Value: "", //empty strings create non-persistent db
+					Usage: "database name",
+				},
+				cli.IntFlag{
+					Name:  "cache",
+					Value: 0,
+					Usage: "database cache size",
+				},
 			},
 			Action: func(c *cli.Context) {
 				cmdServer(app, c)
@@ -43,10 +53,13 @@ func main() {
 func cmdServer(app *cli.App, c *cli.Context) {
 	addr := c.String("address")
 	abci := c.String("abci")
-	mApp := application.NewMerkleEyesApp()
+	dbName := c.String("dbName")
+	cache := c.Int("cache")
 
 	// Start the listener
+	mApp := application.NewMerkleEyesApp(dbName, cache)
 	s, err := server.NewServer(addr, abci, mApp)
+
 	if err != nil {
 		Exit(err.Error())
 	}
@@ -54,6 +67,7 @@ func cmdServer(app *cli.App, c *cli.Context) {
 	// Wait forever
 	TrapSignal(func() {
 		// Cleanup
+		mApp.CloseDB()
 		s.Stop()
 	})
 }

@@ -11,12 +11,8 @@ type Client struct {
 	abcicli.Client
 }
 
-// 'addr': if "local", will start an embedded one.
-func NewClient(addr, abci string) (*Client, error) {
-	if addr == "local" {
-		return NewLocalClient(), nil
-	}
-	abciClient, err := abcicli.NewClient(addr, abci, false)
+func NewClient(addr string) (*Client, error) {
+	abciClient, err := abcicli.NewClient(addr, "socket", false)
 	if err != nil {
 		return nil, err
 	}
@@ -26,8 +22,8 @@ func NewClient(addr, abci string) (*Client, error) {
 	return client, nil
 }
 
-func NewLocalClient() *Client {
-	eyesApp := app.NewMerkleEyesApp()
+func NewLocalClient(dbName string, cacheSize int) *Client {
+	eyesApp := app.NewMerkleEyesApp(dbName, cacheSize)
 	abciClient := abcicli.NewLocalClient(nil, eyesApp)
 	return &Client{
 		Client: abciClient,
@@ -85,7 +81,7 @@ func (client *Client) GetByIndex(index int64) (key []byte, value []byte, err err
 func (client *Client) Set(key []byte, value []byte) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
-	buf[0] = 0x01 // Set TypeByte
+	buf[0] = app.WriteSet // Set TypeByte
 	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
@@ -106,7 +102,7 @@ func (client *Client) Set(key []byte, value []byte) {
 func (client *Client) Remove(key []byte) {
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
-	buf[0] = 0x02 // Rem TypeByte
+	buf[0] = app.WriteRem // Rem TypeByte
 	buf = buf[1:]
 	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {

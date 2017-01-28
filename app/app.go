@@ -2,27 +2,74 @@ package app
 
 import (
 	"fmt"
+	"path"
 
 	abci "github.com/tendermint/abci/types"
-	. "github.com/tendermint/go-common"
+	cmn "github.com/tendermint/go-common"
+	dbm "github.com/tendermint/go-db"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
 )
 
 type MerkleEyesApp struct {
 	state State
+	db    dbm.DB
 }
 
-func NewMerkleEyesApp() *MerkleEyesApp {
-	tree := merkle.NewIAVLTree(
-		0,
-		nil,
-	)
-	return &MerkleEyesApp{state: NewState(tree)}
+var saveKey []byte = []byte{0x00} // Database key for merkle tree save value db values
+
+const (
+	WriteSet byte = 0x01
+	WriteRem byte = 0x02
+)
+
+func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
+
+	// Non-persistent case
+	if dbName == "" {
+		tree := merkle.NewIAVLTree(
+			0,
+			nil,
+		)
+		return &MerkleEyesApp{
+			state: NewState(tree, false),
+			db:    nil,
+		}
+	}
+
+	// Setup the persistent merkle tree
+	empty, _ := cmn.IsDirEmpty(path.Join(dbName, dbName+".db"))
+
+	// Open the db, if the db doesn't exist it will be created
+	db := dbm.NewDB(dbName, dbm.LevelDBBackendStr, dbName)
+
+	// Load Tree
+	tree := merkle.NewIAVLTree(cacheSize, db)
+
+	if empty {
+		fmt.Println("no existing db, creating new db")
+		db.Set(saveKey, tree.Save())
+	} else {
+		fmt.Println("loading existing db")
+	}
+
+	// Load merkle state
+	tree.Load(db.Get(saveKey))
+
+	return &MerkleEyesApp{
+		state: NewState(tree, true),
+		db:    db,
+	}
+}
+
+func (app *MerkleEyesApp) CloseDB() {
+	if app.db != nil {
+		app.db.Close()
+	}
 }
 
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
-	return abci.ResponseInfo{Data: Fmt("size:%v", app.state.Committed().Size())}
+	return abci.ResponseInfo{Data: cmn.Fmt("size:%v", app.state.Committed().Size())}
 }
 
 func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
@@ -31,55 +78,62 @@ func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 
 func (app *MerkleEyesApp) DeliverTx(tx []byte) abci.Result {
 	tree := app.state.Append()
-	return app.DoTx(tree, tx)
+	return app.doTx(tree, tx)
 }
 
 func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	tree := app.state.Check()
-	return app.DoTx(tree, tx)
+	return app.doTx(tree, tx)
 }
 
-func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
+func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 	if len(tx) == 0 {
 		return abci.ErrEncodingError.SetLog("Tx length cannot be zero")
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
 	switch typeByte {
-	case 0x01: // Set
+	case WriteSet: // Set
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error reading key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Error reading key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		value, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error reading value: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Error reading value: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Got bytes left over"))
 		}
+
 		tree.Set(key, value)
-		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
-	case 0x02: // Remove
+		fmt.Println("SET", cmn.Fmt("%X", key), cmn.Fmt("%X", value))
+	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error reading key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Error reading key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Got bytes left over"))
 		}
 		tree.Remove(key)
 	default:
-		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
+		return abci.ErrUnknownRequest.SetLog(cmn.Fmt("Unexpected Tx type byte %X", typeByte))
 	}
 	return abci.OK
 }
 
 func (app *MerkleEyesApp) Commit() abci.Result {
+
 	hash := app.state.Commit()
+
+	if app.db != nil {
+		app.db.Set(saveKey, hash)
+	}
+
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
@@ -141,7 +195,7 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 
 	default:
 		resQuery.Code = abci.CodeType_UnknownRequest
-		resQuery.Log = Fmt("Unexpected Query path: %v", reqQuery.Path)
+		resQuery.Log = cmn.Fmt("Unexpected Query path: %v", reqQuery.Path)
 		return
 	}
 }
