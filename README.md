@@ -2,7 +2,7 @@
 
 [![CircleCI](https://circleci.com/gh/tendermint/merkleeyes.svg?style=svg)](https://circleci.com/gh/tendermint/merkleeyes)
 
-A simple [ABCI application](github.com/tendermint/abci) serving a [merkle-tree key-value store](github.com/tendermint/go-merkle) 
+A simple [ABCI application](http://github.com/tendermint/abci) serving a [merkle-tree key-value store](http://github.com/tendermint/go-merkle) 
 
 # Use
 
@@ -47,7 +47,7 @@ For instance, to insert the key-value pair `(eric, clapton)`, you would submit t
 010104657269630107636c6170746f6e
 ```
 
-Here's a session from the [abci-cli](http://tendermint.com/guide/run-your-first-abci-application/):
+Here's a session from the [abci-cli](https://tendermint.com/intro/getting-started/first-abci):
 
 ```
 > append_tx 0x010104657269630107636c6170746f6e
