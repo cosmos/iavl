@@ -109,7 +109,7 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 		}
 
 		tree.Set(key, value)
-		fmt.Println("SET", cmn.Fmt("%X", key), cmn.Fmt("%X", value))
+		// fmt.Println("SET", cmn.Fmt("%X", key), cmn.Fmt("%X", value))
 	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
