@@ -12,11 +12,17 @@ import (
 )
 
 type MerkleEyesApp struct {
-	state State
-	db    dbm.DB
+	state  State
+	db     dbm.DB
+	height uint64
 }
 
-var saveKey []byte = []byte{0x00} // Database key for merkle tree save value db values
+var eyesStateKey = []byte("merkleeyes:state") // Database key for merkle tree save value db values
+
+type MerkleEyesState struct {
+	Hash   []byte
+	Height uint64
+}
 
 const (
 	WriteSet byte = 0x01
@@ -48,17 +54,28 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 
 	if empty {
 		fmt.Println("no existing db, creating new db")
-		db.Set(saveKey, tree.Save())
+		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+			Hash:   tree.Save(),
+			Height: 0,
+		}))
 	} else {
 		fmt.Println("loading existing db")
 	}
 
 	// Load merkle state
-	tree.Load(db.Get(saveKey))
+	eyesStateBytes := db.Get(eyesStateKey)
+	var eyesState MerkleEyesState
+	err := wire.ReadBinaryBytes(eyesStateBytes, &eyesState)
+	if err != nil {
+		fmt.Println("error reading MerkleEyesState")
+		panic(err.Error())
+	}
+	tree.Load(eyesState.Hash)
 
 	return &MerkleEyesApp{
-		state: NewState(tree, true),
-		db:    db,
+		state:  NewState(tree, true),
+		db:     db,
+		height: eyesState.Height,
 	}
 }
 
@@ -131,7 +148,11 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 	hash := app.state.Commit()
 
 	if app.db != nil {
-		app.db.Set(saveKey, hash)
+		app.height++
+		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+			Hash:   hash,
+			Height: app.height,
+		}))
 	}
 
 	if app.state.Committed().Size() == 0 {
@@ -154,27 +175,30 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 	}
 
 	switch reqQuery.Path {
-	case "/key": // Get by key
+	case "/store", "/key": // Get by key
 		key := reqQuery.Data // Data holds the key bytes
 		if reqQuery.Prove {
 			value, proof, exists := tree.Proof(key)
 			if !exists {
 				return abci.ResponseQuery{
-					Log: "Key not found",
+					Height: app.height,
+					Log:    "Key not found",
 				}
 			}
 			// TODO: return index too?
 			return abci.ResponseQuery{
-				Key:   key,
-				Value: value,
-				Proof: proof,
+				Height: app.height,
+				Key:    key,
+				Value:  value,
+				Proof:  proof,
 			}
 		} else {
 			index, value, _ := tree.Get(key)
 			return abci.ResponseQuery{
-				Key:   key,
-				Value: value,
-				Index: int64(index),
+				Height: app.height,
+				Key:    key,
+				Value:  value,
+				Index:  int64(index),
 			}
 		}
 
@@ -183,15 +207,19 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 		index := wire.GetInt64(reqQuery.Data)
 		key, value := tree.GetByIndex(int(index))
 		return abci.ResponseQuery{
-			Key:   key,
-			Value: value,
-			Index: int64(index),
+			Height: app.height,
+			Key:    key,
+			Value:  value,
+			Index:  int64(index),
 		}
 
 	case "/size": // Get size
 		size := tree.Size()
 		sizeBytes := wire.BinaryBytes(size)
-		return abci.ResponseQuery{Value: sizeBytes}
+		return abci.ResponseQuery{
+			Height: app.height,
+			Value:  sizeBytes,
+		}
 
 	default:
 		resQuery.Code = abci.CodeType_UnknownRequest
