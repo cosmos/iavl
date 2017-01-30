@@ -1,5 +1,5 @@
 hash: 716eeb547fb6897b26dba2abc1fac8144170d5e25cf2a621411191ef10d2dd52
-updated: 2017-01-28T09:15:40.462502741-08:00
+updated: 2017-01-29T22:06:21.440381228-08:00
 imports:
 - name: github.com/go-stack/stack
   version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
@@ -50,7 +50,7 @@ imports:
 - name: github.com/tendermint/go-merkle
   version: 653cb1f631528351ddbc359b994eb0c96f0341cd
 - name: github.com/tendermint/go-wire
-  version: 2f3b7aafe21c80b19b6ee3210ecb3e3d07c7a471
+  version: 3216ec9d47bbdf8d4fc27d22169ea86a6688bc15
 - name: github.com/tendermint/log15
   version: 9545b249b3aacafa97f79e0838b02b274adc6f5f
   subpackages:
