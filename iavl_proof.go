@@ -33,6 +33,11 @@ func (proof *IAVLProof) Verify(key []byte, value []byte, root []byte) bool {
 	return bytes.Equal(proof.RootHash, hash)
 }
 
+// Please leave this here!  I use it in light-client to fulfill an interface
+func (proof *IAVLProof) Root() []byte {
+	return proof.RootHash
+}
+
 // ReadProof will deserialize a IAVLProof from bytes
 func ReadProof(data []byte) (*IAVLProof, error) {
 	// TODO: make go-wire never panic
