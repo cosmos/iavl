@@ -17,6 +17,12 @@ type MerkleEyesApp struct {
 	height uint64
 }
 
+// just make sure we really are an application, if the interface
+// ever changes in the future
+func (m *MerkleEyesApp) assertApplication() abci.Application {
+	return m
+}
+
 var eyesStateKey = []byte("merkleeyes:state") // Database key for merkle tree save value db values
 
 type MerkleEyesState struct {
@@ -147,8 +153,8 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 
 	hash := app.state.Commit()
 
+	app.height++
 	if app.db != nil {
-		app.height++
 		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
 			Hash:   hash,
 			Height: app.height,
