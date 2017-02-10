@@ -44,8 +44,9 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 			nil,
 		)
 		return &MerkleEyesApp{
-			state: NewState(tree, false),
-			db:    nil,
+			state:  NewState(tree, false),
+			db:     nil,
+			height: 1,
 		}
 	}
 
@@ -62,7 +63,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		fmt.Println("no existing db, creating new db")
 		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
 			Hash:   tree.Save(),
-			Height: 0,
+			Height: 1,
 		}))
 	} else {
 		fmt.Println("loading existing db")
