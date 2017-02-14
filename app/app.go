@@ -12,6 +12,8 @@ import (
 )
 
 type MerkleEyesApp struct {
+	abci.BaseApplication
+
 	state  State
 	db     dbm.DB
 	height uint64
@@ -36,6 +38,9 @@ const (
 )
 
 func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
+	// start at 1 so the height returned by query is for the
+	// next block, ie. the one that includes the AppHash for our current state
+	initialHeight := uint64(1)
 
 	// Non-persistent case
 	if dbName == "" {
@@ -46,7 +51,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		return &MerkleEyesApp{
 			state:  NewState(tree, false),
 			db:     nil,
-			height: 1,
+			height: initialHeight,
 		}
 	}
 
@@ -63,7 +68,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		fmt.Println("no existing db, creating new db")
 		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
 			Hash:   tree.Save(),
-			Height: 1,
+			Height: initialHeight,
 		}))
 	} else {
 		fmt.Println("loading existing db")
@@ -181,56 +186,42 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 		return
 	}
 
+	// set the query response height
+	resQuery.Height = app.height
+
 	switch reqQuery.Path {
 	case "/store", "/key": // Get by key
 		key := reqQuery.Data // Data holds the key bytes
+		resQuery.Key = key
 		if reqQuery.Prove {
 			value, proof, exists := tree.Proof(key)
 			if !exists {
-				return abci.ResponseQuery{
-					Height: app.height,
-					Log:    "Key not found",
-				}
+				resQuery.Log = "Key not found"
 			}
+			resQuery.Value = value
+			resQuery.Proof = proof
 			// TODO: return index too?
-			return abci.ResponseQuery{
-				Height: app.height,
-				Key:    key,
-				Value:  value,
-				Proof:  proof,
-			}
 		} else {
 			index, value, _ := tree.Get(key)
-			return abci.ResponseQuery{
-				Height: app.height,
-				Key:    key,
-				Value:  value,
-				Index:  int64(index),
-			}
+			resQuery.Value = value
+			resQuery.Index = int64(index)
 		}
 
 	case "/index": // Get by Index
-		key := reqQuery.Data // Data holds the key bytes
 		index := wire.GetInt64(reqQuery.Data)
 		key, value := tree.GetByIndex(int(index))
-		return abci.ResponseQuery{
-			Height: app.height,
-			Key:    key,
-			Value:  value,
-			Index:  int64(index),
-		}
+		resQuery.Key = key
+		resQuery.Index = int64(index)
+		resQuery.Value = value
 
 	case "/size": // Get size
 		size := tree.Size()
 		sizeBytes := wire.BinaryBytes(size)
-		return abci.ResponseQuery{
-			Height: app.height,
-			Value:  sizeBytes,
-		}
+		resQuery.Value = sizeBytes
 
 	default:
 		resQuery.Code = abci.CodeType_UnknownRequest
 		resQuery.Log = cmn.Fmt("Unexpected Query path: %v", reqQuery.Path)
-		return
 	}
+	return
 }
