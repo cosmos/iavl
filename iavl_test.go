@@ -60,7 +60,9 @@ func N(l, r interface{}) *IAVLNode {
 
 // Setup a deep node
 func T(n *IAVLNode) *IAVLTree {
-	t := NewIAVLTree(0, nil)
+	d := db.NewDB("test", db.MemDBBackendStr, "")
+	t := NewIAVLTree(0, d)
+
 	n.hashWithCount(t)
 	t.root = n
 	return t
@@ -473,28 +475,23 @@ func TestPersistence(t *testing.T) {
 	}
 }
 
-func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes []byte) {
+func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes, rootHashBytes []byte) {
 	// Proof must verify.
-	require.Equal(t, keyBytes, proof.Key())
-	require.Equal(t, valueBytes, proof.Value())
-	require.True(t, proof.Valid())
+	require.True(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
 
 	// Write/Read then verify.
 	proofBytes := wire.BinaryBytes(proof)
-	proof2, err := LoadProof(proofBytes)
+	proof2, err := ReadProof(proofBytes)
 	require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
-	require.Equal(t, proof.Key(), proof2.Key())
-	require.Equal(t, proof.Value(), proof2.Value())
-	require.Equal(t, proof.Root(), proof2.Root())
-	require.True(t, proof2.Valid())
+	require.True(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
 
 	// Random mutations must not verify
 	for i := 0; i < 10; i++ {
 		badProofBytes := MutateByteSlice(proofBytes)
-		badProof, err := LoadProof(badProofBytes)
+		badProof, err := ReadProof(badProofBytes)
 		// may be invalid... errors are okay
 		if err == nil {
-			assert.False(t, badProof.Valid(),
+			assert.False(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),
 				"Proof was still valid after a random mutation:\n%X\n%X",
 				proofBytes, badProofBytes)
 		}
@@ -502,9 +499,9 @@ func testProof(t *testing.T, proof *IAVLProof, keyBytes, valueBytes []byte) {
 
 	// targetted changes fails...
 	proof.RootHash = MutateByteSlice(proof.RootHash)
-	assert.False(t, proof.Valid())
-	proof2.LeafNode.ValueBytes = MutateByteSlice(proof2.LeafNode.ValueBytes)
-	assert.False(t, proof2.Valid())
+	assert.False(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
+	proof2.LeafHash = MutateByteSlice(proof2.LeafHash)
+	assert.False(t, proof2.Verify(keyBytes, valueBytes, rootHashBytes))
 }
 
 func TestIAVLProof(t *testing.T) {
@@ -527,10 +524,10 @@ func TestIAVLProof(t *testing.T) {
 
 	// Now for each item, construct a proof and verify
 	tree.Iterate(func(key []byte, value []byte) bool {
-		proof := tree.ConstructProof(key)
-		if assert.NotNil(t, proof) &&
-			assert.Equal(t, proof.RootHash, tree.Hash()) {
-			testProof(t, proof, key, value)
+		value2, proof := tree.ConstructProof(key)
+		assert.Equal(t, value, value2)
+		if assert.NotNil(t, proof) {
+			testProof(t, proof, key, value, tree.Hash())
 		}
 		return false
 	})
@@ -541,7 +538,7 @@ func TestIAVLTreeProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(100, db)
 
 	// should get false for proof with nil root
-	_, exists := tree.Proof([]byte("foo"))
+	_, _, exists := tree.Proof([]byte("foo"))
 	assert.False(t, exists)
 
 	// insert lots of info and store the bytes
@@ -553,23 +550,17 @@ func TestIAVLTreeProof(t *testing.T) {
 	}
 
 	// query random key fails
-	_, exists = tree.Proof([]byte("foo"))
+	_, _, exists = tree.Proof([]byte("foo"))
 	assert.False(t, exists)
 
 	// valid proof for real keys
 	root := tree.Hash()
-	for _, k := range keys {
-		proofBytes, exists := tree.Proof(k)
+	for _, key := range keys {
+		value, proofBytes, exists := tree.Proof(key)
 		if assert.True(t, exists) {
-			proof, err := LoadProof(proofBytes)
+			proof, err := ReadProof(proofBytes)
 			require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
-			assert.Equal(t, k, proof.Key())
-			assert.Equal(t, root, proof.Root())
-			assert.True(t, proof.Valid())
-			_, v, ex := tree.Get(k)
-			if assert.True(t, ex) {
-				assert.Equal(t, v, proof.Value())
-			}
+			assert.True(t, proof.Verify(key, value, root))
 		}
 	}
 }

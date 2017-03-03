@@ -1,3 +1,3 @@
 package merkle
 
-const Version = "0.3.0" // pruning, proof, iterate-range
+const Version = "0.4.0" // benchmarking, update proof
