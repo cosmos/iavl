@@ -2,27 +2,103 @@ package app
 
 import (
 	"fmt"
+	"path"
 
 	abci "github.com/tendermint/abci/types"
-	. "github.com/tendermint/go-common"
+	cmn "github.com/tendermint/go-common"
+	dbm "github.com/tendermint/go-db"
 	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
 )
 
 type MerkleEyesApp struct {
-	state State
+	abci.BaseApplication
+
+	state  State
+	db     dbm.DB
+	height uint64
 }
 
-func NewMerkleEyesApp() *MerkleEyesApp {
-	tree := merkle.NewIAVLTree(
-		0,
-		nil,
-	)
-	return &MerkleEyesApp{state: NewState(tree)}
+// just make sure we really are an application, if the interface
+// ever changes in the future
+func (m *MerkleEyesApp) assertApplication() abci.Application {
+	return m
+}
+
+var eyesStateKey = []byte("merkleeyes:state") // Database key for merkle tree save value db values
+
+type MerkleEyesState struct {
+	Hash   []byte
+	Height uint64
+}
+
+const (
+	WriteSet byte = 0x01
+	WriteRem byte = 0x02
+)
+
+func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
+	// start at 1 so the height returned by query is for the
+	// next block, ie. the one that includes the AppHash for our current state
+	initialHeight := uint64(1)
+
+	// Non-persistent case
+	if dbName == "" {
+		tree := merkle.NewIAVLTree(
+			0,
+			nil,
+		)
+		return &MerkleEyesApp{
+			state:  NewState(tree, false),
+			db:     nil,
+			height: initialHeight,
+		}
+	}
+
+	// Setup the persistent merkle tree
+	empty, _ := cmn.IsDirEmpty(path.Join(dbName, dbName+".db"))
+
+	// Open the db, if the db doesn't exist it will be created
+	db := dbm.NewDB(dbName, dbm.LevelDBBackendStr, dbName)
+
+	// Load Tree
+	tree := merkle.NewIAVLTree(cacheSize, db)
+
+	if empty {
+		fmt.Println("no existing db, creating new db")
+		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+			Hash:   tree.Save(),
+			Height: initialHeight,
+		}))
+	} else {
+		fmt.Println("loading existing db")
+	}
+
+	// Load merkle state
+	eyesStateBytes := db.Get(eyesStateKey)
+	var eyesState MerkleEyesState
+	err := wire.ReadBinaryBytes(eyesStateBytes, &eyesState)
+	if err != nil {
+		fmt.Println("error reading MerkleEyesState")
+		panic(err.Error())
+	}
+	tree.Load(eyesState.Hash)
+
+	return &MerkleEyesApp{
+		state:  NewState(tree, true),
+		db:     db,
+		height: eyesState.Height,
+	}
+}
+
+func (app *MerkleEyesApp) CloseDB() {
+	if app.db != nil {
+		app.db.Close()
+	}
 }
 
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
-	return abci.ResponseInfo{Data: Fmt("size:%v", app.state.Committed().Size())}
+	return abci.ResponseInfo{Data: cmn.Fmt("size:%v", app.state.Committed().Size())}
 }
 
 func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
@@ -31,113 +107,121 @@ func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 
 func (app *MerkleEyesApp) DeliverTx(tx []byte) abci.Result {
 	tree := app.state.Append()
-	return app.DoTx(tree, tx)
+	return app.doTx(tree, tx)
 }
 
 func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	tree := app.state.Check()
-	return app.DoTx(tree, tx)
+	return app.doTx(tree, tx)
 }
 
-func (app *MerkleEyesApp) DoTx(tree merkle.Tree, tx []byte) abci.Result {
+func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 	if len(tx) == 0 {
 		return abci.ErrEncodingError.SetLog("Tx length cannot be zero")
 	}
 	typeByte := tx[0]
 	tx = tx[1:]
 	switch typeByte {
-	case 0x01: // Set
+	case WriteSet: // Set
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Error reading key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		value, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error getting value: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Error reading value: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Got bytes left over"))
 		}
+
 		tree.Set(key, value)
-		fmt.Println("SET", Fmt("%X", key), Fmt("%X", value))
-	case 0x02: // Remove
+		// fmt.Println("SET", cmn.Fmt("%X", key), cmn.Fmt("%X", value))
+	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Error reading key: %v", err.Error()))
 		}
 		tx = tx[n:]
 		if len(tx) != 0 {
-			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
+			return abci.ErrEncodingError.SetLog(cmn.Fmt("Got bytes left over"))
 		}
 		tree.Remove(key)
 	default:
-		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Tx type byte %X", typeByte))
+		return abci.ErrUnknownRequest.SetLog(cmn.Fmt("Unexpected Tx type byte %X", typeByte))
 	}
 	return abci.OK
 }
 
 func (app *MerkleEyesApp) Commit() abci.Result {
+
 	hash := app.state.Commit()
+
+	app.height++
+	if app.db != nil {
+		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+			Hash:   hash,
+			Height: app.height,
+		}))
+	}
+
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
 	return abci.NewResultOK(hash, "")
 }
 
-func (app *MerkleEyesApp) Query(query []byte) abci.Result {
-	if len(query) == 0 {
-		return abci.OK
+func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.ResponseQuery) {
+	if len(reqQuery.Data) == 0 {
+		return
 	}
 	tree := app.state.Committed()
 
-	typeByte := query[0]
-	query = query[1:]
-	switch typeByte {
-	case 0x01: // Get by key
-		key, n, err := wire.GetByteSlice(query)
-		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error getting key: %v", err.Error()))
+	if reqQuery.Height != 0 {
+		// TODO: support older commits
+		resQuery.Code = abci.CodeType_InternalError
+		resQuery.Log = "merkleeyes only supports queries on latest commit"
+		return
+	}
+
+	// set the query response height
+	resQuery.Height = app.height
+
+	switch reqQuery.Path {
+	case "/store", "/key": // Get by key
+		key := reqQuery.Data // Data holds the key bytes
+		resQuery.Key = key
+		if reqQuery.Prove {
+			value, proof, exists := tree.Proof(key)
+			if !exists {
+				resQuery.Log = "Key not found"
+			}
+			resQuery.Value = value
+			resQuery.Proof = proof
+			// TODO: return index too?
+		} else {
+			index, value, _ := tree.Get(key)
+			resQuery.Value = value
+			resQuery.Index = int64(index)
 		}
-		query = query[n:]
-		if len(query) != 0 {
-			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
-		}
-		_, value, _ := tree.Get(key)
-		return abci.NewResultOK(value, "")
-	case 0x02: // Get by index
-		index, n, err := wire.GetVarint(query)
-		if err != nil {
-			return abci.ErrEncodingError.SetLog(Fmt("Error getting index: %v", err.Error()))
-		}
-		query = query[n:]
-		if len(query) != 0 {
-			return abci.ErrEncodingError.SetLog(Fmt("Got bytes left over"))
-		}
-		_, value := tree.GetByIndex(index)
-		return abci.NewResultOK(value, "")
-	case 0x03: // Get size
+
+	case "/index": // Get by Index
+		index := wire.GetInt64(reqQuery.Data)
+		key, value := tree.GetByIndex(int(index))
+		resQuery.Key = key
+		resQuery.Index = int64(index)
+		resQuery.Value = value
+
+	case "/size": // Get size
 		size := tree.Size()
-		res := wire.BinaryBytes(size)
-		return abci.NewResultOK(res, "")
+		sizeBytes := wire.BinaryBytes(size)
+		resQuery.Value = sizeBytes
+
 	default:
-		return abci.ErrUnknownRequest.SetLog(Fmt("Unexpected Query type byte %X", typeByte))
+		resQuery.Code = abci.CodeType_UnknownRequest
+		resQuery.Log = cmn.Fmt("Unexpected Query path: %v", reqQuery.Path)
 	}
-}
-
-// Proof fulfills the ABCI app interface. key is the one for which we
-// request a proof.  blockHeight is the height for which we want the proof.
-// If blockHeight is 0, return the last commit.
-func (app *MerkleEyesApp) Proof(key []byte, blockHeight uint64) abci.Result {
-	// TODO: support older commits - right now we don't save the info
-	if blockHeight != 0 {
-		return abci.ErrInternalError.SetLog("merkleeyes only supports proofs on latest commit")
-	}
-
-	proof, exists := app.state.Committed().Proof(key)
-	if !exists {
-		return abci.NewResultOK(nil, "Key not found")
-	}
-	return abci.NewResultOK(proof, "")
+	return
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	abci "github.com/tendermint/abci/types"
 	merkle "github.com/tendermint/go-merkle"
 	wire "github.com/tendermint/go-wire"
 )
@@ -11,7 +12,7 @@ import (
 func makeSet(key, value []byte) []byte {
 	tx := make([]byte, 1+wire.ByteSliceSize(key)+wire.ByteSliceSize(value))
 	buf := tx
-	buf[0] = 0x01 // Set TypeByte
+	buf[0] = WriteSet // Set TypeByte
 	buf = buf[1:]
 	n, err := wire.PutByteSlice(buf, key)
 	if err != nil {
@@ -28,7 +29,7 @@ func makeSet(key, value []byte) []byte {
 func makeRemove(key []byte) []byte {
 	tx := make([]byte, 1+wire.ByteSliceSize(key))
 	buf := tx
-	buf[0] = 0x02 // Set TypeByte
+	buf[0] = WriteRem // Set TypeByte
 	buf = buf[1:]
 	_, err := wire.PutByteSlice(buf, key)
 	if err != nil {
@@ -37,22 +38,18 @@ func makeRemove(key []byte) []byte {
 	return tx
 }
 
-func makeQuery(key []byte) []byte {
-	tx := make([]byte, 1+wire.ByteSliceSize(key))
-	buf := tx
-	buf[0] = 0x01 // Set TypeByte
-	buf = buf[1:]
-	_, err := wire.PutByteSlice(buf, key)
-	if err != nil {
-		panic(err)
-	}
-	return tx
+func makeQuery(key []byte, prove bool, height uint64) (reqQuery abci.RequestQuery) {
+	reqQuery.Path = "/key"
+	reqQuery.Data = key
+	reqQuery.Prove = prove
+	reqQuery.Height = height
+	return
 }
 
 func TestAppQueries(t *testing.T) {
 	assert := assert.New(t)
 
-	app := NewMerkleEyesApp()
+	app := NewMerkleEyesApp("", 0)
 	info := app.Info().Data
 	assert.Equal("size:0", info)
 	com := app.Commit()
@@ -62,25 +59,24 @@ func TestAppQueries(t *testing.T) {
 	key, value := []byte("foobar"), []byte("works!")
 	addTx := makeSet(key, value)
 	removeTx := makeRemove(key)
-	queryTx := makeQuery(key)
 
 	// need to commit append before it shows in queries
 	append := app.DeliverTx(addTx)
 	assert.True(append.IsOK(), append.Log)
 	info = app.Info().Data
 	assert.Equal("size:0", info)
-	query := app.Query(queryTx)
-	assert.True(query.IsOK(), query.Log)
-	assert.Equal([]byte(nil), query.Data)
+	resQuery := app.Query(makeQuery(key, false, 0))
+	assert.True(resQuery.Code.IsOK(), resQuery.Log)
+	assert.Equal([]byte(nil), resQuery.Value)
 
 	com = app.Commit()
 	hash := com.Data
 	assert.NotEqual(t, nil, hash)
 	info = app.Info().Data
 	assert.Equal("size:1", info)
-	query = app.Query(queryTx)
-	assert.True(query.IsOK(), query.Log)
-	assert.Equal(value, query.Data)
+	resQuery = app.Query(makeQuery(key, false, 0))
+	assert.True(resQuery.Code.IsOK(), resQuery.Log)
+	assert.Equal(value, resQuery.Value)
 
 	// modifying check has no effect
 	check := app.CheckTx(removeTx)
@@ -96,16 +92,13 @@ func TestAppQueries(t *testing.T) {
 	append = app.DeliverTx(removeTx)
 	assert.True(append.IsOK(), append.Log)
 	// currently don't support specifying block height
-	proof := app.Proof(key, 1)
-	assert.True(proof.IsErr(), proof.Log)
-	proof = app.Proof(key, 0)
-	if assert.NotEmpty(proof.Data) {
-		loaded, err := merkle.LoadProof(proof.Data)
+	resQuery = app.Query(makeQuery(key, true, 1))
+	assert.False(resQuery.Code.IsOK(), resQuery.Log)
+	resQuery = app.Query(makeQuery(key, true, 0))
+	if assert.NotEmpty(resQuery.Value) {
+		proof, err := merkle.ReadProof(resQuery.Proof)
 		if assert.Nil(err) {
-			assert.True(loaded.Valid())
-			assert.Equal(hash, loaded.Root())
-			assert.Equal(key, loaded.Key())
-			assert.Equal(value, loaded.Value())
+			assert.True(proof.Verify(key, resQuery.Value, proof.RootHash))
 		}
 	}
 
@@ -118,9 +111,12 @@ func TestAppQueries(t *testing.T) {
 	assert.Equal("size:0", info)
 
 	// nothing here...
-	query = app.Query(queryTx)
-	assert.True(query.IsOK(), query.Log)
-	assert.Equal([]byte(nil), query.Data)
-	proof = app.Proof(key, 0)
-	assert.Empty(proof.Data)
+	resQuery = app.Query(makeQuery(key, false, 0))
+	assert.True(resQuery.Code.IsOK(), resQuery.Log)
+	assert.Equal([]byte(nil), resQuery.Value)
+	// neither with proof...
+	resQuery = app.Query(makeQuery(key, true, 0))
+	assert.True(resQuery.Code.IsOK(), resQuery.Log)
+	assert.Equal([]byte(nil), resQuery.Value)
+	assert.Empty(resQuery.Proof)
 }
