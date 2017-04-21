@@ -1,4 +1,4 @@
-package merkle
+package iavl
 
 type Tree interface {
 	Size() (size int)
