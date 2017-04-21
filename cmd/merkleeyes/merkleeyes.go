@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/tendermint/abci/server"
-	. "github.com/tendermint/go-common"
+	. "github.com/tendermint/tmlibs/common"
 	"github.com/urfave/cli"
 	"os"
 

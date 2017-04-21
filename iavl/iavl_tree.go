@@ -5,7 +5,7 @@ import (
 	"container/list"
 	"sync"
 
-	. "github.com/tendermint/go-common"
+	. "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/go-db"
 	wire "github.com/tendermint/go-wire"
 )

@@ -2,7 +2,7 @@ package: github.com/tendermint/merkleeyes
 import:
 - package: github.com/tendermint/go-merkle
   version: develop
-- package: github.com/tendermint/go-common
+- package: github.com/tendermint/tmlibs/common
   version: develop
 - package: github.com/tendermint/go-logger
   version: develop

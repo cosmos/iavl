@@ -47,7 +47,7 @@ imports:
   - client
   - server
   - types
-- name: github.com/tendermint/go-common
+- name: github.com/tendermint/tmlibs/common
   version: f9e3db037330c8a8d61d3966de8473eaf01154fa
   subpackages:
   - test
