@@ -5,9 +5,10 @@ import (
 	"container/list"
 	"sync"
 
+	wire "github.com/tendermint/go-wire"
 	. "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
-	wire "github.com/tendermint/go-wire"
+	"github.com/tendermint/tmlibs/merkle"
 )
 
 /*
@@ -38,7 +39,7 @@ func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
 // outdated, as some nodes will become orphaned.
 // Note that Save() clears leftNode and rightNode.  Otherwise,
 // two copies would not be goroutine independent.
-func (t *IAVLTree) Copy() Tree {
+func (t *IAVLTree) Copy() merkle.Tree {
 	if t.root == nil {
 		return &IAVLTree{
 			root: nil,
