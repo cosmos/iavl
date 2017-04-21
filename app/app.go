@@ -5,10 +5,11 @@ import (
 	"path"
 
 	abci "github.com/tendermint/abci/types"
+	"github.com/tendermint/go-wire"
+	"github.com/tendermint/merkleeyes/iavl"
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
-	"github.com/tendermint/merkleeyes/iavl"
-	"github.com/tendermint/go-wire"
+	"github.com/tendermint/tmlibs/merkle"
 )
 
 type MerkleEyesApp struct {
@@ -115,7 +116,7 @@ func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	return app.doTx(tree, tx)
 }
 
-func (app *MerkleEyesApp) doTx(tree iavl.Tree, tx []byte) abci.Result {
+func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 	if len(tx) == 0 {
 		return abci.ErrEncodingError.SetLog("Tx length cannot be zero")
 	}

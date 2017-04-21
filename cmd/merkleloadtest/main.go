@@ -9,8 +9,9 @@ import (
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
-	db "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/merkleeyes/iavl"
+	db "github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tmlibs/merkle"
 )
 
 const reportInterval = 100
@@ -32,7 +33,7 @@ func randBytes(length int) []byte {
 }
 
 // blatently copied from benchmarks/bench_test.go
-func prepareTree(db db.DB, size, keyLen, dataLen int) (iavl.Tree, [][]byte) {
+func prepareTree(db db.DB, size, keyLen, dataLen int) (merkle.Tree, [][]byte) {
 	t := iavl.NewIAVLTree(size, db)
 	keys := make([][]byte, size)
 
@@ -47,7 +48,7 @@ func prepareTree(db db.DB, size, keyLen, dataLen int) (iavl.Tree, [][]byte) {
 	return t, keys
 }
 
-func runBlock(t iavl.Tree, dataLen, blockSize int, keys [][]byte) iavl.Tree {
+func runBlock(t merkle.Tree, dataLen, blockSize int, keys [][]byte) merkle.Tree {
 	l := int32(len(keys))
 
 	real := t.Copy()
@@ -71,7 +72,7 @@ func runBlock(t iavl.Tree, dataLen, blockSize int, keys [][]byte) iavl.Tree {
 	return real
 }
 
-func loopForever(t iavl.Tree, dataLen, blockSize int, keys [][]byte, initMB float64) {
+func loopForever(t merkle.Tree, dataLen, blockSize int, keys [][]byte, initMB float64) {
 	for {
 		start := time.Now()
 		for i := 0; i < reportInterval; i++ {

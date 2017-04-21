@@ -7,8 +7,9 @@ import (
 	"runtime"
 	"testing"
 
-	db "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/merkleeyes/iavl"
+	db "github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tmlibs/merkle"
 )
 
 func randBytes(length int) []byte {
@@ -18,7 +19,7 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(db db.DB, size, keyLen, dataLen int) (iavl.Tree, [][]byte) {
+func prepareTree(db db.DB, size, keyLen, dataLen int) (merkle.Tree, [][]byte) {
 	t := iavl.NewIAVLTree(size, db)
 	keys := make([][]byte, size)
 
@@ -33,14 +34,14 @@ func prepareTree(db db.DB, size, keyLen, dataLen int) (iavl.Tree, [][]byte) {
 	return t, keys
 }
 
-func runQueries(b *testing.B, t iavl.Tree, keyLen int) {
+func runQueries(b *testing.B, t merkle.Tree, keyLen int) {
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
 		t.Get(q)
 	}
 }
 
-func runKnownQueries(b *testing.B, t iavl.Tree, keys [][]byte) {
+func runKnownQueries(b *testing.B, t merkle.Tree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
@@ -48,7 +49,7 @@ func runKnownQueries(b *testing.B, t iavl.Tree, keys [][]byte) {
 	}
 }
 
-func runInsert(b *testing.B, t iavl.Tree, keyLen, dataLen, blockSize int) iavl.Tree {
+func runInsert(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int) merkle.Tree {
 	for i := 1; i <= b.N; i++ {
 		t.Set(randBytes(keyLen), randBytes(dataLen))
 		if i%blockSize == 0 {
@@ -59,7 +60,7 @@ func runInsert(b *testing.B, t iavl.Tree, keyLen, dataLen, blockSize int) iavl.T
 	return t
 }
 
-func runUpdate(b *testing.B, t iavl.Tree, dataLen, blockSize int, keys [][]byte) iavl.Tree {
+func runUpdate(b *testing.B, t merkle.Tree, dataLen, blockSize int, keys [][]byte) merkle.Tree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
@@ -72,7 +73,7 @@ func runUpdate(b *testing.B, t iavl.Tree, dataLen, blockSize int, keys [][]byte)
 	return t
 }
 
-func runDelete(b *testing.B, t iavl.Tree, blockSize int, keys [][]byte) iavl.Tree {
+func runDelete(b *testing.B, t merkle.Tree, blockSize int, keys [][]byte) merkle.Tree {
 	var key []byte
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
@@ -89,7 +90,7 @@ func runDelete(b *testing.B, t iavl.Tree, blockSize int, keys [][]byte) iavl.Tre
 }
 
 // runBlock measures time for an entire block, not just one tx
-func runBlock(b *testing.B, t iavl.Tree, keyLen, dataLen, blockSize int, keys [][]byte) iavl.Tree {
+func runBlock(b *testing.B, t merkle.Tree, keyLen, dataLen, blockSize int, keys [][]byte) merkle.Tree {
 	l := int32(len(keys))
 
 	lastCommit := t

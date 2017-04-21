@@ -1,17 +1,17 @@
 package app
 
-import "github.com/tendermint/merkleeyes/iavl"
+import "github.com/tendermint/tmlibs/merkle"
 
 // State represents the app states, separating the commited state (for queries)
 // from the working state (for CheckTx and AppendTx)
 type State struct {
-	committed  iavl.Tree
-	deliverTx  iavl.Tree
-	checkTx    iavl.Tree
+	committed  merkle.Tree
+	deliverTx  merkle.Tree
+	checkTx    merkle.Tree
 	persistent bool
 }
 
-func NewState(tree iavl.Tree, persistent bool) State {
+func NewState(tree merkle.Tree, persistent bool) State {
 	return State{
 		committed:  tree,
 		deliverTx:  tree.Copy(),
@@ -20,15 +20,15 @@ func NewState(tree iavl.Tree, persistent bool) State {
 	}
 }
 
-func (s State) Committed() iavl.Tree {
+func (s State) Committed() merkle.Tree {
 	return s.committed
 }
 
-func (s State) Append() iavl.Tree {
+func (s State) Append() merkle.Tree {
 	return s.deliverTx
 }
 
-func (s State) Check() iavl.Tree {
+func (s State) Check() merkle.Tree {
 	return s.checkTx
 }
 
