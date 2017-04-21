@@ -42,6 +42,6 @@ screen
 Copy them back from your local machine:
 
 ```
-scp user@host:go/src/github.com/tendermint/go-merkle/benchmarks/results/* results
+scp user@host:go/src/github.com/tendermint/merkleeyes/iavl/benchmarks/results/* results
 git add results
 ```

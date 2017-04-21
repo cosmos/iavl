@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	abci "github.com/tendermint/abci/types"
-	merkle "github.com/tendermint/go-merkle"
+	"github.com/tendermint/merkleeyes/iavl"
 	wire "github.com/tendermint/go-wire"
 )
 
@@ -96,7 +96,7 @@ func TestAppQueries(t *testing.T) {
 	assert.False(resQuery.Code.IsOK(), resQuery.Log)
 	resQuery = app.Query(makeQuery(key, true, 0))
 	if assert.NotEmpty(resQuery.Value) {
-		proof, err := merkle.ReadProof(resQuery.Proof)
+		proof, err := iavl.ReadProof(resQuery.Proof)
 		if assert.Nil(err) {
 			assert.True(proof.Verify(key, resQuery.Value, proof.RootHash))
 		}

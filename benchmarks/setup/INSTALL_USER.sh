@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This runs benchmarks, by default from develop branch of
-# github.com/tendermint/go-merkle
+# github.com/tendermint/merkleeyes/iavl
 # You can customize this by optional command line args
 #
 # INSTALL_USER.sh [branch] [repouser]
@@ -20,7 +20,7 @@ EOF
 . ~/.goenv
 
 mkdir -p $GOPATH/src/github.com/tendermint
-MERKLE=$GOPATH/src/github.com/tendermint/go-merkle
-git clone https://github.com/${REPOUSER}/go-merkle.git $MERKLE
+MERKLE=$GOPATH/src/github.com/tendermint/merkleeyes/iavl
+git clone https://github.com/${REPOUSER}/merkleeyes/iavl.git $MERKLE
 cd $MERKLE
 git checkout ${BRANCH}

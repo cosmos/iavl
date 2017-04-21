@@ -1,4 +1,4 @@
-make[1]: Entering directory '/root/go/src/github.com/tendermint/go-merkle'
+make[1]: Entering directory '/root/go/src/github.com/tendermint/merkleeyes/iavl'
 cd benchmarks && \
 	go test -bench=RandomBytes . && \
 	go test -bench=Small . && \
@@ -10,7 +10,7 @@ BenchmarkRandomBytes/random-32-2        	10000000	       293 ns/op
 BenchmarkRandomBytes/random-100-2       	 2000000	       929 ns/op
 BenchmarkRandomBytes/random-1000-2      	  300000	      7309 ns/op
 PASS
-ok  	github.com/tendermint/go-merkle/benchmarks	11.873s
+ok  	github.com/tendermint/merkleeyes/iavl/benchmarks	11.873s
 Init Tree took 0.42 MB
 BenchmarkSmall/nodb-1000-100-4-10/query-miss-2         	 2000000	       699 ns/op
 BenchmarkSmall/nodb-1000-100-4-10/query-hits-2         	 2000000	       709 ns/op
@@ -40,7 +40,7 @@ BenchmarkSmall/leveldb-1000-100-4-10/tmsp-2            	    5000	    266231 ns/o
 BenchmarkSmall/leveldb-1000-100-4-10/insert-2          	   10000	    440206 ns/op
 BenchmarkSmall/leveldb-1000-100-4-10/delete-2          	   10000	    262984 ns/op
 PASS
-ok  	github.com/tendermint/go-merkle/benchmarks	61.918s
+ok  	github.com/tendermint/merkleeyes/iavl/benchmarks	61.918s
 Init Tree took 47.20 MB
 BenchmarkMedium/nodb-100000-100-16-40/query-miss-2         	  500000	      3026 ns/op
 BenchmarkMedium/nodb-100000-100-16-40/query-hits-2         	  500000	      2226 ns/op
@@ -70,7 +70,7 @@ BenchmarkMedium/leveldb-100000-100-16-40/tmsp-2            	    3000	    962354 
 BenchmarkMedium/leveldb-100000-100-16-40/insert-2          	    1000	   1806111 ns/op
 BenchmarkMedium/leveldb-100000-100-16-40/delete-2          	    1000	   1043286 ns/op
 PASS
-ok  	github.com/tendermint/go-merkle/benchmarks	321.607s
+ok  	github.com/tendermint/merkleeyes/iavl/benchmarks	321.607s
 Init Tree took 49.20 MB
 BenchmarkMemKeySizes/nodb-100000-100-4-80/query-miss-2         	  500000	      3863 ns/op
 BenchmarkMemKeySizes/nodb-100000-100-4-80/query-hits-2         	  500000	      2577 ns/op
@@ -114,5 +114,5 @@ BenchmarkMemKeySizes/nodb-100000-100-256-80/tmsp-2             	   20000	     87
 BenchmarkMemKeySizes/nodb-100000-100-256-80/insert-2           	   30000	     49158 ns/op
 BenchmarkMemKeySizes/nodb-100000-100-256-80/delete-2           	   50000	     31043 ns/op
 PASS
-ok  	github.com/tendermint/go-merkle/benchmarks	247.827s
-make[1]: Leaving directory '/root/go/src/github.com/tendermint/go-merkle'
+ok  	github.com/tendermint/merkleeyes/iavl/benchmarks	247.827s
+make[1]: Leaving directory '/root/go/src/github.com/tendermint/merkleeyes/iavl'

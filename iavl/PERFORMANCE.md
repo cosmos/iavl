@@ -15,7 +15,7 @@ For any goal, we need some clear steps.
 1) Cleanup code, and write some more benchmark cases to capture "realistic" usage
 2) Run tests on various hardware to see the best performing backing stores
 3) Do profiling on the best performance to see if there are any easy performance gains
-4) (Possibly) Write another implementation of merkle.Tree to improve all the memory overhead, consider CPU cache, etc....
+4) (Possibly) Write another implementation of iavl.Tree to improve all the memory overhead, consider CPU cache, etc....
 5) (Possibly) Write another backend datastore to persist the tree in a more efficient way
 
 The rest of this document is the planned or completed actions for the above-listed steps.

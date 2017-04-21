@@ -2,7 +2,7 @@
 
 . ~/.goenv
 
-MERKLE=$GOPATH/src/github.com/tendermint/go-merkle
+MERKLE=$GOPATH/src/github.com/tendermint/merkleeyes/iavl
 cd $MERKLE
 git pull
 
