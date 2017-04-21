@@ -1,6 +1,12 @@
 hash: 812c23698031df2368cc94e8118938e63809ec5537e3a563813ccdab845e1df8
-updated: 2017-03-06T03:14:00.42794767-05:00
+updated: 2017-04-21T15:52:43.940709728-04:00
 imports:
+- name: github.com/alecthomas/template
+  version: a0175ee3bccc567396460bf5acd36800cb10c49c
+  subpackages:
+  - parse
+- name: github.com/alecthomas/units
+  version: 2efee857e7cfd4f3d0138cc3cbb1b4966962b93a
 - name: github.com/go-stack/stack
   version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
 - name: github.com/golang/protobuf
@@ -36,13 +42,15 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/abci
-  version: 1236e8fb6eee3a63909f4014a8e84385ead7933d
+  version: 56e13d87f4e3ec1ea756957d6b23caa6ebcf0998
   subpackages:
   - client
   - server
   - types
 - name: github.com/tendermint/go-common
-  version: dcb015dff6c7af21e65c8e2f3b450df19d38c777
+  version: f9e3db037330c8a8d61d3966de8473eaf01154fa
+  subpackages:
+  - test
 - name: github.com/tendermint/go-db
   version: eac3f2bc147023957c8bf69432a4e6c4dc5c3f72
 - name: github.com/tendermint/go-logger
@@ -50,11 +58,16 @@ imports:
 - name: github.com/tendermint/go-merkle
   version: 714d4d04557fd068a7c2a1748241ce8428015a96
 - name: github.com/tendermint/go-wire
-  version: f530b7af7a8b06e612c2063bff6ace49060a085e
+  version: 4325edc613ad1e9286c8bb770ed40ad3fe647e6c
 - name: github.com/tendermint/log15
   version: ae0f3d6450da9eac7074b439c8e1c3cabf0d5ce6
   subpackages:
   - term
+- name: github.com/tendermint/tmlibs
+  version: 2f8551d3b614dd0c0c6c114c42ab25901cc41a52
+  subpackages:
+  - common
+  - logger
 - name: github.com/urfave/cli
   version: 0bdeddeeb0f650497d603c4ad7b20cfe685682f6
 - name: golang.org/x/crypto
@@ -88,6 +101,8 @@ imports:
   - stats
   - tap
   - transport
+- name: gopkg.in/alecthomas/kingpin.v2
+  version: 7f0871f2e17818990e4eed73f9b5c2f429501228
 testImports:
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9
