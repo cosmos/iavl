@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	. "github.com/tendermint/tmlibs/common"
-	dbm "github.com/tendermint/go-db"
+	dbm "github.com/tendermint/tmlibs/db"
 	wire "github.com/tendermint/go-wire"
 )
 

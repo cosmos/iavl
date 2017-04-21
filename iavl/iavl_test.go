@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/go-db"
+	"github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/go-wire"
 	. "github.com/tendermint/tmlibs/common"
 	. "github.com/tendermint/tmlibs/test"

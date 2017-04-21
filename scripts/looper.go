@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	. "github.com/tendermint/tmlibs/common"
-	"github.com/tendermint/go-db"
+	"github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/merkleeyes/iavl"
 )
 

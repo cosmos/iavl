@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"testing"
 
-	db "github.com/tendermint/go-db"
+	db "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/merkleeyes/iavl"
 )
 

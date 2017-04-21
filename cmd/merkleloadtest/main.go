@@ -9,7 +9,7 @@ import (
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 
-	db "github.com/tendermint/go-db"
+	db "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/merkleeyes/iavl"
 )
 

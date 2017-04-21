@@ -6,7 +6,7 @@ import (
 
 	abci "github.com/tendermint/abci/types"
 	cmn "github.com/tendermint/tmlibs/common"
-	dbm "github.com/tendermint/go-db"
+	dbm "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/merkleeyes/iavl"
 	"github.com/tendermint/go-wire"
 )

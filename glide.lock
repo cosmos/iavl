@@ -47,11 +47,11 @@ imports:
   - client
   - server
   - types
-- name: github.com/tendermint/go-common
+- name: github.com/tendermint/tmlibs/common
   version: f9e3db037330c8a8d61d3966de8473eaf01154fa
-- name: github.com/tendermint/go-db
+- name: github.com/tendermint/tmlibs/db
   version: eac3f2bc147023957c8bf69432a4e6c4dc5c3f72
-- name: github.com/tendermint/go-logger
+- name: github.com/tendermint/tmlibs/logger
   version: cefb3a45c0bf3c493a04e9bcd9b1540528be59f2
 - name: github.com/tendermint/go-wire
   version: 334005c236d19c632fb5f073f9de3b0fab6a522b
