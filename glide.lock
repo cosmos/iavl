@@ -1,5 +1,5 @@
-hash: 032344ec7c35c8a8ec7d9544dcdc4600856c4cd4450f2c438a3e1f8402b3209a
-updated: 2017-04-21T16:29:58.10644122-04:00
+hash: e54a5ad30ba902db39d9cdf92a175f8774f8a0ec28782dddac7e1732e65306d4
+updated: 2017-04-21T16:35:08.602972141-04:00
 imports:
 - name: github.com/alecthomas/template
   version: a0175ee3bccc567396460bf5acd36800cb10c49c
@@ -47,11 +47,9 @@ imports:
   - client
   - server
   - types
-- name: github.com/tendermint/tmlibs/common
+- name: github.com/tendermint/go-common
   version: f9e3db037330c8a8d61d3966de8473eaf01154fa
-- name: github.com/tendermint/tmlibs/db
-  version: eac3f2bc147023957c8bf69432a4e6c4dc5c3f72
-- name: github.com/tendermint/tmlibs/logger
+- name: github.com/tendermint/go-logger
   version: cefb3a45c0bf3c493a04e9bcd9b1540528be59f2
 - name: github.com/tendermint/go-wire
   version: 334005c236d19c632fb5f073f9de3b0fab6a522b
@@ -63,6 +61,7 @@ imports:
   version: df250b69416a35a943a6e2a92118667e9ef031d4
   subpackages:
   - common
+  - db
   - logger
   - test
 - name: github.com/urfave/cli
