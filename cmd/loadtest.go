@@ -1,28 +1,66 @@
-package main
+package cmd
 
 import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"os"
 	"runtime"
 	"time"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/spf13/cobra"
 
-	"github.com/tendermint/merkleeyes/iavl"
-	db "github.com/tendermint/tmlibs/db"
-	"github.com/tendermint/tmlibs/merkle"
+	db "github.com/tendermint/go-db"
+	merkle "github.com/tendermint/go-merkle"
 )
+
+var loadtestCmd = &cobra.Command{
+	Run:   LoadTest,
+	Use:   "loadtest",
+	Short: "Run a load test on the database",
+	Long:  `Do a long running load test on the database to determine timing`,
+}
 
 const reportInterval = 100
 
 var (
-	initSize  = kingpin.Flag("initsize", "Initial DB Size").Short('i').Default("100000").Int()
-	keySize   = kingpin.Flag("keysize", "Length of keys (in bytes)").Short('k').Default("16").Int()
-	dataSize  = kingpin.Flag("valuesize", "Length of values (in bytes)").Short('v').Default("100").Int()
-	blockSize = kingpin.Flag("blocksize", "Number of Txs per block").Short('b').Default("200").Int()
-	dbType    = kingpin.Flag("db", "type of backing db").Short('d').Default("goleveldb").String()
+	initSize  int
+	keySize   int
+	dataSize  int
+	blockSize int
 )
+
+func init() {
+	RootCmd.AddCommand(loadtestCmd)
+	loadtestCmd.Flags().IntVarP(&initSize, "initsize", "i", 100000, "Initial DB Size")
+	loadtestCmd.Flags().IntVarP(&keySize, "keysize", "k", 16, "Length of keys (in bytes)")
+	loadtestCmd.Flags().IntVarP(&dataSize, "valuesize", "v", 100, "Length of values (in bytes)")
+	loadtestCmd.Flags().IntVarP(&blockSize, "blocksize", "b", 200, "Number of Txs per block")
+}
+
+func LoadTest(cmd *cobra.Command, args []string) {
+
+	tmpDir, err := ioutil.TempDir("", "loadtest-")
+	if err != nil {
+		fmt.Printf("Cannot create temp dir: %s\n", err)
+		os.Exit(-1)
+	}
+
+	initMB := memUseMB()
+	start := time.Now()
+
+	fmt.Printf("Preparing DB (%s with %d keys)...\n", dbType, initSize)
+	d := db.NewDB("loadtest", dbType, tmpDir)
+	tree, keys := prepareTree(d, initSize, keySize, dataSize)
+
+	delta := time.Now().Sub(start)
+	fmt.Printf("Initialization took %0.3f s, used %0.2f MB\n",
+		delta.Seconds(), memUseMB()-initMB)
+	fmt.Printf("Keysize: %d, Datasize: %d\n", keySize, dataSize)
+
+	fmt.Printf("Starting loadtest (blocks of %d tx)...\n", blockSize)
+	loopForever(tree, dataSize, blockSize, keys, initMB)
+}
 
 // blatently copied from benchmarks/bench_test.go
 func randBytes(length int) []byte {
@@ -34,7 +72,7 @@ func randBytes(length int) []byte {
 
 // blatently copied from benchmarks/bench_test.go
 func prepareTree(db db.DB, size, keyLen, dataLen int) (merkle.Tree, [][]byte) {
-	t := iavl.NewIAVLTree(size, db)
+	t := merkle.NewIAVLTree(size, db)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
@@ -95,28 +133,4 @@ func memUseMB() float64 {
 	asize := mem.Alloc
 	mb := float64(asize) / 1000000
 	return mb
-}
-
-func main() {
-	kingpin.Parse()
-
-	tmpDir, err := ioutil.TempDir("", "loadtest-")
-	if err != nil {
-		kingpin.Fatalf("Cannot create temp dir: %s", err)
-	}
-
-	initMB := memUseMB()
-	start := time.Now()
-
-	fmt.Printf("Preparing DB (%s with %d keys)...\n", *dbType, *initSize)
-	d := db.NewDB("loadtest", *dbType, tmpDir)
-	tree, keys := prepareTree(d, *initSize, *keySize, *dataSize)
-
-	delta := time.Now().Sub(start)
-	fmt.Printf("Initialization took %0.3f s, used %0.2f MB\n",
-		delta.Seconds(), memUseMB()-initMB)
-	fmt.Printf("Keysize: %d, Datasize: %d\n", *keySize, *dataSize)
-
-	fmt.Printf("Starting loadtest (blocks of %d tx)...\n", *blockSize)
-	loopForever(tree, *dataSize, *blockSize, keys, initMB)
 }
