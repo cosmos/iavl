@@ -1,4 +1,5 @@
 vendor
+.glide
 
 # created in test code
 test.db
