@@ -10,11 +10,12 @@ import (
 )
 
 var RootCmd = &cobra.Command{
-	Use:   "merkletool",
-	Short: "Misc. database and benchmarking tools",
+	Use:   "merkleeyes",
+	Short: "Merkleeyes server",
 	Long: `Various tools that related to persistence.
 
 Including:
+        - Start the Merkleeyes server
 	- Benchmark to check the underlying performance of the databases.
 	- Dump to dump out the full contents of any persistent go-merkle database.
 	`,

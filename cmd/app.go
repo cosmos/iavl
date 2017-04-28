@@ -17,7 +17,7 @@ var (
 
 var startCmd = &cobra.Command{
 	Run:   StartServer,
-	Use:   "merkleeyes",
+	Use:   "start",
 	Short: "Run the MerkleEyes server",
 	Long:  `Startup the MerkleEyes ABCi app`,
 }
@@ -26,7 +26,7 @@ func init() {
 	RootCmd.AddCommand(startCmd)
 	startCmd.Flags().StringVarP(&address, "address", "l", "unix://data.sock", "MerkleEyes server listen address")
 	startCmd.Flags().StringVarP(&abci, "abci", "a", "socket", "socket | grpc")
-	dumpCmd.Flags().IntVarP(&cache, "cache", "c", 0, "database cache size")
+	startCmd.Flags().IntVarP(&cache, "cache", "c", 0, "database cache size")
 }
 
 func StartServer(cmd *cobra.Command, args []string) {
