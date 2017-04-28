@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/tendermint/go-merkle/cmd"
+	"github.com/tendermint/merkleeyes/cmd"
 )
 
 func main() {

@@ -29,7 +29,7 @@ func init() {
 	RootCmd.AddCommand(dumpCmd)
 	dumpCmd.Flags().StringVarP(&dbDir, "path", "p", "./", "Dir path to DB")
 	dumpCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "Print everything")
-	dumpCmd.Flags().IntVarP(&cacheSize, "cachesize", "c", 10000, "Size of the Cache")
+	dumpCmd.Flags().IntVarP(&cacheSize, "cachesize", "s", 10000, "Size of the Cache")
 }
 
 func DumpDatabase(cmd *cobra.Command, args []string) {

@@ -10,8 +10,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	db "github.com/tendermint/go-db"
-	merkle "github.com/tendermint/go-merkle"
+	"github.com/tendermint/merkleeyes/iavl"
+	"github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tmlibs/merkle"
 )
 
 var loadtestCmd = &cobra.Command{
@@ -72,7 +73,7 @@ func randBytes(length int) []byte {
 
 // blatently copied from benchmarks/bench_test.go
 func prepareTree(db db.DB, size, keyLen, dataLen int) (merkle.Tree, [][]byte) {
-	t := merkle.NewIAVLTree(size, db)
+	t := iavl.NewIAVLTree(size, db)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {

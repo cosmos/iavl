@@ -32,14 +32,6 @@ func mixedDisplay(value []byte) string {
 				}
 				ascii = false
 			}
-		} else {
-			/*
-				if !ascii && len(last) > 0 {
-					buffer.WriteString(fmt.Sprintf("%X", last))
-					last = nil
-					ascii = true
-				}
-			*/
 		}
 		last = append(last, value[i])
 	}
