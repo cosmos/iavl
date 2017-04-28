@@ -1,5 +1,7 @@
 package: github.com/tendermint/merkleeyes
 import:
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
 - package: github.com/tendermint/abci
   version: develop
   subpackages:
@@ -14,11 +16,9 @@ import:
   - common
   - db
   - merkle
-- package: github.com/urfave/cli
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
-- package: gopkg.in/alecthomas/kingpin.v2
 testImport:
 - package: github.com/stretchr/testify
   subpackages:
