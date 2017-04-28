@@ -18,7 +18,7 @@ var (
 var startCmd = &cobra.Command{
 	Run:   StartServer,
 	Use:   "start",
-	Short: "Run the MerkleEyes server",
+	Short: "Start the MerkleEyes server",
 	Long:  `Startup the MerkleEyes ABCi app`,
 }
 

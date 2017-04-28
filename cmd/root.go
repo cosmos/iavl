@@ -12,12 +12,12 @@ import (
 var RootCmd = &cobra.Command{
 	Use:   "merkleeyes",
 	Short: "Merkleeyes server",
-	Long: `Various tools that related to persistence.
+	Long: `Merkleeyes server and other tools
 
 Including:
         - Start the Merkleeyes server
 	- Benchmark to check the underlying performance of the databases.
-	- Dump to dump out the full contents of any persistent go-merkle database.
+	- Dump to list the full contents of any persistent go-merkle database.
 	`,
 }
 
@@ -36,7 +36,7 @@ var (
 func init() {
 	cobra.OnInitialize(initEnv)
 	RootCmd.PersistentFlags().StringVarP(&dbType, "dbType", "t", "goleveldb", "type of backing db")
-	RootCmd.PersistentFlags().StringVarP(&dbName, "dbName", "d", "", "database cache name")
+	RootCmd.PersistentFlags().StringVarP(&dbName, "dbName", "d", "", "database name")
 }
 
 func initEnv() {
