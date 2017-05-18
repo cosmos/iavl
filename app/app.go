@@ -5,10 +5,11 @@ import (
 	"path"
 
 	abci "github.com/tendermint/abci/types"
-	cmn "github.com/tendermint/go-common"
-	dbm "github.com/tendermint/go-db"
-	"github.com/tendermint/go-merkle"
 	"github.com/tendermint/go-wire"
+	"github.com/tendermint/merkleeyes/iavl"
+	cmn "github.com/tendermint/tmlibs/common"
+	dbm "github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tmlibs/merkle"
 )
 
 type MerkleEyesApp struct {
@@ -44,7 +45,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 
 	// Non-persistent case
 	if dbName == "" {
-		tree := merkle.NewIAVLTree(
+		tree := iavl.NewIAVLTree(
 			0,
 			nil,
 		)
@@ -62,7 +63,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	db := dbm.NewDB(dbName, dbm.LevelDBBackendStr, dbName)
 
 	// Load Tree
-	tree := merkle.NewIAVLTree(cacheSize, db)
+	tree := iavl.NewIAVLTree(cacheSize, db)
 
 	if empty {
 		fmt.Println("no existing db, creating new db")

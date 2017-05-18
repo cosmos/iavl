@@ -1,19 +1,25 @@
 package: github.com/tendermint/merkleeyes
 import:
-- package: github.com/tendermint/go-merkle
-  version: develop
-- package: github.com/tendermint/go-common
-  version: develop
-- package: github.com/tendermint/go-logger
-  version: develop
-- package: github.com/tendermint/go-wire
-  version: develop
-- package: github.com/tendermint/go-merkle
-  version: develop
+- package: github.com/spf13/cobra
+- package: github.com/spf13/viper
 - package: github.com/tendermint/abci
   version: develop
-- package: github.com/urfave/cli
-  version: ^1.19.1
+  subpackages:
+  - client
+  - server
+  - types
+- package: github.com/tendermint/go-wire
+  version: develop
+- package: github.com/tendermint/tmlibs
+  version: develop
+  subpackages:
+  - common
+  - db
+  - merkle
+- package: golang.org/x/crypto
+  subpackages:
+  - ripemd160
+testImport:
 - package: github.com/stretchr/testify
   version: ^1.1.4
   subpackages:

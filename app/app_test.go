@@ -5,8 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	abci "github.com/tendermint/abci/types"
-	merkle "github.com/tendermint/go-merkle"
 	wire "github.com/tendermint/go-wire"
+	"github.com/tendermint/merkleeyes/iavl"
 )
 
 func makeSet(key, value []byte) []byte {
@@ -53,7 +53,7 @@ func TestAppQueries(t *testing.T) {
 	info := app.Info().Data
 	assert.Equal("size:0", info)
 	com := app.Commit()
-	assert.Equal([]byte(nil), com.Data)
+	assert.EqualValues([]byte(nil), com.Data)
 
 	// prepare some actions
 	key, value := []byte("foobar"), []byte("works!")
@@ -96,7 +96,7 @@ func TestAppQueries(t *testing.T) {
 	assert.False(resQuery.Code.IsOK(), resQuery.Log)
 	resQuery = app.Query(makeQuery(key, true, 0))
 	if assert.NotEmpty(resQuery.Value) {
-		proof, err := merkle.ReadProof(resQuery.Proof)
+		proof, err := iavl.ReadProof(resQuery.Proof)
 		if assert.Nil(err) {
 			assert.True(proof.Verify(key, resQuery.Value, proof.RootHash))
 		}

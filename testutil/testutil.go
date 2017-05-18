@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/tendermint/abci/server"
-	. "github.com/tendermint/go-common"
+	. "github.com/tendermint/tmlibs/common"
 	wire "github.com/tendermint/go-wire"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"

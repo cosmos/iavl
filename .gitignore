@@ -1,5 +1,12 @@
-*.swp
-*.swo
-*.pyc
-test.sock
 vendor
+.glide
+
+# created in test code
+test.db
+
+# profiling data
+*\.test
+cpu*.out
+mem*.out
+cpu*.pdf
+mem*.pdf

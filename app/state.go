@@ -1,6 +1,6 @@
 package app
 
-import merkle "github.com/tendermint/go-merkle"
+import "github.com/tendermint/tmlibs/merkle"
 
 // State represents the app states, separating the commited state (for queries)
 // from the working state (for CheckTx and AppendTx)
