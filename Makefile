@@ -1,4 +1,6 @@
-.PHONY: all test get_deps install
+GOTOOLS = \
+					github.com/mitchellh/gox \
+					github.com/Masterminds/glide
 
 PDFFLAGS=-pdf --nodefraction=0.1
 
@@ -7,11 +9,18 @@ all: test install
 install: 
 	go install github.com/tendermint/merkleeyes/cmd/...
 
+dist:
+	@ sudo bash scripts/dist.sh
+	@ bash scripts/publish.sh
+
 test:
 	go test -v --race `glide novendor`
 
 get_deps:
 	go get -d github.com/tendermint/merkleeyes/...
+
+tools:
+	go get -u -v $(GOTOOLS)
 
 get_vendor_deps:
 	go get github.com/Masterminds/glide
@@ -55,3 +64,4 @@ exploremem:
 delve:
 	dlv test ./benchmarks -- -test.bench=.
 
+.PHONY: all test get_deps install tools dist
