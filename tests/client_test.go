@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/abci/server"
-	. "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"
+	. "github.com/tendermint/tmlibs/common"
 )
 
 var tmspAddr = "tcp://127.0.0.1:46659"
@@ -35,20 +35,21 @@ func testProcedure(t *testing.T, addr, dbName string, cache int, testPersistence
 		}
 	}
 
-	// Start the listener
+	// Create the app and start the listener
 	mApp := app.NewMerkleEyesApp(dbName, cache)
-	s, err := server.NewServer(addr, "socket", mApp)
+	defer mApp.CloseDB()
 
-	defer func() { //Close the database, and server
-		mApp.CloseDB()
-		s.Stop()
-	}()
+	s, err := server.NewServer(addr, "socket", mApp)
 	checkErr(err)
+
+	s.Start()
+	defer s.Stop()
 
 	// Create client
 	cli, err := eyes.NewClient(addr)
-	defer cli.Stop()
 	checkErr(err)
+	cli.Start()
+	defer cli.Stop()
 
 	if !testPersistence {
 		// Empty
@@ -116,5 +117,5 @@ func rem(t *testing.T, cli *eyes.Client, key string) {
 func commit(t *testing.T, cli *eyes.Client, hash string) {
 	res := cli.CommitSync()
 	require.False(t, res.IsErr(), res.Error())
-	assert.Equal(t, hash, Fmt("%X", res.Data))
+	assert.Equal(t, hash, Fmt("%X", res.Data.Bytes()))
 }
