@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.2 (June 5, 2017)
+
+BUG FIXES:
+- Actually start the Merkleeyes server
+
 ## 0.2.1 (June 2, 2017)
 
 IMPROVEMENTS:

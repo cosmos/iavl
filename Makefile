@@ -10,7 +10,7 @@ install:
 	go install github.com/tendermint/merkleeyes/cmd/...
 
 dist:
-	@ sudo bash scripts/dist.sh
+	@ bash scripts/dist.sh
 	@ bash scripts/publish.sh
 
 test:

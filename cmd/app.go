@@ -36,6 +36,10 @@ func StartServer(cmd *cobra.Command, args []string) {
 	if err != nil {
 		cmn.Exit(err.Error())
 	}
+	_, err = server.Start()
+	if err != nil {
+		cmn.Exit(err.Error())
+	}
 
 	cmn.TrapSignal(func() {
 		app.CloseDB()
