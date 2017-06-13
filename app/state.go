@@ -32,9 +32,7 @@ func (s State) Check() merkle.Tree {
 	return s.checkTx
 }
 
-// PreCommit stores the current Append() state as committed
-// starts new Append/Check state, and
-// returns the hash for the commit
+// Hash updates the tree
 func (s *State) Hash() []byte {
 	var hash []byte
 	if s.persistent {
@@ -46,6 +44,7 @@ func (s *State) Hash() []byte {
 	return hash
 }
 
+// Commit save persistent nodes to the database and re-copies the trees
 func (s *State) Commit() []byte {
 	var hash []byte
 	if s.persistent {
