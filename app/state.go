@@ -49,10 +49,11 @@ func (s *State) Hash() []byte {
 func (s *State) Commit() []byte {
 	var hash []byte
 	if s.persistent {
-		hash = s.committed.Save()
+		hash = s.deliverTx.Save()
 	} else {
-		hash = s.committed.Hash()
+		hash = s.deliverTx.Hash()
 	}
+
 	s.committed = s.deliverTx
 	s.deliverTx = s.committed.Copy()
 	s.checkTx = s.committed.Copy()

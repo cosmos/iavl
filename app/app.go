@@ -70,7 +70,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	if empty {
 		fmt.Println("no existing db, creating new db")
 		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
-			Hash:   nil,
+			Hash:   tree.Save(),
 			Height: initialHeight,
 		}))
 	} else {
@@ -168,8 +168,9 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 	app.height++
 
 	if app.db != nil {
-		// Must in the same batch update as the tree
-		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+		// This is in the batch with the Save, but not in the tree
+		tree := app.state.Append().(*iavl.IAVLTree)
+		tree.BatchSet(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
 			Hash:   app.hash,
 			Height: app.height,
 		}))
@@ -177,7 +178,7 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 
 	hash := app.state.Commit()
 	if !bytes.Equal(hash, app.hash) {
-		panic("App hash is incorrect")
+		panic("AppHash is incorrect")
 	}
 
 	if app.state.Committed().Size() == 0 {

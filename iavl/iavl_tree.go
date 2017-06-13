@@ -103,6 +103,11 @@ func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
 	return updated
 }
 
+// BatchSet adds a Set to the current batch, will get handled atomically
+func (t *IAVLTree) BatchSet(key []byte, value []byte) {
+	t.ndb.batch.Set(key, value)
+}
+
 func (t *IAVLTree) Hash() []byte {
 	if t.root == nil {
 		return nil
