@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 
@@ -17,6 +18,7 @@ type MerkleEyesApp struct {
 
 	state  State
 	db     dbm.DB
+	hash   []byte
 	height uint64
 }
 
@@ -41,7 +43,7 @@ const (
 func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	// start at 1 so the height returned by query is for the
 	// next block, ie. the one that includes the AppHash for our current state
-	initialHeight := uint64(1)
+	initialHeight := uint64(0)
 
 	// Non-persistent case
 	if dbName == "" {
@@ -68,7 +70,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	if empty {
 		fmt.Println("no existing db, creating new db")
 		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
-			Hash:   tree.Save(),
+			Hash:   nil,
 			Height: initialHeight,
 		}))
 	} else {
@@ -99,7 +101,11 @@ func (app *MerkleEyesApp) CloseDB() {
 }
 
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
-	return abci.ResponseInfo{Data: cmn.Fmt("size:%v", app.state.Committed().Size())}
+	return abci.ResponseInfo{
+		Data:             cmn.Fmt("size:%v", app.state.Committed().Size()),
+		LastBlockHeight:  app.height,
+		LastBlockAppHash: app.hash,
+	}
 }
 
 func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
@@ -158,20 +164,26 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 
 func (app *MerkleEyesApp) Commit() abci.Result {
 
-	hash := app.state.Commit()
-
+	app.hash = app.state.Hash()
 	app.height++
+
 	if app.db != nil {
+		// Must in the same batch update as the tree
 		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
-			Hash:   hash,
+			Hash:   app.hash,
 			Height: app.height,
 		}))
+	}
+
+	hash := app.state.Commit()
+	if !bytes.Equal(hash, app.hash) {
+		panic("App hash is incorrect")
 	}
 
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
-	return abci.NewResultOK(hash, "")
+	return abci.NewResultOK(app.hash, "")
 }
 
 func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.ResponseQuery) {

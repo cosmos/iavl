@@ -32,17 +32,27 @@ func (s State) Check() merkle.Tree {
 	return s.checkTx
 }
 
-// Commit stores the current Append() state as committed
+// PreCommit stores the current Append() state as committed
 // starts new Append/Check state, and
 // returns the hash for the commit
-func (s *State) Commit() []byte {
+func (s *State) Hash() []byte {
 	var hash []byte
 	if s.persistent {
-		hash = s.deliverTx.Save()
+		// Don't save it right now, just calc the hash
+		hash = s.deliverTx.Hash()
 	} else {
 		hash = s.deliverTx.Hash()
 	}
+	return hash
+}
 
+func (s *State) Commit() []byte {
+	var hash []byte
+	if s.persistent {
+		hash = s.committed.Save()
+	} else {
+		hash = s.committed.Hash()
+	}
 	s.committed = s.deliverTx
 	s.deliverTx = s.committed.Copy()
 	s.checkTx = s.committed.Copy()
