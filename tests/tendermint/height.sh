@@ -31,7 +31,7 @@ echo -n "status apphash="
 cat status.txt | jq '.result.latest_app_hash'
 
 # get the apphash from the proof
-echo -n "root in proof="
+echo -n "query proof="
 cat query.txt | jq '.result.response.proof'
 
 # A second time
@@ -49,8 +49,7 @@ echo -n "status apphash="
 cat status.txt | jq '.result.latest_app_hash'
 
 # get the apphash from the proof
-echo -n "root in proof="
+echo -n "query proof="
 cat query.txt | jq '.result.response.proof' 
-#cat query.txt | jq '.result.response.proof' | cut -c8-47
 
 echo ""
