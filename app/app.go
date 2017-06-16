@@ -43,7 +43,7 @@ const (
 func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	// start at 1 so the height returned by query is for the
 	// next block, ie. the one that includes the AppHash for our current state
-	initialHeight := uint64(0)
+	initialHeight := uint64(1)
 
 	// Non-persistent case
 	if dbName == "" {
@@ -85,12 +85,14 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		fmt.Println("error reading MerkleEyesState")
 		panic(err.Error())
 	}
+
 	tree.Load(eyesState.Hash)
 
 	return &MerkleEyesApp{
 		state:  NewState(tree, true),
 		db:     db,
 		height: eyesState.Height,
+		hash:   eyesState.Hash,
 	}
 }
 
@@ -100,10 +102,13 @@ func (app *MerkleEyesApp) CloseDB() {
 	}
 }
 
+// Info returns the height, hash and size (in the data)
+// the height is the block that holds the transactions, not the apphash itself
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
+	fmt.Printf("Info height %d hash %x\n", app.height, app.hash)
 	return abci.ResponseInfo{
 		Data:             cmn.Fmt("size:%v", app.state.Committed().Size()),
-		LastBlockHeight:  app.height,
+		LastBlockHeight:  app.height - 1,
 		LastBlockAppHash: app.hash,
 	}
 }
@@ -166,6 +171,7 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 
 	app.hash = app.state.Hash()
 	app.height++
+	fmt.Printf("height=%d,hash=%x\n", app.height, app.hash)
 
 	if app.db != nil {
 		// This is in the batch with the Save, but not in the tree
@@ -200,7 +206,7 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 		return
 	}
 
-	// set the query response height
+	// set the query response height to current
 	resQuery.Height = app.height
 
 	switch reqQuery.Path {

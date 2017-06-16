@@ -1,12 +1,17 @@
 #!/bin/bash
 
 ./start-tendermerk.sh
-sleep 5 
+./transaction.sh
+./height.sh
+./transaction.sh
+./height.sh
+./transaction.sh
 ./height.sh
 ./kill-tendermerk.sh
-sleep 5 
 
 ./restart-tendermerk.sh
-sleep 5 
+./transaction.sh
+./height.sh
+./transaction.sh
 ./height.sh
 ./kill-tendermerk.sh

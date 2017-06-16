@@ -11,7 +11,3 @@ tendermint init
 tendermint node >> tendermint.log &
 
 sleep 5
-
-curl http://localhost:46657/broadcast_tx_commit\?tx\=0x0101021234010177
-
-sleep 5
