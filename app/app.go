@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 
@@ -18,6 +19,7 @@ type MerkleEyesApp struct {
 
 	state  State
 	db     dbm.DB
+	hash   []byte
 	height uint64
 }
 
@@ -87,12 +89,14 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		fmt.Println("error reading MerkleEyesState")
 		panic(err.Error())
 	}
+
 	tree.Load(eyesState.Hash)
 
 	return &MerkleEyesApp{
 		state:  NewState(tree, true),
 		db:     db,
 		height: eyesState.Height,
+		hash:   eyesState.Hash,
 	}
 }
 
@@ -103,9 +107,15 @@ func (app *MerkleEyesApp) CloseDB() {
 	}
 }
 
-// Info implements abci.Application
+// Info implements abci.Application. It returns the height, hash and size (in the data).
+// The height is the block that holds the transactions, not the apphash itself.
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
-	return abci.ResponseInfo{Data: cmn.Fmt("size:%v", app.state.Committed().Size())}
+	fmt.Printf("Info height %d hash %x\n", app.height, app.hash)
+	return abci.ResponseInfo{
+		Data:             cmn.Fmt("size:%v", app.state.Committed().Size()),
+		LastBlockHeight:  app.height - 1,
+		LastBlockAppHash: app.hash,
+	}
 }
 
 // SetOption implements abci.Application
@@ -168,20 +178,28 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 // Commit implements abci.Application
 func (app *MerkleEyesApp) Commit() abci.Result {
 
-	hash := app.state.Commit()
-
+	app.hash = app.state.Hash()
 	app.height++
+	fmt.Printf("height=%d,hash=%x\n", app.height, app.hash)
+
 	if app.db != nil {
-		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
-			Hash:   hash,
+		// This is in the batch with the Save, but not in the tree
+		tree := app.state.Append().(*iavl.IAVLTree)
+		tree.BatchSet(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+			Hash:   app.hash,
 			Height: app.height,
 		}))
+	}
+
+	hash := app.state.Commit()
+	if !bytes.Equal(hash, app.hash) {
+		panic("AppHash is incorrect")
 	}
 
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
-	return abci.NewResultOK(hash, "")
+	return abci.NewResultOK(app.hash, "")
 }
 
 // Query implements abci.Application
@@ -198,7 +216,7 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 		return
 	}
 
-	// set the query response height
+	// set the query response height to current
 	resQuery.Height = app.height
 
 	switch reqQuery.Path {
