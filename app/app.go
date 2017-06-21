@@ -1,6 +1,7 @@
 package app
 
 import (
+	"bytes"
 	"fmt"
 	"path"
 
@@ -12,32 +13,37 @@ import (
 	"github.com/tendermint/tmlibs/merkle"
 )
 
+// MerkleEyesApp is a Merkle KV-store served as an ABCI app
 type MerkleEyesApp struct {
 	abci.BaseApplication
 
 	state  State
 	db     dbm.DB
+	hash   []byte
 	height uint64
 }
 
 // just make sure we really are an application, if the interface
 // ever changes in the future
-func (m *MerkleEyesApp) assertApplication() abci.Application {
-	return m
+func (app *MerkleEyesApp) assertApplication() abci.Application {
+	return app
 }
 
 var eyesStateKey = []byte("merkleeyes:state") // Database key for merkle tree save value db values
 
+// MerkleEyesState contains the latest Merkle root hash and the number of times `Commit` has been called
 type MerkleEyesState struct {
 	Hash   []byte
 	Height uint64
 }
 
+// Transaction type bytes
 const (
 	WriteSet byte = 0x01
 	WriteRem byte = 0x02
 )
 
+// NewMerkleEyesApp initializes the database, loads any existing state, and returns a new MerkleEyesApp
 func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	// start at 1 so the height returned by query is for the
 	// next block, ie. the one that includes the AppHash for our current state
@@ -83,34 +89,47 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		fmt.Println("error reading MerkleEyesState")
 		panic(err.Error())
 	}
+
 	tree.Load(eyesState.Hash)
 
 	return &MerkleEyesApp{
 		state:  NewState(tree, true),
 		db:     db,
 		height: eyesState.Height,
+		hash:   eyesState.Hash,
 	}
 }
 
+// CloseDB closes the database
 func (app *MerkleEyesApp) CloseDB() {
 	if app.db != nil {
 		app.db.Close()
 	}
 }
 
+// Info implements abci.Application. It returns the height, hash and size (in the data).
+// The height is the block that holds the transactions, not the apphash itself.
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
-	return abci.ResponseInfo{Data: cmn.Fmt("size:%v", app.state.Committed().Size())}
+	fmt.Printf("Info height %d hash %x\n", app.height, app.hash)
+	return abci.ResponseInfo{
+		Data:             cmn.Fmt("size:%v", app.state.Committed().Size()),
+		LastBlockHeight:  app.height - 1,
+		LastBlockAppHash: app.hash,
+	}
 }
 
+// SetOption implements abci.Application
 func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 	return "No options are supported yet"
 }
 
+// DeliverTx implements abci.Application
 func (app *MerkleEyesApp) DeliverTx(tx []byte) abci.Result {
 	tree := app.state.Append()
 	return app.doTx(tree, tx)
 }
 
+// CheckTx implements abci.Application
 func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	tree := app.state.Check()
 	return app.doTx(tree, tx)
@@ -156,24 +175,34 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 	return abci.OK
 }
 
+// Commit implements abci.Application
 func (app *MerkleEyesApp) Commit() abci.Result {
 
-	hash := app.state.Commit()
-
+	app.hash = app.state.Hash()
 	app.height++
+	fmt.Printf("height=%d,hash=%x\n", app.height, app.hash)
+
 	if app.db != nil {
-		app.db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
-			Hash:   hash,
+		// This is in the batch with the Save, but not in the tree
+		tree := app.state.Append().(*iavl.IAVLTree)
+		tree.BatchSet(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
+			Hash:   app.hash,
 			Height: app.height,
 		}))
+	}
+
+	hash := app.state.Commit()
+	if !bytes.Equal(hash, app.hash) {
+		panic("AppHash is incorrect")
 	}
 
 	if app.state.Committed().Size() == 0 {
 		return abci.NewResultOK(nil, "Empty hash for empty tree")
 	}
-	return abci.NewResultOK(hash, "")
+	return abci.NewResultOK(app.hash, "")
 }
 
+// Query implements abci.Application
 func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.ResponseQuery) {
 	if len(reqQuery.Data) == 0 {
 		return
@@ -187,7 +216,7 @@ func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.Respo
 		return
 	}
 
-	// set the query response height
+	// set the query response height to current
 	resQuery.Height = app.height
 
 	switch reqQuery.Path {

@@ -12,50 +12,51 @@ Inserts and removes happen through the `DeliverTx` message, while queries happen
 
 # Formatting
 
-A transaction is a serialized request on the key-value store, using [go-wire](https://github.com/tendermint/go-wire)
-for serialization.
+## Byte arrays
 
-Each function (set/insert, remove, get-by-key, get-by-index) has a corresponding type byte:
-
-```
-DeliverTx/CheckTx
---------
-- 0x01 for a set
-- 0x02 for a remove
-
-Query
---------
-- 0x01 for 'by Key'
-- 0x02 for 'by Index'
-```
-
-The format of a transaction is:
+Byte-array `B` is serialized to `Encode(B)` as follows:
 
 ```
-<TypeByte> <Encode(key)> <Encode(value)>
+Len(B) := Big-Endian encoded length of B
+Encode(B) = Len(Len(B)) | Len(B) | B
 ```
 
-which translates to (where `Encode()` is the `go-wire` encoding function):
+So if `B = "eric"`, then `Encode(B) = 0x010465726963`
+
+## Transactions
+
+There are two types of transaction, each associated with a type-byte and a list of arguments:
 
 ```
-ByteType ByteVarintSizeKey BytesVarintKey BytesKey ByteVarintSizeValue BytesVarintValue BytesValue
+Set			0x01		Key, Value
+Remove			0x02		Key
 ```
 
-For instance, to insert the key-value pair `(eric, clapton)`, you would submit the following bytes in an DeliverTx:
+A transaction consists of the type-byte concatenated with the encoded arguments.
+
+For instance, to insert a key-value pair, you would submit `01 | Encode(key) | Encode(value)`. 
+Thus, a transaction inserting the key-value pair `(eric, clapton)` would look like:
 
 ```
-010104657269630107636c6170746f6e
+0x010104657269630107636c6170746f6e
 ```
+
 
 Here's a session from the [abci-cli](https://tendermint.com/intro/getting-started/first-abci):
 
 ```
-> append_tx 0x010104657269630107636c6170746f6e
--> code: OK
+> deliver_tx 0x010104657269630107636c6170746f6e
 
-> query 0x01010465726963                  
--> code: OK
--> data: {clapton}
+> commit
+-> data: ��N��٢ek�X�!a��
+-> data.hex: 978A4ED807D617D9A2651C6B0EC9588D2161C9E0
+
+> query 0x65726963                  
+-> height: 2
+-> key: eric
+-> key.hex: 65726963
+-> value: clapton
+-> value.hex: 636C6170746F6E
 ```
 
 # Poem
