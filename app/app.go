@@ -13,6 +13,7 @@ import (
 	"github.com/tendermint/tmlibs/merkle"
 )
 
+// MerkleEyesApp is a Merkle KV-store served as an ABCI app
 type MerkleEyesApp struct {
 	abci.BaseApplication
 
@@ -24,22 +25,25 @@ type MerkleEyesApp struct {
 
 // just make sure we really are an application, if the interface
 // ever changes in the future
-func (m *MerkleEyesApp) assertApplication() abci.Application {
-	return m
+func (app *MerkleEyesApp) assertApplication() abci.Application {
+	return app
 }
 
 var eyesStateKey = []byte("merkleeyes:state") // Database key for merkle tree save value db values
 
+// MerkleEyesState contains the latest Merkle root hash and the number of times `Commit` has been called
 type MerkleEyesState struct {
 	Hash   []byte
 	Height uint64
 }
 
+// Transaction type bytes
 const (
 	WriteSet byte = 0x01
 	WriteRem byte = 0x02
 )
 
+// NewMerkleEyesApp initializes the database, loads any existing state, and returns a new MerkleEyesApp
 func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	// start at 1 so the height returned by query is for the
 	// next block, ie. the one that includes the AppHash for our current state
@@ -96,14 +100,15 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	}
 }
 
+// CloseDB closes the database
 func (app *MerkleEyesApp) CloseDB() {
 	if app.db != nil {
 		app.db.Close()
 	}
 }
 
-// Info returns the height, hash and size (in the data)
-// the height is the block that holds the transactions, not the apphash itself
+// Info implements abci.Application. It returns the height, hash and size (in the data).
+// The height is the block that holds the transactions, not the apphash itself.
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
 	fmt.Printf("Info height %d hash %x\n", app.height, app.hash)
 	return abci.ResponseInfo{
@@ -113,15 +118,18 @@ func (app *MerkleEyesApp) Info() abci.ResponseInfo {
 	}
 }
 
+// SetOption implements abci.Application
 func (app *MerkleEyesApp) SetOption(key string, value string) (log string) {
 	return "No options are supported yet"
 }
 
+// DeliverTx implements abci.Application
 func (app *MerkleEyesApp) DeliverTx(tx []byte) abci.Result {
 	tree := app.state.Append()
 	return app.doTx(tree, tx)
 }
 
+// CheckTx implements abci.Application
 func (app *MerkleEyesApp) CheckTx(tx []byte) abci.Result {
 	tree := app.state.Check()
 	return app.doTx(tree, tx)
@@ -167,6 +175,7 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 	return abci.OK
 }
 
+// Commit implements abci.Application
 func (app *MerkleEyesApp) Commit() abci.Result {
 
 	app.hash = app.state.Hash()
@@ -193,6 +202,7 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 	return abci.NewResultOK(app.hash, "")
 }
 
+// Query implements abci.Application
 func (app *MerkleEyesApp) Query(reqQuery abci.RequestQuery) (resQuery abci.ResponseQuery) {
 	if len(reqQuery.Data) == 0 {
 		return
