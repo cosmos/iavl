@@ -34,14 +34,7 @@ func (s State) Check() merkle.Tree {
 
 // Hash updates the tree
 func (s *State) Hash() []byte {
-	var hash []byte
-	if s.persistent {
-		// Don't save it right now, just calc the hash
-		hash = s.deliverTx.Hash()
-	} else {
-		hash = s.deliverTx.Hash()
-	}
-	return hash
+	return s.deliverTx.Hash()
 }
 
 // Commit save persistent nodes to the database and re-copies the trees
