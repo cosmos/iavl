@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.4 (TBD)
+
+IMPROVEMENTS:
+- support `--trace` and `--log_level` flags like other binaries
+- support standard viper functionality like other binaries
+- `MerkleEyesApp` uses a logger not just `fmt.Println`
+- logger configured properly in process
+
 ## 0.2.3 (June 21, 2017)
 
 FEATURES:
@@ -9,7 +17,7 @@ FEATURES:
 
 IMPROVEMENTS:
 - Better README
-- More comments in code 
+- More comments in code
 - Better testing from shell scripts
 
 ## 0.2.2 (June 5, 2017)

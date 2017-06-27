@@ -5,6 +5,7 @@ import (
 	"path"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	cmn "github.com/tendermint/tmlibs/common"
 	db "github.com/tendermint/tmlibs/db"
@@ -33,6 +34,9 @@ func init() {
 }
 
 func DumpDatabase(cmd *cobra.Command, args []string) {
+	dbName := viper.GetString(FlagDBName)
+	dbType := viper.GetString(FlagDBType)
+
 	if dbName == "" {
 		dbName = "merkleeyes"
 	}

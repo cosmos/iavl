@@ -1,12 +1,18 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"strings"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/tendermint/merkleeyes/app"
+	"github.com/tendermint/tmlibs/cli"
+)
+
+const (
+	defaultLogLevel = "error"
+	FlagLogLevel    = "log_level"
+	// TODO: fix up these flag names when we do a minor release
+	FlagDBName = "dbName"
+	FlagDBType = "dbType"
 )
 
 var RootCmd = &cobra.Command{
@@ -19,28 +25,21 @@ Including:
 	- Benchmark to check the underlying performance of the databases.
 	- Dump to list the full contents of any persistent go-merkle database.
 	`,
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) (err error) {
+		level := viper.GetString(FlagLogLevel)
+		err = app.SetLogLevel(level)
+		if err != nil {
+			return err
+		}
+		if viper.GetBool(cli.TraceFlag) {
+			app.SetTraceLogger()
+		}
+		return nil
+	},
 }
-
-func Execute() {
-	if err := RootCmd.Execute(); err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
-	}
-}
-
-var (
-	dbType string
-	dbName string
-)
 
 func init() {
-	cobra.OnInitialize(initEnv)
-	RootCmd.PersistentFlags().StringVarP(&dbType, "dbType", "t", "goleveldb", "type of backing db")
-	RootCmd.PersistentFlags().StringVarP(&dbName, "dbName", "d", "", "database name")
-}
-
-func initEnv() {
-	viper.SetEnvPrefix("TM")
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	viper.AutomaticEnv()
+	RootCmd.PersistentFlags().StringP(FlagDBType, "t", "goleveldb", "type of backing db")
+	RootCmd.PersistentFlags().StringP(FlagDBName, "d", "", "database name")
+	RootCmd.PersistentFlags().String(FlagLogLevel, defaultLogLevel, "Log level")
 }
