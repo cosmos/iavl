@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/tendermint/merkleeyes/iavl"
 	"github.com/tendermint/tmlibs/db"
@@ -40,6 +41,7 @@ func init() {
 }
 
 func LoadTest(cmd *cobra.Command, args []string) {
+	dbType := viper.GetString(FlagDBType)
 
 	tmpDir, err := ioutil.TempDir("", "loadtest-")
 	if err != nil {

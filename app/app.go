@@ -36,6 +36,11 @@ func SetLogLevel(level string) (err error) {
 	return
 }
 
+// SetTraceLogger adds error tracing to the logger
+func SetTraceLogger() {
+	logger = log.NewTracingLogger(logger)
+}
+
 // MerkleEyesApp is a Merkle KV-store served as an ABCI app
 type MerkleEyesApp struct {
 	abci.BaseApplication
@@ -95,13 +100,13 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	tree := iavl.NewIAVLTree(cacheSize, db)
 
 	if empty {
-		fmt.Println("no existing db, creating new db")
+		logger.Info("no existing db, creating new db")
 		db.Set(eyesStateKey, wire.BinaryBytes(MerkleEyesState{
 			Hash:   tree.Save(),
 			Height: initialHeight,
 		}))
 	} else {
-		fmt.Println("loading existing db")
+		logger.Info("loading existing db")
 	}
 
 	// Load merkle state
@@ -109,8 +114,9 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	var eyesState MerkleEyesState
 	err := wire.ReadBinaryBytes(eyesStateBytes, &eyesState)
 	if err != nil {
-		fmt.Println("error reading MerkleEyesState")
-		panic(err.Error())
+		logger.Error("error reading MerkleEyesState", "err", err)
+		// TODO: this should return an error, huh?
+		panic(err)
 	}
 
 	tree.Load(eyesState.Hash)
@@ -133,7 +139,7 @@ func (app *MerkleEyesApp) CloseDB() {
 // Info implements abci.Application. It returns the height, hash and size (in the data).
 // The height is the block that holds the transactions, not the apphash itself.
 func (app *MerkleEyesApp) Info() abci.ResponseInfo {
-	fmt.Printf("Info height %d hash %x\n", app.height, app.hash)
+	logger.Info("Info synced", "height", app.height, "hash", fmt.Sprintf("%X", app.hash))
 	return abci.ResponseInfo{
 		Data:             cmn.Fmt("size:%v", app.state.Committed().Size()),
 		LastBlockHeight:  app.height - 1,
@@ -202,7 +208,7 @@ func (app *MerkleEyesApp) Commit() abci.Result {
 
 	app.hash = app.state.Hash()
 	app.height++
-	fmt.Printf("height=%d,hash=%x\n", app.height, app.hash)
+	logger.Debug("Commit synced", "height", app.height, "hash", fmt.Sprintf("%X", app.hash))
 
 	if app.db != nil {
 		// This is in the batch with the Save, but not in the tree
