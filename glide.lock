@@ -1,5 +1,5 @@
 hash: a8af57ad9881011183dc9303839ceec09ec7b3745479224f1d4f1cbaf48f546c
-updated: 2017-06-01T23:37:08.196716502-04:00
+updated: 2017-06-27T14:20:33.216253143+02:00
 imports:
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
@@ -12,9 +12,9 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-stack/stack
-  version: 7a2f19628aabfe68f0766b59e74d6315f8347d22
+  version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
 - name: github.com/golang/protobuf
-  version: b50ceb1fa9818fa4d78b016c2d4ae025593a7ce3
+  version: 18c9bb3261723cd5401db4d0c9fbc5c3b6c70fe8
   subpackages:
   - proto
   - ptypes/any
@@ -54,7 +54,7 @@ imports:
 - name: github.com/spf13/cast
   version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
 - name: github.com/spf13/cobra
-  version: 3454e0e28e69c1b8effa6b5123c8e4185e20d696
+  version: 4cdb38c072b86bf795d2c81de50784d9fdd6eb77
 - name: github.com/spf13/jwalterweatherman
   version: 8f07c835e5cc1450c082fe3a439cf87b0cbb2d99
 - name: github.com/spf13/pflag
@@ -77,7 +77,7 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/abci
-  version: b86da575718079396af1f7fe3609ea34be6f855d
+  version: 7f5f48b6b9ec3964de4b07b6c3cd05d7c91aeee5
   subpackages:
   - client
   - server
@@ -87,19 +87,20 @@ imports:
   subpackages:
   - data
 - name: github.com/tendermint/tmlibs
-  version: 306795ae1d8e4f4a10dcc8bdb32a00455843c9d5
+  version: efb56aaea7517220bb3f42ff87b8004d554a17ff
   subpackages:
+  - cli/flags
   - common
   - db
   - log
   - merkle
   - test
 - name: golang.org/x/crypto
-  version: ab89591268e0c8b748cbe4047b00197516011af5
+  version: c7af5bf2638a1164f2eb5467c39c6cffbd13a02e
   subpackages:
   - ripemd160
 - name: golang.org/x/net
-  version: c9b681d35165f1995d6f3034e61f8761d4b90c99
+  version: feeb485667d1fdabe727840fe00adc22431bc86e
   subpackages:
   - context
   - http2
@@ -109,7 +110,7 @@ imports:
   - lex/httplex
   - trace
 - name: golang.org/x/sys
-  version: 9c9d83fe39ed3fd2d9249fcf6b755891fff54b03
+  version: e62c3de784db939836898e5c19ffd41bece347da
   subpackages:
   - unix
 - name: golang.org/x/text
@@ -124,7 +125,7 @@ imports:
   subpackages:
   - googleapis/rpc/status
 - name: google.golang.org/grpc
-  version: a0c3e72252b6fbf4826bb143e450eb05588a9d6d
+  version: 844f573616520565fdc6fb4db242321b5456fd6d
   subpackages:
   - codes
   - credentials

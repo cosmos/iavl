@@ -3,15 +3,38 @@ package app
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path"
 
 	abci "github.com/tendermint/abci/types"
 	"github.com/tendermint/go-wire"
-	"github.com/tendermint/merkleeyes/iavl"
+	tmflags "github.com/tendermint/tmlibs/cli/flags"
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tmlibs/log"
 	"github.com/tendermint/tmlibs/merkle"
+
+	"github.com/tendermint/merkleeyes/iavl"
 )
+
+// TODO: this is here to avoid breaking changes.
+// the logger should go inside MerkleEyesApp as another arg, but that must
+// go into a minor release, not a quick patch.
+var (
+	defaultLogLevel = "error"
+	logger          = log.NewTMLogger(log.NewSyncWriter(os.Stdout)).With("module", "merkleeyes")
+)
+
+// SetLogger sets a brand new logger
+func SetLogger(newlog log.Logger) {
+	logger = newlog
+}
+
+// SetLogLevel sets the log_level on the package logger
+func SetLogLevel(level string) (err error) {
+	logger, err = tmflags.ParseLogLevel(level, logger, defaultLogLevel)
+	return
+}
 
 // MerkleEyesApp is a Merkle KV-store served as an ABCI app
 type MerkleEyesApp struct {
@@ -158,7 +181,6 @@ func (app *MerkleEyesApp) doTx(tree merkle.Tree, tx []byte) abci.Result {
 		}
 
 		tree.Set(key, value)
-		// fmt.Println("SET", cmn.Fmt("%X", key), cmn.Fmt("%X", value))
 	case WriteRem: // Remove
 		key, n, err := wire.GetByteSlice(tx)
 		if err != nil {
