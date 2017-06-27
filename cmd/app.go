@@ -25,7 +25,7 @@ var startCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(startCmd)
-	startCmd.Flags().StringVarP(&address, "address", "l", "unix://data.sock", "MerkleEyes server listen address")
+	startCmd.Flags().StringVarP(&address, "address", "l", "tcp://127.0.0.1:46658", "MerkleEyes server listen address")
 	startCmd.Flags().StringVarP(&abci, "abci", "a", "socket", "socket | grpc")
 	startCmd.Flags().IntVarP(&cache, "cache", "c", 0, "database cache size")
 }

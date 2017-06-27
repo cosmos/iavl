@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
+	"strings"
 
 	abci "github.com/tendermint/abci/types"
 	"github.com/tendermint/go-wire"
@@ -90,11 +92,24 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 		}
 	}
 
-	// Setup the persistent merkle tree
-	empty, _ := cmn.IsDirEmpty(path.Join(dbName, dbName+".db"))
+	// Expand the path fully
+	dbPath, err := filepath.Abs(dbName)
+	if err != nil {
+		panic(fmt.Sprintf("Invalid Database Name: %s", dbName))
+	}
 
-	// Open the db, if the db doesn't exist it will be created
-	db := dbm.NewDB(dbName, dbm.LevelDBBackendStr, dbName)
+	// Some external calls accidently add a ".db", which is now removed
+	dbPath = strings.TrimSuffix(dbPath, path.Ext(dbPath))
+
+	// Split the database name into it's components (dir, name)
+	dir := path.Dir(dbPath)
+	name := path.Base(dbPath)
+
+	// Make sure the path exists
+	empty, _ := cmn.IsDirEmpty(dbPath + ".db")
+
+	// Open database called "dir/name.db", if it doesn't exist it will be created
+	db := dbm.NewDB(name, dbm.LevelDBBackendStr, dir)
 
 	// Load Tree
 	tree := iavl.NewIAVLTree(cacheSize, db)
@@ -112,7 +127,7 @@ func NewMerkleEyesApp(dbName string, cacheSize int) *MerkleEyesApp {
 	// Load merkle state
 	eyesStateBytes := db.Get(eyesStateKey)
 	var eyesState MerkleEyesState
-	err := wire.ReadBinaryBytes(eyesStateBytes, &eyesState)
+	err = wire.ReadBinaryBytes(eyesStateBytes, &eyesState)
 	if err != nil {
 		logger.Error("error reading MerkleEyesState", "err", err)
 		// TODO: this should return an error, huh?
