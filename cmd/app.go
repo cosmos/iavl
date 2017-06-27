@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/tendermint/abci/server"
 
 	cmn "github.com/tendermint/tmlibs/common"
@@ -30,6 +31,7 @@ func init() {
 }
 
 func StartServer(cmd *cobra.Command, args []string) {
+	dbName := viper.GetString(FlagDBName)
 	app := application.NewMerkleEyesApp(dbName, cache)
 	server, err := server.NewServer(address, abci, app)
 
