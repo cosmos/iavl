@@ -20,10 +20,11 @@ func TestNonPersistent(t *testing.T) {
 
 func TestPersistent(t *testing.T) {
 	dbName := "testDb"
-	os.RemoveAll(dbName + ".db") //remove the database if exists for any reason
+	dbPath := dbName + ".db"
+	os.RemoveAll(dbPath) //remove the database if exists for any reason
 	testProcedure(t, tmspAddr, dbName, 0, false, false)
 	testProcedure(t, tmspAddr, dbName, 0, true, true)
-	os.RemoveAll(dbName) //cleanup, remove database that was created by testProcedure
+	os.RemoveAll(dbPath) //cleanup, remove database that was created by testProcedure
 }
 
 func testProcedure(t *testing.T, addr, dbName string, cache int, testPersistence, clearRecords bool) {
