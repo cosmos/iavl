@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.0 (TBD)
+
+BREAKING CHANGES:
+- change default address to match Tendermint default: `unix://data.sock` -> `tcp://localhost:46658` 
+
+BUG FIXES:
+- fix database path doubling up on itself
+
 ## 0.2.4 (June 27, 2017)
 
 FEATURES:
