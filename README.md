@@ -42,7 +42,7 @@ Thus, a transaction inserting the key-value pair `(eric, clapton)` would look li
 ```
 
 
-Here's a session from the [abci-cli](https://tendermint.com/intro/getting-started/first-abci):
+Here's a session from the [abci-cli](https://tendermint.com/docs/getting-started/first-abci):
 
 ```
 > deliver_tx 0x010104657269630107636c6170746f6e
