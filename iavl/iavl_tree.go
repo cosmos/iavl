@@ -52,7 +52,8 @@ func (t *IAVLTree) Copy() merkle.Tree {
 		// It sets all the hashes recursively,
 		// clears all the leftNode/rightNode values recursively,
 		// and all the .persisted flags get set.
-		PanicSanity("It is unsafe to Copy() an unpersisted tree.")
+
+		// PanicSanity("It is unsafe to Copy() an unpersisted tree.")
 	} else if t.ndb == nil && t.root.hash == nil {
 		// An in-memory IAVLTree is finalized when the hashes are
 		// calculated.
