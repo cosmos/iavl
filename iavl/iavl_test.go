@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/go-wire"
 	. "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tmlibs/db"
 	. "github.com/tendermint/tmlibs/test"
 
 	"runtime"
@@ -407,10 +407,15 @@ func TestIterateRange(t *testing.T) {
 	tree.IterateRange([]byte("very"), nil, true, trav.view)
 	expectTraverse(t, trav, "", "", 0)
 
-	// make sure backwards also works...
+	// make sure it doesn't include end
+	trav = traverser{}
+	tree.IterateRange([]byte("fooba"), []byte("food"), true, trav.view)
+	expectTraverse(t, trav, "foobang", "foobaz", 3)
+
+	// make sure backwards also works... (doesn't include end)
 	trav = traverser{}
 	tree.IterateRange([]byte("fooba"), []byte("food"), false, trav.view)
-	expectTraverse(t, trav, "food", "foobang", 4)
+	expectTraverse(t, trav, "foobaz", "foobang", 3)
 
 	// make sure backwards also works...
 	trav = traverser{}

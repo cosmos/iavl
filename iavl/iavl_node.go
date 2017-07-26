@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 
-	. "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/go-wire"
+	. "github.com/tendermint/tmlibs/common"
 )
 
 // Node
@@ -457,7 +457,7 @@ func (node *IAVLNode) traverse(t *IAVLTree, ascending bool, cb func(*IAVLNode) b
 
 func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending bool, cb func(*IAVLNode) bool) bool {
 	afterStart := (start == nil || bytes.Compare(start, node.key) <= 0)
-	beforeEnd := (end == nil || bytes.Compare(node.key, end) <= 0)
+	beforeEnd := (end == nil || bytes.Compare(node.key, end) < 0)
 
 	stop := false
 	if afterStart && beforeEnd {
