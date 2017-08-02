@@ -94,6 +94,15 @@ func (t *IAVLTree) Proof(key []byte) (value []byte, proofBytes []byte, exists bo
 	return value, proofBytes, true
 }
 
+func (t *IAVLTree) KeyExistsProof(key []byte) (value []byte, proofBytes []byte, exists bool) {
+	value, proof := t.ConstructKeyExistsProof(key)
+	if proof == nil {
+		return nil, nil, false
+	}
+	proofBytes = wire.BinaryBytes(proof)
+	return value, proofBytes, true
+}
+
 func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
 	if t.root == nil {
 		t.root = NewIAVLNode(key, value)

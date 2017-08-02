@@ -570,6 +570,40 @@ func TestIAVLTreeProof(t *testing.T) {
 	}
 }
 
+func TestIAVLTreeKeyExistsProof(t *testing.T) {
+	db := db.NewMemDB()
+	var tree *IAVLTree = NewIAVLTree(100, db)
+
+	// should get false for proof with nil root
+	_, _, exists := tree.KeyExistsProof([]byte("foo"))
+	assert.False(t, exists)
+
+	// insert lots of info and store the bytes
+	keys := make([][]byte, 200)
+	for i := 0; i < 200; i++ {
+		key, value := randstr(20), randstr(200)
+		tree.Set([]byte(key), []byte(value))
+		keys[i] = []byte(key)
+	}
+
+	// query random key fails
+	_, _, exists = tree.KeyExistsProof([]byte("foo"))
+	assert.False(t, exists)
+
+	// valid proof for real keys
+	root := tree.Hash()
+	for _, key := range keys {
+		value, proofBytes, exists := tree.KeyExistsProof(key)
+		assert.NotEmpty(t, value)
+		if assert.True(t, exists) {
+			proof, err := ReadKeyExistsProof(proofBytes)
+			require.Nil(t, err, "Failed to read IAVLProof from bytes: %+v", err)
+			err = proof.Verify(key, value, root)
+			assert.Nil(t, err, "%+v", err)
+		}
+	}
+}
+
 func BenchmarkImmutableAvlTreeCLevelDB(b *testing.B) {
 	b.StopTimer()
 
