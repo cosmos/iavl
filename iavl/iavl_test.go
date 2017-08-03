@@ -632,7 +632,7 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
 		keys = append(keys, key)
-		tree.Set(key, []byte(randstr(128)))
+		tree.Set(key, []byte(randstr(8)))
 	}
 	root := tree.Hash()
 
@@ -642,7 +642,7 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	require.Nil(err, "%+v", err)
 	require.NotNil(proof)
 	err = proof.Verify(key, root)
-	assert.Nil(t, err, "%+v", err)
+	require.Nil(err, "%+v", err)
 
 	// Query a non-existing key at the right boundary returns proof of non-existence.
 	k, _ := tree.GetByIndex(tree.Size() - 1)
@@ -651,7 +651,7 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	require.Nil(err, "%+v", err)
 	require.NotNil(proof)
 	err = proof.Verify(key, root)
-	assert.Nil(t, err, "%+v", err)
+	require.Nil(err, "%+v", err)
 
 	// Query a non-existing key at the left boundary returns proof of non-existence.
 	k, _ = tree.GetByIndex(0)
@@ -659,8 +659,9 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	proof, err = tree.ConstructKeyNotExistsProof(key)
 	require.Nil(err, "%+v", err)
 	require.NotNil(proof)
+	require.Nil(proof.LeftPath)
 	err = proof.Verify(key, root)
-	assert.Nil(t, err, "%+v", err)
+	require.Nil(err, "%+v", err)
 
 	// Query existing keys fails without proof of non-existence.
 	for _, key := range keys {
