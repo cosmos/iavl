@@ -671,6 +671,39 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	}
 }
 
+func TestKeyNotExistsProofVerify(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	keys := [][]byte{}
+	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
+		key := []byte{ikey}
+		keys = append(keys, key)
+		tree.Set(key, []byte(randstr(8)))
+	}
+
+	// Create a bogus non-existence proof and check that it does not verify.
+
+	lkey := keys[0]
+	lval, lproof := tree.ConstructKeyExistsProof(lkey)
+	require.NotNil(lproof)
+
+	rkey := keys[len(keys)-1]
+	rval, rproof := tree.ConstructKeyExistsProof(rkey)
+	require.NotNil(rproof)
+
+	proof := &KeyNotExistsProof{
+		RootHash: lproof.RootHash,
+
+		LeftPath: &lproof.PathToKey,
+		LeftNode: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
+
+		RightPath: &rproof.PathToKey,
+		RightNode: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+	}
+	err := proof.Verify([]byte{0x40}, tree.Hash())
+	require.NotNil(err, "Proof should not verify")
+}
+
 func BenchmarkImmutableAvlTreeCLevelDB(b *testing.B) {
 	b.StopTimer()
 
