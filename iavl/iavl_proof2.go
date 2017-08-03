@@ -194,7 +194,7 @@ func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof 
 		lkey, lval = t.GetByIndex(idx - 1)
 	}
 	if idx < t.Size()-1 {
-		rkey, rval = t.GetByIndex(idx + 1)
+		rkey, rval = t.GetByIndex(idx)
 	}
 
 	// TODO: What if tree is empty?
