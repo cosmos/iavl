@@ -38,8 +38,12 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 
 type KeyNotExistsProof struct {
 	RootHash []byte
-	Before   *PathToKey
-	After    *PathToKey
+
+	LeftPath *PathToKey
+	LeftNode IAVLProofLeafNode
+
+	RightPath *PathToKey
+	RightNode IAVLProofLeafNode
 }
 
 func (proof *KeyNotExistsProof) Verify(key []byte, value []byte, root []byte) bool {
@@ -98,6 +102,28 @@ func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *Ke
 		return value, true
 	}
 	return nil, false
+}
+
+func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof *KeyNotExistsProof) error {
+	// TODO: Choose the left and right values according to the supplied key.
+	lkey := []byte{}
+	rkey := []byte{}
+
+	lproof := &KeyExistsProof{
+		RootHash: t.root.hash,
+	}
+	lval, _ := node.constructKeyExistsProof(t, lkey, lproof)
+	proof.LeftPath = &lproof.PathToKey
+	proof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
+
+	rproof := &KeyExistsProof{
+		RootHash: t.root.hash,
+	}
+	rval, _ := node.constructKeyExistsProof(t, rkey, rproof)
+	proof.RightPath = &rproof.PathToKey
+	proof.RightNode = IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval}
+
+	return nil
 }
 
 func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *KeyExistsProof) {
