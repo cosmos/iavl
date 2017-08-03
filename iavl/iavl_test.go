@@ -152,6 +152,20 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %v", string(val))
 		}
 	}
+
+	// Test "6"
+	{
+		idx, val, exists := tree.Get([]byte("6"))
+		if exists {
+			t.Errorf("Expected no value to exist")
+		}
+		if idx != 3 {
+			t.Errorf("Unexpected idx %x", idx)
+		}
+		if string(val) != "" {
+			t.Errorf("Unexpected value %v", string(val))
+		}
+	}
 }
 
 func TestUnit(t *testing.T) {
