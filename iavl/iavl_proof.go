@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"fmt"
 
 	"golang.org/x/crypto/ripemd160"
 
@@ -51,6 +52,10 @@ type IAVLProofInnerNode struct {
 	Size   int
 	Left   []byte
 	Right  []byte
+}
+
+func (n *IAVLProofInnerNode) String() string {
+	return fmt.Sprintf("IAVLProofInnerNode[height=%d, %x / %x]", n.Height, n.Left, n.Right)
 }
 
 func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {

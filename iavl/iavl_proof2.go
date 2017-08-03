@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-wire"
@@ -10,6 +11,15 @@ import (
 type PathToKey struct {
 	LeafHash   []byte
 	InnerNodes []IAVLProofInnerNode
+}
+
+func (p *PathToKey) String() string {
+	str := ""
+	for i := len(p.InnerNodes) - 1; i >= 0; i-- {
+		str += p.InnerNodes[i].String() + "\n"
+	}
+	str += fmt.Sprintf("hash(leaf)=%x\n", p.LeafHash)
+	return str
 }
 
 func (p *PathToKey) Verify(leafNode IAVLProofLeafNode, root []byte) error {
