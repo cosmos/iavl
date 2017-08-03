@@ -27,6 +27,24 @@ func (p *PathToKey) Verify(leafNode IAVLProofLeafNode, root []byte) error {
 	return nil
 }
 
+func (p *PathToKey) IsLeftmost() bool {
+	for _, node := range p.InnerNodes {
+		if node.Left != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *PathToKey) IsRightmost() bool {
+	for _, node := range p.InnerNodes {
+		if node.Right != nil {
+			return false
+		}
+	}
+	return true
+}
+
 type KeyExistsProof struct {
 	PathToKey
 	RootHash []byte
@@ -78,16 +96,21 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 	// Both paths exist, check that they are sequential.
 	if proof.RightPath != nil && proof.LeftPath != nil {
 		// TODO
+		return nil
 	}
 
 	// Only right path exists, check that node is at left boundary.
 	if proof.LeftPath == nil {
-		// TODO
+		if !proof.RightPath.IsLeftmost() {
+			return errors.New("right path is only one but not leftmost")
+		}
 	}
 
 	// Only left path exists, check that node is at right boundary.
 	if proof.RightPath == nil {
-		// TODO
+		if !proof.LeftPath.IsRightmost() {
+			return errors.New("left path is only one but not rightmost")
+		}
 	}
 
 	return nil
