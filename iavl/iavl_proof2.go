@@ -105,21 +105,30 @@ func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *Ke
 }
 
 func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof *KeyNotExistsProof) error {
-	// TODO: Choose the left and right values according to the supplied key.
-	lkey := []byte{}
-	rkey := []byte{}
+	idx, _, exists := t.Get(key)
+	if exists {
+		return errors.Errorf("couldn't construct non-existence proof: key '%x' exists", key)
+	}
+
+	// TODO: Take care of out-of bounds indices.
+	lkey, lval := t.GetByIndex(idx - 1)
+	rkey, rval := t.GetByIndex(idx + 1)
+
+	if lkey == nil || rkey == nil {
+		return errors.New("couldn't get keys required for non-existence proof")
+	}
 
 	lproof := &KeyExistsProof{
 		RootHash: t.root.hash,
 	}
-	lval, _ := node.constructKeyExistsProof(t, lkey, lproof)
+	node.constructKeyExistsProof(t, lkey, lproof)
 	proof.LeftPath = &lproof.PathToKey
 	proof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
 
 	rproof := &KeyExistsProof{
 		RootHash: t.root.hash,
 	}
-	rval, _ := node.constructKeyExistsProof(t, rkey, rproof)
+	node.constructKeyExistsProof(t, rkey, rproof)
 	proof.RightPath = &rproof.PathToKey
 	proof.RightNode = IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval}
 
