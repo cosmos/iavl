@@ -605,44 +605,54 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 }
 
 func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
-	db := db.NewMemDB()
-	var tree *IAVLTree = NewIAVLTree(100, db)
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+
+	require := require.New(t)
 
 	// Should get nil for proof with nil root
 	proof, err := tree.ConstructKeyNotExistsProof([]byte{0x40})
-	require.Nil(t, proof)
-	require.NotNil(t, err)
+	require.Nil(proof)
+	require.NotNil(err)
 
 	keys := [][]byte{}
-	for _, ikey := range []uint8{0x11, 0x32, 0x50, 0x72, 0x99} {
+	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
 		keys = append(keys, key)
 		tree.Set(key, []byte(randstr(128)))
 	}
+	root := tree.Hash()
 
 	// Query non-existing key within bounds returns proof of non-existence.
-	proof, err = tree.ConstructKeyNotExistsProof([]byte{0x40})
-	require.Nil(t, err, "%+v", err)
-	require.NotNil(t, proof)
+	key := []byte{0x40}
+	proof, err = tree.ConstructKeyNotExistsProof(key)
+	require.Nil(err, "%+v", err)
+	require.NotNil(proof)
+	err = proof.Verify(key, root)
+	assert.Nil(t, err, "%+v", err)
 
 	// Query a non-existing key at the right boundary returns proof of non-existence.
 	k, _ := tree.GetByIndex(tree.Size() - 1)
-	proof, err = tree.ConstructKeyNotExistsProof([]byte{k[0] + 1})
-	require.Nil(t, err, "%+v", err)
-	require.NotNil(t, proof)
+	key = []byte{k[0] + 1}
+	proof, err = tree.ConstructKeyNotExistsProof(key)
+	require.Nil(err, "%+v", err)
+	require.NotNil(proof)
+	err = proof.Verify(key, root)
+	assert.Nil(t, err, "%+v", err)
 
 	// Query a non-existing key at the left boundary returns proof of non-existence.
 	k, _ = tree.GetByIndex(0)
-	proof, err = tree.ConstructKeyNotExistsProof([]byte{k[0] - 1})
-	require.Nil(t, err, "%+v", err)
-	require.NotNil(t, proof)
+	key = []byte{k[0] - 1}
+	proof, err = tree.ConstructKeyNotExistsProof(key)
+	require.Nil(err, "%+v", err)
+	require.NotNil(proof)
+	err = proof.Verify(key, root)
+	assert.Nil(t, err, "%+v", err)
 
 	// Query existing keys fails without proof of non-existence.
 	for _, key := range keys {
 		proof, err := tree.ConstructKeyNotExistsProof(key)
-		require.NotNil(t, err, "%+v", err)
-		require.Nil(t, proof)
-		// TODO: Verify proof.
+		require.NotNil(err, "%+v", err)
+		require.Nil(proof)
 	}
 }
 

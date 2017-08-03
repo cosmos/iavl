@@ -12,6 +12,21 @@ type PathToKey struct {
 	InnerNodes []IAVLProofInnerNode
 }
 
+func (p *PathToKey) Verify(leafNode IAVLProofLeafNode, root []byte) error {
+	leafHash := leafNode.Hash()
+	if !bytes.Equal(leafHash, p.LeafHash) {
+		return errors.Errorf("leaf hash does not match %x != %x", leafHash, p.LeafHash)
+	}
+	hash := leafHash
+	for _, branch := range p.InnerNodes {
+		hash = branch.Hash(hash)
+	}
+	if !bytes.Equal(root, hash) {
+		return errors.New("path does not match supplied root")
+	}
+	return nil
+}
+
 type KeyExistsProof struct {
 	PathToKey
 	RootHash []byte
@@ -22,18 +37,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 		return errors.New("roots are not equal")
 	}
 	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
-	leafHash := leafNode.Hash()
-	if !bytes.Equal(leafHash, proof.LeafHash) {
-		return errors.Errorf("leaf hash does not match %x != %x", leafHash, proof.LeafHash)
-	}
-	hash := leafHash
-	for _, branch := range proof.InnerNodes {
-		hash = branch.Hash(hash)
-	}
-	if !bytes.Equal(proof.RootHash, hash) {
-		return errors.New("path does not match root")
-	}
-	return nil
+	return proof.PathToKey.Verify(leafNode, root)
 }
 
 type KeyNotExistsProof struct {
@@ -46,8 +50,47 @@ type KeyNotExistsProof struct {
 	RightNode IAVLProofLeafNode
 }
 
-func (proof *KeyNotExistsProof) Verify(key []byte, value []byte, root []byte) bool {
-	return false
+func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
+	if !bytes.Equal(proof.RootHash, root) {
+		return errors.New("roots do not match")
+	}
+
+	if proof.LeftPath == nil && proof.RightPath == nil {
+		return errors.New("at least one path must exist")
+	}
+	if proof.LeftPath != nil {
+		if err := proof.LeftPath.Verify(proof.LeftNode, root); err != nil {
+			return errors.New("failed to verify left path")
+		}
+		if bytes.Compare(proof.LeftNode.KeyBytes, key) != -1 {
+			return errors.New("left node key must be lesser than supplied key")
+		}
+	}
+	if proof.RightPath != nil {
+		if err := proof.RightPath.Verify(proof.RightNode, root); err != nil {
+			return errors.New("failed to verify right path")
+		}
+		if bytes.Compare(proof.RightNode.KeyBytes, key) != 1 {
+			return errors.New("left node key must be greater than supplied key")
+		}
+	}
+
+	// Both paths exist, check that they are sequential.
+	if proof.RightPath != nil && proof.LeftPath != nil {
+		// TODO
+	}
+
+	// Only right path exists, check that node is at left boundary.
+	if proof.LeftPath == nil {
+		// TODO
+	}
+
+	// Only left path exists, check that node is at right boundary.
+	if proof.RightPath == nil {
+		// TODO
+	}
+
+	return nil
 }
 
 type KeyRangeExistsProof struct {
