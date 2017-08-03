@@ -78,6 +78,10 @@ type KeyNotExistsProof struct {
 	RightNode IAVLProofLeafNode
 }
 
+func (p *KeyNotExistsProof) String() string {
+	return fmt.Sprintf("KeyNotExistsProof\nroot=%x\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
+}
+
 func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return errors.New("roots do not match")
@@ -105,8 +109,57 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 
 	// Both paths exist, check that they are sequential.
 	if proof.RightPath != nil && proof.LeftPath != nil {
-		// TODO
-		return nil
+		lns := proof.LeftPath.InnerNodes[:]
+		rns := proof.RightPath.InnerNodes[:]
+		idx := 0
+
+		for bytes.Compare(lns[len(lns)-1].Left, rns[len(rns)-1].Left) == 0 &&
+			bytes.Compare(lns[len(lns)-1].Right, rns[len(rns)-1].Right) == 0 {
+
+			idx++
+
+			lns = lns[:len(lns)-1]
+			rns = rns[:len(rns)-1]
+		}
+		lns = lns[:len(lns)-1]
+		rns = rns[:len(rns)-1]
+
+		if idx > 0 {
+			lpath := &PathToKey{
+				LeafHash:   nil,
+				InnerNodes: lns,
+			}
+			rpath := &PathToKey{
+				LeafHash:   nil,
+				InnerNodes: rns,
+			}
+			if lpath.IsRightmost() {
+				return nil
+			} else {
+				return errors.New("Left path is not rightmost")
+			}
+			if rpath.IsLeftmost() {
+				return nil
+			} else {
+				return errors.New("Right path is not leftmost")
+			}
+			return nil
+		}
+
+		// Root node is lowest common ancestor.
+
+		lpath := &PathToKey{
+			LeafHash:   nil,
+			InnerNodes: lns[:len(proof.LeftPath.InnerNodes)-1],
+		}
+		rpath := &PathToKey{
+			LeafHash:   nil,
+			InnerNodes: rns[:len(proof.RightPath.InnerNodes)-1],
+		}
+		if lpath.IsRightmost() && rpath.IsLeftmost() {
+			return nil
+		}
+		return errors.New("Left and right path are not consecutive (root)")
 	}
 
 	// Only right path exists, check that node is at left boundary.
@@ -193,11 +246,10 @@ func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof 
 	if idx > 0 {
 		lkey, lval = t.GetByIndex(idx - 1)
 	}
-	if idx < t.Size()-1 {
+	if idx <= t.Size()-1 {
 		rkey, rval = t.GetByIndex(idx)
 	}
 
-	// TODO: What if tree is empty?
 	if lkey == nil && rkey == nil {
 		return errors.New("couldn't get keys required for non-existence proof")
 	}

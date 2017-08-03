@@ -637,12 +637,31 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	root := tree.Hash()
 
 	// Query non-existing key within bounds returns proof of non-existence.
+
 	key := []byte{0x40}
 	proof, err = tree.ConstructKeyNotExistsProof(key)
 	require.Nil(err, "%+v", err)
 	require.NotNil(proof)
 	err = proof.Verify(key, root)
+	require.Nil(err, "0x40: %+v", err)
+
+	key = []byte{0x60}
+	proof, err = tree.ConstructKeyNotExistsProof(key)
 	require.Nil(err, "%+v", err)
+	require.NotNil(proof)
+	require.NotNil(proof.LeftPath)
+	require.NotNil(proof.RightPath)
+	err = proof.Verify(key, root)
+	require.Nil(err, "0x60: %v", err)
+
+	key = []byte{0x80}
+	proof, err = tree.ConstructKeyNotExistsProof(key)
+	require.Nil(err, "%+v", err)
+	require.NotNil(proof)
+	require.NotNil(proof.LeftPath)
+	require.NotNil(proof.RightPath)
+	err = proof.Verify(key, root)
+	require.Nil(err, "0x80: %v", err)
 
 	// Query a non-existing key at the right boundary returns proof of non-existence.
 	k, _ := tree.GetByIndex(tree.Size() - 1)
