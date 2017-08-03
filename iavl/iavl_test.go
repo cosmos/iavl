@@ -609,20 +609,21 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(100, db)
 
 	// Should get nil for proof with nil root
-	proof, err := tree.ConstructKeyNotExistsProof([]byte("foo"))
+	proof, err := tree.ConstructKeyNotExistsProof([]byte{0x40})
 	require.Nil(t, proof)
 	require.NotNil(t, err)
 
-	// Insert lots of info and store the bytes
-	keys := make([][]byte, 200)
-	for i := 0; i < 200; i++ {
-		key, value := randstr(20), randstr(200)
-		tree.Set([]byte(key), []byte(value))
-		keys[i] = []byte(key)
+	keys := [][]byte{}
+	for _, ikey := range []uint8{0x11, 0x32, 0x50, 0x72, 0x99} {
+		key := []byte{ikey}
+		keys = append(keys, key)
+		tree.Set(key, []byte(randstr(128)))
 	}
 
+	missing := []byte{0x40}
+
 	// Query non-existing key succeeds with proof of non-existence
-	proof, err = tree.ConstructKeyNotExistsProof([]byte("foo"))
+	proof, err = tree.ConstructKeyNotExistsProof(missing)
 	require.Nil(t, err, "%+v", err)
 	require.NotNil(t, proof)
 
