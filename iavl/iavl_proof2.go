@@ -148,3 +148,17 @@ func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *Key
 	}
 	return nil, nil
 }
+
+func (t *IAVLTree) ConstructKeyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {
+	if t.root == nil {
+		return nil, errors.New("tree root is nil")
+	}
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+	proof := &KeyNotExistsProof{
+		RootHash: t.root.hash,
+	}
+	if err := t.root.constructKeyNotExistsProof(t, key, proof); err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
