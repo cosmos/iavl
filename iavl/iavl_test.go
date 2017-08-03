@@ -608,12 +608,12 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	db := db.NewMemDB()
 	var tree *IAVLTree = NewIAVLTree(100, db)
 
-	// should get false for proof with nil root
+	// Should get nil for proof with nil root
 	proof, err := tree.ConstructKeyNotExistsProof([]byte("foo"))
 	require.Nil(t, proof)
 	require.NotNil(t, err)
 
-	// insert lots of info and store the bytes
+	// Insert lots of info and store the bytes
 	keys := make([][]byte, 200)
 	for i := 0; i < 200; i++ {
 		key, value := randstr(20), randstr(200)
@@ -621,12 +621,12 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 		keys[i] = []byte(key)
 	}
 
-	// query non-existing key succeeds with proof of non-existence
+	// Query non-existing key succeeds with proof of non-existence
 	proof, err = tree.ConstructKeyNotExistsProof([]byte("foo"))
 	require.Nil(t, err, "%+v", err)
 	require.NotNil(t, proof)
 
-	// query existing keys fails without proof of non-existence
+	// Query existing keys fails without proof of non-existence
 	for _, key := range keys {
 		proof, err := tree.ConstructKeyNotExistsProof(key)
 		require.NotNil(t, err, "%+v", err)
