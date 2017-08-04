@@ -111,55 +111,20 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 	if proof.RightPath != nil && proof.LeftPath != nil {
 		lns := proof.LeftPath.InnerNodes[:]
 		rns := proof.RightPath.InnerNodes[:]
-		idx := 0
 
 		for bytes.Compare(lns[len(lns)-1].Left, rns[len(rns)-1].Left) == 0 &&
 			bytes.Compare(lns[len(lns)-1].Right, rns[len(rns)-1].Right) == 0 {
 
-			idx++
-
 			lns = lns[:len(lns)-1]
 			rns = rns[:len(rns)-1]
 		}
-		lns = lns[:len(lns)-1]
-		rns = rns[:len(rns)-1]
+		lpath := &PathToKey{InnerNodes: lns[:len(lns)-1]}
+		rpath := &PathToKey{InnerNodes: rns[:len(lns)-1]}
 
-		if idx > 0 {
-			lpath := &PathToKey{
-				LeafHash:   nil,
-				InnerNodes: lns,
-			}
-			rpath := &PathToKey{
-				LeafHash:   nil,
-				InnerNodes: rns,
-			}
-			if lpath.IsRightmost() {
-				return nil
-			} else {
-				return errors.New("Left path is not rightmost")
-			}
-			if rpath.IsLeftmost() {
-				return nil
-			} else {
-				return errors.New("Right path is not leftmost")
-			}
-			return nil
+		if !lpath.IsRightmost() || !rpath.IsLeftmost() {
+			return errors.New("merkle paths are not adjacent")
 		}
-
-		// Root node is lowest common ancestor.
-
-		lpath := &PathToKey{
-			LeafHash:   nil,
-			InnerNodes: lns[:len(proof.LeftPath.InnerNodes)-1],
-		}
-		rpath := &PathToKey{
-			LeafHash:   nil,
-			InnerNodes: rns[:len(proof.RightPath.InnerNodes)-1],
-		}
-		if lpath.IsRightmost() && rpath.IsLeftmost() {
-			return nil
-		}
-		return errors.New("Left and right path are not consecutive (root)")
+		return nil
 	}
 
 	// Only right path exists, check that node is at left boundary.
