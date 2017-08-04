@@ -162,12 +162,12 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 }
 
 func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyNotExistsProof, error) {
-	value, eproof, err := t.ConstructKeyExistsProof(key)
+	value, eproof, err := t.getWithKeyExistsProof(key)
 	if err == nil {
 		return value, eproof, nil, nil
 	}
 
-	neproof, err := t.ConstructKeyNotExistsProof(key)
+	neproof, err := t.keyNotExistsProof(key)
 	if err == nil {
 		return nil, nil, neproof, nil
 	}

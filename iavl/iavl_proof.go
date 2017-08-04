@@ -141,6 +141,7 @@ func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, valuePtr *[]byte, 
 }
 
 // Returns nil, nil if key is not in tree.
+// DEPRECATED
 func (t *IAVLTree) ConstructProof(key []byte) (value []byte, proof *IAVLProof) {
 	if t.root == nil {
 		return nil, nil

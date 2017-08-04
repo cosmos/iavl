@@ -589,7 +589,7 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(100, db)
 
 	// should get false for proof with nil root
-	_, proof, _ := tree.ConstructKeyExistsProof([]byte("foo"))
+	_, proof, _ := tree.getWithKeyExistsProof([]byte("foo"))
 	assert.Nil(t, proof)
 
 	// insert lots of info and store the bytes
@@ -601,13 +601,13 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	}
 
 	// query random key fails
-	_, proof, _ = tree.ConstructKeyExistsProof([]byte("foo"))
+	_, proof, _ = tree.getWithKeyExistsProof([]byte("foo"))
 	assert.Nil(t, proof)
 
 	// valid proof for real keys
 	root := tree.Hash()
 	for _, key := range keys {
-		value, proof, _ := tree.ConstructKeyExistsProof(key)
+		value, proof, _ := tree.getWithKeyExistsProof(key)
 		assert.NotEmpty(t, value)
 		if assert.NotNil(t, proof) {
 			err := proof.Verify(key, value, root)
@@ -621,7 +621,7 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 
 	require := require.New(t)
 
-	proof, err := tree.ConstructKeyNotExistsProof([]byte{0x1})
+	proof, err := tree.keyNotExistsProof([]byte{0x1})
 	require.Nil(proof, "Proof should be nil for empty tree")
 	require.NotNil(err)
 
@@ -652,11 +652,11 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 		}
 
 		if exists {
-			proof, err = tree.ConstructKeyNotExistsProof(key)
+			proof, err = tree.keyNotExistsProof(key)
 			require.Nil(proof, "Proof should be nil for existing key")
 			require.NotNil(err, "Got verification error for 0x%x: %+v", key, err)
 		} else {
-			proof, err = tree.ConstructKeyNotExistsProof(key)
+			proof, err = tree.keyNotExistsProof(key)
 			require.NotNil(proof, "Proof should not be nil for non-existing key")
 			require.Nil(err, "%+v", err)
 
@@ -690,11 +690,11 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 	// Create a bogus non-existence proof and check that it does not verify.
 
 	lkey := keys[0]
-	lval, lproof, _ := tree.ConstructKeyExistsProof(lkey)
+	lval, lproof, _ := tree.getWithKeyExistsProof(lkey)
 	require.NotNil(lproof)
 
 	rkey := keys[len(keys)-1]
-	rval, rproof, _ := tree.ConstructKeyExistsProof(rkey)
+	rval, rproof, _ := tree.getWithKeyExistsProof(rkey)
 	require.NotNil(rproof)
 
 	proof := &KeyNotExistsProof{

@@ -229,7 +229,7 @@ func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof 
 	return nil
 }
 
-func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
+func (t *IAVLTree) getWithKeyExistsProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
 	if t.root == nil {
 		return nil, nil, errors.New("tree root is nil")
 	}
@@ -244,7 +244,7 @@ func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *Key
 	return value, proof, nil
 }
 
-func (t *IAVLTree) ConstructKeyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {
+func (t *IAVLTree) keyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {
 	if t.root == nil {
 		return nil, errors.New("tree root is nil")
 	}
