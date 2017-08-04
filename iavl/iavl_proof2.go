@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/tendermint/go-wire"
 )
 
 type PathToKey struct {
@@ -151,15 +150,6 @@ type KeyRangeExistsProof struct {
 
 func (proof *KeyRangeExistsProof) Verify(key []byte, value []byte, root []byte) bool {
 	return false
-}
-
-func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
-	proof := new(KeyExistsProof)
-	err := wire.ReadBinaryBytes(data, &proof)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
 }
 
 func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *KeyExistsProof) ([]byte, error) {
