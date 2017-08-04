@@ -36,7 +36,7 @@ func (p *PathToKey) Verify(leafNode IAVLProofLeafNode, root []byte) error {
 	return nil
 }
 
-func (p *PathToKey) IsLeftmost() bool {
+func (p *PathToKey) isLeftmost() bool {
 	for _, node := range p.InnerNodes {
 		if node.Left != nil {
 			return false
@@ -45,7 +45,7 @@ func (p *PathToKey) IsLeftmost() bool {
 	return true
 }
 
-func (p *PathToKey) IsRightmost() bool {
+func (p *PathToKey) isRightmost() bool {
 	for _, node := range p.InnerNodes {
 		if node.Right != nil {
 			return false
@@ -120,7 +120,7 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 		lpath := &PathToKey{InnerNodes: lns[:len(lns)-1]}
 		rpath := &PathToKey{InnerNodes: rns[:len(lns)-1]}
 
-		if !lpath.IsRightmost() || !rpath.IsLeftmost() {
+		if !lpath.isRightmost() || !rpath.isLeftmost() {
 			return errors.New("merkle paths are not adjacent")
 		}
 		return nil
@@ -128,14 +128,14 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 
 	// Only right path exists, check that node is at left boundary.
 	if proof.LeftPath == nil {
-		if !proof.RightPath.IsLeftmost() {
+		if !proof.RightPath.isLeftmost() {
 			return errors.New("right path is only one but not leftmost")
 		}
 	}
 
 	// Only left path exists, check that node is at right boundary.
 	if proof.RightPath == nil {
-		if !proof.LeftPath.IsRightmost() {
+		if !proof.LeftPath.isRightmost() {
 			return errors.New("left path is only one but not rightmost")
 		}
 	}
