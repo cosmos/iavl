@@ -623,9 +623,8 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 
 	require := require.New(t)
 
-	// Should get nil for proof with nil root
-	proof, err := tree.ConstructKeyNotExistsProof([]byte{0x40})
-	require.Nil(proof)
+	proof, err := tree.ConstructKeyNotExistsProof([]byte{0x1})
+	require.Nil(proof, "Proof should be nil for empty tree")
 	require.NotNil(err)
 
 	keys := [][]byte{}
@@ -636,57 +635,47 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	}
 	root := tree.Hash()
 
-	// Query non-existing key within bounds returns proof of non-existence.
+	// Get min and max keys.
+	min, _ := tree.GetByIndex(0)
+	max, _ := tree.GetByIndex(tree.Size() - 1)
 
-	key := []byte{0x40}
-	proof, err = tree.ConstructKeyNotExistsProof(key)
-	require.Nil(err, "%+v", err)
-	require.NotNil(proof)
-	err = proof.Verify(key, root)
-	require.Nil(err, "0x40: %+v", err)
+	// Go through a range of keys and test the result of creating non-existence
+	// proofs for them.
 
-	key = []byte{0x60}
-	proof, err = tree.ConstructKeyNotExistsProof(key)
-	require.Nil(err, "%+v", err)
-	require.NotNil(proof)
-	require.NotNil(proof.LeftPath)
-	require.NotNil(proof.RightPath)
-	err = proof.Verify(key, root)
-	require.Nil(err, "0x60: %v", err)
+	for i := min[0] - 1; i < max[0]+1; i++ {
+		key := []byte{i}
+		exists := false
 
-	key = []byte{0x80}
-	proof, err = tree.ConstructKeyNotExistsProof(key)
-	require.Nil(err, "%+v", err)
-	require.NotNil(proof)
-	require.NotNil(proof.LeftPath)
-	require.NotNil(proof.RightPath)
-	err = proof.Verify(key, root)
-	require.Nil(err, "0x80: %v", err)
+		for _, k := range keys {
+			if bytes.Compare(key, k) == 0 {
+				exists = true
+				break
+			}
+		}
 
-	// Query a non-existing key at the right boundary returns proof of non-existence.
-	k, _ := tree.GetByIndex(tree.Size() - 1)
-	key = []byte{k[0] + 1}
-	proof, err = tree.ConstructKeyNotExistsProof(key)
-	require.Nil(err, "%+v", err)
-	require.NotNil(proof)
-	err = proof.Verify(key, root)
-	require.Nil(err, "%+v", err)
+		if exists {
+			proof, err = tree.ConstructKeyNotExistsProof(key)
+			require.Nil(proof, "Proof should be nil for existing key")
+			require.NotNil(err, "Got verification error for 0x%x: %+v", key, err)
+		} else {
+			proof, err = tree.ConstructKeyNotExistsProof(key)
+			require.NotNil(proof, "Proof should not be nil for non-existing key")
+			require.Nil(err, "%+v", err)
 
-	// Query a non-existing key at the left boundary returns proof of non-existence.
-	k, _ = tree.GetByIndex(0)
-	key = []byte{k[0] - 1}
-	proof, err = tree.ConstructKeyNotExistsProof(key)
-	require.Nil(err, "%+v", err)
-	require.NotNil(proof)
-	require.Nil(proof.LeftPath)
-	err = proof.Verify(key, root)
-	require.Nil(err, "%+v", err)
+			err = proof.Verify(key, root)
+			require.Nil(err, "Got verification error for 0x%x: %+v", key, err)
 
-	// Query existing keys fails without proof of non-existence.
-	for _, key := range keys {
-		proof, err := tree.ConstructKeyNotExistsProof(key)
-		require.NotNil(err, "%+v", err)
-		require.Nil(proof)
+			if bytes.Compare(key, min) < 0 {
+				require.Nil(proof.LeftPath)
+				require.NotNil(proof.RightPath)
+			} else if bytes.Compare(key, max) > 0 {
+				require.Nil(proof.RightPath)
+				require.NotNil(proof.LeftPath)
+			} else {
+				require.NotNil(proof.LeftPath)
+				require.NotNil(proof.RightPath)
+			}
+		}
 	}
 }
 
