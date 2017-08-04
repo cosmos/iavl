@@ -55,6 +55,29 @@ func (p *PathToKey) isRightmost() bool {
 	return true
 }
 
+type innerPathPair struct {
+	left  []IAVLProofInnerNode
+	right []IAVLProofInnerNode
+}
+
+func (p *innerPathPair) pop() {
+	p.left = p.left[:len(p.left)-1]
+	p.right = p.right[:len(p.right)-1]
+}
+
+func (p *innerPathPair) isCommonAncestor() bool {
+	leftEnd := p.left[len(p.left)-1]
+	rightEnd := p.right[len(p.right)-1]
+	return bytes.Equal(leftEnd.Left, rightEnd.Left) &&
+		bytes.Equal(leftEnd.Right, rightEnd.Right)
+}
+
+func (p *innerPathPair) isPathsAdjacent() bool {
+	lpath := &PathToKey{InnerNodes: p.left}
+	rpath := &PathToKey{InnerNodes: p.right}
+	return lpath.isRightmost() && rpath.isLeftmost()
+}
+
 type KeyExistsProof struct {
 	PathToKey `json:"path"`
 	RootHash  data.Bytes `json:"root_hash"`
@@ -109,19 +132,16 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 
 	// Both paths exist, check that they are sequential.
 	if proof.RightPath != nil && proof.LeftPath != nil {
-		lns := proof.LeftPath.InnerNodes[:]
-		rns := proof.RightPath.InnerNodes[:]
-
-		for bytes.Compare(lns[len(lns)-1].Left, rns[len(rns)-1].Left) == 0 &&
-			bytes.Compare(lns[len(lns)-1].Right, rns[len(rns)-1].Right) == 0 {
-
-			lns = lns[:len(lns)-1]
-			rns = rns[:len(rns)-1]
+		pair := innerPathPair{
+			proof.LeftPath.InnerNodes[:],
+			proof.RightPath.InnerNodes[:],
 		}
-		lpath := &PathToKey{InnerNodes: lns[:len(lns)-1]}
-		rpath := &PathToKey{InnerNodes: rns[:len(lns)-1]}
+		for pair.isCommonAncestor() {
+			pair.pop()
+		}
+		pair.pop()
 
-		if !lpath.isRightmost() || !rpath.isLeftmost() {
+		if !pair.isPathsAdjacent() {
 			return errors.New("merkle paths are not adjacent")
 		}
 		return nil
