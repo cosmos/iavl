@@ -22,7 +22,7 @@ func (p *PathToKey) String() string {
 	return str
 }
 
-func (p *PathToKey) Verify(leafNode IAVLProofLeafNode, root []byte) error {
+func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 	leafHash := leafNode.Hash()
 	if !bytes.Equal(leafHash, p.LeafHash) {
 		return errors.Errorf("leaf hash does not match %x != %x", leafHash, p.LeafHash)
@@ -65,7 +65,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 		return errors.New("roots are not equal")
 	}
 	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
-	return proof.PathToKey.Verify(leafNode, root)
+	return proof.PathToKey.verify(leafNode, root)
 }
 
 type KeyNotExistsProof struct {
@@ -91,7 +91,7 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 		return errors.New("at least one path must exist")
 	}
 	if proof.LeftPath != nil {
-		if err := proof.LeftPath.Verify(proof.LeftNode, root); err != nil {
+		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
 			return errors.New("failed to verify left path")
 		}
 		if bytes.Compare(proof.LeftNode.KeyBytes, key) != -1 {
@@ -99,7 +99,7 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 		}
 	}
 	if proof.RightPath != nil {
-		if err := proof.RightPath.Verify(proof.RightNode, root); err != nil {
+		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.New("failed to verify right path")
 		}
 		if bytes.Compare(proof.RightNode.KeyBytes, key) != 1 {
