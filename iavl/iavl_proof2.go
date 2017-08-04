@@ -8,6 +8,9 @@ import (
 	"github.com/tendermint/go-wire/data"
 )
 
+// PathToKey represents an inner path to a leaf node.
+// Note that the nodes are ordered such that the last one is closest
+// to the root of the tree.
 type PathToKey struct {
 	LeafHash   data.Bytes           `json:"leaf_hash"`
 	InnerNodes []IAVLProofInnerNode `json:"inner_nodes"`
