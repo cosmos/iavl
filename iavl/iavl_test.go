@@ -589,8 +589,8 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(100, db)
 
 	// should get false for proof with nil root
-	_, _, exists := tree.KeyExistsProof([]byte("foo"))
-	assert.False(t, exists)
+	_, proof := tree.ConstructKeyExistsProof([]byte("foo"))
+	assert.Nil(t, proof)
 
 	// insert lots of info and store the bytes
 	keys := make([][]byte, 200)
@@ -601,18 +601,16 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	}
 
 	// query random key fails
-	_, _, exists = tree.KeyExistsProof([]byte("foo"))
-	assert.False(t, exists)
+	_, proof = tree.ConstructKeyExistsProof([]byte("foo"))
+	assert.Nil(t, proof)
 
 	// valid proof for real keys
 	root := tree.Hash()
 	for _, key := range keys {
-		value, proofBytes, exists := tree.KeyExistsProof(key)
+		value, proof := tree.ConstructKeyExistsProof(key)
 		assert.NotEmpty(t, value)
-		if assert.True(t, exists) {
-			proof, err := ReadKeyExistsProof(proofBytes)
-			require.Nil(t, err, "Failed to read IAVLProof from bytes: %+v", err)
-			err = proof.Verify(key, value, root)
+		if assert.NotNil(t, proof) {
+			err := proof.Verify(key, value, root)
 			assert.Nil(t, err, "%+v", err)
 		}
 	}
