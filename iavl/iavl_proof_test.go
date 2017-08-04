@@ -9,6 +9,36 @@ import (
 	"testing"
 )
 
+func TestIAVLTreeGetWithProof(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	keys := [][]byte{}
+	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
+		key := []byte{ikey}
+		keys = append(keys, key)
+		tree.Set(key, []byte(randstr(8)))
+	}
+	root := tree.Hash()
+
+	key := []byte{0x32}
+	val, existProof, notExistProof, err := tree.GetWithProof(key)
+	require.NotEmpty(val)
+	require.NotNil(existProof)
+	err = existProof.Verify(key, val, root)
+	require.Nil(err, "%+v", err)
+	require.Nil(notExistProof)
+	require.Nil(err)
+
+	key = []byte{0x1}
+	val, existProof, notExistProof, err = tree.GetWithProof(key)
+	require.Empty(val)
+	require.Nil(existProof)
+	require.NotNil(notExistProof)
+	err = notExistProof.Verify(key, root)
+	require.Nil(err, "%+v", err)
+	require.Nil(err)
+}
+
 func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 
