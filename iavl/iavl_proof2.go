@@ -162,17 +162,17 @@ func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	return proof, nil
 }
 
-func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *KeyExistsProof) (value []byte, exists bool) {
+func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *KeyExistsProof) ([]byte, error) {
 	if node.height == 0 {
 		if bytes.Compare(node.key, key) == 0 {
 			proof.LeafHash = node.hash
-			return node.value, true
+			return node.value, nil
 		}
-		return nil, false
+		return nil, errors.New("key does not exist")
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		if value, exists := node.getLeftNode(t).constructKeyExistsProof(t, key, proof); exists {
+		if value, err := node.getLeftNode(t).constructKeyExistsProof(t, key, proof); err == nil {
 			branch := IAVLProofInnerNode{
 				Height: node.height,
 				Size:   node.size,
@@ -180,12 +180,12 @@ func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *Ke
 				Right:  node.getRightNode(t).hash,
 			}
 			proof.InnerNodes = append(proof.InnerNodes, branch)
-			return value, true
+			return value, nil
 		}
-		return nil, false
+		return nil, errors.New("key does not exist")
 	}
 
-	if value, exists = node.getRightNode(t).constructKeyExistsProof(t, key, proof); exists {
+	if value, err := node.getRightNode(t).constructKeyExistsProof(t, key, proof); err == nil {
 		branch := IAVLProofInnerNode{
 			Height: node.height,
 			Size:   node.size,
@@ -193,9 +193,9 @@ func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *Ke
 			Right:  nil,
 		}
 		proof.InnerNodes = append(proof.InnerNodes, branch)
-		return value, true
+		return value, nil
 	}
-	return nil, false
+	return nil, errors.New("key does not exist")
 }
 
 func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof *KeyNotExistsProof) error {
@@ -247,10 +247,11 @@ func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *Key
 	proof = &KeyExistsProof{
 		RootHash: t.root.hash,
 	}
-	if value, exists := t.root.constructKeyExistsProof(t, key, proof); exists {
-		return value, proof, nil
+	value, err = t.root.constructKeyExistsProof(t, key, proof)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "could not construct proof of existence")
 	}
-	return nil, nil, errors.New("key not found in tree")
+	return value, proof, nil
 }
 
 func (t *IAVLTree) ConstructKeyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {
@@ -262,7 +263,7 @@ func (t *IAVLTree) ConstructKeyNotExistsProof(key []byte) (*KeyNotExistsProof, e
 		RootHash: t.root.hash,
 	}
 	if err := t.root.constructKeyNotExistsProof(t, key, proof); err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "could not construct proof of non-existence")
 	}
 	return proof, nil
 }
