@@ -151,9 +151,11 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 	lval, lproof, _ := tree.getWithKeyExistsProof(lkey)
 	require.NotNil(lproof)
 
-	rkey := keys[len(keys)-1]
+	rkey := keys[2]
 	rval, rproof, _ := tree.getWithKeyExistsProof(rkey)
 	require.NotNil(rproof)
+
+	missing := []byte{0x40}
 
 	proof := &KeyNotExistsProof{
 		RootHash: lproof.RootHash,
@@ -164,6 +166,19 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 		RightPath: &rproof.PathToKey,
 		RightNode: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
 	}
-	err := proof.Verify([]byte{0x40}, tree.Hash())
+	err := proof.Verify(missing, tree.Hash())
 	require.NotNil(err, "Proof should not verify")
+
+	proof, err = tree.keyNotExistsProof(missing)
+	require.Nil(err)
+	require.NotNil(proof)
+
+	err = proof.Verify(missing, tree.Hash())
+	require.Nil(err)
+
+	err = proof.Verify([]byte{0x45}, tree.Hash())
+	require.Nil(err)
+
+	err = proof.Verify([]byte{0x25}, tree.Hash())
+	require.NotNil(err)
 }
