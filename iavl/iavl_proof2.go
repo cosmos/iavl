@@ -239,18 +239,18 @@ func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof 
 	return nil
 }
 
-func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *KeyExistsProof) {
+func (t *IAVLTree) ConstructKeyExistsProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
 	if t.root == nil {
-		return nil, nil
+		return nil, nil, errors.New("tree root is nil")
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 	proof = &KeyExistsProof{
 		RootHash: t.root.hash,
 	}
 	if value, exists := t.root.constructKeyExistsProof(t, key, proof); exists {
-		return value, proof
+		return value, proof, nil
 	}
-	return nil, nil
+	return nil, nil, errors.New("key not found in tree")
 }
 
 func (t *IAVLTree) ConstructKeyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {

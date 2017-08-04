@@ -589,7 +589,7 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(100, db)
 
 	// should get false for proof with nil root
-	_, proof := tree.ConstructKeyExistsProof([]byte("foo"))
+	_, proof, _ := tree.ConstructKeyExistsProof([]byte("foo"))
 	assert.Nil(t, proof)
 
 	// insert lots of info and store the bytes
@@ -601,13 +601,13 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	}
 
 	// query random key fails
-	_, proof = tree.ConstructKeyExistsProof([]byte("foo"))
+	_, proof, _ = tree.ConstructKeyExistsProof([]byte("foo"))
 	assert.Nil(t, proof)
 
 	// valid proof for real keys
 	root := tree.Hash()
 	for _, key := range keys {
-		value, proof := tree.ConstructKeyExistsProof(key)
+		value, proof, _ := tree.ConstructKeyExistsProof(key)
 		assert.NotEmpty(t, value)
 		if assert.NotNil(t, proof) {
 			err := proof.Verify(key, value, root)
@@ -690,11 +690,11 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 	// Create a bogus non-existence proof and check that it does not verify.
 
 	lkey := keys[0]
-	lval, lproof := tree.ConstructKeyExistsProof(lkey)
+	lval, lproof, _ := tree.ConstructKeyExistsProof(lkey)
 	require.NotNil(lproof)
 
 	rkey := keys[len(keys)-1]
-	rval, rproof := tree.ConstructKeyExistsProof(rkey)
+	rval, rproof, _ := tree.ConstructKeyExistsProof(rkey)
 	require.NotNil(rproof)
 
 	proof := &KeyNotExistsProof{

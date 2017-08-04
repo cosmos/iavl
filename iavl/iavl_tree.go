@@ -9,6 +9,8 @@ import (
 	. "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/tmlibs/merkle"
+
+	"github.com/pkg/errors"
 )
 
 /*
@@ -159,16 +161,16 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 }
 
 func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyNotExistsProof, error) {
-	value, eproof := t.ConstructKeyExistsProof(key)
-	if eproof != nil && value != nil {
+	value, eproof, err := t.ConstructKeyExistsProof(key)
+	if err == nil {
 		return value, eproof, nil, nil
 	}
 
 	neproof, err := t.ConstructKeyNotExistsProof(key)
-	if neproof != nil {
+	if err == nil {
 		return nil, nil, neproof, nil
 	}
-	return nil, nil, nil, err
+	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
 }
 
 func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
