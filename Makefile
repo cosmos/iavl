@@ -4,9 +4,9 @@ GOTOOLS = \
 
 PDFFLAGS=-pdf --nodefraction=0.1
 
-all: test install
+all: get_vendor_deps install test
 
-install: 
+install:
 	go install github.com/tendermint/merkleeyes/cmd/...
 
 dist:

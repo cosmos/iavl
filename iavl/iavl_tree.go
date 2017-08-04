@@ -9,6 +9,8 @@ import (
 	. "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/tmlibs/merkle"
+
+	"github.com/pkg/errors"
 )
 
 /*
@@ -85,6 +87,7 @@ func (t *IAVLTree) Has(key []byte) bool {
 	return t.root.has(t, key)
 }
 
+// DEPRECATED: See GetWithProof
 func (t *IAVLTree) Proof(key []byte) (value []byte, proofBytes []byte, exists bool) {
 	value, proof := t.ConstructProof(key)
 	if proof == nil {
@@ -156,6 +159,19 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 		return nil, nil
 	}
 	return t.root.getByIndex(t, index)
+}
+
+func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyNotExistsProof, error) {
+	value, eproof, err := t.getWithKeyExistsProof(key)
+	if err == nil {
+		return value, eproof, nil, nil
+	}
+
+	neproof, err := t.keyNotExistsProof(key)
+	if err == nil {
+		return nil, nil, neproof, nil
+	}
+	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
 }
 
 func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
