@@ -213,6 +213,7 @@ func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *Ke
 }
 
 func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof *KeyNotExistsProof) error {
+	// Get the index of the first key greater than the requested key, if the key doesn't exist.
 	idx, _, exists := t.Get(key)
 	if exists {
 		return errors.Errorf("couldn't construct non-existence proof: key 0x%x exists", key)
