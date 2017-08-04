@@ -80,8 +80,8 @@ func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 }
 
 type IAVLProofLeafNode struct {
-	KeyBytes   []byte
-	ValueBytes []byte
+	KeyBytes   data.Bytes `json:"key"`
+	ValueBytes data.Bytes `json:"value"`
 }
 
 func (leaf IAVLProofLeafNode) Hash() []byte {

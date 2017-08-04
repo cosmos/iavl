@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
+	"github.com/tendermint/go-wire/data"
 )
 
 type PathToKey struct {
-	LeafHash   []byte
-	InnerNodes []IAVLProofInnerNode
+	LeafHash   data.Bytes           `json:"leaf_hash"`
+	InnerNodes []IAVLProofInnerNode `json:"inner_nodes"`
 }
 
 func (p *PathToKey) String() string {
@@ -56,7 +57,7 @@ func (p *PathToKey) isRightmost() bool {
 
 type KeyExistsProof struct {
 	PathToKey
-	RootHash []byte
+	RootHash data.Bytes `json:"root_hash"`
 }
 
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
@@ -68,13 +69,13 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 }
 
 type KeyNotExistsProof struct {
-	RootHash []byte
+	RootHash data.Bytes `json:"root_hash"`
 
-	LeftPath *PathToKey
-	LeftNode IAVLProofLeafNode
+	LeftPath *PathToKey        `json:"left_path"`
+	LeftNode IAVLProofLeafNode `json:"left_node"`
 
-	RightPath *PathToKey
-	RightNode IAVLProofLeafNode
+	RightPath *PathToKey        `json:"right_path"`
+	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
 func (p *KeyNotExistsProof) String() string {
@@ -144,7 +145,7 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 }
 
 type KeyRangeExistsProof struct {
-	RootHash   []byte
+	RootHash   data.Bytes
 	PathToKeys []*PathToKey
 }
 
