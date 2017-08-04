@@ -56,8 +56,8 @@ func (p *PathToKey) isRightmost() bool {
 }
 
 type KeyExistsProof struct {
-	PathToKey
-	RootHash data.Bytes `json:"root_hash"`
+	PathToKey `json:"path"`
+	RootHash  data.Bytes `json:"root_hash"`
 }
 
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
