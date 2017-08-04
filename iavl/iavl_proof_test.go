@@ -28,6 +28,10 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	_, proof, _ = tree.getWithKeyExistsProof([]byte("foo"))
 	assert.Nil(t, proof)
 
+	// query min key fails
+	_, proof, _ = tree.getWithKeyExistsProof([]byte{0})
+	assert.Nil(t, proof)
+
 	// valid proof for real keys
 	root := tree.Hash()
 	for _, key := range keys {
