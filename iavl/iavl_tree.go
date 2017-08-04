@@ -87,6 +87,7 @@ func (t *IAVLTree) Has(key []byte) bool {
 	return t.root.has(t, key)
 }
 
+// DEPRECATED: See GetWithProof
 func (t *IAVLTree) Proof(key []byte) (value []byte, proofBytes []byte, exists bool) {
 	value, proof := t.ConstructProof(key)
 	if proof == nil {
