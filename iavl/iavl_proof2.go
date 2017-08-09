@@ -129,7 +129,7 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 			return errors.New("failed to verify right path")
 		}
 		if bytes.Compare(proof.RightNode.KeyBytes, key) != 1 {
-			return errors.New("left node key must be greater than supplied key")
+			return errors.New("right node key must be greater than supplied key")
 		}
 	}
 
