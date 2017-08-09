@@ -3,6 +3,8 @@ package iavl
 import (
 	"bytes"
 	"container/list"
+	"fmt"
+	"strings"
 	"sync"
 
 	wire "github.com/tendermint/go-wire"
@@ -34,6 +36,16 @@ func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
 			ndb: ndb,
 		}
 	}
+}
+
+// String returns a string representation of IAVLTree.
+func (t *IAVLTree) String() string {
+	leaves := []string{}
+	t.Iterate(func(key []byte, val []byte) (stop bool) {
+		leaves = append(leaves, fmt.Sprintf("%x: %x", key, val))
+		return false
+	})
+	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
 }
 
 // The returned tree and the original tree are goroutine independent.
