@@ -21,7 +21,7 @@ func (p *PathToKey) String() string {
 	for i := len(p.InnerNodes) - 1; i >= 0; i-- {
 		str += p.InnerNodes[i].String() + "\n"
 	}
-	str += fmt.Sprintf("hash(leaf)=%x\n", p.LeafHash)
+	str += fmt.Sprintf("hash(leaf)=%s\n", p.LeafHash)
 	return str
 }
 
@@ -105,7 +105,7 @@ type KeyNotExistsProof struct {
 }
 
 func (p *KeyNotExistsProof) String() string {
-	return fmt.Sprintf("KeyNotExistsProof\nroot=%x\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
+	return fmt.Sprintf("KeyNotExistsProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
 }
 
 func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
