@@ -42,7 +42,7 @@ func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 
 func (p *PathToKey) isLeftmost() bool {
 	for _, node := range p.InnerNodes {
-		if node.Left != nil {
+		if len(node.Left) > 0 {
 			return false
 		}
 	}
@@ -51,7 +51,7 @@ func (p *PathToKey) isLeftmost() bool {
 
 func (p *PathToKey) isRightmost() bool {
 	for _, node := range p.InnerNodes {
-		if node.Right != nil {
+		if len(node.Right) > 0 {
 			return false
 		}
 	}
