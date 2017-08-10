@@ -177,12 +177,40 @@ type KeyRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
+// Verify that a range proof is valid.
 func (proof *KeyRangeProof) Verify(keys, values [][]byte, root []byte) error {
+	// There are two things we want to verify here:
+	//
+	// 1. That the keys and values do indeed exist.
+	// 2. That the set of keys represent *all* keys in the range. There are no
+	//    keys that have been ommitted or are missing.
+	//
 	for i, path := range proof.PathToKeys {
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 		err := path.verify(leafNode, root)
 		if err != nil {
 			return err
+		}
+
+		// TODO: We have to verify the beginning of the range.
+
+		left := proof.PathToKeys[i]
+		if i >= len(proof.PathToKeys)-1 {
+			// We have an odd number of paths. We need to verify that the path
+			// has nothing to its right that should be included in the range.
+			// TODO
+			break
+		}
+		right := proof.PathToKeys[i+1]
+
+		// If the keys are descending, we have to check the other way around.
+		if bytes.Compare(keys[i], keys[i+1]) == 1 {
+			left, right = right, left
+		}
+
+		pair := innerPathPair{left.InnerNodes[:], right.InnerNodes[:]}
+		if !pair.isPathsAdjacent() {
+			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
 	}
 	return nil
