@@ -76,6 +76,10 @@ func (p *innerPathPair) isCommonAncestor() bool {
 }
 
 func (p *innerPathPair) isPathsAdjacent() bool {
+	for p.isCommonAncestor() {
+		p.pop()
+	}
+	p.pop()
 	lpath := &PathToKey{InnerNodes: p.left}
 	rpath := &PathToKey{InnerNodes: p.right}
 	return lpath.isRightmost() && rpath.isLeftmost()
@@ -139,11 +143,6 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 			proof.LeftPath.InnerNodes[:],
 			proof.RightPath.InnerNodes[:],
 		}
-		for pair.isCommonAncestor() {
-			pair.pop()
-		}
-		pair.pop()
-
 		if !pair.isPathsAdjacent() {
 			return errors.New("merkle paths are not adjacent")
 		}
