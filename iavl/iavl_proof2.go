@@ -178,7 +178,14 @@ type KeyRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
-func (proof *KeyRangeProof) Verify(keyStart, keyEnd []byte, root []byte) error {
+func (proof *KeyRangeProof) Verify(keys, values [][]byte, root []byte) error {
+	for i, path := range proof.PathToKeys {
+		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+		err := path.verify(leafNode, root)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -109,10 +109,10 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		} else {
 			expected = reverseBytes(keys[endIndex:startIndex])
 		}
-		keys, _, proof, err := tree.getWithKeyRangeProof(startKey, endKey, -1)
+		keys, values, proof, err := tree.getWithKeyRangeProof(startKey, endKey, -1)
 		require.Nil(err, "%+v", err)
 		require.EqualValues(expected, keys, "Keys returned not equal for range %x - %x", startKey, endKey)
-		err = proof.Verify(startKey, endKey, root)
+		err = proof.Verify(keys, values, root)
 		require.Nil(err, "%+v", err)
 	}
 }
