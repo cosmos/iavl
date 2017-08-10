@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"math/rand"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,6 +40,14 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	require.Nil(err)
 }
 
+func reverseBytes(xs [][]byte) [][]byte {
+	reversed := [][]byte{}
+	for i := len(xs) - 1; i >= 0; i-- {
+		reversed = append(reversed, xs[i])
+	}
+	return reversed
+}
+
 func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 
@@ -74,9 +83,42 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	}
 }
 
+func TestIAVLTreeKeyRangeProof(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	keys := [][]byte{}
+	for _, ikey := range []byte{
+		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
+	} {
+		key := []byte{ikey}
+		keys = append(keys, key)
+		tree.Set(key, []byte(randstr(8)))
+	}
+	root := tree.Hash()
+	count := len(keys)
+
+	for i := 0; i < count*count; i++ {
+		startIndex := rand.Int() % count
+		endIndex := rand.Int() % count
+		startKey := keys[startIndex]
+		endKey := keys[endIndex]
+
+		var expected [][]byte
+		if startIndex < endIndex {
+			expected = keys[startIndex:endIndex]
+		} else {
+			expected = reverseBytes(keys[endIndex:startIndex])
+		}
+		keys, _, proof, err := tree.getWithKeyRangeProof(startKey, endKey, -1)
+		require.Nil(err, "%+v", err)
+		require.EqualValues(expected, keys, "Keys returned not equal for range %x - %x", startKey, endKey)
+		err = proof.Verify(startKey, endKey, root)
+		require.Nil(err, "%+v", err)
+	}
+}
+
 func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
-
 	require := require.New(t)
 
 	proof, err := tree.keyNotExistsProof([]byte{0x1})

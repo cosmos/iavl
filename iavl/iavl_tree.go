@@ -186,6 +186,10 @@ func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyNotExi
 	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
 }
 
+func (t *IAVLTree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
+	return t.getWithKeyRangeProof(startKey, endKey, limit)
+}
+
 func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
 	if t.root == nil {
 		return nil, false

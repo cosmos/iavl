@@ -167,13 +167,19 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 	return nil
 }
 
-type KeyRangeExistsProof struct {
-	RootHash   data.Bytes
-	PathToKeys []*PathToKey
+type KeyRangeProof struct {
+	RootHash   data.Bytes   `json:"root_hash"`
+	PathToKeys []*PathToKey `json:"paths"`
+
+	LeftPath *PathToKey        `json:"left_path"`
+	LeftNode IAVLProofLeafNode `json:"left_node"`
+
+	RightPath *PathToKey        `json:"right_path"`
+	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
-func (proof *KeyRangeExistsProof) Verify(key []byte, value []byte, root []byte) bool {
-	return false
+func (proof *KeyRangeProof) Verify(keyStart, keyEnd []byte, root []byte) error {
+	return nil
 }
 
 func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *KeyExistsProof) ([]byte, error) {
@@ -210,6 +216,30 @@ func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *Ke
 		return value, nil
 	}
 	return nil, errors.New("key does not exist")
+}
+
+func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byte, limit int, rangeProof *KeyRangeProof) ([][]byte, [][]byte, error) {
+	keys := [][]byte{}
+	values := [][]byte{}
+	ascending := bytes.Compare(keyStart, keyEnd) == -1
+	if !ascending {
+		keyStart, keyEnd = keyEnd, keyStart
+	}
+	t.IterateRange(keyStart, keyEnd, ascending, func(k, v []byte) bool {
+		keys = append(keys, k)
+		values = append(values, v)
+		keyProof := &KeyExistsProof{
+			RootHash: t.root.hash,
+		}
+		node.constructKeyExistsProof(t, k, keyProof)
+		rangeProof.PathToKeys = append(rangeProof.PathToKeys, &keyProof.PathToKey)
+		return len(keys) == limit
+	})
+
+	// TODO: If range doesn't hit tree boundaries, include proofs of keys that are
+	// greater than the range.
+
+	return keys, values, nil
 }
 
 func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof *KeyNotExistsProof) error {
@@ -267,6 +297,24 @@ func (t *IAVLTree) getWithKeyExistsProof(key []byte) (value []byte, proof *KeyEx
 		return nil, nil, errors.Wrap(err, "could not construct proof of existence")
 	}
 	return value, proof, nil
+}
+
+func (t *IAVLTree) getWithKeyRangeProof(keyStart, keyEnd []byte, limit int) (
+	keys, values [][]byte, proof *KeyRangeProof, err error,
+) {
+	if t.root == nil {
+		return nil, nil, nil, errors.New("tree root is nil")
+	}
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+
+	proof = &KeyRangeProof{
+		RootHash: t.root.hash,
+	}
+	keys, values, err = t.root.constructKeyRangeProof(t, keyStart, keyEnd, limit, proof)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "could not construct proof of range")
+	}
+	return keys, values, proof, nil
 }
 
 func (t *IAVLTree) keyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {
