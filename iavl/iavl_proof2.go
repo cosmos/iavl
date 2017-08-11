@@ -171,7 +171,11 @@ type KeyRangeProof struct {
 }
 
 // Verify that a range proof is valid.
-func (proof *KeyRangeProof) Verify(keys, values [][]byte, root []byte) error {
+func (proof *KeyRangeProof) Verify(
+	startKey, endKey []byte, keys, values [][]byte, root []byte,
+) error {
+	// TODO: Check that range is what we asked for.
+
 	// There are two things we want to verify here:
 	//
 	// 1. That the keys and values do indeed exist.
@@ -203,6 +207,28 @@ func (proof *KeyRangeProof) Verify(keys, values [][]byte, root []byte) error {
 
 		if !left.isAdjacentTo(right) {
 			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
+		}
+	}
+
+	// If our start or end key are outside of the range of keys returned, we need
+	// to verify that no keys were ommitted in the result set. The additional
+	// left and right paths in the proof are for that purpose: they are paths
+	// to keys outside of the range of keys returned, yet adjacent to it, proving
+	// that nothing lies in between.
+	if !bytes.Equal(startKey, keys[0]) {
+		if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
+			// TODO: Error
+		}
+		if !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
+			// TODO: Error
+		}
+	}
+	if !bytes.Equal(endKey, keys[len(keys)-1]) {
+		if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
+			// TODO: Error
+		}
+		if !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
+			// TODO: Error
 		}
 	}
 	return nil
