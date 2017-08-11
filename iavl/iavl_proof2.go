@@ -58,31 +58,28 @@ func (p *PathToKey) isRightmost() bool {
 	return true
 }
 
-type innerPathPair struct {
-	left  []IAVLProofInnerNode
-	right []IAVLProofInnerNode
+func (p *PathToKey) pop() *PathToKey {
+	return &PathToKey{
+		LeafHash:   p.LeafHash,
+		InnerNodes: p.InnerNodes[:len(p.InnerNodes)-1],
+	}
 }
 
-func (p *innerPathPair) pop() {
-	p.left = p.left[:len(p.left)-1]
-	p.right = p.right[:len(p.right)-1]
-}
+func (left *PathToKey) hasCommonAncestor(right *PathToKey) bool {
+	leftEnd := left.InnerNodes[len(left.InnerNodes)-1]
+	rightEnd := right.InnerNodes[len(right.InnerNodes)-1]
 
-func (p *innerPathPair) isCommonAncestor() bool {
-	leftEnd := p.left[len(p.left)-1]
-	rightEnd := p.right[len(p.right)-1]
 	return bytes.Equal(leftEnd.Left, rightEnd.Left) &&
 		bytes.Equal(leftEnd.Right, rightEnd.Right)
 }
 
-func (p *innerPathPair) isPathsAdjacent() bool {
-	for p.isCommonAncestor() {
-		p.pop()
+func (left *PathToKey) isAdjacentTo(right *PathToKey) bool {
+	for left.hasCommonAncestor(right) {
+		left, right = left.pop(), right.pop()
 	}
-	p.pop()
-	lpath := &PathToKey{InnerNodes: p.left}
-	rpath := &PathToKey{InnerNodes: p.right}
-	return lpath.isRightmost() && rpath.isLeftmost()
+	left, right = left.pop(), right.pop()
+
+	return left.isRightmost() && right.isLeftmost()
 }
 
 type KeyExistsProof struct {
@@ -139,11 +136,7 @@ func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
 
 	// Both paths exist, check that they are sequential.
 	if proof.RightPath != nil && proof.LeftPath != nil {
-		pair := innerPathPair{
-			proof.LeftPath.InnerNodes[:],
-			proof.RightPath.InnerNodes[:],
-		}
-		if !pair.isPathsAdjacent() {
+		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
 			return errors.New("merkle paths are not adjacent")
 		}
 		return nil
@@ -208,8 +201,7 @@ func (proof *KeyRangeProof) Verify(keys, values [][]byte, root []byte) error {
 			left, right = right, left
 		}
 
-		pair := innerPathPair{left.InnerNodes[:], right.InnerNodes[:]}
-		if !pair.isPathsAdjacent() {
+		if !left.isAdjacentTo(right) {
 			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
 	}
