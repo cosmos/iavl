@@ -219,7 +219,7 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 	})
 }
 
-// IterateRange makes a callback for all nodes with key between start and end inclusive
+// IterateRange makes a callback for all nodes with key between start and end non-inclusive.
 // If either are nil, then it is open on that side (nil, nil is the same as Iterate)
 func (t *IAVLTree) IterateRange(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
