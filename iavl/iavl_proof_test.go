@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"bytes"
-	"math/rand"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -95,25 +94,62 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		tree.Set(key, []byte(randstr(8)))
 	}
 	root := tree.Hash()
-	count := len(keys)
 
-	for i := 0; i < count*count; i++ {
-		startIndex := rand.Int() % count
-		endIndex := rand.Int() % count
-		startKey := keys[startIndex]
-		endKey := keys[endIndex]
+	cases := []struct {
+		startKey byte
+		endKey   byte
+		limit    int
+	}{
+		// Full range, existing keys, both directions.
+		{0x0a, 0xf7, -1},
+		{0xf7, 0x0a, -1},
 
-		var expected [][]byte
-		if startIndex < endIndex {
-			expected = keys[startIndex:endIndex]
-		} else {
-			expected = reverseBytes(keys[endIndex:startIndex])
+		// Sub-range, existing keys, both directions.
+		{0x2e, 0xa1, -1},
+		{0xa1, 0x2e, -1},
+
+		// Sub-range, non-existing keys, both directions.
+		{0x2f, 0xa0, -1},
+		{0xa0, 0x2f, -1},
+
+		// Sub-range, partially-existing keys, both directions.
+		{0x2f, 0xa1, -1},
+		{0xa1, 0x2f, -1},
+
+		// Super-range, both directions.
+		{0x04, 0xfe, -1},
+		{0xfe, 0x04, -1},
+
+		// Overlapping range, both directions.
+		{0x12, 0xfa, -1},
+		{0xe8, 0x04, -1},
+
+		// Equal keys.
+		{0x72, 0x72, -1},
+
+		// Empty range.
+		{0x60, 0x70, -1},
+	}
+
+	for _, c := range cases {
+		startKey := []byte{c.startKey}
+		endKey := []byte{c.endKey}
+		ascending := bytes.Compare(startKey, endKey) == -1
+		if !ascending {
+			startKey, endKey = endKey, startKey
 		}
-		keys, values, proof, err := tree.getWithKeyRangeProof(startKey, endKey, -1)
+
+		expected := [][]byte{}
+		tree.IterateRange(startKey, endKey, ascending, func(k, v []byte) bool {
+			expected = append(expected, k)
+			return false
+		})
+
+		keys, values, proof, err := tree.getWithKeyRangeProof([]byte{c.startKey}, []byte{c.endKey}, -1)
 		require.Nil(err, "%+v", err)
-		require.EqualValues(expected, keys, "Keys returned not equal for range %x - %x", startKey, endKey)
+		require.EqualValues(expected, keys, "Keys returned not equal for range %x - %x", c.startKey, c.endKey)
 		err = proof.Verify(keys, values, root)
-		require.Nil(err, "Got error '%v' for range %x - %x", err, startKey, endKey)
+		require.Nil(err, "Got error '%v' for range %x - %x", err, c.startKey, c.endKey)
 	}
 }
 
