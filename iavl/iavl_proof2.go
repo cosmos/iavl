@@ -174,7 +174,9 @@ type KeyRangeProof struct {
 func (proof *KeyRangeProof) Verify(
 	startKey, endKey []byte, keys, values [][]byte, root []byte,
 ) error {
-	// TODO: Check that range is what we asked for.
+	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
+		return errors.New("wrong number of keys or values for proof")
+	}
 
 	if len(proof.PathToKeys) == 0 {
 		if proof.LeftPath == nil || proof.RightPath == nil {
