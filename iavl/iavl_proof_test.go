@@ -148,7 +148,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		keys, values, proof, err := tree.getWithKeyRangeProof([]byte{c.startKey}, []byte{c.endKey}, -1)
 		require.Nil(err, "%+v", err)
 		require.EqualValues(expected, keys, "Keys returned not equal for range %x - %x", c.startKey, c.endKey)
-		err = proof.Verify(keys, values, root)
+		err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
 		require.Nil(err, "Got error '%v' for range %x - %x", err, c.startKey, c.endKey)
 	}
 }
