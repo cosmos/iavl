@@ -217,30 +217,36 @@ func (proof *KeyRangeProof) Verify(
 	// that nothing lies in between.
 	if !bytes.Equal(startKey, keys[0]) {
 		if proof.LeftPath == nil {
-			return errors.New("Left path should not be nil")
-		}
-		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
-			return errors.New("failed to verify left path")
-		}
-		if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
-			// TODO: Error
-		}
-		if !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
-			// TODO: Error
+			if !proof.PathToKeys[0].isLeftmost() {
+				return errors.New("Left path is nil and first inner path is not leftmost")
+			}
+		} else {
+			if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
+				return errors.New("failed to verify left path")
+			}
+			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
+				// TODO: Error
+			}
+			if !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
+				// TODO: Error
+			}
 		}
 	}
 	if !bytes.Equal(endKey, keys[len(keys)-1]) {
 		if proof.RightPath == nil {
-			return errors.New("Right path should not be nil")
-		}
-		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
-			return errors.New("failed to verify left path")
-		}
-		if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
-			// TODO: Error
-		}
-		if !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
-			// TODO: Error
+			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
+				return errors.New("Right path is nil and last inner path is not rightmost")
+			}
+		} else {
+			if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
+				return errors.New("failed to verify right path")
+			}
+			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
+				// TODO: Error
+			}
+			if !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
+				// TODO: Error
+			}
 		}
 	}
 	return nil
@@ -301,8 +307,31 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		return len(keys) == limit
 	})
 
-	// TODO: If range doesn't hit tree boundaries, include proofs of keys that are
-	// greater than the range.
+	if !bytes.Equal(keys[0], keyStart) {
+		idx, _, _ := t.Get(keyStart)
+		if idx > 0 {
+			lkey, lval := t.GetByIndex(idx - 1)
+			lproof := &KeyExistsProof{
+				RootHash: t.root.hash,
+			}
+			node.constructKeyExistsProof(t, lkey, lproof)
+			rangeProof.LeftPath = &lproof.PathToKey
+			rangeProof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
+		}
+	}
+
+	if !bytes.Equal(keys[len(keys)-1], keyEnd) {
+		idx, _, _ := t.Get(keyEnd)
+		if idx <= t.Size()-1 {
+			rkey, rval := t.GetByIndex(idx)
+			rproof := &KeyExistsProof{
+				RootHash: t.root.hash,
+			}
+			node.constructKeyExistsProof(t, rkey, rproof)
+			rangeProof.RightPath = &rproof.PathToKey
+			rangeProof.RightNode = IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval}
+		}
+	}
 
 	return keys, values, nil
 }
