@@ -3,8 +3,10 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/pkg/errors"
+
 	"github.com/tendermint/go-wire/data"
 )
 
@@ -168,6 +170,17 @@ type KeyRangeProof struct {
 
 	RightPath *PathToKey        `json:"right_path"`
 	RightNode IAVLProofLeafNode `json:"right_node"`
+}
+
+func (proof *KeyRangeProof) String() string {
+	paths := []string{}
+	for _, p := range proof.PathToKeys {
+		paths = append(paths, "\t"+p.String())
+	}
+	inner := fmt.Sprintf("PathToKeys: \n\t%s", strings.Join(paths, ",\n"))
+	inner += fmt.Sprintf("LeftNode: %#v (%x)\n", proof.LeftNode, proof.LeftNode.Hash())
+	inner += fmt.Sprintf("RightNode: %#v (%x)", proof.RightNode, proof.RightNode.Hash())
+	return "&KeyRangeProof{\n\t" + inner + "\n}"
 }
 
 // Verify that a range proof is valid.
