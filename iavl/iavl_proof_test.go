@@ -131,6 +131,15 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 
 		// Empty range.
 		{0x60, 0x70},
+		{0x70, 0x60},
+
+		// Empty range outside of left boundary.
+		{0x01, 0x03},
+		{0x03, 0x01},
+
+		// Empty range outside of right boundary.
+		{0xf9, 0xfd},
+		{0xfd, 0xf9},
 	}
 
 	for _, c := range cases {

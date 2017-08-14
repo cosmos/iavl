@@ -192,8 +192,22 @@ func (proof *KeyRangeProof) Verify(
 	}
 
 	if len(proof.PathToKeys) == 0 {
-		if proof.LeftPath == nil || proof.RightPath == nil {
+		if proof.LeftPath == nil && proof.RightPath == nil {
 			return errors.New("proof is incomplete")
+		}
+		if proof.LeftPath == nil && proof.RightPath != nil {
+			// Range is to the left of existing keys.
+			if !proof.RightPath.isLeftmost() {
+				return errors.New("right path is not leftmost")
+			}
+			return nil
+		}
+		if proof.RightPath == nil && proof.LeftPath != nil {
+			// Range is to the right of existing keys.
+			if !proof.LeftPath.isRightmost() {
+				return errors.New("left path is not rightmost")
+			}
+			return nil
 		}
 		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
 			return errors.New("left path is not adjacent to right path")
