@@ -176,6 +176,15 @@ func (proof *KeyRangeProof) Verify(
 ) error {
 	// TODO: Check that range is what we asked for.
 
+	if len(proof.PathToKeys) == 0 {
+		if proof.LeftPath == nil || proof.RightPath == nil {
+			return errors.New("proof is incomplete")
+		}
+		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
+			return errors.New("left path is not adjacent to right path")
+		}
+	}
+
 	// There are two things we want to verify here:
 	//
 	// 1. That the keys and values do indeed exist.
