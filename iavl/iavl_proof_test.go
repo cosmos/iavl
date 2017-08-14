@@ -27,9 +27,9 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	require.NotEmpty(val)
 	require.NotNil(existProof)
 	err = existProof.Verify(key, val, root)
-	require.Nil(err, "%+v", err)
+	require.NoError(err, "%+v", err)
 	require.Nil(notExistProof)
-	require.Nil(err)
+	require.NoError(err)
 
 	key = []byte{0x1}
 	val, existProof, notExistProof, err = tree.GetWithProof(key)
@@ -37,8 +37,8 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	require.Nil(existProof)
 	require.NotNil(notExistProof)
 	err = notExistProof.Verify(key, root)
-	require.Nil(err, "%+v", err)
-	require.Nil(err)
+	require.NoError(err, "%+v", err)
+	require.NoError(err)
 }
 
 func reverseBytes(xs [][]byte) [][]byte {
@@ -79,7 +79,7 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 		assert.NotEmpty(t, value)
 		if assert.NotNil(t, proof) {
 			err := proof.Verify(key, value, root)
-			assert.Nil(t, err, "%+v", err)
+			assert.NoError(t, err, "%+v", err)
 		}
 	}
 }
@@ -148,11 +148,11 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 			})
 
 			keys, values, proof, err := tree.getWithKeyRangeProof([]byte{c.startKey}, []byte{c.endKey}, limit)
-			require.Nil(err, "%+v", err)
-			require.Equal(expected, keys, "Keys returned not equal for range %x - %x", c.startKey, c.endKey)
-			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
 			msg := fmt.Sprintf("range %x - %x with limit %d:\n%#v\n\n%s", c.startKey, c.endKey, limit, keys, proof.String())
-			require.Nil(err, "Got error '%v' for %s", err, msg)
+			require.NoError(err, "%+v", err)
+			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
+			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
+			require.NoError(err, "Got error '%v' for %s", err, msg)
 		}
 	}
 }
@@ -232,7 +232,7 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 
 	proof, err := tree.keyNotExistsProof([]byte{0x1})
 	require.Nil(proof, "Proof should be nil for empty tree")
-	require.NotNil(err)
+	require.Error(err)
 
 	keys := [][]byte{}
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
@@ -263,14 +263,14 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 		if exists {
 			proof, err = tree.keyNotExistsProof(key)
 			require.Nil(proof, "Proof should be nil for existing key")
-			require.NotNil(err, "Got verification error for 0x%x: %+v", key, err)
+			require.Error(err, "Got verification error for 0x%x: %+v", key, err)
 		} else {
 			proof, err = tree.keyNotExistsProof(key)
 			require.NotNil(proof, "Proof should not be nil for non-existing key")
-			require.Nil(err, "%+v", err)
+			require.NoError(err, "%+v", err)
 
 			err = proof.Verify(key, root)
-			require.Nil(err, "Got verification error for 0x%x: %+v", key, err)
+			require.NoError(err, "Got verification error for 0x%x: %+v", key, err)
 
 			if bytes.Compare(key, min) < 0 {
 				require.Nil(proof.LeftPath)
@@ -318,18 +318,18 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 		RightNode: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
 	}
 	err := proof.Verify(missing, tree.Hash())
-	require.NotNil(err, "Proof should not verify")
+	require.Error(err, "Proof should not verify")
 
 	proof, err = tree.keyNotExistsProof(missing)
-	require.Nil(err)
+	require.NoError(err)
 	require.NotNil(proof)
 
 	err = proof.Verify(missing, tree.Hash())
-	require.Nil(err)
+	require.NoError(err)
 
 	err = proof.Verify([]byte{0x45}, tree.Hash())
-	require.Nil(err)
+	require.NoError(err)
 
 	err = proof.Verify([]byte{0x25}, tree.Hash())
-	require.NotNil(err)
+	require.Error(err)
 }
