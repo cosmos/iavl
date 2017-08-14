@@ -225,7 +225,22 @@ func (t *IAVLTree) IterateRange(start, end []byte, ascending bool, fn func(key [
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, func(node *IAVLNode) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, func(node *IAVLNode) bool {
+		if node.height == 0 {
+			return fn(node.key, node.value)
+		} else {
+			return false
+		}
+	})
+}
+
+// IterateRangeInclusive makes a callback for all nodes with key between start and end inclusive.
+// If either are nil, then it is open on that side (nil, nil is the same as Iterate)
+func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
+	if t.root == nil {
+		return false
+	}
+	return t.root.traverseInRange(t, start, end, ascending, true, func(node *IAVLNode) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {

@@ -289,7 +289,8 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 	if !ascending {
 		keyStart, keyEnd = keyEnd, keyStart
 	}
-	t.IterateRange(keyStart, keyEnd, ascending, func(k, v []byte) bool {
+
+	t.IterateRangeInclusive(keyStart, keyEnd, ascending, func(k, v []byte) bool {
 		keys = append(keys, k)
 		values = append(values, v)
 		keyProof := &KeyExistsProof{

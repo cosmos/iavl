@@ -452,12 +452,15 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode) {
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
 func (node *IAVLNode) traverse(t *IAVLTree, ascending bool, cb func(*IAVLNode) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, cb)
+	return node.traverseInRange(t, nil, nil, ascending, false, cb)
 }
 
-func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending bool, cb func(*IAVLNode) bool) bool {
+func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending bool, inclusive bool, cb func(*IAVLNode) bool) bool {
 	afterStart := (start == nil || bytes.Compare(start, node.key) <= 0)
 	beforeEnd := (end == nil || bytes.Compare(node.key, end) < 0)
+	if inclusive {
+		beforeEnd = (end == nil || bytes.Compare(node.key, end) <= 0)
+	}
 
 	stop := false
 	if afterStart && beforeEnd {
@@ -472,24 +475,24 @@ func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending 
 		if ascending {
 			// check lower nodes, then higher
 			if afterStart {
-				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, cb)
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
 			}
 			if stop {
 				return stop
 			}
 			if beforeEnd {
-				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, cb)
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
 			}
 		} else {
 			// check the higher nodes first
 			if beforeEnd {
-				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, cb)
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
 			}
 			if stop {
 				return stop
 			}
 			if afterStart {
-				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, cb)
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
 			}
 		}
 	}
