@@ -216,6 +216,12 @@ func (proof *KeyRangeProof) Verify(
 	// to keys outside of the range of keys returned, yet adjacent to it, proving
 	// that nothing lies in between.
 	if !bytes.Equal(startKey, keys[0]) {
+		if proof.LeftPath == nil {
+			return errors.New("Left path should not be nil")
+		}
+		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
+			return errors.New("failed to verify left path")
+		}
 		if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 			// TODO: Error
 		}
@@ -224,6 +230,12 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 	if !bytes.Equal(endKey, keys[len(keys)-1]) {
+		if proof.RightPath == nil {
+			return errors.New("Right path should not be nil")
+		}
+		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
+			return errors.New("failed to verify left path")
+		}
 		if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
 			// TODO: Error
 		}
