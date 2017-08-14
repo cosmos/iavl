@@ -190,6 +190,16 @@ func (proof *KeyRangeProof) Verify(
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
 		return errors.New("wrong number of keys or values for proof")
 	}
+	if proof.LeftPath != nil {
+		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
+			return errors.New("failed to verify left path")
+		}
+	}
+	if proof.RightPath != nil {
+		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
+			return errors.New("failed to verify right path")
+		}
+	}
 
 	if len(proof.PathToKeys) == 0 {
 		if proof.LeftPath == nil && proof.RightPath == nil {
@@ -267,9 +277,6 @@ func (proof *KeyRangeProof) Verify(
 			if len(keys) > 0 && bytes.Compare(startKey, keys[first]) == -1 {
 				startKey = keys[first]
 			}
-			if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
-				return errors.New("failed to verify left path")
-			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 				return errors.New("left node key must be lesser than start key")
 			}
@@ -286,9 +293,6 @@ func (proof *KeyRangeProof) Verify(
 		} else {
 			if len(keys) > 0 && bytes.Compare(endKey, keys[last]) == 1 {
 				endKey = keys[last]
-			}
-			if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
-				return errors.New("failed to verify right path")
 			}
 			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
 				return errors.New("right node key must be greater than end key")
