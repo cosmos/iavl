@@ -188,14 +188,16 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		RightNode: proof.RightNode,
 	}
 	err = invalidProof.Verify(startKey, endKey, invalidKeys, invalidVals, root)
+	require.NotNil(err)
 	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
 
 	// Construct a proof and try to verify with a range greater than the proof.
 	expected = errors.New("left path is nil and first inner path is not leftmost")
-	startKey, endKey = []byte{0x2e}, []byte{0x32}
+	startKey, endKey = []byte{0x2e}, []byte{0x50}
 	keys, vals, proof, err = tree.getWithKeyRangeProof(startKey, endKey, -1)
 	proof.PathToKeys = proof.PathToKeys[1:]
-	err = proof.Verify([]byte{0x11}, []byte{0x32}, keys[1:], vals[1:], root)
+	err = proof.Verify([]byte{0x11}, []byte{0x50}, keys[1:], vals[1:], root)
+	require.NotNil(err)
 	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
 }
 
