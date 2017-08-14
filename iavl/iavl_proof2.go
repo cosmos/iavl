@@ -279,7 +279,7 @@ func (proof *KeyRangeProof) Verify(
 			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
 				return errors.New("right node key must be greater than end key")
 			}
-			if len(proof.PathToKeys) > 0 && !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
+			if len(proof.PathToKeys) > 0 && !proof.PathToKeys[len(proof.PathToKeys)-1].isAdjacentTo(proof.RightPath) {
 				return errors.New("last inner path isn't adjacent to right path")
 			}
 		}
