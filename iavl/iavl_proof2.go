@@ -247,7 +247,7 @@ func (proof *KeyRangeProof) Verify(
 	if len(keys) == 0 || !bytes.Equal(startKey, keys[first]) {
 		if proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
-				return errors.New("Left path is nil and first inner path is not leftmost")
+				return errors.New("left path is nil and first inner path is not leftmost")
 			}
 		} else {
 			if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
@@ -264,7 +264,7 @@ func (proof *KeyRangeProof) Verify(
 	if len(keys) == 0 || !bytes.Equal(endKey, keys[last]) {
 		if proof.RightPath == nil {
 			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-				return errors.New("Right path is nil and last inner path is not rightmost")
+				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		} else {
 			if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
