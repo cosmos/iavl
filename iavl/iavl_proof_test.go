@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -151,6 +152,51 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
 		require.Nil(err, "Got error '%v' for range %x - %x:\n%#v\n\n%s", err, c.startKey, c.endKey, keys, proof.String())
 	}
+}
+
+func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	keys := [][]byte{}
+	values := [][]byte{}
+	for _, ikey := range []byte{
+		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
+	} {
+		key, val := []byte{ikey}, []byte(randstr(8))
+		keys, values = append(keys, key), append(values, val)
+		tree.Set(key, val)
+	}
+	root := tree.Hash()
+
+	// Construct a proof with a missing value 0x32 in the range.
+	expected := errors.New("paths 1 and 2 are not adjacent")
+	startKey, endKey := []byte{0x11}, []byte{0x50}
+	keys, vals, proof, err := tree.getWithKeyRangeProof(startKey, endKey, -1)
+	require.NoError(err)
+	missingIdx := 2
+	invalidKeys := append(keys[:missingIdx], keys[missingIdx+1:]...)
+	invalidVals := append(vals[:missingIdx], vals[missingIdx+1:]...)
+	invalidPaths := append(proof.PathToKeys[:missingIdx], proof.PathToKeys[missingIdx+1:]...)
+	invalidProof := &KeyRangeProof{
+		RootHash:   root,
+		PathToKeys: invalidPaths,
+
+		LeftPath: proof.LeftPath,
+		LeftNode: proof.LeftNode,
+
+		RightPath: proof.RightPath,
+		RightNode: proof.RightNode,
+	}
+	err = invalidProof.Verify(startKey, endKey, invalidKeys, invalidVals, root)
+	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
+
+	// Construct a proof and try to verify with a range greater than the proof.
+	expected = errors.New("left path is nil and first inner path is not leftmost")
+	startKey, endKey = []byte{0x2e}, []byte{0x32}
+	keys, vals, proof, err = tree.getWithKeyRangeProof(startKey, endKey, -1)
+	proof.PathToKeys = proof.PathToKeys[1:]
+	err = proof.Verify([]byte{0x11}, []byte{0x32}, keys[1:], vals[1:], root)
+	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
 }
 
 func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
