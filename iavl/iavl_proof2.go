@@ -224,7 +224,7 @@ func (proof *KeyRangeProof) Verify(
 	// left and right paths in the proof are for that purpose: they are paths
 	// to keys outside of the range of keys returned, yet adjacent to it, proving
 	// that nothing lies in between.
-	if !bytes.Equal(startKey, keys[0]) {
+	if len(keys) == 0 || !bytes.Equal(startKey, keys[0]) {
 		if proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
 				return errors.New("Left path is nil and first inner path is not leftmost")
@@ -236,12 +236,12 @@ func (proof *KeyRangeProof) Verify(
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 				// TODO: Error
 			}
-			if !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
-				// TODO: Error
+			if len(proof.PathToKeys) > 0 && !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
+				return errors.New("first inner path isn't adjacent to left path")
 			}
 		}
 	}
-	if !bytes.Equal(endKey, keys[len(keys)-1]) {
+	if len(keys) == 0 || !bytes.Equal(endKey, keys[len(keys)-1]) {
 		if proof.RightPath == nil {
 			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
 				return errors.New("Right path is nil and last inner path is not rightmost")
@@ -253,8 +253,8 @@ func (proof *KeyRangeProof) Verify(
 			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
 				// TODO: Error
 			}
-			if !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
-				// TODO: Error
+			if len(proof.PathToKeys) > 0 && !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
+				return errors.New("last inner path isn't adjacent to right path")
 			}
 		}
 	}
@@ -316,7 +316,7 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		return len(keys) == limit
 	})
 
-	if !bytes.Equal(keys[0], keyStart) {
+	if len(keys) == 0 || !bytes.Equal(keys[0], keyStart) {
 		idx, _, _ := t.Get(keyStart)
 		if idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
@@ -329,7 +329,7 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		}
 	}
 
-	if !bytes.Equal(keys[len(keys)-1], keyEnd) {
+	if len(keys) == 0 || !bytes.Equal(keys[len(keys)-1], keyEnd) {
 		idx, _, _ := t.Get(keyEnd)
 		if idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
