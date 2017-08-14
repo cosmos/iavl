@@ -201,28 +201,30 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
+	// If proof.PathToKeys is empty, it means we have an empty range.
 	if len(proof.PathToKeys) == 0 {
 		if proof.LeftPath == nil && proof.RightPath == nil {
 			return errors.New("proof is incomplete")
 		}
-		if proof.LeftPath == nil && proof.RightPath != nil {
-			// Range is to the left of existing keys.
-			if !proof.RightPath.isLeftmost() {
-				return errors.New("right path is not leftmost")
-			}
-			return nil
-		}
-		if proof.RightPath == nil && proof.LeftPath != nil {
-			// Range is to the right of existing keys.
-			if !proof.LeftPath.isRightmost() {
-				return errors.New("left path is not rightmost")
-			}
-			return nil
-		}
-		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
+		// Either:
+		// 1. Range is to the left of existing keys.
+		// 2. Range is to the right of existing keys.
+		// 3. Range is in between two existing keys.
+		if proof.LeftPath == nil && proof.RightPath != nil &&
+			!proof.RightPath.isLeftmost() {
+			return errors.New("right path is not leftmost")
+		} else if proof.RightPath == nil && proof.LeftPath != nil &&
+			!proof.LeftPath.isRightmost() {
+			return errors.New("left path is not rightmost")
+		} else if proof.RightPath != nil && proof.LeftPath != nil &&
+			!proof.LeftPath.isAdjacentTo(proof.RightPath) {
 			return errors.New("left path is not adjacent to right path")
 		}
+		return nil
 	}
+
+	// If we've reached this point, it means our range isn't empty, and we have
+	// a list of keys.
 
 	ascending := bytes.Compare(startKey, endKey) == -1
 
@@ -268,36 +270,36 @@ func (proof *KeyRangeProof) Verify(
 	// left and right paths in the proof are for that purpose: they are paths
 	// to keys outside of the range of keys returned, yet adjacent to it, proving
 	// that nothing lies in between.
-	if len(keys) == 0 || !bytes.Equal(startKey, keys[first]) {
+	if !bytes.Equal(startKey, keys[first]) {
 		if proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
 				return errors.New("left path is nil and first inner path is not leftmost")
 			}
 		} else {
-			if len(keys) > 0 && bytes.Compare(startKey, keys[first]) == -1 {
+			if bytes.Compare(startKey, keys[first]) == -1 {
 				startKey = keys[first]
 			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 				return errors.New("left node key must be lesser than start key")
 			}
-			if len(proof.PathToKeys) > 0 && !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
+			if !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
 				return errors.New("first inner path isn't adjacent to left path")
 			}
 		}
 	}
-	if len(keys) == 0 || !bytes.Equal(endKey, keys[last]) {
+	if !bytes.Equal(endKey, keys[last]) {
 		if proof.RightPath == nil {
 			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
 				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		} else {
-			if len(keys) > 0 && bytes.Compare(endKey, keys[last]) == 1 {
+			if bytes.Compare(endKey, keys[last]) == 1 {
 				endKey = keys[last]
 			}
 			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
 				return errors.New("right node key must be greater than end key")
 			}
-			if len(proof.PathToKeys) > 0 && !proof.PathToKeys[len(proof.PathToKeys)-1].isAdjacentTo(proof.RightPath) {
+			if !proof.PathToKeys[len(proof.PathToKeys)-1].isAdjacentTo(proof.RightPath) {
 				return errors.New("last inner path isn't adjacent to right path")
 			}
 		}
