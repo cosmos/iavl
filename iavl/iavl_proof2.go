@@ -218,22 +218,16 @@ func (proof *KeyRangeProof) Verify(
 			return err
 		}
 
-		// TODO: We have to verify the beginning of the range.
-
-		left := proof.PathToKeys[i]
 		if i >= len(proof.PathToKeys)-1 {
-			// We have an odd number of paths. We need to verify that the path
-			// has nothing to its right that should be included in the range.
-			// TODO
 			break
 		}
+		left := proof.PathToKeys[i]
 		right := proof.PathToKeys[i+1]
 
 		// If the keys are descending, we have to check the other way around.
-		if bytes.Compare(keys[i], keys[i+1]) == 1 {
+		if !ascending {
 			left, right = right, left
 		}
-
 		if !left.isAdjacentTo(right) {
 			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
