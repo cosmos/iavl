@@ -200,6 +200,8 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
+	ascending := bytes.Compare(startKey, endKey) == -1
+
 	// There are two things we want to verify here:
 	//
 	// 1. That the keys and values do indeed exist.
@@ -207,6 +209,9 @@ func (proof *KeyRangeProof) Verify(
 	//    keys that have been ommitted or are missing.
 	//
 	for i, path := range proof.PathToKeys {
+		if !ascending {
+			i = len(keys) - i - 1
+		}
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 		err := path.verify(leafNode, root)
 		if err != nil {
@@ -234,12 +239,18 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
+	first, last := 0, len(keys)-1
+	if !ascending {
+		startKey, endKey = endKey, startKey
+		first, last = last, first
+	}
+
 	// If our start or end key are outside of the range of keys returned, we need
 	// to verify that no keys were ommitted in the result set. The additional
 	// left and right paths in the proof are for that purpose: they are paths
 	// to keys outside of the range of keys returned, yet adjacent to it, proving
 	// that nothing lies in between.
-	if len(keys) == 0 || !bytes.Equal(startKey, keys[0]) {
+	if len(keys) == 0 || !bytes.Equal(startKey, keys[first]) {
 		if proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
 				return errors.New("Left path is nil and first inner path is not leftmost")
@@ -249,14 +260,14 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("failed to verify left path")
 			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
-				// TODO: Error
+				return errors.New("left node key must be lesser than start key")
 			}
 			if len(proof.PathToKeys) > 0 && !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
 				return errors.New("first inner path isn't adjacent to left path")
 			}
 		}
 	}
-	if len(keys) == 0 || !bytes.Equal(endKey, keys[len(keys)-1]) {
+	if len(keys) == 0 || !bytes.Equal(endKey, keys[last]) {
 		if proof.RightPath == nil {
 			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
 				return errors.New("Right path is nil and last inner path is not rightmost")
@@ -266,7 +277,7 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("failed to verify right path")
 			}
 			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
-				// TODO: Error
+				return errors.New("right node key must be greater than end key")
 			}
 			if len(proof.PathToKeys) > 0 && !proof.RightPath.isAdjacentTo(proof.PathToKeys[len(proof.PathToKeys)-1]) {
 				return errors.New("last inner path isn't adjacent to right path")
@@ -323,15 +334,29 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 	t.IterateRangeInclusive(keyStart, keyEnd, ascending, func(k, v []byte) bool {
 		keys = append(keys, k)
 		values = append(values, v)
+		return len(keys) == limit
+	})
+
+	first, last := 0, len(keys)-1
+	if !ascending {
+		first, last = last, first
+	}
+
+	rangeProof.PathToKeys = make([]*PathToKey, len(keys))
+
+	for i, k := range keys {
 		keyProof := &KeyExistsProof{
 			RootHash: t.root.hash,
 		}
 		node.constructKeyExistsProof(t, k, keyProof)
-		rangeProof.PathToKeys = append(rangeProof.PathToKeys, &keyProof.PathToKey)
-		return len(keys) == limit
-	})
+		if ascending {
+			rangeProof.PathToKeys[i] = &keyProof.PathToKey
+		} else {
+			rangeProof.PathToKeys[len(keys)-i-1] = &keyProof.PathToKey
+		}
+	}
 
-	if len(keys) == 0 || !bytes.Equal(keys[0], keyStart) {
+	if len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
 		idx, _, _ := t.Get(keyStart)
 		if idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
@@ -344,7 +369,7 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		}
 	}
 
-	if len(keys) == 0 || !bytes.Equal(keys[len(keys)-1], keyEnd) {
+	if len(keys) == 0 || !bytes.Equal(keys[last], keyEnd) {
 		idx, _, _ := t.Get(keyEnd)
 		if idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
