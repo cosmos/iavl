@@ -82,6 +82,7 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 			assert.NoError(t, err, "%+v", err)
 		}
 	}
+	// TODO: Test with single value in tree.
 }
 
 func TestIAVLTreeKeyRangeProof(t *testing.T) {
