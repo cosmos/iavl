@@ -250,6 +250,9 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("left path is nil and first inner path is not leftmost")
 			}
 		} else {
+			if len(keys) > 0 && bytes.Compare(startKey, keys[first]) == -1 {
+				startKey = keys[first]
+			}
 			if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
 				return errors.New("failed to verify left path")
 			}
@@ -267,6 +270,9 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		} else {
+			if len(keys) > 0 && bytes.Compare(endKey, keys[last]) == 1 {
+				endKey = keys[last]
+			}
 			if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 				return errors.New("failed to verify right path")
 			}
@@ -325,7 +331,7 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		keyStart, keyEnd = keyEnd, keyStart
 	}
 
-	t.IterateRangeInclusive(keyStart, keyEnd, ascending, func(k, v []byte) bool {
+	limited := t.IterateRangeInclusive(keyStart, keyEnd, ascending, func(k, v []byte) bool {
 		keys = append(keys, k)
 		values = append(values, v)
 		return len(keys) == limit
@@ -350,7 +356,11 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		}
 	}
 
-	if len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
+	if limited {
+		keyStart, keyEnd = keys[first], keys[last]
+	}
+
+	if limited || len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
 		idx, _, _ := t.Get(keyStart)
 		if idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
@@ -363,8 +373,11 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		}
 	}
 
-	if len(keys) == 0 || !bytes.Equal(keys[last], keyEnd) {
+	if limited || len(keys) == 0 || !bytes.Equal(keys[last], keyEnd) {
 		idx, _, _ := t.Get(keyEnd)
+		if limited {
+			idx++
+		}
 		if idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
 			rproof := &KeyExistsProof{
