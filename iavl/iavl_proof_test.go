@@ -175,7 +175,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
 	} {
-		key, val := []byte{ikey}, []byte(randstr(8))
+		key, val := []byte{ikey}, []byte{ikey}
 		keys, values = append(keys, key), append(values, val)
 		tree.Set(key, val)
 	}
@@ -234,6 +234,57 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	err = proof.Verify(startKey, endKey, keys, vals, root)
 	require.Error(err)
 	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
+
+	cases := [...]struct {
+		keyStart, keyEnd       []byte
+		limit                  int
+		resultKeys, resultVals [][]byte
+		root                   []byte
+		invalidProof           *KeyRangeProof
+		expectedError          error
+	}{
+		0: {
+			keyStart:      []byte{0x0},
+			keyEnd:        []byte{0xff},
+			limit:         -1,
+			resultKeys:    nil,
+			resultVals:    nil,
+			root:          root,
+			invalidProof:  &KeyRangeProof{RootHash: root},
+			expectedError: errors.New("proof is incomplete"),
+		},
+		1: {
+			keyStart:      []byte{0x0},
+			keyEnd:        []byte{0xff},
+			limit:         -1,
+			resultKeys:    [][]byte{{0x1}, {0x2}},
+			resultVals:    [][]byte{{0x1}},
+			root:          root,
+			invalidProof:  &KeyRangeProof{RootHash: root},
+			expectedError: errors.New("wrong number of keys or values for proof"),
+		},
+		2: { // An invalid proof with two adjacent paths which don't prove anything useful.
+			keyStart:   []byte{0x10},
+			keyEnd:     []byte{0x30},
+			limit:      -1,
+			resultKeys: nil,
+			resultVals: nil,
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:  root,
+				LeftPath:  dummyPathToKey(tree, []byte{0x99}),
+				LeftNode:  dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				RightPath: dummyPathToKey(tree, []byte{0xa1}),
+				RightNode: dummyLeafNode([]byte{0xa1}, []byte{0xa1}),
+			},
+			expectedError: errors.New("start and end key are not between left and right node"),
+		},
+	}
+	for i, c := range cases {
+		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.resultKeys, c.resultVals, c.root)
+		require.Error(err, "test failed for case #%d", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
+	}
 }
 
 func TestIAVLTreeKeyAbsentProof(t *testing.T) {
