@@ -185,7 +185,7 @@ func (proof *KeyRangeProof) String() string {
 
 // Verify that a range proof is valid.
 func (proof *KeyRangeProof) Verify(
-	startKey, endKey []byte, keys, values [][]byte, root []byte,
+	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
 ) error {
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
 		return errors.New("wrong number of keys or values for proof")
@@ -287,7 +287,7 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("left path is nil and first inner path is not leftmost")
 			}
 		} else {
-			if bytes.Compare(startKey, keys[first]) == -1 {
+			if len(keys) == limit && bytes.Compare(startKey, keys[first]) == -1 {
 				startKey = keys[first]
 			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
@@ -304,10 +304,10 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		} else {
-			if bytes.Compare(endKey, keys[last]) == 1 {
+			if len(keys) == limit && bytes.Compare(keys[last], endKey) == -1 {
 				endKey = keys[last]
 			}
-			if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
+			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
 				return errors.New("right node key must be greater than end key")
 			}
 			if !proof.PathToKeys[len(proof.PathToKeys)-1].isAdjacentTo(proof.RightPath) {

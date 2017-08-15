@@ -161,7 +161,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 			msg := fmt.Sprintf("range %x - %x with limit %d:\n%#v\n\n%s", c.startKey, c.endKey, limit, keys, proof.String())
 			require.NoError(err, "%+v", err)
 			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
-			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
+			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, limit, keys, values, root)
 			require.NoError(err, "Got error '%v' for %s", err, msg)
 		}
 	}
@@ -357,7 +357,21 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("left node key must be lesser than start key"),
 		},
-		14: { // Construct an invalid proof with missing 0x2e and 0x32 keys.
+		14: { // Should return 0x11, 0x2e, 0x32, 0x50
+			keyStart:   []byte{0x11},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x11}},
+			resultVals: [][]byte{[]byte{0x11}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:   root,
+				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x11})},
+				RightPath:  dummyPathToKey(tree, []byte{0x2e}),
+				RightNode:  dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
+			},
+			expectedError: errors.New("right node key must be greater than end key"),
+		},
+		15: { // Construct an invalid proof with missing 0x2e and 0x32 keys.
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x50},
 			resultKeys: [][]byte{[]byte{0x11}, []byte{0x50}},
@@ -372,7 +386,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("paths 0 and 1 are not adjacent"),
 		},
-		15: {
+		16: {
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x50},
 			resultKeys: [][]byte{[]byte{0x11}, []byte{0x2e}, []byte{0x32}},
@@ -390,7 +404,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("last inner path isn't adjacent to right path"),
 		},
-		16: {
+		17: {
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x50},
 			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}, []byte{0x50}},
@@ -410,7 +424,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		},
 	}
 	for i, c := range cases {
-		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.resultKeys, c.resultVals, c.root)
+		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
 		require.Error(err, "test failed for case #%d", i)
 		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
 	}
