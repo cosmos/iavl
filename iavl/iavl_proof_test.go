@@ -279,6 +279,58 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("start and end key are not between left and right node"),
 		},
+		3: { // An invalid proof with one path.
+			keyStart:   []byte{0x30},
+			keyEnd:     []byte{0x40},
+			limit:      -1,
+			resultKeys: nil,
+			resultVals: nil,
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				LeftPath: dummyPathToKey(tree, []byte{0xf7}),
+				LeftNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+			},
+			expectedError: errors.New("start key is not to the right of left path"),
+		},
+		4: { // An invalid proof with one path.
+			keyStart:   []byte{0x30},
+			keyEnd:     []byte{0x40},
+			limit:      -1,
+			resultKeys: nil,
+			resultVals: nil,
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:  root,
+				RightPath: dummyPathToKey(tree, []byte{0xa}),
+				RightNode: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+			},
+			expectedError: errors.New("end key is not to the left of right path"),
+		},
+		5: { // An invalid proof with one path.
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			limit:    -1,
+			root:     root,
+			invalidProof: &KeyRangeProof{
+				RootHash:  root,
+				RightPath: dummyPathToKey(tree, []byte{0x11}),
+				RightNode: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+			},
+			expectedError: errors.New("right path is not leftmost"),
+		},
+		6: { // An invalid proof with one path.
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			limit:    -1,
+			root:     root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				LeftPath: dummyPathToKey(tree, []byte{0x99}),
+				LeftNode: dummyLeafNode([]byte{0x99}, []byte{0x99}),
+			},
+			expectedError: errors.New("left path is not rightmost"),
+		},
 	}
 	for i, c := range cases {
 		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.resultKeys, c.resultVals, c.root)
