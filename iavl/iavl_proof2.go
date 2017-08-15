@@ -200,6 +200,10 @@ func (proof *KeyRangeProof) Verify(
 			return errors.Wrap(err, "failed to verify right path")
 		}
 	}
+	ascending := bytes.Compare(startKey, endKey) == -1
+	if !ascending {
+		startKey, endKey = endKey, startKey
+	}
 
 	// If proof.PathToKeys is empty, it means we have an empty range.
 	if len(proof.PathToKeys) == 0 {
@@ -210,24 +214,35 @@ func (proof *KeyRangeProof) Verify(
 		// 1. Range is to the left of existing keys.
 		// 2. Range is to the right of existing keys.
 		// 3. Range is in between two existing keys.
-		if proof.LeftPath == nil && proof.RightPath != nil &&
-			!proof.RightPath.isLeftmost() {
-			return errors.New("right path is not leftmost")
-		} else if proof.RightPath == nil && proof.LeftPath != nil &&
-			!proof.LeftPath.isRightmost() {
-			return errors.New("left path is not rightmost")
-		} else if proof.RightPath != nil && proof.LeftPath != nil &&
-			!proof.LeftPath.isAdjacentTo(proof.RightPath) {
-			return errors.New("left path is not adjacent to right path")
+		if proof.LeftPath == nil && proof.RightPath != nil {
+			if !proof.RightPath.isLeftmost() {
+				return errors.New("right path is not leftmost")
+			}
+			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
+				return errors.New("end key is not to the left of right path")
+			}
+		} else if proof.RightPath == nil && proof.LeftPath != nil {
+			if !proof.LeftPath.isRightmost() {
+				return errors.New("left path is not rightmost")
+			}
+			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
+				return errors.New("start key is not to the right of left path")
+			}
+		} else if proof.RightPath != nil && proof.LeftPath != nil {
+			if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
+				return errors.New("left path is not adjacent to right path")
+			}
+			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 ||
+				bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
+				return errors.New("start and end key are not between left and right node")
+			}
 		}
 		return nil
 	}
 
 	// If we've reached this point, it means our range isn't empty, and we have
 	// a list of keys.
-
-	ascending := bytes.Compare(startKey, endKey) == -1
-
+	//
 	// There are two things we want to verify here:
 	//
 	// 1. That the keys and values do indeed exist.
@@ -261,7 +276,6 @@ func (proof *KeyRangeProof) Verify(
 
 	first, last := 0, len(keys)-1
 	if !ascending {
-		startKey, endKey = endKey, startKey
 		first, last = last, first
 	}
 
