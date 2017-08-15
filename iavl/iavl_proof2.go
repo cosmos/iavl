@@ -307,40 +307,54 @@ func (proof *KeyRangeProof) Verify(
 	return nil
 }
 
-func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *KeyExistsProof) ([]byte, error) {
+func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, []byte, error) {
+	path := &PathToKey{}
+	val, err := node._pathToKey(t, key, path)
+	return path, val, err
+}
+func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]byte, error) {
 	if node.height == 0 {
 		if bytes.Compare(node.key, key) == 0 {
-			proof.LeafHash = node.hash
+			path.LeafHash = node.hash
 			return node.value, nil
 		}
 		return nil, errors.New("key does not exist")
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		if value, err := node.getLeftNode(t).constructKeyExistsProof(t, key, proof); err == nil {
+		if value, err := node.getLeftNode(t)._pathToKey(t, key, path); err == nil {
 			branch := IAVLProofInnerNode{
 				Height: node.height,
 				Size:   node.size,
 				Left:   nil,
 				Right:  node.getRightNode(t).hash,
 			}
-			proof.InnerNodes = append(proof.InnerNodes, branch)
+			path.InnerNodes = append(path.InnerNodes, branch)
 			return value, nil
 		}
 		return nil, errors.New("key does not exist")
 	}
 
-	if value, err := node.getRightNode(t).constructKeyExistsProof(t, key, proof); err == nil {
+	if value, err := node.getRightNode(t)._pathToKey(t, key, path); err == nil {
 		branch := IAVLProofInnerNode{
 			Height: node.height,
 			Size:   node.size,
 			Left:   node.getLeftNode(t).hash,
 			Right:  nil,
 		}
-		proof.InnerNodes = append(proof.InnerNodes, branch)
+		path.InnerNodes = append(path.InnerNodes, branch)
 		return value, nil
 	}
 	return nil, errors.New("key does not exist")
+}
+
+func (node *IAVLNode) constructKeyExistsProof(t *IAVLTree, key []byte, proof *KeyExistsProof) ([]byte, error) {
+	path, val, err := node.pathToKey(t, key)
+	if err != nil {
+		return nil, err
+	}
+	proof.PathToKey = *path
+	return val, nil
 }
 
 func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byte, limit int, rangeProof *KeyRangeProof) ([][]byte, [][]byte, error) {
