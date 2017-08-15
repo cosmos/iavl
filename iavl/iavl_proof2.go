@@ -200,9 +200,18 @@ func (proof *KeyRangeProof) Verify(
 			return errors.Wrap(err, "failed to verify right path")
 		}
 	}
-	ascending := bytes.Compare(startKey, endKey) == -1
-	if !ascending {
+
+	// If startKey > endKey, reverse the keys and values, since our proofs are
+	// always in ascending order.
+	if bytes.Compare(startKey, endKey) == 1 {
 		startKey, endKey = endKey, startKey
+
+		ks, vs := [][]byte{}, [][]byte{}
+		for i := len(keys) - 1; i >= 0; i-- {
+			ks = append(ks, keys[i])
+			vs = append(vs, values[i])
+		}
+		keys, values = ks, vs
 	}
 
 	// If proof.PathToKeys is empty, it means we have an empty range.
@@ -250,12 +259,7 @@ func (proof *KeyRangeProof) Verify(
 	//    keys that have been ommitted or are missing.
 	//
 	for i, path := range proof.PathToKeys {
-		j := i
-		if !ascending {
-			j = len(keys) - i - 1
-		}
-
-		leafNode := IAVLProofLeafNode{KeyBytes: keys[j], ValueBytes: values[j]}
+		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 		err := path.verify(leafNode, root)
 		if err != nil {
 			return errors.Wrap(err, "failed to verify inner path")
@@ -273,24 +277,19 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
-	first, last := 0, len(keys)-1
-	if !ascending {
-		first, last = last, first
-	}
-
 	// If our start or end key are outside of the range of keys returned, we need
 	// to verify that no keys were ommitted in the result set. The additional
 	// left and right paths in the proof are for that purpose: they are paths
 	// to keys outside of the range of keys returned, yet adjacent to it, proving
 	// that nothing lies in between.
-	if !bytes.Equal(startKey, keys[first]) {
+	if !bytes.Equal(startKey, keys[0]) {
 		if proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
 				return errors.New("left path is nil and first inner path is not leftmost")
 			}
 		} else {
-			if len(keys) == limit && bytes.Compare(startKey, keys[first]) == -1 {
-				startKey = keys[first]
+			if len(keys) == limit && bytes.Compare(startKey, keys[0]) == -1 {
+				startKey = keys[0]
 			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 				return errors.New("left node key must be lesser than start key")
@@ -300,14 +299,14 @@ func (proof *KeyRangeProof) Verify(
 			}
 		}
 	}
-	if !bytes.Equal(endKey, keys[last]) {
+	if !bytes.Equal(endKey, keys[len(keys)-1]) {
 		if proof.RightPath == nil {
 			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
 				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		} else {
-			if len(keys) == limit && bytes.Compare(keys[last], endKey) == -1 {
-				endKey = keys[last]
+			if len(keys) == limit && bytes.Compare(keys[len(keys)-1], endKey) == -1 {
+				endKey = keys[len(keys)-1]
 			}
 			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
 				return errors.New("right node key must be greater than end key")
