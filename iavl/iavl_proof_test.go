@@ -23,20 +23,20 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	root := tree.Hash()
 
 	key := []byte{0x32}
-	val, existProof, notExistProof, err := tree.GetWithProof(key)
+	val, existProof, absenceProof, err := tree.GetWithProof(key)
 	require.NotEmpty(val)
 	require.NotNil(existProof)
 	err = existProof.Verify(key, val, root)
 	require.NoError(err, "%+v", err)
-	require.Nil(notExistProof)
+	require.Nil(absenceProof)
 	require.NoError(err)
 
 	key = []byte{0x1}
-	val, existProof, notExistProof, err = tree.GetWithProof(key)
+	val, existProof, absenceProof, err = tree.GetWithProof(key)
 	require.Empty(val)
 	require.Nil(existProof)
-	require.NotNil(notExistProof)
-	err = notExistProof.Verify(key, root)
+	require.NotNil(absenceProof)
+	err = absenceProof.Verify(key, root)
 	require.NoError(err, "%+v", err)
 	require.NoError(err)
 }
@@ -236,11 +236,11 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
 }
 
-func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
+func TestIAVLTreeKeyAbsentProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
 
-	proof, err := tree.keyNotExistsProof([]byte{0x1})
+	proof, err := tree.keyAbsentProof([]byte{0x1})
 	require.Nil(proof, "Proof should be nil for empty tree")
 	require.Error(err)
 
@@ -271,11 +271,11 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 		}
 
 		if exists {
-			proof, err = tree.keyNotExistsProof(key)
+			proof, err = tree.keyAbsentProof(key)
 			require.Nil(proof, "Proof should be nil for existing key")
 			require.Error(err, "Got verification error for 0x%x: %+v", key, err)
 		} else {
-			proof, err = tree.keyNotExistsProof(key)
+			proof, err = tree.keyAbsentProof(key)
 			require.NotNil(proof, "Proof should not be nil for non-existing key")
 			require.NoError(err, "%+v", err)
 
@@ -296,7 +296,7 @@ func TestIAVLTreeKeyNotExistsProof(t *testing.T) {
 	}
 }
 
-func TestKeyNotExistsProofVerify(t *testing.T) {
+func TestKeyAbsentProofVerify(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
 	keys := [][]byte{}
@@ -318,7 +318,7 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 
 	missing := []byte{0x40}
 
-	proof := &KeyNotExistsProof{
+	proof := &KeyAbsentProof{
 		RootHash: lproof.RootHash,
 
 		LeftPath: &lproof.PathToKey,
@@ -330,7 +330,7 @@ func TestKeyNotExistsProofVerify(t *testing.T) {
 	err := proof.Verify(missing, tree.Hash())
 	require.Error(err, "Proof should not verify")
 
-	proof, err = tree.keyNotExistsProof(missing)
+	proof, err = tree.keyAbsentProof(missing)
 	require.NoError(err)
 	require.NotNil(proof)
 

@@ -97,7 +97,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	return proof.PathToKey.verify(leafNode, root)
 }
 
-type KeyNotExistsProof struct {
+type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
 
 	LeftPath *PathToKey        `json:"left_path"`
@@ -107,11 +107,11 @@ type KeyNotExistsProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
-func (p *KeyNotExistsProof) String() string {
-	return fmt.Sprintf("KeyNotExistsProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
+func (p *KeyAbsentProof) String() string {
+	return fmt.Sprintf("KeyAbsentProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
 }
 
-func (proof *KeyNotExistsProof) Verify(key []byte, root []byte) error {
+func (proof *KeyAbsentProof) Verify(key []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return errors.New("roots do not match")
 	}
@@ -412,7 +412,7 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 	return keys, values, nil
 }
 
-func (node *IAVLNode) constructKeyNotExistsProof(t *IAVLTree, key []byte, proof *KeyNotExistsProof) error {
+func (node *IAVLNode) constructKeyAbsentProof(t *IAVLTree, key []byte, proof *KeyAbsentProof) error {
 	// Get the index of the first key greater than the requested key, if the key doesn't exist.
 	idx, _, exists := t.Get(key)
 	if exists {
@@ -487,15 +487,15 @@ func (t *IAVLTree) getWithKeyRangeProof(keyStart, keyEnd []byte, limit int) (
 	return keys, values, proof, nil
 }
 
-func (t *IAVLTree) keyNotExistsProof(key []byte) (*KeyNotExistsProof, error) {
+func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
 		return nil, errors.New("tree root is nil")
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
-	proof := &KeyNotExistsProof{
+	proof := &KeyAbsentProof{
 		RootHash: t.root.hash,
 	}
-	if err := t.root.constructKeyNotExistsProof(t, key, proof); err != nil {
+	if err := t.root.constructKeyAbsentProof(t, key, proof); err != nil {
 		return nil, errors.Wrap(err, "could not construct proof of non-existence")
 	}
 	return proof, nil

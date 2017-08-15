@@ -173,13 +173,13 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyNotExistsProof, error) {
+func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyAbsentProof, error) {
 	value, eproof, err := t.getWithKeyExistsProof(key)
 	if err == nil {
 		return value, eproof, nil, nil
 	}
 
-	neproof, err := t.keyNotExistsProof(key)
+	neproof, err := t.keyAbsentProof(key)
 	if err == nil {
 		return nil, nil, neproof, nil
 	}
