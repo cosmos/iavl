@@ -316,6 +316,73 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("left path is not rightmost"),
 		},
+		7: {
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			root:     root,
+			invalidProof: &KeyRangeProof{
+				RootHash:  root,
+				LeftPath:  dummyPathToKey(tree, []byte{0x11}),
+				LeftNode:  dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				RightPath: dummyPathToKey(tree, []byte{0xe4}),
+				RightNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+			},
+			expectedError: errors.New("left path is not adjacent to right path"),
+		},
+		8: {
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			root:     root,
+			invalidProof: &KeyRangeProof{
+				RootHash:  root,
+				LeftPath:  dummyPathToKey(tree, []byte{0x11}),
+				LeftNode:  dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				RightPath: dummyPathToKey(tree, []byte{0xe4}),
+				RightNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+			},
+			expectedError: errors.New("failed to verify left path: leaf hashes do not match"),
+		},
+		9: {
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			root:     root,
+			invalidProof: &KeyRangeProof{
+				RootHash:  root,
+				LeftPath:  dummyPathToKey(tree, []byte{0x11}),
+				LeftNode:  dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				RightPath: dummyPathToKey(tree, []byte{0xe4}),
+				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+			},
+			expectedError: errors.New("failed to verify right path: leaf hashes do not match"),
+		},
+		10: {
+			keyStart:   []byte{0x12},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x2e}},
+			resultVals: [][]byte{[]byte{0x2e}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:   root,
+				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
+				LeftPath:   dummyPathToKey(tree, []byte{0x0a}),
+				LeftNode:   dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
+			},
+			expectedError: errors.New("first inner path isn't adjacent to left path"),
+		},
+		11: {
+			keyStart:   []byte{0x12},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x2e}},
+			resultVals: [][]byte{[]byte{0x2e}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:   root,
+				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
+				LeftPath:   dummyPathToKey(tree, []byte{0x11}),
+				LeftNode:   dummyLeafNode([]byte{0x11}, []byte{0x11}),
+			},
+			expectedError: errors.New("right path is nil and last inner path is not rightmost"),
+		},
 	}
 	for i, c := range cases {
 		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.resultKeys, c.resultVals, c.root)
