@@ -181,49 +181,6 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	}
 	root := tree.Hash()
 
-	// Construct a proof with a missing value 0x32 in the range.
-	expected := errors.New("paths 1 and 2 are not adjacent")
-	startKey, endKey := []byte{0x11}, []byte{0x50}
-	keys, vals, proof, err := tree.getRangeWithProof(startKey, endKey, -1)
-	require.NoError(err)
-	missingIdx := 2
-	invalidKeys := append(keys[:missingIdx], keys[missingIdx+1:]...)
-	invalidVals := append(vals[:missingIdx], vals[missingIdx+1:]...)
-	invalidPaths := append(proof.PathToKeys[:missingIdx], proof.PathToKeys[missingIdx+1:]...)
-	invalidProof := &KeyRangeProof{
-		RootHash:   root,
-		PathToKeys: invalidPaths,
-
-		LeftPath: proof.LeftPath,
-		LeftNode: proof.LeftNode,
-
-		RightPath: proof.RightPath,
-		RightNode: proof.RightNode,
-	}
-	err = invalidProof.Verify(startKey, endKey, invalidKeys, invalidVals, root)
-	require.Error(err)
-	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
-
-	// Construct a proof and try to verify with a range greater than the proof.
-	expected = errors.New("left path is nil and first inner path is not leftmost")
-	startKey, endKey = []byte{0x2e}, []byte{0x50}
-	keys, vals, proof, err = tree.getRangeWithProof(startKey, endKey, -1)
-	proof.PathToKeys = proof.PathToKeys[1:]
-	err = proof.Verify([]byte{0x11}, []byte{0x50}, keys[1:], vals[1:], root)
-	require.Error(err)
-	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
-
-	expected = errors.New("left node key must be lesser than start key")
-	startKey, endKey = []byte{0x12}, []byte{0x50}
-	keys, vals, proof, err = tree.getRangeWithProof(startKey, endKey, -1)
-	val, wrongProof, err := tree.getWithProof([]byte{0x2e})
-	require.NoError(err)
-	proof.LeftPath = &wrongProof.PathToKey
-	proof.LeftNode = IAVLProofLeafNode{[]byte{0x2e}, val}
-	err = proof.Verify(startKey, endKey, keys, vals, root)
-	require.Error(err)
-	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
-
 	cases := [...]struct {
 		keyStart, keyEnd       []byte
 		limit                  int
@@ -371,6 +328,85 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				LeftNode:   dummyLeafNode([]byte{0x11}, []byte{0x11}),
 			},
 			expectedError: errors.New("right path is nil and last inner path is not rightmost"),
+		},
+		12: {
+			keyStart:   []byte{0x11},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x2e}},
+			resultVals: [][]byte{[]byte{0x2e}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:   root,
+				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
+				RightPath:  dummyPathToKey(tree, []byte{0x2e}),
+				RightNode:  dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
+			},
+			expectedError: errors.New("left path is nil and first inner path is not leftmost"),
+		},
+		13: {
+			keyStart:   []byte{0x12},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x2e}},
+			resultVals: [][]byte{[]byte{0x2e}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash:   root,
+				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
+				LeftPath:   dummyPathToKey(tree, []byte{0x2e}),
+				LeftNode:   dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
+			},
+			expectedError: errors.New("left node key must be lesser than start key"),
+		},
+		14: { // Construct an invalid proof with missing 0x2e and 0x32 keys.
+			keyStart:   []byte{0x11},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x11}, []byte{0x50}},
+			resultVals: [][]byte{[]byte{0x11}, []byte{0x50}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyPathToKey(tree, []byte{0x50}),
+				},
+			},
+			expectedError: errors.New("paths 0 and 1 are not adjacent"),
+		},
+		15: {
+			keyStart:   []byte{0x11},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x11}, []byte{0x2e}, []byte{0x32}},
+			resultVals: [][]byte{[]byte{0x11}, []byte{0x2e}, []byte{0x32}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+				},
+				RightPath: dummyPathToKey(tree, []byte{0xf7}),
+				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+			},
+			expectedError: errors.New("last inner path isn't adjacent to right path"),
+		},
+		16: {
+			keyStart:   []byte{0x11},
+			keyEnd:     []byte{0x50},
+			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}, []byte{0x50}},
+			resultVals: [][]byte{[]byte{0x2e}, []byte{0x32}, []byte{0x50}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyPathToKey(tree, []byte{0x50}),
+				},
+				LeftPath: dummyPathToKey(tree, []byte{0xa}),
+				LeftNode: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+			},
+			expectedError: errors.New("first inner path isn't adjacent to left path"),
 		},
 	}
 	for i, c := range cases {
