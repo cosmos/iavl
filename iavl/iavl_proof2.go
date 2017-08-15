@@ -265,10 +265,7 @@ func (proof *KeyRangeProof) Verify(
 		left := proof.PathToKeys[i]
 		right := proof.PathToKeys[i+1]
 
-		// If the keys are descending, we have to check the other way around.
-		if !ascending {
-			left, right = right, left
-		}
+		// Paths are always in ascending order.
 		if !left.isAdjacentTo(right) {
 			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
