@@ -250,10 +250,12 @@ func (proof *KeyRangeProof) Verify(
 	//    keys that have been ommitted or are missing.
 	//
 	for i, path := range proof.PathToKeys {
+		j := i
 		if !ascending {
-			i = len(keys) - i - 1
+			j = len(keys) - i - 1
 		}
-		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+
+		leafNode := IAVLProofLeafNode{KeyBytes: keys[j], ValueBytes: values[j]}
 		err := path.verify(leafNode, root)
 		if err != nil {
 			return errors.Wrap(err, "failed to verify inner path")
