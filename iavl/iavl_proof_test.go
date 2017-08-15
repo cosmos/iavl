@@ -246,9 +246,6 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		0: {
 			keyStart:      []byte{0x0},
 			keyEnd:        []byte{0xff},
-			limit:         -1,
-			resultKeys:    nil,
-			resultVals:    nil,
 			root:          root,
 			invalidProof:  &KeyRangeProof{RootHash: root},
 			expectedError: errors.New("proof is incomplete"),
@@ -256,7 +253,6 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		1: {
 			keyStart:      []byte{0x0},
 			keyEnd:        []byte{0xff},
-			limit:         -1,
 			resultKeys:    [][]byte{{0x1}, {0x2}},
 			resultVals:    [][]byte{{0x1}},
 			root:          root,
@@ -264,12 +260,9 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			expectedError: errors.New("wrong number of keys or values for proof"),
 		},
 		2: { // An invalid proof with two adjacent paths which don't prove anything useful.
-			keyStart:   []byte{0x10},
-			keyEnd:     []byte{0x30},
-			limit:      -1,
-			resultKeys: nil,
-			resultVals: nil,
-			root:       root,
+			keyStart: []byte{0x10},
+			keyEnd:   []byte{0x30},
+			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash:  root,
 				LeftPath:  dummyPathToKey(tree, []byte{0x99}),
@@ -280,12 +273,9 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			expectedError: errors.New("start and end key are not between left and right node"),
 		},
 		3: { // An invalid proof with one path.
-			keyStart:   []byte{0x30},
-			keyEnd:     []byte{0x40},
-			limit:      -1,
-			resultKeys: nil,
-			resultVals: nil,
-			root:       root,
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
 				LeftPath: dummyPathToKey(tree, []byte{0xf7}),
@@ -294,12 +284,9 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			expectedError: errors.New("start key is not to the right of left path"),
 		},
 		4: { // An invalid proof with one path.
-			keyStart:   []byte{0x30},
-			keyEnd:     []byte{0x40},
-			limit:      -1,
-			resultKeys: nil,
-			resultVals: nil,
-			root:       root,
+			keyStart: []byte{0x30},
+			keyEnd:   []byte{0x40},
+			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash:  root,
 				RightPath: dummyPathToKey(tree, []byte{0xa}),
@@ -310,7 +297,6 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		5: { // An invalid proof with one path.
 			keyStart: []byte{0x30},
 			keyEnd:   []byte{0x40},
-			limit:    -1,
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash:  root,
@@ -322,7 +308,6 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		6: { // An invalid proof with one path.
 			keyStart: []byte{0x30},
 			keyEnd:   []byte{0x40},
-			limit:    -1,
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
