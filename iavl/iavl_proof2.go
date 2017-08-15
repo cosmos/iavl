@@ -60,14 +60,14 @@ func (p *PathToKey) isRightmost() bool {
 	return true
 }
 
-func (p *PathToKey) pop() *PathToKey {
+func (p *PathToKey) dropRoot() *PathToKey {
 	return &PathToKey{
 		LeafHash:   p.LeafHash,
 		InnerNodes: p.InnerNodes[:len(p.InnerNodes)-1],
 	}
 }
 
-func (left *PathToKey) hasCommonAncestor(right *PathToKey) bool {
+func (left *PathToKey) hasCommonRoot(right *PathToKey) bool {
 	leftEnd := left.InnerNodes[len(left.InnerNodes)-1]
 	rightEnd := right.InnerNodes[len(right.InnerNodes)-1]
 
@@ -76,10 +76,10 @@ func (left *PathToKey) hasCommonAncestor(right *PathToKey) bool {
 }
 
 func (left *PathToKey) isAdjacentTo(right *PathToKey) bool {
-	for left.hasCommonAncestor(right) {
-		left, right = left.pop(), right.pop()
+	for left.hasCommonRoot(right) {
+		left, right = left.dropRoot(), right.dropRoot()
 	}
-	left, right = left.pop(), right.pop()
+	left, right = left.dropRoot(), right.dropRoot()
 
 	return left.isRightmost() && right.isLeftmost()
 }
