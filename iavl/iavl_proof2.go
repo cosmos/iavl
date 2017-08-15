@@ -192,12 +192,12 @@ func (proof *KeyRangeProof) Verify(
 	}
 	if proof.LeftPath != nil {
 		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
-			return errors.New("failed to verify left path")
+			return errors.Wrap(err, "failed to verify left path")
 		}
 	}
 	if proof.RightPath != nil {
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
-			return errors.New("failed to verify right path")
+			return errors.Wrap(err, "failed to verify right path")
 		}
 	}
 
