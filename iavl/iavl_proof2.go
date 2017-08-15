@@ -30,7 +30,7 @@ func (p *PathToKey) String() string {
 func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 	leafHash := leafNode.Hash()
 	if !bytes.Equal(leafHash, p.LeafHash) {
-		return errors.Errorf("leaf hash does not match %x != %x", leafHash, p.LeafHash)
+		return errors.Errorf("leaf hashes do not match")
 	}
 	hash := leafHash
 	for _, branch := range p.InnerNodes {
