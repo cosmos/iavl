@@ -131,7 +131,7 @@ func (proof *KeyAbsentProof) Verify(key []byte, root []byte) error {
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.New("failed to verify right path")
 		}
-		if bytes.Compare(proof.RightNode.KeyBytes, key) != 1 {
+		if bytes.Compare(key, proof.RightNode.KeyBytes) != -1 {
 			return errors.New("right node key must be greater than supplied key")
 		}
 	}
