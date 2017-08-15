@@ -422,6 +422,20 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("first inner path isn't adjacent to left path"),
 		},
+		18: {
+			keyStart:   []byte{0x11},
+			keyEnd:     []byte{0x11},
+			resultKeys: [][]byte{[]byte{0x11}},
+			resultVals: [][]byte{[]byte{0x11}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x11}).dropRoot(),
+				},
+			},
+			expectedError: errors.New("failed to verify inner path: path does not match supplied root"),
+		},
 	}
 	for i, c := range cases {
 		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
