@@ -213,21 +213,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	require.Error(err)
 	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
 
-	expected = errors.New("first inner path isn't adjacent to left path")
-	startKey, endKey = []byte{0x12}, []byte{0x50}
-	keys, vals, proof, err = tree.getWithKeyRangeProof(startKey, endKey, -1)
-	val, wrongProof, err := tree.getWithKeyExistsProof([]byte{0x0a})
-	require.NoError(err)
-	proof.LeftPath = &wrongProof.PathToKey
-	proof.LeftNode = IAVLProofLeafNode{[]byte{0x0a}, val}
-	err = proof.Verify(startKey, endKey, keys, vals, root)
-	require.Error(err)
-	require.EqualValues(expected.Error(), err.Error(), "Expected verification error")
-
 	expected = errors.New("left node key must be lesser than start key")
 	startKey, endKey = []byte{0x12}, []byte{0x50}
 	keys, vals, proof, err = tree.getWithKeyRangeProof(startKey, endKey, -1)
-	val, wrongProof, err = tree.getWithKeyExistsProof([]byte{0x2e})
+	val, wrongProof, err := tree.getWithKeyExistsProof([]byte{0x2e})
 	require.NoError(err)
 	proof.LeftPath = &wrongProof.PathToKey
 	proof.LeftNode = IAVLProofLeafNode{[]byte{0x2e}, val}
