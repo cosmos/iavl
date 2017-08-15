@@ -260,19 +260,17 @@ func (proof *KeyRangeProof) Verify(
 	//
 	for i, path := range proof.PathToKeys {
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
-		err := path.verify(leafNode, root)
-		if err != nil {
+		if err := path.verify(leafNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify inner path")
 		}
 
 		if i >= len(proof.PathToKeys)-1 {
 			break
 		}
-		left := proof.PathToKeys[i]
 		right := proof.PathToKeys[i+1]
 
 		// Paths are always in ascending order.
-		if !left.isAdjacentTo(right) {
+		if !path.isAdjacentTo(right) {
 			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
 	}
