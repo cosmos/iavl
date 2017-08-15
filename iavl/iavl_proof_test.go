@@ -437,10 +437,31 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			expectedError: errors.New("failed to verify inner path: path does not match supplied root"),
 		},
 	}
+
 	for i, c := range cases {
+		//
+		// Test the case by checking we get the expected error.
+		//
 		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
 		require.Error(err, "test failed for case #%d", i)
 		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
+
+		//
+		// Now do the same thing with start and end key swapped.
+		//
+		resultKeysDesc := [][]byte{}
+		for _, k := range c.resultKeys {
+			resultKeysDesc = append([][]byte{k}, resultKeysDesc...)
+		}
+
+		resultValsDesc := [][]byte{}
+		for _, v := range c.resultVals {
+			resultValsDesc = append([][]byte{v}, resultValsDesc...)
+		}
+
+		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, c.limit, resultKeysDesc, resultValsDesc, c.root)
+		require.Error(err, "test failed for case #%d (reversed)", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d (reversed)", i)
 	}
 }
 
