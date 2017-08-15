@@ -3,7 +3,8 @@ package iavl
 import (
 	"bytes"
 	"fmt"
-	//"strings"
+	"io"
+	"os"
 
 	wire "github.com/tendermint/go-wire"
 )
@@ -120,10 +121,15 @@ func overallMapping(value []byte) (str string) {
 	return stateMapping(value)
 }
 
-// Dump everything from the database
+// Dump everything from the database to stdout.
 func (t *IAVLTree) Dump(verbose bool, mapping *KeyValueMapping) {
+	t.Fdump(os.Stdout, verbose, mapping)
+}
+
+// Fdump serializes the entire database to the provided io.Writer.
+func (t *IAVLTree) Fdump(w io.Writer, verbose bool, mapping *KeyValueMapping) {
 	if verbose && t.root == nil {
-		fmt.Printf("No root loaded into memory\n")
+		fmt.Fprintf(w, "No root loaded into memory\n")
 	}
 
 	if mapping == nil {
@@ -133,12 +139,12 @@ func (t *IAVLTree) Dump(verbose bool, mapping *KeyValueMapping) {
 	if verbose {
 		stats := t.ndb.db.Stats()
 		for key, value := range stats {
-			fmt.Printf("%s:\n\t%s\n", key, value)
+			fmt.Fprintf(w, "%s:\n\t%s\n", key, value)
 		}
 	}
 
 	iter := t.ndb.db.Iterator()
 	for iter.Next() {
-		fmt.Printf("%s: %s\n", mapping.Key(iter.Key()), mapping.Value(iter.Value()))
+		fmt.Fprintf(w, "%s: %s\n", mapping.Key(iter.Key()), mapping.Value(iter.Value()))
 	}
 }
