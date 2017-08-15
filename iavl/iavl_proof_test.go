@@ -53,7 +53,7 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 
 	// should get false for proof with nil root
-	_, proof, _ := tree.getWithKeyExistsProof([]byte("foo"))
+	_, proof, _ := tree.getWithProof([]byte("foo"))
 	assert.Nil(t, proof)
 
 	// insert lots of info and store the bytes
@@ -65,17 +65,17 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	}
 
 	// query random key fails
-	_, proof, _ = tree.getWithKeyExistsProof([]byte("foo"))
+	_, proof, _ = tree.getWithProof([]byte("foo"))
 	assert.Nil(t, proof)
 
 	// query min key fails
-	_, proof, _ = tree.getWithKeyExistsProof([]byte{0})
+	_, proof, _ = tree.getWithProof([]byte{0})
 	assert.Nil(t, proof)
 
 	// valid proof for real keys
 	root := tree.Hash()
 	for _, key := range keys {
-		value, proof, _ := tree.getWithKeyExistsProof(key)
+		value, proof, _ := tree.getWithProof(key)
 		assert.NotEmpty(t, value)
 		if assert.NotNil(t, proof) {
 			err := proof.Verify(key, value, root)
@@ -157,7 +157,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 				return len(expected) == limit
 			})
 
-			keys, values, proof, err := tree.getWithKeyRangeProof([]byte{c.startKey}, []byte{c.endKey}, limit)
+			keys, values, proof, err := tree.getRangeWithProof([]byte{c.startKey}, []byte{c.endKey}, limit)
 			msg := fmt.Sprintf("range %x - %x with limit %d:\n%#v\n\n%s", c.startKey, c.endKey, limit, keys, proof.String())
 			require.NoError(err, "%+v", err)
 			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
@@ -184,7 +184,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	// Construct a proof with a missing value 0x32 in the range.
 	expected := errors.New("paths 1 and 2 are not adjacent")
 	startKey, endKey := []byte{0x11}, []byte{0x50}
-	keys, vals, proof, err := tree.getWithKeyRangeProof(startKey, endKey, -1)
+	keys, vals, proof, err := tree.getRangeWithProof(startKey, endKey, -1)
 	require.NoError(err)
 	missingIdx := 2
 	invalidKeys := append(keys[:missingIdx], keys[missingIdx+1:]...)
@@ -207,7 +207,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	// Construct a proof and try to verify with a range greater than the proof.
 	expected = errors.New("left path is nil and first inner path is not leftmost")
 	startKey, endKey = []byte{0x2e}, []byte{0x50}
-	keys, vals, proof, err = tree.getWithKeyRangeProof(startKey, endKey, -1)
+	keys, vals, proof, err = tree.getRangeWithProof(startKey, endKey, -1)
 	proof.PathToKeys = proof.PathToKeys[1:]
 	err = proof.Verify([]byte{0x11}, []byte{0x50}, keys[1:], vals[1:], root)
 	require.Error(err)
@@ -215,8 +215,8 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 
 	expected = errors.New("left node key must be lesser than start key")
 	startKey, endKey = []byte{0x12}, []byte{0x50}
-	keys, vals, proof, err = tree.getWithKeyRangeProof(startKey, endKey, -1)
-	val, wrongProof, err := tree.getWithKeyExistsProof([]byte{0x2e})
+	keys, vals, proof, err = tree.getRangeWithProof(startKey, endKey, -1)
+	val, wrongProof, err := tree.getWithProof([]byte{0x2e})
 	require.NoError(err)
 	proof.LeftPath = &wrongProof.PathToKey
 	proof.LeftNode = IAVLProofLeafNode{[]byte{0x2e}, val}
@@ -453,11 +453,11 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 	// Create a bogus non-existence proof and check that it does not verify.
 
 	lkey := keys[0]
-	lval, lproof, _ := tree.getWithKeyExistsProof(lkey)
+	lval, lproof, _ := tree.getWithProof(lkey)
 	require.NotNil(lproof)
 
 	rkey := keys[2]
-	rval, rproof, _ := tree.getWithKeyExistsProof(rkey)
+	rval, rproof, _ := tree.getWithProof(rkey)
 	require.NotNil(rproof)
 
 	missing := []byte{0x40}
