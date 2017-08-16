@@ -229,6 +229,16 @@ func (proof *KeyRangeProof) Verify(
 		return errors.New("wrong number of keys or values for proof")
 	}
 
+	// If we've used a limit, our end key can be much greater than the right
+	// node key, ex: with the query start=0, end=FF, limit=10, the returned
+	// key range might be from 12 to D4, and the right node key will be the
+	// one following D4, say DF. In this case, we set our start and end keys
+	// to the key range returned.
+	if len(keys) == limit && limit > 0 {
+		endKey = keys[len(keys)-1]
+		startKey = keys[0]
+	}
+
 	// If startKey > endKey, reverse the keys and values, since our proofs are
 	// always in ascending order.
 	if bytes.Compare(startKey, endKey) == 1 {
@@ -246,9 +256,6 @@ func (proof *KeyRangeProof) Verify(
 		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify left path")
 		}
-		if len(keys) > 0 && len(keys) == limit {
-			startKey = keys[0]
-		}
 		if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 			return errors.New("left node must be lesser than start key")
 		}
@@ -256,9 +263,6 @@ func (proof *KeyRangeProof) Verify(
 	if proof.RightPath != nil {
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify right path")
-		}
-		if len(keys) > 0 && len(keys) == limit {
-			endKey = keys[len(keys)-1]
 		}
 		if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
 			return errors.New("right node must be greater than end key")
