@@ -288,7 +288,7 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("left path is nil and first inner path is not leftmost")
 			}
 		} else {
-			if len(keys) == limit && bytes.Compare(startKey, keys[0]) == -1 {
+			if len(keys) == limit {
 				startKey = keys[0]
 			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
@@ -305,7 +305,7 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		} else {
-			if len(keys) == limit && bytes.Compare(keys[len(keys)-1], endKey) == -1 {
+			if len(keys) == limit {
 				endKey = keys[len(keys)-1]
 			}
 			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
