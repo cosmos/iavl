@@ -194,6 +194,7 @@ func (proof *KeyRangeProof) String() string {
 	return "&KeyRangeProof{\n\t" + inner + "\n}"
 }
 
+// Returns a list of all paths, in order.
 func (proof *KeyRangeProof) paths() []*PathToKey {
 	paths := proof.PathToKeys[:]
 	if proof.LeftPath != nil {
@@ -205,6 +206,7 @@ func (proof *KeyRangeProof) paths() []*PathToKey {
 	return paths
 }
 
+// Checks that all paths are adjacent to one another, with no gaps.
 func (proof *KeyRangeProof) verifyPathAdjacency() error {
 	paths := proof.paths()
 	for i, path := range paths {
