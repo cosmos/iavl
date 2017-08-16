@@ -60,7 +60,14 @@ func (p *PathToKey) isRightmost() bool {
 	return true
 }
 
+func (p *PathToKey) isEmpty() bool {
+	return len(p.InnerNodes) == 0
+}
+
 func (p *PathToKey) dropRoot() *PathToKey {
+	if p.isEmpty() {
+		return p
+	}
 	return &PathToKey{
 		LeafHash:   p.LeafHash,
 		InnerNodes: p.InnerNodes[:len(p.InnerNodes)-1],
@@ -68,6 +75,9 @@ func (p *PathToKey) dropRoot() *PathToKey {
 }
 
 func (left *PathToKey) hasCommonRoot(right *PathToKey) bool {
+	if left.isEmpty() || right.isEmpty() {
+		return false
+	}
 	leftEnd := left.InnerNodes[len(left.InnerNodes)-1]
 	rightEnd := right.InnerNodes[len(right.InnerNodes)-1]
 
@@ -184,6 +194,31 @@ func (proof *KeyRangeProof) String() string {
 	return "&KeyRangeProof{\n\t" + inner + "\n}"
 }
 
+func (proof *KeyRangeProof) paths() []*PathToKey {
+	paths := proof.PathToKeys[:]
+	if proof.LeftPath != nil {
+		paths = append([]*PathToKey{proof.LeftPath}, paths...)
+	}
+	if proof.RightPath != nil {
+		paths = append(paths, proof.RightPath)
+	}
+	return paths
+}
+
+func (proof *KeyRangeProof) verifyPathAdjacency() error {
+	paths := proof.paths()
+	for i, path := range paths {
+		if i >= len(paths)-1 {
+			break
+		}
+		// Always check from left to right, since paths are always in ascending order.
+		if !path.isAdjacentTo(paths[i+1]) {
+			return errors.Errorf("paths #%d and #%d are not adjacent", i, i+1)
+		}
+	}
+	return nil
+}
+
 // Verify that a range proof is valid.
 func (proof *KeyRangeProof) Verify(
 	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
@@ -200,6 +235,10 @@ func (proof *KeyRangeProof) Verify(
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify right path")
 		}
+	}
+
+	if err := proof.verifyPathAdjacency(); err != nil {
+		return err
 	}
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
@@ -238,10 +277,6 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("start key is not to the right of left path")
 			}
 		} else if proof.RightPath != nil && proof.LeftPath != nil {
-			// Range is between two existing keys.
-			if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
-				return errors.New("left path is not adjacent to right path")
-			}
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 ||
 				bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
 				return errors.New("start and end key are not between left and right node")
@@ -252,25 +287,10 @@ func (proof *KeyRangeProof) Verify(
 
 	// If we've reached this point, it means our range isn't empty, and we have
 	// a list of keys.
-	//
-	// There are two things we want to verify here:
-	//
-	// 1. That the keys and values do indeed exist.
-	// 2. That the set of keys represent *all* keys in the range. There are no
-	//    keys that have been ommitted or are missing.
-	//
 	for i, path := range proof.PathToKeys {
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 		if err := path.verify(leafNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify inner path")
-		}
-		if i >= len(proof.PathToKeys)-1 {
-			break
-		}
-
-		// Always check from left to right, since paths are always in ascending order.
-		if !path.isAdjacentTo(proof.PathToKeys[i+1]) {
-			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
 	}
 
@@ -294,9 +314,6 @@ func (proof *KeyRangeProof) Verify(
 			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
 				return errors.New("left node key must be lesser than start key")
 			}
-			if !proof.LeftPath.isAdjacentTo(proof.PathToKeys[0]) {
-				return errors.New("first inner path isn't adjacent to left path")
-			}
 		}
 	}
 	if !bytes.Equal(endKey, keys[len(keys)-1]) {
@@ -310,9 +327,6 @@ func (proof *KeyRangeProof) Verify(
 			}
 			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
 				return errors.New("right node key must be greater than end key")
-			}
-			if !proof.PathToKeys[len(proof.PathToKeys)-1].isAdjacentTo(proof.RightPath) {
-				return errors.New("last inner path isn't adjacent to right path")
 			}
 		}
 	}

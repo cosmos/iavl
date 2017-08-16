@@ -273,7 +273,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xe4}),
 				RightNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 			},
-			expectedError: errors.New("left path is not adjacent to right path"),
+			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
 		8: {
 			keyStart: []byte{0x30},
@@ -313,7 +313,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				LeftPath:   dummyPathToKey(tree, []byte{0x0a}),
 				LeftNode:   dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
 			},
-			expectedError: errors.New("first inner path isn't adjacent to left path"),
+			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
 		11: {
 			keyStart:   []byte{0x12},
@@ -384,7 +384,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x50}),
 				},
 			},
-			expectedError: errors.New("paths 0 and 1 are not adjacent"),
+			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
 		16: {
 			keyStart:   []byte{0x11},
@@ -402,7 +402,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xf7}),
 				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 			},
-			expectedError: errors.New("last inner path isn't adjacent to right path"),
+			expectedError: errors.New("paths #2 and #3 are not adjacent"),
 		},
 		17: {
 			keyStart:   []byte{0x11},
@@ -420,7 +420,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				LeftPath: dummyPathToKey(tree, []byte{0xa}),
 				LeftNode: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 			},
-			expectedError: errors.New("first inner path isn't adjacent to left path"),
+			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
 		18: {
 			keyStart:   []byte{0x11},
