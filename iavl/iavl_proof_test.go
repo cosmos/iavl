@@ -216,18 +216,18 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xa1}),
 				RightNode: dummyLeafNode([]byte{0xa1}, []byte{0xa1}),
 			},
-			expectedError: errors.New("start and end key are not between left and right node"),
+			expectedError: errors.New("left node must be lesser than start key"),
 		},
 		3: { // An invalid proof with one path.
-			keyStart: []byte{0x30},
-			keyEnd:   []byte{0x40},
+			keyStart: []byte{0xf8},
+			keyEnd:   []byte{0xf9},
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				LeftPath: dummyPathToKey(tree, []byte{0xf7}),
-				LeftNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				LeftPath: dummyPathToKey(tree, []byte{0xe4}),
+				LeftNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 			},
-			expectedError: errors.New("start key is not to the right of left path"),
+			expectedError: errors.New("left path is not rightmost"),
 		},
 		4: { // An invalid proof with one path.
 			keyStart: []byte{0x30},
@@ -238,11 +238,11 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xa}),
 				RightNode: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 			},
-			expectedError: errors.New("end key is not to the left of right path"),
+			expectedError: errors.New("right node must be greater than end key"),
 		},
 		5: { // An invalid proof with one path.
-			keyStart: []byte{0x30},
-			keyEnd:   []byte{0x40},
+			keyStart: []byte{0x1},
+			keyEnd:   []byte{0x2},
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash:  root,
@@ -260,7 +260,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				LeftPath: dummyPathToKey(tree, []byte{0x99}),
 				LeftNode: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 			},
-			expectedError: errors.New("left path is not rightmost"),
+			expectedError: errors.New("left node must be lesser than start key"),
 		},
 		7: {
 			keyStart: []byte{0x30},
@@ -330,48 +330,20 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			expectedError: errors.New("right path is nil and last inner path is not rightmost"),
 		},
 		12: {
-			keyStart:   []byte{0x11},
-			keyEnd:     []byte{0x50},
+			keyStart:   []byte{0x10},
+			keyEnd:     []byte{0x30},
 			resultKeys: [][]byte{[]byte{0x2e}},
 			resultVals: [][]byte{[]byte{0x2e}},
 			root:       root,
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				RightPath:  dummyPathToKey(tree, []byte{0x2e}),
-				RightNode:  dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
+				RightPath:  dummyPathToKey(tree, []byte{0x32}),
+				RightNode:  dummyLeafNode([]byte{0x32}, []byte{0x32}),
 			},
 			expectedError: errors.New("left path is nil and first inner path is not leftmost"),
 		},
-		13: {
-			keyStart:   []byte{0x12},
-			keyEnd:     []byte{0x50},
-			resultKeys: [][]byte{[]byte{0x2e}},
-			resultVals: [][]byte{[]byte{0x2e}},
-			root:       root,
-			invalidProof: &KeyRangeProof{
-				RootHash:   root,
-				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				LeftPath:   dummyPathToKey(tree, []byte{0x2e}),
-				LeftNode:   dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
-			},
-			expectedError: errors.New("left node key must be lesser than start key"),
-		},
-		14: { // Should return 0x11, 0x2e, 0x32, 0x50
-			keyStart:   []byte{0x11},
-			keyEnd:     []byte{0x50},
-			resultKeys: [][]byte{[]byte{0x11}},
-			resultVals: [][]byte{[]byte{0x11}},
-			root:       root,
-			invalidProof: &KeyRangeProof{
-				RootHash:   root,
-				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x11})},
-				RightPath:  dummyPathToKey(tree, []byte{0x2e}),
-				RightNode:  dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
-			},
-			expectedError: errors.New("right node key must be greater than end key"),
-		},
-		15: { // Construct an invalid proof with missing 0x2e and 0x32 keys.
+		13: { // Construct an invalid proof with missing 0x2e and 0x32 keys.
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x50},
 			resultKeys: [][]byte{[]byte{0x11}, []byte{0x50}},
@@ -386,7 +358,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
-		16: {
+		14: {
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x50},
 			resultKeys: [][]byte{[]byte{0x11}, []byte{0x2e}, []byte{0x32}},
@@ -404,7 +376,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("paths #2 and #3 are not adjacent"),
 		},
-		17: {
+		15: {
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x50},
 			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}, []byte{0x50}},
@@ -422,7 +394,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
-		18: {
+		16: {
 			keyStart:   []byte{0x11},
 			keyEnd:     []byte{0x11},
 			resultKeys: [][]byte{[]byte{0x11}},

@@ -228,20 +228,6 @@ func (proof *KeyRangeProof) Verify(
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
 		return errors.New("wrong number of keys or values for proof")
 	}
-	if proof.LeftPath != nil {
-		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
-			return errors.Wrap(err, "failed to verify left path")
-		}
-	}
-	if proof.RightPath != nil {
-		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
-			return errors.Wrap(err, "failed to verify right path")
-		}
-	}
-
-	if err := proof.verifyPathAdjacency(); err != nil {
-		return err
-	}
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
 	// always in ascending order.
@@ -256,6 +242,33 @@ func (proof *KeyRangeProof) Verify(
 		keys, values = ks, vs
 	}
 
+	if proof.LeftPath != nil {
+		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify left path")
+		}
+		if len(keys) > 0 && len(keys) == limit {
+			startKey = keys[0]
+		}
+		if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
+			return errors.New("left node must be lesser than start key")
+		}
+	}
+	if proof.RightPath != nil {
+		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify right path")
+		}
+		if len(keys) > 0 && len(keys) == limit {
+			endKey = keys[len(keys)-1]
+		}
+		if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
+			return errors.New("right node must be greater than end key")
+		}
+	}
+
+	if err := proof.verifyPathAdjacency(); err != nil {
+		return err
+	}
+
 	// If proof.PathToKeys is empty, it means we have an empty range. This range
 	// can be between keys, or outside of the range of existing keys.
 	if len(proof.PathToKeys) == 0 {
@@ -267,21 +280,10 @@ func (proof *KeyRangeProof) Verify(
 			if !proof.RightPath.isLeftmost() {
 				return errors.New("right path is not leftmost")
 			}
-			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
-				return errors.New("end key is not to the left of right path")
-			}
 		} else if proof.RightPath == nil && proof.LeftPath != nil {
 			// Range is outisde and to the right of existing keys.
 			if !proof.LeftPath.isRightmost() {
 				return errors.New("left path is not rightmost")
-			}
-			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
-				return errors.New("start key is not to the right of left path")
-			}
-		} else if proof.RightPath != nil && proof.LeftPath != nil {
-			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 ||
-				bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
-				return errors.New("start and end key are not between left and right node")
 			}
 		}
 		return nil
@@ -304,32 +306,14 @@ func (proof *KeyRangeProof) Verify(
 	//
 	// In the case where our start or end key is matched exactly with one of the
 	// keys returned, no further test needs to be done.
-	if !bytes.Equal(startKey, keys[0]) {
-		if proof.LeftPath == nil {
-			if !proof.PathToKeys[0].isLeftmost() {
-				return errors.New("left path is nil and first inner path is not leftmost")
-			}
-		} else {
-			if len(keys) == limit {
-				startKey = keys[0]
-			}
-			if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
-				return errors.New("left node key must be lesser than start key")
-			}
+	if proof.LeftPath == nil && !bytes.Equal(startKey, keys[0]) {
+		if !proof.PathToKeys[0].isLeftmost() {
+			return errors.New("left path is nil and first inner path is not leftmost")
 		}
 	}
-	if !bytes.Equal(endKey, keys[len(keys)-1]) {
-		if proof.RightPath == nil {
-			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-				return errors.New("right path is nil and last inner path is not rightmost")
-			}
-		} else {
-			if len(keys) == limit {
-				endKey = keys[len(keys)-1]
-			}
-			if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
-				return errors.New("right node key must be greater than end key")
-			}
+	if proof.RightPath == nil && !bytes.Equal(endKey, keys[len(keys)-1]) {
+		if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
+			return errors.New("right path is nil and last inner path is not rightmost")
 		}
 	}
 	return nil
