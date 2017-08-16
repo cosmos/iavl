@@ -186,6 +186,10 @@ func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyAbsent
 	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
 }
 
+// GetRangeWithProof gets key/value pairs within the specified range and limit. To specify a descending
+// range, swap the start and end keys.
+//
+// Returns a list of keys, a list of values and a proof.
 func (t *IAVLTree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
 	return t.getRangeWithProof(startKey, endKey, limit)
 }
