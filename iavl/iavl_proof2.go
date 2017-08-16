@@ -161,6 +161,7 @@ func (proof *KeyAbsentProof) Verify(key []byte, root []byte) error {
 	return nil
 }
 
+// KeyRangeProof is proof that a range of keys does or does not exist.
 type KeyRangeProof struct {
 	RootHash   data.Bytes   `json:"root_hash"`
 	PathToKeys []*PathToKey `json:"paths"`
@@ -214,16 +215,14 @@ func (proof *KeyRangeProof) Verify(
 		keys, values = ks, vs
 	}
 
-	// If proof.PathToKeys is empty, it means we have an empty range.
+	// If proof.PathToKeys is empty, it means we have an empty range. This range
+	// can be between keys, or outside of the range of existing keys.
 	if len(proof.PathToKeys) == 0 {
 		if proof.LeftPath == nil && proof.RightPath == nil {
 			return errors.New("proof is incomplete")
 		}
-		// Either:
-		// 1. Range is to the left of existing keys.
-		// 2. Range is to the right of existing keys.
-		// 3. Range is in between two existing keys.
 		if proof.LeftPath == nil && proof.RightPath != nil {
+			// Range is outisde and to the left of existing keys.
 			if !proof.RightPath.isLeftmost() {
 				return errors.New("right path is not leftmost")
 			}
@@ -231,6 +230,7 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("end key is not to the left of right path")
 			}
 		} else if proof.RightPath == nil && proof.LeftPath != nil {
+			// Range is outisde and to the right of existing keys.
 			if !proof.LeftPath.isRightmost() {
 				return errors.New("left path is not rightmost")
 			}
@@ -238,6 +238,7 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("start key is not to the right of left path")
 			}
 		} else if proof.RightPath != nil && proof.LeftPath != nil {
+			// Range is between two existing keys.
 			if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
 				return errors.New("left path is not adjacent to right path")
 			}
@@ -263,14 +264,12 @@ func (proof *KeyRangeProof) Verify(
 		if err := path.verify(leafNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify inner path")
 		}
-
 		if i >= len(proof.PathToKeys)-1 {
 			break
 		}
-		right := proof.PathToKeys[i+1]
 
-		// Paths are always in ascending order.
-		if !path.isAdjacentTo(right) {
+		// Always check from left to right, since paths are always in ascending order.
+		if !path.isAdjacentTo(proof.PathToKeys[i+1]) {
 			return errors.Errorf("paths %d and %d are not adjacent", i, i+1)
 		}
 	}
@@ -280,6 +279,9 @@ func (proof *KeyRangeProof) Verify(
 	// left and right paths in the proof are for that purpose: they are paths
 	// to keys outside of the range of keys returned, yet adjacent to it, proving
 	// that nothing lies in between.
+	//
+	// In the case where our start or end key is matched exactly with one of the
+	// keys returned, no further test needs to be done.
 	if !bytes.Equal(startKey, keys[0]) {
 		if proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
@@ -377,8 +379,8 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		first, last = last, first
 	}
 
+	// Construct the paths such that they are always in ascending order.
 	rangeProof.PathToKeys = make([]*PathToKey, len(keys))
-
 	for i, k := range keys {
 		path, _, _ := node.pathToKey(t, k)
 		if ascending {
@@ -393,8 +395,7 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 	}
 
 	if limited || len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
-		idx, _, _ := t.Get(keyStart)
-		if idx > 0 {
+		if idx, _, _ := t.Get(keyStart); idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
 			path, _, _ := node.pathToKey(t, lkey)
 			rangeProof.LeftPath = path
