@@ -265,6 +265,7 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
+	// Verify that all paths are adjacent to one another.
 	if err := proof.verifyPathAdjacency(); err != nil {
 		return err
 	}
@@ -286,34 +287,29 @@ func (proof *KeyRangeProof) Verify(
 				return errors.New("left path is not rightmost")
 			}
 		}
-		return nil
-	}
-
-	// If we've reached this point, it means our range isn't empty, and we have
-	// a list of keys.
-	for i, path := range proof.PathToKeys {
-		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
-		if err := path.verify(leafNode, root); err != nil {
-			return errors.Wrap(err, "failed to verify inner path")
+	} else {
+		// If we've reached this point, it means our range isn't empty, and we have
+		// a list of keys.
+		for i, path := range proof.PathToKeys {
+			leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+			if err := path.verify(leafNode, root); err != nil {
+				return errors.Wrap(err, "failed to verify inner path")
+			}
 		}
-	}
 
-	// If our start or end key are outside of the range of keys returned, we need
-	// to verify that no keys were ommitted in the result set. The additional
-	// left and right paths in the proof are for that purpose: they are paths
-	// to keys outside of the range of keys returned, yet adjacent to it, proving
-	// that nothing lies in between.
-	//
-	// In the case where our start or end key is matched exactly with one of the
-	// keys returned, no further test needs to be done.
-	if proof.LeftPath == nil && !bytes.Equal(startKey, keys[0]) {
-		if !proof.PathToKeys[0].isLeftmost() {
-			return errors.New("left path is nil and first inner path is not leftmost")
+		// Our start key is lesser than the first key in the tree.
+		// Hence, the first key returned must have nothing to its left.
+		if proof.LeftPath == nil && !bytes.Equal(startKey, keys[0]) {
+			if !proof.PathToKeys[0].isLeftmost() {
+				return errors.New("left path is nil and first inner path is not leftmost")
+			}
 		}
-	}
-	if proof.RightPath == nil && !bytes.Equal(endKey, keys[len(keys)-1]) {
-		if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-			return errors.New("right path is nil and last inner path is not rightmost")
+		// Our end key is greater than the last key in the tree.
+		// Hence, the last key returned must have nothing to its right.
+		if proof.RightPath == nil && !bytes.Equal(endKey, keys[len(keys)-1]) {
+			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
+				return errors.New("right path is nil and last inner path is not rightmost")
+			}
 		}
 	}
 	return nil
