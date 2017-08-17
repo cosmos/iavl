@@ -242,8 +242,8 @@ type KeyLastInRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
-func (proof *KeyLastInRangeProof) Verify(keyStart, keyEnd []byte, root []byte) error {
-	return nil
+func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+	return (*KeyFirstInRangeProof)(proof).Verify(startKey, endKey, key, value, root)
 }
 
 // KeyRangeProof is proof that a range of keys does or does not exist.
