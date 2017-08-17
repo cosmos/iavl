@@ -196,6 +196,11 @@ func (t *IAVLTree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) 
 	return t.getRangeWithProof(startKey, endKey, limit)
 }
 
+// GetFirstInRangeWithProof gets the first key/value pair in the specified range, with a proof.
+func (t *IAVLTree) GetFirstInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyFirstInRangeProof, error) {
+	return t.getFirstInRangeWithProof(startKey, endKey)
+}
+
 func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
 	if t.root == nil {
 		return nil, false
