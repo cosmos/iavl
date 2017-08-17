@@ -186,6 +186,21 @@ func (proof *KeyFirstInRangeProof) Verify(keyStart, keyEnd []byte, root []byte) 
 	return nil
 }
 
+type KeyLastInRangeProof struct {
+	RootHash  data.Bytes `json:"root_hash"`
+	PathToKey *PathToKey `json:"path"`
+
+	LeftPath *PathToKey        `json:"left_path"`
+	LeftNode IAVLProofLeafNode `json:"left_node"`
+
+	RightPath *PathToKey        `json:"right_path"`
+	RightNode IAVLProofLeafNode `json:"right_node"`
+}
+
+func (proof *KeyLastInRangeProof) Verify(keyStart, keyEnd []byte, root []byte) error {
+	return nil
+}
+
 // KeyRangeProof is proof that a range of keys does or does not exist.
 type KeyRangeProof struct {
 	RootHash   data.Bytes   `json:"root_hash"`
@@ -519,6 +534,32 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	}
 
 	proof = &KeyFirstInRangeProof{
+		RootHash: rangeProof.RootHash,
+
+		LeftPath: rangeProof.LeftPath,
+		LeftNode: rangeProof.LeftNode,
+
+		RightPath: rangeProof.RightPath,
+		RightNode: rangeProof.RightNode,
+	}
+
+	if len(keys) == 0 {
+		return
+	}
+	proof.PathToKey = rangeProof.PathToKeys[0]
+
+	return keys[0], vals[0], proof, nil
+}
+
+func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
+	key, value []byte, proof *KeyLastInRangeProof, err error,
+) {
+	keys, vals, rangeProof, err := t.getRangeWithProof(keyEnd, keyStart, 1)
+	if err != nil {
+		return
+	}
+
+	proof = &KeyLastInRangeProof{
 		RootHash: rangeProof.RootHash,
 
 		LeftPath: rangeProof.LeftPath,
