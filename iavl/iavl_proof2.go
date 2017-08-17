@@ -209,12 +209,9 @@ func (proof *KeyRangeProof) paths() []*PathToKey {
 // Checks that all paths are adjacent to one another, with no gaps.
 func (proof *KeyRangeProof) verifyPathAdjacency() error {
 	paths := proof.paths()
-	for i, path := range paths {
-		if i >= len(paths)-1 {
-			break
-		}
+	for i := 0; i < len(paths)-1; i++ {
 		// Always check from left to right, since paths are always in ascending order.
-		if !path.isAdjacentTo(paths[i+1]) {
+		if !paths[i].isAdjacentTo(paths[i+1]) {
 			return errors.Errorf("paths #%d and #%d are not adjacent", i, i+1)
 		}
 	}
