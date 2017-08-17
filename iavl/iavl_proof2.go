@@ -357,9 +357,12 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 	return nil, errors.New("key does not exist")
 }
 
-func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byte, limit int, rangeProof *KeyRangeProof) ([][]byte, [][]byte, error) {
-	keys := [][]byte{}
-	values := [][]byte{}
+func (node *IAVLNode) constructKeyRangeProof(
+	t *IAVLTree, keyStart, keyEnd []byte, limit int, rangeProof *KeyRangeProof,
+) (
+	keys [][]byte, values [][]byte, err error,
+) {
+	keys, values = [][]byte{}, [][]byte{}
 	ascending := bytes.Compare(keyStart, keyEnd) == -1
 	if !ascending {
 		keyStart, keyEnd = keyEnd, keyStart
@@ -370,11 +373,6 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		values = append(values, v)
 		return len(keys) == limit
 	})
-
-	first, last := 0, len(keys)-1
-	if !ascending {
-		first, last = last, first
-	}
 
 	// Construct the paths such that they are always in ascending order.
 	rangeProof.PathToKeys = make([]*PathToKey, len(keys))
@@ -387,11 +385,27 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 		}
 	}
 
+	first, last := 0, len(keys)-1
+	if !ascending {
+		first, last = last, first
+	}
+
 	if limited {
 		keyStart, keyEnd = keys[first], keys[last]
 	}
 
-	if limited || len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
+	// So far, we've created proofs of the keys which are within the provided range.
+	// Next, we need to create a proof that we haven't omitted any keys to the left
+	// or right of that range. This is relevant in two scenarios:
+	//
+	// 1. There are no keys in the range. In this case, include a proof of the key
+	//    to the left and right of that empty range.
+	// 2. The start or end key do not match the start and end of the keys returned.
+	//    In this case, include proofs of the keys immediately outside of those returned.
+	//
+	if len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
+		// Find index of first key to the left, and include proof if it isn't the
+		// leftmost key.
 		if idx, _, _ := t.Get(keyStart); idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
 			path, _, _ := node.pathToKey(t, lkey)
@@ -399,12 +413,11 @@ func (node *IAVLNode) constructKeyRangeProof(t *IAVLTree, keyStart, keyEnd []byt
 			rangeProof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
 		}
 	}
-
-	if limited || len(keys) == 0 || !bytes.Equal(keys[last], keyEnd) {
+	if len(keys) == 0 || !bytes.Equal(keys[last], keyEnd) {
+		// Find index of first key to the right, and include proof if it isn't the
+		// rightmost key. (*IAVLTree).Get always returns the next index when the key
+		// isn't found, so we don't have to increment it.
 		idx, _, _ := t.Get(keyEnd)
-		if limited {
-			idx++
-		}
 		if idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
 			path, _, _ := node.pathToKey(t, rkey)
