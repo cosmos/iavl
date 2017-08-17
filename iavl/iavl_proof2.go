@@ -182,7 +182,52 @@ type KeyFirstInRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
-func (proof *KeyFirstInRangeProof) Verify(keyStart, keyEnd []byte, root []byte) error {
+func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+	if !bytes.Equal(proof.RootHash, root) {
+		return errors.New("roots do not match")
+	}
+
+	if proof.PathToKey != nil {
+		leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
+		if err := proof.PathToKey.verify(leafNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify inner path")
+		}
+	}
+
+	if proof.LeftPath != nil {
+		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify left path")
+		}
+		if !proof.LeftNode.isLesserThan(startKey) {
+			return errors.New("left node must be lesser than start key")
+		}
+		if proof.RightPath == nil {
+			if !proof.LeftPath.isRightmost() {
+				return errors.New("left path is not rightmost")
+			}
+		}
+	}
+
+	if proof.RightPath != nil {
+		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify right path")
+		}
+		if !proof.RightNode.isGreaterThan(endKey) {
+			return errors.New("right node must be greater than end key")
+		}
+		if proof.LeftPath == nil {
+			if !proof.RightPath.isLeftmost() {
+				return errors.New("right path is not leftmost")
+			}
+		}
+	}
+
+	if proof.LeftPath != nil && proof.RightPath != nil {
+		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
+			return errors.New("left and right paths are not adjacent")
+		}
+	}
+
 	return nil
 }
 
