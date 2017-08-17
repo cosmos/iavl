@@ -182,7 +182,7 @@ type KeyFirstInRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
-func (proof *KeyFirstInRangeProof) Verify(keyStart, keyEnd []byte) error {
+func (proof *KeyFirstInRangeProof) Verify(keyStart, keyEnd []byte, root []byte) error {
 	return nil
 }
 

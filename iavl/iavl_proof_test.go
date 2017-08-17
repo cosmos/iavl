@@ -85,6 +85,46 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	// TODO: Test with single value in tree.
 }
 
+func TestIAVLTreeKeyFirstInRangeProof(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	for _, ikey := range []byte{
+		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
+	} {
+		key := []byte{ikey}
+		tree.Set(key, key)
+	}
+	root := tree.Hash()
+
+	cases := []struct {
+		startKey byte
+		endKey   byte
+		expected []byte
+	}{
+		{startKey: 0x0a, endKey: 0xf7, expected: []byte{0x0a}},
+		{startKey: 0x0, endKey: 0xff, expected: []byte{0x0a}},
+		{startKey: 0x14, endKey: 0xff, expected: []byte{0x2e}},
+		{startKey: 0x2e, endKey: 0x32, expected: []byte{0x2e}},
+		{startKey: 0x2f, endKey: 0x32, expected: []byte{0x32}},
+		{startKey: 0xf8, endKey: 0xff, expected: nil},
+		{startKey: 0x12, endKey: 0x20, expected: nil},
+		{startKey: 0x0, endKey: 0x09, expected: nil},
+	}
+
+	for _, c := range cases {
+		startKey := []byte{c.startKey}
+		endKey := []byte{c.endKey}
+
+		key, val, proof, err := tree.GetFirstInRangeWithProof(startKey, endKey)
+		msg := fmt.Sprintf("first in range %x - %x: %x", c.startKey, c.endKey, key)
+		require.NoError(err, "%+v", err)
+		require.Equal(c.expected, key, "Key returned not equal for %s", msg)
+		require.Equal(key, val)
+		err = proof.Verify(startKey, endKey, root)
+		require.NoError(err, "Got error '%v' for %s", err, msg)
+	}
+}
+
 func TestIAVLTreeKeyRangeProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
