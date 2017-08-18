@@ -74,24 +74,24 @@ func (p *PathToKey) dropRoot() *PathToKey {
 	}
 }
 
-func (left *PathToKey) hasCommonRoot(right *PathToKey) bool {
-	if left.isEmpty() || right.isEmpty() {
+func (p *PathToKey) hasCommonRoot(p2 *PathToKey) bool {
+	if p.isEmpty() || p2.isEmpty() {
 		return false
 	}
-	leftEnd := left.InnerNodes[len(left.InnerNodes)-1]
-	rightEnd := right.InnerNodes[len(right.InnerNodes)-1]
+	leftEnd := p.InnerNodes[len(p.InnerNodes)-1]
+	rightEnd := p2.InnerNodes[len(p2.InnerNodes)-1]
 
 	return bytes.Equal(leftEnd.Left, rightEnd.Left) &&
 		bytes.Equal(leftEnd.Right, rightEnd.Right)
 }
 
-func (left *PathToKey) isAdjacentTo(right *PathToKey) bool {
-	for left.hasCommonRoot(right) {
-		left, right = left.dropRoot(), right.dropRoot()
+func (p *PathToKey) isLeftAdjacentTo(p2 *PathToKey) bool {
+	for p.hasCommonRoot(p2) {
+		p, p2 = p.dropRoot(), p2.dropRoot()
 	}
-	left, right = left.dropRoot(), right.dropRoot()
+	p, p2 = p.dropRoot(), p2.dropRoot()
 
-	return left.isRightmost() && right.isLeftmost()
+	return p.isRightmost() && p2.isLeftmost()
 }
 
 type KeyExistsProof struct {
@@ -148,7 +148,7 @@ func (proof *KeyAbsentProof) Verify(key []byte, root []byte) error {
 
 	// Both paths exist, check that they are sequential.
 	if proof.RightPath != nil && proof.LeftPath != nil {
-		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
+		if !proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
 			return errors.New("merkle paths are not adjacent")
 		}
 		return nil
@@ -211,7 +211,7 @@ func (proof *KeyRangeProof) verifyPathAdjacency() error {
 	paths := proof.paths()
 	for i := 0; i < len(paths)-1; i++ {
 		// Always check from left to right, since paths are always in ascending order.
-		if !paths[i].isAdjacentTo(paths[i+1]) {
+		if !paths[i].isLeftAdjacentTo(paths[i+1]) {
 			return errors.Errorf("paths #%d and #%d are not adjacent", i, i+1)
 		}
 	}
