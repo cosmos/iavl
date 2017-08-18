@@ -229,16 +229,6 @@ func (proof *KeyRangeProof) Verify(
 		return errors.New("proof is incomplete")
 	}
 
-	// If we've used a limit, our end key can be much greater than the right
-	// node key, ex: with the query start=0, end=FF, limit=10, the returned
-	// key range might be from 12 to D4, and the right node key will be the
-	// one following D4, say DF. In this case, we set our start and end keys
-	// to the key range returned.
-	if len(keys) == limit && limit > 0 {
-		endKey = keys[len(keys)-1]
-		startKey = keys[0]
-	}
-
 	// If startKey > endKey, reverse the keys and values, since our proofs are
 	// always in ascending order.
 	if bytes.Compare(startKey, endKey) == 1 {
@@ -253,6 +243,29 @@ func (proof *KeyRangeProof) Verify(
 		keys, values = ks, vs
 	}
 
+	if len(keys) > 0 {
+		if !bytes.Equal(startKey, keys[0]) && proof.LeftPath == nil {
+			if !proof.PathToKeys[0].isLeftmost() {
+				return errors.New("left path is nil and first inner path is not leftmost")
+			}
+		}
+		if !bytes.Equal(endKey, keys[len(keys)-1]) && proof.RightPath == nil {
+			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
+				return errors.New("right path is nil and last inner path is not rightmost")
+			}
+		}
+	}
+
+	// If we've used a limit, our end key can be much greater than the right
+	// node key, ex: with the query start=0, end=FF, limit=10, the returned
+	// key range might be from 12 to D4, and the right node key will be the
+	// one following D4, say DF. In this case, we set our start and end keys
+	// to the key range returned.
+	if len(keys) == limit && limit > 0 {
+		endKey = keys[len(keys)-1]
+		startKey = keys[0]
+	}
+
 	if proof.LeftPath != nil {
 		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify left path")
@@ -265,8 +278,8 @@ func (proof *KeyRangeProof) Verify(
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify right path")
 		}
-		if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
-			return errors.New("right node must be greater than end key")
+		if bytes.Compare(proof.RightNode.KeyBytes, endKey) == -1 {
+			return errors.New("right node must be greater or equal than end key")
 		}
 	}
 
@@ -296,21 +309,6 @@ func (proof *KeyRangeProof) Verify(
 			leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 			if err := path.verify(leafNode, root); err != nil {
 				return errors.Wrap(err, "failed to verify inner path")
-			}
-		}
-
-		// Our start key is lesser than the first key in the tree.
-		// Hence, the first key returned must have nothing to its left.
-		if proof.LeftPath == nil && !bytes.Equal(startKey, keys[0]) {
-			if !proof.PathToKeys[0].isLeftmost() {
-				return errors.New("left path is nil and first inner path is not leftmost")
-			}
-		}
-		// Our end key is greater than the last key in the tree.
-		// Hence, the last key returned must have nothing to its right.
-		if proof.RightPath == nil && !bytes.Equal(endKey, keys[len(keys)-1]) {
-			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-				return errors.New("right path is nil and last inner path is not rightmost")
 			}
 		}
 	}
@@ -391,10 +389,6 @@ func (node *IAVLNode) constructKeyRangeProof(
 		first, last = last, first
 	}
 
-	if limited {
-		keyStart, keyEnd = keys[first], keys[last]
-	}
-
 	// So far, we've created proofs of the keys which are within the provided range.
 	// Next, we need to create a proof that we haven't omitted any keys to the left
 	// or right of that range. This is relevant in two scenarios:
@@ -405,6 +399,9 @@ func (node *IAVLNode) constructKeyRangeProof(
 	//    In this case, include proofs of the keys immediately outside of those returned.
 	//
 	if len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
+		if limited {
+			keyStart = keys[first]
+		}
 		// Find index of first key to the left, and include proof if it isn't the
 		// leftmost key.
 		if idx, _, _ := t.Get(keyStart); idx > 0 {
@@ -415,6 +412,9 @@ func (node *IAVLNode) constructKeyRangeProof(
 		}
 	}
 	if len(keys) == 0 || !bytes.Equal(keys[last], keyEnd) {
+		if limited {
+			keyEnd = keys[last]
+		}
 		// Find index of first key to the right, and include proof if it isn't the
 		// rightmost key. (*IAVLTree).Get always returns the next index when the key
 		// isn't found, so we don't have to increment it.
