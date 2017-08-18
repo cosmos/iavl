@@ -138,6 +138,45 @@ func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
 	}
 }
 
+func TestIAVLTreeKeyInRangeProofsVerify(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	for _, ikey := range []byte{
+		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
+	} {
+		key := []byte{ikey}
+		tree.Set(key, key)
+	}
+	root := tree.Hash()
+
+	cases := [...]struct {
+		startKey, endKey     []byte
+		resultKey, resultVal []byte
+		root                 []byte
+		invalidProof         *KeyFirstInRangeProof
+		expectedError        error
+	}{
+		0: {
+			root:      root,
+			startKey:  []byte{0x0},
+			endKey:    []byte{0xff},
+			resultKey: []byte{0x11},
+			resultVal: []byte{0x11},
+			invalidProof: &KeyFirstInRangeProof{
+				RootHash:  root,
+				PathToKey: dummyPathToKey(tree, []byte{0x11}),
+			},
+			expectedError: errors.New("invalid proof"),
+		},
+	}
+
+	for i, c := range cases {
+		err := c.invalidProof.Verify(c.startKey, c.endKey, c.resultKey, c.resultVal, c.root)
+		require.Error(err, "test failed for case #%d", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
+	}
+}
+
 func TestIAVLTreeKeyRangeProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
