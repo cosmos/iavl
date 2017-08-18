@@ -182,15 +182,32 @@ type KeyFirstInRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
+func (proof *KeyFirstInRangeProof) String() string {
+	return fmt.Sprintf("%#v", proof)
+}
+
 func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return errors.New("roots do not match")
 	}
 
+	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
+
 	if proof.PathToKey != nil {
-		leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
 		if err := proof.PathToKey.verify(leafNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify inner path")
+		}
+		if bytes.Equal(key, startKey) {
+			return nil
+		}
+		if leafNode.isGreaterThan(startKey) {
+			if proof.PathToKey.isLeftmost() {
+				return nil
+			}
+			if proof.LeftPath != nil && proof.LeftNode.isLesserThan(startKey) &&
+				proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
+				return nil
+			}
 		}
 	}
 
@@ -205,6 +222,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 			if !proof.LeftPath.isRightmost() {
 				return errors.New("left path is not rightmost")
 			}
+			return nil
 		}
 	}
 
@@ -219,6 +237,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 			if !proof.RightPath.isLeftmost() {
 				return errors.New("right path is not leftmost")
 			}
+			return nil
 		}
 	}
 
@@ -226,9 +245,10 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		if !proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
 			return errors.New("left and right paths are not adjacent")
 		}
+		return nil
 	}
 
-	return nil
+	return errors.New("invalid proof")
 }
 
 type KeyLastInRangeProof struct {
