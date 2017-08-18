@@ -61,7 +61,7 @@ func (p *PathToKey) isRightmost() bool {
 }
 
 func (p *PathToKey) isEmpty() bool {
-	return len(p.InnerNodes) == 0
+	return p == nil || len(p.InnerNodes) == 0
 }
 
 func (p *PathToKey) dropRoot() *PathToKey {
@@ -225,6 +225,9 @@ func (proof *KeyRangeProof) Verify(
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
 		return errors.New("wrong number of keys or values for proof")
 	}
+	if len(proof.PathToKeys) == 0 && proof.LeftPath.isEmpty() && proof.RightPath.isEmpty() {
+		return errors.New("proof is incomplete")
+	}
 
 	// If we've used a limit, our end key can be much greater than the right
 	// node key, ex: with the query start=0, end=FF, limit=10, the returned
@@ -275,9 +278,6 @@ func (proof *KeyRangeProof) Verify(
 	// If proof.PathToKeys is empty, it means we have an empty range. This range
 	// can be between keys, or outside of the range of existing keys.
 	if len(proof.PathToKeys) == 0 {
-		if proof.LeftPath == nil && proof.RightPath == nil {
-			return errors.New("proof is incomplete")
-		}
 		if proof.LeftPath == nil && proof.RightPath != nil {
 			// Range is outisde and to the left of existing keys.
 			if !proof.RightPath.isLeftmost() {
