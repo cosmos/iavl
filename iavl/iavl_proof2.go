@@ -241,10 +241,11 @@ func (proof *KeyRangeProof) Verify(
 	if bytes.Compare(startKey, endKey) == 1 {
 		startKey, endKey = endKey, startKey
 
-		ks, vs := [][]byte{}, [][]byte{}
-		for i := len(keys) - 1; i >= 0; i-- {
-			ks = append(ks, keys[i])
-			vs = append(vs, values[i])
+		ks := make([][]byte, len(keys))
+		vs := make([][]byte, len(keys))
+		for i, _ := range keys {
+			ks[len(ks)-1-i] = keys[i]
+			vs[len(vs)-1-i] = values[i]
 		}
 		keys, values = ks, vs
 	}
