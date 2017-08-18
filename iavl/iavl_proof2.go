@@ -95,8 +95,8 @@ func (p *PathToKey) isLeftAdjacentTo(p2 *PathToKey) bool {
 }
 
 type KeyExistsProof struct {
-	PathToKey `json:"path"`
-	RootHash  data.Bytes `json:"root_hash"`
+	*PathToKey `json:"path"`
+	RootHash   data.Bytes `json:"root_hash"`
 }
 
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
@@ -478,7 +478,7 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 
 	proof = &KeyExistsProof{
 		RootHash:  t.root.hash,
-		PathToKey: *path,
+		PathToKey: path,
 	}
 	return value, proof, nil
 }

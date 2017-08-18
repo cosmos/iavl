@@ -546,10 +546,10 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 	proof := &KeyAbsentProof{
 		RootHash: lproof.RootHash,
 
-		LeftPath: &lproof.PathToKey,
+		LeftPath: lproof.PathToKey,
 		LeftNode: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
 
-		RightPath: &rproof.PathToKey,
+		RightPath: rproof.PathToKey,
 		RightNode: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
 	}
 	err := proof.Verify(missing, tree.Hash())
