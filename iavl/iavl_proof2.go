@@ -223,7 +223,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	}
 
 	if proof.LeftPath != nil && proof.RightPath != nil {
-		if !proof.LeftPath.isAdjacentTo(proof.RightPath) {
+		if !proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
 			return errors.New("left and right paths are not adjacent")
 		}
 	}

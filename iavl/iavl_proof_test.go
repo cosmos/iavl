@@ -133,7 +133,7 @@ func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
 		require.NoError(err, "%+v", err)
 		require.Equal(c.last, key, "Key returned not equal for %s", msg)
 		require.Equal(key, val)
-		err = lirProof.Verify(startKey, endKey, root)
+		err = lirProof.Verify(startKey, endKey, key, val, root)
 		require.NoError(err, "Got error '%v' for %s", err, msg)
 	}
 }
