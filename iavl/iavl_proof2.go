@@ -278,12 +278,12 @@ func (proof *KeyRangeProof) Verify(
 	// If proof.PathToKeys is empty, it means we have an empty range. This range
 	// can be between keys, or outside of the range of existing keys.
 	if len(proof.PathToKeys) == 0 {
-		if proof.LeftPath == nil && proof.RightPath != nil {
+		if proof.LeftPath == nil {
 			// Range is outisde and to the left of existing keys.
 			if !proof.RightPath.isLeftmost() {
 				return errors.New("right path is not leftmost")
 			}
-		} else if proof.RightPath == nil && proof.LeftPath != nil {
+		} else if proof.RightPath == nil {
 			// Range is outisde and to the right of existing keys.
 			if !proof.LeftPath.isRightmost() {
 				return errors.New("left path is not rightmost")
