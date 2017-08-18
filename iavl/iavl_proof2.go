@@ -262,7 +262,7 @@ func (proof *KeyRangeProof) Verify(
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify right path")
 		}
-		if bytes.Compare(endKey, proof.RightNode.KeyBytes) != -1 {
+		if bytes.Compare(proof.RightNode.KeyBytes, endKey) != 1 {
 			return errors.New("right node must be greater than end key")
 		}
 	}
