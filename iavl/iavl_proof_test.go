@@ -163,8 +163,10 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0x11},
 			resultVal: []byte{0x11},
 			invalidProof: &KeyLastInRangeProof{
-				RootHash:  root,
-				PathToKey: dummyPathToKey(tree, []byte{0x11}),
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0x11}),
+				},
 			},
 			expectedError: InvalidProofErr,
 		},
@@ -175,8 +177,10 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0xf7},
 			resultVal: []byte{0xf7},
 			invalidProof: &KeyLastInRangeProof{
-				RootHash:  root,
-				PathToKey: dummyPathToKey(tree, []byte{0xf7}),
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0xf7}),
+				},
 			},
 			expectedError: InvalidInputsErr,
 		},
@@ -187,8 +191,10 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0x0a},
 			resultVal: []byte{0x0a},
 			invalidProof: &KeyLastInRangeProof{
-				RootHash:  root,
-				PathToKey: dummyPathToKey(tree, []byte{0x0a}),
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0x0a}),
+				},
 			},
 			expectedError: InvalidInputsErr,
 		},
@@ -199,8 +205,10 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0x11},
 			resultVal: []byte{0x11},
 			invalidProof: &KeyLastInRangeProof{
-				RootHash:  root,
-				PathToKey: dummyPathToKey(tree, []byte{0x11}),
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0x11}),
+				},
 				RightPath: dummyPathToKey(tree, []byte{0xf7}),
 				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 			},
@@ -213,7 +221,9 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: nil,
 			resultVal: nil,
 			invalidProof: &KeyLastInRangeProof{
-				RootHash:  root,
+				KeyExistsProof: KeyExistsProof{
+					RootHash: root,
+				},
 				LeftPath:  dummyPathToKey(tree, []byte{0xa}),
 				LeftNode:  dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				RightPath: dummyPathToKey(tree, []byte{0xf7}),
@@ -228,8 +238,10 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0xa1},
 			resultVal: []byte{0xa1},
 			invalidProof: &KeyLastInRangeProof{
-				RootHash:  root,
-				PathToKey: dummyPathToKey(tree, []byte{0xa1}),
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0xa1}),
+				},
 				LeftPath:  dummyPathToKey(tree, []byte{0xa}),
 				LeftNode:  dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				RightPath: dummyPathToKey(tree, []byte{0xe4}),

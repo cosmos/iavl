@@ -94,8 +94,7 @@ func (proof *KeyAbsentProof) Verify(key []byte, root []byte) error {
 }
 
 type KeyFirstInRangeProof struct {
-	RootHash  data.Bytes `json:"root_hash"`
-	PathToKey *PathToKey `json:"path"`
+	KeyExistsProof `json:"proof"`
 
 	LeftPath *PathToKey        `json:"left_path"`
 	LeftNode IAVLProofLeafNode `json:"left_node"`
@@ -109,16 +108,15 @@ func (proof *KeyFirstInRangeProof) String() string {
 }
 
 func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
-	if !bytes.Equal(proof.RootHash, root) {
-		return errors.New("roots do not match")
+	if proof.PathToKey != nil {
+		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
+			return err
+		}
 	}
 
 	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
 
 	if proof.PathToKey != nil {
-		if err := proof.PathToKey.verify(leafNode, root); err != nil {
-			return errors.Wrap(err, "failed to verify inner path")
-		}
 		if bytes.Equal(key, startKey) {
 			return
 		}
@@ -174,8 +172,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 }
 
 type KeyLastInRangeProof struct {
-	RootHash  data.Bytes `json:"root_hash"`
-	PathToKey *PathToKey `json:"path"`
+	KeyExistsProof `json:"proof"`
 
 	LeftPath *PathToKey        `json:"left_path"`
 	LeftNode IAVLProofLeafNode `json:"left_node"`
@@ -195,8 +192,10 @@ func (proof *KeyLastInRangeProof) String() string {
 }
 
 func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
-	if !bytes.Equal(proof.RootHash, root) {
-		return InvalidProofErr
+	if proof.KeyExistsProof.PathToKey != nil {
+		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
+			return err
+		}
 	}
 	if key != nil && (bytes.Compare(startKey, key) == 1 || bytes.Compare(key, endKey) == 1) {
 		return InvalidInputsErr
@@ -219,16 +218,11 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		}
 	}
 
-	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
-
 	if proof.PathToKey != nil {
-		if err := proof.PathToKey.verify(leafNode, root); err != nil {
-			return errors.Wrap(err, "failed to verify inner path")
-		}
 		if bytes.Equal(key, endKey) {
 			return
 		}
-		if leafNode.isLesserThan(endKey) {
+		if bytes.Compare(key, endKey) == -1 {
 			if proof.PathToKey.isRightmost() {
 				return
 			}
@@ -585,7 +579,9 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	}
 
 	proof = &KeyFirstInRangeProof{
-		RootHash: rangeProof.RootHash,
+		KeyExistsProof: KeyExistsProof{
+			RootHash: rangeProof.RootHash,
+		},
 
 		LeftPath: rangeProof.LeftPath,
 		LeftNode: rangeProof.LeftNode,
@@ -609,9 +605,9 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 		return nil, nil, nil, errors.New("tree root is nil")
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
-	proof = &KeyLastInRangeProof{
-		RootHash: t.root.hash,
-	}
+	proof = &KeyLastInRangeProof{}
+	proof.RootHash = t.root.hash
+
 	key, value, err = t.root.constructLastInRangeProof(t, keyStart, keyEnd, proof)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, "could not construct last-in-range proof")
