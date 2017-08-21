@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	InvalidProofErr = errors.New("invalid proof")
-	InvalidPathErr  = errors.New("invalid path")
+	InvalidProofErr  = errors.New("invalid proof")
+	InvalidPathErr   = errors.New("invalid path")
+	InvalidInputsErr = errors.New("invalid inputs")
 )
 
 // PathToKey represents an inner path to a leaf node.
@@ -280,6 +281,9 @@ func (proof *KeyLastInRangeProof) String() string {
 func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if !bytes.Equal(proof.RootHash, root) {
 		return InvalidProofErr
+	}
+	if key != nil && (bytes.Compare(startKey, key) == 1 || bytes.Compare(key, endKey) == 1) {
+		return InvalidInputsErr
 	}
 
 	if proof.LeftPath != nil {
