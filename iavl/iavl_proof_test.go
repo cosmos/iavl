@@ -166,7 +166,7 @@ func TestIAVLTreeKeyInRangeProofsVerify(t *testing.T) {
 				RootHash:  root,
 				PathToKey: dummyPathToKey(tree, []byte{0x11}),
 			},
-			expectedError: errors.New("invalid proof"),
+			expectedError: InvalidProofErr,
 		},
 	}
 
@@ -382,7 +382,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0x2e}),
 				RightNode: dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
 			},
-			expectedError: errors.New("failed to verify left path: leaf hashes do not match"),
+			expectedError: errors.New("failed to verify left path: invalid path"),
 		},
 		9: {
 			keyStart: []byte{0x30},
@@ -395,7 +395,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0x2e}),
 				RightNode: dummyLeafNode([]byte{0x2f}, []byte{0x2f}),
 			},
-			expectedError: errors.New("failed to verify right path: leaf hashes do not match"),
+			expectedError: errors.New("failed to verify right path: invalid path"),
 		},
 		10: {
 			keyStart:   []byte{0x12},
@@ -502,7 +502,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x11}).dropRoot(),
 				},
 			},
-			expectedError: errors.New("failed to verify inner path: path does not match supplied root"),
+			expectedError: errors.New("failed to verify inner path: invalid path"),
 		},
 		17: { // An invalid proof with one path and a limit.
 			keyStart: []byte{0x30},

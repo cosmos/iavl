@@ -10,6 +10,11 @@ import (
 	"github.com/tendermint/go-wire/data"
 )
 
+var (
+	InvalidProofErr = errors.New("invalid proof")
+	InvalidPathErr  = errors.New("invalid path")
+)
+
 // PathToKey represents an inner path to a leaf node.
 // Note that the nodes are ordered such that the last one is closest
 // to the root of the tree.
@@ -30,14 +35,14 @@ func (p *PathToKey) String() string {
 func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 	leafHash := leafNode.Hash()
 	if !bytes.Equal(leafHash, p.LeafHash) {
-		return errors.Errorf("leaf hashes do not match")
+		return InvalidPathErr
 	}
 	hash := leafHash
 	for _, branch := range p.InnerNodes {
 		hash = branch.Hash(hash)
 	}
 	if !bytes.Equal(root, hash) {
-		return errors.New("path does not match supplied root")
+		return InvalidPathErr
 	}
 	return nil
 }
@@ -186,7 +191,7 @@ func (proof *KeyFirstInRangeProof) String() string {
 	return fmt.Sprintf("%#v", proof)
 }
 
-func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if !bytes.Equal(proof.RootHash, root) {
 		return errors.New("roots do not match")
 	}
@@ -198,15 +203,15 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 			return errors.Wrap(err, "failed to verify inner path")
 		}
 		if bytes.Equal(key, startKey) {
-			return nil
+			return
 		}
 		if leafNode.isGreaterThan(startKey) {
 			if proof.PathToKey.isLeftmost() {
-				return nil
+				return
 			}
 			if proof.LeftPath != nil && proof.LeftNode.isLesserThan(startKey) &&
 				proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
-				return nil
+				return
 			}
 		}
 	}
@@ -222,7 +227,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 			if !proof.LeftPath.isRightmost() {
 				return errors.New("left path is not rightmost")
 			}
-			return nil
+			return
 		}
 	}
 
@@ -237,7 +242,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 			if !proof.RightPath.isLeftmost() {
 				return errors.New("right path is not leftmost")
 			}
-			return nil
+			return
 		}
 	}
 
@@ -245,10 +250,10 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		if !proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
 			return errors.New("left and right paths are not adjacent")
 		}
-		return nil
+		return
 	}
 
-	return errors.New("invalid proof")
+	return InvalidProofErr
 }
 
 type KeyLastInRangeProof struct {
@@ -272,9 +277,9 @@ func (proof *KeyLastInRangeProof) String() string {
 	return "&KeyLastRangeProof{\n\t" + inner + "\n}"
 }
 
-func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if !bytes.Equal(proof.RootHash, root) {
-		return errors.New("roots do not match")
+		return InvalidProofErr
 	}
 
 	if proof.LeftPath != nil {
@@ -282,7 +287,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 			return errors.Wrap(err, "failed to verify left path")
 		}
 		if !proof.LeftNode.isLesserThan(startKey) {
-			return errors.Errorf("left node must be lesser than start key (%#v < %#v)", proof.LeftNode.KeyBytes, startKey)
+			return InvalidProofErr
 		}
 	}
 	if proof.RightPath != nil {
@@ -290,7 +295,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 			return errors.Wrap(err, "failed to verify right path")
 		}
 		if !proof.RightNode.isGreaterThan(endKey) {
-			return errors.New("right node must be greater or equal than end key")
+			return InvalidProofErr
 		}
 	}
 
@@ -301,33 +306,30 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 			return errors.Wrap(err, "failed to verify inner path")
 		}
 		if bytes.Equal(key, endKey) {
-			return nil
+			return
 		}
 		if leafNode.isLesserThan(endKey) {
 			if proof.PathToKey.isRightmost() {
-				return nil
+				return
 			}
-			if proof.RightPath != nil && proof.PathToKey.isLeftAdjacentTo(proof.RightPath) {
-				return nil
+			if proof.RightPath != nil &&
+				proof.PathToKey.isLeftAdjacentTo(proof.RightPath) {
+				return
 			}
-			if proof.LeftPath != nil && proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
-				return nil
+			if proof.LeftPath != nil &&
+				proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
+				return
 			}
 		}
-	} else if proof.LeftPath != nil && proof.RightPath != nil {
-		if proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
-			return nil
-		}
-	} else if proof.RightPath != nil {
-		if proof.RightPath.isLeftmost() {
-			return nil
-		}
-	} else if proof.LeftPath != nil {
-		if proof.LeftPath.isRightmost() {
-			return nil
-		}
+	} else if proof.LeftPath != nil && proof.RightPath != nil &&
+		proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
+		return
+	} else if proof.RightPath != nil && proof.RightPath.isLeftmost() {
+		return
+	} else if proof.LeftPath != nil && proof.LeftPath.isRightmost() {
+		return
 	}
-	return errors.New("invalid proof")
+	return InvalidProofErr
 }
 
 // KeyRangeProof is proof that a range of keys does or does not exist.
