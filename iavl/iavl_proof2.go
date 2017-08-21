@@ -262,8 +262,72 @@ type KeyLastInRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
+func (proof *KeyLastInRangeProof) String() string {
+	inner := ""
+	if proof.PathToKey != nil {
+		inner = fmt.Sprintf("PathToKey: \n\t%s", proof.PathToKey.String())
+	}
+	inner += fmt.Sprintf("LeftNode: %#v (%x)\n", proof.LeftNode, proof.LeftNode.Hash())
+	inner += fmt.Sprintf("RightNode: %#v (%x)", proof.RightNode, proof.RightNode.Hash())
+	return "&KeyLastRangeProof{\n\t" + inner + "\n}"
+}
+
 func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
-	return (*KeyFirstInRangeProof)(proof).Verify(startKey, endKey, key, value, root)
+	if !bytes.Equal(proof.RootHash, root) {
+		return errors.New("roots do not match")
+	}
+
+	if proof.LeftPath != nil {
+		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify left path")
+		}
+		if !proof.LeftNode.isLesserThan(startKey) {
+			return errors.Errorf("left node must be lesser than start key (%#v < %#v)", proof.LeftNode.KeyBytes, startKey)
+		}
+	}
+	if proof.RightPath != nil {
+		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify right path")
+		}
+		if !proof.RightNode.isGreaterThan(endKey) {
+			return errors.New("right node must be greater or equal than end key")
+		}
+	}
+
+	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
+
+	if proof.PathToKey != nil {
+		if err := proof.PathToKey.verify(leafNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify inner path")
+		}
+		if bytes.Equal(key, endKey) {
+			return nil
+		}
+		if leafNode.isLesserThan(endKey) {
+			if proof.PathToKey.isRightmost() {
+				return nil
+			}
+			if proof.RightPath != nil && proof.PathToKey.isLeftAdjacentTo(proof.RightPath) {
+				return nil
+			}
+			if proof.LeftPath != nil && proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
+				return nil
+			}
+		}
+	} else if proof.LeftPath != nil && proof.RightPath != nil {
+		if proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
+			return nil
+		}
+	} else if proof.RightPath != nil {
+		if proof.RightPath.isLeftmost() {
+			return nil
+		}
+	} else if proof.LeftPath != nil {
+		if proof.LeftPath.isRightmost() {
+			return nil
+		}
+	}
+	return errors.New("invalid proof")
 }
 
 // KeyRangeProof is proof that a range of keys does or does not exist.
@@ -619,27 +683,48 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	key, value []byte, proof *KeyLastInRangeProof, err error,
 ) {
-	keys, vals, rangeProof, err := t.getRangeWithProof(keyEnd, keyStart, 1)
-	if err != nil {
-		return
+	if t.root == nil {
+		return nil, nil, nil, errors.New("tree root is nil")
 	}
-
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 	proof = &KeyLastInRangeProof{
-		RootHash: rangeProof.RootHash,
+		RootHash: t.root.hash,
+	}
+	key, value, err = t.root.constructLastInRangeProof(t, keyStart, keyEnd, proof)
+	if err != nil {
+		return nil, nil, nil, errors.Wrap(err, "could not construct last-in-range proof")
+	}
+	return key, value, proof, nil
+}
 
-		LeftPath: rangeProof.LeftPath,
-		LeftNode: rangeProof.LeftNode,
+func (node *IAVLNode) constructLastInRangeProof(t *IAVLTree, keyStart, keyEnd []byte, proof *KeyLastInRangeProof) (key, value []byte, err error) {
+	// Get the last value in the range.
+	t.IterateRangeInclusive(keyStart, keyEnd, false, func(k, v []byte) bool {
+		key, value = k, v
+		return true
+	})
 
-		RightPath: rangeProof.RightPath,
-		RightNode: rangeProof.RightNode,
+	if len(key) > 0 {
+		proof.PathToKey, _, _ = t.root.pathToKey(t, key)
 	}
 
-	if len(keys) == 0 {
-		return
+	if !bytes.Equal(key, keyEnd) {
+		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
+			k, v := t.GetByIndex(idx)
+			proof.RightPath, _, _ = node.pathToKey(t, k)
+			proof.RightNode = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
+		}
 	}
-	proof.PathToKey = rangeProof.PathToKeys[0]
 
-	return keys[0], vals[0], proof, nil
+	if !bytes.Equal(key, keyStart) {
+		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
+			k, v := t.GetByIndex(idx - 1)
+			proof.LeftPath, _, _ = node.pathToKey(t, k)
+			proof.LeftNode = IAVLProofLeafNode{k, v}
+		}
+	}
+
+	return key, value, nil
 }
 
 func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
