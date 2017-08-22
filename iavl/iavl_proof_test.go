@@ -151,7 +151,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		}
 
 		for limit := -1; limit < len(keys); limit++ {
-			expected := [][]byte{}
+			var expected [][]byte
 			tree.IterateRangeInclusive(startKey, endKey, ascending, func(k, v []byte) bool {
 				expected = append(expected, k)
 				return len(expected) == limit

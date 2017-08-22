@@ -356,7 +356,6 @@ func (node *IAVLNode) constructKeyRangeProof(
 ) (
 	keys [][]byte, values [][]byte, err error,
 ) {
-	keys, values = [][]byte{}, [][]byte{}
 	ascending := bytes.Compare(keyStart, keyEnd) == -1
 	if !ascending {
 		keyStart, keyEnd = keyEnd, keyStart
