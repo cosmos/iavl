@@ -159,6 +159,8 @@ func (t *IAVLTree) Load(hash []byte) {
 	}
 }
 
+// Get returns the index and value of the specified key if it exists, or nil
+// and the next index, if it doesn't.
 func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
 	if t.root == nil {
 		return 0, nil, false
@@ -173,17 +175,25 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyNotExistsProof, error) {
-	value, eproof, err := t.getWithKeyExistsProof(key)
+func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyAbsentProof, error) {
+	value, eproof, err := t.getWithProof(key)
 	if err == nil {
 		return value, eproof, nil, nil
 	}
 
-	neproof, err := t.keyNotExistsProof(key)
+	neproof, err := t.keyAbsentProof(key)
 	if err == nil {
 		return nil, nil, neproof, nil
 	}
 	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
+}
+
+// GetRangeWithProof gets key/value pairs within the specified range and limit. To specify a descending
+// range, swap the start and end keys.
+//
+// Returns a list of keys, a list of values and a proof.
+func (t *IAVLTree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
+	return t.getRangeWithProof(startKey, endKey, limit)
 }
 
 func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
@@ -215,13 +225,28 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 	})
 }
 
-// IterateRange makes a callback for all nodes with key between start and end inclusive
+// IterateRange makes a callback for all nodes with key between start and end non-inclusive.
 // If either are nil, then it is open on that side (nil, nil is the same as Iterate)
 func (t *IAVLTree) IterateRange(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, func(node *IAVLNode) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, func(node *IAVLNode) bool {
+		if node.height == 0 {
+			return fn(node.key, node.value)
+		} else {
+			return false
+		}
+	})
+}
+
+// IterateRangeInclusive makes a callback for all nodes with key between start and end inclusive.
+// If either are nil, then it is open on that side (nil, nil is the same as Iterate)
+func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
+	if t.root == nil {
+		return false
+	}
+	return t.root.traverseInRange(t, start, end, ascending, true, func(node *IAVLNode) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {

@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/tendermint/abci/server"
-	. "github.com/tendermint/tmlibs/common"
 	wire "github.com/tendermint/go-wire"
 	"github.com/tendermint/merkleeyes/app"
 	eyes "github.com/tendermint/merkleeyes/client"
+	. "github.com/tendermint/tmlibs/common"
 )
 
 // NOTE: don't forget to close the client & server.
