@@ -117,6 +117,8 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		// Sub-range, partially-existing keys, both directions.
 		{0x2f, 0xa1},
 		{0xa1, 0x2f},
+		{0x11, 0xaa},
+		{0xaa, 0x11},
 
 		// Super-range, both directions.
 		{0x0, 0xff},
@@ -124,6 +126,8 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 
 		// Overlapping range, both directions.
 		{0x12, 0xfa},
+		{0xfa, 0x12},
+		{0x04, 0xe8},
 		{0xe8, 0x04},
 
 		// Equal keys.
