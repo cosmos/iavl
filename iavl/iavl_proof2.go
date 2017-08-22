@@ -220,7 +220,7 @@ func (proof *KeyRangeProof) verifyPathAdjacency() error {
 
 // Verify that a range proof is valid.
 func (proof *KeyRangeProof) Verify(
-	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
+	startKey, endKey []byte, keys, values [][]byte, root []byte,
 ) error {
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
 		return errors.New("wrong number of keys or values for proof")
@@ -242,8 +242,11 @@ func (proof *KeyRangeProof) Verify(
 		}
 		keys, values = ks, vs
 	}
+	firstKey, lastKey := startKey, endKey
 
 	if len(keys) > 0 {
+		firstKey, lastKey = keys[0], keys[len(keys)-1]
+
 		if !bytes.Equal(startKey, keys[0]) && proof.LeftPath == nil {
 			if !proof.PathToKeys[0].isLeftmost() {
 				return errors.New("left path is nil and first inner path is not leftmost")
@@ -256,21 +259,11 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
-	// If we've used a limit, our end key can be much greater than the right
-	// node key, ex: with the query start=0, end=FF, limit=10, the returned
-	// key range might be from 12 to D4, and the right node key will be the
-	// one following D4, say DF. In this case, we set our start and end keys
-	// to the key range returned.
-	if len(keys) == limit && limit > 0 {
-		endKey = keys[len(keys)-1]
-		startKey = keys[0]
-	}
-
 	if proof.LeftPath != nil {
 		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify left path")
 		}
-		if bytes.Compare(proof.LeftNode.KeyBytes, startKey) != -1 {
+		if bytes.Compare(proof.LeftNode.KeyBytes, firstKey) != -1 {
 			return errors.New("left node must be lesser than start key")
 		}
 	}
@@ -278,7 +271,7 @@ func (proof *KeyRangeProof) Verify(
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify right path")
 		}
-		if bytes.Compare(proof.RightNode.KeyBytes, endKey) == -1 {
+		if bytes.Compare(proof.RightNode.KeyBytes, lastKey) == -1 {
 			return errors.New("right node must be greater or equal than end key")
 		}
 	}

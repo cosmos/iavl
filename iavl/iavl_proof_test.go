@@ -161,7 +161,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 			msg := fmt.Sprintf("range %x - %x with limit %d:\n%#v", c.startKey, c.endKey, limit, keys)
 			require.NoError(err, "%+v", err)
 			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
-			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, limit, keys, values, root)
+			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
 			require.NoError(err, "Got error '%v' for %s", err, msg)
 		}
 	}
@@ -453,7 +453,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		//
 		// Test the case by checking we get the expected error.
 		//
-		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
+		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.resultKeys, c.resultVals, c.root)
 		require.Error(err, "test failed for case #%d", i)
 		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
 
@@ -470,7 +470,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			resultValsDesc = append([][]byte{v}, resultValsDesc...)
 		}
 
-		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, c.limit, resultKeysDesc, resultValsDesc, c.root)
+		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, resultKeysDesc, resultValsDesc, c.root)
 		require.Error(err, "test failed for case #%d (reversed)", i)
 		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d (reversed)", i)
 	}
