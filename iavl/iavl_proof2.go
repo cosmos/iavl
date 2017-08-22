@@ -242,21 +242,15 @@ func (proof *KeyRangeProof) Verify(
 		}
 		keys, values = ks, vs
 	}
-	firstKey, lastKey := startKey, endKey
 
+	// Verify that all paths are adjacent to one another.
+	if err := proof.verifyPathAdjacency(); err != nil {
+		return err
+	}
+
+	firstKey, lastKey := startKey, endKey
 	if len(keys) > 0 {
 		firstKey, lastKey = keys[0], keys[len(keys)-1]
-
-		if !bytes.Equal(startKey, keys[0]) && proof.LeftPath == nil {
-			if !proof.PathToKeys[0].isLeftmost() {
-				return errors.New("left path is nil and first inner path is not leftmost")
-			}
-		}
-		if !bytes.Equal(endKey, keys[len(keys)-1]) && proof.RightPath == nil {
-			if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-				return errors.New("right path is nil and last inner path is not rightmost")
-			}
-		}
 	}
 
 	if proof.LeftPath != nil {
@@ -276,33 +270,41 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
-	// Verify that all paths are adjacent to one another.
-	if err := proof.verifyPathAdjacency(); err != nil {
-		return err
-	}
-
 	// If proof.PathToKeys is empty, it means we have an empty range. This range
 	// can be between keys, or outside of the range of existing keys.
 	if len(proof.PathToKeys) == 0 {
-		if proof.LeftPath == nil {
-			// Range is outisde and to the left of existing keys.
-			if !proof.RightPath.isLeftmost() {
-				return errors.New("right path is not leftmost")
-			}
-		} else if proof.RightPath == nil {
-			// Range is outisde and to the right of existing keys.
-			if !proof.LeftPath.isRightmost() {
-				return errors.New("left path is not rightmost")
-			}
+		// Range is outisde and to the left of existing keys.
+		if proof.LeftPath == nil && proof.RightPath.isLeftmost() {
+			return nil
 		}
-	} else {
-		// If we've reached this point, it means our range isn't empty, and we have
-		// a list of keys.
-		for i, path := range proof.PathToKeys {
-			leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
-			if err := path.verify(leafNode, root); err != nil {
-				return errors.Wrap(err, "failed to verify inner path")
-			}
+		// Range is outisde and to the right of existing keys.
+		if proof.RightPath == nil && proof.LeftPath.isRightmost() {
+			return nil
+		}
+		// Range is between two existing keys.
+		if proof.LeftPath != nil && proof.RightPath != nil {
+			return nil
+		}
+		return errors.New("invalid proof of empty range")
+	}
+
+	if !bytes.Equal(startKey, keys[0]) && proof.LeftPath == nil {
+		if !proof.PathToKeys[0].isLeftmost() {
+			return errors.New("left path is nil and first inner path is not leftmost")
+		}
+	}
+	if !bytes.Equal(endKey, keys[len(keys)-1]) && proof.RightPath == nil {
+		if !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
+			return errors.New("right path is nil and last inner path is not rightmost")
+		}
+	}
+
+	// If we've reached this point, it means our range isn't empty, and we have
+	// a list of keys.
+	for i, path := range proof.PathToKeys {
+		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+		if err := path.verify(leafNode, root); err != nil {
+			return errors.Wrap(err, "failed to verify inner path")
 		}
 	}
 	return nil
