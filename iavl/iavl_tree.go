@@ -159,6 +159,8 @@ func (t *IAVLTree) Load(hash []byte) {
 	}
 }
 
+// Get returns the index and value of the specified key if it exists, or nil
+// and the next index, if it doesn't.
 func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
 	if t.root == nil {
 		return 0, nil, false

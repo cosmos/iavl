@@ -410,8 +410,7 @@ func (node *IAVLNode) constructKeyRangeProof(
 			keyEnd = keys[last]
 		}
 		// Find index of first key to the right, and include proof if it isn't the
-		// rightmost key. (*IAVLTree).Get always returns the next index when the key
-		// isn't found, so we don't have to increment it.
+		// rightmost key.
 		idx, _, _ := t.Get(keyEnd)
 		if idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
