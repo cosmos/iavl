@@ -290,11 +290,18 @@ func (proof *KeyRangeProof) verifyPathAdjacency() error {
 	return nil
 }
 
-func (node *IAVLNode) constructKeyRangeProof(
-	t *IAVLTree, keyStart, keyEnd []byte, limit int, rangeProof *KeyRangeProof,
-) (
-	keys [][]byte, values [][]byte, err error,
+///////////////////////////////////////////////////////////////////////////////
+
+func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
+	keys, values [][]byte, rangeProof *KeyRangeProof, err error,
 ) {
+	if t.root == nil {
+		return nil, nil, nil, errors.New("tree root is nil")
+	}
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+
+	rangeProof = &KeyRangeProof{RootHash: t.root.hash}
+
 	ascending := bytes.Compare(keyStart, keyEnd) == -1
 	if !ascending {
 		keyStart, keyEnd = keyEnd, keyStart
@@ -309,7 +316,7 @@ func (node *IAVLNode) constructKeyRangeProof(
 	// Construct the paths such that they are always in ascending order.
 	rangeProof.PathToKeys = make([]*PathToKey, len(keys))
 	for i, k := range keys {
-		path, _, _ := node.pathToKey(t, k)
+		path, _, _ := t.root.pathToKey(t, k)
 		if ascending {
 			rangeProof.PathToKeys[i] = path
 		} else {
@@ -339,7 +346,7 @@ func (node *IAVLNode) constructKeyRangeProof(
 		// leftmost key.
 		if idx, _, _ := t.Get(keyStart); idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
-			path, _, _ := node.pathToKey(t, lkey)
+			path, _, _ := t.root.pathToKey(t, lkey)
 			rangeProof.LeftPath = path
 			rangeProof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
 		}
@@ -350,16 +357,94 @@ func (node *IAVLNode) constructKeyRangeProof(
 		}
 		// Find index of first key to the right, and include proof if it isn't the
 		// rightmost key.
-		idx, _, _ := t.Get(keyEnd)
-		if idx <= t.Size()-1 {
+		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
-			path, _, _ := node.pathToKey(t, rkey)
+			path, _, _ := t.root.pathToKey(t, rkey)
 			rangeProof.RightPath = path
 			rangeProof.RightNode = IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval}
 		}
 	}
 
-	return keys, values, nil
+	return keys, values, rangeProof, nil
+}
+
+func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
+	key, value []byte, proof *KeyFirstInRangeProof, err error,
+) {
+	if t.root == nil {
+		return nil, nil, nil, errors.New("tree root is nil")
+	}
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+	proof = &KeyFirstInRangeProof{}
+	proof.RootHash = t.root.hash
+
+	// Get the first value in the range.
+	t.IterateRangeInclusive(keyStart, keyEnd, true, func(k, v []byte) bool {
+		key, value = k, v
+		return true
+	})
+
+	if len(key) > 0 {
+		proof.PathToKey, _, _ = t.root.pathToKey(t, key)
+	}
+
+	if !bytes.Equal(key, keyStart) {
+		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
+			k, v := t.GetByIndex(idx - 1)
+			proof.LeftPath, _, _ = t.root.pathToKey(t, k)
+			proof.LeftNode = IAVLProofLeafNode{k, v}
+		}
+	}
+
+	if !bytes.Equal(key, keyEnd) {
+		if idx, _, exists := t.Get(keyEnd); idx <= t.Size()-1 && !exists {
+			k, v := t.GetByIndex(idx)
+			proof.RightPath, _, _ = t.root.pathToKey(t, k)
+			proof.RightNode = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
+		}
+	}
+
+	return key, value, proof, nil
+}
+
+func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
+	key, value []byte, proof *KeyLastInRangeProof, err error,
+) {
+	if t.root == nil {
+		return nil, nil, nil, errors.New("tree root is nil")
+	}
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+
+	proof = &KeyLastInRangeProof{}
+	proof.RootHash = t.root.hash
+
+	// Get the last value in the range.
+	t.IterateRangeInclusive(keyStart, keyEnd, false, func(k, v []byte) bool {
+		key, value = k, v
+		return true
+	})
+
+	if len(key) > 0 {
+		proof.PathToKey, _, _ = t.root.pathToKey(t, key)
+	}
+
+	if !bytes.Equal(key, keyEnd) {
+		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
+			k, v := t.GetByIndex(idx)
+			proof.RightPath, _, _ = t.root.pathToKey(t, k)
+			proof.RightNode = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
+		}
+	}
+
+	if !bytes.Equal(key, keyStart) {
+		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
+			k, v := t.GetByIndex(idx - 1)
+			proof.LeftPath, _, _ = t.root.pathToKey(t, k)
+			proof.LeftNode = IAVLProofLeafNode{k, v}
+		}
+	}
+
+	return key, value, proof, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////

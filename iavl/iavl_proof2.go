@@ -133,7 +133,7 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 	return nil, errors.New("key does not exist")
 }
 
-func (node *IAVLNode) constructKeyAbsentProof(t *IAVLTree, key []byte, proof *KeyAbsentProof) error {
+func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error {
 	// Get the index of the first key greater than the requested key, if the key doesn't exist.
 	idx, _, exists := t.Get(key)
 	if exists {
@@ -156,12 +156,12 @@ func (node *IAVLNode) constructKeyAbsentProof(t *IAVLTree, key []byte, proof *Ke
 	}
 
 	if lkey != nil {
-		path, _, _ := node.pathToKey(t, lkey)
+		path, _, _ := t.root.pathToKey(t, lkey)
 		proof.LeftPath = path
 		proof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
 	}
 	if rkey != nil {
-		path, _, _ := node.pathToKey(t, rkey)
+		path, _, _ := t.root.pathToKey(t, rkey)
 		proof.RightPath = path
 		proof.RightNode = IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval}
 	}
@@ -187,110 +187,6 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 	return value, proof, nil
 }
 
-func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
-	keys, values [][]byte, proof *KeyRangeProof, err error,
-) {
-	if t.root == nil {
-		return nil, nil, nil, errors.New("tree root is nil")
-	}
-	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
-
-	proof = &KeyRangeProof{
-		RootHash: t.root.hash,
-	}
-	keys, values, err = t.root.constructKeyRangeProof(t, keyStart, keyEnd, limit, proof)
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "could not construct proof of range")
-	}
-	return keys, values, proof, nil
-}
-
-func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
-	key, value []byte, proof *KeyFirstInRangeProof, err error,
-) {
-	if t.root == nil {
-		return nil, nil, nil, errors.New("tree root is nil")
-	}
-	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
-	proof = &KeyFirstInRangeProof{}
-	proof.RootHash = t.root.hash
-
-	// Get the first value in the range.
-	t.IterateRangeInclusive(keyStart, keyEnd, true, func(k, v []byte) bool {
-		key, value = k, v
-		return true
-	})
-
-	if len(key) > 0 {
-		proof.PathToKey, _, _ = t.root.pathToKey(t, key)
-	}
-
-	if !bytes.Equal(key, keyStart) {
-		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
-			k, v := t.GetByIndex(idx - 1)
-			proof.LeftPath, _, _ = t.root.pathToKey(t, k)
-			proof.LeftNode = IAVLProofLeafNode{k, v}
-		}
-	}
-
-	if !bytes.Equal(key, keyEnd) {
-		if idx, _, exists := t.Get(keyEnd); idx <= t.Size()-1 && !exists {
-			k, v := t.GetByIndex(idx)
-			proof.RightPath, _, _ = t.root.pathToKey(t, k)
-			proof.RightNode = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
-		}
-	}
-
-	return key, value, proof, nil
-}
-
-func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
-	key, value []byte, proof *KeyLastInRangeProof, err error,
-) {
-	if t.root == nil {
-		return nil, nil, nil, errors.New("tree root is nil")
-	}
-	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
-	proof = &KeyLastInRangeProof{}
-	proof.RootHash = t.root.hash
-
-	key, value, err = t.root.constructLastInRangeProof(t, keyStart, keyEnd, proof)
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "could not construct last-in-range proof")
-	}
-	return key, value, proof, nil
-}
-
-func (node *IAVLNode) constructLastInRangeProof(t *IAVLTree, keyStart, keyEnd []byte, proof *KeyLastInRangeProof) (key, value []byte, err error) {
-	// Get the last value in the range.
-	t.IterateRangeInclusive(keyStart, keyEnd, false, func(k, v []byte) bool {
-		key, value = k, v
-		return true
-	})
-
-	if len(key) > 0 {
-		proof.PathToKey, _, _ = t.root.pathToKey(t, key)
-	}
-
-	if !bytes.Equal(key, keyEnd) {
-		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
-			k, v := t.GetByIndex(idx)
-			proof.RightPath, _, _ = node.pathToKey(t, k)
-			proof.RightNode = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
-		}
-	}
-
-	if !bytes.Equal(key, keyStart) {
-		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
-			k, v := t.GetByIndex(idx - 1)
-			proof.LeftPath, _, _ = node.pathToKey(t, k)
-			proof.LeftNode = IAVLProofLeafNode{k, v}
-		}
-	}
-
-	return key, value, nil
-}
-
 func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
 		return nil, errors.New("tree root is nil")
@@ -299,7 +195,7 @@ func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	proof := &KeyAbsentProof{
 		RootHash: t.root.hash,
 	}
-	if err := t.root.constructKeyAbsentProof(t, key, proof); err != nil {
+	if err := t.constructKeyAbsentProof(key, proof); err != nil {
 		return nil, errors.Wrap(err, "could not construct proof of non-existence")
 	}
 	return proof, nil
