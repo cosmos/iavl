@@ -11,7 +11,7 @@ import (
 
 // KeyFirstInRangeProof is a proof that a given key is the first in a given range.
 type KeyFirstInRangeProof struct {
-	KeyExistsProof `json:"proof"`
+	KeyExistsProof `json:"key_proof"`
 
 	LeftPath *PathToKey        `json:"left_path"`
 	LeftNode IAVLProofLeafNode `json:"left_node"`
@@ -89,7 +89,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 
 // KeyLastInRangeProof is a proof that a given key is the last in a given range.
 type KeyLastInRangeProof struct {
-	KeyExistsProof `json:"proof"`
+	KeyExistsProof `json:"key_proof"`
 
 	LeftPath *PathToKey        `json:"left_path"`
 	LeftNode IAVLProofLeafNode `json:"left_node"`
