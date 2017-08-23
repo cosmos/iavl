@@ -186,17 +186,7 @@ func (proof *KeyRangeProof) Verify(
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
 	// always in ascending order.
-	if bytes.Compare(startKey, endKey) == 1 {
-		startKey, endKey = endKey, startKey
-
-		ks := make([][]byte, len(keys))
-		vs := make([][]byte, len(keys))
-		for i, _ := range keys {
-			ks[len(ks)-1-i] = keys[i]
-			vs[len(vs)-1-i] = values[i]
-		}
-		keys, values = ks, vs
-	}
+	startKey, endKey, keys, values = reverseIfDescending(startKey, endKey, keys, values)
 
 	// Verify that all paths are adjacent to one another.
 	if err := proof.verifyPathAdjacency(); err != nil {
@@ -370,4 +360,25 @@ func (node *IAVLNode) constructKeyRangeProof(
 	}
 
 	return keys, values, nil
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// reverseIfDescending reverses the keys and values and swaps start and end key
+// if startKey > endKey.
+func reverseIfDescending(startKey, endKey []byte, keys, values [][]byte) (
+	[]byte, []byte, [][]byte, [][]byte,
+) {
+	if bytes.Compare(startKey, endKey) == 1 {
+		startKey, endKey = endKey, startKey
+
+		ks := make([][]byte, len(keys))
+		vs := make([][]byte, len(keys))
+		for i, _ := range keys {
+			ks[len(ks)-1-i] = keys[i]
+			vs[len(vs)-1-i] = values[i]
+		}
+		keys, values = ks, vs
+	}
+	return startKey, endKey, keys, values
 }
