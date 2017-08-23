@@ -25,7 +25,7 @@ func (proof *KeyFirstInRangeProof) String() string {
 	return fmt.Sprintf("%#v", proof)
 }
 
-// Verify verifies that the proof is valid.
+// Verify that the first in range proof is valid.
 func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
 		return InvalidInputsErr
@@ -87,6 +87,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 
 ///////////////////////////////////////////////////////////////////////////////
 
+// KeyLastInRangeProof is a proof that a given key is the last in a given range.
 type KeyLastInRangeProof struct {
 	KeyExistsProof `json:"proof"`
 
@@ -97,6 +98,7 @@ type KeyLastInRangeProof struct {
 	RightNode IAVLProofLeafNode `json:"right_node"`
 }
 
+// String returns a string representation of the proof.
 func (proof *KeyLastInRangeProof) String() string {
 	inner := ""
 	if proof.PathToKey != nil {
@@ -107,6 +109,7 @@ func (proof *KeyLastInRangeProof) String() string {
 	return "&KeyLastRangeProof{\n\t" + inner + "\n}"
 }
 
+// Verify that the last in range proof is valid.
 func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
 		return InvalidInputsErr
