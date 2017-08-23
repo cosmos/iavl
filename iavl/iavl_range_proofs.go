@@ -27,7 +27,7 @@ func (proof *KeyFirstInRangeProof) String() string {
 
 // Verify verifies that the proof is valid.
 func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
-	if key != nil && bytes.Compare(key, startKey) == -1 {
+	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
 		return InvalidInputsErr
 	}
 	if proof.LeftPath == nil && proof.RightPath == nil && proof.PathToKey == nil {
@@ -71,10 +71,10 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		if proof.LeftPath != nil && proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
 			return
 		}
-	} else if proof.RightPath == nil && proof.LeftPath.isRightmost() {
+	} else if proof.LeftPath != nil && proof.LeftPath.isRightmost() {
 		// No key found. Range starts outside of the right boundary.
 		return
-	} else if proof.LeftPath == nil && proof.RightPath.isLeftmost() {
+	} else if proof.RightPath != nil && proof.RightPath.isLeftmost() {
 		// No key found. Range ends outside of the left boundary.
 		return
 	} else if proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
@@ -108,13 +108,11 @@ func (proof *KeyLastInRangeProof) String() string {
 }
 
 func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
-	if proof.KeyExistsProof.PathToKey != nil {
-		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
-			return err
-		}
-	}
-	if key != nil && (bytes.Compare(startKey, key) == 1 || bytes.Compare(key, endKey) == 1) {
+	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
 		return InvalidInputsErr
+	}
+	if proof.LeftPath == nil && proof.RightPath == nil && proof.PathToKey == nil {
+		return InvalidProofErr
 	}
 
 	if proof.LeftPath != nil {
@@ -135,28 +133,24 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 	}
 
 	if proof.PathToKey != nil {
+		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
+			return err
+		}
 		if bytes.Equal(key, endKey) {
 			return
 		}
-		if bytes.Compare(key, endKey) == -1 {
-			if proof.PathToKey.isRightmost() {
-				return
-			}
-			if proof.RightPath != nil &&
-				proof.PathToKey.isLeftAdjacentTo(proof.RightPath) {
-				return
-			}
-			if proof.LeftPath != nil &&
-				proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
-				return
-			}
+		if proof.PathToKey.isRightmost() {
+			return
 		}
-	} else if proof.LeftPath != nil && proof.RightPath != nil &&
-		proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
-		return
+		if proof.RightPath != nil &&
+			proof.PathToKey.isLeftAdjacentTo(proof.RightPath) {
+			return
+		}
 	} else if proof.RightPath != nil && proof.RightPath.isLeftmost() {
 		return
 	} else if proof.LeftPath != nil && proof.LeftPath.isRightmost() {
+		return
+	} else if proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
 		return
 	}
 	return InvalidProofErr
