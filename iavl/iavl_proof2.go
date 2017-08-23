@@ -208,29 +208,40 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	key, value []byte, proof *KeyFirstInRangeProof, err error,
 ) {
-	keys, vals, rangeProof, err := t.getRangeWithProof(keyStart, keyEnd, 1)
-	if err != nil {
-		return
+	if t.root == nil {
+		return nil, nil, nil, errors.New("tree root is nil")
+	}
+	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+	proof = &KeyFirstInRangeProof{}
+	proof.RootHash = t.root.hash
+
+	// Get the first value in the range.
+	t.IterateRangeInclusive(keyStart, keyEnd, true, func(k, v []byte) bool {
+		key, value = k, v
+		return true
+	})
+
+	if len(key) > 0 {
+		proof.PathToKey, _, _ = t.root.pathToKey(t, key)
 	}
 
-	proof = &KeyFirstInRangeProof{
-		KeyExistsProof: KeyExistsProof{
-			RootHash: rangeProof.RootHash,
-		},
-
-		LeftPath: rangeProof.LeftPath,
-		LeftNode: rangeProof.LeftNode,
-
-		RightPath: rangeProof.RightPath,
-		RightNode: rangeProof.RightNode,
+	if !bytes.Equal(key, keyStart) {
+		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
+			k, v := t.GetByIndex(idx - 1)
+			proof.LeftPath, _, _ = t.root.pathToKey(t, k)
+			proof.LeftNode = IAVLProofLeafNode{k, v}
+		}
 	}
 
-	if len(keys) == 0 {
-		return
+	if !bytes.Equal(key, keyEnd) {
+		if idx, _, exists := t.Get(keyEnd); idx <= t.Size()-1 && !exists {
+			k, v := t.GetByIndex(idx)
+			proof.RightPath, _, _ = t.root.pathToKey(t, k)
+			proof.RightNode = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
+		}
 	}
-	proof.PathToKey = rangeProof.PathToKeys[0]
 
-	return keys[0], vals[0], proof, nil
+	return key, value, proof, nil
 }
 
 func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (

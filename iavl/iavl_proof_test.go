@@ -125,7 +125,7 @@ func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
 		require.Equal(c.first, key, "Key returned not equal for %s", msg)
 		require.Equal(key, val)
 		err = firProof.Verify(startKey, endKey, key, val, root)
-		require.NoError(err, "Got error '%v' for %s", err, msg)
+		require.NoError(err, "Got error '%v' for %s\n%s", err, msg, firProof.String())
 
 		// Test last-in-range.
 		key, val, lirProof, err := tree.GetLastInRangeWithProof(startKey, endKey)
@@ -135,6 +135,49 @@ func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
 		require.Equal(key, val)
 		err = lirProof.Verify(startKey, endKey, key, val, root)
 		require.NoError(err, "Got error '%v' for %s", err, msg)
+	}
+}
+
+func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
+	var tree *IAVLTree = NewIAVLTree(0, nil)
+	require := require.New(t)
+	for _, ikey := range []byte{
+		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
+	} {
+		key := []byte{ikey}
+		tree.Set(key, key)
+	}
+	root := tree.Hash()
+
+	cases := [...]struct {
+		startKey, endKey     []byte
+		resultKey, resultVal []byte
+		root                 []byte
+		invalidProof         *KeyFirstInRangeProof
+		expectedError        error
+	}{
+		0: { // Left path is invalid.
+			root:      root,
+			startKey:  []byte{0x30},
+			endKey:    []byte{0xff},
+			resultKey: []byte{0x72},
+			resultVal: []byte{0x72},
+			invalidProof: &KeyFirstInRangeProof{
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0x72}),
+				},
+				LeftPath: dummyPathToKey(tree, []byte{0x50}),
+				LeftNode: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+			},
+			expectedError: errors.New("failed to verify left path: invalid path"),
+		},
+	}
+
+	for i, c := range cases {
+		err := c.invalidProof.Verify(c.startKey, c.endKey, c.resultKey, c.resultVal, c.root)
+		require.Error(err, "test failed for case #%d", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
 	}
 }
 

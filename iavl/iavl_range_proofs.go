@@ -27,27 +27,11 @@ func (proof *KeyFirstInRangeProof) String() string {
 
 // Verify verifies that the proof is valid.
 func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
-	if proof.PathToKey != nil {
-		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
-			return err
-		}
+	if key != nil && bytes.Compare(key, startKey) == -1 {
+		return InvalidInputsErr
 	}
-
-	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
-
-	if proof.PathToKey != nil {
-		if bytes.Equal(key, startKey) {
-			return
-		}
-		if leafNode.isGreaterThan(startKey) {
-			if proof.PathToKey.isLeftmost() {
-				return
-			}
-			if proof.LeftPath != nil && proof.LeftNode.isLesserThan(startKey) &&
-				proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
-				return
-			}
-		}
+	if proof.LeftPath == nil && proof.RightPath == nil && proof.PathToKey == nil {
+		return InvalidProofErr
 	}
 
 	if proof.LeftPath != nil {
@@ -57,14 +41,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		if !proof.LeftNode.isLesserThan(startKey) {
 			return errors.New("left node must be lesser than start key")
 		}
-		if proof.RightPath == nil {
-			if !proof.LeftPath.isRightmost() {
-				return errors.New("left path is not rightmost")
-			}
-			return
-		}
 	}
-
 	if proof.RightPath != nil {
 		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
 			return errors.Wrap(err, "failed to verify right path")
@@ -72,18 +49,36 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		if !proof.RightNode.isGreaterThan(endKey) {
 			return errors.New("right node must be greater than end key")
 		}
-		if proof.LeftPath == nil {
-			if !proof.RightPath.isLeftmost() {
-				return errors.New("right path is not leftmost")
-			}
-			return
-		}
 	}
 
-	if proof.LeftPath != nil && proof.RightPath != nil {
-		if !proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
-			return errors.New("left and right paths are not adjacent")
+	if proof.PathToKey != nil {
+		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
+			return errors.Wrap(err, "failed to verify key exists proof")
 		}
+		// If the key returned is equal to our start key, and we've verified
+		// that it exists, there's nothing else to check.
+		if bytes.Equal(key, startKey) {
+			return
+		}
+		// If the key returned is the smallest in the tree, then it must be
+		// the smallest in the given range too.
+		if proof.PathToKey.isLeftmost() {
+			return
+		}
+		// The start key is in between the left path and the key returned,
+		// and the paths are adjacent. Therefore there is nothing between
+		// the key returned and the start key.
+		if proof.LeftPath != nil && proof.LeftPath.isLeftAdjacentTo(proof.PathToKey) {
+			return
+		}
+	} else if proof.RightPath == nil && proof.LeftPath.isRightmost() {
+		// No key found. Range starts outside of the right boundary.
+		return
+	} else if proof.LeftPath == nil && proof.RightPath.isLeftmost() {
+		// No key found. Range ends outside of the left boundary.
+		return
+	} else if proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
+		// No key found. Range is between two existing keys.
 		return
 	}
 
