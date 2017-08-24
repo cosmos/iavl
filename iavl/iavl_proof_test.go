@@ -167,8 +167,10 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x72}),
 				},
-				LeftPath: dummyPathToKey(tree, []byte{0x50}),
-				LeftNode: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x50}),
+					dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
 			},
 			expectedError: errors.New("failed to verify left path: invalid path"),
 		},
@@ -252,8 +254,10 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x11}),
 				},
-				RightPath: dummyPathToKey(tree, []byte{0xf7}),
-				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xf7}),
+					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -267,10 +271,14 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash: root,
 				},
-				LeftPath:  dummyPathToKey(tree, []byte{0xa}),
-				LeftNode:  dummyLeafNode([]byte{0xa}, []byte{0xa}),
-				RightPath: dummyPathToKey(tree, []byte{0xf7}),
-				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa}),
+					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xf7}),
+					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -285,12 +293,16 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0xa1}),
 				},
-				LeftPath:  dummyPathToKey(tree, []byte{0xa}),
-				LeftNode:  dummyLeafNode([]byte{0xa}, []byte{0xa}),
-				RightPath: dummyPathToKey(tree, []byte{0xe4}),
-				RightNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa}),
+					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xe4}),
+					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				},
 			},
-			expectedError: ErrInvalidProof,
+			expectedError: errors.New("right node must be greater than end key"),
 		},
 	}
 
@@ -381,8 +393,8 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 			msg := fmt.Sprintf("range %x - %x with limit %d:\n%#v", c.startKey, c.endKey, limit, keys)
 			require.NoError(err, "%+v", err)
 			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
-			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, keys, values, root)
-			require.NoError(err, "Got error '%v' for %s", err, msg)
+			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, limit, keys, values, root)
+			require.NoError(err, "Got error '%v' for %s:\n%s", err, msg, proof.String())
 		}
 	}
 }
@@ -430,11 +442,15 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			keyEnd:   []byte{0x30},
 			root:     root,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				LeftPath:  dummyPathToKey(tree, []byte{0x99}),
-				LeftNode:  dummyLeafNode([]byte{0x99}, []byte{0x99}),
-				RightPath: dummyPathToKey(tree, []byte{0xa1}),
-				RightNode: dummyLeafNode([]byte{0xa1}, []byte{0xa1}),
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x99}),
+					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa1}),
+					Node: dummyLeafNode([]byte{0xa1}, []byte{0xa1}),
+				},
 			},
 			expectedError: errors.New("left node must be lesser than start key"),
 		},
@@ -444,8 +460,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				LeftPath: dummyPathToKey(tree, []byte{0xe4}),
-				LeftNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xe4}),
+					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				},
 			},
 			expectedError: errors.New("invalid proof of empty range"),
 		},
@@ -454,20 +472,24 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			keyEnd:   []byte{0x40},
 			root:     root,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				RightPath: dummyPathToKey(tree, []byte{0xa}),
-				RightNode: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				RootHash: root,
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa}),
+					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				},
 			},
-			expectedError: errors.New("right node must be greater or equal than end key"),
+			expectedError: errors.New("right node must be greater than end key"),
 		},
 		5: { // An invalid proof with one path.
 			keyStart: []byte{0x1},
 			keyEnd:   []byte{0x2},
 			root:     root,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				RightPath: dummyPathToKey(tree, []byte{0x11}),
-				RightNode: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				RootHash: root,
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
 			},
 			expectedError: errors.New("invalid proof of empty range"),
 		},
@@ -477,8 +499,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				LeftPath: dummyPathToKey(tree, []byte{0x99}),
-				LeftNode: dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x99}),
+					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				},
 			},
 			expectedError: errors.New("left node must be lesser than start key"),
 		},
@@ -487,11 +511,15 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			keyEnd:   []byte{0x40},
 			root:     root,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				LeftPath:  dummyPathToKey(tree, []byte{0x11}),
-				LeftNode:  dummyLeafNode([]byte{0x11}, []byte{0x11}),
-				RightPath: dummyPathToKey(tree, []byte{0xe4}),
-				RightNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xe4}),
+					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				},
 			},
 			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
@@ -500,11 +528,15 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			keyEnd:   []byte{0x40},
 			root:     root,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				LeftPath:  dummyPathToKey(tree, []byte{0x11}),
-				LeftNode:  dummyLeafNode([]byte{0x01}, []byte{0x01}),
-				RightPath: dummyPathToKey(tree, []byte{0x2e}),
-				RightNode: dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x01}, []byte{0x01}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x2e}),
+					Node: dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
+				},
 			},
 			expectedError: errors.New("failed to verify left path: invalid path"),
 		},
@@ -513,11 +545,15 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			keyEnd:   []byte{0x40},
 			root:     root,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				LeftPath:  dummyPathToKey(tree, []byte{0x11}),
-				LeftNode:  dummyLeafNode([]byte{0x11}, []byte{0x11}),
-				RightPath: dummyPathToKey(tree, []byte{0x2e}),
-				RightNode: dummyLeafNode([]byte{0x2f}, []byte{0x2f}),
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x2e}),
+					Node: dummyLeafNode([]byte{0x2f}, []byte{0x2f}),
+				},
 			},
 			expectedError: errors.New("failed to verify right path: invalid path"),
 		},
@@ -530,8 +566,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				LeftPath:   dummyPathToKey(tree, []byte{0x11}),
-				LeftNode:   dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
 			},
 			expectedError: errors.New("right path is nil and last inner path is not rightmost"),
 		},
@@ -544,8 +582,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				LeftPath:   dummyPathToKey(tree, []byte{0x11}),
-				LeftNode:   dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
 			},
 			expectedError: errors.New("right path is nil and last inner path is not rightmost"),
 		},
@@ -558,8 +598,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				RightPath:  dummyPathToKey(tree, []byte{0x32}),
-				RightNode:  dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x32}),
+					Node: dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
 			},
 			expectedError: errors.New("left path is nil and first inner path is not leftmost"),
 		},
@@ -591,8 +633,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				RightPath: dummyPathToKey(tree, []byte{0xf7}),
-				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xf7}),
+					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				},
 			},
 			expectedError: errors.New("paths #2 and #3 are not adjacent"),
 		},
@@ -609,8 +653,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyPathToKey(tree, []byte{0x50}),
 				},
-				LeftPath: dummyPathToKey(tree, []byte{0xa}),
-				LeftNode: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa}),
+					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				},
 			},
 			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
@@ -634,11 +680,13 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			limit:    10,
 			invalidProof: &KeyRangeProof{
-				RootHash:  root,
-				RightPath: dummyPathToKey(tree, []byte{0x0a}),
-				RightNode: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
+				RootHash: root,
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x0a}),
+					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
+				},
 			},
-			expectedError: errors.New("right node must be greater or equal than end key"),
+			expectedError: errors.New("right node must be greater than end key"),
 		},
 		18: { // An invalid proof with one path and a limit.
 			keyStart: []byte{0x30},
@@ -647,8 +695,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			limit:    10,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				LeftPath: dummyPathToKey(tree, []byte{0x99}),
-				LeftNode: dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x99}),
+					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				},
 			},
 			expectedError: errors.New("left node must be lesser than start key"),
 		},
@@ -673,7 +723,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		//
 		// Test the case by checking we get the expected error.
 		//
-		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.resultKeys, c.resultVals, c.root)
+		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
 		require.Error(err, "test failed for case #%d", i)
 		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
 
@@ -690,7 +740,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			resultValsDesc = append([][]byte{v}, resultValsDesc...)
 		}
 
-		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, resultKeysDesc, resultValsDesc, c.root)
+		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, c.limit, resultKeysDesc, resultValsDesc, c.root)
 		require.Error(err, "test failed for case #%d (reversed)", i)
 		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d (reversed)", i)
 	}

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/tendermint/go-wire/data"
 )
 
@@ -89,4 +90,41 @@ func (p *PathToKey) isLeftAdjacentTo(p2 *PathToKey) bool {
 	p, p2 = p.dropRoot(), p2.dropRoot()
 
 	return p.isRightmost() && p2.isLeftmost()
+}
+
+// PathWithNode is a path to a key which includes the leaf node at that key.
+type PathWithNode struct {
+	Path *PathToKey        `json:"path"`
+	Node IAVLProofLeafNode `json:"node"`
+}
+
+func (p *PathWithNode) verify(root []byte) error {
+	return p.Path.verify(p.Node, root)
+}
+
+// verifyPaths verifies the left and right paths individually, and makes sure
+// the ordering is such that left < startKey/endKey < right.
+func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error {
+	if left != nil {
+		if err := left.verify(root); err != nil {
+			return errors.Wrap(err, "failed to verify left path")
+		}
+		if !left.Node.isLesserThan(startKey) {
+			return errors.New("left node must be lesser than start key")
+		}
+	}
+	if right != nil {
+		if err := right.verify(root); err != nil {
+			return errors.Wrap(err, "failed to verify right path")
+		}
+		if !right.Node.isGreaterThan(endKey) {
+			return errors.New("right node must be greater than end key")
+		}
+	}
+	if left != nil && right != nil {
+		if !left.Node.isLesserThan(right.Node.KeyBytes) {
+			return errors.New("left node must be lesser than right node")
+		}
+	}
+	return nil
 }
