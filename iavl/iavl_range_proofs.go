@@ -152,10 +152,15 @@ type KeyRangeProof struct {
 }
 
 // Verify that a range proof is valid.
+//
+// This method expects the same parameters passed to query the range.
 func (proof *KeyRangeProof) Verify(
 	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
 ) error {
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
+		return ErrInvalidInputs
+	}
+	if limit > 0 && len(keys) > limit {
 		return ErrInvalidInputs
 	}
 	if len(proof.PathToKeys) == 0 && proof.Left == nil && proof.Right == nil {
