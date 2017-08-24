@@ -28,10 +28,10 @@ func (proof *KeyFirstInRangeProof) String() string {
 // Verify that the first in range proof is valid.
 func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
-		return InvalidInputsErr
+		return ErrInvalidInputs
 	}
 	if proof.LeftPath == nil && proof.RightPath == nil && proof.PathToKey == nil {
-		return InvalidProofErr
+		return ErrInvalidProof
 	}
 
 	if proof.LeftPath != nil {
@@ -82,7 +82,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		return
 	}
 
-	return InvalidProofErr
+	return ErrInvalidProof
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -112,10 +112,10 @@ func (proof *KeyLastInRangeProof) String() string {
 // Verify that the last in range proof is valid.
 func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
 	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
-		return InvalidInputsErr
+		return ErrInvalidInputs
 	}
 	if proof.LeftPath == nil && proof.RightPath == nil && proof.PathToKey == nil {
-		return InvalidProofErr
+		return ErrInvalidProof
 	}
 
 	if proof.LeftPath != nil {
@@ -123,7 +123,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 			return errors.Wrap(err, "failed to verify left path")
 		}
 		if !proof.LeftNode.isLesserThan(startKey) {
-			return InvalidProofErr
+			return ErrInvalidProof
 		}
 	}
 	if proof.RightPath != nil {
@@ -131,7 +131,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 			return errors.Wrap(err, "failed to verify right path")
 		}
 		if !proof.RightNode.isGreaterThan(endKey) {
-			return InvalidProofErr
+			return ErrInvalidProof
 		}
 	}
 
@@ -156,7 +156,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 	} else if proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
 		return
 	}
-	return InvalidProofErr
+	return ErrInvalidProof
 }
 
 ///////////////////////////////////////////////////////////////////////////////

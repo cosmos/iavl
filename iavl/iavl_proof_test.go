@@ -211,7 +211,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					PathToKey: dummyPathToKey(tree, []byte{0x11}),
 				},
 			},
-			expectedError: InvalidProofErr,
+			expectedError: ErrInvalidProof,
 		},
 		1: { // Result is outside of the range (right).
 			root:      root,
@@ -225,7 +225,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					PathToKey: dummyPathToKey(tree, []byte{0xf7}),
 				},
 			},
-			expectedError: InvalidInputsErr,
+			expectedError: ErrInvalidInputs,
 		},
 		2: { // Result is outside of the range (left).
 			root:      root,
@@ -239,7 +239,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					PathToKey: dummyPathToKey(tree, []byte{0x0a}),
 				},
 			},
-			expectedError: InvalidInputsErr,
+			expectedError: ErrInvalidInputs,
 		},
 		3: { // Right node is greater than end key.
 			root:      root,
@@ -255,7 +255,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xf7}),
 				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 			},
-			expectedError: InvalidProofErr,
+			expectedError: ErrInvalidProof,
 		},
 		4: {
 			root:      root,
@@ -272,7 +272,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xf7}),
 				RightNode: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 			},
-			expectedError: InvalidProofErr,
+			expectedError: ErrInvalidProof,
 		},
 		5: {
 			root:      root,
@@ -290,7 +290,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 				RightPath: dummyPathToKey(tree, []byte{0xe4}),
 				RightNode: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 			},
-			expectedError: InvalidProofErr,
+			expectedError: ErrInvalidProof,
 		},
 	}
 

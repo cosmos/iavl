@@ -27,14 +27,14 @@ func (p *PathToKey) String() string {
 func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 	leafHash := leafNode.Hash()
 	if !bytes.Equal(leafHash, p.LeafHash) {
-		return InvalidPathErr
+		return ErrInvalidPath
 	}
 	hash := leafHash
 	for _, branch := range p.InnerNodes {
 		hash = branch.Hash(hash)
 	}
 	if !bytes.Equal(root, hash) {
-		return InvalidPathErr
+		return ErrInvalidPath
 	}
 	return nil
 }

@@ -10,9 +10,9 @@ import (
 )
 
 var (
-	InvalidProofErr  = errors.New("invalid proof")
-	InvalidPathErr   = errors.New("invalid path")
-	InvalidInputsErr = errors.New("invalid inputs")
+	ErrInvalidProof  = errors.New("invalid proof")
+	ErrInvalidPath   = errors.New("invalid path")
+	ErrInvalidInputs = errors.New("invalid inputs")
 )
 
 type KeyExistsProof struct {
