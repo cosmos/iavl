@@ -9,6 +9,11 @@ import (
 	"github.com/tendermint/go-wire/data"
 )
 
+// KeyInRangeProof is an interface which covers both first-in-range and last-in-range proofs.
+type KeyInRangeProof interface {
+	Verify(startKey, endKey, key, value, root []byte) error
+}
+
 // KeyFirstInRangeProof is a proof that a given key is the first in a given range.
 type KeyFirstInRangeProof struct {
 	KeyExistsProof `json:"key_proof"`

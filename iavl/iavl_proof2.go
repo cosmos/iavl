@@ -15,6 +15,10 @@ var (
 	ErrInvalidInputs = errors.New("invalid inputs")
 )
 
+type KeyProof interface {
+	Verify(key, value, root []byte) error
+}
+
 type KeyExistsProof struct {
 	RootHash   data.Bytes `json:"root_hash"`
 	*PathToKey `json:"path"`
@@ -42,11 +46,13 @@ func (p *KeyAbsentProof) String() string {
 	return fmt.Sprintf("KeyAbsentProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
 }
 
-func (proof *KeyAbsentProof) Verify(key []byte, root []byte) error {
+func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return errors.New("roots do not match")
 	}
-
+	if value != nil {
+		return ErrInvalidInputs
+	}
 	if proof.LeftPath == nil && proof.RightPath == nil {
 		return errors.New("at least one path must exist")
 	}
