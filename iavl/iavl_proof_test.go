@@ -793,14 +793,14 @@ func TestIAVLTreeKeyAbsentProof(t *testing.T) {
 			require.NoError(err, "Got verification error for 0x%x: %+v", key, err)
 
 			if bytes.Compare(key, min) < 0 {
-				require.Nil(proof.LeftPath)
-				require.NotNil(proof.RightPath)
+				require.Nil(proof.Left)
+				require.NotNil(proof.Right)
 			} else if bytes.Compare(key, max) > 0 {
-				require.Nil(proof.RightPath)
-				require.NotNil(proof.LeftPath)
+				require.Nil(proof.Right)
+				require.NotNil(proof.Left)
 			} else {
-				require.NotNil(proof.LeftPath)
-				require.NotNil(proof.RightPath)
+				require.NotNil(proof.Left)
+				require.NotNil(proof.Right)
 			}
 		}
 	}
@@ -831,11 +831,14 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 	proof := &KeyAbsentProof{
 		RootHash: lproof.RootHash,
 
-		LeftPath: lproof.PathToKey,
-		LeftNode: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
-
-		RightPath: rproof.PathToKey,
-		RightNode: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+		Left: &PathWithNode{
+			Path: lproof.PathToKey,
+			Node: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
+		},
+		Right: &PathWithNode{
+			Path: rproof.PathToKey,
+			Node: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+		},
 	}
 	err := proof.Verify(missing, nil, tree.Hash())
 	require.Error(err, "Proof should not verify")

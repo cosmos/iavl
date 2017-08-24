@@ -35,67 +35,38 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
 
-	LeftPath *PathToKey        `json:"left_path"`
-	LeftNode IAVLProofLeafNode `json:"left_node"`
-
-	RightPath *PathToKey        `json:"right_path"`
-	RightNode IAVLProofLeafNode `json:"right_node"`
+	Left  *PathWithNode `json:"left"`
+	Right *PathWithNode `json:"right"`
 }
 
 func (p *KeyAbsentProof) String() string {
-	return fmt.Sprintf("KeyAbsentProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.LeftPath, p.LeftNode, p.RightPath, p.RightNode)
+	return fmt.Sprintf("KeyAbsentProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.Left.Path, p.Left.Node, p.Right.Path, p.Right.Node)
 }
 
 func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return errors.New("roots do not match")
 	}
+
 	if value != nil {
 		return ErrInvalidInputs
 	}
-	if proof.LeftPath == nil && proof.RightPath == nil {
+	if proof.Left == nil && proof.Right == nil {
 		return errors.New("at least one path must exist")
 	}
-	if proof.LeftPath != nil {
-		if err := proof.LeftPath.verify(proof.LeftNode, root); err != nil {
-			return errors.New("failed to verify left path")
-		}
-		if !proof.LeftNode.isLesserThan(key) {
-			return errors.New("left node key must be lesser than supplied key")
-		}
-	}
-	if proof.RightPath != nil {
-		if err := proof.RightPath.verify(proof.RightNode, root); err != nil {
-			return errors.New("failed to verify right path")
-		}
-		if !proof.RightNode.isGreaterThan(key) {
-			return errors.New("right node key must be greater than supplied key")
-		}
+	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
+		return err
 	}
 
-	// Both paths exist, check that they are sequential.
-	if proof.RightPath != nil && proof.LeftPath != nil {
-		if !proof.LeftPath.isLeftAdjacentTo(proof.RightPath) {
-			return errors.New("merkle paths are not adjacent")
-		}
+	if proof.Left == nil && proof.Right.Path.isLeftmost() {
+		return nil
+	} else if proof.Right == nil && proof.Left.Path.isRightmost() {
+		return nil
+	} else if proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
 		return nil
 	}
 
-	// Only right path exists, check that node is at left boundary.
-	if proof.LeftPath == nil {
-		if !proof.RightPath.isLeftmost() {
-			return errors.New("right path is only one but not leftmost")
-		}
-	}
-
-	// Only left path exists, check that node is at right boundary.
-	if proof.RightPath == nil {
-		if !proof.LeftPath.isRightmost() {
-			return errors.New("left path is only one but not rightmost")
-		}
-	}
-
-	return nil
+	return ErrInvalidProof
 }
 
 func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, []byte, error) {
@@ -163,13 +134,17 @@ func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) er
 
 	if lkey != nil {
 		path, _, _ := t.root.pathToKey(t, lkey)
-		proof.LeftPath = path
-		proof.LeftNode = IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval}
+		proof.Left = &PathWithNode{
+			Path: path,
+			Node: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
+		}
 	}
 	if rkey != nil {
 		path, _, _ := t.root.pathToKey(t, rkey)
-		proof.RightPath = path
-		proof.RightNode = IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval}
+		proof.Right = &PathWithNode{
+			Path: path,
+			Node: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+		}
 	}
 
 	return nil
