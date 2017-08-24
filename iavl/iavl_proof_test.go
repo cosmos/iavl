@@ -809,50 +809,185 @@ func TestIAVLTreeKeyAbsentProof(t *testing.T) {
 func TestKeyAbsentProofVerify(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
-	keys := [][]byte{}
-	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
+	allKeys := []byte{0x11, 0x32, 0x50, 0x72, 0x99}
+	for _, ikey := range allKeys {
 		key := []byte{ikey}
-		keys = append(keys, key)
-		tree.Set(key, []byte(randstr(8)))
+		tree.Set(key, key)
+	}
+	root := tree.Hash()
+
+	cases := [...]struct {
+		root        []byte
+		validKeys   []byte
+		invalidKeys []byte
+		proof       *KeyAbsentProof
+	}{
+		0: { // Valid proof of absence between keys.
+			root:        root,
+			validKeys:   []byte{0x33, 0x40, 0x49},
+			invalidKeys: []byte{0x32, 0x50, 0x99, 0x0, 0xff},
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x50}),
+					dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+			},
+		},
+		1: { // Valid proof of absence to the right.
+			root:        root,
+			validKeys:   []byte{0xaa, 0xff},
+			invalidKeys: []byte{0x99, 0x91, 0x0},
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x99}),
+					dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				},
+			},
+		},
+		2: { // Valid proof of absence to the left.
+			root:        root,
+			validKeys:   []byte{0x0, 0x09},
+			invalidKeys: []byte{0x11, 0x99, 0x12},
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+			},
+		},
+		3: { // Invalid proof. Missing right proof.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
+			},
+		},
+		4: { // Invalid proof. Missing left proof.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
+			},
+		},
+		5: { // Invalid proof. Left and right are not adjacent.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x50}),
+					dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+			},
+		},
+		6: { // Invalid proof. Left and right are swapped.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x50}),
+					dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
+			},
+		},
+		7: { // Invalid proof. Left and right are the same.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x32}),
+					dummyLeafNode([]byte{0x32}, []byte{0x32}),
+				},
+			},
+		},
+		8: { // Invalid proof. Left and right are missing.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+			},
+		},
+		9: { // Invalid proof. Root is incorrect.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: []byte(randstr(32)),
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x99}),
+					dummyLeafNode([]byte{0x99}, []byte{0x99}),
+				},
+			},
+		},
+		10: { // Invalid proof. Left path is invalid.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x99}),
+					dummyLeafNode([]byte{0x90}, []byte{0x90}),
+				},
+			},
+		},
+		11: { // Invalid proof. Right path is invalid.
+			root:        root,
+			validKeys:   []byte{},
+			invalidKeys: allKeys,
+			proof: &KeyAbsentProof{
+				RootHash: root,
+				Right: &PathWithNode{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyLeafNode([]byte{0x12}, []byte{0x12}),
+				},
+			},
+		},
 	}
 
-	// Create a bogus non-existence proof and check that it does not verify.
-
-	lkey := keys[0]
-	lval, lproof, _ := tree.getWithProof(lkey)
-	require.NotNil(lproof)
-
-	rkey := keys[2]
-	rval, rproof, _ := tree.getWithProof(rkey)
-	require.NotNil(rproof)
-
-	missing := []byte{0x40}
-
-	proof := &KeyAbsentProof{
-		RootHash: lproof.RootHash,
-
-		Left: &PathWithNode{
-			Path: lproof.PathToKey,
-			Node: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
-		},
-		Right: &PathWithNode{
-			Path: rproof.PathToKey,
-			Node: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
-		},
+	for _, c := range cases {
+		for _, k := range c.validKeys {
+			err := c.proof.Verify([]byte{k}, nil, c.root)
+			require.NoError(err)
+		}
+		for _, k := range c.invalidKeys {
+			err := c.proof.Verify([]byte{k}, nil, c.root)
+			require.Error(err)
+		}
 	}
-	err := proof.Verify(missing, nil, tree.Hash())
-	require.Error(err, "Proof should not verify")
-
-	proof, err = tree.keyAbsentProof(missing)
-	require.NoError(err)
-	require.NotNil(proof)
-
-	err = proof.Verify(missing, nil, tree.Hash())
-	require.NoError(err)
-
-	err = proof.Verify([]byte{0x45}, nil, tree.Hash())
-	require.NoError(err)
-
-	err = proof.Verify([]byte{0x25}, nil, tree.Hash())
-	require.Error(err)
 }
