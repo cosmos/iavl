@@ -159,16 +159,15 @@ func (proof *KeyRangeProof) Verify(
 	// always in ascending order.
 	startKey, endKey, keys, values = reverseIfDescending(startKey, endKey, keys, values)
 
-	// Verify that all paths are adjacent to one another.
-	if err := proof.verifyPathAdjacency(); err != nil {
-		return err
-	}
-
 	firstKey, lastKey := startKey, endKey
 	if len(keys) > 0 {
 		firstKey, lastKey = keys[0], keys[len(keys)-1]
 	}
+
 	if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
+		return err
+	}
+	if err := verifyPathAdjacency(proof.paths()); err != nil {
 		return err
 	}
 
@@ -246,18 +245,6 @@ func (proof *KeyRangeProof) paths() []*PathToKey {
 		paths = append(paths, proof.Right.Path)
 	}
 	return paths
-}
-
-// Checks that all paths are adjacent to one another, with no gaps.
-func (proof *KeyRangeProof) verifyPathAdjacency() error {
-	paths := proof.paths()
-	for i := 0; i < len(paths)-1; i++ {
-		// Always check from left to right, since paths are always in ascending order.
-		if !paths[i].isLeftAdjacentTo(paths[i+1]) {
-			return errors.Errorf("paths #%d and #%d are not adjacent", i, i+1)
-		}
-	}
-	return nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////

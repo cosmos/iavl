@@ -128,3 +128,21 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 	}
 	return nil
 }
+
+// Checks that all paths are adjacent to one another, ie. that there are no
+// keys missing.
+func verifyPathAdjacency(paths []*PathToKey) error {
+	ps := make([]*PathToKey, 0, len(paths))
+	for _, p := range paths {
+		if p != nil {
+			ps = append(ps, p)
+		}
+	}
+	for i := 0; i < len(ps)-1; i++ {
+		// Always check from left to right, since paths are always in ascending order.
+		if !ps[i].isLeftAdjacentTo(ps[i+1]) {
+			return errors.Errorf("paths #%d and #%d are not adjacent", i, i+1)
+		}
+	}
+	return nil
+}
