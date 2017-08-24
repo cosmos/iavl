@@ -426,7 +426,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			keyEnd:        []byte{0xff},
 			root:          root,
 			invalidProof:  &KeyRangeProof{RootHash: root},
-			expectedError: errors.New("proof is incomplete"),
+			expectedError: ErrInvalidProof,
 		},
 		1: {
 			keyStart:      []byte{0x0},
@@ -435,7 +435,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			resultVals:    [][]byte{{0x1}},
 			root:          root,
 			invalidProof:  &KeyRangeProof{RootHash: root},
-			expectedError: errors.New("wrong number of keys or values for proof"),
+			expectedError: ErrInvalidInputs,
 		},
 		2: { // An invalid proof with two adjacent paths which don't prove anything useful.
 			keyStart: []byte{0x10},
@@ -465,7 +465,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
 			},
-			expectedError: errors.New("invalid proof of empty range"),
+			expectedError: ErrInvalidProof,
 		},
 		4: { // An invalid proof with one path.
 			keyStart: []byte{0x30},
@@ -491,7 +491,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
 			},
-			expectedError: errors.New("invalid proof of empty range"),
+			expectedError: ErrInvalidProof,
 		},
 		6: { // An invalid proof with one path.
 			keyStart: []byte{0x30},

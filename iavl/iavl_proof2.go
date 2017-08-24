@@ -13,6 +13,7 @@ var (
 	ErrInvalidProof  = errors.New("invalid proof")
 	ErrInvalidPath   = errors.New("invalid path")
 	ErrInvalidInputs = errors.New("invalid inputs")
+	ErrInvalidRoot   = errors.New("invalid root")
 )
 
 type KeyProof interface {
@@ -26,7 +27,7 @@ type KeyExistsProof struct {
 
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return errors.New("roots are not equal")
+		return ErrInvalidRoot
 	}
 	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
 	return proof.PathToKey.verify(leafNode, root)
@@ -45,7 +46,7 @@ func (p *KeyAbsentProof) String() string {
 
 func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return errors.New("roots do not match")
+		return ErrInvalidRoot
 	}
 
 	if value != nil {

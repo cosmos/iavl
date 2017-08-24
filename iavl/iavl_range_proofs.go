@@ -154,10 +154,10 @@ func (proof *KeyRangeProof) Verify(
 	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
 ) error {
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
-		return errors.New("wrong number of keys or values for proof")
+		return ErrInvalidInputs
 	}
 	if len(proof.PathToKeys) == 0 && proof.Left == nil && proof.Right == nil {
-		return errors.New("proof is incomplete")
+		return ErrInvalidProof
 	}
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
@@ -191,7 +191,7 @@ func (proof *KeyRangeProof) Verify(
 		if proof.Left != nil && proof.Right != nil {
 			return nil
 		}
-		return errors.New("invalid proof of empty range")
+		return ErrInvalidProof
 	}
 
 	// If we've reached this point, it means our range isn't empty, and we have
