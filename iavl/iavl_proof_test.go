@@ -174,6 +174,20 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 			},
 			expectedError: errors.New("failed to verify left path: invalid path"),
 		},
+		1: {
+			root:      root,
+			startKey:  []byte{0x20},
+			endKey:    []byte{0x30},
+			resultKey: []byte{0x21},
+			resultVal: []byte{0x21},
+			invalidProof: &KeyFirstInRangeProof{
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+			},
+			expectedError: ErrInvalidProof,
+		},
 	}
 
 	for i, c := range cases {
@@ -303,6 +317,20 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 				},
 			},
 			expectedError: errors.New("right node must be greater than end key"),
+		},
+		6: {
+			root:      root,
+			startKey:  []byte{0x20},
+			endKey:    []byte{0x30},
+			resultKey: []byte{0x29},
+			resultVal: []byte{0x29},
+			invalidProof: &KeyLastInRangeProof{
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+			},
+			expectedError: ErrInvalidProof,
 		},
 	}
 

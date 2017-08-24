@@ -65,7 +65,8 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	} else if proof.Right != nil && proof.Right.Path.isLeftmost() {
 		// No key found. Range ends outside of the left boundary.
 		return
-	} else if proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
+	} else if proof.Left != nil && proof.Right != nil &&
+		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
 		// No key found. Range is between two existing keys.
 		return
 	}
@@ -132,7 +133,8 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		return
 	} else if proof.Left != nil && proof.Left.Path.isRightmost() {
 		return
-	} else if proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
+	} else if proof.Left != nil && proof.Right != nil &&
+		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
 		return
 	}
 	return ErrInvalidProof
