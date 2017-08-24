@@ -63,7 +63,8 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 		return nil
 	} else if proof.Right == nil && proof.Left.Path.isRightmost() {
 		return nil
-	} else if proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
+	} else if proof.Left != nil && proof.Right != nil &&
+		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
 		return nil
 	}
 
