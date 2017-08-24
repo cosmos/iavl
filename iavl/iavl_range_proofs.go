@@ -201,7 +201,7 @@ func (proof *KeyRangeProof) Verify(
 	for i, path := range proof.PathToKeys {
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 		if err := path.verify(leafNode, root); err != nil {
-			return errors.Wrap(err, "failed to verify inner path")
+			return err
 		}
 	}
 

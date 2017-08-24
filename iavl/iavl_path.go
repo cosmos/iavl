@@ -107,23 +107,23 @@ func (p *PathWithNode) verify(root []byte) error {
 func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error {
 	if left != nil {
 		if err := left.verify(root); err != nil {
-			return errors.Wrap(err, "failed to verify left path")
+			return ErrInvalidPath
 		}
 		if !left.Node.isLesserThan(startKey) {
-			return errors.New("left node must be lesser than start key")
+			return ErrInvalidPath
 		}
 	}
 	if right != nil {
 		if err := right.verify(root); err != nil {
-			return errors.Wrap(err, "failed to verify right path")
+			return ErrInvalidPath
 		}
 		if !right.Node.isGreaterThan(endKey) {
-			return errors.New("right node must be greater than end key")
+			return ErrInvalidPath
 		}
 	}
 	if left != nil && right != nil {
 		if !left.Node.isLesserThan(right.Node.KeyBytes) {
-			return errors.New("left node must be lesser than right node")
+			return ErrInvalidPath
 		}
 	}
 	return nil
