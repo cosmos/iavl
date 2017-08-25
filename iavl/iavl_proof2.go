@@ -17,15 +17,20 @@ var (
 	ErrNilRoot       = errors.New("tree root is nil")
 )
 
+// KeyProof represents a proof of existence or absence of a single key.
 type KeyProof interface {
+	// Verify verfies the proof is valid. To verify absence,
+	// the value should be nil.
 	Verify(key, value, root []byte) error
 }
 
+// KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
 	RootHash   data.Bytes `json:"root_hash"`
 	*PathToKey `json:"path"`
 }
 
+// Verify verifies the proof is valid and returns an error if it isn't.
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return ErrInvalidRoot
@@ -34,6 +39,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	return proof.PathToKey.verify(leafNode, root)
 }
 
+// KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
 
@@ -45,6 +51,7 @@ func (p *KeyAbsentProof) String() string {
 	return fmt.Sprintf("KeyAbsentProof\nroot=%s\nleft=%s%#v\nright=%s%#v\n", p.RootHash, p.Left.Path, p.Left.Node, p.Right.Path, p.Right.Node)
 }
 
+// Verify verifies the proof is valid and returns an error if it isn't.
 func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return ErrInvalidRoot
