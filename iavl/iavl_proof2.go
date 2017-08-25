@@ -35,8 +35,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if !bytes.Equal(proof.RootHash, root) {
 		return ErrInvalidRoot
 	}
-	leafNode := IAVLProofLeafNode{KeyBytes: key, ValueBytes: value}
-	return proof.PathToKey.verify(leafNode, root)
+	return proof.PathToKey.verify(IAVLProofLeafNode{key, value}, root)
 }
 
 // KeyAbsentProof represents a proof of the absence of a single key.
@@ -56,12 +55,12 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return ErrInvalidRoot
 	}
-
 	if value != nil {
 		return ErrInvalidInputs
 	}
+
 	if proof.Left == nil && proof.Right == nil {
-		return errors.New("at least one path must exist")
+		return ErrInvalidProof
 	}
 	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
 		return err
