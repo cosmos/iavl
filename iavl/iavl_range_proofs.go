@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-wire/data"
@@ -86,21 +85,8 @@ type KeyLastInRangeProof struct {
 
 // String returns a string representation of the proof.
 func (proof *KeyLastInRangeProof) String() string {
-	inner := ""
-	if proof.PathToKey != nil {
-		inner = fmt.Sprintf("PathToKey: \n\t%s", proof.PathToKey.String())
-	}
-	if proof.Left != nil {
-		inner += fmt.Sprintf("Left: %#v (%x)\n", proof.Left.Node, proof.Left.Node.Hash())
-	} else {
-		inner += "Left: <nil>\n"
-	}
-	if proof.Right != nil {
-		inner += fmt.Sprintf("RightNode: %#v (%x)", proof.Right.Node, proof.Right.Node.Hash())
-	} else {
-		inner += "Right: <nil>\n"
-	}
-	return "&KeyLastRangeProof{\n\t" + inner + "\n}"
+	// TODO(cloudhead): Needs work.
+	return fmt.Sprintf("%#v", proof)
 }
 
 // Verify that the last in range proof is valid.
@@ -229,22 +215,8 @@ func (proof *KeyRangeProof) Verify(
 }
 
 func (proof *KeyRangeProof) String() string {
-	paths := []string{}
-	for _, p := range proof.PathToKeys {
-		paths = append(paths, "\t"+p.String())
-	}
-	inner := fmt.Sprintf("PathToKeys: \n\t%s", strings.Join(paths, ",\n"))
-	if proof.Left != nil {
-		inner += fmt.Sprintf("Left: %#v (%x)\n", proof.Left.Node, proof.Left.Node.Hash())
-	} else {
-		inner += "Left: <nil>\n"
-	}
-	if proof.Right != nil {
-		inner += fmt.Sprintf("RightNode: %#v (%x)", proof.Right.Node, proof.Right.Node.Hash())
-	} else {
-		inner += "Right: <nil>\n"
-	}
-	return "&KeyRangeProof{\n\t" + inner + "\n}"
+	// TODO(cloudhead): Needs work.
+	return fmt.Sprintf("%#v", proof)
 }
 
 // Returns a list of all paths, in order.
