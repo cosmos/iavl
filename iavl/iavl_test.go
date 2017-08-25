@@ -584,51 +584,24 @@ func TestIAVLTreeProof(t *testing.T) {
 	}
 }
 
-func BenchmarkImmutableAvlTreeCLevelDB(b *testing.B) {
-	b.StopTimer()
-
-	db := db.NewDB("test", db.CLevelDBBackendStr, "./")
-	t := NewIAVLTree(100000, db)
-	// for i := 0; i < 10000000; i++ {
-	for i := 0; i < 1000000; i++ {
-		// for i := 0; i < 1000; i++ {
-		t.Set(i2b(int(RandInt32())), nil)
-		if i > 990000 && i%1000 == 999 {
-			t.Save()
-		}
-	}
-	t.Save()
-
-	fmt.Println("ok, starting")
-
-	runtime.GC()
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		ri := i2b(int(RandInt32()))
-		t.Set(ri, nil)
-		t.Remove(ri)
-		if i%100 == 99 {
-			t.Save()
-		}
-	}
-
-	db.Close()
+func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
+	db := db.NewDB("test", db.MemDBBackendStr, "")
+	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 
-func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
+func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
+	defer db.Close()
+
 	b.StopTimer()
 
-	db := db.NewDB("test", db.MemDBBackendStr, "")
 	t := NewIAVLTree(100000, db)
-	// for i := 0; i < 10000000; i++ {
 	for i := 0; i < 1000000; i++ {
-		// for i := 0; i < 1000; i++ {
 		t.Set(i2b(int(RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {
 			t.Save()
 		}
 	}
+	b.ReportAllocs()
 	t.Save()
 
 	fmt.Println("ok, starting")
@@ -644,6 +617,4 @@ func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
 			t.Save()
 		}
 	}
-
-	db.Close()
 }
