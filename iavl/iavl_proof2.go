@@ -10,11 +10,20 @@ import (
 )
 
 var (
-	ErrInvalidProof  = errors.New("invalid proof")
-	ErrInvalidPath   = errors.New("invalid path")
+	// ErrInvalidProof is returned by Verify when a proof cannot be validated.
+	ErrInvalidProof = errors.New("invalid proof")
+
+	// ErrInvalidPath is returned by Verify when a path cannot be validated.
+	ErrInvalidPath = errors.New("invalid path")
+
+	// ErrInvalidInputs is returned when the inputs passed to the function are invalid.
 	ErrInvalidInputs = errors.New("invalid inputs")
-	ErrInvalidRoot   = errors.New("invalid root")
-	ErrNilRoot       = errors.New("tree root is nil")
+
+	// ErrInvalidRoot is returned when the root passed in does not match the proof's.
+	ErrInvalidRoot = errors.New("invalid root")
+
+	// ErrNilRoot is returned when the root of the tree is nil.
+	ErrNilRoot = errors.New("tree root is nil")
 )
 
 // KeyProof represents a proof of existence or absence of a single key.
