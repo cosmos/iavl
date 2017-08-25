@@ -125,7 +125,7 @@ func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
 		require.Equal(c.first, key, "Key returned not equal for %s", msg)
 		require.Equal(key, val)
 		err = firProof.Verify(startKey, endKey, key, val, root)
-		require.NoError(err, "Got error '%v' for %s\n%s", err, msg, firProof.String())
+		require.NoError(err, "Got error '%v' for %s", err, msg)
 
 		// Test last-in-range.
 		key, val, lirProof, err := tree.GetLastInRangeWithProof(startKey, endKey)
@@ -422,7 +422,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 			require.NoError(err, "%+v", err)
 			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
 			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, limit, keys, values, root)
-			require.NoError(err, "Got error '%v' for %s:\n%s", err, msg, proof.String())
+			require.NoError(err, "Got error '%v' for %s", err, msg)
 		}
 	}
 }
