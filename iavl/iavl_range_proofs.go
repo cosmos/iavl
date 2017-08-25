@@ -265,7 +265,7 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	keys, values [][]byte, rangeProof *KeyRangeProof, err error,
 ) {
 	if t.root == nil {
-		return nil, nil, nil, errors.New("tree root is nil")
+		return nil, nil, nil, ErrNilRoot
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 
@@ -346,7 +346,7 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	key, value []byte, proof *KeyFirstInRangeProof, err error,
 ) {
 	if t.root == nil {
-		return nil, nil, nil, errors.New("tree root is nil")
+		return nil, nil, nil, ErrNilRoot
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 	proof = &KeyFirstInRangeProof{}
@@ -387,7 +387,7 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	key, value []byte, proof *KeyLastInRangeProof, err error,
 ) {
 	if t.root == nil {
-		return nil, nil, nil, errors.New("tree root is nil")
+		return nil, nil, nil, ErrNilRoot
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 

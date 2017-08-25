@@ -14,6 +14,7 @@ var (
 	ErrInvalidPath   = errors.New("invalid path")
 	ErrInvalidInputs = errors.New("invalid inputs")
 	ErrInvalidRoot   = errors.New("invalid root")
+	ErrNilRoot       = errors.New("tree root is nil")
 )
 
 type KeyProof interface {
@@ -154,7 +155,7 @@ func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) er
 
 func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
 	if t.root == nil {
-		return nil, nil, errors.New("tree root is nil")
+		return nil, nil, ErrNilRoot
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 
@@ -172,7 +173,7 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 
 func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
-		return nil, errors.New("tree root is nil")
+		return nil, ErrNilRoot
 	}
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 	proof := &KeyAbsentProof{
