@@ -188,6 +188,109 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 			},
 			expectedError: ErrInvalidProof,
 		},
+		2: { // Result is outside of the range (right).
+			root:      root,
+			startKey:  []byte{0x10},
+			endKey:    []byte{0xf6},
+			resultKey: []byte{0xf7},
+			resultVal: []byte{0xf7},
+			invalidProof: &KeyFirstInRangeProof{
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0xf7}),
+				},
+			},
+			expectedError: ErrInvalidInputs,
+		},
+		3: { // Result is outside of the range (left).
+			root:      root,
+			startKey:  []byte{0x10},
+			endKey:    []byte{0xf6},
+			resultKey: []byte{0x0a},
+			resultVal: []byte{0x0a},
+			invalidProof: &KeyFirstInRangeProof{
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0x0a}),
+				},
+			},
+			expectedError: ErrInvalidInputs,
+		},
+		4: { // Right node is greater than end key.
+			root:      root,
+			startKey:  []byte{0x10},
+			endKey:    []byte{0xf6},
+			resultKey: []byte{0x11},
+			resultVal: []byte{0x11},
+			invalidProof: &KeyFirstInRangeProof{
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0x11}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xf7}),
+					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				},
+			},
+			expectedError: ErrInvalidProof,
+		},
+		5: {
+			root:      root,
+			startKey:  []byte{0x10},
+			endKey:    []byte{0xf6},
+			resultKey: nil,
+			resultVal: nil,
+			invalidProof: &KeyFirstInRangeProof{
+				KeyExistsProof: KeyExistsProof{
+					RootHash: root,
+				},
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa}),
+					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xf7}),
+					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
+				},
+			},
+			expectedError: ErrInvalidProof,
+		},
+		6: {
+			root:      root,
+			startKey:  []byte{0x10},
+			endKey:    []byte{0xf6},
+			resultKey: []byte{0xa1},
+			resultVal: []byte{0xa1},
+			invalidProof: &KeyFirstInRangeProof{
+				KeyExistsProof: KeyExistsProof{
+					RootHash:  root,
+					PathToKey: dummyPathToKey(tree, []byte{0xa1}),
+				},
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xa}),
+					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0xe4}),
+					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
+				},
+			},
+			expectedError: ErrInvalidPath,
+		},
+		7: {
+			root:      root,
+			startKey:  []byte{0x20},
+			endKey:    []byte{0x30},
+			resultKey: []byte{0x29},
+			resultVal: []byte{0x29},
+			invalidProof: &KeyFirstInRangeProof{
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+			},
+			expectedError: ErrInvalidProof,
+		},
 	}
 
 	for i, c := range cases {
