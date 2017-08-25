@@ -192,8 +192,8 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 
 	for i, c := range cases {
 		err := c.invalidProof.Verify(c.startKey, c.endKey, c.resultKey, c.resultVal, c.root)
-		require.Error(err, "test failed for case #%d", i)
-		require.Equal(c.expectedError, err, "test failed for case #%d", i)
+		require.Error(err, "Test failed for case #%d", i)
+		require.Equal(c.expectedError, err, "Test failed for case #%d", i)
 	}
 }
 
@@ -336,8 +336,8 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 
 	for i, c := range cases {
 		err := c.invalidProof.Verify(c.startKey, c.endKey, c.resultKey, c.resultVal, c.root)
-		require.Error(err, "test failed for case #%d", i)
-		require.Equal(c.expectedError, err, "test failed for case #%d", i)
+		require.Error(err, "Test failed for case #%d", i)
+		require.Equal(c.expectedError, err, "Test failed for case #%d", i)
 	}
 }
 
@@ -752,8 +752,8 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		// Test the case by checking we get the expected error.
 		//
 		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
-		require.Error(err, "test failed for case #%d", i)
-		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d", i)
+		require.Error(err, "Test failed for case #%d", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d", i)
 
 		//
 		// Now do the same thing with start and end key swapped.
@@ -769,8 +769,8 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		}
 
 		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, c.limit, resultKeysDesc, resultValsDesc, c.root)
-		require.Error(err, "test failed for case #%d (reversed)", i)
-		require.Equal(c.expectedError.Error(), err.Error(), "test failed for case #%d (reversed)", i)
+		require.Error(err, "Test failed for case #%d (reversed)", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d (reversed)", i)
 	}
 }
 
