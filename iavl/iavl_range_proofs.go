@@ -145,12 +145,24 @@ func (proof *KeyRangeProof) Verify(
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
 	// always in ascending order.
-	startKey, endKey, keys, values = reverseIfDescending(startKey, endKey, keys, values)
+	ascending := bytes.Compare(startKey, endKey) == -1
+	if !ascending {
+		startKey, endKey, keys, values = reverseKeys(startKey, endKey, keys, values)
+	}
 
 	{
 		firstKey, lastKey := startKey, endKey
 		if limit > 0 && len(keys) == limit {
-			firstKey, lastKey = keys[0], keys[len(keys)-1]
+			// if we hit the limit, one of the two ends doesn't have to match
+			// the limits of the query
+			if ascending {
+				// Relax the requirements for the highest values (we hit limit,
+				// it doesn't have to be greater than endKey)
+				lastKey = keys[len(keys)-1]
+			} else {
+				// In descending case, we can let the lowest value not match startKey
+				firstKey = keys[0]
+			}
 		}
 		if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
 			return err
@@ -380,9 +392,9 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 
 ///////////////////////////////////////////////////////////////////////////////
 
-// reverseIfDescending reverses the keys and values and swaps start and end key
+// reverseKeys reverses the keys and values and swaps start and end key
 // if startKey > endKey.
-func reverseIfDescending(startKey, endKey []byte, keys, values [][]byte) (
+func reverseKeys(startKey, endKey []byte, keys, values [][]byte) (
 	[]byte, []byte, [][]byte, [][]byte,
 ) {
 	if bytes.Compare(startKey, endKey) == 1 {
