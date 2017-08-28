@@ -29,7 +29,7 @@ func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 		leafHash = branch.Hash(leafHash)
 	}
 	if !bytes.Equal(root, leafHash) {
-		return ErrInvalidPath
+		return ErrInvalidPath()
 	}
 	return nil
 }
@@ -103,18 +103,18 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 	}
 	if left != nil {
 		if err := left.verify(root); err != nil {
-			return ErrInvalidPath
+			return ErrInvalidPath()
 		}
 		if !left.Node.isLesserThan(startKey) {
-			return ErrInvalidPath
+			return ErrInvalidPath()
 		}
 	}
 	if right != nil {
 		if err := right.verify(root); err != nil {
-			return ErrInvalidPath
+			return ErrInvalidPath()
 		}
 		if !right.Node.isGreaterThan(endKey) {
-			return ErrInvalidPath
+			return ErrInvalidPath()
 		}
 	}
 	return nil
@@ -152,5 +152,5 @@ func verifyKeyAbsence(left, right *PathWithNode) error {
 		// Range is between two existing keys.
 		return nil
 	}
-	return ErrInvalidProof
+	return ErrInvalidProof()
 }

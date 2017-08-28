@@ -10,21 +10,29 @@ import (
 )
 
 var (
-	// ErrInvalidProof is returned by Verify when a proof cannot be validated.
-	ErrInvalidProof = errors.New("invalid proof")
+	errInvalidProof = fmt.Errorf("invalid proof")
 
-	// ErrInvalidPath is returned by Verify when a path cannot be validated.
-	ErrInvalidPath = errors.New("invalid path")
+	errInvalidPath = fmt.Errorf("invalid path")
 
 	// ErrInvalidInputs is returned when the inputs passed to the function are invalid.
-	ErrInvalidInputs = errors.New("invalid inputs")
+	ErrInvalidInputs = fmt.Errorf("invalid inputs")
 
 	// ErrInvalidRoot is returned when the root passed in does not match the proof's.
-	ErrInvalidRoot = errors.New("invalid root")
+	ErrInvalidRoot = fmt.Errorf("invalid root")
 
 	// ErrNilRoot is returned when the root of the tree is nil.
-	ErrNilRoot = errors.New("tree root is nil")
+	ErrNilRoot = fmt.Errorf("tree root is nil")
 )
+
+// ErrInvalidProof is returned by Verify when a proof cannot be validated.
+func ErrInvalidProof() error {
+	return errors.WithStack(errInvalidProof)
+}
+
+// ErrInvalidPath is returned by Verify when a path cannot be validated.
+func ErrInvalidPath() error {
+	return errors.WithStack(errInvalidPath)
+}
 
 // KeyProof represents a proof of existence or absence of a single key.
 type KeyProof interface {
@@ -72,7 +80,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	}
 
 	if proof.Left == nil && proof.Right == nil {
-		return ErrInvalidProof
+		return ErrInvalidProof()
 	}
 	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
 		return err
