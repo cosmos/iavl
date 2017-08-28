@@ -850,6 +850,29 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("left path is nil and first inner path is not leftmost"),
 		},
+		20: { // Ethan Frey's failing test case.
+			keyStart:   []byte{0x0},
+			keyEnd:     []byte{0xff},
+			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}},
+			resultVals: [][]byte{[]byte{0x2e}, []byte{0x32}},
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x50}),
+					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+			},
+			expectedError: ErrInvalidPath,
+		},
 	}
 
 	for i, c := range cases {

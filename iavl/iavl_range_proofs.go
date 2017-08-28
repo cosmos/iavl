@@ -157,14 +157,16 @@ func (proof *KeyRangeProof) Verify(
 	// always in ascending order.
 	startKey, endKey, keys, values = reverseIfDescending(startKey, endKey, keys, values)
 
-	firstKey, lastKey := startKey, endKey
-	if len(keys) > 0 {
-		firstKey, lastKey = keys[0], keys[len(keys)-1]
+	{
+		firstKey, lastKey := startKey, endKey
+		if limit > 0 && len(keys) == limit {
+			firstKey, lastKey = keys[0], keys[len(keys)-1]
+		}
+		if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
+			return err
+		}
 	}
 
-	if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
-		return err
-	}
 	if err := verifyPathAdjacency(proof.paths()); err != nil {
 		return err
 	}
@@ -207,7 +209,7 @@ func (proof *KeyRangeProof) Verify(
 	// we've reached the limit, then it's fine. But if the key count is smaller than
 	// the limit, we need a right proof to make sure no keys are missing.
 	if proof.Right == nil && len(keys) != limit {
-		if !bytes.Equal(endKey, lastKey) && !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
+		if !bytes.Equal(endKey, keys[len(keys)-1]) && !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
 			return errors.New("right path is nil and last inner path is not rightmost")
 		}
 	}
