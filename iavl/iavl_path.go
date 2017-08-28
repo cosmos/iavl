@@ -2,17 +2,14 @@ package iavl
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/tendermint/go-wire/data"
 )
 
 // PathToKey represents an inner path to a leaf node.
 // Note that the nodes are ordered such that the last one is closest
 // to the root of the tree.
 type PathToKey struct {
-	LeafHash   data.Bytes           `json:"leaf_hash"`
 	InnerNodes []IAVLProofInnerNode `json:"inner_nodes"`
 }
 
@@ -21,7 +18,6 @@ func (p *PathToKey) String() string {
 	for i := len(p.InnerNodes) - 1; i >= 0; i-- {
 		str += p.InnerNodes[i].String() + "\n"
 	}
-	str += fmt.Sprintf("hash(leaf)=%s\n", p.LeafHash)
 	return str
 }
 
@@ -29,14 +25,10 @@ func (p *PathToKey) String() string {
 // the root is the merkle hash of all the inner nodes.
 func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 	leafHash := leafNode.Hash()
-	if !bytes.Equal(leafHash, p.LeafHash) {
-		return ErrInvalidPath
-	}
-	hash := leafHash
 	for _, branch := range p.InnerNodes {
-		hash = branch.Hash(hash)
+		leafHash = branch.Hash(leafHash)
 	}
-	if !bytes.Equal(root, hash) {
+	if !bytes.Equal(root, leafHash) {
 		return ErrInvalidPath
 	}
 	return nil
@@ -69,7 +61,6 @@ func (p *PathToKey) dropRoot() *PathToKey {
 		return p
 	}
 	return &PathToKey{
-		LeafHash:   p.LeafHash,
 		InnerNodes: p.InnerNodes[:len(p.InnerNodes)-1],
 	}
 }

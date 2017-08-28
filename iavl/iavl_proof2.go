@@ -89,7 +89,6 @@ func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, []byte, er
 func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]byte, error) {
 	if node.height == 0 {
 		if bytes.Compare(node.key, key) == 0 {
-			path.LeafHash = node.hash
 			return node.value, nil
 		}
 		return nil, errors.New("key does not exist")
