@@ -35,7 +35,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		}
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
-		return ErrInvalidProof
+		return ErrInvalidProof()
 	}
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
@@ -64,7 +64,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	if proof.Left != nil && proof.Left.Path.isLeftAdjacentTo(proof.PathToKey) {
 		return nil
 	}
-	return ErrInvalidProof
+	return ErrInvalidProof()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		return ErrInvalidInputs
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
-		return ErrInvalidProof
+		return ErrInvalidProof()
 	}
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
@@ -113,7 +113,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		return nil
 	}
 
-	return ErrInvalidProof
+	return ErrInvalidProof()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -140,7 +140,7 @@ func (proof *KeyRangeProof) Verify(
 		return ErrInvalidInputs
 	}
 	if len(proof.PathToKeys) == 0 && proof.Left == nil && proof.Right == nil {
-		return ErrInvalidProof
+		return ErrInvalidProof()
 	}
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
@@ -150,29 +150,52 @@ func (proof *KeyRangeProof) Verify(
 		startKey, endKey, keys, values = reverseKeys(startKey, endKey, keys, values)
 	}
 
+	// Make sure the left and right sides are proper (assuming the middle is)
 	{
 		firstKey, lastKey := startKey, endKey
+		// If we hit the limit, one of the two ends doesn't have to match
+		// the limits of the query
 		if limit > 0 && len(keys) == limit {
-			// if we hit the limit, one of the two ends doesn't have to match
-			// the limits of the query
 			if ascending {
-				// Relax the requirements for the highest values (we hit limit,
-				// it doesn't have to be greater than endKey)
 				lastKey = keys[len(keys)-1]
 			} else {
-				// In descending case, we can let the lowest value not match startKey
 				firstKey = keys[0]
 			}
 		}
+		// now we know Left < first <= last < Right
 		if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
 			return err
 		}
-	}
 
-	// If keys is empty, it means we have an empty range. This range
-	// can be between keys, or outside of the range of existing keys.
-	if len(keys) == 0 {
-		return verifyKeyAbsence(proof.Left, proof.Right)
+		// If keys is empty, it means we have an empty range. This range
+		// can be between keys, or outside of the range of existing keys.
+		if len(keys) == 0 {
+			return verifyKeyAbsence(proof.Left, proof.Right)
+		}
+
+		// if one end is nil... it must:
+		// - match the queried range exactly
+		// - be the extreme end (no more possible)
+		// - or limit is full and it is on the relaxed side
+
+		if proof.Left == nil &&
+			!bytes.Equal(startKey, keys[0]) &&
+			!proof.PathToKeys[0].isLeftmost() &&
+			!(len(keys) == limit && !ascending) {
+			return ErrInvalidProof()
+		}
+
+		// If the right proof is nil and the limit wasn't reached, we have to verify that
+		// we're not missing any keys. Basically, if a key to the right is missing because
+		// we've reached the limit, then it's fine. But if the key count is smaller than
+		// the limit, we need a right proof to make sure no keys are missing.
+		if proof.Right == nil &&
+			!bytes.Equal(endKey, keys[len(keys)-1]) &&
+			!proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() &&
+			!(len(keys) == limit && ascending) {
+			return ErrInvalidProof()
+		}
+
 	}
 
 	if err := verifyNoMissingKeys(proof.paths()); err != nil {
@@ -188,21 +211,6 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
-	if !bytes.Equal(startKey, keys[0]) && proof.Left == nil {
-		if !proof.PathToKeys[0].isLeftmost() {
-			return errors.New("left path is nil and first inner path is not leftmost")
-		}
-	}
-
-	// If the right proof is nil and the limit wasn't reached, we have to verify that
-	// we're not missing any keys. Basically, if a key to the right is missing because
-	// we've reached the limit, then it's fine. But if the key count is smaller than
-	// the limit, we need a right proof to make sure no keys are missing.
-	if proof.Right == nil && len(keys) != limit {
-		if !bytes.Equal(endKey, keys[len(keys)-1]) && !proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-			return errors.New("right path is nil and last inner path is not rightmost")
-		}
-	}
 	return nil
 }
 
