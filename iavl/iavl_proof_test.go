@@ -464,8 +464,8 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 		endKey   byte
 	}{
 		// Full range, existing keys, both directions.
-		{0x0a, 0xf7},
-		{0xf7, 0x0a},
+		{0x0a, 0xf7}, // proof returns left and right nil
+		{0xf7, 0x0a}, // proof returns left != nil and right nil
 
 		// Sub-range, existing keys, both directions.
 		{0x2e, 0xa1},
@@ -527,7 +527,7 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 			require.NoError(err, "%+v", err)
 			require.Equal(expected, keys, "Keys returned not equal for %s", msg)
 			err = proof.Verify([]byte{c.startKey}, []byte{c.endKey}, limit, keys, values, root)
-			require.NoError(err, "Got error '%v' for %s", err, msg)
+			require.NoError(err, "Got error '%v' for %s\n\n%s", err, msg, proof)
 		}
 	}
 }
@@ -877,7 +877,29 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: ErrInvalidPath,
 		},
-		21: { // Partial results are detected if they don't fill the limit.
+		// 0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
+		21: { // Ethan Frey's reverse failing test case.
+			keyStart:   []byte{0xca},
+			keyEnd:     []byte{0x05},
+			resultKeys: [][]byte{[]byte{0x32}, []byte{0x2e}},
+			resultVals: [][]byte{[]byte{0x32}, []byte{0x2e}},
+			limit:      2,
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+				},
+				Right: nil,
+			},
+			expectedError: ErrInvalidPath,
+		},
+		22: { // Partial results are detected if they don't fill the limit.
 			keyStart:   []byte{0x05},
 			keyEnd:     []byte{0xca},
 			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}},
@@ -901,7 +923,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: ErrInvalidPath,
 		},
-		22: { // This should pass
+		23: { // This should pass
 			keyStart:   []byte{0x10},
 			keyEnd:     []byte{0x55},
 			limit:      3,
@@ -927,7 +949,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: nil,
 		},
-		23: { // This should pass
+		24: { // This should pass
 			keyStart:   []byte{0x45},
 			keyEnd:     []byte{0x05},
 			limit:      3,
