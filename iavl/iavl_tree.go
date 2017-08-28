@@ -175,17 +175,19 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyAbsentProof, error) {
+// GetWithProof gets the value under the key if it exists, or returns nil.
+// A proof of existence or absence is returned alongside the value.
+func (t *IAVLTree) GetWithProof(key []byte) ([]byte, KeyProof, error) {
 	value, eproof, err := t.getWithProof(key)
 	if err == nil {
-		return value, eproof, nil, nil
+		return value, eproof, nil
 	}
 
-	neproof, err := t.keyAbsentProof(key)
+	aproof, err := t.keyAbsentProof(key)
 	if err == nil {
-		return nil, nil, neproof, nil
+		return nil, aproof, nil
 	}
-	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
+	return nil, nil, errors.Wrap(err, "could not construct any proof")
 }
 
 // GetRangeWithProof gets key/value pairs within the specified range and limit. To specify a descending

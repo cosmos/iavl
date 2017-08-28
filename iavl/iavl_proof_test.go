@@ -23,20 +23,22 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	root := tree.Hash()
 
 	key := []byte{0x32}
-	val, existProof, absenceProof, err := tree.GetWithProof(key)
+	val, proof, err := tree.GetWithProof(key)
+	_, ok := proof.(*KeyExistsProof)
+	require.True(ok)
 	require.NotEmpty(val)
-	require.NotNil(existProof)
-	err = existProof.Verify(key, val, root)
+	require.NotNil(proof)
+	err = proof.Verify(key, val, root)
 	require.NoError(err, "%+v", err)
-	require.Nil(absenceProof)
 	require.NoError(err)
 
 	key = []byte{0x1}
-	val, existProof, absenceProof, err = tree.GetWithProof(key)
+	val, proof, err = tree.GetWithProof(key)
+	_, ok = proof.(*KeyAbsentProof)
+	require.True(ok)
 	require.Empty(val)
-	require.Nil(existProof)
-	require.NotNil(absenceProof)
-	err = absenceProof.Verify(key, nil, root)
+	require.NotNil(proof)
+	err = proof.Verify(key, nil, root)
 	require.NoError(err, "%+v", err)
 	require.NoError(err)
 }
