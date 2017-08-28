@@ -535,6 +535,8 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
+	assert := assert.New(t)
+
 	keys := [][]byte{}
 	values := [][]byte{}
 	for _, ikey := range []byte{
@@ -850,11 +852,13 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: errors.New("left path is nil and first inner path is not leftmost"),
 		},
+		// 0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
 		20: { // Ethan Frey's failing test case.
-			keyStart:   []byte{0x0},
-			keyEnd:     []byte{0xff},
+			keyStart:   []byte{0x05},
+			keyEnd:     []byte{0xca},
 			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}},
 			resultVals: [][]byte{[]byte{0x2e}, []byte{0x32}},
+			limit:      2,
 			root:       root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
@@ -873,6 +877,82 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			},
 			expectedError: ErrInvalidPath,
 		},
+		21: { // Partial results are detected if they don't fill the limit.
+			keyStart:   []byte{0x05},
+			keyEnd:     []byte{0xca},
+			resultKeys: [][]byte{[]byte{0x2e}, []byte{0x32}},
+			resultVals: [][]byte{[]byte{0x2e}, []byte{0x32}},
+			limit:      3,
+			root:       root,
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x11}),
+					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
+				},
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x50}),
+					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+			},
+			expectedError: ErrInvalidPath,
+		},
+		22: { // This should pass
+			keyStart:   []byte{0x10},
+			keyEnd:     []byte{0x55},
+			limit:      3,
+			resultKeys: [][]byte{[]byte{0x11}, []byte{0x2e}, []byte{0x32}},
+			resultVals: [][]byte{[]byte{0x11}, []byte{0x2e}, []byte{0x32}},
+			root:       root,
+
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x0a}),
+					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
+				},
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x50}),
+					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+			},
+			expectedError: nil,
+		},
+		23: { // This should pass
+			keyStart:   []byte{0x45},
+			keyEnd:     []byte{0x05},
+			limit:      3,
+			resultKeys: [][]byte{[]byte{0x32}, []byte{0x2e}, []byte{0x11}},
+			resultVals: [][]byte{[]byte{0x32}, []byte{0x2e}, []byte{0x11}},
+			root:       root,
+
+			invalidProof: &KeyRangeProof{
+				RootHash: root,
+				Left: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x0a}),
+					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
+				},
+				PathToKeys: []*PathToKey{
+					dummyPathToKey(tree, []byte{0x11}),
+					dummyPathToKey(tree, []byte{0x2e}),
+					dummyPathToKey(tree, []byte{0x32}),
+				},
+				Right: &PathWithNode{
+					Path: dummyPathToKey(tree, []byte{0x50}),
+					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
+				},
+			},
+			expectedError: nil,
+		},
 	}
 
 	for i, c := range cases {
@@ -880,8 +960,14 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 		// Test the case by checking we get the expected error.
 		//
 		err := c.invalidProof.Verify(c.keyStart, c.keyEnd, c.limit, c.resultKeys, c.resultVals, c.root)
-		require.Error(err, "Test failed for case #%d", i)
-		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d", i)
+		if c.expectedError != nil {
+			require.Error(err, "Test failed for case #%d", i)
+			require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d:\n%+v", i, err)
+		} else {
+			assert.Nil(err, "Test failed for case #%d:\n%+v", i, err)
+			// no point testing the reverse, as it may well fail
+			continue
+		}
 
 		//
 		// Now do the same thing with start and end key swapped.
@@ -898,7 +984,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 
 		err = c.invalidProof.Verify(c.keyEnd, c.keyStart, c.limit, resultKeysDesc, resultValsDesc, c.root)
 		require.Error(err, "Test failed for case #%d (reversed)", i)
-		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d (reversed)", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d (reversed):\n%+v", i, err)
 	}
 }
 
