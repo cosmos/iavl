@@ -105,8 +105,11 @@ func (p *PathWithNode) verify(root []byte) error {
 }
 
 // verifyPaths verifies the left and right paths individually, and makes sure
-// the ordering is such that left < startKey/endKey < right.
+// the ordering is such that left < startKey <= endKey < right.
 func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error {
+	if bytes.Compare(startKey, endKey) == 1 {
+		return ErrInvalidInputs
+	}
 	if left != nil {
 		if err := left.verify(root); err != nil {
 			return ErrInvalidPath
@@ -120,11 +123,6 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 			return ErrInvalidPath
 		}
 		if !right.Node.isGreaterThan(endKey) {
-			return ErrInvalidPath
-		}
-	}
-	if left != nil && right != nil {
-		if !left.Node.isLesserThan(right.Node.KeyBytes) {
 			return ErrInvalidPath
 		}
 	}
