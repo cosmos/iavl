@@ -102,7 +102,9 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		if value, err := node.getLeftNode(t)._pathToKey(t, key, path); err == nil {
+		if value, err := node.getLeftNode(t)._pathToKey(t, key, path); err != nil {
+			return nil, err
+		} else {
 			branch := IAVLProofInnerNode{
 				Height: node.height,
 				Size:   node.size,
@@ -112,10 +114,11 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 			path.InnerNodes = append(path.InnerNodes, branch)
 			return value, nil
 		}
-		return nil, errors.New("key does not exist")
 	}
 
-	if value, err := node.getRightNode(t)._pathToKey(t, key, path); err == nil {
+	if value, err := node.getRightNode(t)._pathToKey(t, key, path); err != nil {
+		return nil, err
+	} else {
 		branch := IAVLProofInnerNode{
 			Height: node.height,
 			Size:   node.size,
@@ -125,7 +128,6 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 		path.InnerNodes = append(path.InnerNodes, branch)
 		return value, nil
 	}
-	return nil, errors.New("key does not exist")
 }
 
 func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error {
