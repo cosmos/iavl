@@ -148,3 +148,20 @@ func verifyNoMissingKeys(paths []*PathToKey) error {
 	}
 	return nil
 }
+
+// Checks that with the given left and right paths, no keys can exist in between.
+// Supports nil paths to signify out-of-range.
+func verifyKeyAbsence(left, right *PathWithNode) error {
+	if left != nil && left.Path.isRightmost() {
+		// Range starts outside of the right boundary.
+		return nil
+	} else if right != nil && right.Path.isLeftmost() {
+		// Range ends outside of the left boundary.
+		return nil
+	} else if left != nil && right != nil &&
+		left.Path.isLeftAdjacentTo(right.Path) {
+		// Range is between two existing keys.
+		return nil
+	}
+	return ErrInvalidProof
+}

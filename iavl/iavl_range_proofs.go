@@ -40,39 +40,30 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
 	}
-
-	if proof.PathToKey != nil {
-		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
-			return errors.Wrap(err, "failed to verify key exists proof")
-		}
-		// If the key returned is equal to our start key, and we've verified
-		// that it exists, there's nothing else to check.
-		if bytes.Equal(key, startKey) {
-			return nil
-		}
-		// If the key returned is the smallest in the tree, then it must be
-		// the smallest in the given range too.
-		if proof.PathToKey.isLeftmost() {
-			return nil
-		}
-		// The start key is in between the left path and the key returned,
-		// and the paths are adjacent. Therefore there is nothing between
-		// the key returned and the start key.
-		if proof.Left != nil && proof.Left.Path.isLeftAdjacentTo(proof.PathToKey) {
-			return nil
-		}
-	} else if proof.Left != nil && proof.Left.Path.isRightmost() {
-		// No key found. Range starts outside of the right boundary.
-		return nil
-	} else if proof.Right != nil && proof.Right.Path.isLeftmost() {
-		// No key found. Range ends outside of the left boundary.
-		return nil
-	} else if proof.Left != nil && proof.Right != nil &&
-		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
-		// No key found. Range is between two existing keys.
-		return nil
+	if proof.PathToKey == nil {
+		// If we don't have an existing key, we effectively have a proof of absence.
+		return verifyKeyAbsence(proof.Left, proof.Right)
 	}
 
+	if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
+		return errors.Wrap(err, "failed to verify key exists proof")
+	}
+	// If the key returned is equal to our start key, and we've verified
+	// that it exists, there's nothing else to check.
+	if bytes.Equal(key, startKey) {
+		return nil
+	}
+	// If the key returned is the smallest in the tree, then it must be
+	// the smallest in the given range too.
+	if proof.PathToKey.isLeftmost() {
+		return nil
+	}
+	// The start key is in between the left path and the key returned,
+	// and the paths are adjacent. Therefore there is nothing between
+	// the key returned and the start key.
+	if proof.Left != nil && proof.Left.Path.isLeftAdjacentTo(proof.PathToKey) {
+		return nil
+	}
 	return ErrInvalidProof
 }
 
@@ -103,29 +94,25 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
 	}
+	if proof.PathToKey == nil {
+		// If we don't have an existing key, we effectively have a proof of absence.
+		return verifyKeyAbsence(proof.Left, proof.Right)
+	}
 
-	if proof.PathToKey != nil {
-		if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
-			return err
-		}
-		if bytes.Equal(key, endKey) {
-			return nil
-		}
-		if proof.PathToKey.isRightmost() {
-			return nil
-		}
-		if proof.Right != nil &&
-			proof.PathToKey.isLeftAdjacentTo(proof.Right.Path) {
-			return nil
-		}
-	} else if proof.Right != nil && proof.Right.Path.isLeftmost() {
-		return nil
-	} else if proof.Left != nil && proof.Left.Path.isRightmost() {
-		return nil
-	} else if proof.Left != nil && proof.Right != nil &&
-		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
+	if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
+		return err
+	}
+	if bytes.Equal(key, endKey) {
 		return nil
 	}
+	if proof.PathToKey.isRightmost() {
+		return nil
+	}
+	if proof.Right != nil &&
+		proof.PathToKey.isLeftAdjacentTo(proof.Right.Path) {
+		return nil
+	}
+
 	return ErrInvalidProof
 }
 
@@ -170,26 +157,14 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
-	if err := verifyNoMissingKeys(proof.paths()); err != nil {
-		return err
-	}
-
-	// If proof.PathToKeys is empty, it means we have an empty range. This range
+	// If keys is empty, it means we have an empty range. This range
 	// can be between keys, or outside of the range of existing keys.
 	if len(keys) == 0 {
-		// Range is outisde and to the left of existing keys.
-		if proof.Left == nil && proof.Right.Path.isLeftmost() {
-			return nil
-		}
-		// Range is outisde and to the right of existing keys.
-		if proof.Right == nil && proof.Left.Path.isRightmost() {
-			return nil
-		}
-		// Range is between two existing keys.
-		if proof.Left != nil && proof.Right != nil {
-			return nil
-		}
-		return ErrInvalidProof
+		return verifyKeyAbsence(proof.Left, proof.Right)
+	}
+
+	if err := verifyNoMissingKeys(proof.paths()); err != nil {
+		return err
 	}
 
 	// If we've reached this point, it means our range isn't empty, and we have

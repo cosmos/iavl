@@ -75,16 +75,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 		return err
 	}
 
-	if proof.Left == nil && proof.Right.Path.isLeftmost() {
-		return nil
-	} else if proof.Right == nil && proof.Left.Path.isRightmost() {
-		return nil
-	} else if proof.Left != nil && proof.Right != nil &&
-		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
-		return nil
-	}
-
-	return ErrInvalidProof
+	return verifyKeyAbsence(proof.Left, proof.Right)
 }
 
 func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, []byte, error) {

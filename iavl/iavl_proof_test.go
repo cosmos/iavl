@@ -654,7 +654,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
 			},
-			expectedError: errors.New("paths #0 and #1 are not adjacent"),
+			expectedError: ErrInvalidProof,
 		},
 		8: {
 			keyStart: []byte{0x30},
