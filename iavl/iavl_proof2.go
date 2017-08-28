@@ -44,6 +44,9 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if !bytes.Equal(proof.RootHash, root) {
 		return ErrInvalidRoot
 	}
+	if key == nil || value == nil {
+		return ErrInvalidInputs
+	}
 	return proof.PathToKey.verify(IAVLProofLeafNode{key, value}, root)
 }
 
@@ -64,7 +67,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
 		return ErrInvalidRoot
 	}
-	if value != nil {
+	if key == nil || value != nil {
 		return ErrInvalidInputs
 	}
 
