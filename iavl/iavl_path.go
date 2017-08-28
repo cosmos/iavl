@@ -25,6 +25,8 @@ func (p *PathToKey) String() string {
 	return str
 }
 
+// verify check that the leafNode's hash matches the path's LeafHash and that
+// the root is the merkle hash of all the inner nodes.
 func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
 	leafHash := leafNode.Hash()
 	if !bytes.Equal(leafHash, p.LeafHash) {
@@ -131,7 +133,7 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 
 // Checks that all paths are adjacent to one another, ie. that there are no
 // keys missing.
-func verifyPathAdjacency(paths []*PathToKey) error {
+func verifyNoMissingKeys(paths []*PathToKey) error {
 	ps := make([]*PathToKey, 0, len(paths))
 	for _, p := range paths {
 		if p != nil {

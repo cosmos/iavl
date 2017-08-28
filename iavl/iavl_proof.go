@@ -106,7 +106,7 @@ func (leaf IAVLProofLeafNode) isLesserThan(key []byte) bool {
 }
 
 func (leaf IAVLProofLeafNode) isGreaterThan(key []byte) bool {
-	return bytes.Compare(key, leaf.KeyBytes) == -1
+	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
 func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, valuePtr *[]byte, proof *IAVLProof) (exists bool) {

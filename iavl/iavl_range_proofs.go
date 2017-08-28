@@ -27,9 +27,12 @@ func (proof *KeyFirstInRangeProof) String() string {
 }
 
 // Verify that the first in range proof is valid.
-func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
-	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
-		return ErrInvalidInputs
+func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+	if key != nil {
+		inputsOutOfRange := bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1
+		if inputsOutOfRange {
+			return ErrInvalidInputs
+		}
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
 		return ErrInvalidProof
@@ -45,29 +48,29 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		// If the key returned is equal to our start key, and we've verified
 		// that it exists, there's nothing else to check.
 		if bytes.Equal(key, startKey) {
-			return
+			return nil
 		}
 		// If the key returned is the smallest in the tree, then it must be
 		// the smallest in the given range too.
 		if proof.PathToKey.isLeftmost() {
-			return
+			return nil
 		}
 		// The start key is in between the left path and the key returned,
 		// and the paths are adjacent. Therefore there is nothing between
 		// the key returned and the start key.
 		if proof.Left != nil && proof.Left.Path.isLeftAdjacentTo(proof.PathToKey) {
-			return
+			return nil
 		}
 	} else if proof.Left != nil && proof.Left.Path.isRightmost() {
 		// No key found. Range starts outside of the right boundary.
-		return
+		return nil
 	} else if proof.Right != nil && proof.Right.Path.isLeftmost() {
 		// No key found. Range ends outside of the left boundary.
-		return
+		return nil
 	} else if proof.Left != nil && proof.Right != nil &&
 		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
 		// No key found. Range is between two existing keys.
-		return
+		return nil
 	}
 
 	return ErrInvalidProof
@@ -90,7 +93,7 @@ func (proof *KeyLastInRangeProof) String() string {
 }
 
 // Verify that the last in range proof is valid.
-func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) (err error) {
+func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
 	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
 		return ErrInvalidInputs
 	}
@@ -106,22 +109,22 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 			return err
 		}
 		if bytes.Equal(key, endKey) {
-			return
+			return nil
 		}
 		if proof.PathToKey.isRightmost() {
-			return
+			return nil
 		}
 		if proof.Right != nil &&
 			proof.PathToKey.isLeftAdjacentTo(proof.Right.Path) {
-			return
+			return nil
 		}
 	} else if proof.Right != nil && proof.Right.Path.isLeftmost() {
-		return
+		return nil
 	} else if proof.Left != nil && proof.Left.Path.isRightmost() {
-		return
+		return nil
 	} else if proof.Left != nil && proof.Right != nil &&
 		proof.Left.Path.isLeftAdjacentTo(proof.Right.Path) {
-		return
+		return nil
 	}
 	return ErrInvalidProof
 }
@@ -167,7 +170,7 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 
-	if err := verifyPathAdjacency(proof.paths()); err != nil {
+	if err := verifyNoMissingKeys(proof.paths()); err != nil {
 		return err
 	}
 
@@ -221,7 +224,8 @@ func (proof *KeyRangeProof) String() string {
 	return fmt.Sprintf("%#v", proof)
 }
 
-// Returns a list of all paths, in order.
+// Returns a list of all paths, in order, with the proof's Left and Right
+// paths preprended and appended respectively, if they exist.
 func (proof *KeyRangeProof) paths() []*PathToKey {
 	paths := proof.PathToKeys[:]
 	if proof.Left != nil {
