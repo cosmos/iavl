@@ -175,17 +175,19 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyAbsentProof, error) {
+// GetWithProof gets the value under the key if it exists, or returns nil.
+// A proof of existence or absence is returned alongside the value.
+func (t *IAVLTree) GetWithProof(key []byte) ([]byte, KeyProof, error) {
 	value, eproof, err := t.getWithProof(key)
 	if err == nil {
-		return value, eproof, nil, nil
+		return value, eproof, nil
 	}
 
-	neproof, err := t.keyAbsentProof(key)
+	aproof, err := t.keyAbsentProof(key)
 	if err == nil {
-		return nil, nil, neproof, nil
+		return nil, aproof, nil
 	}
-	return nil, nil, nil, errors.Wrap(err, "could not construct any proof")
+	return nil, nil, errors.Wrap(err, "could not construct any proof")
 }
 
 // GetRangeWithProof gets key/value pairs within the specified range and limit. To specify a descending
@@ -194,6 +196,16 @@ func (t *IAVLTree) GetWithProof(key []byte) ([]byte, *KeyExistsProof, *KeyAbsent
 // Returns a list of keys, a list of values and a proof.
 func (t *IAVLTree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
 	return t.getRangeWithProof(startKey, endKey, limit)
+}
+
+// GetFirstInRangeWithProof gets the first key/value pair in the specified range, with a proof.
+func (t *IAVLTree) GetFirstInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyFirstInRangeProof, error) {
+	return t.getFirstInRangeWithProof(startKey, endKey)
+}
+
+// GetLastInRangeWithProof gets the last key/value pair in the specified range, with a proof.
+func (t *IAVLTree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyLastInRangeProof, error) {
+	return t.getLastInRangeWithProof(startKey, endKey)
 }
 
 func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {

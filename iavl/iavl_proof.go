@@ -101,6 +101,14 @@ func (leaf IAVLProofLeafNode) Hash() []byte {
 	return hasher.Sum(nil)
 }
 
+func (leaf IAVLProofLeafNode) isLesserThan(key []byte) bool {
+	return bytes.Compare(leaf.KeyBytes, key) == -1
+}
+
+func (leaf IAVLProofLeafNode) isGreaterThan(key []byte) bool {
+	return bytes.Compare(leaf.KeyBytes, key) == 1
+}
+
 func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, valuePtr *[]byte, proof *IAVLProof) (exists bool) {
 	if node.height == 0 {
 		if bytes.Compare(node.key, key) == 0 {
