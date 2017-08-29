@@ -147,8 +147,7 @@ func (proof *KeyRangeProof) Verify(
 		startKey, endKey, keys, values = reverseKeys(startKey, endKey, keys, values)
 	}
 
-	// Special check for no keys... there must be no keys between them
-	// and then match the range
+	// If the range is empty, we just have to check the left and right paths.
 	if len(keys) == 0 {
 		if err := verifyKeyAbsence(proof.Left, proof.Right); err != nil {
 			return err
@@ -156,9 +155,8 @@ func (proof *KeyRangeProof) Verify(
 		return verifyPaths(proof.Left, proof.Right, startKey, endKey, root)
 	}
 
-	// If we hit the limit, one of the two ends doesn't have to match
-	// the limits of the query, so we adjust the range to prove to match
-	// the limit we found
+	// If we hit the limit, one of the two ends doesn't have to match the
+	// limits of the query, so we adjust the range to match the limit we found.
 	if limit > 0 && len(keys) == limit {
 		if ascending {
 			endKey = keys[len(keys)-1]
