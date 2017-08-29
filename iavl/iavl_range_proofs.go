@@ -162,7 +162,7 @@ func (proof *KeyRangeProof) Verify(
 				firstKey = keys[0]
 			}
 		}
-		// now we know Left < first <= last < Right
+		// Now we know Left < firstKey <= lastKey < Right.
 		if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
 			return err
 		}

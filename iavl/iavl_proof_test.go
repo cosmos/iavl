@@ -984,9 +984,8 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			require.Error(err, "Test failed for case #%d", i)
 			require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d:\n%+v", i, err)
 		} else {
-			assert.Nil(err, "Test failed for case #%d:\n%+v", i, err)
-			// no point testing the reverse, as it may well fail
-			continue
+			assert.Nil(err, "Test failed for case #%d: %+v", i, err)
+			continue // No point testing the reverse, as it will fail.
 		}
 
 		//
