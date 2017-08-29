@@ -156,19 +156,18 @@ func (proof *KeyRangeProof) Verify(
 		return verifyPaths(proof.Left, proof.Right, startKey, endKey, root)
 	}
 
-	// Make sure the left and right sides are proper (assuming the middle is)
-	firstKey, lastKey := startKey, endKey
 	// If we hit the limit, one of the two ends doesn't have to match
-	// the limits of the query
+	// the limits of the query, so we adjust the range to prove to match
+	// the limit we found
 	if limit > 0 && len(keys) == limit {
 		if ascending {
-			lastKey = keys[len(keys)-1]
+			endKey = keys[len(keys)-1]
 		} else {
-			firstKey = keys[0]
+			startKey = keys[0]
 		}
 	}
-	// Now we know Left < firstKey <= lastKey < Right.
-	if err := verifyPaths(proof.Left, proof.Right, firstKey, lastKey, root); err != nil {
+	// Now we know Left < startKey <= endKey < Right.
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
 	}
 
@@ -193,15 +192,13 @@ func (proof *KeyRangeProof) Verify(
 	// missing.
 	if proof.Left == nil &&
 		!bytes.Equal(startKey, keys[0]) &&
-		!proof.PathToKeys[0].isLeftmost() &&
-		!(len(keys) == limit && !ascending) {
+		!proof.PathToKeys[0].isLeftmost() {
 		return ErrInvalidProof()
 	}
 
 	if proof.Right == nil &&
 		!bytes.Equal(endKey, keys[len(keys)-1]) &&
-		!proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() &&
-		!(len(keys) == limit && ascending) {
+		!proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
 		return ErrInvalidProof()
 	}
 	return nil
