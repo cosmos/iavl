@@ -173,11 +173,25 @@ func (proof *KeyRangeProof) Verify(
 			return verifyKeyAbsence(proof.Left, proof.Right)
 		}
 
-		// if one end is nil... it must:
-		// - match the queried range exactly
-		// - be the extreme end (no more possible)
-		// - or limit is full and it is on the relaxed side
+		if err := verifyNoMissingKeys(proof.paths()); err != nil {
+			return errors.WithStack(err)
+		}
 
+		// If we've reached this point, it means our range isn't empty, and we have
+		// a list of keys.
+		for i, path := range proof.PathToKeys {
+			leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+			if err := path.verify(leafNode, root); err != nil {
+				return errors.WithStack(err)
+			}
+		}
+
+		// In the case of a descending range, if the left proof is nil and the
+		// limit wasn't reached, we have to verify that we're not missing any
+		// keys. Basically, if a key to the left is missing because we've
+		// reached the limit, then it's fine. But if the key count is smaller
+		// than the limit, we need a left proof to make sure no keys are
+		// missing.
 		if proof.Left == nil &&
 			!bytes.Equal(startKey, keys[0]) &&
 			!proof.PathToKeys[0].isLeftmost() &&
@@ -185,29 +199,11 @@ func (proof *KeyRangeProof) Verify(
 			return ErrInvalidProof()
 		}
 
-		// If the right proof is nil and the limit wasn't reached, we have to verify that
-		// we're not missing any keys. Basically, if a key to the right is missing because
-		// we've reached the limit, then it's fine. But if the key count is smaller than
-		// the limit, we need a right proof to make sure no keys are missing.
 		if proof.Right == nil &&
 			!bytes.Equal(endKey, keys[len(keys)-1]) &&
 			!proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() &&
 			!(len(keys) == limit && ascending) {
 			return ErrInvalidProof()
-		}
-
-	}
-
-	if err := verifyNoMissingKeys(proof.paths()); err != nil {
-		return err
-	}
-
-	// If we've reached this point, it means our range isn't empty, and we have
-	// a list of keys.
-	for i, path := range proof.PathToKeys {
-		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
-		if err := path.verify(leafNode, root); err != nil {
-			return err
 		}
 	}
 
@@ -243,13 +239,13 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
 
 	rangeProof = &KeyRangeProof{RootHash: t.root.hash}
-
+	rangeStart, rangeEnd := keyStart, keyEnd
 	ascending := bytes.Compare(keyStart, keyEnd) == -1
 	if !ascending {
-		keyStart, keyEnd = keyEnd, keyStart
+		rangeStart, rangeEnd = rangeEnd, rangeStart
 	}
 
-	limited := t.IterateRangeInclusive(keyStart, keyEnd, ascending, func(k, v []byte) bool {
+	limited := t.IterateRangeInclusive(rangeStart, rangeEnd, ascending, func(k, v []byte) bool {
 		keys = append(keys, k)
 		values = append(values, v)
 		return len(keys) == limit
@@ -266,9 +262,31 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 		}
 	}
 
-	first, last := 0, len(keys)-1
-	if !ascending {
-		first, last = last, first
+	//
+	// Figure out which of the left or right paths we need.
+	//
+	var needsLeft, needsRight bool
+
+	if len(keys) == 0 {
+		needsLeft, needsRight = true, true
+	} else {
+		first, last := 0, len(keys)-1
+		if !ascending {
+			first, last = last, first
+		}
+
+		needsLeft = !bytes.Equal(keys[first], rangeStart)
+		needsRight = !bytes.Equal(keys[last], rangeEnd)
+
+		// When limited, we can relax the right or left side, depending on
+		// the direction of the range.
+		if limited {
+			if ascending {
+				needsRight = false
+			} else {
+				needsLeft = false
+			}
+		}
 	}
 
 	// So far, we've created proofs of the keys which are within the provided range.
@@ -280,13 +298,10 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	// 2. The start or end key do not match the start and end of the keys returned.
 	//    In this case, include proofs of the keys immediately outside of those returned.
 	//
-	if len(keys) == 0 || !bytes.Equal(keys[first], keyStart) {
-		if limited {
-			keyStart = keys[first]
-		}
+	if needsLeft {
 		// Find index of first key to the left, and include proof if it isn't the
 		// leftmost key.
-		if idx, _, _ := t.Get(keyStart); idx > 0 {
+		if idx, _, _ := t.Get(rangeStart); idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
 			path, _, _ := t.root.pathToKey(t, lkey)
 			rangeProof.Left = &PathWithNode{
@@ -299,10 +314,10 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	// Proof that the last key is the last value before keyEnd, or that we're limited.
 	// If len(keys) == limit, it doesn't matter that a key exists to the right of the
 	// last key, since we aren't interested in it.
-	if !limited && (len(keys) == 0 || !bytes.Equal(keys[last], keyEnd)) {
+	if needsRight {
 		// Find index of first key to the right, and include proof if it isn't the
 		// rightmost key.
-		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
+		if idx, _, _ := t.Get(rangeEnd); idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
 			path, _, _ := t.root.pathToKey(t, rkey)
 			rangeProof.Right = &PathWithNode{
