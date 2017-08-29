@@ -174,7 +174,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 					dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		1: {
 			root:      root,
@@ -277,7 +277,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		7: {
 			root:      root,
@@ -298,7 +298,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 	for i, c := range cases {
 		err := c.proof.Verify(c.startKey, c.endKey, c.resultKey, c.resultVal, c.root)
 		require.Error(err, "Test failed for case #%d", i)
-		require.Equal(c.expectedError, err, "Test failed for case #%d", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d", i)
 	}
 }
 
@@ -421,7 +421,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		6: {
 			root:      root,
@@ -442,7 +442,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 	for i, c := range cases {
 		err := c.invalidProof.Verify(c.startKey, c.endKey, c.resultKey, c.resultVal, c.root)
 		require.Error(err, "Test failed for case #%d", i)
-		require.Equal(c.expectedError, err, "Test failed for case #%d", i)
+		require.Equal(c.expectedError.Error(), err.Error(), "Test failed for case #%d", i)
 	}
 }
 
@@ -587,7 +587,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0xa1}, []byte{0xa1}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		3: { // An invalid proof with one path.
 			keyStart: []byte{0xf8},
@@ -613,7 +613,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		5: { // An invalid proof with one path.
 			keyStart: []byte{0x1},
@@ -639,7 +639,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		7: {
 			keyStart: []byte{0x30},
@@ -673,7 +673,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		9: {
 			keyStart: []byte{0x30},
@@ -690,7 +690,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x2f}, []byte{0x2f}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		10: {
 			keyStart:   []byte{0x12},
@@ -807,7 +807,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x11}).dropRoot(),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		17: { // An invalid proof with one path and a limit.
 			keyStart: []byte{0x30},
@@ -821,7 +821,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		18: { // An invalid proof with one path and a limit.
 			keyStart: []byte{0x30},
@@ -835,7 +835,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		19: { // First value returned is wrong. Should be 0x11.
 			keyStart:   []byte{0x10},
@@ -874,7 +874,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		21: { // Ethan Frey's reverse failing test case.
 			keyStart:   []byte{0xca},
@@ -919,7 +919,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
 			},
-			expectedError: errInvalidPath,
+			expectedError: errInvalidProof,
 		},
 		23: { // Valid proof.
 			keyStart:   []byte{0x10},

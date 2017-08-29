@@ -12,8 +12,6 @@ import (
 var (
 	errInvalidProof = fmt.Errorf("invalid proof")
 
-	errInvalidPath = fmt.Errorf("invalid path")
-
 	// ErrInvalidInputs is returned when the inputs passed to the function are invalid.
 	ErrInvalidInputs = fmt.Errorf("invalid inputs")
 
@@ -27,11 +25,6 @@ var (
 // ErrInvalidProof is returned by Verify when a proof cannot be validated.
 func ErrInvalidProof() error {
 	return errors.WithStack(errInvalidProof)
-}
-
-// ErrInvalidPath is returned by Verify when a path cannot be validated.
-func ErrInvalidPath() error {
-	return errors.WithStack(errInvalidPath)
 }
 
 // KeyProof represents a proof of existence or absence of a single key.
