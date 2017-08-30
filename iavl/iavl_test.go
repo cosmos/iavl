@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tmlibs/db"
 	"github.com/tendermint/go-wire"
 	. "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tmlibs/db"
 	. "github.com/tendermint/tmlibs/test"
 
 	"runtime"
@@ -146,6 +146,20 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Expected no value to exist")
 		}
 		if idx != 2 {
+			t.Errorf("Unexpected idx %x", idx)
+		}
+		if string(val) != "" {
+			t.Errorf("Unexpected value %v", string(val))
+		}
+	}
+
+	// Test "6"
+	{
+		idx, val, exists := tree.Get([]byte("6"))
+		if exists {
+			t.Errorf("Expected no value to exist")
+		}
+		if idx != 3 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
 		if string(val) != "" {
@@ -407,10 +421,15 @@ func TestIterateRange(t *testing.T) {
 	tree.IterateRange([]byte("very"), nil, true, trav.view)
 	expectTraverse(t, trav, "", "", 0)
 
-	// make sure backwards also works...
+	// make sure it doesn't include end
+	trav = traverser{}
+	tree.IterateRange([]byte("fooba"), []byte("food"), true, trav.view)
+	expectTraverse(t, trav, "foobang", "foobaz", 3)
+
+	// make sure backwards also works... (doesn't include end)
 	trav = traverser{}
 	tree.IterateRange([]byte("fooba"), []byte("food"), false, trav.view)
-	expectTraverse(t, trav, "food", "foobang", 4)
+	expectTraverse(t, trav, "foobaz", "foobang", 3)
 
 	// make sure backwards also works...
 	trav = traverser{}
@@ -565,51 +584,24 @@ func TestIAVLTreeProof(t *testing.T) {
 	}
 }
 
-func BenchmarkImmutableAvlTreeCLevelDB(b *testing.B) {
-	b.StopTimer()
-
-	db := db.NewDB("test", db.CLevelDBBackendStr, "./")
-	t := NewIAVLTree(100000, db)
-	// for i := 0; i < 10000000; i++ {
-	for i := 0; i < 1000000; i++ {
-		// for i := 0; i < 1000; i++ {
-		t.Set(i2b(int(RandInt32())), nil)
-		if i > 990000 && i%1000 == 999 {
-			t.Save()
-		}
-	}
-	t.Save()
-
-	fmt.Println("ok, starting")
-
-	runtime.GC()
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		ri := i2b(int(RandInt32()))
-		t.Set(ri, nil)
-		t.Remove(ri)
-		if i%100 == 99 {
-			t.Save()
-		}
-	}
-
-	db.Close()
+func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
+	db := db.NewDB("test", db.MemDBBackendStr, "")
+	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 
-func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
+func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
+	defer db.Close()
+
 	b.StopTimer()
 
-	db := db.NewDB("test", db.MemDBBackendStr, "")
 	t := NewIAVLTree(100000, db)
-	// for i := 0; i < 10000000; i++ {
 	for i := 0; i < 1000000; i++ {
-		// for i := 0; i < 1000; i++ {
 		t.Set(i2b(int(RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {
 			t.Save()
 		}
 	}
+	b.ReportAllocs()
 	t.Save()
 
 	fmt.Println("ok, starting")
@@ -625,6 +617,4 @@ func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
 			t.Save()
 		}
 	}
-
-	db.Close()
 }

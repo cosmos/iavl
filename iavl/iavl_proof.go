@@ -2,11 +2,13 @@ package iavl
 
 import (
 	"bytes"
+	"fmt"
 
 	"golang.org/x/crypto/ripemd160"
 
-	. "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/go-wire"
+	"github.com/tendermint/go-wire/data"
+	. "github.com/tendermint/tmlibs/common"
 )
 
 const proofLimit = 1 << 16 // 64 KB
@@ -53,6 +55,10 @@ type IAVLProofInnerNode struct {
 	Right  []byte
 }
 
+func (n *IAVLProofInnerNode) String() string {
+	return fmt.Sprintf("IAVLProofInnerNode[height=%d, %x / %x]", n.Height, n.Left, n.Right)
+}
+
 func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
@@ -75,8 +81,8 @@ func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 }
 
 type IAVLProofLeafNode struct {
-	KeyBytes   []byte
-	ValueBytes []byte
+	KeyBytes   data.Bytes `json:"key"`
+	ValueBytes data.Bytes `json:"value"`
 }
 
 func (leaf IAVLProofLeafNode) Hash() []byte {
@@ -93,6 +99,14 @@ func (leaf IAVLProofLeafNode) Hash() []byte {
 	// fmt.Printf("LeafNode hash bytes:   %X\n", buf.Bytes())
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
+}
+
+func (leaf IAVLProofLeafNode) isLesserThan(key []byte) bool {
+	return bytes.Compare(leaf.KeyBytes, key) == -1
+}
+
+func (leaf IAVLProofLeafNode) isGreaterThan(key []byte) bool {
+	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
 func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, valuePtr *[]byte, proof *IAVLProof) (exists bool) {
@@ -136,6 +150,7 @@ func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, valuePtr *[]byte, 
 }
 
 // Returns nil, nil if key is not in tree.
+// DEPRECATED
 func (t *IAVLTree) ConstructProof(key []byte) (value []byte, proof *IAVLProof) {
 	if t.root == nil {
 		return nil, nil
