@@ -4,20 +4,10 @@ GOTOOLS = \
 
 PDFFLAGS=-pdf --nodefraction=0.1
 
-all: get_vendor_deps install test
-
-install:
-	go install github.com/tendermint/merkleeyes/cmd/...
-
-dist:
-	@ bash scripts/dist.sh
-	@ bash scripts/publish.sh
+all: get_vendor_deps test
 
 test:
 	go test -v --race `glide novendor`
-
-get_deps:
-	go get -d github.com/tendermint/merkleeyes/...
 
 tools:
 	go get -u -v $(GOTOOLS)
@@ -64,4 +54,4 @@ exploremem:
 delve:
 	dlv test ./benchmarks -- -test.bench=.
 
-.PHONY: all test get_deps install tools dist
+.PHONY: all test tools

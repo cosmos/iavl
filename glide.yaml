@@ -1,4 +1,4 @@
-package: github.com/tendermint/merkleeyes
+package: github.com/tendermint/iavl
 import:
 - package: github.com/spf13/cobra
 - package: github.com/spf13/viper
