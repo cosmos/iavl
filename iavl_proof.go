@@ -40,11 +40,11 @@ func (proof *IAVLProof) Root() []byte {
 	return proof.RootHash
 }
 
-// ReadProof will deserialize a IAVLProof from bytes
-func ReadProof(data []byte) (*IAVLProof, error) {
+// ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
+func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	// TODO: make go-wire never panic
 	n, err := int(0), error(nil)
-	proof := wire.ReadBinary(&IAVLProof{}, bytes.NewBuffer(data), proofLimit, &n, &err).(*IAVLProof)
+	proof := wire.ReadBinary(&KeyExistsProof{}, bytes.NewBuffer(data), proofLimit, &n, &err).(*KeyExistsProof)
 	return proof, err
 }
 
@@ -109,60 +109,3 @@ func (leaf IAVLProofLeafNode) isGreaterThan(key []byte) bool {
 	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
-func (node *IAVLNode) constructProof(t *IAVLTree, key []byte, valuePtr *[]byte, proof *IAVLProof) (exists bool) {
-	if node.height == 0 {
-		if bytes.Compare(node.key, key) == 0 {
-			*valuePtr = node.value
-			proof.LeafHash = node.hash
-			return true
-		} else {
-			return false
-		}
-	} else {
-		if bytes.Compare(key, node.key) < 0 {
-			exists := node.getLeftNode(t).constructProof(t, key, valuePtr, proof)
-			if !exists {
-				return false
-			}
-			branch := IAVLProofInnerNode{
-				Height: node.height,
-				Size:   node.size,
-				Left:   nil,
-				Right:  node.getRightNode(t).hash,
-			}
-			proof.InnerNodes = append(proof.InnerNodes, branch)
-			return true
-		} else {
-			exists := node.getRightNode(t).constructProof(t, key, valuePtr, proof)
-			if !exists {
-				return false
-			}
-			branch := IAVLProofInnerNode{
-				Height: node.height,
-				Size:   node.size,
-				Left:   node.getLeftNode(t).hash,
-				Right:  nil,
-			}
-			proof.InnerNodes = append(proof.InnerNodes, branch)
-			return true
-		}
-	}
-}
-
-// Returns nil, nil if key is not in tree.
-// DEPRECATED
-func (t *IAVLTree) ConstructProof(key []byte) (value []byte, proof *IAVLProof) {
-	if t.root == nil {
-		return nil, nil
-	}
-	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
-	proof = &IAVLProof{
-		RootHash: t.root.hash,
-	}
-	exists := t.root.constructProof(t, key, &value, proof)
-	if exists {
-		return value, proof
-	} else {
-		return nil, nil
-	}
-}

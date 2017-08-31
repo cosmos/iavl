@@ -7,10 +7,8 @@ import (
 	"strings"
 	"sync"
 
-	wire "github.com/tendermint/go-wire"
 	. "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
-	"github.com/tendermint/tmlibs/merkle"
 
 	"github.com/pkg/errors"
 )
@@ -54,7 +52,7 @@ func (t *IAVLTree) String() string {
 // outdated, as some nodes will become orphaned.
 // Note that Save() clears leftNode and rightNode.  Otherwise,
 // two copies would not be goroutine independent.
-func (t *IAVLTree) Copy() merkle.Tree {
+func (t *IAVLTree) Copy() *IAVLTree {
 	if t.root == nil {
 		return &IAVLTree{
 			root: nil,
@@ -97,16 +95,6 @@ func (t *IAVLTree) Has(key []byte) bool {
 		return false
 	}
 	return t.root.has(t, key)
-}
-
-// DEPRECATED: See GetWithProof
-func (t *IAVLTree) Proof(key []byte) (value []byte, proofBytes []byte, exists bool) {
-	value, proof := t.ConstructProof(key)
-	if proof == nil {
-		return nil, nil, false
-	}
-	proofBytes = wire.BinaryBytes(proof)
-	return value, proofBytes, true
 }
 
 func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
