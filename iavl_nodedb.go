@@ -10,12 +10,12 @@ import (
 )
 
 type nodeDB struct {
-	mtx         sync.Mutex
-	cache       map[string]*list.Element
-	cacheSize   int
-	cacheQueue  *list.List
-	db          dbm.DB
-	batch       dbm.Batch
+	mtx         sync.Mutex               // Read/write lock.
+	cache       map[string]*list.Element // Node cache.
+	cacheSize   int                      // Node cache size limit in elements.
+	cacheQueue  *list.List               // LRU queue of cache elements. Used for deletion.
+	db          dbm.DB                   // Persistent node storage.
+	batch       dbm.Batch                // Batched writing buffer.
 	orphans     map[string]struct{}
 	orphansPrev map[string]struct{}
 }
@@ -36,88 +36,96 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+
 	// Check the cache.
-	elem, ok := ndb.cache[string(hash)]
-	if ok {
+	if elem, ok := ndb.cache[string(hash)]; ok {
 		// Already exists. Move to back of cacheQueue.
 		ndb.cacheQueue.MoveToBack(elem)
 		return elem.Value.(*IAVLNode)
-	} else {
-		// Doesn't exist, load.
-		buf := ndb.db.Get(hash)
-		if len(buf) == 0 {
-			// ndb.db.Print()
-			cmn.PanicSanity(cmn.Fmt("Value missing for key %X", hash))
-		}
-		node, err := MakeIAVLNode(buf)
-		if err != nil {
-			cmn.PanicCrisis(cmn.Fmt("Error reading IAVLNode. bytes: %X  error: %v", buf, err))
-		}
-		node.hash = hash
-		node.persisted = true
-		ndb.cacheNode(node)
-		return node
 	}
+
+	// Doesn't exist, load.
+	buf := ndb.db.Get(hash)
+	if len(buf) == 0 {
+		cmn.PanicSanity(cmn.Fmt("Value missing for key %X", hash))
+	}
+
+	node, err := MakeIAVLNode(buf)
+	if err != nil {
+		cmn.PanicCrisis(cmn.Fmt("Error reading IAVLNode. bytes: %X, error: %v", buf, err))
+	}
+
+	node.hash = hash
+	node.persisted = true
+	ndb.cacheNode(node)
+
+	return node
 }
 
 func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+
 	if node.hash == nil {
 		cmn.PanicSanity("Expected to find node.hash, but none found.")
 	}
 	if node.persisted {
 		cmn.PanicSanity("Shouldn't be calling save on an already persisted node.")
 	}
-	/*if _, ok := ndb.cache[string(node.hash)]; ok {
-		panic("Shouldn't be calling save on an already cached node.")
-	}*/
+
 	// Save node bytes to db
-	buf := bytes.NewBuffer(nil)
-	_, err := node.writePersistBytes(buf)
-	if err != nil {
+	buf := new(bytes.Buffer)
+	if _, err := node.writePersistBytes(buf); err != nil {
 		cmn.PanicCrisis(err)
 	}
 	ndb.batch.Set(node.hash, buf.Bytes())
 	node.persisted = true
 	ndb.cacheNode(node)
+
 	// Re-creating the orphan,
 	// Do not garbage collect.
 	delete(ndb.orphans, string(node.hash))
 	delete(ndb.orphansPrev, string(node.hash))
 }
 
+// Remove a node from cache and add it to the list of orphans, to be deleted
+// on the next call to Commit.
 func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+
 	if node.hash == nil {
 		cmn.PanicSanity("Expected to find node.hash, but none found.")
 	}
 	if !node.persisted {
 		cmn.PanicSanity("Shouldn't be calling remove on a non-persisted node.")
 	}
-	elem, ok := ndb.cache[string(node.hash)]
-	if ok {
+
+	if elem, ok := ndb.cache[string(node.hash)]; ok {
 		ndb.cacheQueue.Remove(elem)
 		delete(ndb.cache, string(node.hash))
 	}
 	ndb.orphans[string(node.hash)] = struct{}{}
 }
 
+// Add a node to the cache and pop the least recently used node if we've
+// reached the cache size limit.
 func (ndb *nodeDB) cacheNode(node *IAVLNode) {
-	// Create entry in cache and append to cacheQueue.
 	elem := ndb.cacheQueue.PushBack(node)
 	ndb.cache[string(node.hash)] = elem
-	// Maybe expire an item.
+
 	if ndb.cacheQueue.Len() > ndb.cacheSize {
-		hash := ndb.cacheQueue.Remove(ndb.cacheQueue.Front()).(*IAVLNode).hash
+		oldest := ndb.cacheQueue.Front()
+		hash := ndb.cacheQueue.Remove(oldest).(*IAVLNode).hash
 		delete(ndb.cache, string(hash))
 	}
 }
 
+// Write to disk. Orphans are deleted here.
 func (ndb *nodeDB) Commit() {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+
 	// Delete orphans from previous block
 	for orphanHashStr, _ := range ndb.orphansPrev {
 		ndb.batch.Delete([]byte(orphanHashStr))
