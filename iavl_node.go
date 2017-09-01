@@ -221,31 +221,6 @@ func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err err
 	return
 }
 
-// NOTE: clears leftNode/rigthNode recursively
-// NOTE: sets hashes recursively
-func (node *IAVLNode) save(t *IAVLTree) {
-	if node.hash == nil {
-		node.hash, _ = node.hashWithCount()
-	}
-	if node.persisted {
-		return
-	}
-
-	// save children
-	if node.leftNode != nil {
-		node.leftNode.save(t)
-		node.leftNode = nil
-	}
-	if node.rightNode != nil {
-		node.rightNode.save(t)
-		node.rightNode = nil
-	}
-
-	// save node
-	t.ndb.SaveNode(node)
-	return
-}
-
 // NOTE: sets hashes recursively
 func (node *IAVLNode) writeBytes(w io.Writer) (n int, err error) {
 	// node header

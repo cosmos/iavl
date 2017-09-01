@@ -90,6 +90,30 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	delete(ndb.orphansPrev, string(node.hash))
 }
 
+// NOTE: clears leftNode/rigthNode recursively
+// NOTE: sets hashes recursively
+func (ndb *nodeDB) SaveBranch(node *IAVLNode) {
+	if node.hash == nil {
+		node.hash, _ = node.hashWithCount()
+	}
+	if node.persisted {
+		return
+	}
+
+	// save children
+	if node.leftNode != nil {
+		ndb.SaveBranch(node.leftNode)
+		node.leftNode = nil
+	}
+	if node.rightNode != nil {
+		ndb.SaveBranch(node.rightNode)
+		node.rightNode = nil
+	}
+
+	// save node
+	ndb.SaveNode(node)
+}
+
 // Remove a node from cache and add it to the list of orphans, to be deleted
 // on the next call to Commit.
 func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
