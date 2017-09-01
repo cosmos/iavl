@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	. "github.com/tendermint/tmlibs/common"
+	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 
 	"github.com/pkg/errors"
@@ -61,7 +61,7 @@ func (t *IAVLTree) Copy() *IAVLTree {
 		// It sets all the hashes recursively,
 		// clears all the leftNode/rightNode values recursively,
 		// and all the .persisted flags get set.
-		PanicSanity("It is unsafe to Copy() an unpersisted tree.")
+		cmn.PanicSanity("It is unsafe to Copy() an unpersisted tree.")
 	} else if t.ndb == nil && t.root.hash == nil {
 		// An in-memory IAVLTree is finalized when the hashes are
 		// calculated.
