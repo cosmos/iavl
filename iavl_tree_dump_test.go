@@ -1,25 +1,17 @@
-package iavl_test
+package iavl
 
 import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/tendermint/go-wire"
-	"github.com/tendermint/merkleeyes/iavl"
 	"github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/db"
 )
 
-func i2b(i int) []byte {
-	bz := make([]byte, 4)
-	wire.PutInt32(bz, int32(i))
-	return bz
-}
-
 func TestIAVLTreeFdump(t *testing.T) {
 	t.Skipf("Tree dump and DB code seem buggy so this test always crashes. See https://github.com/tendermint/tmlibs/issues/36")
 	db := db.NewDB("test", db.MemDBBackendStr, "")
-	tree := iavl.NewIAVLTree(100000, db)
+	tree := NewIAVLTree(100000, db)
 	for i := 0; i < 1000000; i++ {
 		tree.Set(i2b(int(common.RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {

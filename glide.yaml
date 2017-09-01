@@ -1,7 +1,5 @@
 package: github.com/tendermint/iavl
 import:
-- package: github.com/spf13/cobra
-- package: github.com/spf13/viper
 - package: github.com/tendermint/abci
   version: develop
   subpackages:
