@@ -33,6 +33,8 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 	return ndb
 }
 
+// GetNode gets a node from cache or disk. If it is an inner node, it does not
+// load its children.
 func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
