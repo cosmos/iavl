@@ -103,7 +103,7 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 	}
 	if left != nil {
 		if err := left.verify(root); err != nil {
-			return ErrInvalidProof()
+			return err
 		}
 		if !left.Node.isLesserThan(startKey) {
 			return ErrInvalidProof()
@@ -111,7 +111,7 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 	}
 	if right != nil {
 		if err := right.verify(root); err != nil {
-			return ErrInvalidProof()
+			return err
 		}
 		if !right.Node.isGreaterThan(endKey) {
 			return ErrInvalidProof()
