@@ -14,6 +14,7 @@ import (
 type IAVLNode struct {
 	key       []byte
 	value     []byte
+	version   uint64
 	height    int8
 	size      int
 	hash      []byte
@@ -26,10 +27,11 @@ type IAVLNode struct {
 
 func NewIAVLNode(key []byte, value []byte) *IAVLNode {
 	return &IAVLNode{
-		key:    key,
-		value:  value,
-		height: 0,
-		size:   1,
+		key:     key,
+		value:   value,
+		height:  0,
+		size:    1,
+		version: 0,
 	}
 }
 
@@ -56,6 +58,9 @@ func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 		return nil, err
 	}
 	buf = buf[n:]
+
+	node.version = wire.GetUint64(buf)
+	buf = buf[8:]
 
 	// Read node body.
 
@@ -189,6 +194,7 @@ func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err err
 		// key & value
 		wire.WriteByteSlice(node.key, w, &n, &err)
 		wire.WriteByteSlice(node.value, w, &n, &err)
+		wire.WriteUint64(node.version, w, &n, &err)
 	} else {
 		// left
 		if node.leftNode != nil {
@@ -247,6 +253,7 @@ func (node *IAVLNode) writeBytes(w io.Writer) (n int, err error) {
 	wire.WriteVarint(node.size, w, &n, &err)
 	// key (unlike writeHashBytes, key is written for inner nodes)
 	wire.WriteByteSlice(node.key, w, &n, &err)
+	wire.WriteUint64(node.version, w, &n, &err)
 
 	if node.isLeaf() {
 		// value

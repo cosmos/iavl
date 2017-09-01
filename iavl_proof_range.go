@@ -37,7 +37,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
 		return ErrInvalidProof()
 	}
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version); err != nil {
 		return err
 	}
 	if proof.PathToKey == nil {
@@ -91,7 +91,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
 		return ErrInvalidProof()
 	}
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version); err != nil {
 		return err
 	}
 	if proof.PathToKey == nil {
@@ -121,6 +121,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 // KeyRangeProof is proof that a range of keys does or does not exist.
 type KeyRangeProof struct {
 	RootHash   data.Bytes   `json:"root_hash"`
+	Version    uint64       `json:"version"`
 	PathToKeys []*PathToKey `json:"paths"`
 
 	Left  *PathWithNode `json:"left"`
@@ -152,7 +153,7 @@ func (proof *KeyRangeProof) Verify(
 		if err := verifyKeyAbsence(proof.Left, proof.Right); err != nil {
 			return err
 		}
-		return verifyPaths(proof.Left, proof.Right, startKey, endKey, root)
+		return verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version)
 	}
 
 	// If we hit the limit, one of the two ends doesn't have to match the
@@ -165,7 +166,7 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 	// Now we know Left < startKey <= endKey < Right.
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version); err != nil {
 		return err
 	}
 
@@ -177,7 +178,7 @@ func (proof *KeyRangeProof) Verify(
 	// a list of keys.
 	for i, path := range proof.PathToKeys {
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
-		if err := path.verify(leafNode, root); err != nil {
+		if err := path.verify(leafNode, root, proof.Version); err != nil {
 			return errors.WithStack(err)
 		}
 	}

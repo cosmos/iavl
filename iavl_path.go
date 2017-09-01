@@ -23,8 +23,8 @@ func (p *PathToKey) String() string {
 
 // verify check that the leafNode's hash matches the path's LeafHash and that
 // the root is the merkle hash of all the inner nodes.
-func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
-	hash := leafNode.Hash()
+func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte, version uint64) error {
+	hash := leafNode.Hash(version)
 	for _, branch := range p.InnerNodes {
 		hash = branch.Hash(hash)
 	}
@@ -91,18 +91,18 @@ type PathWithNode struct {
 	Node IAVLProofLeafNode `json:"node"`
 }
 
-func (p *PathWithNode) verify(root []byte) error {
-	return p.Path.verify(p.Node, root)
+func (p *PathWithNode) verify(root []byte, version uint64) error {
+	return p.Path.verify(p.Node, root, version)
 }
 
 // verifyPaths verifies the left and right paths individually, and makes sure
 // the ordering is such that left < startKey <= endKey < right.
-func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error {
+func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte, version uint64) error {
 	if bytes.Compare(startKey, endKey) == 1 {
 		return ErrInvalidInputs
 	}
 	if left != nil {
-		if err := left.verify(root); err != nil {
+		if err := left.verify(root, version); err != nil {
 			return err
 		}
 		if !left.Node.isLesserThan(startKey) {
@@ -110,7 +110,7 @@ func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error
 		}
 	}
 	if right != nil {
-		if err := right.verify(root); err != nil {
+		if err := right.verify(root, version); err != nil {
 			return err
 		}
 		if !right.Node.isGreaterThan(endKey) {

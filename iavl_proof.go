@@ -69,7 +69,7 @@ type IAVLProofLeafNode struct {
 	ValueBytes data.Bytes `json:"value"`
 }
 
-func (leaf IAVLProofLeafNode) Hash() []byte {
+func (leaf IAVLProofLeafNode) Hash(version uint64) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	n, err := int(0), error(nil)
@@ -77,6 +77,7 @@ func (leaf IAVLProofLeafNode) Hash() []byte {
 	wire.WriteVarint(1, buf, &n, &err)
 	wire.WriteByteSlice(leaf.KeyBytes, buf, &n, &err)
 	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
+	wire.WriteUint64(version, buf, &n, &err)
 	if err != nil {
 		PanicCrisis(Fmt("Failed to hash IAVLProofLeafNode: %v", err))
 	}
