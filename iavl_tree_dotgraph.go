@@ -44,7 +44,7 @@ var defaultGraphNodeAttrs = map[string]string{
 func WriteDOTGraph(w io.Writer, tree *IAVLTree, paths []*PathToKey) {
 	ctx := &graphContext{}
 
-	tree.root.hashWithCount(tree)
+	tree.root.hashWithCount()
 	tree.root.traverse(tree, true, func(node *IAVLNode) bool {
 		graphNode := &graphNode{
 			Attrs: map[string]string{},

@@ -63,7 +63,7 @@ func T(n *IAVLNode) *IAVLTree {
 	d := db.NewDB("test", db.MemDBBackendStr, "")
 	t := NewIAVLTree(0, d)
 
-	n.hashWithCount(t)
+	n.hashWithCount()
 	t.root = n
 	return t
 }

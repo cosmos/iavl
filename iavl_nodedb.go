@@ -75,7 +75,7 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 
 	// Save node bytes to db
 	buf := new(bytes.Buffer)
-	if _, err := node.writePersistBytes(buf); err != nil {
+	if _, err := node.writeBytes(buf); err != nil {
 		cmn.PanicCrisis(err)
 	}
 	ndb.batch.Set(node.hash, buf.Bytes())

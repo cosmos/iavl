@@ -179,7 +179,7 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 	if t.root == nil {
 		return nil, nil, ErrNilRoot
 	}
-	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
 	path, value, err := t.root.pathToKey(t, key)
 	if err != nil {
@@ -197,7 +197,7 @@ func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
 		return nil, ErrNilRoot
 	}
-	t.root.hashWithCount(t) // Ensure that all hashes are calculated.
+	t.root.hashWithCount() // Ensure that all hashes are calculated.
 	proof := &KeyAbsentProof{
 		RootHash: t.root.hash,
 	}

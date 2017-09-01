@@ -65,7 +65,7 @@ func (t *IAVLTree) Copy() *IAVLTree {
 	} else if t.ndb == nil && t.root.hash == nil {
 		// An in-memory IAVLTree is finalized when the hashes are
 		// calculated.
-		t.root.hashWithCount(t)
+		t.root.hashWithCount()
 	}
 	return &IAVLTree{
 		root: t.root,
@@ -112,7 +112,7 @@ func (t *IAVLTree) Hash() []byte {
 	if t.root == nil {
 		return nil
 	}
-	hash, _ := t.root.hashWithCount(t)
+	hash, _ := t.root.hashWithCount()
 	return hash
 }
 
@@ -120,7 +120,7 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	if t.root == nil {
 		return nil, 0
 	}
-	return t.root.hashWithCount(t)
+	return t.root.hashWithCount()
 }
 
 func (t *IAVLTree) Save() []byte {

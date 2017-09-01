@@ -160,14 +160,14 @@ func (node *IAVLNode) getByIndex(t *IAVLTree, index int) (key []byte, value []by
 }
 
 // NOTE: sets hashes recursively
-func (node *IAVLNode) hashWithCount(t *IAVLTree) ([]byte, int) {
+func (node *IAVLNode) hashWithCount() ([]byte, int) {
 	if node.hash != nil {
 		return node.hash, 0
 	}
 
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	_, hashCount, err := node.writeHashBytes(t, buf)
+	_, hashCount, err := node.writeHashBytes(buf)
 	if err != nil {
 		cmn.PanicCrisis(err)
 	}
@@ -177,12 +177,13 @@ func (node *IAVLNode) hashWithCount(t *IAVLTree) ([]byte, int) {
 	return node.hash, hashCount + 1
 }
 
-// NOTE: sets hashes recursively
-func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount int, err error) {
+// Writes the node's hash to the given io.Writer.
+// This function has the side-effect of computing and setting the hashes of all descendant nodes.
+func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err error) {
 	// height & size
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
-	// key is not written for inner nodes, unlike writePersistBytes
+	// key is not written for inner nodes, unlike writeBytes
 
 	if node.isLeaf() {
 		// key & value
@@ -191,7 +192,7 @@ func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount
 	} else {
 		// left
 		if node.leftNode != nil {
-			leftHash, leftCount := node.leftNode.hashWithCount(t)
+			leftHash, leftCount := node.leftNode.hashWithCount()
 			node.leftHash = leftHash
 			hashCount += leftCount
 		}
@@ -202,7 +203,7 @@ func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount
 
 		// right
 		if node.rightNode != nil {
-			rightHash, rightCount := node.rightNode.hashWithCount(t)
+			rightHash, rightCount := node.rightNode.hashWithCount()
 			node.rightHash = rightHash
 			hashCount += rightCount
 		}
@@ -218,7 +219,7 @@ func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount
 // NOTE: sets hashes recursively
 func (node *IAVLNode) save(t *IAVLTree) {
 	if node.hash == nil {
-		node.hash, _ = node.hashWithCount(t)
+		node.hash, _ = node.hashWithCount()
 	}
 	if node.persisted {
 		return
@@ -240,7 +241,7 @@ func (node *IAVLNode) save(t *IAVLTree) {
 }
 
 // NOTE: sets hashes recursively
-func (node *IAVLNode) writePersistBytes(w io.Writer) (n int, err error) {
+func (node *IAVLNode) writeBytes(w io.Writer) (n int, err error) {
 	// node header
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
@@ -253,12 +254,12 @@ func (node *IAVLNode) writePersistBytes(w io.Writer) (n int, err error) {
 	} else {
 		// left
 		if node.leftHash == nil {
-			cmn.PanicSanity("node.leftHash was nil in writePersistBytes")
+			cmn.PanicSanity("node.leftHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
 		// right
 		if node.rightHash == nil {
-			cmn.PanicSanity("node.rightHash was nil in writePersistBytes")
+			cmn.PanicSanity("node.rightHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.rightHash, w, &n, &err)
 	}
