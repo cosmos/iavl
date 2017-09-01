@@ -10,8 +10,7 @@ import (
 	. "github.com/tendermint/tmlibs/common"
 )
 
-// Node
-
+// IAVLNode represents a node in an IAVLTree.
 type IAVLNode struct {
 	key       []byte
 	value     []byte
@@ -34,44 +33,48 @@ func NewIAVLNode(key []byte, value []byte) *IAVLNode {
 	}
 }
 
+// MakeIAVLNode constructs an *IAVLNode from an encoded byte slice.
 // NOTE: The hash is not saved or set.  The caller should set the hash afterwards.
-// (Presumably the caller already has the hash)
-func MakeIAVLNode(buf []byte, t *IAVLTree) (node *IAVLNode, err error) {
+func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 	node = &IAVLNode{}
 
-	// node header
+	// Read node header.
+
 	node.height = int8(buf[0])
-	buf = buf[1:]
-	var n int
+
+	n := 1 // Keeps track of bytes read.
+	buf = buf[n:]
+
 	node.size, n, err = wire.GetVarint(buf)
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[n:]
+
 	node.key, n, err = wire.GetByteSlice(buf)
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[n:]
-	if node.height == 0 {
-		// value
+
+	// Read node body.
+
+	if node.isLeaf() {
 		node.value, n, err = wire.GetByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
-		buf = buf[n:]
-	} else {
-		// children
+	} else { // Read children.
 		leftHash, n, err := wire.GetByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
 		buf = buf[n:]
-		rightHash, n, err := wire.GetByteSlice(buf)
+
+		rightHash, _, err := wire.GetByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
-		buf = buf[n:]
 		node.leftHash = leftHash
 		node.rightHash = rightHash
 	}
@@ -79,7 +82,7 @@ func MakeIAVLNode(buf []byte, t *IAVLTree) (node *IAVLNode, err error) {
 }
 
 func (node *IAVLNode) _copy() *IAVLNode {
-	if node.height == 0 {
+	if node.isLeaf() {
 		PanicSanity("Why are you copying a value node?")
 	}
 	return &IAVLNode{
@@ -95,45 +98,49 @@ func (node *IAVLNode) _copy() *IAVLNode {
 	}
 }
 
+func (node *IAVLNode) isLeaf() bool {
+	return node.height == 0
+}
+
+// Check if the node has a descendant with the given key.
 func (node *IAVLNode) has(t *IAVLTree, key []byte) (has bool) {
-	if bytes.Compare(node.key, key) == 0 {
+	if bytes.Equal(node.key, key) {
 		return true
 	}
-	if node.height == 0 {
+	if node.isLeaf() {
 		return false
+	}
+	if bytes.Compare(key, node.key) < 0 {
+		return node.getLeftNode(t).has(t, key)
 	} else {
-		if bytes.Compare(key, node.key) < 0 {
-			return node.getLeftNode(t).has(t, key)
-		} else {
-			return node.getRightNode(t).has(t, key)
-		}
+		return node.getRightNode(t).has(t, key)
 	}
 }
 
 func (node *IAVLNode) get(t *IAVLTree, key []byte) (index int, value []byte, exists bool) {
-	if node.height == 0 {
-		cmp := bytes.Compare(node.key, key)
-		if cmp == 0 {
-			return 0, node.value, true
-		} else if cmp == -1 {
+	if node.isLeaf() {
+		switch bytes.Compare(node.key, key) {
+		case -1:
 			return 1, nil, false
-		} else {
+		case 1:
 			return 0, nil, false
+		default:
+			return 0, node.value, true
 		}
+	}
+
+	if bytes.Compare(key, node.key) < 0 {
+		return node.getLeftNode(t).get(t, key)
 	} else {
-		if bytes.Compare(key, node.key) < 0 {
-			return node.getLeftNode(t).get(t, key)
-		} else {
-			rightNode := node.getRightNode(t)
-			index, value, exists = rightNode.get(t, key)
-			index += node.size - rightNode.size
-			return index, value, exists
-		}
+		rightNode := node.getRightNode(t)
+		index, value, exists = rightNode.get(t, key)
+		index += node.size - rightNode.size
+		return index, value, exists
 	}
 }
 
 func (node *IAVLNode) getByIndex(t *IAVLTree, index int) (key []byte, value []byte) {
-	if node.height == 0 {
+	if node.isLeaf() {
 		if index == 0 {
 			return node.key, node.value
 		} else {
@@ -177,7 +184,7 @@ func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount
 	wire.WriteVarint(node.size, w, &n, &err)
 	// key is not written for inner nodes, unlike writePersistBytes
 
-	if node.height == 0 {
+	if node.isLeaf() {
 		// key & value
 		wire.WriteByteSlice(node.key, w, &n, &err)
 		wire.WriteByteSlice(node.value, w, &n, &err)
@@ -192,6 +199,7 @@ func (node *IAVLNode) writeHashBytes(t *IAVLTree, w io.Writer) (n int, hashCount
 			PanicSanity("node.leftHash was nil in writeHashBytes")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
+
 		// right
 		if node.rightNode != nil {
 			rightHash, rightCount := node.rightNode.hashWithCount(t)
@@ -227,19 +235,19 @@ func (node *IAVLNode) save(t *IAVLTree) {
 	}
 
 	// save node
-	t.ndb.SaveNode(t, node)
+	t.ndb.SaveNode(node)
 	return
 }
 
 // NOTE: sets hashes recursively
-func (node *IAVLNode) writePersistBytes(t *IAVLTree, w io.Writer) (n int, err error) {
+func (node *IAVLNode) writePersistBytes(w io.Writer) (n int, err error) {
 	// node header
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
 	// key (unlike writeHashBytes, key is written for inner nodes)
 	wire.WriteByteSlice(node.key, w, &n, &err)
 
-	if node.height == 0 {
+	if node.isLeaf() {
 		// value
 		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
@@ -258,9 +266,9 @@ func (node *IAVLNode) writePersistBytes(t *IAVLTree, w io.Writer) (n int, err er
 }
 
 func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLNode, updated bool) {
-	if node.height == 0 {
-		cmp := bytes.Compare(key, node.key)
-		if cmp < 0 {
+	if node.isLeaf() {
+		switch bytes.Compare(key, node.key) {
+		case -1:
 			return &IAVLNode{
 				key:       node.key,
 				height:    1,
@@ -268,10 +276,7 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 				leftNode:  NewIAVLNode(key, value),
 				rightNode: node,
 			}, false
-		} else if cmp == 0 {
-			removeOrphan(t, node)
-			return NewIAVLNode(key, value), true
-		} else {
+		case 1:
 			return &IAVLNode{
 				key:       key,
 				height:    1,
@@ -279,6 +284,9 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 				leftNode:  node,
 				rightNode: NewIAVLNode(key, value),
 			}, false
+		default:
+			removeOrphan(t, node)
+			return NewIAVLNode(key, value), true
 		}
 	} else {
 		removeOrphan(t, node)
@@ -304,8 +312,8 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 // value: removed value.
 func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, removed bool) {
-	if node.height == 0 {
-		if bytes.Compare(key, node.key) == 0 {
+	if node.isLeaf() {
+		if bytes.Equal(key, node.key) {
 			removeOrphan(t, node)
 			return nil, nil, nil, node.value, true
 		} else {
@@ -352,17 +360,15 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 func (node *IAVLNode) getLeftNode(t *IAVLTree) *IAVLNode {
 	if node.leftNode != nil {
 		return node.leftNode
-	} else {
-		return t.ndb.GetNode(t, node.leftHash)
 	}
+	return t.ndb.GetNode(node.leftHash)
 }
 
 func (node *IAVLNode) getRightNode(t *IAVLTree) *IAVLNode {
 	if node.rightNode != nil {
 		return node.rightNode
-	} else {
-		return t.ndb.GetNode(t, node.rightHash)
 	}
+	return t.ndb.GetNode(node.rightHash)
 }
 
 // NOTE: overwrites node
@@ -456,10 +462,10 @@ func (node *IAVLNode) traverse(t *IAVLTree, ascending bool, cb func(*IAVLNode) b
 }
 
 func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending bool, inclusive bool, cb func(*IAVLNode) bool) bool {
-	afterStart := (start == nil || bytes.Compare(start, node.key) <= 0)
-	beforeEnd := (end == nil || bytes.Compare(node.key, end) < 0)
+	afterStart := start == nil || bytes.Compare(start, node.key) <= 0
+	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
 	if inclusive {
-		beforeEnd = (end == nil || bytes.Compare(node.key, end) <= 0)
+		beforeEnd = end == nil || bytes.Compare(node.key, end) <= 0
 	}
 
 	stop := false
@@ -470,30 +476,31 @@ func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending 
 	if stop {
 		return stop
 	}
+	if node.isLeaf() {
+		return stop
+	}
 
-	if node.height > 0 {
-		if ascending {
-			// check lower nodes, then higher
-			if afterStart {
-				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
-			}
-			if stop {
-				return stop
-			}
-			if beforeEnd {
-				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
-			}
-		} else {
-			// check the higher nodes first
-			if beforeEnd {
-				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
-			}
-			if stop {
-				return stop
-			}
-			if afterStart {
-				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
-			}
+	if ascending {
+		// check lower nodes, then higher
+		if afterStart {
+			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+		}
+		if stop {
+			return stop
+		}
+		if beforeEnd {
+			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+		}
+	} else {
+		// check the higher nodes first
+		if beforeEnd {
+			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+		}
+		if stop {
+			return stop
+		}
+		if afterStart {
+			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
 		}
 	}
 
@@ -502,7 +509,7 @@ func (node *IAVLNode) traverseInRange(t *IAVLTree, start, end []byte, ascending 
 
 // Only used in testing...
 func (node *IAVLNode) lmd(t *IAVLTree) *IAVLNode {
-	if node.height == 0 {
+	if node.isLeaf() {
 		return node
 	}
 	return node.getLeftNode(t).lmd(t)
@@ -510,7 +517,7 @@ func (node *IAVLNode) lmd(t *IAVLTree) *IAVLNode {
 
 // Only used in testing...
 func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
-	if node.height == 0 {
+	if node.isLeaf() {
 		return node
 	}
 	return node.getRightNode(t).rmd(t)

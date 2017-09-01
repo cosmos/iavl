@@ -111,7 +111,7 @@ func overallMapping(value []byte) (str string) {
 	}()
 
 	// test to see if this is a node
-	node, err := MakeIAVLNode(value, nil)
+	node, err := MakeIAVLNode(value)
 
 	if err == nil && node.height < 100 && node.key != nil {
 		return nodeMapping(node)

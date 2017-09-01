@@ -143,7 +143,7 @@ func (t *IAVLTree) Load(hash []byte) {
 	if len(hash) == 0 {
 		t.root = nil
 	} else {
-		t.root = t.ndb.GetNode(t, hash)
+		t.root = t.ndb.GetNode(hash)
 	}
 }
 
@@ -205,7 +205,7 @@ func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
 		return nil, false
 	}
 	if newRoot == nil && newRootHash != nil {
-		t.root = t.ndb.GetNode(t, newRootHash)
+		t.root = t.ndb.GetNode(newRootHash)
 	} else {
 		t.root = newRoot
 	}
@@ -281,7 +281,7 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 	return ndb
 }
 
-func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
+func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	// Check the cache.
@@ -297,7 +297,7 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 			// ndb.db.Print()
 			PanicSanity(Fmt("Value missing for key %X", hash))
 		}
-		node, err := MakeIAVLNode(buf, t)
+		node, err := MakeIAVLNode(buf)
 		if err != nil {
 			PanicCrisis(Fmt("Error reading IAVLNode. bytes: %X  error: %v", buf, err))
 		}
@@ -308,7 +308,7 @@ func (ndb *nodeDB) GetNode(t *IAVLTree, hash []byte) *IAVLNode {
 	}
 }
 
-func (ndb *nodeDB) SaveNode(t *IAVLTree, node *IAVLNode) {
+func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	if node.hash == nil {
@@ -322,7 +322,7 @@ func (ndb *nodeDB) SaveNode(t *IAVLTree, node *IAVLNode) {
 	}*/
 	// Save node bytes to db
 	buf := bytes.NewBuffer(nil)
-	_, err := node.writePersistBytes(t, buf)
+	_, err := node.writePersistBytes(buf)
 	if err != nil {
 		PanicCrisis(err)
 	}
