@@ -24,11 +24,11 @@ func (p *PathToKey) String() string {
 // verify check that the leafNode's hash matches the path's LeafHash and that
 // the root is the merkle hash of all the inner nodes.
 func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
-	leafHash := leafNode.Hash()
+	hash := leafNode.Hash()
 	for _, branch := range p.InnerNodes {
-		leafHash = branch.Hash(leafHash)
+		hash = branch.Hash(hash)
 	}
-	if !bytes.Equal(root, leafHash) {
+	if !bytes.Equal(root, hash) {
 		return ErrInvalidProof()
 	}
 	return nil
