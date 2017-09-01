@@ -1,8 +1,7 @@
-GOTOOLS = \
-					github.com/mitchellh/gox \
-					github.com/Masterminds/glide
+GOTOOLS := github.com/mitchellh/gox \
+           github.com/Masterminds/glide
 
-PDFFLAGS=-pdf --nodefraction=0.1
+PDFFLAGS := -pdf --nodefraction=0.1
 
 all: get_vendor_deps test
 
