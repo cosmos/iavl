@@ -93,7 +93,7 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 
 // NOTE: clears leftNode/rigthNode recursively
 // NOTE: sets hashes recursively
-func (ndb *nodeDB) SaveBranch(node *IAVLNode) {
+func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64) {
 	if node.hash == nil {
 		node.hash, _ = node.hashWithCount()
 	}
@@ -103,19 +103,21 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode) {
 
 	// save children
 	if node.leftNode != nil {
-		ndb.SaveBranch(node.leftNode)
+		ndb.SaveBranch(node.leftNode, version)
 		node.leftNode = nil
 	}
 	if node.rightNode != nil {
-		ndb.SaveBranch(node.rightNode)
+		ndb.SaveBranch(node.rightNode, version)
 		node.rightNode = nil
 	}
 
 	// save node
+	node.version = version
 	ndb.SaveNode(node)
 }
 
-func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
+// Saves orphaned nodes to disk under a special prefix.
+func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode, version uint64) {
 	// TODO
 }
 

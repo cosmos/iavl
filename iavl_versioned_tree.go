@@ -30,6 +30,7 @@ func (tree *IAVLVersionedTree) GetVersion(key []byte, version uint64) (
 
 func (tree *IAVLVersionedTree) ReleaseVersion(version uint64) {
 	if _, ok := tree.versions[version]; ok {
+		tree.versions[version].Release()
 		delete(tree.versions, version)
 	}
 }
@@ -49,6 +50,7 @@ func (tree *IAVLVersionedTree) Remove(key []byte) {
 }
 
 func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
+	tree.head.version = version
 	tree.head.Save()
 	tree.versions[version] = tree.head
 	tree.head = tree.head.Copy()
