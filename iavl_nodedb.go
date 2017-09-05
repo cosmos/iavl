@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"container/list"
 	"fmt"
+	"sort"
 	"sync"
 
 	cmn "github.com/tendermint/tmlibs/common"
@@ -220,19 +221,23 @@ func (ndb *nodeDB) size() int {
 
 func (ndb *nodeDB) traverse(fn func(hash []byte, node *IAVLNode)) {
 	it := ndb.db.Iterator()
+	nodes := []*IAVLNode{}
 
 	for it.Next() {
-		v := it.Value()
-
-		if len(v) > 0 {
-			node, err := MakeIAVLNode(it.Value())
-			if err != nil {
-				cmn.PanicSanity("Couldn't decode node from database")
-			}
-			fn(it.Key(), node)
-		} else {
-			fn(it.Key(), nil)
+		node, err := MakeIAVLNode(it.Value())
+		if err != nil {
+			cmn.PanicSanity("Couldn't decode node from database")
 		}
+		node.hash = it.Key()
+		nodes = append(nodes, node)
+	}
+
+	sort.Slice(nodes, func(i, j int) bool {
+		return bytes.Compare(nodes[i].hash, nodes[j].hash) < 0
+	})
+
+	for _, n := range nodes {
+		fn(n.hash, n)
 	}
 }
 
