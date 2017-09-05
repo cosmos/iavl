@@ -5,8 +5,10 @@ import (
 	"container/list"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
+	wire "github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
@@ -117,13 +119,67 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64) {
 	ndb.SaveNode(node)
 }
 
+var orphansKeyFmt = "orphans/%d"
+
 // Saves orphaned nodes to disk under a special prefix.
 func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode, version uint64) {
-	// TODO
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	var err error
+	var n int
+
+	w := new(bytes.Buffer)
+
+	wire.WriteVarint(len(orphans), w, &n, &err)
+	for _, node := range orphans {
+		if len(node.hash) == 0 {
+			cmn.PanicSanity("Hash should not be empty")
+		}
+		wire.WriteByteSlice(node.hash, w, &n, &err)
+	}
+	if err != nil {
+		cmn.PanicSanity("Error writing byte-slice:" + err.Error())
+	}
+	ndb.db.Set([]byte(fmt.Sprintf(orphansKeyFmt, version)), w.Bytes())
 }
 
-// Releases orphaned nodes from disk.
-func (ndb *nodeDB) ReleaseOrphans(version uint64) {
+func (ndb *nodeDB) DeleteOrphans(version uint64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	orphans := ndb.getOrphans(version)
+
+	for _, hash := range orphans {
+		ndb.batch.Delete(hash)
+	}
+}
+
+func (ndb *nodeDB) getOrphans(version uint64) [][]byte {
+	key := fmt.Sprintf(orphansKeyFmt, version)
+	buf := ndb.db.Get([]byte(key))
+
+	count, n, err := wire.GetVarint(buf)
+	if err != nil {
+		cmn.PanicSanity(err.Error())
+	}
+	buf = buf[n:]
+
+	orphans := make([][]byte, count)
+
+	for i := 0; i < count; i++ {
+		bytes, n, err := wire.GetByteSlice(buf)
+		if err != nil {
+			cmn.PanicSanity(err.Error())
+		}
+		buf = buf[n:]
+		orphans[i] = bytes
+	}
+	return orphans
+}
+
+// Releases nodes of a specific version from disk.
+func (ndb *nodeDB) ReleaseVersion(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -224,6 +280,9 @@ func (ndb *nodeDB) traverse(fn func(hash []byte, node *IAVLNode)) {
 	nodes := []*IAVLNode{}
 
 	for it.Next() {
+		if strings.HasPrefix(string(it.Key()), "orphans/") {
+			continue
+		}
 		node, err := MakeIAVLNode(it.Value())
 		if err != nil {
 			cmn.PanicSanity("Couldn't decode node from database")

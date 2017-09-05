@@ -53,7 +53,7 @@ func TestVersionedTree(t *testing.T) {
 	// -----------
 
 	nodes2 := tree.head.ndb.leafNodes()
-	require.Len(nodes2, 5, "db should have grown in size")
+	require.Len(nodes2, 5, "db should have grown in size\n%s", tree.head.ndb.String())
 
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))

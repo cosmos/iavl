@@ -72,6 +72,7 @@ func (t *IAVLTree) Copy() *IAVLTree {
 	return &IAVLTree{
 		root: t.root,
 		ndb:  t.ndb,
+		// TODO: Copy orphans?
 	}
 }
 
@@ -137,8 +138,8 @@ func (t *IAVLTree) Save() []byte {
 		return nil
 	}
 	if t.ndb != nil {
-		t.ndb.SaveBranch(t.root, t.version)
 		t.ndb.SaveOrphans(t.orphans, t.version)
+		t.ndb.SaveBranch(t.root, t.version)
 		t.ndb.Commit()
 	}
 	return t.root.hash
@@ -155,7 +156,8 @@ func (t *IAVLTree) Load(hash []byte) {
 }
 
 func (t *IAVLTree) Release() {
-	t.ndb.ReleaseOrphans(t.version)
+	t.ndb.DeleteOrphans(t.version)
+	t.ndb.Commit()
 }
 
 // Get returns the index and value of the specified key if it exists, or nil
