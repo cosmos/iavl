@@ -152,6 +152,7 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 
 	for _, hash := range orphans {
 		ndb.batch.Delete(hash)
+		ndb.uncacheNode(hash)
 	}
 }
 
@@ -191,11 +192,15 @@ func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
 		cmn.PanicSanity("Shouldn't be calling remove on a non-persisted node.")
 	}
 
-	if elem, ok := ndb.cache[string(node.hash)]; ok {
-		ndb.cacheQueue.Remove(elem)
-		delete(ndb.cache, string(node.hash))
-	}
+	ndb.uncacheNode(node.hash)
 	ndb.orphans[string(node.hash)] = struct{}{}
+}
+
+func (ndb *nodeDB) uncacheNode(hash []byte) {
+	if elem, ok := ndb.cache[string(hash)]; ok {
+		ndb.cacheQueue.Remove(elem)
+		delete(ndb.cache, string(hash))
+	}
 }
 
 // Add a node to the cache and pop the least recently used node if we've
