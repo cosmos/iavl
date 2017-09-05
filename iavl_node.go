@@ -248,7 +248,7 @@ func (node *IAVLNode) writeBytes(w io.Writer) (n int, err error) {
 	return
 }
 
-func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLNode, updated bool) {
+func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLNode, updated bool, orphaned []*IAVLNode) {
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1:
@@ -258,7 +258,7 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 				size:      2,
 				leftNode:  NewIAVLNode(key, value),
 				rightNode: node,
-			}, false
+			}, false, []*IAVLNode{}
 		case 1:
 			return &IAVLNode{
 				key:       key,
@@ -266,26 +266,27 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 				size:      2,
 				leftNode:  node,
 				rightNode: NewIAVLNode(key, value),
-			}, false
+			}, false, []*IAVLNode{}
 		default:
-			removeOrphan(t, node)
-			return NewIAVLNode(key, value), true
+			return NewIAVLNode(key, value), true, []*IAVLNode{node}
 		}
 	} else {
-		removeOrphan(t, node)
+		// removeOrphan(t, node)
 		node = node._copy()
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated = node.getLeftNode(t).set(t, key, value)
+			node.leftNode, updated, orphaned = node.getLeftNode(t).set(t, key, value)
 			node.leftHash = nil // leftHash is yet unknown
 		} else {
-			node.rightNode, updated = node.getRightNode(t).set(t, key, value)
+			node.rightNode, updated, orphaned = node.getRightNode(t).set(t, key, value)
 			node.rightHash = nil // rightHash is yet unknown
 		}
+		orphaned = append(orphaned, node)
+
 		if updated {
-			return node, updated
+			return node, updated, orphaned
 		} else {
 			node.calcHeightAndSize(t)
-			return node.balance(t), updated
+			return node.balance(t), updated, orphaned
 		}
 	}
 }

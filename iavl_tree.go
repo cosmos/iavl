@@ -15,8 +15,10 @@ Immutable AVL Tree (wraps the Node root)
 This tree is not goroutine safe.
 */
 type IAVLTree struct {
-	root *IAVLNode
-	ndb  *nodeDB
+	root    *IAVLNode
+	ndb     *nodeDB
+	version uint64
+	orphans []*IAVLNode
 }
 
 // NewIAVLTree creates both im-memory and persistent instances
@@ -99,7 +101,14 @@ func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
 		t.root = NewIAVLNode(key, value)
 		return false
 	}
-	t.root, updated = t.root.set(t, key, value)
+
+	var orphaned []*IAVLNode
+	t.root, updated, orphaned = t.root.set(t, key, value)
+	// TODO: We should never overwrite an already orphaned key, since the first
+	// orphaned key represent the actual value that was written. The ones after
+	// are transient and will never be remembered.
+	t.orphans = append(t.orphans, orphaned...)
+
 	return updated
 }
 
@@ -129,6 +138,7 @@ func (t *IAVLTree) Save() []byte {
 	}
 	if t.ndb != nil {
 		t.ndb.SaveBranch(t.root)
+		t.ndb.SaveOrphans(t.orphans)
 		t.ndb.Commit()
 	}
 	return t.root.hash

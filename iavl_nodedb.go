@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"container/list"
+	"fmt"
 	"sync"
 
 	cmn "github.com/tendermint/tmlibs/common"
@@ -114,6 +115,10 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode) {
 	ndb.SaveNode(node)
 }
 
+func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
+	// TODO
+}
+
 // Remove a node from cache and add it to the list of orphans, to be deleted
 // on the next call to Commit.
 func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
@@ -158,9 +163,82 @@ func (ndb *nodeDB) Commit() {
 	}
 	// Write saves & orphan deletes
 	ndb.batch.Write()
-	ndb.db.SetSync(nil, nil)
+
+	// WTF is this.
+	// ndb.db.SetSync(nil, nil)
+
 	ndb.batch = ndb.db.NewBatch()
 	// Shift orphans
 	ndb.orphansPrev = ndb.orphans
 	ndb.orphans = make(map[string]struct{})
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+func (ndb *nodeDB) keys() [][]byte {
+	it := ndb.db.Iterator()
+	keys := [][]byte{}
+
+	for it.Next() {
+		keys = append(keys, it.Key())
+	}
+	return keys
+}
+
+func (ndb *nodeDB) leafNodes() []*IAVLNode {
+	leaves := []*IAVLNode{}
+
+	ndb.traverse(func(hash []byte, node *IAVLNode) {
+		if node.isLeaf() {
+			leaves = append(leaves, node)
+		}
+	})
+	return leaves
+}
+
+func (ndb *nodeDB) size() int {
+	it := ndb.db.Iterator()
+	size := 0
+
+	for it.Next() {
+		size++
+	}
+	return size
+}
+
+func (ndb *nodeDB) traverse(fn func(hash []byte, node *IAVLNode)) {
+	it := ndb.db.Iterator()
+
+	for it.Next() {
+		v := it.Value()
+
+		if len(v) > 0 {
+			node, err := MakeIAVLNode(it.Value())
+			if err != nil {
+				cmn.PanicSanity("Couldn't decode node from database")
+			}
+			fn(it.Key(), node)
+		} else {
+			fn(it.Key(), nil)
+		}
+	}
+}
+
+func (ndb *nodeDB) String() string {
+	var str string
+	index := 0
+
+	ndb.traverse(func(hash []byte, node *IAVLNode) {
+		if len(hash) == 0 {
+			str += fmt.Sprintf("%d: <nil>\n", index)
+		} else if node == nil {
+			str += fmt.Sprintf("%d: %40x: <nil>\n", index, hash)
+		} else if node.value == nil && node.height > 0 {
+			str += fmt.Sprintf("%d: %40x: %s   %-16s h=%d version=%d\n", index, hash, node.key, "", node.height, node.version)
+		} else {
+			str += fmt.Sprintf("%d: %40x: %s = %-16s h=%d version=%d\n", index, hash, node.key, node.value, node.height, node.version)
+		}
+		index++
+	})
+	return "-" + "\n" + str + "-"
 }

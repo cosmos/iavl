@@ -28,6 +28,12 @@ func (tree *IAVLVersionedTree) GetVersion(key []byte, version uint64) (
 	return -1, nil, false
 }
 
+func (tree *IAVLVersionedTree) ReleaseVersion(version uint64) {
+	if _, ok := tree.versions[version]; ok {
+		delete(tree.versions, version)
+	}
+}
+
 func (tree *IAVLVersionedTree) Get(key []byte) (
 	index int, value []byte, exists bool,
 ) {
