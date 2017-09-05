@@ -178,14 +178,6 @@ func (ndb *nodeDB) getOrphans(version uint64) [][]byte {
 	return orphans
 }
 
-// Releases nodes of a specific version from disk.
-func (ndb *nodeDB) ReleaseVersion(version uint64) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	// TODO
-}
-
 // Remove a node from cache and add it to the list of orphans, to be deleted
 // on the next call to Commit.
 func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
