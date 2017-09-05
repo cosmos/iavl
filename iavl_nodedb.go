@@ -157,10 +157,12 @@ func (ndb *nodeDB) Commit() {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	// TODO: New method required.
 	// Delete orphans from previous block
-	for orphanHashStr, _ := range ndb.orphansPrev {
-		ndb.batch.Delete([]byte(orphanHashStr))
-	}
+	// for orphanHashStr, _ := range ndb.orphansPrev {
+	// 	ndb.batch.Delete([]byte(orphanHashStr))
+	// }
+
 	// Write saves & orphan deletes
 	ndb.batch.Write()
 

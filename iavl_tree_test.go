@@ -26,6 +26,11 @@ func TestVersionedTree(t *testing.T) {
 
 	tree.SaveVersion(1)
 
+	// -----1-----
+	// key1 = val0
+	// key2 = val0
+	// -----------
+
 	nodes1 := tree.head.ndb.leafNodes()
 	require.Len(nodes1, 2, "db should have a size of 2")
 
@@ -38,25 +43,47 @@ func TestVersionedTree(t *testing.T) {
 
 	tree.SaveVersion(2)
 
+	// -----1-----
+	// key1 = val0
+	// key2 = val0
+	// -----2-----
+	// key1 = val1
+	// key2 = val1
+	// key3 = val1
+	// -----------
+
 	nodes2 := tree.head.ndb.leafNodes()
 	require.Len(nodes2, 5, "db should have grown in size")
-
-	// version  2
 
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 
 	tree.SaveVersion(3)
-	nodes3 := tree.head.ndb.leafNodes()
 
-	// version 3
+	// -----1-----
+	// key1 = val0
+	// key2 = val0
+	// -----2-----
+	// key1 = val1  <orphaned> (removal)
+	// key2 = val1  <orphaned> (replaced)
+	// key3 = val1
+	// -----3-----
+	// key2 = val2
+	// -----------
+
+	nodes3 := tree.head.ndb.leafNodes()
+	require.Len(nodes3, 6, "wrong number of nodes\n%s", tree.head.ndb.String())
+
+	// TODO: Test orphan count (2).
 
 	tree.SaveVersion(4)
 
+	// ------------
+	// DB UNCHANGED
+	// ------------
+
 	nodes4 := tree.head.ndb.leafNodes()
 	require.Len(nodes4, len(nodes3), "db should not have changed in size\n%s", tree.head.ndb.String())
-
-	// version 4
 
 	tree.Set([]byte("key1"), []byte("val0"))
 
@@ -104,10 +131,20 @@ func TestVersionedTree(t *testing.T) {
 
 	// Release a version. After this the keys in that version should not be found.
 
-	prev := tree.head.ndb.String()
+	before := tree.head.ndb.String()
 	tree.ReleaseVersion(2)
+
+	// -----1-----
+	// key1 = val0
+	// key2 = val0
+	// -----2-----
+	// key3 = val1
+	// -----3-----
+	// key2 = val2
+	// -----------
+
 	nodes5 := tree.head.ndb.leafNodes()
-	require.True(len(nodes5) < len(nodes4), "db should have shrunk in size\n%s\nvs.\n%s", prev, tree.head.ndb.String())
+	require.Len(nodes5, 4, "db should have shrunk after release\n%s\nvs.\n%s", before, tree.head.ndb.String())
 
 	_, val, exists = tree.GetVersion([]byte("key2"), 2)
 	require.False(exists)
