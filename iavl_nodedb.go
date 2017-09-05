@@ -121,6 +121,14 @@ func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode, version uint64) {
 	// TODO
 }
 
+// Releases orphaned nodes from disk.
+func (ndb *nodeDB) ReleaseOrphans(version uint64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	// TODO
+}
+
 // Remove a node from cache and add it to the list of orphans, to be deleted
 // on the next call to Commit.
 func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
