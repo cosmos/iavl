@@ -19,6 +19,10 @@ var (
 	orphansPrefix    = "orphans/"
 	orphansPrefixFmt = "orphans/%d/"
 	orphansKeyFmt    = "orphans/%d/%x"
+
+	// roots/<version>
+	rootsPrefix    = "roots/"
+	rootsPrefixFmt = "roots/%d"
 )
 
 type nodeDB struct {
@@ -158,7 +162,10 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 
 func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) {
 	prefix := fmt.Sprintf(orphansPrefixFmt, version)
+	ndb.traversePrefix([]byte(prefix), fn)
+}
 
+func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		// TODO: Test this code path.
 		it := ldb.DB().NewIterator(util.BytesPrefix([]byte(prefix)), nil)
@@ -171,7 +178,7 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 		}
 	} else {
 		ndb.traverse(func(key, value []byte) {
-			if strings.HasPrefix(string(key), prefix) {
+			if strings.HasPrefix(string(key), string(prefix)) {
 				fn(key, value)
 			}
 		})
@@ -208,7 +215,12 @@ func (ndb *nodeDB) Commit() {
 }
 
 func (ndb *nodeDB) getRoots() ([][]byte, error) {
-	return nil, nil
+	roots := [][]byte{}
+
+	ndb.traversePrefix([]byte(rootsPrefix), func(k, v []byte) {
+		roots = append(roots, v)
+	})
+	return roots, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////
