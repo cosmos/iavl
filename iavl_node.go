@@ -93,6 +93,7 @@ func (node *IAVLNode) _copy() *IAVLNode {
 	return &IAVLNode{
 		key:       node.key,
 		height:    node.height,
+		version:   node.version,
 		size:      node.size,
 		hash:      nil, // Going to be mutated anyways.
 		leftHash:  node.leftHash,

@@ -156,6 +156,9 @@ func (t *IAVLTree) Load(hash []byte) {
 }
 
 func (t *IAVLTree) Release() {
+	t.orphans = []*IAVLNode{}
+	t.root.leftNode = nil
+	t.root.rightNode = nil
 	t.ndb.DeleteOrphans(t.version)
 	t.ndb.Commit()
 }
