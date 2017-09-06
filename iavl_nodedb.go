@@ -10,7 +10,6 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb/util"
 
-	wire "github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
@@ -177,30 +176,6 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 			}
 		})
 	}
-}
-
-// DEPRECATED.
-func (ndb *nodeDB) getOrphans(version uint64) [][]byte {
-	key := fmt.Sprintf(orphansKeyFmt, version)
-	buf := ndb.db.Get([]byte(key))
-
-	count, n, err := wire.GetVarint(buf)
-	if err != nil {
-		cmn.PanicSanity(err.Error())
-	}
-	buf = buf[n:]
-
-	orphans := make([][]byte, count)
-
-	for i := 0; i < count; i++ {
-		bytes, n, err := wire.GetByteSlice(buf)
-		if err != nil {
-			cmn.PanicSanity(err.Error())
-		}
-		buf = buf[n:]
-		orphans[i] = bytes
-	}
-	return orphans
 }
 
 func (ndb *nodeDB) uncacheNode(hash []byte) {
