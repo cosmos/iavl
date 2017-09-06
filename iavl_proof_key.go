@@ -41,9 +41,8 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
 func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
-	// TODO: make go-wire never panic
-	n, err := int(0), error(nil)
-	proof := wire.ReadBinary(&KeyExistsProof{}, bytes.NewBuffer(data), proofLimit, &n, &err).(*KeyExistsProof)
+	proof := new(KeyExistsProof)
+	err := wire.ReadBinaryBytes(data, &proof)
 	return proof, err
 }
 
