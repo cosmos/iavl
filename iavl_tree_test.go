@@ -42,6 +42,7 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(tree.head.ndb.leafNodes(), len(nodes1))
 
 	tree.SaveVersion(2)
+	require.Len(tree.head.ndb.orphans(), 2)
 
 	// -----1-----
 	// key1 = val0
@@ -73,8 +74,7 @@ func TestVersionedTree(t *testing.T) {
 
 	nodes3 := tree.head.ndb.leafNodes()
 	require.Len(nodes3, 6, "wrong number of nodes\n%s", tree.head.ndb.String())
-
-	// TODO: Test orphan count (2).
+	require.Len(tree.head.ndb.orphans(), 4)
 
 	tree.SaveVersion(4)
 

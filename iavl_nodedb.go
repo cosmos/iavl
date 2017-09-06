@@ -229,6 +229,15 @@ func (ndb *nodeDB) leafNodes() []*IAVLNode {
 	return leaves
 }
 
+func (ndb *nodeDB) orphans() [][]byte {
+	orphans := [][]byte{}
+
+	ndb.traverseOrphans(func(k, v []byte) {
+		orphans = append(orphans, v)
+	})
+	return orphans
+}
+
 func (ndb *nodeDB) size() int {
 	it := ndb.db.Iterator()
 	size := 0
