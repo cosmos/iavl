@@ -14,6 +14,13 @@ import (
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
+var (
+	// orphans/<version>/<hash>
+	orphansPrefix    = "orphans/"
+	orphansPrefixFmt = "orphans/%d/"
+	orphansKeyFmt    = "orphans/%d/%x"
+)
+
 type nodeDB struct {
 	mtx        sync.Mutex               // Read/write lock.
 	cache      map[string]*list.Element // Node cache.
@@ -114,13 +121,6 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64) {
 	ndb.SaveNode(node)
 }
 
-var (
-	// orphans/<version>/<hash>
-	orphansPrefix    = "orphans/"
-	orphansPrefixFmt = "orphans/%d/"
-	orphansKeyFmt    = "orphans/%d/%x"
-)
-
 // Saves orphaned nodes to disk under a special prefix.
 func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
 	ndb.mtx.Lock()
@@ -205,6 +205,10 @@ func (ndb *nodeDB) Commit() {
 
 	ndb.batch.Write()
 	ndb.batch = ndb.db.NewBatch()
+}
+
+func (ndb *nodeDB) getRoots() ([][]byte, error) {
+	return nil, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////

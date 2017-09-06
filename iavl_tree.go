@@ -17,7 +17,6 @@ This tree is not goroutine safe.
 type IAVLTree struct {
 	root    *IAVLNode
 	ndb     *nodeDB
-	version uint64
 	orphans []*IAVLNode
 }
 
@@ -130,13 +129,18 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	return t.root.hashWithCount()
 }
 
+// DEPRECATED
 func (t *IAVLTree) Save() []byte {
+	return t.SaveAs(0)
+}
+
+func (t *IAVLTree) SaveAs(version uint64) []byte {
 	if t.root == nil {
 		return nil
 	}
 	if t.ndb != nil {
 		t.ndb.SaveOrphans(t.orphans)
-		t.ndb.SaveBranch(t.root, t.version)
+		t.ndb.SaveBranch(t.root, version)
 		t.ndb.Commit()
 		// TODO: Reset orphans list?
 	}
@@ -157,7 +161,7 @@ func (t *IAVLTree) Release() {
 	t.orphans = []*IAVLNode{}
 	t.root.leftNode = nil
 	t.root.rightNode = nil
-	t.ndb.DeleteOrphans(t.version)
+	t.ndb.DeleteOrphans(t.root.version)
 	t.ndb.Commit()
 }
 
