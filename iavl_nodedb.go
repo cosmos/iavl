@@ -139,7 +139,7 @@ func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
 			cmn.PanicSanity("Version should not be empty")
 		}
 		key := fmt.Sprintf(orphansKeyFmt, node.version, node.hash)
-		ndb.batch.Set([]byte(key), []byte{})
+		ndb.batch.Set([]byte(key), node.hash)
 	}
 }
 
@@ -147,26 +147,26 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	ndb.traverseOrphansVersion(version, func(key []byte) {
-		ndb.batch.Delete(key)
-		ndb.uncacheNode(key)
+	ndb.traverseOrphansVersion(version, func(key, value []byte) {
+		ndb.batch.Delete(value)
+		ndb.uncacheNode(value)
 	})
 }
 
-func (ndb *nodeDB) traverseOrphans(fn func([]byte)) {
+func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traverse(func(key, value []byte) {
 		if strings.HasPrefix(string(key), orphansPrefix) {
-			fn(key)
+			fn(key, value)
 		}
 	})
 }
 
-func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func([]byte)) {
+func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) {
 	prefix := fmt.Sprintf(orphansPrefixFmt, version)
 
 	ndb.traverse(func(key, value []byte) {
 		if strings.HasPrefix(string(key), prefix) {
-			fn(key)
+			fn(key, value)
 		}
 	})
 }
@@ -323,8 +323,8 @@ func (ndb *nodeDB) String() string {
 	var str string
 	index := 0
 
-	ndb.traverseOrphans(func(key []byte) {
-		str += string(key) + "\n"
+	ndb.traverseOrphans(func(key, value []byte) {
+		str += fmt.Sprintf("%s: %x\n", string(key), value)
 	})
 	str += "\n"
 
