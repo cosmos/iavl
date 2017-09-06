@@ -105,9 +105,6 @@ func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
 
 	var orphaned []*IAVLNode
 	t.root, updated, orphaned = t.root.set(t, key, value)
-	// TODO: We should never overwrite an already orphaned key, since the first
-	// orphaned key represent the actual value that was written. The ones after
-	// are transient and will never be remembered.
 	t.orphans = append(t.orphans, orphaned...)
 
 	return updated

@@ -14,25 +14,21 @@ import (
 )
 
 type nodeDB struct {
-	mtx         sync.Mutex               // Read/write lock.
-	cache       map[string]*list.Element // Node cache.
-	cacheSize   int                      // Node cache size limit in elements.
-	cacheQueue  *list.List               // LRU queue of cache elements. Used for deletion.
-	db          dbm.DB                   // Persistent node storage.
-	batch       dbm.Batch                // Batched writing buffer.
-	orphans     map[string]struct{}
-	orphansPrev map[string]struct{}
+	mtx        sync.Mutex               // Read/write lock.
+	cache      map[string]*list.Element // Node cache.
+	cacheSize  int                      // Node cache size limit in elements.
+	cacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+	db         dbm.DB                   // Persistent node storage.
+	batch      dbm.Batch                // Batched writing buffer.
 }
 
 func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 	ndb := &nodeDB{
-		cache:       make(map[string]*list.Element),
-		cacheSize:   cacheSize,
-		cacheQueue:  list.New(),
-		db:          db,
-		batch:       db.NewBatch(),
-		orphans:     make(map[string]struct{}),
-		orphansPrev: make(map[string]struct{}),
+		cache:      make(map[string]*list.Element),
+		cacheSize:  cacheSize,
+		cacheQueue: list.New(),
+		db:         db,
+		batch:      db.NewBatch(),
 	}
 	return ndb
 }
@@ -88,10 +84,8 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	node.persisted = true
 	ndb.cacheNode(node)
 
-	// Re-creating the orphan,
-	// Do not garbage collect.
-	delete(ndb.orphans, string(node.hash))
-	delete(ndb.orphansPrev, string(node.hash))
+	// TODO: What do we do if this node's hash was previously orphaned?
+	// Would have to be same key/val/version.
 }
 
 // NOTE: clears leftNode/rigthNode recursively
@@ -137,9 +131,6 @@ func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
 		}
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Hash should not be empty")
-		}
-		if node.version == 0 {
-			cmn.PanicSanity("Version should not be empty")
 		}
 		key := fmt.Sprintf(orphansKeyFmt, node.version, node.hash)
 		ndb.batch.Set([]byte(key), node.hash)
@@ -198,23 +189,6 @@ func (ndb *nodeDB) getOrphans(version uint64) [][]byte {
 	return orphans
 }
 
-// Remove a node from cache and add it to the list of orphans, to be deleted
-// on the next call to Commit.
-func (ndb *nodeDB) RemoveNode(t *IAVLTree, node *IAVLNode) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	if node.hash == nil {
-		cmn.PanicSanity("Expected to find node.hash, but none found.")
-	}
-	if !node.persisted {
-		cmn.PanicSanity("Shouldn't be calling remove on a non-persisted node.")
-	}
-
-	ndb.uncacheNode(node.hash)
-	ndb.orphans[string(node.hash)] = struct{}{}
-}
-
 func (ndb *nodeDB) uncacheNode(hash []byte) {
 	if elem, ok := ndb.cache[string(hash)]; ok {
 		ndb.cacheQueue.Remove(elem)
@@ -240,22 +214,8 @@ func (ndb *nodeDB) Commit() {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	// TODO: New method required.
-	// Delete orphans from previous block
-	// for orphanHashStr, _ := range ndb.orphansPrev {
-	// 	ndb.batch.Delete([]byte(orphanHashStr))
-	// }
-
-	// Write saves & orphan deletes
 	ndb.batch.Write()
-
-	// WTF is this.
-	// ndb.db.SetSync(nil, nil)
-
 	ndb.batch = ndb.db.NewBatch()
-	// Shift orphans
-	ndb.orphansPrev = ndb.orphans
-	ndb.orphans = make(map[string]struct{})
 }
 
 ///////////////////////////////////////////////////////////////////////////////
