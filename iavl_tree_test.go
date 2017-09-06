@@ -161,4 +161,12 @@ func TestVersionedTree(t *testing.T) {
 
 	_, val, _ = tree.Get([]byte("key3"))
 	require.Equal("val1", string(val))
+
+	// Version 1 should still be available.
+
+	_, val, _ = tree.GetVersion([]byte("key1"), 1)
+	require.Equal("val0", string(val))
+
+	_, val, _ = tree.GetVersion([]byte("key2"), 1)
+	require.Equal("val0", string(val))
 }
