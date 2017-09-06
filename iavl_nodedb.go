@@ -314,6 +314,11 @@ func (ndb *nodeDB) String() string {
 	var str string
 	index := 0
 
+	ndb.traversePrefix([]byte(rootsPrefix), func(key, value []byte) {
+		str += fmt.Sprintf("%s: %x\n", string(key), value)
+	})
+	str += "\n"
+
 	ndb.traverseOrphans(func(key, value []byte) {
 		str += fmt.Sprintf("%s: %x\n", string(key), value)
 	})
