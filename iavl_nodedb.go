@@ -119,43 +119,59 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64) {
 	ndb.SaveNode(node)
 }
 
-var orphansKeyFmt = "orphans/%d"
+var (
+	// orphans/<version>/<hash>
+	orphansPrefix    = "orphans/"
+	orphansPrefixFmt = "orphans/%d/"
+	orphansKeyFmt    = "orphans/%d/%x"
+)
 
 // Saves orphaned nodes to disk under a special prefix.
-func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode, version uint64) {
+func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	var err error
-	var n int
-
-	w := new(bytes.Buffer)
-
-	wire.WriteVarint(len(orphans), w, &n, &err)
 	for _, node := range orphans {
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Hash should not be empty")
 		}
-		wire.WriteByteSlice(node.hash, w, &n, &err)
+		if node.version == 0 {
+			cmn.PanicSanity("Version should not be empty")
+		}
+		key := fmt.Sprintf(orphansKeyFmt, node.version, node.hash)
+		ndb.batch.Set([]byte(key), []byte{})
 	}
-	if err != nil {
-		cmn.PanicSanity("Error writing byte-slice:" + err.Error())
-	}
-	ndb.db.Set([]byte(fmt.Sprintf(orphansKeyFmt, version)), w.Bytes())
 }
 
 func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	orphans := ndb.getOrphans(version)
-
-	for _, hash := range orphans {
-		ndb.batch.Delete(hash)
-		ndb.uncacheNode(hash)
-	}
+	ndb.traverseOrphansVersion(version, func(key []byte) {
+		ndb.batch.Delete(key)
+		ndb.uncacheNode(key)
+	})
 }
 
+func (ndb *nodeDB) traverseOrphans(fn func([]byte)) {
+	ndb.traverse(func(key, value []byte) {
+		if strings.HasPrefix(string(key), orphansPrefix) {
+			fn(key)
+		}
+	})
+}
+
+func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func([]byte)) {
+	prefix := fmt.Sprintf(orphansPrefixFmt, version)
+
+	ndb.traverse(func(key, value []byte) {
+		if strings.HasPrefix(string(key), prefix) {
+			fn(key)
+		}
+	})
+}
+
+// DEPRECATED.
 func (ndb *nodeDB) getOrphans(version uint64) [][]byte {
 	key := fmt.Sprintf(orphansKeyFmt, version)
 	buf := ndb.db.Get([]byte(key))
@@ -241,20 +257,19 @@ func (ndb *nodeDB) Commit() {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-func (ndb *nodeDB) keys() [][]byte {
-	it := ndb.db.Iterator()
-	keys := [][]byte{}
+func (ndb *nodeDB) keys() []string {
+	keys := []string{}
 
-	for it.Next() {
-		keys = append(keys, it.Key())
-	}
+	ndb.traverse(func(key, value []byte) {
+		keys = append(keys, string(key))
+	})
 	return keys
 }
 
 func (ndb *nodeDB) leafNodes() []*IAVLNode {
 	leaves := []*IAVLNode{}
 
-	ndb.traverse(func(hash []byte, node *IAVLNode) {
+	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
 		if node.isLeaf() {
 			leaves = append(leaves, node)
 		}
@@ -272,21 +287,28 @@ func (ndb *nodeDB) size() int {
 	return size
 }
 
-func (ndb *nodeDB) traverse(fn func(hash []byte, node *IAVLNode)) {
+func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	it := ndb.db.Iterator()
-	nodes := []*IAVLNode{}
 
 	for it.Next() {
-		if strings.HasPrefix(string(it.Key()), "orphans/") {
-			continue
+		fn(it.Key(), it.Value())
+	}
+}
+
+func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
+	nodes := []*IAVLNode{}
+
+	ndb.traverse(func(key, value []byte) {
+		if strings.HasPrefix(string(key), "orphans/") {
+			return
 		}
-		node, err := MakeIAVLNode(it.Value())
+		node, err := MakeIAVLNode(value)
 		if err != nil {
 			cmn.PanicSanity("Couldn't decode node from database")
 		}
-		node.hash = it.Key()
+		node.hash = key
 		nodes = append(nodes, node)
-	}
+	})
 
 	sort.Slice(nodes, func(i, j int) bool {
 		return bytes.Compare(nodes[i].hash, nodes[j].hash) < 0
@@ -301,7 +323,12 @@ func (ndb *nodeDB) String() string {
 	var str string
 	index := 0
 
-	ndb.traverse(func(hash []byte, node *IAVLNode) {
+	ndb.traverseOrphans(func(key []byte) {
+		str += string(key) + "\n"
+	})
+	str += "\n"
+
+	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
 		if len(hash) == 0 {
 			str += fmt.Sprintf("%d: <nil>\n", index)
 		} else if node == nil {

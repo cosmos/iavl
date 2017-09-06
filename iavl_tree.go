@@ -138,7 +138,7 @@ func (t *IAVLTree) Save() []byte {
 		return nil
 	}
 	if t.ndb != nil {
-		t.ndb.SaveOrphans(t.orphans, t.version)
+		t.ndb.SaveOrphans(t.orphans)
 		t.ndb.SaveBranch(t.root, t.version)
 		t.ndb.Commit()
 	}
