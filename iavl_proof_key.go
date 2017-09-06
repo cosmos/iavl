@@ -16,6 +16,9 @@ type KeyProof interface {
 
 	// Root returns the root hash of the proof.
 	Root() []byte
+
+	// Serialize itself
+	Bytes() []byte
 }
 
 // KeyExistsProof represents a proof of existence of a single key.
@@ -37,6 +40,11 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 		return ErrInvalidInputs
 	}
 	return proof.PathToKey.verify(IAVLProofLeafNode{key, value}, root)
+}
+
+// Bytes returns a go-wire binary serialization
+func (proof *KeyExistsProof) Bytes() []byte {
+	return wire.BinaryBytes(proof)
 }
 
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
@@ -79,4 +87,16 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	}
 
 	return verifyKeyAbsence(proof.Left, proof.Right)
+}
+
+// Bytes returns a go-wire binary serialization
+func (proof *KeyAbsentProof) Bytes() []byte {
+	return wire.BinaryBytes(proof)
+}
+
+// ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
+func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
+	proof := new(KeyAbsentProof)
+	err := wire.ReadBinaryBytes(data, &proof)
+	return proof, err
 }

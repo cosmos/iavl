@@ -499,7 +499,7 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 	require.NoError(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
 
 	// Write/Read then verify.
-	proofBytes := wire.BinaryBytes(proof)
+	proofBytes := proof.Bytes()
 	proof2, err := ReadKeyExistsProof(proofBytes)
 	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
 	require.NoError(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
