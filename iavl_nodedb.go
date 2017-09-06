@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/syndtr/goleveldb/leveldb/util"
+
 	wire "github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
@@ -158,11 +160,23 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) {
 	prefix := fmt.Sprintf(orphansPrefixFmt, version)
 
-	ndb.traverse(func(key, value []byte) {
-		if strings.HasPrefix(string(key), prefix) {
-			fn(key, value)
+	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
+		// TODO: Test this code path.
+		it := ldb.DB().NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+		for it.Next() {
+			fn(it.Key(), it.Value())
 		}
-	})
+		it.Release()
+		if err := it.Error(); err != nil {
+			cmn.PanicSanity(err.Error())
+		}
+	} else {
+		ndb.traverse(func(key, value []byte) {
+			if strings.HasPrefix(string(key), prefix) {
+				fn(key, value)
+			}
+		})
+	}
 }
 
 // DEPRECATED.
