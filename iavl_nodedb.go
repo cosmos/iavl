@@ -223,6 +223,19 @@ func (ndb *nodeDB) getRoots() ([][]byte, error) {
 	return roots, nil
 }
 
+func (ndb *nodeDB) saveRoot(root *IAVLNode) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if len(root.hash) == 0 {
+		cmn.PanicSanity("Hash should not be empty")
+	}
+	key := fmt.Sprintf(rootsPrefixFmt, root.version)
+	ndb.batch.Set([]byte(key), root.hash)
+
+	return nil
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 func (ndb *nodeDB) keys() []string {
@@ -276,7 +289,8 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
 	nodes := []*IAVLNode{}
 
 	ndb.traverse(func(key, value []byte) {
-		if strings.HasPrefix(string(key), "orphans/") {
+		if strings.HasPrefix(string(key), orphansPrefix) ||
+			strings.HasPrefix(string(key), rootsPrefix) {
 			return
 		}
 		node, err := MakeIAVLNode(value)

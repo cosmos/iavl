@@ -141,6 +141,9 @@ func (t *IAVLTree) SaveAs(version uint64) []byte {
 	if t.ndb != nil {
 		t.ndb.SaveOrphans(t.orphans)
 		t.ndb.SaveBranch(t.root, version)
+		if t.root != nil && version > 0 {
+			t.ndb.saveRoot(t.root)
+		}
 		t.ndb.Commit()
 		// TODO: Reset orphans list?
 	}
