@@ -132,6 +132,9 @@ func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
 	defer ndb.mtx.Unlock()
 
 	for _, node := range orphans {
+		if !node.persisted {
+			continue
+		}
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Hash should not be empty")
 		}

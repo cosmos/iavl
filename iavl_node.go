@@ -295,49 +295,58 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 // newKey: new leftmost leaf key for tree after successfully removing 'key' if changed.
 // value: removed value.
 func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
-	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, removed bool) {
+	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, orphaned []*IAVLNode) {
+
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
-			removeOrphan(t, node)
-			return nil, nil, nil, node.value, true
-		} else {
-			return node.hash, node, nil, nil, false
+			return nil, nil, nil, node.value, []*IAVLNode{node}
 		}
+		return node.hash, node, nil, nil, []*IAVLNode{}
+	}
+
+	if bytes.Compare(key, node.key) < 0 {
+		var newLeftHash []byte
+		var newLeftNode *IAVLNode
+
+		newLeftHash, newLeftNode, newKey, value, orphaned =
+			node.getLeftNode(t).remove(t, key)
+
+		if len(orphaned) == 0 {
+			return node.hash, node, nil, value, []*IAVLNode{}
+		} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
+			return node.rightHash, node.rightNode, node.key, value, orphaned
+		}
+		orphaned = append(orphaned, node)
+
+		node = node._copy()
+		node.leftHash, node.leftNode = newLeftHash, newLeftNode
+		node.calcHeightAndSize(t)
+		node = node.balance(t)
+
+		return node.hash, node, newKey, value, orphaned
 	} else {
-		if bytes.Compare(key, node.key) < 0 {
-			var newLeftHash []byte
-			var newLeftNode *IAVLNode
-			newLeftHash, newLeftNode, newKey, value, removed = node.getLeftNode(t).remove(t, key)
-			if !removed {
-				return node.hash, node, nil, value, false
-			} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-				return node.rightHash, node.rightNode, node.key, value, true
-			}
-			removeOrphan(t, node)
-			node = node._copy()
-			node.leftHash, node.leftNode = newLeftHash, newLeftNode
-			node.calcHeightAndSize(t)
-			node = node.balance(t)
-			return node.hash, node, newKey, value, true
-		} else {
-			var newRightHash []byte
-			var newRightNode *IAVLNode
-			newRightHash, newRightNode, newKey, value, removed = node.getRightNode(t).remove(t, key)
-			if !removed {
-				return node.hash, node, nil, value, false
-			} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-				return node.leftHash, node.leftNode, nil, value, true
-			}
-			removeOrphan(t, node)
-			node = node._copy()
-			node.rightHash, node.rightNode = newRightHash, newRightNode
-			if newKey != nil {
-				node.key = newKey
-			}
-			node.calcHeightAndSize(t)
-			node = node.balance(t)
-			return node.hash, node, nil, value, true
+		var newRightHash []byte
+		var newRightNode *IAVLNode
+
+		newRightHash, newRightNode, newKey, value, orphaned =
+			node.getRightNode(t).remove(t, key)
+
+		if len(orphaned) == 0 {
+			return node.hash, node, nil, value, []*IAVLNode{}
+		} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
+			return node.leftHash, node.leftNode, nil, value, orphaned
 		}
+		orphaned = append(orphaned, node)
+
+		node = node._copy()
+		node.rightHash, node.rightNode = newRightHash, newRightNode
+		if newKey != nil {
+			node.key = newKey
+		}
+		node.calcHeightAndSize(t)
+		node = node.balance(t)
+
+		return node.hash, node, nil, value, orphaned
 	}
 }
 
@@ -516,5 +525,5 @@ func removeOrphan(t *IAVLTree, node *IAVLNode) {
 	if t.ndb == nil {
 		return
 	}
-	t.ndb.RemoveNode(t, node)
+	t.orphans = append(t.orphans, node)
 }

@@ -141,6 +141,7 @@ func (t *IAVLTree) Save() []byte {
 		t.ndb.SaveOrphans(t.orphans)
 		t.ndb.SaveBranch(t.root, t.version)
 		t.ndb.Commit()
+		// TODO: Reset orphans list?
 	}
 	return t.root.hash
 }
@@ -216,10 +217,12 @@ func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
 	if t.root == nil {
 		return nil, false
 	}
-	newRootHash, newRoot, _, value, removed := t.root.remove(t, key)
-	if !removed {
+	newRootHash, newRoot, _, value, orphaned := t.root.remove(t, key)
+	if len(orphaned) == 0 {
 		return nil, false
 	}
+	t.orphans = append(t.orphans, orphaned...)
+
 	if newRoot == nil && newRootHash != nil {
 		t.root = t.ndb.GetNode(newRootHash)
 	} else {
