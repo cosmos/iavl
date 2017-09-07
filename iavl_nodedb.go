@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
 	cmn "github.com/tendermint/tmlibs/common"
@@ -169,12 +170,18 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		it := ldb.DB().NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for it.Next() {
-			fn(it.Key(), it.Value())
+			k := make([]byte, len(it.Key()))
+			v := make([]byte, len(it.Value()))
+
+			copy(k, it.Key())
+			copy(v, it.Value())
+
+			fn(k, v)
 		}
-		it.Release()
 		if err := it.Error(); err != nil {
 			cmn.PanicSanity(err.Error())
 		}
+		it.Release()
 	} else {
 		ndb.traverse(func(key, value []byte) {
 			if strings.HasPrefix(string(key), string(prefix)) {
@@ -280,7 +287,19 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	it := ndb.db.Iterator()
 
 	for it.Next() {
-		fn(it.Key(), it.Value())
+		k := make([]byte, len(it.Key()))
+		v := make([]byte, len(it.Value()))
+
+		copy(k, it.Key())
+		copy(v, it.Value())
+
+		fn(k, v)
+	}
+	if iter, ok := it.(iterator.Iterator); ok {
+		if err := iter.Error(); err != nil {
+			cmn.PanicSanity(err.Error())
+		}
+		iter.Release()
 	}
 }
 
