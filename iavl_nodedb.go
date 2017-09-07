@@ -154,11 +154,7 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 }
 
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
-	ndb.traverse(func(key, value []byte) {
-		if strings.HasPrefix(string(key), orphansPrefix) {
-			fn(key, value)
-		}
-	})
+	ndb.traversePrefix([]byte(orphansPrefix), fn)
 }
 
 func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) {
