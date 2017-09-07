@@ -167,7 +167,6 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		// TODO: Test this code path.
 		it := ldb.DB().NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for it.Next() {
 			fn(it.Key(), it.Value())

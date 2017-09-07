@@ -1,16 +1,35 @@
 package iavl
 
 import (
+	"flag"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tmlibs/db"
 )
 
+var testLevelDB bool
+
+func init() {
+	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
+	flag.Parse()
+}
+
 func TestVersionedTree(t *testing.T) {
 	require := require.New(t)
-	tree := NewIAVLVersionedTree(100, db.NewMemDB())
 
+	var d db.DB
+	var err error
+
+	if testLevelDB {
+		d, err = db.NewGoLevelDB("test", ".")
+		require.NoError(err)
+		defer d.Close()
+	} else {
+		d = db.NewMemDB()
+	}
+
+	tree := NewIAVLVersionedTree(100, d)
 	tree.SaveVersion(0)
 
 	// We start with zero keys in the databse.
