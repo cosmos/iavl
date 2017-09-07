@@ -63,6 +63,8 @@ func TestVersionedTree(t *testing.T) {
 
 	tree.SaveVersion(2)
 
+	// Recreate a new tree and load it, to make sure it works in this
+	// scenario.
 	tree = NewIAVLVersionedTree(100, d)
 	require.NoError(tree.Load())
 
@@ -103,6 +105,8 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(tree.ndb.orphans(), 4, "wrong number of orphans\n%s", tree.ndb.String())
 
 	tree.SaveVersion(4)
+	tree = NewIAVLVersionedTree(100, d)
+	require.NoError(tree.Load())
 
 	// ------------
 	// DB UNCHANGED
