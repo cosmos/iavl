@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"flag"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -25,6 +26,7 @@ func TestVersionedTree(t *testing.T) {
 		d, err = db.NewGoLevelDB("test", ".")
 		require.NoError(err)
 		defer d.Close()
+		defer os.RemoveAll("./test.db")
 	} else {
 		d = db.NewMemDB()
 	}
