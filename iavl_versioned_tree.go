@@ -5,9 +5,10 @@ import (
 )
 
 type IAVLVersionedTree struct {
+	Head *IAVLTree
+
 	// TODO: Should be roots.
 	versions map[uint64]*IAVLTree
-	head     *IAVLTree
 	ndb      *nodeDB
 }
 
@@ -17,7 +18,7 @@ func NewIAVLVersionedTree(cacheSize int, db dbm.DB) *IAVLVersionedTree {
 
 	return &IAVLVersionedTree{
 		versions: map[uint64]*IAVLTree{},
-		head:     head,
+		Head:     head,
 		ndb:      ndb,
 	}
 }
@@ -38,7 +39,7 @@ func (tree *IAVLVersionedTree) Load() error {
 			latest = t.root.version
 		}
 	}
-	tree.head = tree.versions[latest].Copy()
+	tree.Head = tree.versions[latest].Copy()
 
 	return nil
 }
@@ -62,21 +63,21 @@ func (tree *IAVLVersionedTree) ReleaseVersion(version uint64) {
 func (tree *IAVLVersionedTree) Get(key []byte) (
 	index int, value []byte, exists bool,
 ) {
-	return tree.head.Get(key)
+	return tree.Head.Get(key)
 }
 
 func (tree *IAVLVersionedTree) Set(key, val []byte) {
-	tree.head.Set(key, val)
+	tree.Head.Set(key, val)
 }
 
 func (tree *IAVLVersionedTree) Remove(key []byte) {
-	tree.head.Remove(key)
+	tree.Head.Remove(key)
 }
 
 func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
-	tree.head.SaveAs(version)
-	tree.versions[version] = tree.head
-	tree.head = tree.head.Copy()
+	tree.Head.SaveAs(version)
+	tree.versions[version] = tree.Head
+	tree.Head = tree.Head.Copy()
 
 	return nil
 }

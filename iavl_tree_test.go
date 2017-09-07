@@ -34,7 +34,7 @@ func TestVersionedTree(t *testing.T) {
 	tree := NewIAVLVersionedTree(100, d)
 
 	// We start with zero keys in the databse.
-	require.Equal(0, tree.head.ndb.size())
+	require.Equal(0, tree.ndb.size())
 
 	// version 0
 
@@ -42,7 +42,7 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val0"))
 
 	// Still zero keys, since we haven't written them.
-	require.Len(tree.head.ndb.leafNodes(), 0)
+	require.Len(tree.ndb.leafNodes(), 0)
 
 	tree.SaveVersion(1)
 
@@ -51,7 +51,7 @@ func TestVersionedTree(t *testing.T) {
 	// key2 = val0
 	// -----------
 
-	nodes1 := tree.head.ndb.leafNodes()
+	nodes1 := tree.ndb.leafNodes()
 	require.Len(nodes1, 2, "db should have a size of 2")
 
 	// version  1
@@ -59,7 +59,7 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key1"), []byte("val1"))
 	tree.Set([]byte("key2"), []byte("val1"))
 	tree.Set([]byte("key3"), []byte("val1"))
-	require.Len(tree.head.ndb.leafNodes(), len(nodes1))
+	require.Len(tree.ndb.leafNodes(), len(nodes1))
 
 	tree.SaveVersion(2)
 
@@ -80,7 +80,7 @@ func TestVersionedTree(t *testing.T) {
 	// -----------
 
 	nodes2 := tree.ndb.leafNodes()
-	require.Len(nodes2, 5, "db should have grown in size\n%s", tree.head.ndb.String())
+	require.Len(nodes2, 5, "db should have grown in size\n%s", tree.ndb.String())
 	require.Len(tree.ndb.orphans(), 2)
 
 	// Create two more orphans.
@@ -101,7 +101,7 @@ func TestVersionedTree(t *testing.T) {
 	// -----------
 
 	nodes3 := tree.ndb.leafNodes()
-	require.Len(nodes3, 6, "wrong number of nodes\n%s", tree.head.ndb.String())
+	require.Len(nodes3, 6, "wrong number of nodes\n%s", tree.ndb.String())
 	require.Len(tree.ndb.orphans(), 4, "wrong number of orphans\n%s", tree.ndb.String())
 
 	tree.SaveVersion(4)
@@ -112,8 +112,8 @@ func TestVersionedTree(t *testing.T) {
 	// DB UNCHANGED
 	// ------------
 
-	nodes4 := tree.head.ndb.leafNodes()
-	require.Len(nodes4, len(nodes3), "db should not have changed in size\n%s", tree.head.ndb.String())
+	nodes4 := tree.ndb.leafNodes()
+	require.Len(nodes4, len(nodes3), "db should not have changed in size\n%s", tree.ndb.String())
 
 	tree.Set([]byte("key1"), []byte("val0"))
 
@@ -161,7 +161,7 @@ func TestVersionedTree(t *testing.T) {
 
 	// Release a version. After this the keys in that version should not be found.
 
-	before := tree.head.ndb.String()
+	before := tree.ndb.String()
 	tree.ReleaseVersion(2)
 
 	// -----1-----
@@ -173,8 +173,8 @@ func TestVersionedTree(t *testing.T) {
 	// key2 = val2
 	// -----------
 
-	nodes5 := tree.head.ndb.leafNodes()
-	require.Len(nodes5, 4, "db should have shrunk after release\n%s\nvs.\n%s", before, tree.head.ndb.String())
+	nodes5 := tree.ndb.leafNodes()
+	require.Len(nodes5, 4, "db should have shrunk after release\n%s\nvs.\n%s", before, tree.ndb.String())
 
 	_, val, exists = tree.GetVersion([]byte("key2"), 2)
 	require.False(exists)
