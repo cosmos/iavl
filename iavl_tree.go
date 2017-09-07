@@ -145,7 +145,7 @@ func (t *IAVLTree) SaveAs(version uint64) []byte {
 			t.ndb.saveRoot(t.root)
 		}
 		t.ndb.Commit()
-		// TODO: Reset orphans list?
+		t.orphans = nil
 	}
 	return t.root.hash
 }
