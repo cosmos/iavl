@@ -28,11 +28,18 @@ func (tree *IAVLVersionedTree) Load() error {
 		return err
 	}
 
+	var latest uint64
 	for _, root := range roots {
 		t := &IAVLTree{ndb: tree.ndb}
 		t.Load(root)
 		tree.versions[t.root.version] = t
+
+		if t.root.version > latest {
+			latest = t.root.version
+		}
 	}
+	tree.head = tree.versions[latest].Copy()
+
 	return nil
 }
 
