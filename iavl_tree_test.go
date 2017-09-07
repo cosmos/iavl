@@ -32,7 +32,6 @@ func TestVersionedTree(t *testing.T) {
 	}
 
 	tree := NewIAVLVersionedTree(100, d)
-	tree.SaveVersion(0)
 
 	// We start with zero keys in the databse.
 	require.Equal(0, tree.head.ndb.size())
@@ -63,39 +62,45 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(tree.head.ndb.leafNodes(), len(nodes1))
 
 	tree.SaveVersion(2)
-	require.Len(tree.head.ndb.orphans(), 2)
+
+	tree = NewIAVLVersionedTree(100, d)
+	require.NoError(tree.Load())
+
+	require.Len(tree.versions, 2, "wrong number of versions")
 
 	// -----1-----
-	// key1 = val0
-	// key2 = val0
+	// key1 = val0  <orphaned>
+	// key2 = val0  <orphaned>
 	// -----2-----
 	// key1 = val1
 	// key2 = val1
 	// key3 = val1
 	// -----------
 
-	nodes2 := tree.head.ndb.leafNodes()
+	nodes2 := tree.ndb.leafNodes()
 	require.Len(nodes2, 5, "db should have grown in size\n%s", tree.head.ndb.String())
+	require.Len(tree.ndb.orphans(), 2)
 
+	// Create two more orphans.
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 
 	tree.SaveVersion(3)
 
 	// -----1-----
-	// key1 = val0
-	// key2 = val0
+	// key1 = val0  <orphaned> (replaced)
+	// key2 = val0  <orphaned> (replaced)
 	// -----2-----
-	// key1 = val1  <orphaned> (removal)
+	// key1 = val1  <orphaned> (removed)
 	// key2 = val1  <orphaned> (replaced)
 	// key3 = val1
 	// -----3-----
 	// key2 = val2
 	// -----------
 
-	nodes3 := tree.head.ndb.leafNodes()
+	nodes3 := tree.ndb.leafNodes()
 	require.Len(nodes3, 6, "wrong number of nodes\n%s", tree.head.ndb.String())
-	require.Len(tree.head.ndb.orphans(), 4)
+	require.Len(tree.ndb.orphans(), 4, "wrong number of orphans\n%s", tree.ndb.String())
 
 	tree.SaveVersion(4)
 
