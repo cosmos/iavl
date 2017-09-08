@@ -86,7 +86,7 @@ func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 	return node, nil
 }
 
-func (node *IAVLNode) _copy() *IAVLNode {
+func (node *IAVLNode) clone() *IAVLNode {
 	if node.isLeaf() {
 		cmn.PanicSanity("Why are you copying a value node?")
 	}
@@ -273,7 +273,7 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 		}
 	} else {
 		orphaned = append(orphaned, node)
-		node = node._copy()
+		node = node.clone()
 		if bytes.Compare(key, node.key) < 0 {
 			node.leftNode, updated, orphaned = node.getLeftNode(t).set(t, key, value)
 			node.leftHash = nil // leftHash is yet unknown
@@ -319,7 +319,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 		}
 		orphaned = append(orphaned, node)
 
-		node = node._copy()
+		node = node.clone()
 		node.leftHash, node.leftNode = newLeftHash, newLeftNode
 		node.calcHeightAndSize(t)
 		node, balanceOrphaned := node.balance(t)
@@ -339,7 +339,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 		}
 		orphaned = append(orphaned, node)
 
-		node = node._copy()
+		node = node.clone()
 		node.rightHash, node.rightNode = newRightHash, newRightNode
 		if newKey != nil {
 			node.key = newKey
@@ -368,9 +368,9 @@ func (node *IAVLNode) getRightNode(t *IAVLTree) *IAVLNode {
 // NOTE: overwrites node
 // TODO: optimize balance & rotate
 func (node *IAVLNode) rotateRight(t *IAVLTree) (*IAVLNode, *IAVLNode) {
-	node = node._copy()
+	node = node.clone()
 	l := node.getLeftNode(t)
-	_l := l._copy()
+	_l := l.clone()
 
 	_lrHash, _lrCached := _l.rightHash, _l.rightNode
 	_l.rightHash, _l.rightNode = node.hash, node
@@ -385,9 +385,9 @@ func (node *IAVLNode) rotateRight(t *IAVLTree) (*IAVLNode, *IAVLNode) {
 // NOTE: overwrites node
 // TODO: optimize balance & rotate
 func (node *IAVLNode) rotateLeft(t *IAVLTree) (*IAVLNode, *IAVLNode) {
-	node = node._copy()
+	node = node.clone()
 	r := node.getRightNode(t)
-	_r := r._copy()
+	_r := r.clone()
 
 	_rlHash, _rlCached := _r.leftHash, _r.leftNode
 	_r.leftHash, _r.leftNode = node.hash, node
