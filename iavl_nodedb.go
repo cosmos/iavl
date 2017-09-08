@@ -324,7 +324,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
 	})
 
 	sort.Slice(nodes, func(i, j int) bool {
-		return bytes.Compare(nodes[i].hash, nodes[j].hash) < 0
+		return bytes.Compare(nodes[i].key, nodes[j].key) < 0
 	})
 
 	for _, n := range nodes {
@@ -348,13 +348,13 @@ func (ndb *nodeDB) String() string {
 
 	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
 		if len(hash) == 0 {
-			str += fmt.Sprintf("%d: <nil>\n", index)
+			str += fmt.Sprintf("<nil>\n")
 		} else if node == nil {
-			str += fmt.Sprintf("%d: %40x: <nil>\n", index, hash)
+			str += fmt.Sprintf("%40x: <nil>\n", hash)
 		} else if node.value == nil && node.height > 0 {
-			str += fmt.Sprintf("%d: %40x: %s   %-16s h=%d version=%d\n", index, hash, node.key, "", node.height, node.version)
+			str += fmt.Sprintf("%40x: %s   %-16s h=%d version=%d\n", hash, node.key, "", node.height, node.version)
 		} else {
-			str += fmt.Sprintf("%d: %40x: %s = %-16s h=%d version=%d\n", index, hash, node.key, node.value, node.height, node.version)
+			str += fmt.Sprintf("%40x: %s = %-16s h=%d version=%d\n", hash, node.key, node.value, node.height, node.version)
 		}
 		index++
 	})
