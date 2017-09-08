@@ -272,15 +272,19 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 			return NewIAVLNode(key, value), true, []*IAVLNode{node}
 		}
 	} else {
+		var subOrphaned []*IAVLNode
+
 		orphaned = append(orphaned, node)
 		node = node.clone()
+
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated, orphaned = node.getLeftNode(t).set(t, key, value)
+			node.leftNode, updated, subOrphaned = node.getLeftNode(t).set(t, key, value)
 			node.leftHash = nil // leftHash is yet unknown
 		} else {
-			node.rightNode, updated, orphaned = node.getRightNode(t).set(t, key, value)
+			node.rightNode, updated, subOrphaned = node.getRightNode(t).set(t, key, value)
 			node.rightHash = nil // rightHash is yet unknown
 		}
+		orphaned = append(orphaned, subOrphaned...)
 
 		if updated {
 			return node, updated, orphaned
