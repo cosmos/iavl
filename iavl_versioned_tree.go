@@ -35,6 +35,10 @@ func NewIAVLVersionedTree(cacheSize int, db dbm.DB) *IAVLVersionedTree {
 	}
 }
 
+func (tree *IAVLVersionedTree) String() string {
+	return tree.ndb.String()
+}
+
 func (tree *IAVLVersionedTree) Set(key, value []byte) bool {
 	orphaned, removed := tree.IAVLTree.set(key, value)
 	tree.orphans = append(tree.orphans, orphaned...)
