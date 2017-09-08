@@ -153,6 +153,14 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	})
 }
 
+func (ndb *nodeDB) DeleteRoot(version uint64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	key := fmt.Sprintf(rootsPrefixFmt, version)
+	ndb.batch.Delete([]byte(key))
+}
+
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traversePrefix([]byte(orphansPrefix), fn)
 }

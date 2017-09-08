@@ -203,7 +203,7 @@ func TestUnit(t *testing.T) {
 
 	expectRemove := func(tree *IAVLTree, i int, repr string, hashCount int) {
 		origNode := tree.root
-		value, removed := tree.Remove(i2b(i))
+		value, _, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
 		if len(value) != 0 || !removed || P(tree.root) != repr {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
@@ -333,7 +333,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for i, x := range records {
-		if val, removed := tree.Remove([]byte(x.key)); !removed {
+		if val, _, removed := tree.Remove([]byte(x.key)); !removed {
 			t.Error("Wasn't removed")
 		} else if string(val) != string(x.value) {
 			t.Error("Wrong value")

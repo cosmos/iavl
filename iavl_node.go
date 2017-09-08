@@ -286,7 +286,8 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 			return node, updated, orphaned
 		} else {
 			node.calcHeightAndSize(t)
-			return node.balance(t), updated, orphaned
+			new, balanceOrphaned := node.balance(t)
+			return new, updated, append(orphaned, balanceOrphaned...)
 		}
 	}
 }
@@ -321,9 +322,9 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 		node = node._copy()
 		node.leftHash, node.leftNode = newLeftHash, newLeftNode
 		node.calcHeightAndSize(t)
-		node = node.balance(t)
+		node, balanceOrphaned := node.balance(t)
 
-		return node.hash, node, newKey, value, orphaned
+		return node.hash, node, newKey, value, append(orphaned, balanceOrphaned...)
 	} else {
 		var newRightHash []byte
 		var newRightNode *IAVLNode
@@ -344,9 +345,9 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 			node.key = newKey
 		}
 		node.calcHeightAndSize(t)
-		node = node.balance(t)
+		node, balanceOrphaned := node.balance(t)
 
-		return node.hash, node, nil, value, orphaned
+		return node.hash, node, nil, value, append(orphaned, balanceOrphaned...)
 	}
 }
 
@@ -366,10 +367,9 @@ func (node *IAVLNode) getRightNode(t *IAVLTree) *IAVLNode {
 
 // NOTE: overwrites node
 // TODO: optimize balance & rotate
-func (node *IAVLNode) rotateRight(t *IAVLTree) *IAVLNode {
+func (node *IAVLNode) rotateRight(t *IAVLTree) (*IAVLNode, *IAVLNode) {
 	node = node._copy()
 	l := node.getLeftNode(t)
-	removeOrphan(t, l)
 	_l := l._copy()
 
 	_lrHash, _lrCached := _l.rightHash, _l.rightNode
@@ -379,15 +379,14 @@ func (node *IAVLNode) rotateRight(t *IAVLTree) *IAVLNode {
 	node.calcHeightAndSize(t)
 	_l.calcHeightAndSize(t)
 
-	return _l
+	return _l, l
 }
 
 // NOTE: overwrites node
 // TODO: optimize balance & rotate
-func (node *IAVLNode) rotateLeft(t *IAVLTree) *IAVLNode {
+func (node *IAVLNode) rotateLeft(t *IAVLTree) (*IAVLNode, *IAVLNode) {
 	node = node._copy()
 	r := node.getRightNode(t)
-	removeOrphan(t, r)
 	_r := r._copy()
 
 	_rlHash, _rlCached := _r.leftHash, _r.leftNode
@@ -397,7 +396,7 @@ func (node *IAVLNode) rotateLeft(t *IAVLTree) *IAVLNode {
 	node.calcHeightAndSize(t)
 	_r.calcHeightAndSize(t)
 
-	return _r
+	return _r, r
 }
 
 // NOTE: mutates height and size
@@ -412,41 +411,48 @@ func (node *IAVLNode) calcBalance(t *IAVLTree) int {
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode) {
+func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode, orphaned []*IAVLNode) {
 	if node.persisted {
 		panic("Unexpected balance() call on persisted node")
 	}
 	balance := node.calcBalance(t)
+
 	if balance > 1 {
 		if node.getLeftNode(t).calcBalance(t) >= 0 {
 			// Left Left Case
-			return node.rotateRight(t)
+			new, orphaned := node.rotateRight(t)
+			return new, []*IAVLNode{orphaned}
 		} else {
 			// Left Right Case
-			// node = node._copy()
+			var leftOrphaned *IAVLNode
+
 			left := node.getLeftNode(t)
-			removeOrphan(t, left)
-			node.leftHash, node.leftNode = nil, left.rotateLeft(t)
-			//node.calcHeightAndSize()
-			return node.rotateRight(t)
+			node.leftHash = nil
+			node.leftNode, leftOrphaned = left.rotateLeft(t)
+			new, rightOrphaned := node.rotateRight(t)
+
+			return new, []*IAVLNode{left, leftOrphaned, rightOrphaned}
 		}
 	}
 	if balance < -1 {
 		if node.getRightNode(t).calcBalance(t) <= 0 {
 			// Right Right Case
-			return node.rotateLeft(t)
+			new, orphaned := node.rotateLeft(t)
+			return new, []*IAVLNode{orphaned}
 		} else {
 			// Right Left Case
-			// node = node._copy()
+			var rightOrphaned *IAVLNode
+
 			right := node.getRightNode(t)
-			removeOrphan(t, right)
-			node.rightHash, node.rightNode = nil, right.rotateRight(t)
-			//node.calcHeightAndSize()
-			return node.rotateLeft(t)
+			node.rightHash = nil
+			node.rightNode, rightOrphaned = right.rotateRight(t)
+			new, leftOrphaned := node.rotateLeft(t)
+
+			return new, []*IAVLNode{right, leftOrphaned, rightOrphaned}
 		}
 	}
 	// Nothing changed
-	return node
+	return node, []*IAVLNode{}
 }
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
@@ -517,13 +523,3 @@ func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
 }
 
 //----------------------------------------
-
-func removeOrphan(t *IAVLTree, node *IAVLNode) {
-	if !node.persisted {
-		return
-	}
-	if t.ndb == nil {
-		return
-	}
-	t.orphans = append(t.orphans, node)
-}
