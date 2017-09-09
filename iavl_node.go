@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 
 	"golang.org/x/crypto/ripemd160"
@@ -84,6 +85,22 @@ func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 		node.rightHash = rightHash
 	}
 	return node, nil
+}
+
+func (node *IAVLNode) String() string {
+	if len(node.hash) == 0 {
+		return "<no hash>"
+	} else {
+		return fmt.Sprintf("%x", node.hash)
+	}
+}
+
+func (node *IAVLNode) debugString() string {
+	if node.value == nil && node.height > 0 {
+		return fmt.Sprintf("%40x: %s   %-16s h=%d version=%d (left=%x, right=%x)", node.hash, node.key, "", node.height, node.version, node.leftHash, node.rightHash)
+	} else {
+		return fmt.Sprintf("%40x: %s = %-16s h=%d version=%d (left=%x, right=%x)", node.hash, node.key, node.value, node.height, node.version, node.leftHash, node.rightHash)
+	}
 }
 
 func (node *IAVLNode) clone() *IAVLNode {
