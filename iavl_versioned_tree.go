@@ -1,18 +1,19 @@
 package iavl
 
 import (
+	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
 type IAVLPersistentTree struct {
 	*IAVLTree
-	orphans []*IAVLNode
+	orphans map[string]*IAVLNode
 }
 
 func NewIAVLPersistentTree(t *IAVLTree) *IAVLPersistentTree {
 	return &IAVLPersistentTree{
 		IAVLTree: t,
-		orphans:  []*IAVLNode{},
+		orphans:  map[string]*IAVLNode{},
 	}
 }
 
@@ -41,13 +42,13 @@ func (tree *IAVLVersionedTree) String() string {
 
 func (tree *IAVLVersionedTree) Set(key, value []byte) bool {
 	orphaned, removed := tree.IAVLTree.set(key, value)
-	tree.orphans = append(tree.orphans, orphaned...)
+	tree.addOrphans(orphaned)
 	return removed
 }
 
 func (tree *IAVLVersionedTree) Remove(key []byte) ([]byte, bool) {
 	val, orphaned, removed := tree.IAVLTree.Remove(key)
-	tree.orphans = append(tree.orphans, orphaned...)
+	tree.addOrphans(orphaned)
 	return val, removed
 }
 
@@ -56,6 +57,8 @@ func (tree *IAVLVersionedTree) Load() error {
 	if err != nil {
 		return err
 	}
+
+	// TODO: Load orphans too? They are needed when unorphaning.
 
 	var latest uint64
 	for _, root := range roots {
@@ -88,20 +91,47 @@ func (tree *IAVLVersionedTree) ReleaseVersion(version uint64) {
 		tree.ndb.DeleteRoot(t.root.version)
 		tree.ndb.Commit()
 
+		// TODO: Not necessary.
 		t.root.leftNode = nil
 		t.root.rightNode = nil
 
 		delete(tree.versions, version)
 	}
+	// TODO: What happens if you release HEAD?
 }
 
 func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
-	tree.ndb.SaveOrphans(tree.orphans)
-	tree.orphans = nil
+	// TODO: Don't allow saving over an existing version.
 
 	tree.versions[version] = tree.IAVLPersistentTree
-	tree.IAVLPersistentTree.SaveAs(version)
+	tree.IAVLPersistentTree.SaveAs(version, func(hash []byte) {
+		if _, ok := tree.orphans[string(hash)]; ok {
+			delete(tree.orphans, string(hash))
+		}
+		for _, t := range tree.versions {
+			// TODO: Check old orphans on disk?
+			// Could call Unorphan() for all hashes, silently skips not-founds.
+			if n, ok := t.orphans[string(hash)]; ok {
+				tree.ndb.Unorphan(n.version, hash)
+				delete(t.orphans, string(hash))
+			}
+		}
+	})
+
+	tree.ndb.SaveOrphans(tree.orphans)
 	tree.IAVLPersistentTree = NewIAVLPersistentTree(tree.Copy())
 
 	return nil
+}
+
+func (tree *IAVLVersionedTree) addOrphans(orphans []*IAVLNode) {
+	for _, node := range orphans {
+		if !node.persisted {
+			continue
+		}
+		if len(node.hash) == 0 {
+			cmn.PanicSanity("Expected to find node hash, but was empty")
+		}
+		tree.orphans[string(node.hash)] = node
+	}
 }

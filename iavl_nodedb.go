@@ -103,7 +103,7 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 
 // NOTE: clears leftNode/rigthNode recursively
 // NOTE: sets hashes recursively
-func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64) {
+func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64, cb func([]byte)) {
 	if node.hash == nil {
 		node.hash, _ = node.hashWithCount()
 	}
@@ -113,33 +113,35 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64) {
 
 	// save children
 	if node.leftNode != nil {
-		ndb.SaveBranch(node.leftNode, version)
+		ndb.SaveBranch(node.leftNode, version, cb)
 		node.leftNode = nil
 	}
 	if node.rightNode != nil {
-		ndb.SaveBranch(node.rightNode, version)
+		ndb.SaveBranch(node.rightNode, version, cb)
 		node.rightNode = nil
 	}
 
 	// save node
 	node.version = version
 	ndb.SaveNode(node)
+
+	cb(node.hash)
 }
 
 // Saves orphaned nodes to disk under a special prefix.
-func (ndb *nodeDB) SaveOrphans(orphans []*IAVLNode) {
+func (ndb *nodeDB) SaveOrphans(orphans map[string]*IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	for _, node := range orphans {
+	for hash, node := range orphans {
 		if !node.persisted {
-			continue
+			cmn.PanicSanity("Should have been persisted")
 		}
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Hash should not be empty")
 		}
-		key := fmt.Sprintf(orphansKeyFmt, node.version, node.hash)
-		ndb.batch.Set([]byte(key), node.hash)
+		key := fmt.Sprintf(orphansKeyFmt, node.version, []byte(hash))
+		ndb.batch.Set([]byte(key), []byte(hash))
 	}
 }
 
@@ -148,9 +150,18 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	defer ndb.mtx.Unlock()
 
 	ndb.traverseOrphansVersion(version, func(key, value []byte) {
+		ndb.batch.Delete(key)
 		ndb.batch.Delete(value)
 		ndb.uncacheNode(value)
 	})
+}
+
+func (ndb *nodeDB) Unorphan(version uint64, hash []byte) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	key := fmt.Sprintf(orphansKeyFmt, version, hash)
+	ndb.batch.Delete([]byte(key))
 }
 
 func (ndb *nodeDB) DeleteRoot(version uint64) {
@@ -268,6 +279,15 @@ func (ndb *nodeDB) leafNodes() []*IAVLNode {
 	return leaves
 }
 
+func (ndb *nodeDB) nodes() []*IAVLNode {
+	nodes := []*IAVLNode{}
+
+	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
+		nodes = append(nodes, node)
+	})
+	return nodes
+}
+
 func (ndb *nodeDB) orphans() [][]byte {
 	orphans := [][]byte{}
 
@@ -275,6 +295,11 @@ func (ndb *nodeDB) orphans() [][]byte {
 		orphans = append(orphans, v)
 	})
 	return orphans
+}
+
+func (ndb *nodeDB) roots() [][]byte {
+	roots, _ := ndb.getRoots()
+	return roots
 }
 
 func (ndb *nodeDB) size() int {

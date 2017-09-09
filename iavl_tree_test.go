@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tmlibs/db"
+
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 var testLevelDB bool
@@ -14,6 +16,84 @@ var testLevelDB bool
 func init() {
 	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
 	flag.Parse()
+}
+
+func TestVersionedRandomTree(t *testing.T) {
+	require := require.New(t)
+	tree := NewIAVLVersionedTree(100, db.NewMemDB())
+	versions := 100
+	keysPerVersion := 30
+
+	// Create a tree of size 1000 with 100 versions.
+	for i := 1; i <= versions; i++ {
+		for j := 0; j < keysPerVersion; j++ {
+			tree.Set([]byte(cmn.RandStr(8)), []byte(cmn.RandStr(8)))
+		}
+		tree.SaveVersion(uint64(i))
+	}
+	require.Equal(versions, len(tree.ndb.roots()), "wrong number of roots")
+	require.Equal(versions*keysPerVersion, len(tree.ndb.leafNodes()), "wrong number of nodes")
+
+	// Before deleting old versions, we should have equal or more nodes in the
+	// db than in the current tree version.
+	require.True(len(tree.ndb.nodes()) >= tree.nodeSize())
+
+	// XXX: Since the HEAD was not persisted, it still depends on a previous
+	// copy, which is a problem when it is deleted.
+
+	for i := 1; i < versions; i++ {
+		tree.ReleaseVersion(uint64(i))
+	}
+
+	require.Len(tree.versions, 1, "tree must have one version left")
+	require.Equal(tree.versions[uint64(versions)].root, tree.root)
+
+	// After cleaning up all previous versions, we should have as many nodes
+	// in the db as in the current tree version.
+	require.Len(tree.ndb.leafNodes(), tree.Size())
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
+}
+
+func TestVersionedRandomTreeSpecial1(t *testing.T) {
+	require := require.New(t)
+	tree := NewIAVLVersionedTree(100, db.NewMemDB())
+
+	tree.Set([]byte("C"), []byte("so43QQFN"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("A"), []byte("ut7sTTAO"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("X"), []byte("AoWWC1kN"))
+	tree.SaveVersion(3)
+
+	tree.Set([]byte("T"), []byte("MhkWjkVy"))
+	tree.SaveVersion(4)
+
+	tree.ReleaseVersion(1)
+	tree.ReleaseVersion(2)
+	tree.ReleaseVersion(3)
+
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
+}
+
+func TestVersionedRandomTreeSpecial2(t *testing.T) {
+	require := require.New(t)
+	tree := NewIAVLVersionedTree(100, db.NewMemDB())
+
+	tree.Set([]byte("OFMe2Yvm"), []byte("ez2OtQtE"))
+	tree.Set([]byte("WEN4iN7Y"), []byte("kQNyUalI"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("1yY3pXHr"), []byte("udYznpII"))
+	tree.Set([]byte("7OSHNE7k"), []byte("ff181M2d"))
+	tree.SaveVersion(2)
+
+	// XXX: The root of Version 1 is being marked as an orphan, but is
+	// still in use by the Version 2 tree. This is the problem.
+
+	tree.ReleaseVersion(1)
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
 }
 
 func TestVersionedTree(t *testing.T) {

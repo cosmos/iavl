@@ -70,7 +70,6 @@ func (t *IAVLTree) Copy() *IAVLTree {
 	return &IAVLTree{
 		root: t.root,
 		ndb:  t.ndb,
-		// TODO: Copy orphans?
 	}
 }
 
@@ -132,16 +131,16 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 
 // DEPRECATED
 func (t *IAVLTree) Save() []byte {
-	return t.SaveAs(0)
+	return t.SaveAs(0, func(h []byte) {})
 }
 
 // TODO: Move to IAVLVersionedTree
-func (t *IAVLTree) SaveAs(version uint64) []byte {
+func (t *IAVLTree) SaveAs(version uint64, cb func(hash []byte)) []byte {
 	if t.root == nil {
 		return nil
 	}
 	if t.ndb != nil {
-		t.ndb.SaveBranch(t.root, version)
+		t.ndb.SaveBranch(t.root, version, cb)
 		if t.root != nil && version > 0 {
 			t.ndb.saveRoot(t.root)
 		}
@@ -267,4 +266,13 @@ func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn f
 			return false
 		}
 	})
+}
+
+func (t *IAVLTree) nodeSize() int {
+	size := 0
+	t.root.traverse(t, true, func(n *IAVLNode) bool {
+		size++
+		return false
+	})
+	return size
 }
