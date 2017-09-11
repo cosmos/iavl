@@ -19,6 +19,14 @@ func NewIAVLPersistentTree(t *IAVLTree) *IAVLPersistentTree {
 	}
 }
 
+func (t *IAVLPersistentTree) deleteOrphan(hash []byte) (orphan *IAVLNode, deleted bool) {
+	if o, ok := t.orphans[string(hash)]; ok {
+		delete(t.orphans, string(hash))
+		return o, true
+	}
+	return nil, false
+}
+
 type IAVLVersionedTree struct {
 	// The current (latest) version of the tree.
 	*IAVLPersistentTree
@@ -106,22 +114,26 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	if _, ok := tree.versions[version]; ok {
 		return errors.Errorf("version %d was already saved", version)
 	}
-
+	if tree.root == nil {
+		return nil
+	}
+	if version == 0 {
+		return errors.New("version must be greater than zero")
+	}
 	tree.versions[version] = tree.IAVLPersistentTree
-	tree.IAVLPersistentTree.SaveAs(version, func(hash []byte) {
-		if _, ok := tree.orphans[string(hash)]; ok {
-			delete(tree.orphans, string(hash))
-		}
+
+	tree.ndb.SaveBranch(tree.root, version, func(hash []byte) {
+		tree.deleteOrphan(hash)
+
 		for _, t := range tree.versions {
 			// TODO: Check old orphans on disk?
 			// Could call Unorphan() for all hashes, silently skips not-founds.
-			if n, ok := t.orphans[string(hash)]; ok {
-				tree.ndb.Unorphan(n.version, hash)
-				delete(t.orphans, string(hash))
+			if orphan, ok := t.deleteOrphan(hash); ok {
+				tree.ndb.Unorphan(orphan.version, hash)
 			}
 		}
 	})
-
+	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.SaveOrphans(tree.orphans)
 	tree.ndb.Commit()
 	tree.IAVLPersistentTree = NewIAVLPersistentTree(tree.Copy())

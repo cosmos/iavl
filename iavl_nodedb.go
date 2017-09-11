@@ -125,7 +125,9 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64, cb func([]byte)) {
 	node.version = version
 	ndb.SaveNode(node)
 
-	cb(node.hash)
+	if cb != nil {
+		cb(node.hash)
+	}
 }
 
 // Saves orphaned nodes to disk under a special prefix.
@@ -244,7 +246,7 @@ func (ndb *nodeDB) getRoots() ([][]byte, error) {
 	return roots, nil
 }
 
-func (ndb *nodeDB) saveRoot(root *IAVLNode) error {
+func (ndb *nodeDB) SaveRoot(root *IAVLNode) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 

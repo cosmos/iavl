@@ -131,19 +131,11 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 
 // DEPRECATED
 func (t *IAVLTree) Save() []byte {
-	return t.SaveAs(0, func(h []byte) {})
-}
-
-// TODO: Move to IAVLVersionedTree
-func (t *IAVLTree) SaveAs(version uint64, cb func(hash []byte)) []byte {
 	if t.root == nil {
 		return nil
 	}
 	if t.ndb != nil {
-		t.ndb.SaveBranch(t.root, version, cb)
-		if t.root != nil && version > 0 {
-			t.ndb.saveRoot(t.root)
-		}
+		t.ndb.SaveBranch(t.root, uint64(0), nil)
 		t.ndb.Commit()
 	}
 	return t.root.hash
