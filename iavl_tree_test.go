@@ -54,6 +54,37 @@ func TestVersionedRandomTree(t *testing.T) {
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 }
 
+func TestVersionedRandomTreeSmallKeys(t *testing.T) {
+	require := require.New(t)
+	tree := NewIAVLVersionedTree(100, db.NewMemDB())
+	versions := 100
+	keysPerVersion := 50
+
+	for i := 1; i <= versions; i++ {
+		for j := 0; j < keysPerVersion; j++ {
+			// Keys of size one are likely to be overwritten.
+			tree.Set([]byte(cmn.RandStr(1)), []byte(cmn.RandStr(8)))
+		}
+		tree.SaveVersion(uint64(i))
+	}
+
+	for i := 1; i < versions; i++ {
+		tree.DeleteVersion(uint64(i))
+	}
+
+	// After cleaning up all previous versions, we should have as many nodes
+	// in the db as in the current tree version.
+	require.Len(tree.ndb.leafNodes(), tree.Size())
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
+
+	// Try getting random keys.
+	for i := 0; i < keysPerVersion; i++ {
+		_, val, exists := tree.Get([]byte(cmn.RandStr(1)))
+		require.True(exists)
+		require.NotEmpty(val)
+	}
+}
+
 func TestVersionedRandomTreeSpecial1(t *testing.T) {
 	require := require.New(t)
 	tree := NewIAVLVersionedTree(100, db.NewMemDB())

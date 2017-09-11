@@ -51,9 +51,9 @@ func (tree *IAVLVersionedTree) String() string {
 }
 
 func (tree *IAVLVersionedTree) Set(key, value []byte) bool {
-	orphaned, removed := tree.IAVLTree.set(key, value)
+	orphaned, updated := tree.IAVLTree.set(key, value)
 	tree.addOrphans(orphaned)
-	return removed
+	return updated
 }
 
 func (tree *IAVLVersionedTree) Remove(key []byte) ([]byte, bool) {
