@@ -124,7 +124,8 @@ func TestVersionedTree(t *testing.T) {
 	// Still zero keys, since we haven't written them.
 	require.Len(tree.ndb.leafNodes(), 0)
 
-	tree.SaveVersion(1)
+	err = tree.SaveVersion(1)
+	require.NoError(err)
 
 	// -----1-----
 	// key1 = val0
@@ -141,7 +142,8 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key3"), []byte("val1"))
 	require.Len(tree.ndb.leafNodes(), len(nodes1))
 
-	tree.SaveVersion(2)
+	err = tree.SaveVersion(2)
+	require.NoError(err)
 
 	// Recreate a new tree and load it, to make sure it works in this
 	// scenario.
@@ -161,7 +163,7 @@ func TestVersionedTree(t *testing.T) {
 
 	nodes2 := tree.ndb.leafNodes()
 	require.Len(nodes2, 5, "db should have grown in size\n%s", tree.ndb.String())
-	require.Len(tree.ndb.orphans(), 2)
+	require.Len(tree.ndb.orphans(), 3, "db should have three orphans\n%s", tree.ndb.String())
 
 	// Create two more orphans.
 	tree.Remove([]byte("key1"))
@@ -182,7 +184,7 @@ func TestVersionedTree(t *testing.T) {
 
 	nodes3 := tree.ndb.leafNodes()
 	require.Len(nodes3, 6, "wrong number of nodes\n%s", tree.ndb.String())
-	require.Len(tree.ndb.orphans(), 4, "wrong number of orphans\n%s", tree.ndb.String())
+	require.Len(tree.ndb.orphans(), 6, "wrong number of orphans\n%s", tree.ndb.String())
 
 	tree.SaveVersion(4)
 	tree = NewIAVLVersionedTree(100, d)

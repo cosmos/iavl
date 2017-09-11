@@ -1,6 +1,8 @@
 package iavl
 
 import (
+	"github.com/pkg/errors"
+
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
@@ -101,7 +103,9 @@ func (tree *IAVLVersionedTree) ReleaseVersion(version uint64) {
 }
 
 func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
-	// TODO: Don't allow saving over an existing version.
+	if _, ok := tree.versions[version]; ok {
+		return errors.Errorf("version %d was already saved", version)
+	}
 
 	tree.versions[version] = tree.IAVLPersistentTree
 	tree.IAVLPersistentTree.SaveAs(version, func(hash []byte) {
