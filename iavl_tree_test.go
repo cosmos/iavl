@@ -288,3 +288,15 @@ func TestVersionedTree(t *testing.T) {
 	_, val, _ = tree.GetVersion([]byte("key2"), 1)
 	require.Equal("val0", string(val))
 }
+
+func TestVersionedTreeErrors(t *testing.T) {
+	require := require.New(t)
+	tree := NewIAVLVersionedTree(100, db.NewMemDB())
+
+	// Can't save with empty tree.
+	require.Error(tree.SaveVersion(1))
+
+	// Can't delete non-existent versions.
+	require.Error(tree.DeleteVersion(1))
+	require.Error(tree.DeleteVersion(99))
+}

@@ -94,7 +94,7 @@ func (tree *IAVLVersionedTree) GetVersion(key []byte, version uint64) (
 	return -1, nil, false
 }
 
-func (tree *IAVLVersionedTree) DeleteVersion(version uint64) {
+func (tree *IAVLVersionedTree) DeleteVersion(version uint64) error {
 	if t, ok := tree.versions[version]; ok {
 		// TODO: Use version parameter.
 		tree.ndb.DeleteOrphans(t.root.version)
@@ -106,8 +106,11 @@ func (tree *IAVLVersionedTree) DeleteVersion(version uint64) {
 		t.root.rightNode = nil
 
 		delete(tree.versions, version)
+
+		return nil
 	}
 	// TODO: What happens if you delete HEAD?
+	return errors.Errorf("version %d does not exist", version)
 }
 
 func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
@@ -115,7 +118,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 		return errors.Errorf("version %d was already saved", version)
 	}
 	if tree.root == nil {
-		return nil
+		return errors.New("tree is empty")
 	}
 	if version == 0 {
 		return errors.New("version must be greater than zero")
