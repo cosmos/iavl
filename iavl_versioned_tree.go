@@ -119,6 +119,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	})
 
 	tree.ndb.SaveOrphans(tree.orphans)
+	tree.ndb.Commit()
 	tree.IAVLPersistentTree = NewIAVLPersistentTree(tree.Copy())
 
 	return nil
