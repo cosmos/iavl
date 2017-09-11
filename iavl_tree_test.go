@@ -42,7 +42,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	// copy, which is a problem when it is deleted.
 
 	for i := 1; i < versions; i++ {
-		tree.ReleaseVersion(uint64(i))
+		tree.DeleteVersion(uint64(i))
 	}
 
 	require.Len(tree.versions, 1, "tree must have one version left")
@@ -70,9 +70,9 @@ func TestVersionedRandomTreeSpecial1(t *testing.T) {
 	tree.Set([]byte("T"), []byte("MhkWjkVy"))
 	tree.SaveVersion(4)
 
-	tree.ReleaseVersion(1)
-	tree.ReleaseVersion(2)
-	tree.ReleaseVersion(3)
+	tree.DeleteVersion(1)
+	tree.DeleteVersion(2)
+	tree.DeleteVersion(3)
 
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 }
@@ -92,7 +92,7 @@ func TestVersionedRandomTreeSpecial2(t *testing.T) {
 	// XXX: The root of Version 1 is being marked as an orphan, but is
 	// still in use by the Version 2 tree. This is the problem.
 
-	tree.ReleaseVersion(1)
+	tree.DeleteVersion(1)
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 }
 
@@ -247,10 +247,10 @@ func TestVersionedTree(t *testing.T) {
 	_, val, _ = tree.GetVersion([]byte("key3"), 3)
 	require.Equal("val1", string(val))
 
-	// Release a version. After this the keys in that version should not be found.
+	// Delete a version. After this the keys in that version should not be found.
 
 	before := tree.ndb.String()
-	tree.ReleaseVersion(2)
+	tree.DeleteVersion(2)
 
 	// -----1-----
 	// key1 = val0
@@ -262,7 +262,7 @@ func TestVersionedTree(t *testing.T) {
 	// -----------
 
 	nodes5 := tree.ndb.leafNodes()
-	require.Len(nodes5, 4, "db should have shrunk after release\n%s\nvs.\n%s", before, tree.ndb.String())
+	require.Len(nodes5, 4, "db should have shrunk after delete\n%s\nvs.\n%s", before, tree.ndb.String())
 
 	_, val, exists = tree.GetVersion([]byte("key2"), 2)
 	require.False(exists)
