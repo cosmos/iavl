@@ -7,6 +7,7 @@ import (
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
+// VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
 	// The current, latest version of the tree.
 	*OrphaningTree
@@ -16,6 +17,7 @@ type VersionedTree struct {
 	ndb      *nodeDB
 }
 
+// NewVersionedTree returns a new tree with the specified cache size and datastore.
 func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	ndb := newNodeDB(cacheSize, db)
 	head := &IAVLTree{ndb: ndb}
@@ -27,10 +29,12 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	}
 }
 
+// String returns a string representation of the tree.
 func (tree *VersionedTree) String() string {
 	return tree.ndb.String()
 }
 
+// Load a versioned tree from disk. All tree versions are loaded automatically.
 func (tree *VersionedTree) Load() error {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
@@ -54,6 +58,7 @@ func (tree *VersionedTree) Load() error {
 	return nil
 }
 
+// GetVersioned gets the value at the specified key and version.
 func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
 	index int, value []byte, exists bool,
 ) {
@@ -63,23 +68,8 @@ func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
 	return -1, nil, false
 }
 
-func (tree *VersionedTree) DeleteVersion(version uint64) error {
-	if t, ok := tree.versions[version]; ok {
-		if version != t.root.version {
-			cmn.PanicSanity("Version being saved is not the same as root")
-		}
-		tree.ndb.DeleteOrphans(version)
-		tree.ndb.DeleteRoot(version)
-		tree.ndb.Commit()
-
-		delete(tree.versions, version)
-
-		return nil
-	}
-	// TODO: What happens if you delete HEAD?
-	return errors.Errorf("version %d does not exist", version)
-}
-
+// SaveVersion saves a new tree version to disk, based on the current state of
+// the tree. Multiple calls to SaveVersion with the same version are not allowed.
 func (tree *VersionedTree) SaveVersion(version uint64) error {
 	if _, ok := tree.versions[version]; ok {
 		return errors.Errorf("version %d was already saved", version)
@@ -107,4 +97,23 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	tree.OrphaningTree = NewOrphaningTree(tree.Copy())
 
 	return nil
+}
+
+// DeleteVersion deletes a tree version from disk. The version can then no
+// longer be accessed.
+func (tree *VersionedTree) DeleteVersion(version uint64) error {
+	if t, ok := tree.versions[version]; ok {
+		if version != t.root.version {
+			cmn.PanicSanity("Version being saved is not the same as root")
+		}
+		tree.ndb.DeleteOrphans(version)
+		tree.ndb.DeleteRoot(version)
+		tree.ndb.Commit()
+
+		delete(tree.versions, version)
+
+		return nil
+	}
+	// TODO: What happens if you delete HEAD?
+	return errors.Errorf("version %d does not exist", version)
 }
