@@ -26,6 +26,7 @@ type IAVLNode struct {
 	persisted bool
 }
 
+// NewIAVLNode returns a new node from a key and value.
 func NewIAVLNode(key []byte, value []byte) *IAVLNode {
 	return &IAVLNode{
 		key:     key,
@@ -37,7 +38,9 @@ func NewIAVLNode(key []byte, value []byte) *IAVLNode {
 }
 
 // MakeIAVLNode constructs an *IAVLNode from an encoded byte slice.
-// NOTE: The hash is not saved or set.  The caller should set the hash afterwards.
+//
+// The new node doesn't have its hash saved or set.  The caller must set it
+// afterwards.
 func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 	node = &IAVLNode{}
 
@@ -87,6 +90,7 @@ func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 	return node, nil
 }
 
+// String returns a string representation of the node.
 func (node *IAVLNode) String() string {
 	if len(node.hash) == 0 {
 		return "<no hash>"
@@ -95,6 +99,7 @@ func (node *IAVLNode) String() string {
 	}
 }
 
+// debugString returns a string useful for printing a list of nodes.
 func (node *IAVLNode) debugString() string {
 	if node.value == nil && node.height > 0 {
 		return fmt.Sprintf("%40x: %s   %-16s h=%d version=%d (left=%x, right=%x)", node.hash, node.key, "", node.height, node.version, node.leftHash, node.rightHash)
@@ -103,6 +108,7 @@ func (node *IAVLNode) debugString() string {
 	}
 }
 
+// clone creates a shallow copy of a node with its hash set to nil.
 func (node *IAVLNode) clone() *IAVLNode {
 	if node.isLeaf() {
 		cmn.PanicSanity("Why are you copying a value node?")
@@ -112,12 +118,12 @@ func (node *IAVLNode) clone() *IAVLNode {
 		height:    node.height,
 		version:   node.version,
 		size:      node.size,
-		hash:      nil, // Going to be mutated anyways.
+		hash:      nil,
 		leftHash:  node.leftHash,
 		leftNode:  node.leftNode,
 		rightHash: node.rightHash,
 		rightNode: node.rightNode,
-		persisted: false, // Going to be mutated, so it can't already be persisted.
+		persisted: false,
 	}
 }
 
@@ -140,6 +146,7 @@ func (node *IAVLNode) has(t *IAVLTree, key []byte) (has bool) {
 	}
 }
 
+// Get a key under the node.
 func (node *IAVLNode) get(t *IAVLTree, key []byte) (index int, value []byte, exists bool) {
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
@@ -182,7 +189,8 @@ func (node *IAVLNode) getByIndex(t *IAVLTree, index int) (key []byte, value []by
 	}
 }
 
-// NOTE: sets hashes recursively
+// Hash the node and its descendants recursively. This usually mutates all
+// descendant nodes. Returns the node hash and number of nodes hashed.
 func (node *IAVLNode) hashWithCount() ([]byte, int) {
 	if node.hash != nil {
 		return node.hash, 0
@@ -201,20 +209,18 @@ func (node *IAVLNode) hashWithCount() ([]byte, int) {
 }
 
 // Writes the node's hash to the given io.Writer.
-// This function has the side-effect of computing and setting the hashes of all descendant nodes.
+// This function has the side-effect of calling hashWithCount.
 func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err error) {
-	// height & size
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
-	// key is not written for inner nodes, unlike writeBytes
+
+	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		// key & value
 		wire.WriteByteSlice(node.key, w, &n, &err)
 		wire.WriteByteSlice(node.value, w, &n, &err)
 		wire.WriteUint64(node.version, w, &n, &err)
 	} else {
-		// left
 		if node.leftNode != nil {
 			leftHash, leftCount := node.leftNode.hashWithCount()
 			node.leftHash = leftHash
@@ -225,7 +231,6 @@ func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err err
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
 
-		// right
 		if node.rightNode != nil {
 			rightHash, rightCount := node.rightNode.hashWithCount()
 			node.rightHash = rightHash
@@ -239,25 +244,23 @@ func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err err
 	return
 }
 
-// NOTE: sets hashes recursively
+// Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *IAVLNode) writeBytes(w io.Writer) (n int, err error) {
-	// node header
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
-	// key (unlike writeHashBytes, key is written for inner nodes)
+
+	// Unlike writeHashBytes, key is written for inner nodes.
 	wire.WriteByteSlice(node.key, w, &n, &err)
 	wire.WriteUint64(node.version, w, &n, &err)
 
 	if node.isLeaf() {
-		// value
 		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
-		// left
 		if node.leftHash == nil {
 			cmn.PanicSanity("node.leftHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
-		// right
+
 		if node.rightHash == nil {
 			cmn.PanicSanity("node.rightHash was nil in writeBytes")
 		}
@@ -266,7 +269,9 @@ func (node *IAVLNode) writeBytes(w io.Writer) (n int, err error) {
 	return
 }
 
-func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLNode, updated bool, orphaned []*IAVLNode) {
+func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (
+	newSelf *IAVLNode, updated bool, orphaned []*IAVLNode,
+) {
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1:
@@ -289,19 +294,20 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 			return NewIAVLNode(key, value), true, []*IAVLNode{node}
 		}
 	} else {
-		var subOrphaned []*IAVLNode
-
 		orphaned = append(orphaned, node)
 		node = node.clone()
 
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated, subOrphaned = node.getLeftNode(t).set(t, key, value)
+			var leftOrphaned []*IAVLNode
+			node.leftNode, updated, leftOrphaned = node.getLeftNode(t).set(t, key, value)
 			node.leftHash = nil // leftHash is yet unknown
+			orphaned = append(orphaned, leftOrphaned...)
 		} else {
-			node.rightNode, updated, subOrphaned = node.getRightNode(t).set(t, key, value)
+			var rightOrphaned []*IAVLNode
+			node.rightNode, updated, rightOrphaned = node.getRightNode(t).set(t, key, value)
 			node.rightHash = nil // rightHash is yet unknown
+			orphaned = append(orphaned, rightOrphaned...)
 		}
-		orphaned = append(orphaned, subOrphaned...)
 
 		if updated {
 			return node, updated, orphaned
@@ -317,8 +323,8 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (newSelf *IAVLN
 // newKey: new leftmost leaf key for tree after successfully removing 'key' if changed.
 // value: removed value.
 func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
-	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, orphaned []*IAVLNode) {
-
+	newHash []byte, newNode *IAVLNode, newKey []byte, value []byte, orphaned []*IAVLNode,
+) {
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			return nil, nil, nil, node.value, []*IAVLNode{node}
@@ -542,5 +548,3 @@ func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
 	}
 	return node.getRightNode(t).rmd(t)
 }
-
-//----------------------------------------

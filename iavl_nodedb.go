@@ -96,9 +96,6 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.batch.Set(node.hash, buf.Bytes())
 	node.persisted = true
 	ndb.cacheNode(node)
-
-	// TODO: What do we do if this node's hash was previously orphaned?
-	// Would have to be same key/val/version.
 }
 
 // NOTE: clears leftNode/rigthNode recursively
