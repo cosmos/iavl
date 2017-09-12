@@ -188,6 +188,7 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 			k := make([]byte, len(it.Key()))
 			v := make([]byte, len(it.Value()))
 
+			// Leveldb reuses the memory, we are forced to copy.
 			copy(k, it.Key())
 			copy(v, it.Value())
 
@@ -321,6 +322,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 		k := make([]byte, len(it.Key()))
 		v := make([]byte, len(it.Value()))
 
+		// Leveldb reuses the memory, we are forced to copy.
 		copy(k, it.Key())
 		copy(v, it.Value())
 

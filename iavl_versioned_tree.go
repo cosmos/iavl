@@ -10,10 +10,10 @@ import (
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
 	// The current, latest version of the tree.
-	*OrphaningTree
+	*orphaningTree
 
 	// The previous, saved versions of the tree.
-	versions map[uint64]*OrphaningTree
+	versions map[uint64]*orphaningTree
 	ndb      *nodeDB
 }
 
@@ -23,8 +23,8 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	head := &IAVLTree{ndb: ndb}
 
 	return &VersionedTree{
-		OrphaningTree: NewOrphaningTree(head),
-		versions:      map[uint64]*OrphaningTree{},
+		orphaningTree: newOrphaningTree(head),
+		versions:      map[uint64]*orphaningTree{},
 		ndb:           ndb,
 	}
 }
@@ -43,7 +43,7 @@ func (tree *VersionedTree) Load() error {
 
 	var latest uint64
 	for _, root := range roots {
-		t := NewOrphaningTree(&IAVLTree{ndb: tree.ndb})
+		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
 
 		version := t.root.version
@@ -53,7 +53,7 @@ func (tree *VersionedTree) Load() error {
 			latest = version
 		}
 	}
-	tree.IAVLTree = tree.versions[latest].Copy()
+	tree.orphaningTree = newOrphaningTree(tree.versions[latest].Copy())
 
 	return nil
 }
@@ -80,9 +80,9 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	if version == 0 {
 		return errors.New("version must be greater than zero")
 	}
-	tree.versions[version] = tree.OrphaningTree
+	tree.versions[version] = tree.orphaningTree
 
-	tree.OrphaningTree.Save(func(node *IAVLNode) *IAVLNode {
+	tree.orphaningTree.Save(func(node *IAVLNode) *IAVLNode {
 		for _, t := range tree.versions {
 			t.Unorphan(node.hash, version)
 		}
@@ -92,7 +92,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 
 	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.Commit()
-	tree.OrphaningTree = NewOrphaningTree(tree.Copy())
+	tree.orphaningTree = newOrphaningTree(tree.Copy())
 
 	return nil
 }
