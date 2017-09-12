@@ -3,6 +3,7 @@ package iavl
 import (
 	"github.com/pkg/errors"
 
+	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
@@ -63,14 +64,12 @@ func (tree *IAVLVersionedTree) GetVersioned(key []byte, version uint64) (
 
 func (tree *IAVLVersionedTree) DeleteVersion(version uint64) error {
 	if t, ok := tree.versions[version]; ok {
-		// TODO: Use version parameter.
-		tree.ndb.DeleteOrphans(t.root.version)
-		tree.ndb.DeleteRoot(t.root.version)
+		if version != t.root.version {
+			cmn.PanicSanity("Version being saved is not the same as root")
+		}
+		tree.ndb.DeleteOrphans(version)
+		tree.ndb.DeleteRoot(version)
 		tree.ndb.Commit()
-
-		// TODO: Not necessary.
-		t.root.leftNode = nil
-		t.root.rightNode = nil
 
 		delete(tree.versions, version)
 
