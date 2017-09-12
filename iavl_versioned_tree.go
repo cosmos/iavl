@@ -7,6 +7,8 @@ import (
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
+var ErrVersionDoesNotExist = errors.New("version does not exist")
+
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
 	// The current, latest version of the tree.
@@ -113,5 +115,44 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 		return nil
 	}
 	// TODO: What happens if you delete HEAD?
-	return errors.Errorf("version %d does not exist", version)
+	return ErrVersionDoesNotExist
+}
+
+// GetVersionedWithProof gets the value under the key at the specified version
+// if it exists, or returns nil.  A proof of existence or absence is returned
+// alongside the value.
+func (tree *VersionedTree) GetVersionedWithProof(key []byte, version uint64) ([]byte, KeyProof, error) {
+	if t, ok := tree.versions[version]; ok {
+		return t.GetWithProof(key)
+	}
+	return nil, nil, ErrVersionDoesNotExist
+}
+
+// GetVersionedRangeWithProof gets key/value pairs within the specified range
+// and limit. To specify a descending range, swap the start and end keys.
+//
+// Returns a list of keys, a list of values and a proof.
+func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version uint64) ([][]byte, [][]byte, *KeyRangeProof, error) {
+	if t, ok := tree.versions[version]; ok {
+		return t.GetRangeWithProof(startKey, endKey, limit)
+	}
+	return nil, nil, nil, ErrVersionDoesNotExist
+}
+
+// GetVersionedFirstInRangeWithProof gets the first key/value pair in the
+// specified range, with a proof.
+func (tree *VersionedTree) GetVersionedFirstInRangeWithProof(startKey, endKey []byte, version uint64) ([]byte, []byte, *KeyFirstInRangeProof, error) {
+	if t, ok := tree.versions[version]; ok {
+		return t.GetFirstInRangeWithProof(startKey, endKey)
+	}
+	return nil, nil, nil, ErrVersionDoesNotExist
+}
+
+// GetVersionedLastInRangeWithProof gets the last key/value pair in the
+// specified range, with a proof.
+func (tree *VersionedTree) GetVersionedLastInRangeWithProof(startKey, endKey []byte, version uint64) ([]byte, []byte, *KeyLastInRangeProof, error) {
+	if t, ok := tree.versions[version]; ok {
+		return t.GetLastInRangeWithProof(startKey, endKey)
+	}
+	return nil, nil, nil, ErrVersionDoesNotExist
 }
