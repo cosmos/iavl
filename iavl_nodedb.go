@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"container/list"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -33,6 +34,8 @@ type nodeDB struct {
 	cacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 	db         dbm.DB                   // Persistent node storage.
 	batch      dbm.Batch                // Batched writing buffer.
+	versions   map[uint64]*IAVLNode
+	latest     uint64
 }
 
 func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
@@ -42,6 +45,8 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 		cacheQueue: list.New(),
 		db:         db,
 		batch:      db.NewBatch(),
+		versions:   map[uint64]*IAVLNode{},
+		latest:     0,
 	}
 	return ndb
 }
@@ -136,9 +141,13 @@ func (ndb *nodeDB) SaveOrphans(orphans map[string]uint64) {
 	defer ndb.mtx.Unlock()
 
 	for hash, version := range orphans {
-		key := fmt.Sprintf(orphansKeyFmt, version, []byte(hash))
-		ndb.batch.Set([]byte(key), []byte(hash))
+		ndb.saveOrphan([]byte(hash), version)
 	}
+}
+
+func (ndb *nodeDB) saveOrphan(hash []byte, version uint64) {
+	key := fmt.Sprintf(orphansKeyFmt, version, hash)
+	ndb.batch.Set([]byte(key), hash)
 }
 
 // DeleteOrphans deletes orphaned nodes from disk, and the associated orphan
@@ -148,10 +157,25 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	defer ndb.mtx.Unlock()
 
 	ndb.traverseOrphansVersion(version, func(key, value []byte) {
-		ndb.batch.Delete(key)
-		ndb.batch.Delete(value)
 		ndb.uncacheNode(value)
+		ndb.batch.Delete(key)
+
+		if v := ndb.getVersionAfter(version); v > 0 && v < ndb.latest {
+			ndb.saveOrphan(value, v)
+		} else {
+			ndb.batch.Delete(value)
+		}
 	})
+}
+
+func (ndb *nodeDB) getVersionAfter(version uint64) uint64 {
+	var result uint64 = 0
+	for v, _ := range ndb.versions {
+		if v > version && (result == 0 || v < result) {
+			result = v
+		}
+	}
+	return result
 }
 
 // Unorphan deletes the orphan entry from disk, but not the node it points to.
@@ -170,6 +194,12 @@ func (ndb *nodeDB) DeleteRoot(version uint64) {
 
 	key := fmt.Sprintf(rootsPrefixFmt, version)
 	ndb.batch.Delete([]byte(key))
+
+	delete(ndb.versions, version)
+
+	if version == ndb.latest {
+		cmn.PanicSanity("Tried to delete latest version")
+	}
 }
 
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
@@ -254,8 +284,13 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode) error {
 	if len(root.hash) == 0 {
 		cmn.PanicSanity("Hash should not be empty")
 	}
+	if root.version <= ndb.latest {
+		return errors.New("can't save root with lower or equal version than latest")
+	}
 	key := fmt.Sprintf(rootsPrefixFmt, root.version)
 	ndb.batch.Set([]byte(key), root.hash)
+	ndb.versions[root.version] = root
+	ndb.latest = root.version
 
 	return nil
 }

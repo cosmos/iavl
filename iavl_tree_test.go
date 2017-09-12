@@ -51,7 +51,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.
 	require.Len(tree.ndb.leafNodes(), tree.Size())
-	require.Len(tree.ndb.nodes(), tree.nodeSize())
+	require.Len(tree.ndb.nodes(), tree.nodeSize(), "%s", tree.ndb.String())
 }
 
 func TestVersionedRandomTreeSmallKeys(t *testing.T) {
@@ -359,4 +359,60 @@ func TestVersionedTreeErrors(t *testing.T) {
 	// Can't delete non-existent versions.
 	require.Error(tree.DeleteVersion(1))
 	require.Error(tree.DeleteVersion(99))
+}
+
+func TestVersionedCheckpoints(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(100, db.NewMemDB())
+	versions := 20
+	keysPerVersion := 10
+	versionsPerCheckpoint := 4
+	keys := map[uint64]([][]byte){}
+
+	for i := 1; i <= versions; i++ {
+		for j := 0; j < keysPerVersion; j++ {
+			k := []byte(cmn.RandStr(1))
+			keys[uint64(i)] = append(keys[uint64(i)], k)
+			tree.Set(k, []byte(cmn.RandStr(8)))
+		}
+		tree.SaveVersion(uint64(i))
+	}
+
+	for i := 1; i <= versions; i++ {
+		if i%versionsPerCheckpoint != 0 {
+			tree.DeleteVersion(uint64(i))
+		}
+	}
+
+	// Make sure all keys exist at least once.
+	for _, ks := range keys {
+		for _, k := range ks {
+			_, val, exists := tree.Get(k)
+			require.True(exists)
+			require.NotEmpty(val)
+		}
+	}
+
+	// Make sure all keys from deleted versions aren't present.
+	for i := 1; i <= versions; i++ {
+		if i%versionsPerCheckpoint != 0 {
+			for _, k := range keys[uint64(i)] {
+				_, val, exists := tree.GetVersioned(k, uint64(i))
+				require.False(exists)
+				require.Empty(val)
+			}
+		}
+	}
+
+	// Make sure all keys exist at all checkpoints.
+	for i := 1; i <= versions; i++ {
+		for _, k := range keys[uint64(i)] {
+			if i%versionsPerCheckpoint == 0 {
+				_, val, exists := tree.GetVersioned(k, uint64(i))
+				require.True(exists, "key %s should exist at version %d\n%s", k, i, tree.ndb.String())
+				require.NotEmpty(val)
+			}
+		}
+	}
+
 }
