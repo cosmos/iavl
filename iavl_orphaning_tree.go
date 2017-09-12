@@ -9,7 +9,7 @@ type IAVLOrphaningTree struct {
 	orphans map[string]uint64
 }
 
-func NewIAVLPersistentTree(t *IAVLTree) *IAVLOrphaningTree {
+func NewIAVLOrphaningTree(t *IAVLTree) *IAVLOrphaningTree {
 	return &IAVLOrphaningTree{
 		IAVLTree: t,
 		orphans:  map[string]uint64{},

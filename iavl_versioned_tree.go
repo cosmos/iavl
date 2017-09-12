@@ -19,7 +19,7 @@ func NewIAVLVersionedTree(cacheSize int, db dbm.DB) *IAVLVersionedTree {
 	head := &IAVLTree{ndb: ndb}
 
 	return &IAVLVersionedTree{
-		IAVLOrphaningTree: NewIAVLPersistentTree(head),
+		IAVLOrphaningTree: NewIAVLOrphaningTree(head),
 		versions:          map[uint64]*IAVLOrphaningTree{},
 		ndb:               ndb,
 	}
@@ -37,7 +37,7 @@ func (tree *IAVLVersionedTree) Load() error {
 
 	var latest uint64
 	for _, root := range roots {
-		t := NewIAVLPersistentTree(&IAVLTree{ndb: tree.ndb})
+		t := NewIAVLOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
 
 		version := t.root.version
@@ -104,7 +104,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.SaveOrphans(tree.orphans)
 	tree.ndb.Commit()
-	tree.IAVLOrphaningTree = NewIAVLPersistentTree(tree.Copy())
+	tree.IAVLOrphaningTree = NewIAVLOrphaningTree(tree.Copy())
 
 	return nil
 }
