@@ -4,42 +4,42 @@ import (
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
-type IAVLOrphaningTree struct {
+type OrphaningTree struct {
 	*IAVLTree
 	orphans map[string]uint64
 }
 
-func NewIAVLOrphaningTree(t *IAVLTree) *IAVLOrphaningTree {
-	return &IAVLOrphaningTree{
+func NewOrphaningTree(t *IAVLTree) *OrphaningTree {
+	return &OrphaningTree{
 		IAVLTree: t,
 		orphans:  map[string]uint64{},
 	}
 }
 
-func (tree *IAVLOrphaningTree) Set(key, value []byte) bool {
+func (tree *OrphaningTree) Set(key, value []byte) bool {
 	orphaned, updated := tree.IAVLTree.set(key, value)
 	tree.addOrphans(orphaned)
 	return updated
 }
 
-func (tree *IAVLOrphaningTree) Remove(key []byte) ([]byte, bool) {
+func (tree *OrphaningTree) Remove(key []byte) ([]byte, bool) {
 	val, orphaned, removed := tree.IAVLTree.Remove(key)
 	tree.addOrphans(orphaned)
 	return val, removed
 }
 
-func (tree *IAVLOrphaningTree) Load(root []byte) {
+func (tree *OrphaningTree) Load(root []byte) {
 	tree.IAVLTree.Load(root)
 	tree.loadOrphans(tree.root.version)
 }
 
-func (tree *IAVLOrphaningTree) loadOrphans(version uint64) {
+func (tree *OrphaningTree) loadOrphans(version uint64) {
 	tree.ndb.traverseOrphansVersion(version, func(k, v []byte) {
 		tree.orphans[string(v)] = version
 	})
 }
 
-func (tree *IAVLOrphaningTree) addOrphans(orphans []*IAVLNode) {
+func (tree *OrphaningTree) addOrphans(orphans []*IAVLNode) {
 	for _, node := range orphans {
 		if !node.persisted {
 			continue
@@ -51,7 +51,7 @@ func (tree *IAVLOrphaningTree) addOrphans(orphans []*IAVLNode) {
 	}
 }
 
-func (tree *IAVLOrphaningTree) deleteOrphan(hash []byte) (version uint64, deleted bool) {
+func (tree *OrphaningTree) deleteOrphan(hash []byte) (version uint64, deleted bool) {
 	if version, ok := tree.orphans[string(hash)]; ok {
 		delete(tree.orphans, string(hash))
 		return version, true

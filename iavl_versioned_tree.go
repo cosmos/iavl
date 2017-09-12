@@ -7,30 +7,31 @@ import (
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
-type IAVLVersionedTree struct {
-	// The current (latest) version of the tree.
-	*IAVLOrphaningTree
+type VersionedTree struct {
+	// The current, latest version of the tree.
+	*OrphaningTree
 
-	versions map[uint64]*IAVLOrphaningTree
+	// The previous, saved versions of the tree.
+	versions map[uint64]*OrphaningTree
 	ndb      *nodeDB
 }
 
-func NewIAVLVersionedTree(cacheSize int, db dbm.DB) *IAVLVersionedTree {
+func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	ndb := newNodeDB(cacheSize, db)
 	head := &IAVLTree{ndb: ndb}
 
-	return &IAVLVersionedTree{
-		IAVLOrphaningTree: NewIAVLOrphaningTree(head),
-		versions:          map[uint64]*IAVLOrphaningTree{},
-		ndb:               ndb,
+	return &VersionedTree{
+		OrphaningTree: NewOrphaningTree(head),
+		versions:      map[uint64]*OrphaningTree{},
+		ndb:           ndb,
 	}
 }
 
-func (tree *IAVLVersionedTree) String() string {
+func (tree *VersionedTree) String() string {
 	return tree.ndb.String()
 }
 
-func (tree *IAVLVersionedTree) Load() error {
+func (tree *VersionedTree) Load() error {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return err
@@ -38,7 +39,7 @@ func (tree *IAVLVersionedTree) Load() error {
 
 	var latest uint64
 	for _, root := range roots {
-		t := NewIAVLOrphaningTree(&IAVLTree{ndb: tree.ndb})
+		t := NewOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
 
 		version := t.root.version
@@ -53,7 +54,7 @@ func (tree *IAVLVersionedTree) Load() error {
 	return nil
 }
 
-func (tree *IAVLVersionedTree) GetVersioned(key []byte, version uint64) (
+func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
 	index int, value []byte, exists bool,
 ) {
 	if t, ok := tree.versions[version]; ok {
@@ -62,7 +63,7 @@ func (tree *IAVLVersionedTree) GetVersioned(key []byte, version uint64) (
 	return -1, nil, false
 }
 
-func (tree *IAVLVersionedTree) DeleteVersion(version uint64) error {
+func (tree *VersionedTree) DeleteVersion(version uint64) error {
 	if t, ok := tree.versions[version]; ok {
 		if version != t.root.version {
 			cmn.PanicSanity("Version being saved is not the same as root")
@@ -79,7 +80,7 @@ func (tree *IAVLVersionedTree) DeleteVersion(version uint64) error {
 	return errors.Errorf("version %d does not exist", version)
 }
 
-func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
+func (tree *VersionedTree) SaveVersion(version uint64) error {
 	if _, ok := tree.versions[version]; ok {
 		return errors.Errorf("version %d was already saved", version)
 	}
@@ -89,7 +90,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	if version == 0 {
 		return errors.New("version must be greater than zero")
 	}
-	tree.versions[version] = tree.IAVLOrphaningTree
+	tree.versions[version] = tree.OrphaningTree
 
 	tree.ndb.SaveBranch(tree.root, version, func(hash []byte) {
 		tree.deleteOrphan(hash)
@@ -103,7 +104,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.SaveOrphans(tree.orphans)
 	tree.ndb.Commit()
-	tree.IAVLOrphaningTree = NewIAVLOrphaningTree(tree.Copy())
+	tree.OrphaningTree = NewOrphaningTree(tree.Copy())
 
 	return nil
 }
