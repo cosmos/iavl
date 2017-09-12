@@ -128,18 +128,12 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64, cb func([]byte)) {
 }
 
 // Saves orphaned nodes to disk under a special prefix.
-func (ndb *nodeDB) SaveOrphans(orphans map[string]*IAVLNode) {
+func (ndb *nodeDB) SaveOrphans(orphans map[string]uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	for hash, node := range orphans {
-		if !node.persisted {
-			cmn.PanicSanity("Should have been persisted")
-		}
-		if len(node.hash) == 0 {
-			cmn.PanicSanity("Hash should not be empty")
-		}
-		key := fmt.Sprintf(orphansKeyFmt, node.version, []byte(hash))
+	for hash, version := range orphans {
+		key := fmt.Sprintf(orphansKeyFmt, version, []byte(hash))
 		ndb.batch.Set([]byte(key), []byte(hash))
 	}
 }
@@ -155,7 +149,7 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	})
 }
 
-func (ndb *nodeDB) Unorphan(version uint64, hash []byte) {
+func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 

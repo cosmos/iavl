@@ -9,22 +9,28 @@ import (
 
 type IAVLPersistentTree struct {
 	*IAVLTree
-	orphans map[string]*IAVLNode
+	orphans map[string]uint64
 }
 
 func NewIAVLPersistentTree(t *IAVLTree) *IAVLPersistentTree {
 	return &IAVLPersistentTree{
 		IAVLTree: t,
-		orphans:  map[string]*IAVLNode{},
+		orphans:  map[string]uint64{},
 	}
 }
 
-func (t *IAVLPersistentTree) deleteOrphan(hash []byte) (orphan *IAVLNode, deleted bool) {
-	if o, ok := t.orphans[string(hash)]; ok {
+func (t *IAVLPersistentTree) deleteOrphan(hash []byte) (version uint64, deleted bool) {
+	if version, ok := t.orphans[string(hash)]; ok {
 		delete(t.orphans, string(hash))
-		return o, true
+		return version, true
 	}
-	return nil, false
+	return 0, false
+}
+
+func (t *IAVLPersistentTree) loadOrphans(version uint64) {
+	t.ndb.traverseOrphansVersion(version, func(k, v []byte) {
+		t.orphans[string(v)] = version
+	})
 }
 
 type IAVLVersionedTree struct {
@@ -68,17 +74,18 @@ func (tree *IAVLVersionedTree) Load() error {
 		return err
 	}
 
-	// TODO: Load orphans too? They are needed when unorphaning.
-
 	var latest uint64
 	for _, root := range roots {
 		t := NewIAVLPersistentTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
-		tree.versions[t.root.version] = t
 
-		if t.root.version > latest {
-			latest = t.root.version
+		version := t.root.version
+		tree.versions[version] = t
+
+		if version > latest {
+			latest = version
 		}
+		t.loadOrphans(version)
 	}
 	tree.IAVLTree = tree.versions[latest].Copy()
 
@@ -129,10 +136,8 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 		tree.deleteOrphan(hash)
 
 		for _, t := range tree.versions {
-			// TODO: Check old orphans on disk?
-			// Could call Unorphan() for all hashes, silently skips not-founds.
-			if orphan, ok := t.deleteOrphan(hash); ok {
-				tree.ndb.Unorphan(orphan.version, hash)
+			if version, ok := t.deleteOrphan(hash); ok {
+				tree.ndb.Unorphan(hash, version)
 			}
 		}
 	})
@@ -152,6 +157,6 @@ func (tree *IAVLVersionedTree) addOrphans(orphans []*IAVLNode) {
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Expected to find node hash, but was empty")
 		}
-		tree.orphans[string(node.hash)] = node
+		tree.orphans[string(node.hash)] = node.version
 	}
 }

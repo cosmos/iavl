@@ -320,6 +320,35 @@ func TestVersionedTree(t *testing.T) {
 	require.Equal("val0", string(val))
 }
 
+func TestVersionedTreeSaveAndLoad(t *testing.T) {
+	require := require.New(t)
+	d := db.NewMemDB()
+	tree := NewIAVLVersionedTree(0, d)
+
+	tree.Set([]byte("C"), []byte("so43QQFN"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("A"), []byte("ut7sTTAO"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("X"), []byte("AoWWC1kN"))
+	tree.SaveVersion(3)
+
+	// Reload the tree, to test that roots and orphans are properly loaded.
+	tree = NewIAVLVersionedTree(0, d)
+	tree.Load()
+
+	tree.Set([]byte("T"), []byte("MhkWjkVy"))
+	tree.SaveVersion(4)
+
+	tree.DeleteVersion(1)
+	tree.DeleteVersion(2)
+	tree.DeleteVersion(3)
+
+	require.Equal(4, tree.Size())
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
+}
+
 func TestVersionedTreeErrors(t *testing.T) {
 	require := require.New(t)
 	tree := NewIAVLVersionedTree(100, db.NewMemDB())
