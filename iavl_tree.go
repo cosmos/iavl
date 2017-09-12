@@ -10,10 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-/*
-Immutable AVL Tree (wraps the Node root)
-This tree is not goroutine safe.
-*/
+// IAVLTree is an immutable AVL+ Tree. Note that this tree is not thread-safe.
 type IAVLTree struct {
 	root *IAVLNode
 	ndb  *nodeDB
@@ -43,6 +40,7 @@ func (t *IAVLTree) String() string {
 	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
 }
 
+// Copy returns a copy of the tree.
 // The returned tree and the original tree are goroutine independent.
 // That is, they can each run in their own goroutine.
 // However, upon Save(), any other trees that share a db will become
@@ -73,6 +71,7 @@ func (t *IAVLTree) Copy() *IAVLTree {
 	}
 }
 
+// Size returns the number of leaf nodes in the tree.
 func (t *IAVLTree) Size() int {
 	if t.root == nil {
 		return 0
@@ -80,6 +79,7 @@ func (t *IAVLTree) Size() int {
 	return t.root.size
 }
 
+// Height returns the height of the tree.
 func (t *IAVLTree) Height() int8 {
 	if t.root == nil {
 		return 0
@@ -87,6 +87,7 @@ func (t *IAVLTree) Height() int8 {
 	return t.root.height
 }
 
+// Has returns whether or not a key exists.
 func (t *IAVLTree) Has(key []byte) bool {
 	if t.root == nil {
 		return false
@@ -94,6 +95,7 @@ func (t *IAVLTree) Has(key []byte) bool {
 	return t.root.has(t, key)
 }
 
+// Set a key.
 func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
 	_, updated = t.set(key, value)
 	return updated
@@ -114,6 +116,7 @@ func (t *IAVLTree) BatchSet(key []byte, value []byte) {
 	t.ndb.batch.Set(key, value)
 }
 
+// Hash returns the root hash.
 func (t *IAVLTree) Hash() []byte {
 	if t.root == nil {
 		return nil
@@ -122,6 +125,7 @@ func (t *IAVLTree) Hash() []byte {
 	return hash
 }
 
+// HashWithCount returns the root hash and hash count.
 func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	if t.root == nil {
 		return nil, 0
