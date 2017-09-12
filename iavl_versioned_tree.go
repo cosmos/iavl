@@ -82,17 +82,13 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	}
 	tree.versions[version] = tree.OrphaningTree
 
-	tree.ndb.SaveBranch(tree.root, version, func(hash []byte) {
-		tree.deleteOrphan(hash)
-
+	tree.OrphaningTree.saveVersion(version, func(hash []byte) {
 		for _, t := range tree.versions {
-			if version, ok := t.deleteOrphan(hash); ok {
-				tree.ndb.Unorphan(hash, version)
-			}
+			t.Unorphan(hash, version)
 		}
 	})
+
 	tree.ndb.SaveRoot(tree.root)
-	tree.ndb.SaveOrphans(tree.orphans)
 	tree.ndb.Commit()
 	tree.OrphaningTree = NewOrphaningTree(tree.Copy())
 

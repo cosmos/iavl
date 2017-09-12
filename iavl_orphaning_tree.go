@@ -40,6 +40,24 @@ func (tree *OrphaningTree) Load(root []byte) {
 	tree.loadOrphans(tree.root.version)
 }
 
+// Unorphan undoes the orphaning of a node, removing the orphan entry on disk
+// if necessary.
+func (tree *OrphaningTree) Unorphan(hash []byte, version uint64) {
+	if version, ok := tree.deleteOrphan(hash); ok {
+		tree.ndb.Unorphan(hash, version)
+	}
+}
+
+// Saves the tree and sets the version of all saved nodes. Saves orphans and
+// removes them from in-memory list.
+func (tree *OrphaningTree) saveVersion(version uint64, fn func([]byte)) {
+	tree.ndb.SaveBranch(tree.root, version, func(hash []byte) {
+		tree.deleteOrphan(hash)
+		fn(hash)
+	})
+	tree.ndb.SaveOrphans(tree.orphans)
+}
+
 // Load orphans from disk.
 func (tree *OrphaningTree) loadOrphans(version uint64) {
 	tree.ndb.traverseOrphansVersion(version, func(k, v []byte) {

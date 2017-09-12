@@ -77,6 +77,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 	return node
 }
 
+// SaveNode saves a node to disk.
 func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -138,6 +139,8 @@ func (ndb *nodeDB) SaveOrphans(orphans map[string]uint64) {
 	}
 }
 
+// DeleteOrphans deletes orphaned nodes from disk, and the associated orphan
+// entries.
 func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -149,6 +152,7 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	})
 }
 
+// Unorphan deletes the orphan entry from disk, but not the node it points to.
 func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -157,6 +161,7 @@ func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
 	ndb.batch.Delete([]byte(key))
 }
 
+// DeleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) DeleteRoot(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -219,7 +224,7 @@ func (ndb *nodeDB) cacheNode(node *IAVLNode) {
 	}
 }
 
-// Write to disk. Orphans are deleted here.
+// Write to disk.
 func (ndb *nodeDB) Commit() {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -237,6 +242,8 @@ func (ndb *nodeDB) getRoots() ([][]byte, error) {
 	return roots, nil
 }
 
+// SaveRoot creates an entry on disk for the given root, so that it can be
+// loaded later.
 func (ndb *nodeDB) SaveRoot(root *IAVLNode) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
