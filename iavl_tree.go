@@ -135,7 +135,7 @@ func (t *IAVLTree) Save() []byte {
 		return nil
 	}
 	if t.ndb != nil {
-		t.ndb.SaveBranch(t.root, uint64(0), nil)
+		t.ndb.SaveBranch(t.root, nil)
 		t.ndb.Commit()
 	}
 	return t.root.hash

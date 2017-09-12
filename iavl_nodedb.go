@@ -99,9 +99,13 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.cacheNode(node)
 }
 
-// NOTE: clears leftNode/rigthNode recursively
-// NOTE: sets hashes recursively
-func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64, cb func([]byte)) {
+// SaveBranch saves the given node and all of its descendants. For each node
+// about to be saved, the supplied callback is called and the returned node is
+// is saved. You may pass nil as the callback as a pass-through.
+//
+// Note that this function clears leftNode/rigthNode recursively and calls
+// hashWithCount on the given node.
+func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode) *IAVLNode) {
 	if node.hash == nil {
 		node.hash, _ = node.hashWithCount()
 	}
@@ -111,20 +115,18 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, version uint64, cb func([]byte)) {
 
 	// save children
 	if node.leftNode != nil {
-		ndb.SaveBranch(node.leftNode, version, cb)
+		ndb.SaveBranch(node.leftNode, cb)
 		node.leftNode = nil
 	}
 	if node.rightNode != nil {
-		ndb.SaveBranch(node.rightNode, version, cb)
+		ndb.SaveBranch(node.rightNode, cb)
 		node.rightNode = nil
 	}
 
-	// save node
-	node.version = version
-	ndb.SaveNode(node)
-
 	if cb != nil {
-		cb(node.hash)
+		ndb.SaveNode(cb(node))
+	} else {
+		ndb.SaveNode(node)
 	}
 }
 

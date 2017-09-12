@@ -82,10 +82,12 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	}
 	tree.versions[version] = tree.OrphaningTree
 
-	tree.OrphaningTree.saveVersion(version, func(hash []byte) {
+	tree.OrphaningTree.Save(func(node *IAVLNode) *IAVLNode {
 		for _, t := range tree.versions {
-			t.Unorphan(hash, version)
+			t.Unorphan(node.hash, version)
 		}
+		node.version = version
+		return node
 	})
 
 	tree.ndb.SaveRoot(tree.root)
