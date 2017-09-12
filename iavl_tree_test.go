@@ -237,30 +237,30 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key1"), []byte("val0"))
 
 	// "key2"
-	_, _, exists := tree.GetVersion([]byte("key2"), 0)
+	_, _, exists := tree.GetVersioned([]byte("key2"), 0)
 	require.False(exists)
 
-	_, val, _ := tree.GetVersion([]byte("key2"), 1)
+	_, val, _ := tree.GetVersioned([]byte("key2"), 1)
 	require.Equal("val0", string(val))
 
-	_, val, _ = tree.GetVersion([]byte("key2"), 2)
+	_, val, _ = tree.GetVersioned([]byte("key2"), 2)
 	require.Equal("val1", string(val))
 
 	_, val, _ = tree.Get([]byte("key2"))
 	require.Equal("val2", string(val))
 
 	// "key1"
-	_, val, _ = tree.GetVersion([]byte("key1"), 1)
+	_, val, _ = tree.GetVersioned([]byte("key1"), 1)
 	require.Equal("val0", string(val))
 
-	_, val, _ = tree.GetVersion([]byte("key1"), 2)
+	_, val, _ = tree.GetVersioned([]byte("key1"), 2)
 	require.Equal("val1", string(val))
 
-	_, val, exists = tree.GetVersion([]byte("key1"), 3)
+	_, val, exists = tree.GetVersioned([]byte("key1"), 3)
 	require.Nil(val)
 	require.False(exists)
 
-	_, val, exists = tree.GetVersion([]byte("key1"), 4)
+	_, val, exists = tree.GetVersioned([]byte("key1"), 4)
 	require.Nil(val)
 	require.False(exists)
 
@@ -268,14 +268,14 @@ func TestVersionedTree(t *testing.T) {
 	require.Equal("val0", string(val))
 
 	// "key3"
-	_, val, exists = tree.GetVersion([]byte("key3"), 0)
+	_, val, exists = tree.GetVersioned([]byte("key3"), 0)
 	require.Nil(val)
 	require.False(exists)
 
-	_, val, _ = tree.GetVersion([]byte("key3"), 2)
+	_, val, _ = tree.GetVersioned([]byte("key3"), 2)
 	require.Equal("val1", string(val))
 
-	_, val, _ = tree.GetVersion([]byte("key3"), 3)
+	_, val, _ = tree.GetVersioned([]byte("key3"), 3)
 	require.Equal("val1", string(val))
 
 	// Delete a version. After this the keys in that version should not be found.
@@ -295,11 +295,11 @@ func TestVersionedTree(t *testing.T) {
 	nodes5 := tree.ndb.leafNodes()
 	require.Len(nodes5, 4, "db should have shrunk after delete\n%s\nvs.\n%s", before, tree.ndb.String())
 
-	_, val, exists = tree.GetVersion([]byte("key2"), 2)
+	_, val, exists = tree.GetVersioned([]byte("key2"), 2)
 	require.False(exists)
 	require.Nil(val)
 
-	_, val, exists = tree.GetVersion([]byte("key3"), 2)
+	_, val, exists = tree.GetVersioned([]byte("key3"), 2)
 	require.False(exists)
 	require.Nil(val)
 
@@ -313,10 +313,10 @@ func TestVersionedTree(t *testing.T) {
 
 	// Version 1 should still be available.
 
-	_, val, _ = tree.GetVersion([]byte("key1"), 1)
+	_, val, _ = tree.GetVersioned([]byte("key1"), 1)
 	require.Equal("val0", string(val))
 
-	_, val, _ = tree.GetVersion([]byte("key2"), 1)
+	_, val, _ = tree.GetVersioned([]byte("key2"), 1)
 	require.Equal("val0", string(val))
 }
 

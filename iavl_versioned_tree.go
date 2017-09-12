@@ -3,41 +3,14 @@ package iavl
 import (
 	"github.com/pkg/errors"
 
-	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
-type IAVLPersistentTree struct {
-	*IAVLTree
-	orphans map[string]uint64
-}
-
-func NewIAVLPersistentTree(t *IAVLTree) *IAVLPersistentTree {
-	return &IAVLPersistentTree{
-		IAVLTree: t,
-		orphans:  map[string]uint64{},
-	}
-}
-
-func (t *IAVLPersistentTree) deleteOrphan(hash []byte) (version uint64, deleted bool) {
-	if version, ok := t.orphans[string(hash)]; ok {
-		delete(t.orphans, string(hash))
-		return version, true
-	}
-	return 0, false
-}
-
-func (t *IAVLPersistentTree) loadOrphans(version uint64) {
-	t.ndb.traverseOrphansVersion(version, func(k, v []byte) {
-		t.orphans[string(v)] = version
-	})
-}
-
 type IAVLVersionedTree struct {
 	// The current (latest) version of the tree.
-	*IAVLPersistentTree
+	*IAVLOrphaningTree
 
-	versions map[uint64]*IAVLPersistentTree
+	versions map[uint64]*IAVLOrphaningTree
 	ndb      *nodeDB
 }
 
@@ -46,26 +19,14 @@ func NewIAVLVersionedTree(cacheSize int, db dbm.DB) *IAVLVersionedTree {
 	head := &IAVLTree{ndb: ndb}
 
 	return &IAVLVersionedTree{
-		IAVLPersistentTree: NewIAVLPersistentTree(head),
-		versions:           map[uint64]*IAVLPersistentTree{},
-		ndb:                ndb,
+		IAVLOrphaningTree: NewIAVLPersistentTree(head),
+		versions:          map[uint64]*IAVLOrphaningTree{},
+		ndb:               ndb,
 	}
 }
 
 func (tree *IAVLVersionedTree) String() string {
 	return tree.ndb.String()
-}
-
-func (tree *IAVLVersionedTree) Set(key, value []byte) bool {
-	orphaned, updated := tree.IAVLTree.set(key, value)
-	tree.addOrphans(orphaned)
-	return updated
-}
-
-func (tree *IAVLVersionedTree) Remove(key []byte) ([]byte, bool) {
-	val, orphaned, removed := tree.IAVLTree.Remove(key)
-	tree.addOrphans(orphaned)
-	return val, removed
 }
 
 func (tree *IAVLVersionedTree) Load() error {
@@ -85,14 +46,13 @@ func (tree *IAVLVersionedTree) Load() error {
 		if version > latest {
 			latest = version
 		}
-		t.loadOrphans(version)
 	}
 	tree.IAVLTree = tree.versions[latest].Copy()
 
 	return nil
 }
 
-func (tree *IAVLVersionedTree) GetVersion(key []byte, version uint64) (
+func (tree *IAVLVersionedTree) GetVersioned(key []byte, version uint64) (
 	index int, value []byte, exists bool,
 ) {
 	if t, ok := tree.versions[version]; ok {
@@ -130,7 +90,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	if version == 0 {
 		return errors.New("version must be greater than zero")
 	}
-	tree.versions[version] = tree.IAVLPersistentTree
+	tree.versions[version] = tree.IAVLOrphaningTree
 
 	tree.ndb.SaveBranch(tree.root, version, func(hash []byte) {
 		tree.deleteOrphan(hash)
@@ -144,19 +104,7 @@ func (tree *IAVLVersionedTree) SaveVersion(version uint64) error {
 	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.SaveOrphans(tree.orphans)
 	tree.ndb.Commit()
-	tree.IAVLPersistentTree = NewIAVLPersistentTree(tree.Copy())
+	tree.IAVLOrphaningTree = NewIAVLPersistentTree(tree.Copy())
 
 	return nil
-}
-
-func (tree *IAVLVersionedTree) addOrphans(orphans []*IAVLNode) {
-	for _, node := range orphans {
-		if !node.persisted {
-			continue
-		}
-		if len(node.hash) == 0 {
-			cmn.PanicSanity("Expected to find node hash, but was empty")
-		}
-		tree.orphans[string(node.hash)] = node.version
-	}
 }
