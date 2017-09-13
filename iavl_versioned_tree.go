@@ -16,6 +16,7 @@ type VersionedTree struct {
 
 	// The previous, saved versions of the tree.
 	versions map[uint64]*orphaningTree
+	latest   uint64
 	ndb      *nodeDB
 }
 
@@ -43,19 +44,18 @@ func (tree *VersionedTree) Load() error {
 		return err
 	}
 
-	var latest uint64
 	for _, root := range roots {
 		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
 
-		version := t.root.version
+		version := t.rootVersion
 		tree.versions[version] = t
 
-		if version > latest {
-			latest = version
+		if version > tree.latest {
+			tree.latest = version
 		}
 	}
-	tree.orphaningTree = newOrphaningTree(tree.versions[latest].Copy())
+	tree.orphaningTree = newOrphaningTree(tree.versions[tree.latest].Copy())
 
 	return nil
 }
@@ -82,9 +82,13 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	if version == 0 {
 		return errors.New("version must be greater than zero")
 	}
+	if version <= tree.latest {
+		return errors.New("version must be greater than latest")
+	}
+	tree.latest = version
 	tree.versions[version] = tree.orphaningTree
 
-	tree.orphaningTree.Save(func(node *IAVLNode) *IAVLNode {
+	tree.orphaningTree.Save(version, func(node *IAVLNode) *IAVLNode {
 		for _, t := range tree.versions {
 			t.Unorphan(node.hash, version)
 		}
@@ -92,6 +96,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 		return node
 	})
 
+	// TODO: If version == tree.root.version, we currently panic. What to do?
 	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.Commit()
 	tree.orphaningTree = newOrphaningTree(tree.Copy())
@@ -102,6 +107,9 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *VersionedTree) DeleteVersion(version uint64) error {
+	if version == tree.latest {
+		return errors.New("cannot delete current version")
+	}
 	if t, ok := tree.versions[version]; ok {
 		if version != t.root.version {
 			cmn.PanicSanity("Version being saved is not the same as root")

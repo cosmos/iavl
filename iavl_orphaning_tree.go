@@ -10,13 +10,21 @@ type orphaningTree struct {
 
 	// A map of orphan hash to orphan version.
 	orphans map[string]uint64
+
+	// The version of the current root.
+	rootVersion uint64
 }
 
 // newOrphaningTree creates a new orphaning tree from the given *IAVLTree.
 func newOrphaningTree(t *IAVLTree) *orphaningTree {
+	var version uint64
+	if t.root != nil {
+		version = t.root.version
+	}
 	return &orphaningTree{
-		IAVLTree: t,
-		orphans:  map[string]uint64{},
+		IAVLTree:    t,
+		rootVersion: version,
+		orphans:     map[string]uint64{},
 	}
 }
 
@@ -37,7 +45,8 @@ func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
 // Load the tree from disk, from the given root hash, including all orphans.
 func (tree *orphaningTree) Load(root []byte) {
 	tree.IAVLTree.Load(root)
-	tree.loadOrphans(tree.root.version)
+	tree.rootVersion = tree.root.version
+	tree.loadOrphans(tree.rootVersion)
 }
 
 // Unorphan undoes the orphaning of a node, removing the orphan entry on disk
@@ -49,12 +58,15 @@ func (tree *orphaningTree) Unorphan(hash []byte, version uint64) {
 }
 
 // Save the underlying IAVLTree. Saves orphans too.
-func (tree *orphaningTree) Save(fn func(*IAVLNode) *IAVLNode) {
+func (tree *orphaningTree) Save(version uint64, fn func(*IAVLNode) *IAVLNode) {
 	tree.ndb.SaveBranch(tree.root, func(node *IAVLNode) *IAVLNode {
 		// Ensure that nodes saved to disk aren't later orphaned.
 		tree.deleteOrphan(node.hash)
 		return fn(node)
 	})
+	for k, _ := range tree.orphans {
+		tree.orphans[k] = version
+	}
 	tree.ndb.SaveOrphans(tree.orphans)
 }
 
@@ -74,7 +86,11 @@ func (tree *orphaningTree) addOrphans(orphans []*IAVLNode) {
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Expected to find node hash, but was empty")
 		}
-		tree.orphans[string(node.hash)] = node.version
+		if tree.rootVersion == 0 {
+			cmn.PanicSanity("Expected root version not to be zero")
+		}
+		// TODO: This is not actually the right version. We need to modify it on Save()?
+		tree.orphans[string(node.hash)] = tree.rootVersion
 	}
 }
 

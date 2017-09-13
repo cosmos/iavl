@@ -34,7 +34,7 @@ type nodeDB struct {
 	cacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 	db         dbm.DB                   // Persistent node storage.
 	batch      dbm.Batch                // Batched writing buffer.
-	versions   map[uint64]*IAVLNode
+	versions   map[uint64]bool
 	latest     uint64
 }
 
@@ -45,7 +45,7 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 		cacheQueue: list.New(),
 		db:         db,
 		batch:      db.NewBatch(),
-		versions:   map[uint64]*IAVLNode{},
+		versions:   map[uint64]bool{},
 		latest:     0,
 	}
 	return ndb
@@ -156,19 +156,39 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	ndb.loadVersions()
 	nextVersion := ndb.getVersionAfter(version)
+
+	// TODO: Since the root is deleted *after* the orphans, this condition
+	// will sometimes fail. We have to implement a DeleteVersion which does
+	// both.
+	if nextVersion == ndb.latest && len(ndb.versions) == 1 {
+		ndb.traverseOrphansVersion(ndb.latest, func(key, value []byte) {
+			ndb.batch.Delete(key)
+			ndb.batch.Delete(value)
+		})
+	}
 
 	ndb.traverseOrphansVersion(version, func(key, value []byte) {
 		ndb.batch.Delete(key)
 
-		if nextVersion > 0 && nextVersion < ndb.latest {
-			// TODO: Are there cases when we can delete the orphan? Do we always
-			// want to relocate it to the version after?
-			ndb.saveOrphan(value, nextVersion)
-		} else {
-			ndb.batch.Delete(value)
-			ndb.uncacheNode(value)
+		if nextVersion < ndb.latest {
+			if nextVersion > 0 {
+				ndb.saveOrphan(value, nextVersion)
+			} else {
+				ndb.batch.Delete(value)
+				ndb.uncacheNode(value)
+			}
 		}
+	})
+}
+
+func (ndb *nodeDB) loadVersions() {
+	// TODO: Optimize so it isn't run everytime.
+	ndb.traversePrefix([]byte(rootsPrefix), func(k, v []byte) {
+		var version uint64
+		fmt.Sscanf(string(k), rootsPrefixFmt, &version)
+		ndb.cacheVersion(version)
 	})
 }
 
@@ -293,10 +313,17 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode) error {
 	}
 	key := fmt.Sprintf(rootsPrefixFmt, root.version)
 	ndb.batch.Set([]byte(key), root.hash)
-	ndb.versions[root.version] = root
-	ndb.latest = root.version
+	ndb.cacheVersion(root.version)
 
 	return nil
+}
+
+func (ndb *nodeDB) cacheVersion(version uint64) {
+	ndb.versions[version] = true
+
+	if version > ndb.latest {
+		ndb.latest = version
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
