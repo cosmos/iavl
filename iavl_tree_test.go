@@ -504,7 +504,6 @@ func TestVersionedCheckpointsSpecialCase2(t *testing.T) {
 	tree.Set([]byte("V"), []byte("5HXU3pSI"))
 	tree.SaveVersion(1)
 
-	// TODO: Do the same with remove.
 	tree.Set([]byte("U"), []byte("Replaced"))
 	tree.Set([]byte("A"), []byte("Replaced"))
 	tree.SaveVersion(2)
@@ -534,4 +533,36 @@ func TestVersionedCheckpointsSpecialCase3(t *testing.T) {
 	tree.DeleteVersion(5)
 
 	tree.GetVersioned([]byte("m"), 2)
+}
+
+func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("U"), []byte("XamDUtiJ"))
+	tree.Set([]byte("A"), []byte("UkZBuYIU"))
+	tree.Set([]byte("H"), []byte("7a9En4uw"))
+	tree.Set([]byte("V"), []byte("5HXU3pSI"))
+	tree.SaveVersion(1)
+
+	tree.Remove([]byte("U"))
+	tree.Remove([]byte("A"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("X"), []byte("New"))
+	tree.SaveVersion(3)
+
+	_, _, exists := tree.GetVersioned([]byte("A"), 2)
+	require.False(t, exists)
+
+	_, _, exists = tree.GetVersioned([]byte("A"), 1)
+	require.True(t, exists)
+
+	tree.DeleteVersion(1)
+	tree.DeleteVersion(2)
+
+	_, _, exists = tree.GetVersioned([]byte("A"), 2)
+	require.False(t, exists)
+
+	_, _, exists = tree.GetVersioned([]byte("A"), 1)
+	require.False(t, exists)
 }
