@@ -156,14 +156,18 @@ func (ndb *nodeDB) DeleteOrphans(version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	nextVersion := ndb.getVersionAfter(version)
+
 	ndb.traverseOrphansVersion(version, func(key, value []byte) {
-		ndb.uncacheNode(value)
 		ndb.batch.Delete(key)
 
-		if v := ndb.getVersionAfter(version); v > 0 && v < ndb.latest {
-			ndb.saveOrphan(value, v)
+		if nextVersion > 0 && nextVersion < ndb.latest {
+			// TODO: Are there cases when we can delete the orphan? Do we always
+			// want to relocate it to the version after?
+			ndb.saveOrphan(value, nextVersion)
 		} else {
 			ndb.batch.Delete(value)
+			ndb.uncacheNode(value)
 		}
 	})
 }
