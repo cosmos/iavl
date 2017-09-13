@@ -566,3 +566,39 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	_, _, exists = tree.GetVersioned([]byte("A"), 1)
 	require.False(t, exists)
 }
+
+func TestVersionedTreeEfficiency(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(0, db.NewMemDB())
+	versions := 20
+	keysPerVersion := 50
+
+	keysAdded := 0
+	for i := 1; i <= versions; i++ {
+		for j := 0; j < keysPerVersion; j++ {
+			// Keys of size one are likely to be overwritten.
+			tree.Set([]byte(cmn.RandStr(1)), []byte(cmn.RandStr(8)))
+		}
+		sizeBefore := len(tree.ndb.nodes())
+		tree.SaveVersion(uint64(i))
+		sizeAfter := len(tree.ndb.nodes())
+
+		keysAdded += sizeAfter - sizeBefore
+	}
+
+	keysDeleted := 0
+	for i := 1; i < versions; i++ {
+		sizeBefore := len(tree.ndb.nodes())
+		tree.DeleteVersion(uint64(i))
+		sizeAfter := len(tree.ndb.nodes())
+
+		keysDeleted += sizeBefore - sizeAfter
+
+		if i > 1 && i < versions-1 {
+			require.True(sizeBefore-sizeAfter > 0)
+		} else if i == 1 {
+			require.Equal(0, sizeBefore-sizeAfter)
+		}
+	}
+	require.Equal(keysAdded-tree.nodeSize(), keysDeleted)
+}
