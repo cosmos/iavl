@@ -141,6 +141,7 @@ func (ndb *nodeDB) DeleteVersion(version uint64) {
 
 	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version)
+	ndb.cleanup()
 }
 
 // Saves orphaned nodes to disk under a special prefix.
@@ -158,31 +159,40 @@ func (ndb *nodeDB) saveOrphan(hash []byte, version uint64) {
 	ndb.batch.Set([]byte(key), hash)
 }
 
+func (ndb *nodeDB) isEarliestVersion(version uint64) bool {
+	earliest := ndb.latest
+
+	for v, _ := range ndb.versions {
+		if v < earliest {
+			earliest = v
+		}
+	}
+	return version == earliest
+}
+
+func (ndb *nodeDB) cleanup() {
+	if len(ndb.versions) == 1 {
+		ndb.traverseOrphansVersion(ndb.latest, func(key, value []byte) {
+			ndb.batch.Delete(key)
+			ndb.batch.Delete(value)
+		})
+	}
+}
+
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
 func (ndb *nodeDB) deleteOrphans(version uint64) {
 	ndb.loadVersions()
 	nextVersion := ndb.getVersionAfter(version)
 
-	// TODO: Since the root is deleted *after* the orphans, this condition
-	// will sometimes fail.
-	if nextVersion == ndb.latest && len(ndb.versions) == 1 {
-		ndb.traverseOrphansVersion(ndb.latest, func(key, value []byte) {
-			ndb.batch.Delete(key)
-			ndb.batch.Delete(value)
-		})
-	}
-
 	ndb.traverseOrphansVersion(version, func(key, value []byte) {
 		ndb.batch.Delete(key)
 
-		if nextVersion < ndb.latest {
-			if nextVersion > 0 {
-				ndb.saveOrphan(value, nextVersion)
-			} else {
-				ndb.batch.Delete(value)
-				ndb.uncacheNode(value)
-			}
+		if ndb.isEarliestVersion(version) {
+			ndb.batch.Delete(value)
+			ndb.uncacheNode(value)
+		} else if nextVersion > 0 {
+			ndb.saveOrphan(value, nextVersion)
 		}
 	})
 }

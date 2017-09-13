@@ -52,8 +52,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	// in the db as in the current tree version.
 	require.Len(tree.ndb.leafNodes(), tree.Size())
 
-	// TODO: Orphan deletion is currently not efficient enough.
-	// require.Equal(tree.nodeSize(), len(tree.ndb.nodes()))
+	require.Equal(tree.nodeSize(), len(tree.ndb.nodes()))
 }
 
 func TestVersionedRandomTreeSmallKeys(t *testing.T) {
@@ -76,9 +75,8 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.
-	// TODO: Orphan deletion is currently not efficient enough.
-	// require.Len(tree.ndb.leafNodes(), tree.Size(), "%s", tree.ndb.String())
-	// require.Len(tree.ndb.nodes(), tree.nodeSize())
+	require.Len(tree.ndb.leafNodes(), tree.Size(), "%s", tree.ndb.String())
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
@@ -107,8 +105,7 @@ func TestVersionedRandomTreeSpecial1(t *testing.T) {
 	tree.DeleteVersion(2)
 	tree.DeleteVersion(3)
 
-	// TODO: Orphan deletion is currently not efficient enough.
-	// require.Len(t, tree.ndb.nodes(), tree.nodeSize())
+	require.Len(t, tree.ndb.nodes(), tree.nodeSize())
 }
 
 func TestVersionedRandomTreeSpecial2(t *testing.T) {
@@ -297,7 +294,6 @@ func TestVersionedTree(t *testing.T) {
 
 	nodes5 := tree.ndb.leafNodes()
 	require.Equal(len(nodes5), len(nodes4), "db should not have shrunk after delete\n%s\nvs.\n%s", before, tree.ndb.String())
-	require.NotEqual(nodes4, nodes5)
 
 	_, val, exists = tree.GetVersioned([]byte("key2"), 2)
 	require.False(exists)
@@ -397,9 +393,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	tree.DeleteVersion(3)
 
 	require.Equal(4, tree.Size())
-
-	// TODO: Orphan deletion is currently not efficient enough.
-	// require.Len(tree.ndb.nodes(), tree.nodeSize())
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
 }
 
 func TestVersionedTreeErrors(t *testing.T) {
