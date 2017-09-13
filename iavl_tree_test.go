@@ -414,5 +414,30 @@ func TestVersionedCheckpoints(t *testing.T) {
 			}
 		}
 	}
+}
 
+func TestVersionedCheckpointsSpecialCase(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(0, db.NewMemDB())
+	key := []byte("k")
+
+	tree.Set(key, []byte("val1"))
+
+	tree.SaveVersion(1)
+	// ...
+	tree.SaveVersion(10)
+	// ...
+	tree.SaveVersion(19)
+	// ...
+	// This orphans "k" at version 1.
+	tree.Set(key, []byte("val2"))
+	tree.SaveVersion(20)
+
+	// When version 1 is deleted, the orphans should move to the next
+	// checkpoint, which is version 10.
+	tree.DeleteVersion(1)
+
+	_, val, exists := tree.GetVersioned(key, 10)
+	require.True(exists)
+	require.Equal(val, []byte("val1"))
 }
