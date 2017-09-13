@@ -135,6 +135,14 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode) *IAVLNode) {
 	}
 }
 
+func (ndb *nodeDB) DeleteVersion(version uint64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	ndb.deleteOrphans(version)
+	ndb.deleteRoot(version)
+}
+
 // Saves orphaned nodes to disk under a special prefix.
 func (ndb *nodeDB) SaveOrphans(orphans map[string]uint64) {
 	ndb.mtx.Lock()
@@ -150,18 +158,14 @@ func (ndb *nodeDB) saveOrphan(hash []byte, version uint64) {
 	ndb.batch.Set([]byte(key), hash)
 }
 
-// DeleteOrphans deletes orphaned nodes from disk, and the associated orphan
+// deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
-func (ndb *nodeDB) DeleteOrphans(version uint64) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
+func (ndb *nodeDB) deleteOrphans(version uint64) {
 	ndb.loadVersions()
 	nextVersion := ndb.getVersionAfter(version)
 
 	// TODO: Since the root is deleted *after* the orphans, this condition
-	// will sometimes fail. We have to implement a DeleteVersion which does
-	// both.
+	// will sometimes fail.
 	if nextVersion == ndb.latest && len(ndb.versions) == 1 {
 		ndb.traverseOrphansVersion(ndb.latest, func(key, value []byte) {
 			ndb.batch.Delete(key)
@@ -211,11 +215,8 @@ func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
 	ndb.batch.Delete([]byte(key))
 }
 
-// DeleteRoot deletes the root entry from disk, but not the node it points to.
-func (ndb *nodeDB) DeleteRoot(version uint64) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
+// deleteRoot deletes the root entry from disk, but not the node it points to.
+func (ndb *nodeDB) deleteRoot(version uint64) {
 	key := fmt.Sprintf(rootsPrefixFmt, version)
 	ndb.batch.Delete([]byte(key))
 

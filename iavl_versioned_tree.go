@@ -114,8 +114,7 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 		if version != t.root.version {
 			cmn.PanicSanity("Version being saved is not the same as root")
 		}
-		tree.ndb.DeleteOrphans(version)
-		tree.ndb.DeleteRoot(version)
+		tree.ndb.DeleteVersion(version)
 		tree.ndb.Commit()
 
 		delete(tree.versions, version)
