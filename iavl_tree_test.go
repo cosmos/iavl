@@ -314,6 +314,43 @@ func TestVersionedTree(t *testing.T) {
 	require.Equal("val0", string(val))
 }
 
+func TestVersionedTreeOrphanDeleting(t *testing.T) {
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("key0"), []byte("val0"))
+	tree.Set([]byte("key1"), []byte("val0"))
+	tree.Set([]byte("key2"), []byte("val0"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("key1"), []byte("val1"))
+	tree.Set([]byte("key2"), []byte("val1"))
+	tree.Set([]byte("key3"), []byte("val1"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("key0"), []byte("val2"))
+	tree.Remove([]byte("key1"))
+	tree.Set([]byte("key2"), []byte("val2"))
+	tree.SaveVersion(3)
+	tree.DeleteVersion(2)
+
+	_, val, _ := tree.Get([]byte("key0"))
+	require.Equal(t, val, []byte("val2"))
+
+	_, val, exists := tree.Get([]byte("key1"))
+	require.Empty(t, val)
+	require.False(t, exists)
+
+	_, val, _ = tree.Get([]byte("key2"))
+	require.Equal(t, val, []byte("val2"))
+
+	_, val, _ = tree.Get([]byte("key3"))
+	require.Equal(t, val, []byte("val1"))
+
+	tree.DeleteVersion(1)
+
+	require.Len(t, tree.ndb.leafNodes(), 3)
+}
+
 func TestVersionedTreeSpecialCase(t *testing.T) {
 	require := require.New(t)
 	tree := NewVersionedTree(100, db.NewMemDB())
