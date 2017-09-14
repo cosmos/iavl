@@ -408,6 +408,11 @@ func TestVersionedTreeErrors(t *testing.T) {
 	require.Error(tree.DeleteVersion(99))
 
 	tree.Set([]byte("key"), []byte("val"))
+
+	// `0` is an invalid version number.
+	require.Error(tree.SaveVersion(0))
+
+	// Saving version `1` is ok.
 	require.NoError(tree.SaveVersion(1))
 
 	// Can't delete current version.

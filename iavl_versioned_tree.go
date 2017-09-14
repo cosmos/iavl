@@ -96,7 +96,6 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 		return node
 	})
 
-	// TODO: If version == tree.root.version, we currently panic. What to do?
 	tree.ndb.SaveRoot(tree.root)
 	tree.ndb.Commit()
 	tree.orphaningTree = newOrphaningTree(tree.Copy())
@@ -121,7 +120,6 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 
 		return nil
 	}
-	// TODO: What happens if you delete HEAD?
 	return ErrVersionDoesNotExist
 }
 
