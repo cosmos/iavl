@@ -314,6 +314,41 @@ func TestVersionedTree(t *testing.T) {
 	require.Equal("val0", string(val))
 }
 
+func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
+	t.Skipf("Version deletion is not fully efficient yet. When it is, this test should pass.")
+
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("key0"), []byte("val0"))
+	tree.Set([]byte("key1"), []byte("val0"))
+	tree.Set([]byte("key2"), []byte("val0"))
+	tree.SaveVersion(1)
+
+	require.Len(t, tree.ndb.leafNodes(), 3)
+
+	tree.Set([]byte("key1"), []byte("val1"))
+	tree.Set([]byte("key2"), []byte("val1"))
+	tree.Set([]byte("key3"), []byte("val1"))
+	tree.SaveVersion(2)
+
+	require.Len(t, tree.ndb.leafNodes(), 6)
+
+	tree.Set([]byte("key0"), []byte("val2"))
+	tree.Remove([]byte("key1"))
+	tree.Set([]byte("key2"), []byte("val2"))
+	tree.SaveVersion(3)
+
+	require.Len(t, tree.ndb.leafNodes(), 8)
+
+	tree.DeleteVersion(2)
+
+	require.Len(t, tree.ndb.leafNodes(), 6)
+
+	tree.DeleteVersion(1)
+
+	require.Len(t, tree.ndb.leafNodes(), 3)
+}
+
 func TestVersionedTreeOrphanDeleting(t *testing.T) {
 	tree := NewVersionedTree(0, db.NewMemDB())
 
