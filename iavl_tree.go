@@ -164,6 +164,7 @@ func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
 	return t.root.get(t, key)
 }
 
+// GetByIndex gets the key and value at the specified index.
 func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	if t.root == nil {
 		return nil, nil
@@ -204,6 +205,8 @@ func (t *IAVLTree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []b
 	return t.getLastInRangeWithProof(startKey, endKey)
 }
 
+// Remove tries to remove a key from the tree and if removed, returns its
+// value, nodes orphaned and 'true'.
 func (t *IAVLTree) Remove(key []byte) (value []byte, orphans []*IAVLNode, removed bool) {
 	if t.root == nil {
 		return nil, nil, false
@@ -221,6 +224,7 @@ func (t *IAVLTree) Remove(key []byte) (value []byte, orphans []*IAVLNode, remove
 	return value, orphaned, true
 }
 
+// Iterate iterates over all keys of the tree, in order.
 func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
@@ -264,6 +268,7 @@ func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn f
 	})
 }
 
+// nodeSize is like Size, but includes inner nodes too.
 func (t *IAVLTree) nodeSize() int {
 	size := 0
 	t.root.traverse(t, true, func(n *IAVLNode) bool {

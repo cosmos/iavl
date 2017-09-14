@@ -38,9 +38,6 @@ func TestVersionedRandomTree(t *testing.T) {
 	// db than in the current tree version.
 	require.True(len(tree.ndb.nodes()) >= tree.nodeSize())
 
-	// XXX: Since the HEAD was not persisted, it still depends on a previous
-	// copy, which is a problem when it is deleted.
-
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersion(uint64(i))
 	}
@@ -119,9 +116,6 @@ func TestVersionedRandomTreeSpecial2(t *testing.T) {
 	tree.Set([]byte("1yY3pXHr"), []byte("udYznpII"))
 	tree.Set([]byte("7OSHNE7k"), []byte("ff181M2d"))
 	tree.SaveVersion(2)
-
-	// XXX: The root of Version 1 is being marked as an orphan, but is
-	// still in use by the Version 2 tree. This is the problem.
 
 	tree.DeleteVersion(1)
 	require.Len(tree.ndb.nodes(), tree.nodeSize())

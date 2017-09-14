@@ -44,6 +44,7 @@ func (tree *VersionedTree) Load() error {
 		return err
 	}
 
+	// Load all roots from the database.
 	for _, root := range roots {
 		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
@@ -55,6 +56,7 @@ func (tree *VersionedTree) Load() error {
 			tree.latest = version
 		}
 	}
+	// Set the current version to a copy of the latest.
 	tree.orphaningTree = newOrphaningTree(tree.versions[tree.latest].Copy())
 
 	return nil
@@ -88,7 +90,12 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	tree.latest = version
 	tree.versions[version] = tree.orphaningTree
 
-	tree.orphaningTree.Save(version, func(node *IAVLNode) *IAVLNode {
+	// Save the current tree at the given version. For each saved node, we
+	// delete any existing orphan entries in the previous trees.
+	// This is necessary because sometimes tree re-balancing causes nodes to be
+	// incorrectly marked as orphaned, since tree patterns after a re-balance
+	// may mirror previous tree patterns, with matching hashes.
+	tree.orphaningTree.SaveVersion(version, func(node *IAVLNode) *IAVLNode {
 		for _, t := range tree.versions {
 			t.Unorphan(node.hash, version)
 		}
