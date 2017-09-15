@@ -103,6 +103,15 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 		for v, t := range tree.versions {
 			t.Unorphan(node.hash, v)
 		}
+
+		// Don't overwrite nodes.
+		// This is here because inner nodes are overwritten otherwise, losing
+		// version information, due to the version not affecting the hash.
+		// Adding the version to the hash breaks a lot of things, so this
+		// seems like the best solution for now.
+		if tree.ndb.Has(node.hash) {
+			return nil
+		}
 		node.version = version
 
 		return node

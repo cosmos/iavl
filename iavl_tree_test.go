@@ -715,6 +715,39 @@ func TestVersionedCheckpointsSpecialCase6(t *testing.T) {
 	tree.GetVersioned([]byte("4"), 1)
 }
 
+func TestVersionedCheckpointsSpecialCase7(t *testing.T) {
+	tree := NewVersionedTree(100, db.NewMemDB())
+
+	tree.Set([]byte("n"), []byte("OtqD3nyn"))
+	tree.Set([]byte("W"), []byte("kMdhJjF5"))
+	tree.Set([]byte("A"), []byte("BM3BnrIb"))
+	tree.Set([]byte("I"), []byte("QvtCH970"))
+	tree.Set([]byte("L"), []byte("txKgOTqD"))
+	tree.Set([]byte("Y"), []byte("NAl7PC5L"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("7"), []byte("qWcEAlyX"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("M"), []byte("HdQwzA64"))
+	tree.Set([]byte("3"), []byte("2Naa77fo"))
+	tree.Set([]byte("A"), []byte("SRuwKOTm"))
+	tree.Set([]byte("I"), []byte("oMX4aAOy"))
+	tree.Set([]byte("4"), []byte("dKfvbEOc"))
+	tree.SaveVersion(3)
+
+	tree.Set([]byte("D"), []byte("3U4QbXCC"))
+	tree.Set([]byte("B"), []byte("FxExhiDq"))
+	tree.SaveVersion(5)
+
+	tree.Set([]byte("A"), []byte("tWQgbFCY"))
+	tree.SaveVersion(6)
+
+	tree.DeleteVersion(5)
+
+	tree.GetVersioned([]byte("A"), 3)
+}
+
 func TestVersionedTreeEfficiency(t *testing.T) {
 	require := require.New(t)
 	tree := NewVersionedTree(0, db.NewMemDB())

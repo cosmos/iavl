@@ -88,6 +88,9 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	if node == nil {
+		return
+	}
 	if node.hash == nil {
 		cmn.PanicSanity("Expected to find node.hash, but none found.")
 	}
@@ -100,17 +103,16 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	if _, err := node.writeBytes(buf); err != nil {
 		cmn.PanicCrisis(err)
 	}
-	if node.isLeaf() {
-		ndb.batch.Set(node.hash, buf.Bytes())
-	} else {
-		// TODO: This is a workaround because nodes are overwritten due to version
-		// numbers not being part of the hash for inner nodes.
-		if len(ndb.db.Get(node.hash)) == 0 {
-			ndb.batch.Set(node.hash, buf.Bytes())
-		}
-	}
+	ndb.batch.Set(node.hash, buf.Bytes())
+
 	node.persisted = true
 	ndb.cacheNode(node)
+}
+
+// Has checks if a hash exists in the database.
+func (ndb *nodeDB) Has(hash []byte) bool {
+	// TODO: Find faster way to do this.
+	return len(ndb.db.Get(hash)) != 0
 }
 
 // SaveBranch saves the given node and all of its descendants. For each node
