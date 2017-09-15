@@ -27,7 +27,9 @@ func TestVersionedRandomTree(t *testing.T) {
 	// Create a tree of size 1000 with 100 versions.
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
-			tree.Set([]byte(cmn.RandStr(8)), []byte(cmn.RandStr(8)))
+			k := []byte(cmn.RandStr(8))
+			v := []byte(cmn.RandStr(8))
+			tree.Set(k, v)
 		}
 		tree.SaveVersion(uint64(i))
 	}
@@ -72,7 +74,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.
-	require.Len(tree.ndb.leafNodes(), tree.Size(), "%s", tree.ndb.String())
+	require.Len(tree.ndb.leafNodes(), tree.Size())
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 
 	// Try getting random keys.
@@ -83,7 +85,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	}
 }
 
-func TestVersionedRandomTreeSpecial1(t *testing.T) {
+func TestVersioneTreeSpecial1(t *testing.T) {
 	tree := NewVersionedTree(100, db.NewMemDB())
 
 	tree.Set([]byte("C"), []byte("so43QQFN"))
@@ -274,7 +276,6 @@ func TestVersionedTree(t *testing.T) {
 
 	// Delete a version. After this the keys in that version should not be found.
 
-	before := tree.ndb.String()
 	tree.DeleteVersion(2)
 
 	// -----1-----
@@ -287,7 +288,7 @@ func TestVersionedTree(t *testing.T) {
 	// -----------
 
 	nodes5 := tree.ndb.leafNodes()
-	require.Equal(len(nodes5), len(nodes4), "db should not have shrunk after delete\n%s\nvs.\n%s", before, tree.ndb.String())
+	require.True(len(nodes5) < len(nodes4), "db should have shrunk after delete")
 
 	_, val, exists = tree.GetVersioned([]byte("key2"), 2)
 	require.False(exists)
@@ -315,8 +316,6 @@ func TestVersionedTree(t *testing.T) {
 }
 
 func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
-	t.Skipf("Version deletion is not fully efficient yet. When it is, this test should pass.")
-
 	tree := NewVersionedTree(0, db.NewMemDB())
 
 	tree.Set([]byte("key0"), []byte("val0"))
@@ -433,6 +432,34 @@ func TestVersionedTreeSpecialCase2(t *testing.T) {
 	require.Equal("val0", string(val))
 }
 
+func TestVersionedTreeSpecialCase3(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("m"), []byte("liWT0U6G"))
+	tree.Set([]byte("G"), []byte("7PxRXwUA"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("7"), []byte("XRLXgf8C"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("r"), []byte("bBEmIXBU"))
+	tree.SaveVersion(3)
+
+	tree.Set([]byte("i"), []byte("kkIS35te"))
+	tree.SaveVersion(4)
+
+	tree.Set([]byte("k"), []byte("CpEnpzKJ"))
+	tree.SaveVersion(5)
+
+	tree.DeleteVersion(1)
+	tree.DeleteVersion(2)
+	tree.DeleteVersion(3)
+	tree.DeleteVersion(4)
+
+	require.Equal(tree.nodeSize(), len(tree.ndb.nodes()))
+}
+
 func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	require := require.New(t)
 	d := db.NewMemDB()
@@ -488,16 +515,17 @@ func TestVersionedTreeErrors(t *testing.T) {
 func TestVersionedCheckpoints(t *testing.T) {
 	require := require.New(t)
 	tree := NewVersionedTree(100, db.NewMemDB())
-	versions := 20
+	versions := 50
 	keysPerVersion := 10
-	versionsPerCheckpoint := 4
+	versionsPerCheckpoint := 5
 	keys := map[uint64]([][]byte){}
 
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
 			k := []byte(cmn.RandStr(1))
+			v := []byte(cmn.RandStr(8))
 			keys[uint64(i)] = append(keys[uint64(i)], k)
-			tree.Set(k, []byte(cmn.RandStr(8)))
+			tree.Set(k, v)
 		}
 		tree.SaveVersion(uint64(i))
 	}
@@ -638,11 +666,61 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	require.False(t, exists)
 }
 
+func TestVersionedCheckpointsSpecialCase5(t *testing.T) {
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("R"), []byte("ygZlIzeW"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("j"), []byte("ZgmCWyo2"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("R"), []byte("vQDaoz6Z"))
+	tree.SaveVersion(3)
+
+	tree.DeleteVersion(1)
+
+	tree.GetVersioned([]byte("R"), 2)
+}
+
+func TestVersionedCheckpointsSpecialCase6(t *testing.T) {
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("Y"), []byte("MW79JQeV"))
+	tree.Set([]byte("7"), []byte("Kp0ToUJB"))
+	tree.Set([]byte("Z"), []byte("I26B1jPG"))
+	tree.Set([]byte("6"), []byte("ZG0iXq3h"))
+	tree.Set([]byte("2"), []byte("WOR27LdW"))
+	tree.Set([]byte("4"), []byte("MKMvc6cn"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("1"), []byte("208dOu40"))
+	tree.Set([]byte("G"), []byte("7isI9OQH"))
+	tree.Set([]byte("8"), []byte("zMC1YwpH"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("7"), []byte("bn62vWbq"))
+	tree.Set([]byte("5"), []byte("wZuLGDkZ"))
+	tree.SaveVersion(3)
+
+	tree.DeleteVersion(1)
+	tree.DeleteVersion(2)
+
+	tree.GetVersioned([]byte("Y"), 1)
+	tree.GetVersioned([]byte("7"), 1)
+	tree.GetVersioned([]byte("Z"), 1)
+	tree.GetVersioned([]byte("6"), 1)
+	tree.GetVersioned([]byte("s"), 1)
+	tree.GetVersioned([]byte("2"), 1)
+	tree.GetVersioned([]byte("4"), 1)
+}
+
 func TestVersionedTreeEfficiency(t *testing.T) {
 	require := require.New(t)
 	tree := NewVersionedTree(0, db.NewMemDB())
 	versions := 20
-	keysPerVersion := 50
+	keysPerVersion := 100
+	keysAddedPerVersion := map[int]int{}
 
 	keysAdded := 0
 	for i := 1; i <= versions; i++ {
@@ -653,8 +731,9 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 		sizeBefore := len(tree.ndb.nodes())
 		tree.SaveVersion(uint64(i))
 		sizeAfter := len(tree.ndb.nodes())
-
-		keysAdded += sizeAfter - sizeBefore
+		change := sizeAfter - sizeBefore
+		keysAddedPerVersion[i] = change
+		keysAdded += change
 	}
 
 	keysDeleted := 0
@@ -663,13 +742,10 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 		tree.DeleteVersion(uint64(i))
 		sizeAfter := len(tree.ndb.nodes())
 
-		keysDeleted += sizeBefore - sizeAfter
+		change := sizeBefore - sizeAfter
+		keysDeleted += change
 
-		if i > 1 && i < versions-1 {
-			require.True(sizeBefore-sizeAfter > 0)
-		} else if i == 1 {
-			require.Equal(0, sizeBefore-sizeAfter)
-		}
+		require.InDelta(change, keysAddedPerVersion[i], float64(keysPerVersion)/5)
 	}
 	require.Equal(keysAdded-tree.nodeSize(), keysDeleted)
 }

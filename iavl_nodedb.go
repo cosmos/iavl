@@ -20,7 +20,7 @@ var (
 	// orphans/<version>/<hash>
 	orphansPrefix    = "orphans/"
 	orphansPrefixFmt = "orphans/%d/"
-	orphansKeyFmt    = "orphans/%d/%x"
+	orphansKeyFmt    = "orphans/%d/%d/%x"
 
 	// roots/<version>
 	rootsPrefix    = "roots/"
@@ -100,7 +100,15 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	if _, err := node.writeBytes(buf); err != nil {
 		cmn.PanicCrisis(err)
 	}
-	ndb.batch.Set(node.hash, buf.Bytes())
+	if node.isLeaf() {
+		ndb.batch.Set(node.hash, buf.Bytes())
+	} else {
+		// TODO: This is a workaround because nodes are overwritten due to version
+		// numbers not being part of the hash for inner nodes.
+		if len(ndb.db.Get(node.hash)) == 0 {
+			ndb.batch.Set(node.hash, buf.Bytes())
+		}
+	}
 	node.persisted = true
 	ndb.cacheNode(node)
 }
@@ -150,36 +158,30 @@ func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	key := fmt.Sprintf(orphansKeyFmt, version, hash)
-	ndb.batch.Delete([]byte(key))
+	for v, _ := range ndb.getVersions() {
+		if v <= version {
+			key := fmt.Sprintf(orphansKeyFmt, version, v, hash)
+			ndb.batch.Delete([]byte(key))
+		}
+	}
 }
 
 // Saves orphaned nodes to disk under a special prefix.
-func (ndb *nodeDB) SaveOrphans(orphans map[string]uint64) {
+func (ndb *nodeDB) SaveOrphans(version uint64, orphans map[string]uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	for hash, version := range orphans {
-		ndb.saveOrphan([]byte(hash), version)
+	toVersion := ndb.getPreviousVersion(version)
+
+	for hash, fromVersion := range orphans {
+		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
 	}
 }
 
 // Saves a single orphan to disk.
-func (ndb *nodeDB) saveOrphan(hash []byte, version uint64) {
-	key := fmt.Sprintf(orphansKeyFmt, version, hash)
+func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
+	key := fmt.Sprintf(orphansKeyFmt, toVersion, fromVersion, hash)
 	ndb.batch.Set([]byte(key), hash)
-}
-
-// Return whether a version is the earliest available.
-func (ndb *nodeDB) isEarliestVersion(version uint64) bool {
-	earliest := ndb.getLatestVersion()
-
-	for v, _ := range ndb.getVersions() {
-		if v < earliest {
-			earliest = v
-		}
-	}
-	return version == earliest
 }
 
 // Cleanup is called after a version is deleted.
@@ -197,16 +199,23 @@ func (ndb *nodeDB) cleanup() {
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
 func (ndb *nodeDB) deleteOrphans(version uint64) {
-	nextVersion := ndb.getNextVersion(version)
-
 	ndb.traverseOrphansVersion(version, func(key, value []byte) {
+		var fromVersion, toVersion uint64
+
+		fmt.Sscanf(string(key), orphansKeyFmt, &toVersion, &fromVersion)
 		ndb.batch.Delete(key)
 
-		if ndb.isEarliestVersion(version) {
+		// TODO: Refactor logic.
+		if version == fromVersion && fromVersion == toVersion {
 			ndb.batch.Delete(value)
 			ndb.uncacheNode(value)
 		} else {
-			ndb.saveOrphan(value, nextVersion)
+			if predecessor := ndb.getPreviousVersion(toVersion); predecessor > 0 {
+				ndb.saveOrphan(value, fromVersion, predecessor)
+			} else { // No previous version.
+				ndb.batch.Delete(value)
+				ndb.uncacheNode(value)
+			}
 		}
 	})
 }
@@ -242,6 +251,16 @@ func (ndb *nodeDB) getNextVersion(version uint64) uint64 {
 	var result uint64 = 0
 	for v, _ := range ndb.getVersions() {
 		if v > version && (result == 0 || v < result) {
+			result = v
+		}
+	}
+	return result
+}
+
+func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
+	var result uint64 = 0
+	for v, _ := range ndb.getVersions() {
+		if v < version && (result == 0 || v > result) {
 			result = v
 		}
 	}
@@ -288,7 +307,7 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 		it.Release()
 	} else {
 		ndb.traverse(func(key, value []byte) {
-			if strings.HasPrefix(string(key), string(prefix)) {
+			if bytes.HasPrefix(key, prefix) {
 				fn(key, value)
 			}
 		})

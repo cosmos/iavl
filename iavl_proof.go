@@ -49,6 +49,7 @@ func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 	n, err := int(0), error(nil)
 	wire.WriteInt8(branch.Height, buf, &n, &err)
 	wire.WriteVarint(branch.Size, buf, &n, &err)
+
 	if len(branch.Left) == 0 {
 		wire.WriteByteSlice(childHash, buf, &n, &err)
 		wire.WriteByteSlice(branch.Right, buf, &n, &err)
