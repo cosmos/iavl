@@ -152,7 +152,6 @@ func (ndb *nodeDB) DeleteVersion(version uint64) {
 
 	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version)
-	ndb.cleanup()
 }
 
 // Unorphan deletes the orphan entry from disk, but not the node it points to.
@@ -184,18 +183,6 @@ func (ndb *nodeDB) SaveOrphans(version uint64, orphans map[string]uint64) {
 func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
 	key := fmt.Sprintf(orphansKeyFmt, toVersion, fromVersion, hash)
 	ndb.batch.Set([]byte(key), hash)
-}
-
-// Cleanup is called after a version is deleted.
-func (ndb *nodeDB) cleanup() {
-	// If only one version is left, we can cleanup all orphans, they aren't
-	// needed anymore.
-	if len(ndb.getVersions()) == 1 {
-		ndb.traverseOrphansVersion(ndb.getLatestVersion(), func(key, value []byte) {
-			ndb.batch.Delete(key)
-			ndb.batch.Delete(value)
-		})
-	}
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
