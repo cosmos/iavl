@@ -9,6 +9,8 @@ type orphaningTree struct {
 	*IAVLTree
 
 	// A map of orphan hash to orphan version.
+	// The version stored here is the one at which the orphan's lifetime
+	// begins.
 	orphans map[string]uint64
 
 	// The version of the current root.

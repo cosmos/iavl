@@ -17,10 +17,14 @@ import (
 )
 
 var (
-	// orphans/<version>/<hash>
+	// Orphans are keyed in the database by their expected lifetime.
+	// The first number represents the *last* version at which the orphan needs
+	// to exist, while the second number represents the *earliest* version at
+	// which it is expected to exist - which starts out by being the version
+	// of the node being orphaned.
 	orphansPrefix    = "orphans/"
-	orphansPrefixFmt = "orphans/%d/"
-	orphansKeyFmt    = "orphans/%d/%d/%x"
+	orphansPrefixFmt = "orphans/%d/"      // orphans/<version/
+	orphansKeyFmt    = "orphans/%d/%d/%x" // orphans/<version>/<version>/<hash>
 
 	// roots/<version>
 	rootsPrefix    = "roots/"
@@ -159,6 +163,9 @@ func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	// Currently, since we don't know the second version parameter of the
+	// orphan key, we have to iterate over them all. This could be optimize
+	// with a cache.
 	for v, _ := range ndb.getVersions() {
 		if v <= version {
 			key := fmt.Sprintf(orphansKeyFmt, version, v, hash)
@@ -188,23 +195,27 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
 func (ndb *nodeDB) deleteOrphans(version uint64) {
-	ndb.traverseOrphansVersion(version, func(key, value []byte) {
+	// Will be zero if there is no previous version.
+	predecessor := ndb.getPreviousVersion(version)
+
+	// Traverse orphans with a lifetime ending at the version specified.
+	ndb.traverseOrphansVersion(version, func(key, hash []byte) {
 		var fromVersion, toVersion uint64
 
+		// See comment on `orphansKeyFmt`. Note that here, `version` and
+		// `toVersion` are always equal.
 		fmt.Sscanf(string(key), orphansKeyFmt, &toVersion, &fromVersion)
 		ndb.batch.Delete(key)
 
-		// TODO: Refactor logic.
-		if version == fromVersion && fromVersion == toVersion {
-			ndb.batch.Delete(value)
-			ndb.uncacheNode(value)
+		// If there is no predecessor, or the lifetime spans a single version
+		// and that version is the one being deleted, we can delete the orphan.
+		// Otherwise, we shorten its lifetime, by moving its endpoint to the
+		// previous version.
+		if predecessor == 0 || fromVersion == toVersion {
+			ndb.batch.Delete(hash)
+			ndb.uncacheNode(hash)
 		} else {
-			if predecessor := ndb.getPreviousVersion(toVersion); predecessor > 0 {
-				ndb.saveOrphan(value, fromVersion, predecessor)
-			} else { // No previous version.
-				ndb.batch.Delete(value)
-				ndb.uncacheNode(value)
-			}
+			ndb.saveOrphan(hash, fromVersion, predecessor)
 		}
 	})
 }
@@ -272,11 +283,13 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traversePrefix([]byte(orphansPrefix), fn)
 }
 
+// Traverse orphans ending at a certain version.
 func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) {
 	prefix := fmt.Sprintf(orphansPrefixFmt, version)
 	ndb.traversePrefix([]byte(prefix), fn)
 }
 
+// Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		it := ldb.DB().NewIterator(util.BytesPrefix([]byte(prefix)), nil)

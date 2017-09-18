@@ -100,6 +100,8 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	// incorrectly marked as orphaned, since tree patterns after a re-balance
 	// may mirror previous tree patterns, with matching hashes.
 	tree.orphaningTree.SaveVersion(version, func(node *IAVLNode) *IAVLNode {
+		// Currently we have to check every version, but if we had a reverse
+		// index from hash to orphan key, it could be sped up.
 		for v, t := range tree.versions {
 			t.Unorphan(node.hash, v)
 		}
