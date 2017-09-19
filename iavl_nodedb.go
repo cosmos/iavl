@@ -119,7 +119,13 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 
 // Has checks if a hash exists in the database.
 func (ndb *nodeDB) Has(hash []byte) bool {
-	// TODO: Find faster way to do this.
+	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
+		exists, err := ldb.DB().Has(hash, nil)
+		if err != nil {
+			cmn.PanicSanity("Got error from leveldb: " + err.Error())
+		}
+		return exists
+	}
 	return len(ndb.db.Get(hash)) != 0
 }
 
