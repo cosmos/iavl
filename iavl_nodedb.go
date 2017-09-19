@@ -23,8 +23,12 @@ var (
 	// which it is expected to exist - which starts out by being the version
 	// of the node being orphaned.
 	orphansPrefix    = "orphans/"
-	orphansPrefixFmt = "orphans/%d/"      // orphans/<version/
+	orphansPrefixFmt = "orphans/%d/"      // orphans/<version>/
 	orphansKeyFmt    = "orphans/%d/%d/%x" // orphans/<version>/<version>/<hash>
+
+	// These keys are used for the orphan reverse-lookups by node hash.
+	orphansIndexPrefix = "orphans-index/"
+	orphansIndexKeyFmt = "orphans-index/%x"
 
 	// roots/<version>
 	rootsPrefix    = "roots/"
@@ -159,18 +163,15 @@ func (ndb *nodeDB) DeleteVersion(version uint64) {
 }
 
 // Unorphan deletes the orphan entry from disk, but not the node it points to.
-func (ndb *nodeDB) Unorphan(hash []byte, version uint64) {
+func (ndb *nodeDB) Unorphan(hash []byte) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	// Currently, since we don't know the second version parameter of the
-	// orphan key, we have to iterate over them all. This could be optimize
-	// with a cache.
-	for v, _ := range ndb.getVersions() {
-		if v <= version {
-			key := fmt.Sprintf(orphansKeyFmt, version, v, hash)
-			ndb.batch.Delete([]byte(key))
-		}
+	indexKey := []byte(fmt.Sprintf(orphansIndexKeyFmt, hash))
+
+	if orphansKey := ndb.db.Get(indexKey); len(orphansKey) > 0 {
+		ndb.batch.Delete(orphansKey)
+		ndb.batch.Delete(indexKey)
 	}
 }
 
@@ -190,6 +191,10 @@ func (ndb *nodeDB) SaveOrphans(version uint64, orphans map[string]uint64) {
 func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
 	key := fmt.Sprintf(orphansKeyFmt, toVersion, fromVersion, hash)
 	ndb.batch.Set([]byte(key), hash)
+
+	// Set reverse-lookup index.
+	indexKey := fmt.Sprintf(orphansIndexKeyFmt, hash)
+	ndb.batch.Set([]byte(indexKey), []byte(key))
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
@@ -458,6 +463,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
 
 	ndb.traverse(func(key, value []byte) {
 		if strings.HasPrefix(string(key), orphansPrefix) ||
+			strings.HasPrefix(string(key), orphansIndexPrefix) ||
 			strings.HasPrefix(string(key), rootsPrefix) {
 			return
 		}
@@ -489,6 +495,11 @@ func (ndb *nodeDB) String() string {
 
 	ndb.traverseOrphans(func(key, value []byte) {
 		str += fmt.Sprintf("%s: %x\n", string(key), value)
+	})
+	str += "\n"
+
+	ndb.traversePrefix([]byte(orphansIndexPrefix), func(key, value []byte) {
+		str += fmt.Sprintf("%s: %s\n", string(key), value)
 	})
 	str += "\n"
 

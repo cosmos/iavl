@@ -55,8 +55,6 @@ type instruction struct {
 
 func (i instruction) Execute(tree *VersionedTree) {
 	switch i.op {
-	case "GET":
-		tree.GetVersioned(i.k, i.version)
 	case "SET":
 		tree.Set(i.k, i.v)
 	case "REMOVE":
@@ -84,7 +82,7 @@ func genRandomProgram(size int) *program {
 	for p.size() < size {
 		k, v := []byte(cmn.RandStr(1)), []byte(cmn.RandStr(1))
 
-		switch cmn.RandInt() % 8 {
+		switch cmn.RandInt() % 7 {
 		case 0, 1, 2:
 			p.addInstruction(instruction{op: "SET", k: k, v: v})
 		case 3, 4:
@@ -96,9 +94,6 @@ func genRandomProgram(size int) *program {
 			if rv := cmn.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
 				p.addInstruction(instruction{op: "DELETE", version: uint64(rv)})
 			}
-		case 7:
-			rv := cmn.RandInt() % nextVersion
-			p.addInstruction(instruction{op: "GET", version: uint64(rv)})
 		default:
 			break
 		}
@@ -107,17 +102,19 @@ func genRandomProgram(size int) *program {
 }
 
 func TestVersionedTreeFuzz(t *testing.T) {
-	maxSize := 100
-	progsPerIteration := 200000
+	maxIterations := testFuzzIterations
+	progsPerIteration := 10000
+	iterations := 0
 
-	for size := 1; size < maxSize; size++ {
+	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
 			tree := NewVersionedTree(0, db.NewMemDB())
 			program := genRandomProgram(size)
 			err := program.Execute(tree)
 			if err != nil {
-				t.Fatalf("Error after %d iterations at size %d: %s\n%s", i, size, err.Error(), tree.String())
+				t.Fatalf("Error after %d iterations (size %d): %s\n%s", iterations, size, err.Error(), tree.String())
 			}
+			iterations++
 		}
 	}
 }

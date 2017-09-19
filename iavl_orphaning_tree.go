@@ -65,9 +65,9 @@ func (tree *orphaningTree) Load(root []byte) {
 
 // Unorphan undoes the orphaning of a node, removing the orphan entry on disk
 // if necessary.
-func (tree *orphaningTree) Unorphan(hash []byte, version uint64) {
+func (tree *orphaningTree) Unorphan(hash []byte) {
 	tree.deleteOrphan(hash)
-	tree.ndb.Unorphan(hash, version)
+	tree.ndb.Unorphan(hash)
 }
 
 // Save the underlying IAVLTree. Saves orphans too.
@@ -96,9 +96,6 @@ func (tree *orphaningTree) addOrphans(orphans []*IAVLNode) {
 		}
 		if len(node.hash) == 0 {
 			cmn.PanicSanity("Expected to find node hash, but was empty")
-		}
-		if tree.rootVersion == 0 {
-			cmn.PanicSanity("Expected root version not to be zero")
 		}
 		tree.orphans[string(node.hash)] = node.version
 	}

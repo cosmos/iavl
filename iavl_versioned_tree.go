@@ -1,8 +1,6 @@
 package iavl
 
 import (
-	"bytes"
-
 	"github.com/pkg/errors"
 
 	dbm "github.com/tendermint/tmlibs/db"
@@ -93,15 +91,6 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 		return errors.New("version must be greater than latest")
 	}
 
-	if tree.latest > 0 {
-		// If the tree was not modified since the last version, we need to
-		// manually clone the root and assign it the new tree version.
-		if bytes.Equal(tree.Hash(), tree.versions[tree.latest].Hash()) {
-			tree.root = tree.root.clone()
-			tree.root.version = version
-		}
-	}
-
 	tree.latest = version
 	tree.versions[version] = tree.orphaningTree
 
@@ -111,11 +100,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	// incorrectly marked as orphaned, since tree patterns after a re-balance
 	// may mirror previous tree patterns, with matching hashes.
 	tree.orphaningTree.SaveVersion(version, func(node *IAVLNode) *IAVLNode {
-		// Currently we have to check every version, but if we had a reverse
-		// index from hash to orphan key, it could be sped up.
-		for v, t := range tree.versions {
-			t.Unorphan(node.hash, v)
-		}
+		tree.Unorphan(node.hash)
 
 		// Don't overwrite nodes.
 		// This is here because inner nodes are overwritten otherwise, losing

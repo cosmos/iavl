@@ -12,9 +12,11 @@ import (
 )
 
 var testLevelDB bool
+var testFuzzIterations int
 
 func init() {
 	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
+	flag.IntVar(&testFuzzIterations, "test.fuzz-iterations", 20000, "number of fuzz testing iterations")
 	flag.Parse()
 }
 
@@ -85,7 +87,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	}
 }
 
-func TestVersioneTreeSpecial1(t *testing.T) {
+func TestVersionedTreeSpecial1(t *testing.T) {
 	tree := NewVersionedTree(100, db.NewMemDB())
 
 	tree.Set([]byte("C"), []byte("so43QQFN"))
