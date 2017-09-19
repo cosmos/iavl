@@ -356,19 +356,23 @@ func (ndb *nodeDB) getRoots() ([][]byte, error) {
 
 // SaveRoot creates an entry on disk for the given root, so that it can be
 // loaded later.
-func (ndb *nodeDB) SaveRoot(root *IAVLNode) error {
+func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	if len(root.hash) == 0 {
 		cmn.PanicSanity("Hash should not be empty")
 	}
-	if root.version <= ndb.getLatestVersion() {
+	if version <= ndb.getLatestVersion() {
 		return errors.New("can't save root with lower or equal version than latest")
 	}
-	key := fmt.Sprintf(rootsPrefixFmt, root.version)
+
+	// Note that we don't use the version attribute of the root. This is
+	// because we might be saving an old root at a new version in the case
+	// where the tree wasn't modified between versions.
+	key := fmt.Sprintf(rootsPrefixFmt, version)
 	ndb.batch.Set([]byte(key), root.hash)
-	ndb.cacheVersion(root.version)
+	ndb.cacheVersion(version)
 
 	return nil
 }

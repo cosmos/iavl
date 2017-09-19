@@ -110,11 +110,9 @@ func (node *IAVLNode) debugString() string {
 
 // clone creates a shallow copy of a node with its hash set to nil.
 func (node *IAVLNode) clone() *IAVLNode {
-	if node.isLeaf() {
-		cmn.PanicSanity("Why are you copying a value node?")
-	}
 	return &IAVLNode{
 		key:       node.key,
+		value:     node.value,
 		height:    node.height,
 		version:   node.version,
 		size:      node.size,

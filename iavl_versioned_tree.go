@@ -1,9 +1,10 @@
 package iavl
 
 import (
+	"bytes"
+
 	"github.com/pkg/errors"
 
-	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
@@ -91,6 +92,16 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	if version <= tree.latest {
 		return errors.New("version must be greater than latest")
 	}
+
+	if tree.latest > 0 {
+		// If the tree was not modified since the last version, we need to
+		// manually clone the root and assign it the new tree version.
+		if bytes.Equal(tree.Hash(), tree.versions[tree.latest].Hash()) {
+			tree.root = tree.root.clone()
+			tree.root.version = version
+		}
+	}
+
 	tree.latest = version
 	tree.versions[version] = tree.orphaningTree
 
@@ -119,9 +130,10 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 		return node
 	})
 
-	tree.ndb.SaveRoot(tree.root)
+	tree.ndb.SaveRoot(tree.root, version)
 	tree.ndb.Commit()
-	tree.orphaningTree = newOrphaningTree(tree.Copy())
+
+	tree.orphaningTree = tree.orphaningTree.Clone()
 
 	return nil
 }
@@ -135,10 +147,7 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 	if version == tree.latest {
 		return errors.New("cannot delete current version")
 	}
-	if t, ok := tree.versions[version]; ok {
-		if version != t.root.version {
-			cmn.PanicSanity("Version being saved is not the same as root")
-		}
+	if _, ok := tree.versions[version]; ok {
 		tree.ndb.DeleteVersion(version)
 		tree.ndb.Commit()
 

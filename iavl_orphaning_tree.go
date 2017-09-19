@@ -44,6 +44,18 @@ func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
 	return val, removed
 }
 
+func (tree *orphaningTree) Clone() *orphaningTree {
+	inner := &IAVLTree{
+		root: tree.IAVLTree.root,
+		ndb:  tree.IAVLTree.ndb,
+	}
+	return &orphaningTree{
+		IAVLTree:    inner,
+		rootVersion: inner.root.version,
+		orphans:     map[string]uint64{},
+	}
+}
+
 // Load the tree from disk, from the given root hash, including all orphans.
 func (tree *orphaningTree) Load(root []byte) {
 	tree.IAVLTree.Load(root)
