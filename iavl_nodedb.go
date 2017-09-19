@@ -224,7 +224,10 @@ func (ndb *nodeDB) deleteOrphans(version uint64) {
 		// See comment on `orphansKeyFmt`. Note that here, `version` and
 		// `toVersion` are always equal.
 		fmt.Sscanf(string(key), orphansKeyFmt, &toVersion, &fromVersion)
+
+		// Delete orphan key and reverse-lookup key.
 		ndb.batch.Delete(key)
+		ndb.batch.Delete([]byte(fmt.Sprintf(orphansIndexKeyFmt, hash)))
 
 		// If there is no predecessor, or the predecessor is earlier than the
 		// beginning of the lifetime (ie: negative lifetime), or the lifetime
