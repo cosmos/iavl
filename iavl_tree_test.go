@@ -591,7 +591,7 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 
 	_, val, exists := tree.GetVersioned(key, 10)
 	require.True(exists)
-	require.Equal(val, []byte("val1"))
+	require.Equal([]byte("val1"), val)
 }
 
 func TestVersionedCheckpointsSpecialCase2(t *testing.T) {
