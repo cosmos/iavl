@@ -200,6 +200,9 @@ func (ndb *nodeDB) SaveOrphans(version uint64, orphans map[string]uint64) {
 
 // Saves a single orphan to disk.
 func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
+	if fromVersion > toVersion {
+		cmn.PanicSanity("Orphan expires before it comes alive")
+	}
 	key := fmt.Sprintf(orphansKeyFmt, toVersion, fromVersion, hash)
 	ndb.batch.Set([]byte(key), hash)
 
@@ -223,11 +226,12 @@ func (ndb *nodeDB) deleteOrphans(version uint64) {
 		fmt.Sscanf(string(key), orphansKeyFmt, &toVersion, &fromVersion)
 		ndb.batch.Delete(key)
 
-		// If there is no predecessor, or the lifetime spans a single version
-		// and that version is the one being deleted, we can delete the orphan.
-		// Otherwise, we shorten its lifetime, by moving its endpoint to the
-		// previous version.
-		if predecessor == 0 || fromVersion == toVersion {
+		// If there is no predecessor, or the predecessor is earlier than the
+		// beginning of the lifetime (ie: negative lifetime), or the lifetime
+		// spans a single version and that version is the one being deleted, we
+		// can delete the orphan.  Otherwise, we shorten its lifetime, by
+		// moving its endpoint to the previous version.
+		if predecessor < fromVersion || fromVersion == toVersion {
 			ndb.batch.Delete(hash)
 			ndb.uncacheNode(hash)
 		} else {
