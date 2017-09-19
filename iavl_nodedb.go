@@ -36,8 +36,8 @@ type nodeDB struct {
 	db    dbm.DB     // Persistent node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
-	versionCache  map[uint64]bool // Cache of tree (root) versions.
-	latestVersion uint64          // Latest root version.
+	versionCache  map[uint64]([]byte) // Cache of tree (root) versions.
+	latestVersion uint64              // Latest root version.
 
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
@@ -51,7 +51,7 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 		nodeCacheQueue: list.New(),
 		db:             db,
 		batch:          db.NewBatch(),
-		versionCache:   map[uint64]bool{},
+		versionCache:   map[uint64][]byte{},
 	}
 	return ndb
 }
@@ -227,19 +227,19 @@ func (ndb *nodeDB) getLatestVersion() uint64 {
 	return ndb.latestVersion
 }
 
-func (ndb *nodeDB) getVersions() map[uint64]bool {
+func (ndb *nodeDB) getVersions() map[uint64][]byte {
 	if len(ndb.versionCache) == 0 {
-		ndb.traversePrefix([]byte(rootsPrefix), func(k, v []byte) {
+		ndb.traversePrefix([]byte(rootsPrefix), func(k, hash []byte) {
 			var version uint64
 			fmt.Sscanf(string(k), rootsPrefixFmt, &version)
-			ndb.cacheVersion(version)
+			ndb.cacheVersion(version, hash)
 		})
 	}
 	return ndb.versionCache
 }
 
-func (ndb *nodeDB) cacheVersion(version uint64) {
-	ndb.versionCache[version] = true
+func (ndb *nodeDB) cacheVersion(version uint64, hash []byte) {
+	ndb.versionCache[version] = hash
 
 	if version > ndb.getLatestVersion() {
 		ndb.latestVersion = version
@@ -372,7 +372,7 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 	// where the tree wasn't modified between versions.
 	key := fmt.Sprintf(rootsPrefixFmt, version)
 	ndb.batch.Set([]byte(key), root.hash)
-	ndb.cacheVersion(version)
+	ndb.cacheVersion(version, root.hash)
 
 	return nil
 }
