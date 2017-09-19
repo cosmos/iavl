@@ -10,13 +10,10 @@ var ErrVersionDoesNotExist = errors.New("version does not exist")
 
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
-	// The current, latest version of the tree.
-	*orphaningTree
-
-	// The previous, saved versions of the tree.
-	versions map[uint64]*orphaningTree
-	latest   uint64
-	ndb      *nodeDB
+	*orphaningTree                           // The current, latest version of the tree.
+	versions       map[uint64]*orphaningTree // The previous, saved versions of the tree.
+	latest         uint64                    // The latest saved version.
+	ndb            *nodeDB
 }
 
 // NewVersionedTree returns a new tree with the specified cache size and datastore.
@@ -31,6 +28,7 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	}
 }
 
+// Tree returns the current working tree.
 func (tree *VersionedTree) Tree() *IAVLTree {
 	return tree.orphaningTree.IAVLTree
 }
@@ -59,8 +57,8 @@ func (tree *VersionedTree) Load() error {
 			tree.latest = version
 		}
 	}
-	// Set the current version to a copy of the latest.
-	tree.orphaningTree = newOrphaningTree(tree.versions[tree.latest].Copy())
+	// Set the working tree to a copy of the latest.
+	tree.orphaningTree = tree.versions[tree.latest].Clone()
 
 	return nil
 }
@@ -82,7 +80,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 		return errors.Errorf("version %d was already saved", version)
 	}
 	if tree.root == nil {
-		return errors.New("tree is empty")
+		return ErrNilRoot
 	}
 	if version == 0 {
 		return errors.New("version must be greater than zero")
@@ -94,31 +92,11 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	tree.latest = version
 	tree.versions[version] = tree.orphaningTree
 
-	// Save the current tree at the given version. For each saved node, we
-	// delete any existing orphan entries in the previous trees.
-	// This is necessary because sometimes tree re-balancing causes nodes to be
-	// incorrectly marked as orphaned, since tree patterns after a re-balance
-	// may mirror previous tree patterns, with matching hashes.
-	tree.orphaningTree.SaveVersion(version, func(node *IAVLNode) *IAVLNode {
-		tree.Unorphan(node.hash)
-
-		// Don't overwrite nodes.
-		// This is here because inner nodes are overwritten otherwise, losing
-		// version information, due to the version not affecting the hash.
-		// Adding the version to the hash breaks a lot of things, so this
-		// seems like the best solution for now.
-		if tree.ndb.Has(node.hash) {
-			return nil
-		}
-		node.version = version
-
-		return node
-	})
+	tree.orphaningTree.SaveVersion(version)
+	tree.orphaningTree = tree.orphaningTree.Clone()
 
 	tree.ndb.SaveRoot(tree.root, version)
 	tree.ndb.Commit()
-
-	tree.orphaningTree = tree.orphaningTree.Clone()
 
 	return nil
 }
@@ -130,7 +108,7 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 		return errors.New("invalid version")
 	}
 	if version == tree.latest {
-		return errors.New("cannot delete current version")
+		return errors.New("cannot delete latest saved version")
 	}
 	if _, ok := tree.versions[version]; ok {
 		tree.ndb.DeleteVersion(version)

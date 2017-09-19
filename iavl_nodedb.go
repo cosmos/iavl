@@ -40,8 +40,8 @@ type nodeDB struct {
 	db    dbm.DB     // Persistent node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
-	versionCache  map[uint64]([]byte) // Cache of tree (root) versions.
-	latestVersion uint64              // Latest root version.
+	versionCache  map[uint64][]byte // Cache of tree (root) versions.
+	latestVersion uint64            // Latest root version.
 
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
@@ -96,14 +96,20 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	if node == nil {
-		return
-	}
 	if node.hash == nil {
 		cmn.PanicSanity("Expected to find node.hash, but none found.")
 	}
 	if node.persisted {
 		cmn.PanicSanity("Shouldn't be calling save on an already persisted node.")
+	}
+
+	// Don't overwrite nodes.
+	// This is here because inner nodes are overwritten otherwise, losing
+	// version information, due to the version not affecting the hash.
+	// Adding the version to the hash breaks a lot of things, so this
+	// seems like the best solution for now.
+	if ndb.Has(node.hash) {
+		return
 	}
 
 	// Save node bytes to db.
@@ -135,7 +141,7 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 //
 // Note that this function clears leftNode/rigthNode recursively and calls
 // hashWithCount on the given node.
-func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode) *IAVLNode) {
+func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode)) {
 	if node.hash == nil {
 		node.hash, _ = node.hashWithCount()
 	}
@@ -153,10 +159,9 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode) *IAVLNode) {
 	}
 
 	if cb != nil {
-		ndb.SaveNode(cb(node))
-	} else {
-		ndb.SaveNode(node)
+		cb(node)
 	}
+	ndb.SaveNode(node)
 }
 
 // DeleteVersion deletes a tree version from disk.
@@ -255,17 +260,6 @@ func (ndb *nodeDB) cacheVersion(version uint64, hash []byte) {
 	if version > ndb.getLatestVersion() {
 		ndb.latestVersion = version
 	}
-}
-
-// Gets the next version after the given one.
-func (ndb *nodeDB) getNextVersion(version uint64) uint64 {
-	var result uint64 = 0
-	for v, _ := range ndb.getVersions() {
-		if v > version && (result == 0 || v < result) {
-			result = v
-		}
-	}
-	return result
 }
 
 func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
@@ -389,15 +383,6 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-
-func (ndb *nodeDB) keys() []string {
-	keys := []string{}
-
-	ndb.traverse(func(key, value []byte) {
-		keys = append(keys, string(key))
-	})
-	return keys
-}
 
 func (ndb *nodeDB) leafNodes() []*IAVLNode {
 	leaves := []*IAVLNode{}

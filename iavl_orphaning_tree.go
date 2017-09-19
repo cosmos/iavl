@@ -71,11 +71,17 @@ func (tree *orphaningTree) Unorphan(hash []byte) {
 }
 
 // Save the underlying IAVLTree. Saves orphans too.
-func (tree *orphaningTree) SaveVersion(version uint64, fn func(*IAVLNode) *IAVLNode) {
-	tree.ndb.SaveBranch(tree.root, func(node *IAVLNode) *IAVLNode {
-		// Ensure that nodes saved to disk aren't later orphaned.
-		tree.deleteOrphan(node.hash)
-		return fn(node)
+func (tree *orphaningTree) SaveVersion(version uint64) {
+	// Save the current tree at the given version. For each saved node, we
+	// delete any existing orphan entries in the previous trees.
+	// This is necessary because sometimes tree re-balancing causes nodes to be
+	// incorrectly marked as orphaned, since tree patterns after a re-balance
+	// may mirror previous tree patterns, with matching hashes.
+	tree.ndb.SaveBranch(tree.root, func(node *IAVLNode) {
+		tree.Unorphan(node.hash)
+
+		// The node version is set here since it isn't known until we save.
+		node.version = version
 	})
 	tree.ndb.SaveOrphans(version, tree.orphans)
 }
