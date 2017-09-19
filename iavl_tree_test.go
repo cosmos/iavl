@@ -16,7 +16,7 @@ var testFuzzIterations int
 
 func init() {
 	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
-	flag.IntVar(&testFuzzIterations, "test.fuzz-iterations", 20000, "number of fuzz testing iterations")
+	flag.IntVar(&testFuzzIterations, "test.fuzz-iterations", 100000, "number of fuzz testing iterations")
 	flag.Parse()
 }
 

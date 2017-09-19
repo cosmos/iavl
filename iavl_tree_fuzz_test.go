@@ -103,7 +103,7 @@ func genRandomProgram(size int) *program {
 
 func TestVersionedTreeFuzz(t *testing.T) {
 	maxIterations := testFuzzIterations
-	progsPerIteration := 10000
+	progsPerIteration := 100000
 	iterations := 0
 
 	for size := 5; iterations < maxIterations; size++ {
