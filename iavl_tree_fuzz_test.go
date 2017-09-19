@@ -10,6 +10,10 @@ import (
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
+// This file implement fuzz testing by generating programs and then running
+// them. If an error occurs, the program that had the error is printed.
+
+// A program is a list of instructions.
 type program struct {
 	instructions []instruction
 }
@@ -75,6 +79,7 @@ func (i instruction) String() string {
 	return fmt.Sprintf("%-8s %-8s %-8s", i.op, i.k, i.v)
 }
 
+// Generate a random program of the given size.
 func genRandomProgram(size int) *program {
 	p := &program{}
 	nextVersion := 1
@@ -101,6 +106,7 @@ func genRandomProgram(size int) *program {
 	return p
 }
 
+// Generate many programs and run them.
 func TestVersionedTreeFuzz(t *testing.T) {
 	maxIterations := testFuzzIterations
 	progsPerIteration := 100000
