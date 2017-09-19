@@ -129,6 +129,9 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *VersionedTree) DeleteVersion(version uint64) error {
+	if version == 0 {
+		return errors.New("invalid version")
+	}
 	if version == tree.latest {
 		return errors.New("cannot delete current version")
 	}
