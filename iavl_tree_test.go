@@ -154,13 +154,16 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(tree.ndb.leafNodes(), 0)
 
 	// Saving with version zero is an error.
-	require.Error(tree.SaveVersion(0))
+	_, err = tree.SaveVersion(0)
+	require.Error(err)
 
 	// Now let's write the keys to storage.
-	require.NoError(tree.SaveVersion(1))
+	_, err = tree.SaveVersion(1)
+	require.NoError(err)
 
 	// Saving twice with the same version is an error.
-	require.Error(tree.SaveVersion(1))
+	_, err = tree.SaveVersion(1)
+	require.Error(err)
 
 	// -----1-----
 	// key1 = val0
@@ -177,7 +180,7 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key3"), []byte("val1"))
 	require.Len(tree.ndb.leafNodes(), len(nodes1))
 
-	err = tree.SaveVersion(2)
+	_, err = tree.SaveVersion(2)
 	require.NoError(err)
 
 	// Recreate a new tree and load it, to make sure it works in this
@@ -496,7 +499,8 @@ func TestVersionedTreeErrors(t *testing.T) {
 	tree := NewVersionedTree(100, db.NewMemDB())
 
 	// Can't save with empty tree.
-	require.Error(tree.SaveVersion(1))
+	_, err := tree.SaveVersion(1)
+	require.Error(err)
 
 	// Can't delete non-existent versions.
 	require.Error(tree.DeleteVersion(1))
@@ -505,10 +509,12 @@ func TestVersionedTreeErrors(t *testing.T) {
 	tree.Set([]byte("key"), []byte("val"))
 
 	// `0` is an invalid version number.
-	require.Error(tree.SaveVersion(0))
+	_, err = tree.SaveVersion(0)
+	require.Error(err)
 
 	// Saving version `1` is ok.
-	require.NoError(tree.SaveVersion(1))
+	_, err = tree.SaveVersion(1)
+	require.NoError(err)
 
 	// Can't delete current version.
 	require.Error(tree.DeleteVersion(1))

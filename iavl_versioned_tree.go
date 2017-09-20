@@ -75,18 +75,18 @@ func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
 
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Multiple calls to SaveVersion with the same version are not allowed.
-func (tree *VersionedTree) SaveVersion(version uint64) error {
+func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 	if _, ok := tree.versions[version]; ok {
-		return errors.Errorf("version %d was already saved", version)
+		return nil, errors.Errorf("version %d was already saved", version)
 	}
 	if tree.root == nil {
-		return ErrNilRoot
+		return nil, ErrNilRoot
 	}
 	if version == 0 {
-		return errors.New("version must be greater than zero")
+		return nil, errors.New("version must be greater than zero")
 	}
 	if version <= tree.latest {
-		return errors.New("version must be greater than latest")
+		return nil, errors.New("version must be greater than latest")
 	}
 
 	tree.latest = version
@@ -98,7 +98,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) error {
 	tree.ndb.SaveRoot(tree.root, version)
 	tree.ndb.Commit()
 
-	return nil
+	return tree.root.hash, nil
 }
 
 // DeleteVersion deletes a tree version from disk. The version can then no
