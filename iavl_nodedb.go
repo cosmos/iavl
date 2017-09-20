@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -17,6 +16,11 @@ import (
 )
 
 var (
+	// All node keys are prefixed with this. This ensures no collision is
+	// possible with the other keys, and makes them easier to traverse.
+	nodesPrefix = "nodes/"
+	nodesKeyFmt = "nodes/%x"
+
 	// Orphans are keyed in the database by their expected lifetime.
 	// The first number represents the *last* version at which the orphan needs
 	// to exist, while the second number represents the *earliest* version at
@@ -74,7 +78,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 	}
 
 	// Doesn't exist, load.
-	buf := ndb.db.Get(hash)
+	buf := ndb.db.Get(ndb.nodeKey(hash))
 	if len(buf) == 0 {
 		cmn.PanicSanity(cmn.Fmt("Value missing for key %x", hash))
 	}
@@ -117,7 +121,7 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 	if _, err := node.writeBytes(buf); err != nil {
 		cmn.PanicCrisis(err)
 	}
-	ndb.batch.Set(node.hash, buf.Bytes())
+	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 
 	node.persisted = true
 	ndb.cacheNode(node)
@@ -125,14 +129,16 @@ func (ndb *nodeDB) SaveNode(node *IAVLNode) {
 
 // Has checks if a hash exists in the database.
 func (ndb *nodeDB) Has(hash []byte) bool {
+	key := ndb.nodeKey(hash)
+
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		exists, err := ldb.DB().Has(hash, nil)
+		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
 			cmn.PanicSanity("Got error from leveldb: " + err.Error())
 		}
 		return exists
 	}
-	return len(ndb.db.Get(hash)) != 0
+	return len(ndb.db.Get(key)) != 0
 }
 
 // SaveBranch saves the given node and all of its descendants. For each node
@@ -235,12 +241,16 @@ func (ndb *nodeDB) deleteOrphans(version uint64) {
 		// can delete the orphan.  Otherwise, we shorten its lifetime, by
 		// moving its endpoint to the previous version.
 		if predecessor < fromVersion || fromVersion == toVersion {
-			ndb.batch.Delete(hash)
+			ndb.batch.Delete(ndb.nodeKey(hash))
 			ndb.uncacheNode(hash)
 		} else {
 			ndb.saveOrphan(hash, fromVersion, predecessor)
 		}
 	})
+}
+
+func (ndb *nodeDB) nodeKey(hash []byte) []byte {
+	return []byte(fmt.Sprintf(nodesKeyFmt, hash))
 }
 
 func (ndb *nodeDB) getLatestVersion() uint64 {
@@ -459,17 +469,12 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
 	nodes := []*IAVLNode{}
 
-	ndb.traverse(func(key, value []byte) {
-		if strings.HasPrefix(string(key), orphansPrefix) ||
-			strings.HasPrefix(string(key), orphansIndexPrefix) ||
-			strings.HasPrefix(string(key), rootsPrefix) {
-			return
-		}
+	ndb.traversePrefix([]byte(nodesPrefix), func(key, value []byte) {
 		node, err := MakeIAVLNode(value)
 		if err != nil {
 			cmn.PanicSanity("Couldn't decode node from database")
 		}
-		node.hash = key
+		fmt.Sscanf(string(key), nodesKeyFmt, &node.hash)
 		nodes = append(nodes, node)
 	})
 
@@ -505,11 +510,11 @@ func (ndb *nodeDB) String() string {
 		if len(hash) == 0 {
 			str += fmt.Sprintf("<nil>\n")
 		} else if node == nil {
-			str += fmt.Sprintf("%40x: <nil>\n", hash)
+			str += fmt.Sprintf("%s%40x: <nil>\n", nodesPrefix, hash)
 		} else if node.value == nil && node.height > 0 {
-			str += fmt.Sprintf("%40x: %s   %-16s h=%d version=%d\n", hash, node.key, "", node.height, node.version)
+			str += fmt.Sprintf("%s%40x: %s   %-16s h=%d version=%d\n", nodesPrefix, hash, node.key, "", node.height, node.version)
 		} else {
-			str += fmt.Sprintf("%40x: %s = %-16s h=%d version=%d\n", hash, node.key, node.value, node.height, node.version)
+			str += fmt.Sprintf("%s%40x: %s = %-16s h=%d version=%d\n", nodesPrefix, hash, node.key, node.value, node.height, node.version)
 		}
 		index++
 	})
