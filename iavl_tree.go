@@ -19,14 +19,12 @@ type IAVLTree struct {
 // NewIAVLTree creates both im-memory and persistent instances
 func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
 	if db == nil {
-		// In-memory IAVLTree
+		// In-memory IAVLTree.
 		return &IAVLTree{}
-	} else {
-		// Persistent IAVLTree
-		ndb := newNodeDB(cacheSize, db)
-		return &IAVLTree{
-			ndb: ndb,
-		}
+	}
+	return &IAVLTree{
+		// NodeDB-backed IAVLTree.
+		ndb: newNodeDB(cacheSize, db),
 	}
 }
 
@@ -40,6 +38,8 @@ func (t *IAVLTree) String() string {
 	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
 }
 
+// DEPRECATED.
+//
 // Copy returns a copy of the tree.
 // The returned tree and the original tree are goroutine independent.
 // That is, they can each run in their own goroutine.
@@ -133,7 +133,7 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	return t.root.hashWithCount()
 }
 
-// DEPRECATED
+// Save writes the tree to disk, if it was created with a datastore.
 func (t *IAVLTree) Save() []byte {
 	if t.root == nil {
 		return nil
