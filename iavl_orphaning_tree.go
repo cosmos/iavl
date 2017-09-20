@@ -36,6 +36,7 @@ func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
 	return val, removed
 }
 
+// Clone creates a clone of the tree.
 func (tree *orphaningTree) Clone() *orphaningTree {
 	inner := &IAVLTree{
 		root: tree.IAVLTree.root,
@@ -50,7 +51,11 @@ func (tree *orphaningTree) Clone() *orphaningTree {
 // Load the tree from disk, from the given root hash, including all orphans.
 func (tree *orphaningTree) Load(root []byte) {
 	tree.IAVLTree.Load(root)
-	tree.loadOrphans(tree.root.version)
+
+	// Load orphans.
+	tree.ndb.traverseOrphansVersion(tree.root.version, func(k, v []byte) {
+		tree.orphans[string(v)] = tree.root.version
+	})
 }
 
 // Unorphan undoes the orphaning of a node, removing the orphan entry on disk
@@ -74,13 +79,6 @@ func (tree *orphaningTree) SaveVersion(version uint64) {
 		node.version = version
 	})
 	tree.ndb.SaveOrphans(version, tree.orphans)
-}
-
-// Load orphans from disk.
-func (tree *orphaningTree) loadOrphans(version uint64) {
-	tree.ndb.traverseOrphansVersion(version, func(k, v []byte) {
-		tree.orphans[string(v)] = version
-	})
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.
