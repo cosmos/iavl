@@ -12,21 +12,13 @@ type orphaningTree struct {
 	// The version stored here is the one at which the orphan's lifetime
 	// begins.
 	orphans map[string]uint64
-
-	// The version of the current root.
-	rootVersion uint64
 }
 
 // newOrphaningTree creates a new orphaning tree from the given *IAVLTree.
 func newOrphaningTree(t *IAVLTree) *orphaningTree {
-	var version uint64
-	if t.root != nil {
-		version = t.root.version
-	}
 	return &orphaningTree{
-		IAVLTree:    t,
-		rootVersion: version,
-		orphans:     map[string]uint64{},
+		IAVLTree: t,
+		orphans:  map[string]uint64{},
 	}
 }
 
@@ -50,17 +42,15 @@ func (tree *orphaningTree) Clone() *orphaningTree {
 		ndb:  tree.IAVLTree.ndb,
 	}
 	return &orphaningTree{
-		IAVLTree:    inner,
-		rootVersion: inner.root.version,
-		orphans:     map[string]uint64{},
+		IAVLTree: inner,
+		orphans:  map[string]uint64{},
 	}
 }
 
 // Load the tree from disk, from the given root hash, including all orphans.
 func (tree *orphaningTree) Load(root []byte) {
 	tree.IAVLTree.Load(root)
-	tree.rootVersion = tree.root.version
-	tree.loadOrphans(tree.rootVersion)
+	tree.loadOrphans(tree.root.version)
 }
 
 // Unorphan undoes the orphaning of a node, removing the orphan entry on disk

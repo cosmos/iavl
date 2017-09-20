@@ -50,7 +50,7 @@ func (tree *VersionedTree) Load() error {
 		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
 
-		version := t.rootVersion
+		version := t.root.version
 		tree.versions[version] = t
 
 		if version > tree.latest {
