@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"flag"
 	"os"
 	"testing"
@@ -158,7 +159,7 @@ func TestVersionedTree(t *testing.T) {
 	require.Error(err)
 
 	// Now let's write the keys to storage.
-	_, err = tree.SaveVersion(1)
+	hash1, err := tree.SaveVersion(1)
 	require.NoError(err)
 
 	// Saving twice with the same version is an error.
@@ -180,8 +181,9 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key3"), []byte("val1"))
 	require.Len(tree.ndb.leafNodes(), len(nodes1))
 
-	_, err = tree.SaveVersion(2)
+	hash2, err := tree.SaveVersion(2)
 	require.NoError(err)
+	require.False(bytes.Equal(hash1, hash2))
 
 	// Recreate a new tree and load it, to make sure it works in this
 	// scenario.
@@ -207,7 +209,7 @@ func TestVersionedTree(t *testing.T) {
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 
-	tree.SaveVersion(3)
+	hash3, _ := tree.SaveVersion(3)
 
 	// -----1-----
 	// key1 = val0  <orphaned> (replaced)
@@ -224,7 +226,10 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(nodes3, 6, "wrong number of nodes")
 	require.Len(tree.ndb.orphans(), 6, "wrong number of orphans")
 
-	tree.SaveVersion(4)
+	hash4, _ := tree.SaveVersion(4)
+	require.EqualValues(hash3, hash4)
+	require.NotNil(hash4)
+
 	tree = NewVersionedTree(100, d)
 	require.NoError(tree.Load())
 
