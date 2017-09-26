@@ -60,7 +60,6 @@ func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 	if err != nil {
 		PanicCrisis(Fmt("Failed to hash IAVLProofInnerNode: %v", err))
 	}
-	// fmt.Printf("InnerNode hash bytes: %X\n", buf.Bytes())
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
 }
@@ -82,7 +81,6 @@ func (leaf IAVLProofLeafNode) Hash(version uint64) []byte {
 	if err != nil {
 		PanicCrisis(Fmt("Failed to hash IAVLProofLeafNode: %v", err))
 	}
-	// fmt.Printf("LeafNode hash bytes:   %X\n", buf.Bytes())
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
 }
