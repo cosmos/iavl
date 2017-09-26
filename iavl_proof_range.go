@@ -37,7 +37,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
 		return ErrInvalidProof()
 	}
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
 	}
 	if proof.PathToKey == nil {
@@ -91,7 +91,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
 		return ErrInvalidProof()
 	}
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
 	}
 	if proof.PathToKey == nil {
@@ -153,7 +153,7 @@ func (proof *KeyRangeProof) Verify(
 		if err := verifyKeyAbsence(proof.Left, proof.Right); err != nil {
 			return err
 		}
-		return verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version)
+		return verifyPaths(proof.Left, proof.Right, startKey, endKey, root)
 	}
 
 	// If we hit the limit, one of the two ends doesn't have to match the
@@ -166,7 +166,7 @@ func (proof *KeyRangeProof) Verify(
 		}
 	}
 	// Now we know Left < startKey <= endKey < Right.
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root, proof.Version); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
 	}
 
@@ -178,7 +178,7 @@ func (proof *KeyRangeProof) Verify(
 	// a list of keys.
 	for i, path := range proof.PathToKeys {
 		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
-		if err := path.verify(leafNode, root, proof.Version); err != nil {
+		if err := path.verify(leafNode, root); err != nil {
 			return errors.WithStack(err)
 		}
 	}
@@ -346,18 +346,22 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	if !bytes.Equal(key, keyStart) {
 		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
 			k, v := t.GetByIndex(idx - 1)
-			proof.Left = &PathWithNode{}
-			proof.Left.Path, _, _ = t.root.pathToKey(t, k)
-			proof.Left.Node = IAVLProofLeafNode{k, v}
+			path, node, _ := t.root.pathToKey(t, k)
+			proof.Left = &PathWithNode{
+				Path: path,
+				Node: IAVLProofLeafNode{k, v, node.version},
+			}
 		}
 	}
 
 	if !bytes.Equal(key, keyEnd) {
 		if idx, _, exists := t.Get(keyEnd); idx <= t.Size()-1 && !exists {
 			k, v := t.GetByIndex(idx)
-			proof.Right = &PathWithNode{}
-			proof.Right.Path, _, _ = t.root.pathToKey(t, k)
-			proof.Right.Node = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
+			path, node, _ := t.root.pathToKey(t, k)
+			proof.Right = &PathWithNode{
+				Path: path,
+				Node: IAVLProofLeafNode{k, v, node.version},
+			}
 		}
 	}
 
@@ -388,18 +392,22 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	if !bytes.Equal(key, keyEnd) {
 		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
 			k, v := t.GetByIndex(idx)
-			proof.Right = &PathWithNode{}
-			proof.Right.Path, _, _ = t.root.pathToKey(t, k)
-			proof.Right.Node = IAVLProofLeafNode{KeyBytes: k, ValueBytes: v}
+			path, node, _ := t.root.pathToKey(t, k)
+			proof.Right = &PathWithNode{
+				Path: path,
+				Node: IAVLProofLeafNode{k, v, node.version},
+			}
 		}
 	}
 
 	if !bytes.Equal(key, keyStart) {
 		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
 			k, v := t.GetByIndex(idx - 1)
-			proof.Left = &PathWithNode{}
-			proof.Left.Path, _, _ = t.root.pathToKey(t, k)
-			proof.Left.Node = IAVLProofLeafNode{k, v}
+			path, node, _ := t.root.pathToKey(t, k)
+			proof.Left = &PathWithNode{
+				Path: path,
+				Node: IAVLProofLeafNode{k, v, node.version},
+			}
 		}
 	}
 

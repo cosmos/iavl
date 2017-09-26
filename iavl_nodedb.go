@@ -148,26 +148,26 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 // Note that this function clears leftNode/rigthNode recursively and calls
 // hashWithCount on the given node.
 func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode)) {
-	if node.hash == nil {
-		node.hash, _ = node.hashWithCount()
-	}
 	if node.persisted {
 		return
 	}
 
 	if node.leftNode != nil {
 		ndb.SaveBranch(node.leftNode, cb)
-		node.leftNode = nil
 	}
 	if node.rightNode != nil {
 		ndb.SaveBranch(node.rightNode, cb)
-		node.rightNode = nil
 	}
 
 	if cb != nil {
 		cb(node)
 	}
+
+	node.hashWithCount()
 	ndb.SaveNode(node)
+
+	node.leftNode = nil
+	node.rightNode = nil
 }
 
 // DeleteVersion deletes a tree version from disk.

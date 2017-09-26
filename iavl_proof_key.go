@@ -41,7 +41,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if key == nil || value == nil {
 		return ErrInvalidInputs
 	}
-	return proof.PathToKey.verify(IAVLProofLeafNode{key, value}, root, proof.Version)
+	return proof.PathToKey.verify(IAVLProofLeafNode{key, value, proof.Version}, root)
 }
 
 // Bytes returns a go-wire binary serialization
@@ -85,7 +85,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if proof.Left == nil && proof.Right == nil {
 		return ErrInvalidProof()
 	}
-	if err := verifyPaths(proof.Left, proof.Right, key, key, root, proof.Version); err != nil {
+	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
 		return err
 	}
 

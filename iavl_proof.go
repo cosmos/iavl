@@ -67,9 +67,10 @@ func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 type IAVLProofLeafNode struct {
 	KeyBytes   data.Bytes `json:"key"`
 	ValueBytes data.Bytes `json:"value"`
+	Version    uint64     `json:"version"`
 }
 
-func (leaf IAVLProofLeafNode) Hash(version uint64) []byte {
+func (leaf IAVLProofLeafNode) Hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	n, err := int(0), error(nil)
@@ -77,7 +78,7 @@ func (leaf IAVLProofLeafNode) Hash(version uint64) []byte {
 	wire.WriteVarint(1, buf, &n, &err)
 	wire.WriteByteSlice(leaf.KeyBytes, buf, &n, &err)
 	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
-	wire.WriteUint64(version, buf, &n, &err)
+	wire.WriteUint64(leaf.Version, buf, &n, &err)
 	if err != nil {
 		PanicCrisis(Fmt("Failed to hash IAVLProofLeafNode: %v", err))
 	}
@@ -93,21 +94,21 @@ func (leaf IAVLProofLeafNode) isGreaterThan(key []byte) bool {
 	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
-func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, []byte, error) {
+func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, *IAVLNode, error) {
 	path := &PathToKey{}
 	val, err := node._pathToKey(t, key, path)
 	return path, val, err
 }
-func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]byte, error) {
+func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) (*IAVLNode, error) {
 	if node.height == 0 {
 		if bytes.Compare(node.key, key) == 0 {
-			return node.value, nil
+			return node, nil
 		}
 		return nil, errors.New("key does not exist")
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		if value, err := node.getLeftNode(t)._pathToKey(t, key, path); err != nil {
+		if n, err := node.getLeftNode(t)._pathToKey(t, key, path); err != nil {
 			return nil, err
 		} else {
 			branch := IAVLProofInnerNode{
@@ -117,11 +118,11 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 				Right:  node.getRightNode(t).hash,
 			}
 			path.InnerNodes = append(path.InnerNodes, branch)
-			return value, nil
+			return n, nil
 		}
 	}
 
-	if value, err := node.getRightNode(t)._pathToKey(t, key, path); err != nil {
+	if n, err := node.getRightNode(t)._pathToKey(t, key, path); err != nil {
 		return nil, err
 	} else {
 		branch := IAVLProofInnerNode{
@@ -131,7 +132,7 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) ([]by
 			Right:  nil,
 		}
 		path.InnerNodes = append(path.InnerNodes, branch)
-		return value, nil
+		return n, nil
 	}
 }
 
@@ -158,17 +159,17 @@ func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) er
 	}
 
 	if lkey != nil {
-		path, _, _ := t.root.pathToKey(t, lkey)
+		path, node, _ := t.root.pathToKey(t, lkey)
 		proof.Left = &PathWithNode{
 			Path: path,
-			Node: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
+			Node: IAVLProofLeafNode{lkey, lval, node.version},
 		}
 	}
 	if rkey != nil {
-		path, _, _ := t.root.pathToKey(t, rkey)
+		path, node, _ := t.root.pathToKey(t, rkey)
 		proof.Right = &PathWithNode{
 			Path: path,
-			Node: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+			Node: IAVLProofLeafNode{rkey, rval, node.version},
 		}
 	}
 
@@ -181,7 +182,7 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
-	path, value, err := t.root.pathToKey(t, key)
+	path, node, err := t.root.pathToKey(t, key)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "could not construct path to key")
 	}
@@ -189,8 +190,9 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 	proof = &KeyExistsProof{
 		RootHash:  t.root.hash,
 		PathToKey: path,
+		Version:   node.version,
 	}
-	return value, proof, nil
+	return node.value, proof, nil
 }
 
 func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
@@ -200,6 +202,7 @@ func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 	proof := &KeyAbsentProof{
 		RootHash: t.root.hash,
+		Version:  t.root.version,
 	}
 	if err := t.constructKeyAbsentProof(key, proof); err != nil {
 		return nil, errors.Wrap(err, "could not construct proof of non-existence")

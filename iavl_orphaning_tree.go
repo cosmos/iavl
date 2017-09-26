@@ -73,10 +73,11 @@ func (tree *orphaningTree) SaveVersion(version uint64) {
 	// incorrectly marked as orphaned, since tree patterns after a re-balance
 	// may mirror previous tree patterns, with matching hashes.
 	tree.ndb.SaveBranch(tree.root, func(node *IAVLNode) {
-		tree.Unorphan(node.hash)
-
 		// The node version is set here since it isn't known until we save.
 		node.version = version
+		node.hashWithCount()
+
+		tree.Unorphan(node.hash)
 	})
 	tree.ndb.SaveOrphans(version, tree.orphans)
 }
