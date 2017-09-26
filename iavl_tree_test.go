@@ -795,3 +795,52 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 	}
 	require.Equal(keysAdded-tree.nodeSize(), keysDeleted)
 }
+
+func TestVersionedTreeProofs(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("k1"), []byte("v1"))
+	tree.Set([]byte("k2"), []byte("v1"))
+	tree.Set([]byte("k3"), []byte("v1"))
+	tree.SaveVersion(1)
+
+	root1 := tree.Hash()
+
+	tree.Set([]byte("k2"), []byte("v2"))
+	tree.Set([]byte("k4"), []byte("v2"))
+	tree.SaveVersion(2)
+
+	root2 := tree.Hash()
+	require.NotEqual(root1, root2)
+
+	tree.Remove([]byte("k2"))
+	tree.SaveVersion(3)
+
+	root3 := tree.Hash()
+	require.NotEqual(root2, root3)
+
+	val, proof, err := tree.GetVersionedWithProof([]byte("k2"), 1)
+	require.NoError(err)
+	require.EqualValues(val, []byte("v1"))
+	require.NoError(proof.Verify([]byte("k2"), val, root1))
+
+	val, proof, err = tree.GetVersionedWithProof([]byte("k4"), 1)
+	require.NoError(err)
+	require.Nil(val)
+	require.NoError(proof.Verify([]byte("k4"), nil, root1))
+	require.Error(proof.Verify([]byte("k4"), val, root2))
+
+	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 2)
+	require.NoError(err)
+	require.EqualValues(val, []byte("v2"))
+	require.NoError(proof.Verify([]byte("k2"), val, root2))
+	require.Error(proof.Verify([]byte("k2"), val, root1))
+
+	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 3)
+	require.NoError(err)
+	require.Nil(val)
+	require.NoError(proof.Verify([]byte("k2"), nil, root3))
+	require.Error(proof.Verify([]byte("k2"), nil, root1))
+	require.Error(proof.Verify([]byte("k2"), nil, root2))
+}
