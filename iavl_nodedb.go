@@ -18,25 +18,25 @@ import (
 var (
 	// All node keys are prefixed with this. This ensures no collision is
 	// possible with the other keys, and makes them easier to traverse.
-	nodesPrefix = "nodes/"
-	nodesKeyFmt = "nodes/%x"
+	nodesPrefix = "n/"
+	nodesKeyFmt = "n/%x"
 
 	// Orphans are keyed in the database by their expected lifetime.
 	// The first number represents the *last* version at which the orphan needs
 	// to exist, while the second number represents the *earliest* version at
 	// which it is expected to exist - which starts out by being the version
 	// of the node being orphaned.
-	orphansPrefix    = "orphans/"
-	orphansPrefixFmt = "orphans/%d/"      // orphans/<version>/
-	orphansKeyFmt    = "orphans/%d/%d/%x" // orphans/<version>/<version>/<hash>
+	orphansPrefix    = "o/"
+	orphansPrefixFmt = "o/%d/"      // o/<version>/
+	orphansKeyFmt    = "o/%d/%d/%x" // o/<version>/<version>/<hash>
 
 	// These keys are used for the orphan reverse-lookups by node hash.
-	orphansIndexPrefix = "orphans-index/"
-	orphansIndexKeyFmt = "orphans-index/%x"
+	orphansIndexPrefix = "O/"
+	orphansIndexKeyFmt = "O/%x"
 
-	// roots/<version>
-	rootsPrefix    = "roots/"
-	rootsPrefixFmt = "roots/%d"
+	// r/<version>
+	rootsPrefix    = "r/"
+	rootsPrefixFmt = "r/%d"
 )
 
 type nodeDB struct {
