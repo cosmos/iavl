@@ -110,15 +110,16 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 	if version == tree.latest {
 		return errors.New("cannot delete latest saved version")
 	}
-	if _, ok := tree.versions[version]; ok {
-		tree.ndb.DeleteVersion(version)
-		tree.ndb.Commit()
-
-		delete(tree.versions, version)
-
-		return nil
+	if _, ok := tree.versions[version]; !ok {
+		return ErrVersionDoesNotExist
 	}
-	return ErrVersionDoesNotExist
+
+	tree.ndb.DeleteVersion(version)
+	tree.ndb.Commit()
+
+	delete(tree.versions, version)
+
+	return nil
 }
 
 // GetVersionedWithProof gets the value under the key at the specified version
