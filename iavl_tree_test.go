@@ -60,25 +60,32 @@ func TestVersionedRandomTree(t *testing.T) {
 func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	require := require.New(t)
 	tree := NewVersionedTree(100, db.NewMemDB())
+	singleVersionTree := NewVersionedTree(0, db.NewMemDB())
 	versions := 20
 	keysPerVersion := 50
 
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
 			// Keys of size one are likely to be overwritten.
-			tree.Set([]byte(cmn.RandStr(1)), []byte(cmn.RandStr(8)))
+			k := []byte(cmn.RandStr(1))
+			v := []byte(cmn.RandStr(8))
+			tree.Set(k, v)
+			singleVersionTree.Set(k, v)
 		}
 		tree.SaveVersion(uint64(i))
 	}
+	singleVersionTree.SaveVersion(1)
 
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersion(uint64(i))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
-	// in the db as in the current tree version.
+	// in the db as in the current tree version. The simple tree must be equal
+	// too.
 	require.Len(tree.ndb.leafNodes(), tree.Size())
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
+	require.Len(tree.ndb.nodes(), singleVersionTree.nodeSize())
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
@@ -107,7 +114,7 @@ func TestVersionedTreeSpecial1(t *testing.T) {
 	tree.DeleteVersion(2)
 	tree.DeleteVersion(3)
 
-	require.Len(t, tree.ndb.nodes(), tree.nodeSize())
+	require.Equal(t, tree.nodeSize(), len(tree.ndb.nodes()))
 }
 
 func TestVersionedRandomTreeSpecial2(t *testing.T) {
@@ -356,6 +363,14 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 	tree.DeleteVersion(1)
 
 	require.Len(t, tree.ndb.leafNodes(), 3)
+
+	tree2 := NewVersionedTree(0, db.NewMemDB())
+	tree2.Set([]byte("key0"), []byte("val2"))
+	tree2.Set([]byte("key2"), []byte("val2"))
+	tree2.Set([]byte("key3"), []byte("val1"))
+	tree2.SaveVersion(1)
+
+	require.Equal(t, tree2.nodeSize(), tree.nodeSize())
 }
 
 func TestVersionedTreeOrphanDeleting(t *testing.T) {
