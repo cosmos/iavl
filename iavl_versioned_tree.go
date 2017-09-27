@@ -1,12 +1,12 @@
 package iavl
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
-
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
-var ErrVersionDoesNotExist = errors.New("version does not exist")
+var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
