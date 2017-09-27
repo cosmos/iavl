@@ -50,7 +50,11 @@ func (tree *orphaningTree) Clone() *orphaningTree {
 
 // Load the tree from disk, from the given root hash, including all orphans.
 func (tree *orphaningTree) Load(root []byte) {
-	tree.IAVLTree.Load(root)
+	if len(root) == 0 {
+		tree.root = nil
+	} else {
+		tree.root = tree.ndb.GetNode(root)
+	}
 
 	// Load orphans.
 	tree.ndb.traverseOrphansVersion(tree.root.version, func(k, v []byte) {

@@ -133,16 +133,6 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	return t.root.hashWithCount()
 }
 
-// Sets the root node by reading from db.
-// If the hash is empty, then sets root to nil.
-func (t *IAVLTree) Load(hash []byte) {
-	if len(hash) == 0 {
-		t.root = nil
-	} else {
-		t.root = t.ndb.GetNode(hash)
-	}
-}
-
 // Get returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
 func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
