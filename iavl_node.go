@@ -190,6 +190,24 @@ func (node *IAVLNode) getByIndex(t *IAVLTree, index int) (key []byte, value []by
 	}
 }
 
+// Computes the hash of the node without computing its descendants. Must be
+// called on nodes which have descendant node hashes already computed.
+func (node *IAVLNode) _hash() []byte {
+	if node.hash != nil {
+		return node.hash
+	}
+
+	hasher := ripemd160.New()
+	buf := new(bytes.Buffer)
+	if _, err := node.writeHashBytes(buf); err != nil {
+		cmn.PanicCrisis(err)
+	}
+	hasher.Write(buf.Bytes())
+	node.hash = hasher.Sum(nil)
+
+	return node.hash
+}
+
 // Hash the node and its descendants recursively. This usually mutates all
 // descendant nodes. Returns the node hash and number of nodes hashed.
 func (node *IAVLNode) hashWithCount() ([]byte, int) {
@@ -199,7 +217,7 @@ func (node *IAVLNode) hashWithCount() ([]byte, int) {
 
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	_, hashCount, err := node.writeHashBytes(buf)
+	_, hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
 		cmn.PanicCrisis(err)
 	}
@@ -209,9 +227,9 @@ func (node *IAVLNode) hashWithCount() ([]byte, int) {
 	return node.hash, hashCount + 1
 }
 
-// Writes the node's hash to the given io.Writer.
-// This function has the side-effect of calling hashWithCount.
-func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err error) {
+// Writes the node's hash to the given io.Writer. This function expects
+// child hashes to be already set.
+func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, err error) {
 	wire.WriteInt8(node.height, w, &n, &err)
 	wire.WriteVarint(node.size, w, &n, &err)
 
@@ -222,26 +240,30 @@ func (node *IAVLNode) writeHashBytes(w io.Writer) (n int, hashCount int, err err
 		wire.WriteByteSlice(node.value, w, &n, &err)
 		wire.WriteUint64(node.version, w, &n, &err)
 	} else {
-		if node.leftNode != nil {
-			leftHash, leftCount := node.leftNode.hashWithCount()
-			node.leftHash = leftHash
-			hashCount += leftCount
-		}
-		if node.leftHash == nil {
-			cmn.PanicSanity("node.leftHash was nil in writeHashBytes")
+		if node.leftHash == nil || node.rightHash == nil {
+			cmn.PanicSanity("Found an empty child hash")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
-
-		if node.rightNode != nil {
-			rightHash, rightCount := node.rightNode.hashWithCount()
-			node.rightHash = rightHash
-			hashCount += rightCount
-		}
-		if node.rightHash == nil {
-			cmn.PanicSanity("node.rightHash was nil in writeHashBytes")
-		}
 		wire.WriteByteSlice(node.rightHash, w, &n, &err)
 	}
+	return
+}
+
+// Writes the node's hash to the given io.Writer.
+// This function has the side-effect of calling hashWithCount.
+func (node *IAVLNode) writeHashBytesRecursively(w io.Writer) (n int, hashCount int, err error) {
+	if node.leftNode != nil {
+		leftHash, leftCount := node.leftNode.hashWithCount()
+		node.leftHash = leftHash
+		hashCount += leftCount
+	}
+	if node.rightNode != nil {
+		rightHash, rightCount := node.rightNode.hashWithCount()
+		node.rightHash = rightHash
+		hashCount += rightCount
+	}
+	n, err = node.writeHashBytes(w)
+
 	return
 }
 

@@ -75,9 +75,7 @@ func (tree *orphaningTree) SaveVersion(version uint64) {
 	tree.ndb.SaveBranch(tree.root, func(node *IAVLNode) {
 		// The node version is set here since it isn't known until we save.
 		node.version = version
-		node.hashWithCount()
-
-		tree.Unorphan(node.hash)
+		tree.Unorphan(node._hash())
 	})
 	tree.ndb.SaveOrphans(version, tree.orphans)
 }
