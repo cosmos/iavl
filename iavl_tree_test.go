@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"flag"
+	"math/rand"
 	"os"
 	"testing"
 
@@ -78,6 +79,44 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersion(uint64(i))
+	}
+
+	// After cleaning up all previous versions, we should have as many nodes
+	// in the db as in the current tree version. The simple tree must be equal
+	// too.
+	require.Len(tree.ndb.leafNodes(), tree.Size())
+	require.Len(tree.ndb.nodes(), tree.nodeSize())
+	require.Len(tree.ndb.nodes(), singleVersionTree.nodeSize())
+
+	// Try getting random keys.
+	for i := 0; i < keysPerVersion; i++ {
+		_, val, exists := tree.Get([]byte(cmn.RandStr(1)))
+		require.True(exists)
+		require.NotEmpty(val)
+	}
+}
+
+func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(100, db.NewMemDB())
+	singleVersionTree := NewVersionedTree(0, db.NewMemDB())
+	versions := 30
+	keysPerVersion := 50
+
+	for i := 1; i <= versions; i++ {
+		for j := 0; j < keysPerVersion; j++ {
+			// Keys of size one are likely to be overwritten.
+			k := []byte(cmn.RandStr(1))
+			v := []byte(cmn.RandStr(8))
+			tree.Set(k, v)
+			singleVersionTree.Set(k, v)
+		}
+		tree.SaveVersion(uint64(i))
+	}
+	singleVersionTree.SaveVersion(1)
+
+	for _, i := range rand.Perm(versions) {
+		tree.DeleteVersion(uint64(i + 1))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
