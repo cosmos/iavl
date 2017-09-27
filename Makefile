@@ -1,5 +1,6 @@
 GOTOOLS := github.com/mitchellh/gox \
-           github.com/Masterminds/glide
+           github.com/Masterminds/glide \
+	   github.com/alecthomas/gometalinter
 
 PDFFLAGS := -pdf --nodefraction=0.1
 
@@ -52,5 +53,39 @@ exploremem:
 
 delve:
 	dlv test ./benchmarks -- -test.bench=.
+
+metalinter: tools
+	@gometalinter --install
+	gometalinter --vendor --deadline=600s --enable-all --disable=lll ./...
+
+metalinter_test: tools
+	@gometalinter --install
+	gometalinter --vendor --deadline=600s --disable-all  \
+		--enable=deadcode \
+		--enable=errcheck \
+		--enable=gas \
+		--enable=goconst \
+		--enable=goimports \
+		--enable=gosimple \
+		--enable=ineffassign \
+		--enable=misspell \
+		--enable=staticcheck \
+		--enable=safesql \
+		--enable=unconvert \
+		--enable=unused \
+		--enable=vetshadow \
+		./...
+
+		#--enable=aligncheck \
+		#--enable=dupl \
+		#--enable=gocyclo \
+		#--enable=golint \ <== comments on anything exported
+		#--enable=gotype \
+		#--enable=interfacer \
+		#--enable=megacheck \
+		#--enable=structcheck \
+		#--enable=unparam \
+		#--enable=varcheck \
+		#--enable=vet \
 
 .PHONY: all test tools

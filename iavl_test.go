@@ -512,7 +512,7 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 		}
 	}
 
-	// targetted changes fails...
+	// targeted changes fails...
 	proof.RootHash = MutateByteSlice(proof.RootHash)
 	assert.Error(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
 }
