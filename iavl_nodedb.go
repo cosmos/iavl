@@ -163,13 +163,13 @@ func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode)) []byte {
 		cb(node)
 	}
 
-	hash := node._hash()
+	node._hash()
 	ndb.SaveNode(node)
 
 	node.leftNode = nil
 	node.rightNode = nil
 
-	return hash
+	return node.hash
 }
 
 // DeleteVersion deletes a tree version from disk.
