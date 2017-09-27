@@ -206,8 +206,15 @@ func (t *IAVLTree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []b
 }
 
 // Remove tries to remove a key from the tree and if removed, returns its
+// value, and 'true'.
+func (t *IAVLTree) Remove(key []byte) ([]byte, bool) {
+	value, _, removed := t.remove(key)
+	return value, removed
+}
+
+// remove tries to remove a key from the tree and if removed, returns its
 // value, nodes orphaned and 'true'.
-func (t *IAVLTree) Remove(key []byte) (value []byte, orphans []*IAVLNode, removed bool) {
+func (t *IAVLTree) remove(key []byte) (value []byte, orphans []*IAVLNode, removed bool) {
 	if t.root == nil {
 		return nil, nil, false
 	}

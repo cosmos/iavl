@@ -31,7 +31,7 @@ func (tree *orphaningTree) Set(key, value []byte) bool {
 
 // Remove a key from the underlying tree while storing the orphaned nodes.
 func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
-	val, orphaned, removed := tree.IAVLTree.Remove(key)
+	val, orphaned, removed := tree.IAVLTree.remove(key)
 	tree.addOrphans(orphaned)
 	return val, removed
 }
