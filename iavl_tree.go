@@ -133,18 +133,6 @@ func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	return t.root.hashWithCount()
 }
 
-// Save writes the tree to disk, if it was created with a datastore.
-func (t *IAVLTree) Save() []byte {
-	if t.root == nil {
-		return nil
-	}
-	if t.ndb != nil {
-		t.ndb.SaveBranch(t.root, nil)
-		t.ndb.Commit()
-	}
-	return t.root.hash
-}
-
 // Sets the root node by reading from db.
 // If the hash is empty, then sets root to nil.
 func (t *IAVLTree) Load(hash []byte) {

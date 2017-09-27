@@ -264,7 +264,7 @@ func TestRemove(t *testing.T) {
 
 	d := db.NewDB("test", "memdb", "")
 	defer d.Close()
-	t1 := NewIAVLTree(size, d)
+	t1 := NewVersionedTree(size, d)
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
@@ -282,10 +282,8 @@ func TestRemove(t *testing.T) {
 			key := keys[mrand.Int31n(l)]
 			t1.Remove(key)
 		}
-		// FIXME: this Save() causes a panic!
-		t1.Save()
+		t1.SaveVersion(uint64(i))
 	}
-
 }
 
 func TestIntegration(t *testing.T) {
@@ -475,17 +473,15 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1 := NewIAVLTree(0, db)
+	t1 := NewVersionedTree(0, db)
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
-	t1.Save()
-
-	hash, _ := t1.HashWithCount()
+	t1.SaveVersion(1)
 
 	// Load a tree
-	t2 := NewIAVLTree(0, db)
-	t2.Load(hash)
+	t2 := NewVersionedTree(0, db)
+	t2.Load()
 	for key, value := range records {
 		_, t2value, _ := t2.Get([]byte(key))
 		if string(t2value) != value {
@@ -526,14 +522,14 @@ func TestIAVLProof(t *testing.T) {
 
 	// Construct some random tree
 	db := db.NewMemDB()
-	var tree *IAVLTree = NewIAVLTree(100, db)
+	var tree *VersionedTree = NewVersionedTree(100, db)
 	for i := 0; i < 1000; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
 	}
 
 	// Persist the items so far
-	tree.Save()
+	tree.SaveVersion(1)
 
 	// Add more items so it's not all persisted
 	for i := 0; i < 100; i++ {
@@ -594,15 +590,17 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t := NewIAVLTree(100000, db)
+	v := uint64(1)
+	t := NewVersionedTree(100000, db)
 	for i := 0; i < 1000000; i++ {
 		t.Set(i2b(int(RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {
-			t.Save()
+			t.SaveVersion(v)
+			v++
 		}
 	}
 	b.ReportAllocs()
-	t.Save()
+	t.SaveVersion(v)
 
 	fmt.Println("ok, starting")
 
@@ -614,7 +612,8 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 		t.Set(ri, nil)
 		t.Remove(ri)
 		if i%100 == 99 {
-			t.Save()
+			t.SaveVersion(v)
+			v++
 		}
 	}
 }
