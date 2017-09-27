@@ -111,7 +111,7 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 		return errors.New("cannot delete latest saved version")
 	}
 	if _, ok := tree.versions[version]; !ok {
-		return ErrVersionDoesNotExist
+		return errors.WithStack(ErrVersionDoesNotExist)
 	}
 
 	tree.ndb.DeleteVersion(version)
@@ -129,7 +129,7 @@ func (tree *VersionedTree) GetVersionedWithProof(key []byte, version uint64) ([]
 	if t, ok := tree.versions[version]; ok {
 		return t.GetWithProof(key)
 	}
-	return nil, nil, ErrVersionDoesNotExist
+	return nil, nil, errors.WithStack(ErrVersionDoesNotExist)
 }
 
 // GetVersionedRangeWithProof gets key/value pairs within the specified range
@@ -140,7 +140,7 @@ func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, l
 	if t, ok := tree.versions[version]; ok {
 		return t.GetRangeWithProof(startKey, endKey, limit)
 	}
-	return nil, nil, nil, ErrVersionDoesNotExist
+	return nil, nil, nil, errors.WithStack(ErrVersionDoesNotExist)
 }
 
 // GetVersionedFirstInRangeWithProof gets the first key/value pair in the
@@ -149,7 +149,7 @@ func (tree *VersionedTree) GetVersionedFirstInRangeWithProof(startKey, endKey []
 	if t, ok := tree.versions[version]; ok {
 		return t.GetFirstInRangeWithProof(startKey, endKey)
 	}
-	return nil, nil, nil, ErrVersionDoesNotExist
+	return nil, nil, nil, errors.WithStack(ErrVersionDoesNotExist)
 }
 
 // GetVersionedLastInRangeWithProof gets the last key/value pair in the
@@ -158,5 +158,5 @@ func (tree *VersionedTree) GetVersionedLastInRangeWithProof(startKey, endKey []b
 	if t, ok := tree.versions[version]; ok {
 		return t.GetLastInRangeWithProof(startKey, endKey)
 	}
-	return nil, nil, nil, ErrVersionDoesNotExist
+	return nil, nil, nil, errors.WithStack(ErrVersionDoesNotExist)
 }
