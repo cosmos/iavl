@@ -115,7 +115,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	}
 	singleVersionTree.SaveVersion(1)
 
-	for _, i := range rand.Perm(versions) {
+	for _, i := range rand.Perm(versions - 1) {
 		tree.DeleteVersion(uint64(i + 1))
 	}
 
