@@ -28,6 +28,11 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	}
 }
 
+// LatestVersion returns the latest saved version of the tree.
+func (tree *VersionedTree) LatestVersion() uint64 {
+	return tree.latest
+}
+
 // Tree returns the current working tree.
 func (tree *VersionedTree) Tree() *IAVLTree {
 	return tree.orphaningTree.IAVLTree
