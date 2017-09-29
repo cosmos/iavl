@@ -10,9 +10,9 @@ var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
-	*orphaningTree                           // The current, latest version of the tree.
+	*orphaningTree                           // The current, working tree.
 	versions       map[uint64]*orphaningTree // The previous, saved versions of the tree.
-	latest         uint64                    // The latest saved version.
+	latestVersion  uint64                    // The latest saved version.
 	ndb            *nodeDB
 }
 
@@ -30,7 +30,7 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 
 // LatestVersion returns the latest saved version of the tree.
 func (tree *VersionedTree) LatestVersion() uint64 {
-	return tree.latest
+	return tree.latestVersion
 }
 
 // Tree returns the current working tree.
@@ -58,12 +58,12 @@ func (tree *VersionedTree) Load() error {
 		version := t.root.version
 		tree.versions[version] = t
 
-		if version > tree.latest {
-			tree.latest = version
+		if version > tree.latestVersion {
+			tree.latestVersion = version
 		}
 	}
 	// Set the working tree to a copy of the latest.
-	tree.orphaningTree = tree.versions[tree.latest].Clone()
+	tree.orphaningTree = tree.versions[tree.latestVersion].Clone()
 
 	return nil
 }
@@ -90,11 +90,11 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 	if version == 0 {
 		return nil, errors.New("version must be greater than zero")
 	}
-	if version <= tree.latest {
+	if version <= tree.latestVersion {
 		return nil, errors.New("version must be greater than latest")
 	}
 
-	tree.latest = version
+	tree.latestVersion = version
 	tree.versions[version] = tree.orphaningTree
 
 	tree.orphaningTree.SaveVersion(version)
@@ -112,7 +112,7 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 	if version == 0 {
 		return errors.New("invalid version")
 	}
-	if version == tree.latest {
+	if version == tree.latestVersion {
 		return errors.New("cannot delete latest saved version")
 	}
 	if _, ok := tree.versions[version]; !ok {
