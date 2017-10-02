@@ -52,9 +52,9 @@ func (tree *orphaningTree) Clone() *orphaningTree {
 func (tree *orphaningTree) Load(root []byte) {
 	if len(root) == 0 {
 		tree.root = nil
-	} else {
-		tree.root = tree.ndb.GetNode(root)
+		return
 	}
+	tree.root = tree.ndb.GetNode(root)
 
 	// Load orphans.
 	tree.ndb.traverseOrphansVersion(tree.root.version, func(k, v []byte) {
