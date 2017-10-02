@@ -414,9 +414,9 @@ func (node *IAVLNode) getRightNode(t *IAVLTree) *IAVLNode {
 	return t.ndb.GetNode(node.rightHash)
 }
 
-// NOTE: overwrites node
-// TODO: optimize balance & rotate
-func (node *IAVLNode) rotateRight(t *IAVLTree) (*IAVLNode, *IAVLNode) {
+// Rotate right and return the new node and orphan.
+func (node *IAVLNode) rotateRight(t *IAVLTree) (newNode *IAVLNode, orphan *IAVLNode) {
+	// TODO: optimize balance & rotate.
 	node = node.clone()
 	l := node.getLeftNode(t)
 	_l := l.clone()
@@ -431,9 +431,9 @@ func (node *IAVLNode) rotateRight(t *IAVLTree) (*IAVLNode, *IAVLNode) {
 	return _l, l
 }
 
-// NOTE: overwrites node
-// TODO: optimize balance & rotate
-func (node *IAVLNode) rotateLeft(t *IAVLTree) (*IAVLNode, *IAVLNode) {
+// Rotate left and return the new node and orphan.
+func (node *IAVLNode) rotateLeft(t *IAVLTree) (newNode *IAVLNode, orphan *IAVLNode) {
+	// TODO: optimize balance & rotate.
 	node = node.clone()
 	r := node.getRightNode(t)
 	_r := r.clone()
