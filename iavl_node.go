@@ -115,7 +115,6 @@ func (node *IAVLNode) clone() *IAVLNode {
 	}
 	return &IAVLNode{
 		key:       node.key,
-		value:     node.value,
 		height:    node.height,
 		version:   node.version,
 		size:      node.size,
