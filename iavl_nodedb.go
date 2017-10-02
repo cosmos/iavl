@@ -79,7 +79,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 
 	// Doesn't exist, load.
 	buf := ndb.db.Get(ndb.nodeKey(hash))
-	if len(buf) == 0 {
+	if buf == nil {
 		cmn.PanicSanity(cmn.Fmt("Value missing for key %x", hash))
 	}
 
@@ -138,7 +138,7 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 		}
 		return exists
 	}
-	return len(ndb.db.Get(key)) != 0
+	return ndb.db.Get(key) != nil
 }
 
 // SaveBranch saves the given node and all of its descendants. For each node
