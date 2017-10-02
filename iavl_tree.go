@@ -38,7 +38,8 @@ func (t *IAVLTree) String() string {
 	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
 }
 
-// DEPRECATED.
+// DEPRECATED. Please use iavl.VersionedTree instead if you need to hold
+// references to multiple tree versions.
 //
 // Copy returns a copy of the tree.
 // The returned tree and the original tree are goroutine independent.
