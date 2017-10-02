@@ -351,7 +351,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 		if bytes.Equal(key, node.key) {
 			return nil, nil, nil, node.value, []*IAVLNode{node}
 		}
-		return node.hash, node, nil, nil, []*IAVLNode{}
+		return node.hash, node, nil, nil, orphaned
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
@@ -362,7 +362,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 			node.getLeftNode(t).remove(t, key)
 
 		if len(orphaned) == 0 {
-			return node.hash, node, nil, value, []*IAVLNode{}
+			return node.hash, node, nil, value, orphaned
 		} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
 			return node.rightHash, node.rightNode, node.key, value, orphaned
 		}
@@ -382,7 +382,7 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 			node.getRightNode(t).remove(t, key)
 
 		if len(orphaned) == 0 {
-			return node.hash, node, nil, value, []*IAVLNode{}
+			return node.hash, node, nil, value, orphaned
 		} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
 			return node.leftHash, node.leftNode, nil, value, orphaned
 		}
