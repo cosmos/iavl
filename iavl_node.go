@@ -335,8 +335,8 @@ func (node *IAVLNode) set(t *IAVLTree, key []byte, value []byte) (
 			return node, updated, orphaned
 		} else {
 			node.calcHeightAndSize(t)
-			new, balanceOrphaned := node.balance(t)
-			return new, updated, append(orphaned, balanceOrphaned...)
+			newNode, balanceOrphaned := node.balance(t)
+			return newNode, updated, append(orphaned, balanceOrphaned...)
 		}
 	}
 }
@@ -469,8 +469,8 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode, orphaned []*IAVLN
 	if balance > 1 {
 		if node.getLeftNode(t).calcBalance(t) >= 0 {
 			// Left Left Case
-			new, orphaned := node.rotateRight(t)
-			return new, []*IAVLNode{orphaned}
+			newNode, orphaned := node.rotateRight(t)
+			return newNode, []*IAVLNode{orphaned}
 		} else {
 			// Left Right Case
 			var leftOrphaned *IAVLNode
@@ -478,16 +478,16 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode, orphaned []*IAVLN
 			left := node.getLeftNode(t)
 			node.leftHash = nil
 			node.leftNode, leftOrphaned = left.rotateLeft(t)
-			new, rightOrphaned := node.rotateRight(t)
+			newNode, rightOrphaned := node.rotateRight(t)
 
-			return new, []*IAVLNode{left, leftOrphaned, rightOrphaned}
+			return newNode, []*IAVLNode{left, leftOrphaned, rightOrphaned}
 		}
 	}
 	if balance < -1 {
 		if node.getRightNode(t).calcBalance(t) <= 0 {
 			// Right Right Case
-			new, orphaned := node.rotateLeft(t)
-			return new, []*IAVLNode{orphaned}
+			newNode, orphaned := node.rotateLeft(t)
+			return newNode, []*IAVLNode{orphaned}
 		} else {
 			// Right Left Case
 			var rightOrphaned *IAVLNode
@@ -495,9 +495,9 @@ func (node *IAVLNode) balance(t *IAVLTree) (newSelf *IAVLNode, orphaned []*IAVLN
 			right := node.getRightNode(t)
 			node.rightHash = nil
 			node.rightNode, rightOrphaned = right.rotateRight(t)
-			new, leftOrphaned := node.rotateLeft(t)
+			newNode, leftOrphaned := node.rotateLeft(t)
 
-			return new, []*IAVLNode{right, leftOrphaned, rightOrphaned}
+			return newNode, []*IAVLNode{right, leftOrphaned, rightOrphaned}
 		}
 	}
 	// Nothing changed
