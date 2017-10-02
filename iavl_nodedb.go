@@ -325,6 +325,28 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 	ndb.traversePrefix([]byte(prefix), fn)
 }
 
+// Traverse all keys.
+func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
+	it := ndb.db.Iterator()
+
+	for it.Next() {
+		k := make([]byte, len(it.Key()))
+		v := make([]byte, len(it.Value()))
+
+		// Leveldb reuses the memory, we are forced to copy.
+		copy(k, it.Key())
+		copy(v, it.Value())
+
+		fn(k, v)
+	}
+	if iter, ok := it.(iterator.Iterator); ok {
+		if err := iter.Error(); err != nil {
+			cmn.PanicSanity(err.Error())
+		}
+		iter.Release()
+	}
+}
+
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
@@ -413,7 +435,7 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 	return nil
 }
 
-///////////////////////////////////////////////////////////////////////////////
+////////////////// Utility and test functions /////////////////////////////////
 
 func (ndb *nodeDB) leafNodes() []*IAVLNode {
 	leaves := []*IAVLNode{}
@@ -457,27 +479,6 @@ func (ndb *nodeDB) size() int {
 		size++
 	}
 	return size
-}
-
-func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	it := ndb.db.Iterator()
-
-	for it.Next() {
-		k := make([]byte, len(it.Key()))
-		v := make([]byte, len(it.Value()))
-
-		// Leveldb reuses the memory, we are forced to copy.
-		copy(k, it.Key())
-		copy(v, it.Value())
-
-		fn(k, v)
-	}
-	if iter, ok := it.(iterator.Iterator); ok {
-		if err := iter.Error(); err != nil {
-			cmn.PanicSanity(err.Error())
-		}
-		iter.Release()
-	}
 }
 
 func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
