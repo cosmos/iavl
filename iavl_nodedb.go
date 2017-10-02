@@ -186,7 +186,7 @@ func (ndb *nodeDB) Unorphan(hash []byte) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	indexKey := []byte(fmt.Sprintf(orphansIndexKeyFmt, hash))
+	indexKey := ndb.orphanIndexKey(hash)
 
 	if orphansKey := ndb.db.Get(indexKey); len(orphansKey) > 0 {
 		ndb.batch.Delete(orphansKey)
@@ -211,11 +211,11 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
 	if fromVersion > toVersion {
 		cmn.PanicSanity("Orphan expires before it comes alive")
 	}
-	key := fmt.Sprintf(orphansKeyFmt, toVersion, fromVersion, hash)
+	key := ndb.orphanKey(fromVersion, toVersion, hash)
 	ndb.batch.Set([]byte(key), hash)
 
 	// Set reverse-lookup index.
-	indexKey := fmt.Sprintf(orphansIndexKeyFmt, hash)
+	indexKey := ndb.orphanIndexKey(hash)
 	ndb.batch.Set([]byte(indexKey), []byte(key))
 }
 
@@ -235,7 +235,7 @@ func (ndb *nodeDB) deleteOrphans(version uint64) {
 
 		// Delete orphan key and reverse-lookup key.
 		ndb.batch.Delete(key)
-		ndb.batch.Delete([]byte(fmt.Sprintf(orphansIndexKeyFmt, hash)))
+		ndb.batch.Delete(ndb.orphanIndexKey(hash))
 
 		// If there is no predecessor, or the predecessor is earlier than the
 		// beginning of the lifetime (ie: negative lifetime), or the lifetime
@@ -253,6 +253,18 @@ func (ndb *nodeDB) deleteOrphans(version uint64) {
 
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
 	return []byte(fmt.Sprintf(nodesKeyFmt, hash))
+}
+
+func (ndb *nodeDB) orphanIndexKey(hash []byte) []byte {
+	return []byte(fmt.Sprintf(orphansIndexKeyFmt, hash))
+}
+
+func (ndb *nodeDB) orphanKey(fromVersion, toVersion uint64, hash []byte) []byte {
+	return []byte(fmt.Sprintf(orphansKeyFmt, toVersion, fromVersion, hash))
+}
+
+func (ndb *nodeDB) rootKey(version uint64) []byte {
+	return []byte(fmt.Sprintf(rootsPrefixFmt, version))
 }
 
 func (ndb *nodeDB) getLatestVersion() uint64 {
@@ -293,7 +305,7 @@ func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
 
 // deleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) deleteRoot(version uint64) {
-	key := fmt.Sprintf(rootsPrefixFmt, version)
+	key := ndb.rootKey(version)
 	ndb.batch.Delete([]byte(key))
 
 	delete(ndb.versionCache, version)
@@ -394,7 +406,7 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 	// Note that we don't use the version attribute of the root. This is
 	// because we might be saving an old root at a new version in the case
 	// where the tree wasn't modified between versions.
-	key := fmt.Sprintf(rootsPrefixFmt, version)
+	key := ndb.rootKey(version)
 	ndb.batch.Set([]byte(key), root.hash)
 	ndb.cacheVersion(version, root.hash)
 
