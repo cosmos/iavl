@@ -284,7 +284,7 @@ func (ndb *nodeDB) cacheVersion(version uint64, hash []byte) {
 func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
 	var result uint64 = 0
 	for v, _ := range ndb.getVersions() {
-		if v < version && (result == 0 || v > result) {
+		if v < version && v > result {
 			result = v
 		}
 	}
