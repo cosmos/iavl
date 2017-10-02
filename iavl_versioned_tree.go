@@ -91,7 +91,8 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 		return nil, errors.New("version must be greater than zero")
 	}
 	if version <= tree.latestVersion {
-		return nil, errors.New("version must be greater than latest")
+		return nil, errors.Errorf("version must be greater than latest (%d <= %d)",
+			version, tree.latestVersion)
 	}
 
 	tree.latestVersion = version
@@ -110,10 +111,10 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 // longer be accessed.
 func (tree *VersionedTree) DeleteVersion(version uint64) error {
 	if version == 0 {
-		return errors.New("invalid version")
+		return errors.New("version must be greater than 0")
 	}
 	if version == tree.latestVersion {
-		return errors.New("cannot delete latest saved version")
+		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
 	if _, ok := tree.versions[version]; !ok {
 		return errors.WithStack(ErrVersionDoesNotExist)
