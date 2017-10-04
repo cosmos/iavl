@@ -34,6 +34,12 @@ func (tree *VersionedTree) LatestVersion() uint64 {
 	return tree.latestVersion
 }
 
+// VersionExists returns whether or not a version exists.
+func (tree *VersionedTree) VersionExists(version uint64) bool {
+	_, ok := tree.versions[version]
+	return ok
+}
+
 // Tree returns the current working tree.
 func (tree *VersionedTree) Tree() *IAVLTree {
 	return tree.orphaningTree.IAVLTree
