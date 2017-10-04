@@ -23,7 +23,9 @@ type KeyProof interface {
 
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
-	RootHash   data.Bytes `json:"root_hash"`
+	RootHash data.Bytes `json:"root_hash"`
+	Version  uint64     `json:"version"`
+
 	*PathToKey `json:"path"`
 }
 
@@ -39,7 +41,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if key == nil || value == nil {
 		return ErrInvalidInputs
 	}
-	return proof.PathToKey.verify(IAVLProofLeafNode{key, value}, root)
+	return proof.PathToKey.verify(IAVLProofLeafNode{key, value, proof.Version}, root)
 }
 
 // Bytes returns a go-wire binary serialization
@@ -57,6 +59,7 @@ func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
+	Version  uint64     `json:"version"`
 
 	Left  *PathWithNode `json:"left"`
 	Right *PathWithNode `json:"right"`

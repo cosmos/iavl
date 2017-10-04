@@ -10,10 +10,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-/*
-Immutable AVL Tree (wraps the Node root)
-This tree is not goroutine safe.
-*/
+// IAVLTree is an immutable AVL+ Tree. Note that this tree is not thread-safe.
 type IAVLTree struct {
 	root *IAVLNode
 	ndb  *nodeDB
@@ -22,14 +19,12 @@ type IAVLTree struct {
 // NewIAVLTree creates both im-memory and persistent instances
 func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
 	if db == nil {
-		// In-memory IAVLTree
+		// In-memory IAVLTree.
 		return &IAVLTree{}
-	} else {
-		// Persistent IAVLTree
-		ndb := newNodeDB(cacheSize, db)
-		return &IAVLTree{
-			ndb: ndb,
-		}
+	}
+	return &IAVLTree{
+		// NodeDB-backed IAVLTree.
+		ndb: newNodeDB(cacheSize, db),
 	}
 }
 
@@ -43,6 +38,10 @@ func (t *IAVLTree) String() string {
 	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
 }
 
+// DEPRECATED. Please use iavl.VersionedTree instead if you need to hold
+// references to multiple tree versions.
+//
+// Copy returns a copy of the tree.
 // The returned tree and the original tree are goroutine independent.
 // That is, they can each run in their own goroutine.
 // However, upon Save(), any other trees that share a db will become
@@ -73,6 +72,7 @@ func (t *IAVLTree) Copy() *IAVLTree {
 	}
 }
 
+// Size returns the number of leaf nodes in the tree.
 func (t *IAVLTree) Size() int {
 	if t.root == nil {
 		return 0
@@ -80,6 +80,7 @@ func (t *IAVLTree) Size() int {
 	return t.root.size
 }
 
+// Height returns the height of the tree.
 func (t *IAVLTree) Height() int8 {
 	if t.root == nil {
 		return 0
@@ -87,6 +88,7 @@ func (t *IAVLTree) Height() int8 {
 	return t.root.height
 }
 
+// Has returns whether or not a key exists.
 func (t *IAVLTree) Has(key []byte) bool {
 	if t.root == nil {
 		return false
@@ -94,13 +96,20 @@ func (t *IAVLTree) Has(key []byte) bool {
 	return t.root.has(t, key)
 }
 
+// Set a key.
 func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
+	_, updated = t.set(key, value)
+	return updated
+}
+
+func (t *IAVLTree) set(key []byte, value []byte) (orphaned []*IAVLNode, updated bool) {
 	if t.root == nil {
 		t.root = NewIAVLNode(key, value)
-		return false
+		return nil, false
 	}
-	t.root, updated = t.root.set(t, key, value)
-	return updated
+	t.root, updated, orphaned = t.root.set(t, key, value)
+
+	return orphaned, updated
 }
 
 // BatchSet adds a Set to the current batch, will get handled atomically
@@ -108,6 +117,7 @@ func (t *IAVLTree) BatchSet(key []byte, value []byte) {
 	t.ndb.batch.Set(key, value)
 }
 
+// Hash returns the root hash.
 func (t *IAVLTree) Hash() []byte {
 	if t.root == nil {
 		return nil
@@ -116,32 +126,12 @@ func (t *IAVLTree) Hash() []byte {
 	return hash
 }
 
+// HashWithCount returns the root hash and hash count.
 func (t *IAVLTree) HashWithCount() ([]byte, int) {
 	if t.root == nil {
 		return nil, 0
 	}
 	return t.root.hashWithCount()
-}
-
-func (t *IAVLTree) Save() []byte {
-	if t.root == nil {
-		return nil
-	}
-	if t.ndb != nil {
-		t.root.save(t)
-		t.ndb.Commit()
-	}
-	return t.root.hash
-}
-
-// Sets the root node by reading from db.
-// If the hash is empty, then sets root to nil.
-func (t *IAVLTree) Load(hash []byte) {
-	if len(hash) == 0 {
-		t.root = nil
-	} else {
-		t.root = t.ndb.GetNode(hash)
-	}
 }
 
 // Get returns the index and value of the specified key if it exists, or nil
@@ -153,6 +143,7 @@ func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
 	return t.root.get(t, key)
 }
 
+// GetByIndex gets the key and value at the specified index.
 func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 	if t.root == nil {
 		return nil, nil
@@ -193,22 +184,33 @@ func (t *IAVLTree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []b
 	return t.getLastInRangeWithProof(startKey, endKey)
 }
 
-func (t *IAVLTree) Remove(key []byte) (value []byte, removed bool) {
+// Remove tries to remove a key from the tree and if removed, returns its
+// value, and 'true'.
+func (t *IAVLTree) Remove(key []byte) ([]byte, bool) {
+	value, _, removed := t.remove(key)
+	return value, removed
+}
+
+// remove tries to remove a key from the tree and if removed, returns its
+// value, nodes orphaned and 'true'.
+func (t *IAVLTree) remove(key []byte) (value []byte, orphans []*IAVLNode, removed bool) {
 	if t.root == nil {
-		return nil, false
+		return nil, nil, false
 	}
-	newRootHash, newRoot, _, value, removed := t.root.remove(t, key)
-	if !removed {
-		return nil, false
+	newRootHash, newRoot, _, value, orphaned := t.root.remove(t, key)
+	if len(orphaned) == 0 {
+		return nil, nil, false
 	}
+
 	if newRoot == nil && newRootHash != nil {
 		t.root = t.ndb.GetNode(newRootHash)
 	} else {
 		t.root = newRoot
 	}
-	return value, true
+	return value, orphaned, true
 }
 
+// Iterate iterates over all keys of the tree, in order.
 func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
@@ -250,4 +252,14 @@ func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn f
 			return false
 		}
 	})
+}
+
+// nodeSize is like Size, but includes inner nodes too.
+func (t *IAVLTree) nodeSize() int {
+	size := 0
+	t.root.traverse(t, true, func(n *IAVLNode) bool {
+		size++
+		return false
+	})
+	return size
 }

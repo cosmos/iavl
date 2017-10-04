@@ -18,8 +18,8 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.IAVLTree, [][]byte) {
-	t := iavl.NewIAVLTree(size, db)
+func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]byte) {
+	t := iavl.NewVersionedTree(size, db)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
@@ -28,19 +28,19 @@ func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.IAVLTree, [][]byte)
 		keys[i] = key
 	}
 	t.Hash()
-	t.Save()
+	t.SaveVersion(t.LatestVersion() + 1)
 	runtime.GC()
 	return t, keys
 }
 
-func runQueries(b *testing.B, t *iavl.IAVLTree, keyLen int) {
+func runQueries(b *testing.B, t *iavl.VersionedTree, keyLen int) {
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
 		t.Get(q)
 	}
 }
 
-func runKnownQueries(b *testing.B, t *iavl.IAVLTree, keys [][]byte) {
+func runKnownQueries(b *testing.B, t *iavl.VersionedTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
@@ -48,31 +48,31 @@ func runKnownQueries(b *testing.B, t *iavl.IAVLTree, keys [][]byte) {
 	}
 }
 
-func runInsert(b *testing.B, t *iavl.IAVLTree, keyLen, dataLen, blockSize int) *iavl.IAVLTree {
+func runInsert(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize int) *iavl.VersionedTree {
 	for i := 1; i <= b.N; i++ {
 		t.Set(randBytes(keyLen), randBytes(dataLen))
 		if i%blockSize == 0 {
 			t.Hash()
-			t.Save()
+			t.SaveVersion(t.LatestVersion() + 1)
 		}
 	}
 	return t
 }
 
-func runUpdate(b *testing.B, t *iavl.IAVLTree, dataLen, blockSize int, keys [][]byte) *iavl.IAVLTree {
+func runUpdate(b *testing.B, t *iavl.VersionedTree, dataLen, blockSize int, keys [][]byte) *iavl.VersionedTree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
 		t.Set(key, randBytes(dataLen))
 		if i%blockSize == 0 {
 			t.Hash()
-			t.Save()
+			t.SaveVersion(t.LatestVersion() + 1)
 		}
 	}
 	return t
 }
 
-func runDelete(b *testing.B, t *iavl.IAVLTree, blockSize int, keys [][]byte) *iavl.IAVLTree {
+func runDelete(b *testing.B, t *iavl.VersionedTree, blockSize int, keys [][]byte) *iavl.VersionedTree {
 	var key []byte
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
@@ -82,19 +82,21 @@ func runDelete(b *testing.B, t *iavl.IAVLTree, blockSize int, keys [][]byte) *ia
 		t.Remove(key)
 		if i%blockSize == 0 {
 			t.Hash()
-			t.Save()
+			t.SaveVersion(t.LatestVersion() + 1)
 		}
 	}
 	return t
 }
 
 // runBlock measures time for an entire block, not just one tx
-func runBlock(b *testing.B, t *iavl.IAVLTree, keyLen, dataLen, blockSize int, keys [][]byte) *iavl.IAVLTree {
+func runBlock(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize int, keys [][]byte) *iavl.VersionedTree {
 	l := int32(len(keys))
 
+	// XXX: This was adapted to work with VersionedTree but needs to be re-thought.
+
 	lastCommit := t
-	real := t.Copy()
-	check := t.Copy()
+	real := t
+	check := t
 
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < blockSize; j++ {
@@ -116,10 +118,8 @@ func runBlock(b *testing.B, t *iavl.IAVLTree, keyLen, dataLen, blockSize int, ke
 
 		// at the end of a block, move it all along....
 		real.Hash()
-		real.Save()
+		real.SaveVersion(real.LatestVersion() + 1)
 		lastCommit = real
-		real = lastCommit.Copy()
-		check = lastCommit.Copy()
 	}
 
 	return lastCommit
@@ -150,7 +150,6 @@ type benchmark struct {
 
 func BenchmarkMedium(b *testing.B) {
 	benchmarks := []benchmark{
-		{"nodb", 100000, 100, 16, 40},
 		{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
 		// FIXME: this crashes on init! Either remove support, or make it work.
@@ -162,7 +161,6 @@ func BenchmarkMedium(b *testing.B) {
 
 func BenchmarkSmall(b *testing.B) {
 	benchmarks := []benchmark{
-		{"nodb", 1000, 100, 4, 10},
 		{"memdb", 1000, 100, 4, 10},
 		{"goleveldb", 1000, 100, 4, 10},
 		// FIXME: this crashes on init! Either remove support, or make it work.
@@ -174,37 +172,11 @@ func BenchmarkSmall(b *testing.B) {
 
 func BenchmarkLarge(b *testing.B) {
 	benchmarks := []benchmark{
-		{"nodb", 1000000, 100, 16, 40},
 		{"memdb", 1000000, 100, 16, 40},
 		{"goleveldb", 1000000, 100, 16, 40},
 		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
 		{"leveldb", 1000000, 100, 16, 40},
-	}
-	runBenchmarks(b, benchmarks)
-}
-
-func BenchmarkMemInitSizes(b *testing.B) {
-	benchmarks := []benchmark{
-		{"nodb", 10000, 100, 16, 40},
-		{"nodb", 70000, 100, 16, 40},
-		{"nodb", 500000, 100, 16, 40},
-		// This uses something like 1.5-2GB RAM
-		{"nodb", 3500000, 100, 16, 40},
-		// This requires something like 5GB RAM and may crash on some AWS instances
-		{"nodb", 10000000, 100, 16, 40},
-	}
-	runBenchmarks(b, benchmarks)
-}
-
-func BenchmarkMemKeySizes(b *testing.B) {
-	benchmarks := []benchmark{
-		{"nodb", 100000, 100, 4, 80},
-		{"nodb", 100000, 100, 16, 80},
-		{"nodb", 100000, 100, 32, 80},
-		{"nodb", 100000, 100, 64, 80},
-		{"nodb", 100000, 100, 128, 80},
-		{"nodb", 100000, 100, 256, 80},
 	}
 	runBenchmarks(b, benchmarks)
 }

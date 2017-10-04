@@ -9,5 +9,5 @@ func dummyPathToKey(t *IAVLTree, key []byte) *PathToKey {
 }
 
 func dummyLeafNode(key, val []byte) IAVLProofLeafNode {
-	return IAVLProofLeafNode{key, val}
+	return IAVLProofLeafNode{key, val, 0}
 }
