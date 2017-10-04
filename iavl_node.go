@@ -69,7 +69,7 @@ func MakeIAVLNode(buf []byte) (node *IAVLNode, err error) {
 	// Read node body.
 
 	if node.isLeaf() {
-		node.value, n, err = wire.GetByteSlice(buf)
+		node.value, _, err = wire.GetByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -96,15 +96,6 @@ func (node *IAVLNode) String() string {
 		return "<no hash>"
 	} else {
 		return fmt.Sprintf("%x", node.hash)
-	}
-}
-
-// debugString returns a string useful for printing a list of nodes.
-func (node *IAVLNode) debugString() string {
-	if node.value == nil && node.height > 0 {
-		return fmt.Sprintf("%40x: %s   %-16s h=%d version=%d (left=%x, right=%x)", node.hash, node.key, "", node.height, node.version, node.leftHash, node.rightHash)
-	} else {
-		return fmt.Sprintf("%40x: %s = %-16s h=%d version=%d (left=%x, right=%x)", node.hash, node.key, node.value, node.height, node.version, node.leftHash, node.rightHash)
 	}
 }
 
@@ -368,12 +359,12 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 		}
 		orphaned = append(orphaned, node)
 
-		node = node.clone()
-		node.leftHash, node.leftNode = newLeftHash, newLeftNode
-		node.calcHeightAndSize(t)
-		node, balanceOrphaned := node.balance(t)
+		newNode := node.clone()
+		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
+		newNode.calcHeightAndSize(t)
+		newNode, balanceOrphaned := newNode.balance(t)
 
-		return node.hash, node, newKey, value, append(orphaned, balanceOrphaned...)
+		return newNode.hash, newNode, newKey, value, append(orphaned, balanceOrphaned...)
 	} else {
 		var newRightHash []byte
 		var newRightNode *IAVLNode
@@ -388,15 +379,15 @@ func (node *IAVLNode) remove(t *IAVLTree, key []byte) (
 		}
 		orphaned = append(orphaned, node)
 
-		node = node.clone()
-		node.rightHash, node.rightNode = newRightHash, newRightNode
+		newNode := node.clone()
+		newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
 		if newKey != nil {
-			node.key = newKey
+			newNode.key = newKey
 		}
-		node.calcHeightAndSize(t)
-		node, balanceOrphaned := node.balance(t)
+		newNode.calcHeightAndSize(t)
+		newNode, balanceOrphaned := newNode.balance(t)
 
-		return node.hash, node, nil, value, append(orphaned, balanceOrphaned...)
+		return newNode.hash, newNode, nil, value, append(orphaned, balanceOrphaned...)
 	}
 }
 
@@ -561,12 +552,4 @@ func (node *IAVLNode) lmd(t *IAVLTree) *IAVLNode {
 		return node
 	}
 	return node.getLeftNode(t).lmd(t)
-}
-
-// Only used in testing...
-func (node *IAVLNode) rmd(t *IAVLTree) *IAVLNode {
-	if node.isLeaf() {
-		return node
-	}
-	return node.getRightNode(t).rmd(t)
 }

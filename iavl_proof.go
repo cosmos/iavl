@@ -12,8 +12,6 @@ import (
 	. "github.com/tendermint/tmlibs/common"
 )
 
-const proofLimit = 1 << 16 // 64 KB
-
 var (
 	errInvalidProof = fmt.Errorf("invalid proof")
 
@@ -101,7 +99,7 @@ func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, *IAVLNode,
 }
 func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) (*IAVLNode, error) {
 	if node.height == 0 {
-		if bytes.Compare(node.key, key) == 0 {
+		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
 		return nil, errors.New("key does not exist")

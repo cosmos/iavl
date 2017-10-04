@@ -212,11 +212,11 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion uint64) {
 		cmn.PanicSanity("Orphan expires before it comes alive")
 	}
 	key := ndb.orphanKey(fromVersion, toVersion, hash)
-	ndb.batch.Set([]byte(key), hash)
+	ndb.batch.Set(key, hash)
 
 	// Set reverse-lookup index.
 	indexKey := ndb.orphanIndexKey(hash)
-	ndb.batch.Set([]byte(indexKey), []byte(key))
+	ndb.batch.Set(indexKey, key)
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
@@ -294,8 +294,8 @@ func (ndb *nodeDB) cacheVersion(version uint64, hash []byte) {
 }
 
 func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
-	var result uint64 = 0
-	for v, _ := range ndb.getVersions() {
+	var result uint64
+	for v := range ndb.getVersions() {
 		if v < version && v > result {
 			result = v
 		}
@@ -306,7 +306,7 @@ func (ndb *nodeDB) getPreviousVersion(version uint64) uint64 {
 // deleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) deleteRoot(version uint64) {
 	key := ndb.rootKey(version)
-	ndb.batch.Delete([]byte(key))
+	ndb.batch.Delete(key)
 
 	delete(ndb.versionCache, version)
 
@@ -350,7 +350,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		it := ldb.DB().NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+		it := ldb.DB().NewIterator(util.BytesPrefix(prefix), nil)
 		for it.Next() {
 			k := make([]byte, len(it.Key()))
 			v := make([]byte, len(it.Value()))
@@ -429,7 +429,7 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 	// because we might be saving an old root at a new version in the case
 	// where the tree wasn't modified between versions.
 	key := ndb.rootKey(version)
-	ndb.batch.Set([]byte(key), root.hash)
+	ndb.batch.Set(key, root.hash)
 	ndb.cacheVersion(version, root.hash)
 
 	return nil

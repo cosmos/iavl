@@ -67,10 +67,6 @@ type account struct {
 	Balance  []coin
 }
 
-type wrapper struct {
-	bytes []byte
-}
-
 type coin struct {
 	Denom  string
 	Amount int64

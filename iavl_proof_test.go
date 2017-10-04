@@ -14,16 +14,15 @@ import (
 func TestIAVLTreeGetWithProof(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
 	require := require.New(t)
-	keys := [][]byte{}
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
-		keys = append(keys, key)
 		tree.Set(key, []byte(randstr(8)))
 	}
 	root := tree.Hash()
 
 	key := []byte{0x32}
 	val, proof, err := tree.GetWithProof(key)
+	require.NoError(err)
 	_, ok := proof.(*KeyExistsProof)
 	require.True(ok)
 	require.NotEmpty(val)
@@ -34,6 +33,7 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 
 	key = []byte{0x1}
 	val, proof, err = tree.GetWithProof(key)
+	require.NoError(err)
 	_, ok = proof.(*KeyAbsentProof)
 	require.True(ok)
 	require.Empty(val)
@@ -41,14 +41,6 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	err = proof.Verify(key, nil, root)
 	require.NoError(err, "%+v", err)
 	require.NoError(err)
-}
-
-func reverseBytes(xs [][]byte) [][]byte {
-	reversed := [][]byte{}
-	for i := len(xs) - 1; i >= 0; i-- {
-		reversed = append(reversed, xs[i])
-	}
-	return reversed
 }
 
 func TestIAVLTreeKeyExistsProof(t *testing.T) {
@@ -537,13 +529,10 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	require := require.New(t)
 	assert := assert.New(t)
 
-	keys := [][]byte{}
-	values := [][]byte{}
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
 	} {
 		key, val := []byte{ikey}, []byte{ikey}
-		keys, values = append(keys, key), append(values, val)
 		tree.Set(key, val)
 	}
 	root := tree.Hash()
@@ -1035,7 +1024,7 @@ func TestIAVLTreeKeyAbsentProof(t *testing.T) {
 		exists := false
 
 		for _, k := range keys {
-			if bytes.Compare(key, k) == 0 {
+			if bytes.Equal(key, k) {
 				exists = true
 				break
 			}

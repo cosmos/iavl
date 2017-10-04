@@ -99,8 +99,6 @@ func genRandomProgram(size int) *program {
 			if rv := cmn.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
 				p.addInstruction(instruction{op: "DELETE", version: uint64(rv)})
 			}
-		default:
-			break
 		}
 	}
 	return p

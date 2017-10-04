@@ -17,8 +17,6 @@ import (
 	"testing"
 )
 
-const testReadLimit = 1 << 20 // Some reasonable limit for wire.Read*() lmt
-
 func randstr(length int) string {
 	return RandStr(length)
 }
@@ -79,8 +77,7 @@ func P(n *IAVLNode) string {
 
 func TestBasic(t *testing.T) {
 	var tree *IAVLTree = NewIAVLTree(0, nil)
-	var up bool
-	up = tree.Set([]byte("1"), []byte("one"))
+	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
@@ -183,7 +180,7 @@ func TestUnit(t *testing.T) {
 		})
 		// ensure that the new hash after nuking is the same as the old.
 		newHash, _ := tree.HashWithCount()
-		if bytes.Compare(hash, newHash) != 0 {
+		if !bytes.Equal(hash, newHash) {
 			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
 		}
 	}
@@ -192,7 +189,7 @@ func TestUnit(t *testing.T) {
 		origNode := tree.root
 		updated := tree.Set(i2b(i), nil)
 		// ensure node was added & structure is as expected.
-		if updated == true || P(tree.root) != repr {
+		if updated || P(tree.root) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
 				i, P(origNode), repr, P(tree.root), updated)
 		}
