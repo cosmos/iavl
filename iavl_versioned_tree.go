@@ -45,6 +45,15 @@ func (tree *VersionedTree) Tree() *IAVLTree {
 	return tree.orphaningTree.IAVLTree
 }
 
+// Hash returns the hash of the latest saved version of the tree, as returned
+// by SaveVersion. If no versions have been saved, Hash returns nil.
+func (tree *VersionedTree) Hash() []byte {
+	if tree.latestVersion > 0 {
+		return tree.versions[tree.latestVersion].Hash()
+	}
+	return nil
+}
+
 // String returns a string representation of the tree.
 func (tree *VersionedTree) String() string {
 	return tree.ndb.String()

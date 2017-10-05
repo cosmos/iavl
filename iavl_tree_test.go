@@ -908,3 +908,24 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.Error(proof.Verify([]byte("k2"), nil, root2))
 	require.EqualValues(3, proof.(*KeyAbsentProof).Version)
 }
+
+func TestVersionedTreeHash(t *testing.T) {
+	require := require.New(t)
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	require.Nil(tree.Hash())
+	tree.Set([]byte("I"), []byte("D"))
+	require.Nil(tree.Hash())
+
+	hash1, _ := tree.SaveVersion(1)
+
+	tree.Set([]byte("I"), []byte("F"))
+	require.EqualValues(hash1, tree.Hash())
+
+	hash2, _ := tree.SaveVersion(2)
+
+	val, proof, err := tree.GetVersionedWithProof([]byte("I"), 2)
+	require.NoError(err)
+	require.EqualValues(val, []byte("F"))
+	require.NoError(proof.Verify([]byte("I"), val, hash2))
+}
