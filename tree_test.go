@@ -559,8 +559,11 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion(7)
 
+	ntree.DeleteVersion(6)
+	ntree.DeleteVersion(5)
 	ntree.DeleteVersion(1)
 	ntree.DeleteVersion(2)
+	ntree.DeleteVersion(4)
 	ntree.DeleteVersion(3)
 
 	require.Equal(4, ntree.Size())
