@@ -50,7 +50,7 @@ type state struct {
 	Height uint64
 }
 
-// Try to interpet as merkleeyes state
+// Try to interpret as merkleeyes state
 func stateMapping(value []byte) string {
 	var s state
 	err := wire.ReadBinaryBytes(value, &s)
