@@ -67,11 +67,10 @@ func (tree *VersionedTree) Load() error {
 	}
 
 	// Load all roots from the database.
-	for _, root := range roots {
+	for version, root := range roots {
 		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
 		t.Load(root)
 
-		version := t.root.version
 		tree.versions[version] = t
 
 		if version > tree.latestVersion {

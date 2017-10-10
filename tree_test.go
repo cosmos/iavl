@@ -3,12 +3,10 @@ package iavl
 import (
 	"bytes"
 	"flag"
-	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tmlibs/db"
 
@@ -528,12 +526,7 @@ func TestVersionedTreeSpecialCase3(t *testing.T) {
 
 func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	require := require.New(t)
-
-	tmpDir, err := ioutil.TempDir("", "versiontree")
-	require.Nil(err)
-	defer os.RemoveAll(tmpDir)
-	d := db.NewDB("save_and_load", db.LevelDBBackendStr, tmpDir)
-
+	d := db.NewMemDB()
 	tree := NewVersionedTree(0, d)
 
 	tree.Set([]byte("C"), []byte("so43QQFN"))
@@ -562,8 +555,6 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 
 	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
-	assert.Nil(t, preHash, "%X", preHash)
-	assert.Nil(t, postHash, "%X", postHash)
 
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion(7)

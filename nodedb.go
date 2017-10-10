@@ -403,11 +403,13 @@ func (ndb *nodeDB) Commit() {
 	ndb.batch = ndb.db.NewBatch()
 }
 
-func (ndb *nodeDB) getRoots() ([][]byte, error) {
-	roots := [][]byte{}
+func (ndb *nodeDB) getRoots() (map[uint64][]byte, error) {
+	roots := map[uint64][]byte{}
 
 	ndb.traversePrefix([]byte(rootsPrefix), func(k, v []byte) {
-		roots = append(roots, v)
+		var version uint64
+		fmt.Sscanf(string(k), rootsPrefixFmt, &version)
+		roots[version] = v
 	})
 	return roots, nil
 }
@@ -466,7 +468,7 @@ func (ndb *nodeDB) orphans() [][]byte {
 	return orphans
 }
 
-func (ndb *nodeDB) roots() [][]byte {
+func (ndb *nodeDB) roots() map[uint64][]byte {
 	roots, _ := ndb.getRoots()
 	return roots
 }
