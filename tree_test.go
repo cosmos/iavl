@@ -3,10 +3,12 @@ package iavl
 import (
 	"bytes"
 	"flag"
+	"io/ioutil"
 	"math/rand"
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tmlibs/db"
 
@@ -526,7 +528,12 @@ func TestVersionedTreeSpecialCase3(t *testing.T) {
 
 func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	require := require.New(t)
-	d := db.NewMemDB()
+
+	tmpDir, err := ioutil.TempDir("", "versiontree")
+	require.Nil(err)
+	defer os.RemoveAll(tmpDir)
+	d := db.NewDB("save_and_load", db.LevelDBBackendStr, tmpDir)
+
 	tree := NewVersionedTree(0, d)
 
 	tree.Set([]byte("C"), []byte("so43QQFN"))
@@ -538,19 +545,35 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	tree.Set([]byte("X"), []byte("AoWWC1kN"))
 	tree.SaveVersion(3)
 
-	// Reload the tree, to test that roots and orphans are properly loaded.
-	tree = NewVersionedTree(0, d)
-	tree.Load()
-
-	tree.Set([]byte("T"), []byte("MhkWjkVy"))
 	tree.SaveVersion(4)
+	tree.SaveVersion(5)
+	tree.SaveVersion(6)
 
-	tree.DeleteVersion(1)
-	tree.DeleteVersion(2)
-	tree.DeleteVersion(3)
+	preHash := tree.Hash()
+	require.NotNil(preHash)
 
-	require.Equal(4, tree.Size())
-	require.Len(tree.ndb.nodes(), tree.nodeSize())
+	require.Equal(uint64(6), tree.LatestVersion())
+
+	// Reload the tree, to test that roots and orphans are properly loaded.
+	ntree := NewVersionedTree(0, d)
+	ntree.Load()
+
+	require.Equal(uint64(6), ntree.LatestVersion())
+
+	postHash := ntree.Hash()
+	require.Equal(preHash, postHash)
+	assert.Nil(t, preHash, "%X", preHash)
+	assert.Nil(t, postHash, "%X", postHash)
+
+	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
+	ntree.SaveVersion(7)
+
+	ntree.DeleteVersion(1)
+	ntree.DeleteVersion(2)
+	ntree.DeleteVersion(3)
+
+	require.Equal(4, ntree.Size())
+	require.Len(ntree.ndb.nodes(), ntree.nodeSize())
 }
 
 func TestVersionedTreeErrors(t *testing.T) {
