@@ -26,18 +26,18 @@ var (
 	ErrNilRoot = fmt.Errorf("tree root is nil")
 )
 
-type IAVLProofInnerNode struct {
+type proofInnerNode struct {
 	Height int8
 	Size   int
 	Left   []byte
 	Right  []byte
 }
 
-func (n *IAVLProofInnerNode) String() string {
-	return fmt.Sprintf("IAVLProofInnerNode[height=%d, %x / %x]", n.Height, n.Left, n.Right)
+func (n *proofInnerNode) String() string {
+	return fmt.Sprintf("proofInnerNode[height=%d, %x / %x]", n.Height, n.Left, n.Right)
 }
 
-func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
+func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	n, err := int(0), error(nil)
@@ -52,7 +52,7 @@ func (branch IAVLProofInnerNode) Hash(childHash []byte) []byte {
 		wire.WriteByteSlice(childHash, buf, &n, &err)
 	}
 	if err != nil {
-		PanicCrisis(Fmt("Failed to hash IAVLProofInnerNode: %v", err))
+		PanicCrisis(Fmt("Failed to hash proofInnerNode: %v", err))
 	}
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
@@ -105,7 +105,7 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) (*IAV
 		if n, err := node.getLeftNode(t)._pathToKey(t, key, path); err != nil {
 			return nil, err
 		} else {
-			branch := IAVLProofInnerNode{
+			branch := proofInnerNode{
 				Height: node.height,
 				Size:   node.size,
 				Left:   nil,
@@ -119,7 +119,7 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) (*IAV
 	if n, err := node.getRightNode(t)._pathToKey(t, key, path); err != nil {
 		return nil, err
 	} else {
-		branch := IAVLProofInnerNode{
+		branch := proofInnerNode{
 			Height: node.height,
 			Size:   node.size,
 			Left:   node.getLeftNode(t).hash,

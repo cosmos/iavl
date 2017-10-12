@@ -10,7 +10,7 @@ import (
 // Note that the nodes are ordered such that the last one is closest
 // to the root of the tree.
 type PathToKey struct {
-	InnerNodes []IAVLProofInnerNode `json:"inner_nodes"`
+	InnerNodes []proofInnerNode `json:"inner_nodes"`
 }
 
 func (p *PathToKey) String() string {
