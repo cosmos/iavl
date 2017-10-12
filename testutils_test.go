@@ -15,7 +15,7 @@ import (
 	"testing"
 )
 
-func dummyPathToKey(t *IAVLTree, key []byte) *PathToKey {
+func dummyPathToKey(t *Tree, key []byte) *PathToKey {
 	path, _, err := t.root.pathToKey(t, key)
 	if err != nil {
 		panic(err)
@@ -43,20 +43,20 @@ func b2i(bz []byte) int {
 }
 
 // Convenience for a new node
-func N(l, r interface{}) *IAVLNode {
-	var left, right *IAVLNode
-	if _, ok := l.(*IAVLNode); ok {
-		left = l.(*IAVLNode)
+func N(l, r interface{}) *Node {
+	var left, right *Node
+	if _, ok := l.(*Node); ok {
+		left = l.(*Node)
 	} else {
-		left = NewIAVLNode(i2b(l.(int)), nil)
+		left = NewNode(i2b(l.(int)), nil)
 	}
-	if _, ok := r.(*IAVLNode); ok {
-		right = r.(*IAVLNode)
+	if _, ok := r.(*Node); ok {
+		right = r.(*Node)
 	} else {
-		right = NewIAVLNode(i2b(r.(int)), nil)
+		right = NewNode(i2b(r.(int)), nil)
 	}
 
-	n := &IAVLNode{
+	n := &Node{
 		key:       right.lmd(nil).key,
 		value:     nil,
 		leftNode:  left,
@@ -67,9 +67,9 @@ func N(l, r interface{}) *IAVLNode {
 }
 
 // Setup a deep node
-func T(n *IAVLNode) *IAVLTree {
+func T(n *Node) *Tree {
 	d := db.NewDB("test", db.MemDBBackendStr, "")
-	t := NewIAVLTree(0, d)
+	t := NewTree(0, d)
 
 	n.hashWithCount()
 	t.root = n
@@ -77,7 +77,7 @@ func T(n *IAVLNode) *IAVLTree {
 }
 
 // Convenience for simple printing of keys & tree structure
-func P(n *IAVLNode) string {
+func P(n *Node) string {
 	if n.height == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
 	} else {

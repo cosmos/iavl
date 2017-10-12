@@ -88,12 +88,12 @@ func (leaf proofLeafNode) isGreaterThan(key []byte) bool {
 	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
-func (node *IAVLNode) pathToKey(t *IAVLTree, key []byte) (*PathToKey, *IAVLNode, error) {
+func (node *Node) pathToKey(t *Tree, key []byte) (*PathToKey, *Node, error) {
 	path := &PathToKey{}
 	val, err := node._pathToKey(t, key, path)
 	return path, val, err
 }
-func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) (*IAVLNode, error) {
+func (node *Node) _pathToKey(t *Tree, key []byte, path *PathToKey) (*Node, error) {
 	if node.height == 0 {
 		if bytes.Equal(node.key, key) {
 			return node, nil
@@ -130,7 +130,7 @@ func (node *IAVLNode) _pathToKey(t *IAVLTree, key []byte, path *PathToKey) (*IAV
 	}
 }
 
-func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error {
+func (t *Tree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error {
 	// Get the index of the first key greater than the requested key, if the key doesn't exist.
 	idx, _, exists := t.Get(key)
 	if exists {
@@ -170,7 +170,7 @@ func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) er
 	return nil
 }
 
-func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
+func (t *Tree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
 	if t.root == nil {
 		return nil, nil, ErrNilRoot
 	}
@@ -189,7 +189,7 @@ func (t *IAVLTree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof
 	return node.value, proof, nil
 }
 
-func (t *IAVLTree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
+func (t *Tree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
 		return nil, ErrNilRoot
 	}

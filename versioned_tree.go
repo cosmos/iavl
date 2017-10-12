@@ -20,7 +20,7 @@ type VersionedTree struct {
 // NewVersionedTree returns a new tree with the specified cache size and datastore.
 func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	ndb := newNodeDB(cacheSize, db)
-	head := &IAVLTree{ndb: ndb}
+	head := &Tree{ndb: ndb}
 
 	return &VersionedTree{
 		orphaningTree: newOrphaningTree(head),
@@ -41,8 +41,8 @@ func (tree *VersionedTree) VersionExists(version uint64) bool {
 }
 
 // Tree returns the current working tree.
-func (tree *VersionedTree) Tree() *IAVLTree {
-	return tree.orphaningTree.IAVLTree
+func (tree *VersionedTree) Tree() *Tree {
+	return tree.orphaningTree.Tree
 }
 
 // Hash returns the hash of the latest saved version of the tree, as returned
@@ -68,7 +68,7 @@ func (tree *VersionedTree) Load() error {
 
 	// Load all roots from the database.
 	for version, root := range roots {
-		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
+		t := newOrphaningTree(&Tree{ndb: tree.ndb})
 		t.Load(root)
 
 		tree.versions[version] = t

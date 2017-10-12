@@ -41,11 +41,11 @@ var defaultGraphNodeAttrs = map[string]string{
 	"shape": "circle",
 }
 
-func WriteDOTGraph(w io.Writer, tree *IAVLTree, paths []*PathToKey) {
+func WriteDOTGraph(w io.Writer, tree *Tree, paths []*PathToKey) {
 	ctx := &graphContext{}
 
 	tree.root.hashWithCount()
-	tree.root.traverse(tree, true, func(node *IAVLNode) bool {
+	tree.root.traverse(tree, true, func(node *Node) bool {
 		graphNode := &graphNode{
 			Attrs: map[string]string{},
 			Hash:  fmt.Sprintf("%x", node.hash),

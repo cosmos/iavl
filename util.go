@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-func printIAVLNode(node *IAVLNode, indent int) {
+func printIAVLNode(node *Node, indent int) {
 	indentPrefix := ""
 	for i := 0; i < indent; i++ {
 		indentPrefix += "    "

@@ -11,7 +11,7 @@ import (
 func TestSerializeProofs(t *testing.T) {
 	require := require.New(t)
 
-	tree := NewIAVLTree(0, nil)
+	tree := NewTree(0, nil)
 	for _, ikey := range []byte{0x17, 0x42, 0x99} {
 		key := []byte{ikey}
 		tree.Set(key, cmn.RandBytes(8))

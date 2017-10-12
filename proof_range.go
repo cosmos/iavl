@@ -223,7 +223,7 @@ func (proof *KeyRangeProof) paths() []*PathToKey {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
+func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	keys, values [][]byte, rangeProof *KeyRangeProof, err error,
 ) {
 	if t.root == nil {
@@ -323,7 +323,7 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	return keys, values, rangeProof, nil
 }
 
-func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
+func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	key, value []byte, proof *KeyFirstInRangeProof, err error,
 ) {
 	if t.root == nil {
@@ -368,7 +368,7 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	return key, value, proof, nil
 }
 
-func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
+func (t *Tree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	key, value []byte, proof *KeyLastInRangeProof, err error,
 ) {
 	if t.root == nil {

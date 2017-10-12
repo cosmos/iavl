@@ -11,8 +11,8 @@ import (
 	"testing"
 )
 
-func TestIAVLTreeGetWithProof(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeGetWithProof(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
@@ -43,8 +43,8 @@ func TestIAVLTreeGetWithProof(t *testing.T) {
 	require.NoError(err)
 }
 
-func TestIAVLTreeKeyExistsProof(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyExistsProof(t *testing.T) {
+	tree := NewTree(0, nil)
 
 	// should get false for proof with nil root
 	_, proof, _ := tree.getWithProof([]byte("foo"))
@@ -79,8 +79,8 @@ func TestIAVLTreeKeyExistsProof(t *testing.T) {
 	// TODO: Test with single value in tree.
 }
 
-func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyInRangeProofs(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
@@ -132,8 +132,8 @@ func TestIAVLTreeKeyInRangeProofs(t *testing.T) {
 	}
 }
 
-func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
@@ -294,8 +294,8 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 	}
 }
 
-func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyLastInRangeProofsVerify(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
@@ -438,8 +438,8 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 	}
 }
 
-func TestIAVLTreeKeyRangeProof(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyRangeProof(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	keys := [][]byte{}
 	for _, ikey := range []byte{
@@ -524,8 +524,8 @@ func TestIAVLTreeKeyRangeProof(t *testing.T) {
 	}
 }
 
-func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyRangeProofVerify(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	assert := assert.New(t)
 
@@ -996,8 +996,8 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 	}
 }
 
-func TestIAVLTreeKeyAbsentProof(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+func TestTreeKeyAbsentProof(t *testing.T) {
+	tree := NewTree(0, nil)
 	require := require.New(t)
 
 	proof, err := tree.keyAbsentProof([]byte{0x1})
@@ -1057,7 +1057,7 @@ func TestIAVLTreeKeyAbsentProof(t *testing.T) {
 }
 
 func TestKeyAbsentProofVerify(t *testing.T) {
-	tree := NewIAVLTree(0, nil)
+	tree := NewTree(0, nil)
 	require := require.New(t)
 	allKeys := []byte{0x11, 0x32, 0x50, 0x72, 0x99}
 	for _, ikey := range allKeys {

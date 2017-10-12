@@ -9,36 +9,36 @@ import (
 	"github.com/pkg/errors"
 )
 
-// IAVLTree is an immutable AVL+ Tree. Note that this tree is not thread-safe.
-type IAVLTree struct {
-	root *IAVLNode
+// Tree is an immutable AVL+ Tree. Note that this tree is not thread-safe.
+type Tree struct {
+	root *Node
 	ndb  *nodeDB
 }
 
-// NewIAVLTree creates both im-memory and persistent instances
-func NewIAVLTree(cacheSize int, db dbm.DB) *IAVLTree {
+// NewTree creates both im-memory and persistent instances
+func NewTree(cacheSize int, db dbm.DB) *Tree {
 	if db == nil {
-		// In-memory IAVLTree.
-		return &IAVLTree{}
+		// In-memory Tree.
+		return &Tree{}
 	}
-	return &IAVLTree{
-		// NodeDB-backed IAVLTree.
+	return &Tree{
+		// NodeDB-backed Tree.
 		ndb: newNodeDB(cacheSize, db),
 	}
 }
 
-// String returns a string representation of IAVLTree.
-func (t *IAVLTree) String() string {
+// String returns a string representation of Tree.
+func (t *Tree) String() string {
 	leaves := []string{}
 	t.Iterate(func(key []byte, val []byte) (stop bool) {
 		leaves = append(leaves, fmt.Sprintf("%x: %x", key, val))
 		return false
 	})
-	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
+	return "Tree{" + strings.Join(leaves, ", ") + "}"
 }
 
 // Size returns the number of leaf nodes in the tree.
-func (t *IAVLTree) Size() int {
+func (t *Tree) Size() int {
 	if t.root == nil {
 		return 0
 	}
@@ -46,7 +46,7 @@ func (t *IAVLTree) Size() int {
 }
 
 // Height returns the height of the tree.
-func (t *IAVLTree) Height() int8 {
+func (t *Tree) Height() int8 {
 	if t.root == nil {
 		return 0
 	}
@@ -54,7 +54,7 @@ func (t *IAVLTree) Height() int8 {
 }
 
 // Has returns whether or not a key exists.
-func (t *IAVLTree) Has(key []byte) bool {
+func (t *Tree) Has(key []byte) bool {
 	if t.root == nil {
 		return false
 	}
@@ -62,14 +62,14 @@ func (t *IAVLTree) Has(key []byte) bool {
 }
 
 // Set a key.
-func (t *IAVLTree) Set(key []byte, value []byte) (updated bool) {
+func (t *Tree) Set(key []byte, value []byte) (updated bool) {
 	_, updated = t.set(key, value)
 	return updated
 }
 
-func (t *IAVLTree) set(key []byte, value []byte) (orphaned []*IAVLNode, updated bool) {
+func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
 	if t.root == nil {
-		t.root = NewIAVLNode(key, value)
+		t.root = NewNode(key, value)
 		return nil, false
 	}
 	t.root, updated, orphaned = t.root.set(t, key, value)
@@ -78,7 +78,7 @@ func (t *IAVLTree) set(key []byte, value []byte) (orphaned []*IAVLNode, updated 
 }
 
 // Hash returns the root hash.
-func (t *IAVLTree) Hash() []byte {
+func (t *Tree) Hash() []byte {
 	if t.root == nil {
 		return nil
 	}
@@ -87,7 +87,7 @@ func (t *IAVLTree) Hash() []byte {
 }
 
 // hashWithCount returns the root hash and hash count.
-func (t *IAVLTree) hashWithCount() ([]byte, int) {
+func (t *Tree) hashWithCount() ([]byte, int) {
 	if t.root == nil {
 		return nil, 0
 	}
@@ -96,7 +96,7 @@ func (t *IAVLTree) hashWithCount() ([]byte, int) {
 
 // Get returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
-func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
+func (t *Tree) Get(key []byte) (index int, value []byte, exists bool) {
 	if t.root == nil {
 		return 0, nil, false
 	}
@@ -104,7 +104,7 @@ func (t *IAVLTree) Get(key []byte) (index int, value []byte, exists bool) {
 }
 
 // GetByIndex gets the key and value at the specified index.
-func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
+func (t *Tree) GetByIndex(index int) (key []byte, value []byte) {
 	if t.root == nil {
 		return nil, nil
 	}
@@ -113,7 +113,7 @@ func (t *IAVLTree) GetByIndex(index int) (key []byte, value []byte) {
 
 // GetWithProof gets the value under the key if it exists, or returns nil.
 // A proof of existence or absence is returned alongside the value.
-func (t *IAVLTree) GetWithProof(key []byte) ([]byte, KeyProof, error) {
+func (t *Tree) GetWithProof(key []byte) ([]byte, KeyProof, error) {
 	value, eproof, err := t.getWithProof(key)
 	if err == nil {
 		return value, eproof, nil
@@ -130,30 +130,30 @@ func (t *IAVLTree) GetWithProof(key []byte) ([]byte, KeyProof, error) {
 // range, swap the start and end keys.
 //
 // Returns a list of keys, a list of values and a proof.
-func (t *IAVLTree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
+func (t *Tree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
 	return t.getRangeWithProof(startKey, endKey, limit)
 }
 
 // GetFirstInRangeWithProof gets the first key/value pair in the specified range, with a proof.
-func (t *IAVLTree) GetFirstInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyFirstInRangeProof, error) {
+func (t *Tree) GetFirstInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyFirstInRangeProof, error) {
 	return t.getFirstInRangeWithProof(startKey, endKey)
 }
 
 // GetLastInRangeWithProof gets the last key/value pair in the specified range, with a proof.
-func (t *IAVLTree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyLastInRangeProof, error) {
+func (t *Tree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyLastInRangeProof, error) {
 	return t.getLastInRangeWithProof(startKey, endKey)
 }
 
 // Remove tries to remove a key from the tree and if removed, returns its
 // value, and 'true'.
-func (t *IAVLTree) Remove(key []byte) ([]byte, bool) {
+func (t *Tree) Remove(key []byte) ([]byte, bool) {
 	value, _, removed := t.remove(key)
 	return value, removed
 }
 
 // remove tries to remove a key from the tree and if removed, returns its
 // value, nodes orphaned and 'true'.
-func (t *IAVLTree) remove(key []byte) (value []byte, orphans []*IAVLNode, removed bool) {
+func (t *Tree) remove(key []byte) (value []byte, orphans []*Node, removed bool) {
 	if t.root == nil {
 		return nil, nil, false
 	}
@@ -171,11 +171,11 @@ func (t *IAVLTree) remove(key []byte) (value []byte, orphans []*IAVLNode, remove
 }
 
 // Iterate iterates over all keys of the tree, in order.
-func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
+func (t *Tree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverse(t, true, func(node *IAVLNode) bool {
+	return t.root.traverse(t, true, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {
@@ -186,11 +186,11 @@ func (t *IAVLTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
 // If either are nil, then it is open on that side (nil, nil is the same as Iterate)
-func (t *IAVLTree) IterateRange(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
+func (t *Tree) IterateRange(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, false, func(node *IAVLNode) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {
@@ -201,11 +201,11 @@ func (t *IAVLTree) IterateRange(start, end []byte, ascending bool, fn func(key [
 
 // IterateRangeInclusive makes a callback for all nodes with key between start and end inclusive.
 // If either are nil, then it is open on that side (nil, nil is the same as Iterate)
-func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
+func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, true, func(node *IAVLNode) bool {
+	return t.root.traverseInRange(t, start, end, ascending, true, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {
@@ -215,9 +215,9 @@ func (t *IAVLTree) IterateRangeInclusive(start, end []byte, ascending bool, fn f
 }
 
 // nodeSize is like Size, but includes inner nodes too.
-func (t *IAVLTree) nodeSize() int {
+func (t *Tree) nodeSize() int {
 	size := 0
-	t.root.traverse(t, true, func(n *IAVLNode) bool {
+	t.root.traverse(t, true, func(n *Node) bool {
 		size++
 		return false
 	})

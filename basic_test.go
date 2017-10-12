@@ -12,7 +12,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var tree *Tree = NewTree(0, nil)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -103,14 +103,14 @@ func TestBasic(t *testing.T) {
 
 func TestUnit(t *testing.T) {
 
-	expectHash := func(tree *IAVLTree, hashCount int) {
+	expectHash := func(tree *Tree, hashCount int) {
 		// ensure number of new hash calculations is as expected.
 		hash, count := tree.hashWithCount()
 		if count != hashCount {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
 		// nuke hashes and reconstruct hash, ensure it's the same.
-		tree.root.traverse(tree, true, func(node *IAVLNode) bool {
+		tree.root.traverse(tree, true, func(node *Node) bool {
 			node.hash = nil
 			return false
 		})
@@ -121,7 +121,7 @@ func TestUnit(t *testing.T) {
 		}
 	}
 
-	expectSet := func(tree *IAVLTree, i int, repr string, hashCount int) {
+	expectSet := func(tree *Tree, i int, repr string, hashCount int) {
 		origNode := tree.root
 		updated := tree.Set(i2b(i), nil)
 		// ensure node was added & structure is as expected.
@@ -134,7 +134,7 @@ func TestUnit(t *testing.T) {
 		tree.root = origNode
 	}
 
-	expectRemove := func(tree *IAVLTree, i int, repr string, hashCount int) {
+	expectRemove := func(tree *Tree, i int, repr string, hashCount int) {
 		origNode := tree.root
 		value, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
@@ -220,7 +220,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var tree *Tree = NewTree(0, nil)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -304,7 +304,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var tree *Tree = NewTree(0, nil)
 
 	// insert all the data
 	for _, r := range records {
@@ -420,9 +420,9 @@ func TestIAVLProof(t *testing.T) {
 	})
 }
 
-func TestIAVLTreeProof(t *testing.T) {
+func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	var tree *IAVLTree = NewIAVLTree(100, db)
+	var tree *Tree = NewTree(100, db)
 
 	// should get false for proof with nil root
 	_, _, err := tree.GetWithProof([]byte("foo"))
