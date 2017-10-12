@@ -37,7 +37,7 @@ func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
 }
 
 // Clone creates a clone of the tree.
-func (tree *orphaningTree) Clone() *orphaningTree {
+func (tree *orphaningTree) clone() *orphaningTree {
 	inner := &IAVLTree{
 		root: tree.IAVLTree.root,
 		ndb:  tree.IAVLTree.ndb,

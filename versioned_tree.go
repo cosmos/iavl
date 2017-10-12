@@ -78,7 +78,7 @@ func (tree *VersionedTree) Load() error {
 		}
 	}
 	// Set the working tree to a copy of the latest.
-	tree.orphaningTree = tree.versions[tree.latestVersion].Clone()
+	tree.orphaningTree = tree.versions[tree.latestVersion].clone()
 
 	return nil
 }
@@ -114,7 +114,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 	tree.versions[version] = tree.orphaningTree
 
 	tree.orphaningTree.SaveVersion(version)
-	tree.orphaningTree = tree.orphaningTree.Clone()
+	tree.orphaningTree = tree.orphaningTree.clone()
 
 	tree.ndb.SaveRoot(tree.root, version)
 	tree.ndb.Commit()
