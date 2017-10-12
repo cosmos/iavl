@@ -77,11 +77,6 @@ func (t *IAVLTree) set(key []byte, value []byte) (orphaned []*IAVLNode, updated 
 	return orphaned, updated
 }
 
-// BatchSet adds a Set to the current batch, will get handled atomically
-func (t *IAVLTree) BatchSet(key []byte, value []byte) {
-	t.ndb.batch.Set(key, value)
-}
-
 // Hash returns the root hash.
 func (t *IAVLTree) Hash() []byte {
 	if t.root == nil {
