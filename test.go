@@ -169,7 +169,7 @@ func TestUnit(t *testing.T) {
 
 	expectHash := func(tree *IAVLTree, hashCount int) {
 		// ensure number of new hash calculations is as expected.
-		hash, count := tree.HashWithCount()
+		hash, count := tree.hashWithCount()
 		if count != hashCount {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
@@ -179,7 +179,7 @@ func TestUnit(t *testing.T) {
 			return false
 		})
 		// ensure that the new hash after nuking is the same as the old.
-		newHash, _ := tree.HashWithCount()
+		newHash, _ := tree.hashWithCount()
 		if !bytes.Equal(hash, newHash) {
 			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
 		}

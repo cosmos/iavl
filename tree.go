@@ -126,8 +126,8 @@ func (t *IAVLTree) Hash() []byte {
 	return hash
 }
 
-// HashWithCount returns the root hash and hash count.
-func (t *IAVLTree) HashWithCount() ([]byte, int) {
+// hashWithCount returns the root hash and hash count.
+func (t *IAVLTree) hashWithCount() ([]byte, int) {
 	if t.root == nil {
 		return nil, 0
 	}
