@@ -58,13 +58,13 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	return hasher.Sum(nil)
 }
 
-type IAVLProofLeafNode struct {
+type proofLeafNode struct {
 	KeyBytes   data.Bytes `json:"key"`
 	ValueBytes data.Bytes `json:"value"`
 	Version    uint64     `json:"version"`
 }
 
-func (leaf IAVLProofLeafNode) Hash() []byte {
+func (leaf proofLeafNode) Hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	n, err := int(0), error(nil)
@@ -74,17 +74,17 @@ func (leaf IAVLProofLeafNode) Hash() []byte {
 	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
 	wire.WriteUint64(leaf.Version, buf, &n, &err)
 	if err != nil {
-		PanicCrisis(Fmt("Failed to hash IAVLProofLeafNode: %v", err))
+		PanicCrisis(Fmt("Failed to hash proofLeafNode: %v", err))
 	}
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
 }
 
-func (leaf IAVLProofLeafNode) isLesserThan(key []byte) bool {
+func (leaf proofLeafNode) isLesserThan(key []byte) bool {
 	return bytes.Compare(leaf.KeyBytes, key) == -1
 }
 
-func (leaf IAVLProofLeafNode) isGreaterThan(key []byte) bool {
+func (leaf proofLeafNode) isGreaterThan(key []byte) bool {
 	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
@@ -156,14 +156,14 @@ func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) er
 		path, node, _ := t.root.pathToKey(t, lkey)
 		proof.Left = &PathWithNode{
 			Path: path,
-			Node: IAVLProofLeafNode{lkey, lval, node.version},
+			Node: proofLeafNode{lkey, lval, node.version},
 		}
 	}
 	if rkey != nil {
 		path, node, _ := t.root.pathToKey(t, rkey)
 		proof.Right = &PathWithNode{
 			Path: path,
-			Node: IAVLProofLeafNode{rkey, rval, node.version},
+			Node: proofLeafNode{rkey, rval, node.version},
 		}
 	}
 

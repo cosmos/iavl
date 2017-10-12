@@ -42,7 +42,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if key == nil || value == nil {
 		return ErrInvalidInputs
 	}
-	return proof.PathToKey.verify(IAVLProofLeafNode{key, value, proof.Version}, root)
+	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}, root)
 }
 
 // Bytes returns a go-wire binary serialization

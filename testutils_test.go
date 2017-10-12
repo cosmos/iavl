@@ -25,8 +25,8 @@ func dummyPathToKey(t *IAVLTree, key []byte) *PathToKey {
 	return path
 }
 
-func dummyLeafNode(key, val []byte) IAVLProofLeafNode {
-	return IAVLProofLeafNode{key, val, 0}
+func dummyLeafNode(key, val []byte) proofLeafNode {
+	return proofLeafNode{key, val, 0}
 }
 
 func randstr(length int) string {

@@ -23,7 +23,7 @@ func (p *PathToKey) String() string {
 
 // verify check that the leafNode's hash matches the path's LeafHash and that
 // the root is the merkle hash of all the inner nodes.
-func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
+func (p *PathToKey) verify(leafNode proofLeafNode, root []byte) error {
 	hash := leafNode.Hash()
 	for _, branch := range p.InnerNodes {
 		hash = branch.Hash(hash)
@@ -87,8 +87,8 @@ func (p *PathToKey) isLeftAdjacentTo(p2 *PathToKey) bool {
 
 // PathWithNode is a path to a key which includes the leaf node at that key.
 type PathWithNode struct {
-	Path *PathToKey        `json:"path"`
-	Node IAVLProofLeafNode `json:"node"`
+	Path *PathToKey    `json:"path"`
+	Node proofLeafNode `json:"node"`
 }
 
 func (p *PathWithNode) verify(root []byte) error {

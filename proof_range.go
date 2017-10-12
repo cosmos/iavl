@@ -177,7 +177,7 @@ func (proof *KeyRangeProof) Verify(
 	// If we've reached this point, it means our range isn't empty, and we have
 	// a list of keys.
 	for i, path := range proof.PathToKeys {
-		leafNode := IAVLProofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+		leafNode := proofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
 		if err := path.verify(leafNode, root); err != nil {
 			return errors.WithStack(err)
 		}
@@ -299,7 +299,7 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 			path, _, _ := t.root.pathToKey(t, lkey)
 			rangeProof.Left = &PathWithNode{
 				Path: path,
-				Node: IAVLProofLeafNode{KeyBytes: lkey, ValueBytes: lval},
+				Node: proofLeafNode{KeyBytes: lkey, ValueBytes: lval},
 			}
 		}
 	}
@@ -315,7 +315,7 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 			path, _, _ := t.root.pathToKey(t, rkey)
 			rangeProof.Right = &PathWithNode{
 				Path: path,
-				Node: IAVLProofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+				Node: proofLeafNode{KeyBytes: rkey, ValueBytes: rval},
 			}
 		}
 	}
@@ -349,7 +349,7 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Left = &PathWithNode{
 				Path: path,
-				Node: IAVLProofLeafNode{k, v, node.version},
+				Node: proofLeafNode{k, v, node.version},
 			}
 		}
 	}
@@ -360,7 +360,7 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Right = &PathWithNode{
 				Path: path,
-				Node: IAVLProofLeafNode{k, v, node.version},
+				Node: proofLeafNode{k, v, node.version},
 			}
 		}
 	}
@@ -395,7 +395,7 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Right = &PathWithNode{
 				Path: path,
-				Node: IAVLProofLeafNode{k, v, node.version},
+				Node: proofLeafNode{k, v, node.version},
 			}
 		}
 	}
@@ -406,7 +406,7 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Left = &PathWithNode{
 				Path: path,
-				Node: IAVLProofLeafNode{k, v, node.version},
+				Node: proofLeafNode{k, v, node.version},
 			}
 		}
 	}
