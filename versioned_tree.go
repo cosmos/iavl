@@ -59,7 +59,7 @@ func (tree *VersionedTree) String() string {
 	return tree.ndb.String()
 }
 
-// Set sets a key in the working tree.
+// Set sets a key in the working tree. Nil values are not supported.
 func (tree *VersionedTree) Set(key, val []byte) bool {
 	return tree.orphaningTree.Set(key, val)
 }

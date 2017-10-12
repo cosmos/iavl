@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 
 	"github.com/pkg/errors"
@@ -61,21 +62,21 @@ func (t *Tree) Has(key []byte) bool {
 	return t.root.has(t, key)
 }
 
-// Set a key.
+// Set a key. Nil values are not supported.
 func (t *Tree) Set(key []byte, value []byte) (updated bool) {
 	_, updated = t.set(key, value)
 	return updated
 }
 
 func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
-	v := make([]byte, len(value))
-	copy(v, value)
-
+	if value == nil {
+		cmn.PanicSanity(cmn.Fmt("Attempt to store nil value at key '%s'", key))
+	}
 	if t.root == nil {
-		t.root = NewNode(key, v)
+		t.root = NewNode(key, value)
 		return nil, false
 	}
-	t.root, updated, orphaned = t.root.set(t, key, v)
+	t.root, updated, orphaned = t.root.set(t, key, value)
 
 	return orphaned, updated
 }

@@ -123,7 +123,7 @@ func TestUnit(t *testing.T) {
 
 	expectSet := func(tree *Tree, i int, repr string, hashCount int) {
 		origNode := tree.root
-		updated := tree.Set(i2b(i), nil)
+		updated := tree.Set(i2b(i), []byte{})
 		// ensure node was added & structure is as expected.
 		if updated || P(tree.root) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
@@ -229,7 +229,7 @@ func TestIntegration(t *testing.T) {
 	for i := range records {
 		r := randomRecord()
 		records[i] = r
-		updated := tree.Set([]byte(r.key), nil)
+		updated := tree.Set([]byte(r.key), []byte{})
 		if updated {
 			t.Error("should have not been updated")
 		}
