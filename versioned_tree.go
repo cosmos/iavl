@@ -59,6 +59,16 @@ func (tree *VersionedTree) String() string {
 	return tree.ndb.String()
 }
 
+// Set sets a key in the working tree.
+func (tree *VersionedTree) Set(key, val []byte) bool {
+	return tree.orphaningTree.Set(key, val)
+}
+
+// Remove removes a key from the working tree.
+func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
+	return tree.orphaningTree.Remove(key)
+}
+
 // Load a versioned tree from disk. All tree versions are loaded automatically.
 func (tree *VersionedTree) Load() error {
 	roots, err := tree.ndb.getRoots()
