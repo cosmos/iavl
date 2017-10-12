@@ -937,3 +937,43 @@ func TestVersionedTreeHash(t *testing.T) {
 	require.EqualValues(val, []byte("F"))
 	require.NoError(proof.Verify([]byte("I"), val, hash2))
 }
+
+func TestNilValueSemantics(t *testing.T) {
+	require := require.New(t)
+
+	d, err := db.NewGoLevelDB("test", ".")
+	require.NoError(err)
+	defer d.Close()
+	defer os.RemoveAll("./test.db")
+
+	tree := NewVersionedTree(0, d)
+
+	tree.Set([]byte("k"), nil)
+
+	_, val := tree.Get([]byte("k"))
+	require.Equal([]byte{}, val)
+
+	tree.SaveVersion(1)
+	tree = NewVersionedTree(0, d)
+	tree.Load()
+
+	_, val = tree.Get([]byte("k"))
+	require.Equal([]byte{}, val)
+}
+
+func TestCopyValueSemantics(t *testing.T) {
+	require := require.New(t)
+
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	val := []byte("v1")
+
+	tree.Set([]byte("k"), val)
+	_, v := tree.Get([]byte("k"))
+	require.Equal([]byte("v1"), v)
+
+	val[1] = '2'
+
+	_, val = tree.Get([]byte("k"))
+	require.Equal([]byte("v1"), val)
+}

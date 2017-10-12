@@ -68,11 +68,14 @@ func (t *Tree) Set(key []byte, value []byte) (updated bool) {
 }
 
 func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
+	v := make([]byte, len(value))
+	copy(v, value)
+
 	if t.root == nil {
-		t.root = NewNode(key, value)
+		t.root = NewNode(key, v)
 		return nil, false
 	}
-	t.root, updated, orphaned = t.root.set(t, key, value)
+	t.root, updated, orphaned = t.root.set(t, key, v)
 
 	return orphaned, updated
 }
