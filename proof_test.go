@@ -1013,8 +1013,8 @@ func TestTreeKeyAbsentProof(t *testing.T) {
 	root := tree.Hash()
 
 	// Get min and max keys.
-	min, _, _ := tree.GetByIndex(0)
-	max, _, _ := tree.GetByIndex(tree.Size() - 1)
+	min, _ := tree.GetByIndex(0)
+	max, _ := tree.GetByIndex(tree.Size() - 1)
 
 	// Go through a range of keys and test the result of creating non-existence
 	// proofs for them.

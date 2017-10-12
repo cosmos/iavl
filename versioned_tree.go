@@ -95,12 +95,12 @@ func (tree *VersionedTree) Load() error {
 
 // GetVersioned gets the value at the specified key and version.
 func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
-	index int, value []byte, exists bool,
+	index int, value []byte,
 ) {
 	if t, ok := tree.versions[version]; ok {
 		return t.Get(key)
 	}
-	return -1, nil, false
+	return -1, nil
 }
 
 // SaveVersion saves a new tree version to disk, based on the current state of

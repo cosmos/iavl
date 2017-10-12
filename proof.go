@@ -132,8 +132,8 @@ func (node *Node) _pathToKey(t *Tree, key []byte, path *PathToKey) (*Node, error
 
 func (t *Tree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error {
 	// Get the index of the first key greater than the requested key, if the key doesn't exist.
-	idx, _, exists := t.Get(key)
-	if exists {
+	idx, val := t.Get(key)
+	if val != nil {
 		return errors.Errorf("couldn't construct non-existence proof: key 0x%x exists", key)
 	}
 
@@ -142,10 +142,10 @@ func (t *Tree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error 
 		rkey, rval []byte
 	)
 	if idx > 0 {
-		lkey, lval, _ = t.GetByIndex(idx - 1)
+		lkey, lval = t.GetByIndex(idx - 1)
 	}
 	if idx <= t.Size()-1 {
-		rkey, rval, _ = t.GetByIndex(idx)
+		rkey, rval = t.GetByIndex(idx)
 	}
 
 	if lkey == nil && rkey == nil {

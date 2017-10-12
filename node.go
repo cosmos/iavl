@@ -138,15 +138,15 @@ func (node *Node) has(t *Tree, key []byte) (has bool) {
 }
 
 // Get a key under the node.
-func (node *Node) get(t *Tree, key []byte) (index int, value []byte, exists bool) {
+func (node *Node) get(t *Tree, key []byte) (index int, value []byte) {
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
-			return 1, nil, false
+			return 1, nil
 		case 1:
-			return 0, nil, false
+			return 0, nil
 		default:
-			return 0, node.value, true
+			return 0, node.value
 		}
 	}
 
@@ -154,18 +154,18 @@ func (node *Node) get(t *Tree, key []byte) (index int, value []byte, exists bool
 		return node.getLeftNode(t).get(t, key)
 	} else {
 		rightNode := node.getRightNode(t)
-		index, value, exists = rightNode.get(t, key)
+		index, value = rightNode.get(t, key)
 		index += node.size - rightNode.size
-		return index, value, exists
+		return index, value
 	}
 }
 
-func (node *Node) getByIndex(t *Tree, index int) (key []byte, value []byte, exists bool) {
+func (node *Node) getByIndex(t *Tree, index int) (key []byte, value []byte) {
 	if node.isLeaf() {
 		if index == 0 {
-			return node.key, node.value, true
+			return node.key, node.value
 		} else {
-			return nil, nil, false
+			return nil, nil
 		}
 	} else {
 		// TODO: could improve this by storing the

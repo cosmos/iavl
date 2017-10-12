@@ -96,17 +96,17 @@ func (t *Tree) hashWithCount() ([]byte, int) {
 
 // Get returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
-func (t *Tree) Get(key []byte) (index int, value []byte, exists bool) {
+func (t *Tree) Get(key []byte) (index int, value []byte) {
 	if t.root == nil {
-		return 0, nil, false
+		return 0, nil
 	}
 	return t.root.get(t, key)
 }
 
 // GetByIndex gets the key and value at the specified index.
-func (t *Tree) GetByIndex(index int) (key []byte, value []byte, exists bool) {
+func (t *Tree) GetByIndex(index int) (key []byte, value []byte) {
 	if t.root == nil {
-		return nil, nil, false
+		return nil, nil
 	}
 	return t.root.getByIndex(t, index)
 }

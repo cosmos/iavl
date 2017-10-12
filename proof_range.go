@@ -294,8 +294,8 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	if needsLeft {
 		// Find index of first key to the left, and include proof if it isn't the
 		// leftmost key.
-		if idx, _, _ := t.Get(rangeStart); idx > 0 {
-			lkey, lval, _ := t.GetByIndex(idx - 1)
+		if idx, _ := t.Get(rangeStart); idx > 0 {
+			lkey, lval := t.GetByIndex(idx - 1)
 			path, _, _ := t.root.pathToKey(t, lkey)
 			rangeProof.Left = &pathWithNode{
 				Path: path,
@@ -310,8 +310,8 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	if needsRight {
 		// Find index of first key to the right, and include proof if it isn't the
 		// rightmost key.
-		if idx, _, _ := t.Get(rangeEnd); idx <= t.Size()-1 {
-			rkey, rval, _ := t.GetByIndex(idx)
+		if idx, _ := t.Get(rangeEnd); idx <= t.Size()-1 {
+			rkey, rval := t.GetByIndex(idx)
 			path, _, _ := t.root.pathToKey(t, rkey)
 			rangeProof.Right = &pathWithNode{
 				Path: path,
@@ -344,8 +344,8 @@ func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	}
 
 	if !bytes.Equal(key, keyStart) {
-		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
-			k, v, _ := t.GetByIndex(idx - 1)
+		if idx, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
+			k, v := t.GetByIndex(idx - 1)
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Left = &pathWithNode{
 				Path: path,
@@ -355,8 +355,8 @@ func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	}
 
 	if !bytes.Equal(key, keyEnd) {
-		if idx, _, exists := t.Get(keyEnd); idx <= t.Size()-1 && !exists {
-			k, v, _ := t.GetByIndex(idx)
+		if idx, val := t.Get(keyEnd); idx <= t.Size()-1 && val == nil {
+			k, v := t.GetByIndex(idx)
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Right = &pathWithNode{
 				Path: path,
@@ -390,8 +390,8 @@ func (t *Tree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	}
 
 	if !bytes.Equal(key, keyEnd) {
-		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
-			k, v, _ := t.GetByIndex(idx)
+		if idx, _ := t.Get(keyEnd); idx <= t.Size()-1 {
+			k, v := t.GetByIndex(idx)
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Right = &pathWithNode{
 				Path: path,
@@ -401,8 +401,8 @@ func (t *Tree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	}
 
 	if !bytes.Equal(key, keyStart) {
-		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
-			k, v, _ := t.GetByIndex(idx - 1)
+		if idx, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
+			k, v := t.GetByIndex(idx - 1)
 			path, node, _ := t.root.pathToKey(t, k)
 			proof.Left = &pathWithNode{
 				Path: path,
