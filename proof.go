@@ -142,10 +142,10 @@ func (t *Tree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error 
 		rkey, rval []byte
 	)
 	if idx > 0 {
-		lkey, lval = t.GetByIndex(idx - 1)
+		lkey, lval, _ = t.GetByIndex(idx - 1)
 	}
 	if idx <= t.Size()-1 {
-		rkey, rval = t.GetByIndex(idx)
+		rkey, rval, _ = t.GetByIndex(idx)
 	}
 
 	if lkey == nil && rkey == nil {

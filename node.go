@@ -160,13 +160,12 @@ func (node *Node) get(t *Tree, key []byte) (index int, value []byte, exists bool
 	}
 }
 
-func (node *Node) getByIndex(t *Tree, index int) (key []byte, value []byte) {
+func (node *Node) getByIndex(t *Tree, index int) (key []byte, value []byte, exists bool) {
 	if node.isLeaf() {
 		if index == 0 {
-			return node.key, node.value
+			return node.key, node.value, true
 		} else {
-			cmn.PanicSanity("getByIndex asked for invalid index")
-			return nil, nil
+			return nil, nil, false
 		}
 	} else {
 		// TODO: could improve this by storing the

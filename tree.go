@@ -104,9 +104,9 @@ func (t *Tree) Get(key []byte) (index int, value []byte, exists bool) {
 }
 
 // GetByIndex gets the key and value at the specified index.
-func (t *Tree) GetByIndex(index int) (key []byte, value []byte) {
+func (t *Tree) GetByIndex(index int) (key []byte, value []byte, exists bool) {
 	if t.root == nil {
-		return nil, nil
+		return nil, nil, false
 	}
 	return t.root.getByIndex(t, index)
 }
