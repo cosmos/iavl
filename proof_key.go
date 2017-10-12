@@ -62,8 +62,8 @@ type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
 	Version  uint64     `json:"version"`
 
-	Left  *PathWithNode `json:"left"`
-	Right *PathWithNode `json:"right"`
+	Left  *pathWithNode `json:"left"`
+	Right *pathWithNode `json:"right"`
 }
 
 func (proof *KeyAbsentProof) Root() []byte {

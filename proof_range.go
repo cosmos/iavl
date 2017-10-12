@@ -17,8 +17,8 @@ type KeyInRangeProof interface {
 type KeyFirstInRangeProof struct {
 	KeyExistsProof `json:"key_proof"`
 
-	Left  *PathWithNode `json:"left"`
-	Right *PathWithNode `json:"right"`
+	Left  *pathWithNode `json:"left"`
+	Right *pathWithNode `json:"right"`
 }
 
 // String returns a string representation of the proof.
@@ -73,8 +73,8 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 type KeyLastInRangeProof struct {
 	KeyExistsProof `json:"key_proof"`
 
-	Left  *PathWithNode `json:"left"`
-	Right *PathWithNode `json:"right"`
+	Left  *pathWithNode `json:"left"`
+	Right *pathWithNode `json:"right"`
 }
 
 // String returns a string representation of the proof.
@@ -124,8 +124,8 @@ type KeyRangeProof struct {
 	Version    uint64       `json:"version"`
 	PathToKeys []*PathToKey `json:"paths"`
 
-	Left  *PathWithNode `json:"left"`
-	Right *PathWithNode `json:"right"`
+	Left  *pathWithNode `json:"left"`
+	Right *pathWithNode `json:"right"`
 }
 
 // Verify that a range proof is valid.
@@ -297,7 +297,7 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 		if idx, _, _ := t.Get(rangeStart); idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
 			path, _, _ := t.root.pathToKey(t, lkey)
-			rangeProof.Left = &PathWithNode{
+			rangeProof.Left = &pathWithNode{
 				Path: path,
 				Node: proofLeafNode{KeyBytes: lkey, ValueBytes: lval},
 			}
@@ -313,7 +313,7 @@ func (t *IAVLTree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 		if idx, _, _ := t.Get(rangeEnd); idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
 			path, _, _ := t.root.pathToKey(t, rkey)
-			rangeProof.Right = &PathWithNode{
+			rangeProof.Right = &pathWithNode{
 				Path: path,
 				Node: proofLeafNode{KeyBytes: rkey, ValueBytes: rval},
 			}
@@ -347,7 +347,7 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
 			k, v := t.GetByIndex(idx - 1)
 			path, node, _ := t.root.pathToKey(t, k)
-			proof.Left = &PathWithNode{
+			proof.Left = &pathWithNode{
 				Path: path,
 				Node: proofLeafNode{k, v, node.version},
 			}
@@ -358,7 +358,7 @@ func (t *IAVLTree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 		if idx, _, exists := t.Get(keyEnd); idx <= t.Size()-1 && !exists {
 			k, v := t.GetByIndex(idx)
 			path, node, _ := t.root.pathToKey(t, k)
-			proof.Right = &PathWithNode{
+			proof.Right = &pathWithNode{
 				Path: path,
 				Node: proofLeafNode{k, v, node.version},
 			}
@@ -393,7 +393,7 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 		if idx, _, _ := t.Get(keyEnd); idx <= t.Size()-1 {
 			k, v := t.GetByIndex(idx)
 			path, node, _ := t.root.pathToKey(t, k)
-			proof.Right = &PathWithNode{
+			proof.Right = &pathWithNode{
 				Path: path,
 				Node: proofLeafNode{k, v, node.version},
 			}
@@ -404,7 +404,7 @@ func (t *IAVLTree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 		if idx, _, _ := t.Get(keyStart); idx-1 >= 0 && idx-1 <= t.Size()-1 {
 			k, v := t.GetByIndex(idx - 1)
 			path, node, _ := t.root.pathToKey(t, k)
-			proof.Left = &PathWithNode{
+			proof.Left = &pathWithNode{
 				Path: path,
 				Node: proofLeafNode{k, v, node.version},
 			}

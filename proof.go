@@ -154,14 +154,14 @@ func (t *IAVLTree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) er
 
 	if lkey != nil {
 		path, node, _ := t.root.pathToKey(t, lkey)
-		proof.Left = &PathWithNode{
+		proof.Left = &pathWithNode{
 			Path: path,
 			Node: proofLeafNode{lkey, lval, node.version},
 		}
 	}
 	if rkey != nil {
 		path, node, _ := t.root.pathToKey(t, rkey)
-		proof.Right = &PathWithNode{
+		proof.Right = &pathWithNode{
 			Path: path,
 			Node: proofLeafNode{rkey, rval, node.version},
 		}

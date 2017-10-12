@@ -161,7 +161,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x72}),
 				},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x50}),
 					dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -175,7 +175,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0x21},
 			resultVal: []byte{0x21},
 			proof: &KeyFirstInRangeProof{
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -221,7 +221,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x11}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xf7}),
 					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 				},
@@ -238,11 +238,11 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash: root,
 				},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xf7}),
 					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 				},
@@ -260,11 +260,11 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0xa1}),
 				},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xe4}),
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
@@ -278,7 +278,7 @@ func TestIAVLTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0x29},
 			resultVal: []byte{0x29},
 			proof: &KeyFirstInRangeProof{
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -365,7 +365,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x11}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xf7}),
 					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 				},
@@ -382,11 +382,11 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash: root,
 				},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xf7}),
 					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 				},
@@ -404,11 +404,11 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0xa1}),
 				},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xe4}),
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
@@ -422,7 +422,7 @@ func TestIAVLTreeKeyLastInRangeProofsVerify(t *testing.T) {
 			resultKey: []byte{0x29},
 			resultVal: []byte{0x29},
 			invalidProof: &KeyLastInRangeProof{
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -567,11 +567,11 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x99}),
 					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa1}),
 					Node: dummyLeafNode([]byte{0xa1}, []byte{0xa1}),
 				},
@@ -584,7 +584,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xe4}),
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
@@ -597,7 +597,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
@@ -610,7 +610,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -623,7 +623,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x99}),
 					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
@@ -636,11 +636,11 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xe4}),
 					Node: dummyLeafNode([]byte{0xe4}, []byte{0xe4}),
 				},
@@ -653,11 +653,11 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x01}, []byte{0x01}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x2e}),
 					Node: dummyLeafNode([]byte{0x2e}, []byte{0x2e}),
 				},
@@ -670,11 +670,11 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:     root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x2e}),
 					Node: dummyLeafNode([]byte{0x2f}, []byte{0x2f}),
 				},
@@ -690,7 +690,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -706,7 +706,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -722,7 +722,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			invalidProof: &KeyRangeProof{
 				RootHash:   root,
 				PathToKeys: []*PathToKey{dummyPathToKey(tree, []byte{0x2e})},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x32}),
 					Node: dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
@@ -757,7 +757,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xf7}),
 					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 				},
@@ -777,7 +777,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyPathToKey(tree, []byte{0x50}),
 				},
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
@@ -805,7 +805,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			limit:    10,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x0a}),
 					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
 				},
@@ -819,7 +819,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			limit:    10,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x99}),
 					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
@@ -850,7 +850,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:       root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -858,7 +858,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
@@ -874,7 +874,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:       root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -895,7 +895,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 			root:       root,
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -903,7 +903,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
@@ -920,7 +920,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x0a}),
 					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
 				},
@@ -929,7 +929,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
@@ -946,7 +946,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 
 			invalidProof: &KeyRangeProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x0a}),
 					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
 				},
@@ -955,7 +955,7 @@ func TestIAVLTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
@@ -1078,11 +1078,11 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: []byte{0x32, 0x50, 0x99, 0x0, 0xff},
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x50}),
 					dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
@@ -1094,7 +1094,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: []byte{0x99, 0x91, 0x0},
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x99}),
 					dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
@@ -1106,7 +1106,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: []byte{0x11, 0x99, 0x12},
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x11}),
 					dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
@@ -1118,7 +1118,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
@@ -1130,7 +1130,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
@@ -1142,11 +1142,11 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x11}),
 					dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x50}),
 					dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
@@ -1158,11 +1158,11 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x50}),
 					dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
@@ -1174,11 +1174,11 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x32}),
 					dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
@@ -1198,7 +1198,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: []byte(randstr(32)),
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x99}),
 					dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
@@ -1210,7 +1210,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Left: &PathWithNode{
+				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x99}),
 					dummyLeafNode([]byte{0x90}, []byte{0x90}),
 				},
@@ -1222,7 +1222,7 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 			invalidKeys: allKeys,
 			proof: &KeyAbsentProof{
 				RootHash: root,
-				Right: &PathWithNode{
+				Right: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x11}),
 					dummyLeafNode([]byte{0x12}, []byte{0x12}),
 				},
