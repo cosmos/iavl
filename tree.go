@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 
 	"github.com/pkg/errors"
@@ -36,40 +35,6 @@ func (t *IAVLTree) String() string {
 		return false
 	})
 	return "IAVLTree{" + strings.Join(leaves, ", ") + "}"
-}
-
-// DEPRECATED. Please use iavl.VersionedTree instead if you need to hold
-// references to multiple tree versions.
-//
-// Copy returns a copy of the tree.
-// The returned tree and the original tree are goroutine independent.
-// That is, they can each run in their own goroutine.
-// However, upon Save(), any other trees that share a db will become
-// outdated, as some nodes will become orphaned.
-// Note that Save() clears leftNode and rightNode.  Otherwise,
-// two copies would not be goroutine independent.
-func (t *IAVLTree) Copy() *IAVLTree {
-	if t.root == nil {
-		return &IAVLTree{
-			root: nil,
-			ndb:  t.ndb,
-		}
-	}
-	if t.ndb != nil && !t.root.persisted {
-		// Saving a tree finalizes all the nodes.
-		// It sets all the hashes recursively,
-		// clears all the leftNode/rightNode values recursively,
-		// and all the .persisted flags get set.
-		cmn.PanicSanity("It is unsafe to Copy() an unpersisted tree.")
-	} else if t.ndb == nil && t.root.hash == nil {
-		// An in-memory IAVLTree is finalized when the hashes are
-		// calculated.
-		t.root.hashWithCount()
-	}
-	return &IAVLTree{
-		root: t.root,
-		ndb:  t.ndb,
-	}
 }
 
 // Size returns the number of leaf nodes in the tree.
