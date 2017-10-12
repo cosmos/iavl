@@ -229,8 +229,6 @@ func TestIntegration(t *testing.T) {
 	for i := range records {
 		r := randomRecord()
 		records[i] = r
-		//t.Log("New record", r)
-		//PrintIAVLNode(tree.root)
 		updated := tree.Set([]byte(r.key), nil)
 		if updated {
 			t.Error("should have not been updated")
@@ -388,7 +386,7 @@ func TestPersistence(t *testing.T) {
 	}
 }
 
-func TestIAVLProof(t *testing.T) {
+func TestProof(t *testing.T) {
 	t.Skipf("This test has a race condition causing it to occasionally panic.")
 
 	// Construct some random tree
@@ -445,7 +443,7 @@ func TestTreeProof(t *testing.T) {
 	for _, key := range keys {
 		value, proof, err := tree.GetWithProof(key)
 		if assert.NoError(t, err) {
-			require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
+			require.Nil(t, err, "Failed to read proof from bytes: %v", err)
 			assert.NoError(t, proof.Verify(key, value, root))
 		}
 	}
