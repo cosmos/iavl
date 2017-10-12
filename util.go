@@ -4,15 +4,6 @@ import (
 	"fmt"
 )
 
-// Prints the in-memory children recursively.
-func PrintIAVLNode(node *IAVLNode) {
-	fmt.Println("==== NODE")
-	if node != nil {
-		printIAVLNode(node, 0)
-	}
-	fmt.Println("==== END")
-}
-
 func printIAVLNode(node *IAVLNode, indent int) {
 	indentPrefix := ""
 	for i := 0; i < indent; i++ {
