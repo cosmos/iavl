@@ -13,7 +13,8 @@ import (
 )
 
 var (
-	errInvalidProof = fmt.Errorf("invalid proof")
+	// ErrInvalidProof is returned by Verify when a proof cannot be validated.
+	ErrInvalidProof = fmt.Errorf("invalid proof")
 
 	// ErrInvalidInputs is returned when the inputs passed to the function are invalid.
 	ErrInvalidInputs = fmt.Errorf("invalid inputs")
@@ -24,11 +25,6 @@ var (
 	// ErrNilRoot is returned when the root of the tree is nil.
 	ErrNilRoot = fmt.Errorf("tree root is nil")
 )
-
-// ErrInvalidProof is returned by Verify when a proof cannot be validated.
-func ErrInvalidProof() error {
-	return errors.WithStack(errInvalidProof)
-}
 
 type IAVLProofInnerNode struct {
 	Height int8

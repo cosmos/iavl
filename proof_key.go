@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/go-wire/data"
 )
@@ -83,7 +84,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	}
 
 	if proof.Left == nil && proof.Right == nil {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
 		return err

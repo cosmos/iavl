@@ -35,7 +35,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 		}
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
@@ -64,7 +64,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	if proof.Left != nil && proof.Left.Path.isLeftAdjacentTo(proof.PathToKey) {
 		return nil
 	}
-	return ErrInvalidProof()
+	return errors.WithStack(ErrInvalidProof)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -89,7 +89,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		return ErrInvalidInputs
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
@@ -113,7 +113,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		return nil
 	}
 
-	return ErrInvalidProof()
+	return errors.WithStack(ErrInvalidProof)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -192,13 +192,13 @@ func (proof *KeyRangeProof) Verify(
 	if proof.Left == nil &&
 		!bytes.Equal(startKey, keys[0]) &&
 		!proof.PathToKeys[0].isLeftmost() {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 
 	if proof.Right == nil &&
 		!bytes.Equal(endKey, keys[len(keys)-1]) &&
 		!proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 	return nil
 }
