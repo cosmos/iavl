@@ -64,7 +64,7 @@ func (tree *orphaningTree) Load(root []byte) {
 
 // Unorphan undoes the orphaning of a node, removing the orphan entry on disk
 // if necessary.
-func (tree *orphaningTree) Unorphan(hash []byte) {
+func (tree *orphaningTree) unorphan(hash []byte) {
 	tree.deleteOrphan(hash)
 	tree.ndb.Unorphan(hash)
 }
@@ -79,7 +79,7 @@ func (tree *orphaningTree) SaveVersion(version uint64) {
 	tree.ndb.SaveBranch(tree.root, func(node *IAVLNode) {
 		// The node version is set here since it isn't known until we save.
 		node.version = version
-		tree.Unorphan(node._hash())
+		tree.unorphan(node._hash())
 	})
 	tree.ndb.SaveOrphans(version, tree.orphans)
 }
