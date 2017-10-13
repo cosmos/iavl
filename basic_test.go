@@ -2,81 +2,17 @@ package iavl
 
 import (
 	"bytes"
-	"fmt"
 	mrand "math/rand"
 	"sort"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/go-wire"
-	. "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/db"
-	. "github.com/tendermint/tmlibs/test"
-
-	"runtime"
-	"testing"
 )
 
-func randstr(length int) string {
-	return RandStr(length)
-}
-
-func i2b(i int) []byte {
-	bz := make([]byte, 4)
-	wire.PutInt32(bz, int32(i))
-	return bz
-}
-
-func b2i(bz []byte) int {
-	i := wire.GetInt32(bz)
-	return int(i)
-}
-
-// Convenience for a new node
-func N(l, r interface{}) *IAVLNode {
-	var left, right *IAVLNode
-	if _, ok := l.(*IAVLNode); ok {
-		left = l.(*IAVLNode)
-	} else {
-		left = NewIAVLNode(i2b(l.(int)), nil)
-	}
-	if _, ok := r.(*IAVLNode); ok {
-		right = r.(*IAVLNode)
-	} else {
-		right = NewIAVLNode(i2b(r.(int)), nil)
-	}
-
-	n := &IAVLNode{
-		key:       right.lmd(nil).key,
-		value:     nil,
-		leftNode:  left,
-		rightNode: right,
-	}
-	n.calcHeightAndSize(nil)
-	return n
-}
-
-// Setup a deep node
-func T(n *IAVLNode) *IAVLTree {
-	d := db.NewDB("test", db.MemDBBackendStr, "")
-	t := NewIAVLTree(0, d)
-
-	n.hashWithCount()
-	t.root = n
-	return t
-}
-
-// Convenience for simple printing of keys & tree structure
-func P(n *IAVLNode) string {
-	if n.height == 0 {
-		return fmt.Sprintf("%v", b2i(n.key))
-	} else {
-		return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
-	}
-}
-
 func TestBasic(t *testing.T) {
-	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var tree *Tree = NewTree(0, nil)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -96,8 +32,8 @@ func TestBasic(t *testing.T) {
 
 	// Test 0x00
 	{
-		idx, val, exists := tree.Get([]byte{0x00})
-		if exists {
+		idx, val := tree.Get([]byte{0x00})
+		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
 		if idx != 0 {
@@ -110,8 +46,8 @@ func TestBasic(t *testing.T) {
 
 	// Test "1"
 	{
-		idx, val, exists := tree.Get([]byte("1"))
-		if !exists {
+		idx, val := tree.Get([]byte("1"))
+		if val == nil {
 			t.Errorf("Expected value to exist")
 		}
 		if idx != 0 {
@@ -124,8 +60,8 @@ func TestBasic(t *testing.T) {
 
 	// Test "2"
 	{
-		idx, val, exists := tree.Get([]byte("2"))
-		if !exists {
+		idx, val := tree.Get([]byte("2"))
+		if val == nil {
 			t.Errorf("Expected value to exist")
 		}
 		if idx != 1 {
@@ -138,8 +74,8 @@ func TestBasic(t *testing.T) {
 
 	// Test "4"
 	{
-		idx, val, exists := tree.Get([]byte("4"))
-		if exists {
+		idx, val := tree.Get([]byte("4"))
+		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
 		if idx != 2 {
@@ -152,8 +88,8 @@ func TestBasic(t *testing.T) {
 
 	// Test "6"
 	{
-		idx, val, exists := tree.Get([]byte("6"))
-		if exists {
+		idx, val := tree.Get([]byte("6"))
+		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
 		if idx != 3 {
@@ -167,27 +103,27 @@ func TestBasic(t *testing.T) {
 
 func TestUnit(t *testing.T) {
 
-	expectHash := func(tree *IAVLTree, hashCount int) {
+	expectHash := func(tree *Tree, hashCount int) {
 		// ensure number of new hash calculations is as expected.
-		hash, count := tree.HashWithCount()
+		hash, count := tree.hashWithCount()
 		if count != hashCount {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
 		// nuke hashes and reconstruct hash, ensure it's the same.
-		tree.root.traverse(tree, true, func(node *IAVLNode) bool {
+		tree.root.traverse(tree, true, func(node *Node) bool {
 			node.hash = nil
 			return false
 		})
 		// ensure that the new hash after nuking is the same as the old.
-		newHash, _ := tree.HashWithCount()
+		newHash, _ := tree.hashWithCount()
 		if !bytes.Equal(hash, newHash) {
 			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
 		}
 	}
 
-	expectSet := func(tree *IAVLTree, i int, repr string, hashCount int) {
+	expectSet := func(tree *Tree, i int, repr string, hashCount int) {
 		origNode := tree.root
-		updated := tree.Set(i2b(i), nil)
+		updated := tree.Set(i2b(i), []byte{})
 		// ensure node was added & structure is as expected.
 		if updated || P(tree.root) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
@@ -198,7 +134,7 @@ func TestUnit(t *testing.T) {
 		tree.root = origNode
 	}
 
-	expectRemove := func(tree *IAVLTree, i int, repr string, hashCount int) {
+	expectRemove := func(tree *Tree, i int, repr string, hashCount int) {
 		origNode := tree.root
 		value, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
@@ -248,13 +184,6 @@ func TestUnit(t *testing.T) {
 
 }
 
-func randBytes(length int) []byte {
-	key := make([]byte, length)
-	// math.rand.Read always returns err=nil
-	mrand.Read(key)
-	return key
-}
-
 func TestRemove(t *testing.T) {
 	size := 10000
 	keyLen, dataLen := 16, 40
@@ -291,7 +220,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var tree *Tree = NewTree(0, nil)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -300,9 +229,7 @@ func TestIntegration(t *testing.T) {
 	for i := range records {
 		r := randomRecord()
 		records[i] = r
-		//t.Log("New record", r)
-		//PrintIAVLNode(tree.root)
-		updated := tree.Set([]byte(r.key), nil)
+		updated := tree.Set([]byte(r.key), []byte{})
 		if updated {
 			t.Error("should have not been updated")
 		}
@@ -322,7 +249,7 @@ func TestIntegration(t *testing.T) {
 		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
-		if _, val, _ := tree.Get([]byte(r.key)); string(val) != string(r.value) {
+		if _, val := tree.Get([]byte(r.key)); string(val) != string(r.value) {
 			t.Error("wrong value")
 		}
 	}
@@ -340,7 +267,7 @@ func TestIntegration(t *testing.T) {
 			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
-			_, val, _ := tree.Get([]byte(r.key))
+			_, val := tree.Get([]byte(r.key))
 			if string(val) != string(r.value) {
 				t.Error("wrong value")
 			}
@@ -375,7 +302,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	var tree *IAVLTree = NewIAVLTree(0, nil)
+	var tree *Tree = NewTree(0, nil)
 
 	// insert all the data
 	for _, r := range records {
@@ -430,34 +357,6 @@ func TestIterateRange(t *testing.T) {
 	trav = traverser{}
 	tree.IterateRange([]byte("g"), nil, false, trav.view)
 	expectTraverse(t, trav, "low", "good", 2)
-
-}
-
-type traverser struct {
-	first string
-	last  string
-	count int
-}
-
-func (t *traverser) view(key, value []byte) bool {
-	if t.first == "" {
-		t.first = string(key)
-	}
-	t.last = string(key)
-	t.count += 1
-	return false
-}
-
-func expectTraverse(t *testing.T, trav traverser, start, end string, count int) {
-	if trav.first != start {
-		t.Error("Bad start", start, trav.first)
-	}
-	if trav.last != end {
-		t.Error("Bad end", end, trav.last)
-	}
-	if trav.count != count {
-		t.Error("Bad count", count, trav.count)
-	}
 }
 
 func TestPersistence(t *testing.T) {
@@ -480,41 +379,14 @@ func TestPersistence(t *testing.T) {
 	t2 := NewVersionedTree(0, db)
 	t2.Load()
 	for key, value := range records {
-		_, t2value, _ := t2.Get([]byte(key))
+		_, t2value := t2.Get([]byte(key))
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}
 	}
 }
 
-func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHashBytes []byte) {
-	// Proof must verify.
-	require.NoError(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
-
-	// Write/Read then verify.
-	proofBytes := proof.Bytes()
-	proof2, err := ReadKeyExistsProof(proofBytes)
-	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
-	require.NoError(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
-
-	// Random mutations must not verify
-	for i := 0; i < 10; i++ {
-		badProofBytes := MutateByteSlice(proofBytes)
-		badProof, err := ReadKeyExistsProof(badProofBytes)
-		// may be invalid... errors are okay
-		if err == nil {
-			assert.Error(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),
-				"Proof was still valid after a random mutation:\n%X\n%X",
-				proofBytes, badProofBytes)
-		}
-	}
-
-	// targetted changes fails...
-	proof.RootHash = MutateByteSlice(proof.RootHash)
-	assert.Error(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
-}
-
-func TestIAVLProof(t *testing.T) {
+func TestProof(t *testing.T) {
 	t.Skipf("This test has a race condition causing it to occasionally panic.")
 
 	// Construct some random tree
@@ -546,9 +418,9 @@ func TestIAVLProof(t *testing.T) {
 	})
 }
 
-func TestIAVLTreeProof(t *testing.T) {
+func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	var tree *IAVLTree = NewIAVLTree(100, db)
+	var tree *Tree = NewTree(100, db)
 
 	// should get false for proof with nil root
 	_, _, err := tree.GetWithProof([]byte("foo"))
@@ -571,46 +443,8 @@ func TestIAVLTreeProof(t *testing.T) {
 	for _, key := range keys {
 		value, proof, err := tree.GetWithProof(key)
 		if assert.NoError(t, err) {
-			require.Nil(t, err, "Failed to read IAVLProof from bytes: %v", err)
+			require.Nil(t, err, "Failed to read proof from bytes: %v", err)
 			assert.NoError(t, proof.Verify(key, value, root))
-		}
-	}
-}
-
-func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackendStr, "")
-	benchmarkImmutableAvlTreeWithDB(b, db)
-}
-
-func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
-	defer db.Close()
-
-	b.StopTimer()
-
-	v := uint64(1)
-	t := NewVersionedTree(100000, db)
-	for i := 0; i < 1000000; i++ {
-		t.Set(i2b(int(RandInt32())), nil)
-		if i > 990000 && i%1000 == 999 {
-			t.SaveVersion(v)
-			v++
-		}
-	}
-	b.ReportAllocs()
-	t.SaveVersion(v)
-
-	fmt.Println("ok, starting")
-
-	runtime.GC()
-
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		ri := i2b(int(RandInt32()))
-		t.Set(ri, nil)
-		t.Remove(ri)
-		if i%100 == 99 {
-			t.SaveVersion(v)
-			v++
 		}
 	}
 }

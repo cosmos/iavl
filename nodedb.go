@@ -66,7 +66,7 @@ func newNodeDB(cacheSize int, db dbm.DB) *nodeDB {
 
 // GetNode gets a node from cache or disk. If it is an inner node, it does not
 // load its children.
-func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
+func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -74,7 +74,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
 		// Already exists. Move to back of nodeCacheQueue.
 		ndb.nodeCacheQueue.MoveToBack(elem)
-		return elem.Value.(*IAVLNode)
+		return elem.Value.(*Node)
 	}
 
 	// Doesn't exist, load.
@@ -83,9 +83,9 @@ func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 		cmn.PanicSanity(cmn.Fmt("Value missing for key %x", hash))
 	}
 
-	node, err := MakeIAVLNode(buf)
+	node, err := MakeNode(buf)
 	if err != nil {
-		cmn.PanicCrisis(cmn.Fmt("Error reading IAVLNode. bytes: %x, error: %v", buf, err))
+		cmn.PanicCrisis(cmn.Fmt("Error reading Node. bytes: %x, error: %v", buf, err))
 	}
 
 	node.hash = hash
@@ -96,7 +96,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *IAVLNode {
 }
 
 // SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *IAVLNode) {
+func (ndb *nodeDB) SaveNode(node *Node) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -147,7 +147,7 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 //
 // Note that this function clears leftNode/rigthNode recursively and calls
 // hashWithCount on the given node.
-func (ndb *nodeDB) SaveBranch(node *IAVLNode, cb func(*IAVLNode)) []byte {
+func (ndb *nodeDB) SaveBranch(node *Node, cb func(*Node)) []byte {
 	if node.persisted {
 		return node.hash
 	}
@@ -383,13 +383,13 @@ func (ndb *nodeDB) uncacheNode(hash []byte) {
 
 // Add a node to the cache and pop the least recently used node if we've
 // reached the cache size limit.
-func (ndb *nodeDB) cacheNode(node *IAVLNode) {
+func (ndb *nodeDB) cacheNode(node *Node) {
 	elem := ndb.nodeCacheQueue.PushBack(node)
 	ndb.nodeCache[string(node.hash)] = elem
 
 	if ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
 		oldest := ndb.nodeCacheQueue.Front()
-		hash := ndb.nodeCacheQueue.Remove(oldest).(*IAVLNode).hash
+		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
 		delete(ndb.nodeCache, string(hash))
 	}
 }
@@ -416,7 +416,7 @@ func (ndb *nodeDB) getRoots() (map[uint64][]byte, error) {
 
 // SaveRoot creates an entry on disk for the given root, so that it can be
 // loaded later.
-func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
+func (ndb *nodeDB) SaveRoot(root *Node, version uint64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -439,10 +439,10 @@ func (ndb *nodeDB) SaveRoot(root *IAVLNode, version uint64) error {
 
 ////////////////// Utility and test functions /////////////////////////////////
 
-func (ndb *nodeDB) leafNodes() []*IAVLNode {
-	leaves := []*IAVLNode{}
+func (ndb *nodeDB) leafNodes() []*Node {
+	leaves := []*Node{}
 
-	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
+	ndb.traverseNodes(func(hash []byte, node *Node) {
 		if node.isLeaf() {
 			leaves = append(leaves, node)
 		}
@@ -450,10 +450,10 @@ func (ndb *nodeDB) leafNodes() []*IAVLNode {
 	return leaves
 }
 
-func (ndb *nodeDB) nodes() []*IAVLNode {
-	nodes := []*IAVLNode{}
+func (ndb *nodeDB) nodes() []*Node {
+	nodes := []*Node{}
 
-	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
+	ndb.traverseNodes(func(hash []byte, node *Node) {
 		nodes = append(nodes, node)
 	})
 	return nodes
@@ -483,11 +483,11 @@ func (ndb *nodeDB) size() int {
 	return size
 }
 
-func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *IAVLNode)) {
-	nodes := []*IAVLNode{}
+func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
+	nodes := []*Node{}
 
 	ndb.traversePrefix([]byte(nodesPrefix), func(key, value []byte) {
-		node, err := MakeIAVLNode(value)
+		node, err := MakeNode(value)
 		if err != nil {
 			cmn.PanicSanity("Couldn't decode node from database")
 		}
@@ -523,7 +523,7 @@ func (ndb *nodeDB) String() string {
 	})
 	str += "\n"
 
-	ndb.traverseNodes(func(hash []byte, node *IAVLNode) {
+	ndb.traverseNodes(func(hash []byte, node *Node) {
 		if len(hash) == 0 {
 			str += fmt.Sprintf("<nil>\n")
 		} else if node == nil {

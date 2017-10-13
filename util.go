@@ -4,23 +4,14 @@ import (
 	"fmt"
 )
 
-// Prints the in-memory children recursively.
-func PrintIAVLNode(node *IAVLNode) {
-	fmt.Println("==== NODE")
-	if node != nil {
-		printIAVLNode(node, 0)
-	}
-	fmt.Println("==== END")
-}
-
-func printIAVLNode(node *IAVLNode, indent int) {
+func printNode(node *Node, indent int) {
 	indentPrefix := ""
 	for i := 0; i < indent; i++ {
 		indentPrefix += "    "
 	}
 
 	if node.rightNode != nil {
-		printIAVLNode(node.rightNode, indent+1)
+		printNode(node.rightNode, indent+1)
 	} else if node.rightHash != nil {
 		fmt.Printf("%s    %X\n", indentPrefix, node.rightHash)
 	}
@@ -28,7 +19,7 @@ func printIAVLNode(node *IAVLNode, indent int) {
 	fmt.Printf("%s%v:%v\n", indentPrefix, node.key, node.height)
 
 	if node.leftNode != nil {
-		printIAVLNode(node.leftNode, indent+1)
+		printNode(node.leftNode, indent+1)
 	} else if node.leftHash != nil {
 		fmt.Printf("%s    %X\n", indentPrefix, node.leftHash)
 	}

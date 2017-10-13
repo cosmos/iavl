@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/go-wire/data"
 )
@@ -41,7 +42,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if key == nil || value == nil {
 		return ErrInvalidInputs
 	}
-	return proof.PathToKey.verify(IAVLProofLeafNode{key, value, proof.Version}, root)
+	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}, root)
 }
 
 // Bytes returns a go-wire binary serialization
@@ -61,8 +62,8 @@ type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
 	Version  uint64     `json:"version"`
 
-	Left  *PathWithNode `json:"left"`
-	Right *PathWithNode `json:"right"`
+	Left  *pathWithNode `json:"left"`
+	Right *pathWithNode `json:"right"`
 }
 
 func (proof *KeyAbsentProof) Root() []byte {
@@ -83,7 +84,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	}
 
 	if proof.Left == nil && proof.Right == nil {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
 		return err

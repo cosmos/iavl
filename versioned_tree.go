@@ -20,7 +20,7 @@ type VersionedTree struct {
 // NewVersionedTree returns a new tree with the specified cache size and datastore.
 func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	ndb := newNodeDB(cacheSize, db)
-	head := &IAVLTree{ndb: ndb}
+	head := &Tree{ndb: ndb}
 
 	return &VersionedTree{
 		orphaningTree: newOrphaningTree(head),
@@ -41,8 +41,8 @@ func (tree *VersionedTree) VersionExists(version uint64) bool {
 }
 
 // Tree returns the current working tree.
-func (tree *VersionedTree) Tree() *IAVLTree {
-	return tree.orphaningTree.IAVLTree
+func (tree *VersionedTree) Tree() *Tree {
+	return tree.orphaningTree.Tree
 }
 
 // Hash returns the hash of the latest saved version of the tree, as returned
@@ -59,6 +59,16 @@ func (tree *VersionedTree) String() string {
 	return tree.ndb.String()
 }
 
+// Set sets a key in the working tree. Nil values are not supported.
+func (tree *VersionedTree) Set(key, val []byte) bool {
+	return tree.orphaningTree.Set(key, val)
+}
+
+// Remove removes a key from the working tree.
+func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
+	return tree.orphaningTree.Remove(key)
+}
+
 // Load a versioned tree from disk. All tree versions are loaded automatically.
 func (tree *VersionedTree) Load() error {
 	roots, err := tree.ndb.getRoots()
@@ -68,7 +78,7 @@ func (tree *VersionedTree) Load() error {
 
 	// Load all roots from the database.
 	for version, root := range roots {
-		t := newOrphaningTree(&IAVLTree{ndb: tree.ndb})
+		t := newOrphaningTree(&Tree{ndb: tree.ndb})
 		t.Load(root)
 
 		tree.versions[version] = t
@@ -78,19 +88,19 @@ func (tree *VersionedTree) Load() error {
 		}
 	}
 	// Set the working tree to a copy of the latest.
-	tree.orphaningTree = tree.versions[tree.latestVersion].Clone()
+	tree.orphaningTree = tree.versions[tree.latestVersion].clone()
 
 	return nil
 }
 
 // GetVersioned gets the value at the specified key and version.
 func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
-	index int, value []byte, exists bool,
+	index int, value []byte,
 ) {
 	if t, ok := tree.versions[version]; ok {
 		return t.Get(key)
 	}
-	return -1, nil, false
+	return -1, nil
 }
 
 // SaveVersion saves a new tree version to disk, based on the current state of
@@ -114,7 +124,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 	tree.versions[version] = tree.orphaningTree
 
 	tree.orphaningTree.SaveVersion(version)
-	tree.orphaningTree = tree.orphaningTree.Clone()
+	tree.orphaningTree = tree.orphaningTree.clone()
 
 	tree.ndb.SaveRoot(tree.root, version)
 	tree.ndb.Commit()
