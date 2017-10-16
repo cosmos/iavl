@@ -1,5 +1,5 @@
 hash: 012a45c86f12211f11600f0e690ce2c29f8c0f806af97b256c807268ccb20cfb
-updated: 2017-09-01T13:35:18.837656965+02:00
+updated: 2017-10-16T18:45:57.800997845+02:00
 imports:
 - name: github.com/go-kit/kit
   version: d67bb4c202e3b91377d1079b110a6c9ce23ab2f8
@@ -41,17 +41,17 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/abci
-  version: 01181721adca98ff9015ad8956a9e5cdc17d87d2
+  version: 15cd7fb1e3b75c436b6dee89a44db35f3d265bd0
   subpackages:
   - client
   - server
   - types
 - name: github.com/tendermint/go-wire
-  version: 5f88da3dbc1a72844e6dfaf274ce87f851d488eb
+  version: 26ee079df7fca1958da8995c727b59759b197534
   subpackages:
   - data
 - name: github.com/tendermint/tmlibs
-  version: bfec1ff1cd7fda9f5b2d8b570e3bec163e5f9149
+  version: cd2ad19db4bab095800ce49ab107e956dc214327
   subpackages:
   - common
   - db

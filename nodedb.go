@@ -8,9 +8,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/syndtr/goleveldb/leveldb/iterator"
-	"github.com/syndtr/goleveldb/leveldb/util"
-
 	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
@@ -328,49 +325,26 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	it := ndb.db.Iterator()
+	defer it.Release()
 
 	for it.Next() {
-		k := make([]byte, len(it.Key()))
-		v := make([]byte, len(it.Value()))
-
-		// Leveldb reuses the memory, we are forced to copy.
-		copy(k, it.Key())
-		copy(v, it.Value())
-
-		fn(k, v)
+		fn(it.Key(), it.Value())
 	}
-	if iter, ok := it.(iterator.Iterator); ok {
-		if err := iter.Error(); err != nil {
-			cmn.PanicSanity(err.Error())
-		}
-		iter.Release()
+	if err := it.Error(); err != nil {
+		cmn.PanicSanity(err.Error())
 	}
 }
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		it := ldb.DB().NewIterator(util.BytesPrefix(prefix), nil)
-		for it.Next() {
-			k := make([]byte, len(it.Key()))
-			v := make([]byte, len(it.Value()))
+	it := ndb.db.IteratorPrefix(prefix)
+	defer it.Release()
 
-			// Leveldb reuses the memory, we are forced to copy.
-			copy(k, it.Key())
-			copy(v, it.Value())
-
-			fn(k, v)
-		}
-		if err := it.Error(); err != nil {
-			cmn.PanicSanity(err.Error())
-		}
-		it.Release()
-	} else {
-		ndb.traverse(func(key, value []byte) {
-			if bytes.HasPrefix(key, prefix) {
-				fn(key, value)
-			}
-		})
+	for it.Next() {
+		fn(it.Key(), it.Value())
+	}
+	if err := it.Error(); err != nil {
+		cmn.PanicSanity(err.Error())
 	}
 }
 
