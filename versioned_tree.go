@@ -11,9 +11,9 @@ var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
-	*orphaningTree                           // The current, working tree.
-	versions       map[uint64]*orphaningTree // The previous, saved versions of the tree.
-	latestVersion  uint64                    // The latest saved version.
+	*orphaningTree                  // The current, working tree.
+	versions       map[uint64]*Tree // The previous, saved versions of the tree.
+	latestVersion  uint64           // The latest saved version.
 	ndb            *nodeDB
 }
 
@@ -24,7 +24,7 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 
 	return &VersionedTree{
 		orphaningTree: newOrphaningTree(head),
-		versions:      map[uint64]*orphaningTree{},
+		versions:      map[uint64]*Tree{},
 		ndb:           ndb,
 	}
 }
@@ -78,8 +78,8 @@ func (tree *VersionedTree) Load() error {
 
 	// Load all roots from the database.
 	for version, root := range roots {
-		t := newOrphaningTree(&Tree{ndb: tree.ndb})
-		t.Load(root)
+		t := &Tree{ndb: tree.ndb}
+		t.load(root)
 
 		tree.versions[version] = t
 
@@ -88,7 +88,9 @@ func (tree *VersionedTree) Load() error {
 		}
 	}
 	// Set the working tree to a copy of the latest.
-	tree.orphaningTree = tree.versions[tree.latestVersion].clone()
+	tree.orphaningTree = newOrphaningTree(
+		tree.versions[tree.latestVersion].clone(),
+	)
 
 	return nil
 }
@@ -121,10 +123,12 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 	}
 
 	tree.latestVersion = version
-	tree.versions[version] = tree.orphaningTree
+	tree.versions[version] = tree.orphaningTree.Tree
 
 	tree.orphaningTree.SaveVersion(version)
-	tree.orphaningTree = tree.orphaningTree.clone()
+	tree.orphaningTree = newOrphaningTree(
+		tree.versions[version].clone(),
+	)
 
 	tree.ndb.SaveRoot(tree.root, version)
 	tree.ndb.Commit()

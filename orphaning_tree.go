@@ -36,32 +36,6 @@ func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
 	return val, removed
 }
 
-// Clone creates a clone of the tree.
-func (tree *orphaningTree) clone() *orphaningTree {
-	inner := &Tree{
-		root: tree.Tree.root,
-		ndb:  tree.Tree.ndb,
-	}
-	return &orphaningTree{
-		Tree:    inner,
-		orphans: map[string]uint64{},
-	}
-}
-
-// Load the tree from disk, from the given root hash, including all orphans.
-func (tree *orphaningTree) Load(root []byte) {
-	if len(root) == 0 {
-		tree.root = nil
-		return
-	}
-	tree.root = tree.ndb.GetNode(root)
-
-	// Load orphans.
-	tree.ndb.traverseOrphansVersion(tree.root.version, func(k, v []byte) {
-		tree.orphans[string(v)] = tree.root.version
-	})
-}
-
 // Unorphan undoes the orphaning of a node, removing the orphan entry on disk
 // if necessary.
 func (tree *orphaningTree) unorphan(hash []byte) {
