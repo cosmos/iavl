@@ -5,6 +5,7 @@ import (
 	"flag"
 	"math/rand"
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -982,4 +983,48 @@ func TestCopyValueSemantics(t *testing.T) {
 
 	_, val = tree.Get([]byte("k"))
 	require.Equal([]byte("v2"), val)
+}
+
+//////////////////////////// BENCHMARKS ///////////////////////////////////////
+
+func BenchmarkTreeLoadAndDelete(b *testing.B) {
+	numVersions := 5000
+	numKeysPerVersion := 10
+
+	d, err := db.NewGoLevelDB("bench", ".")
+	if err != nil {
+		panic(err)
+	}
+	defer d.Close()
+	defer os.RemoveAll("./bench.db")
+
+	tree := NewVersionedTree(0, d)
+	for v := 1; v < numVersions; v++ {
+		for i := 0; i < numKeysPerVersion; i++ {
+			tree.Set([]byte(cmn.RandStr(16)), cmn.RandBytes(32))
+		}
+		tree.SaveVersion(uint64(v))
+	}
+
+	b.Run("LoadAndDelete", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			b.StopTimer()
+			tree = NewVersionedTree(0, d)
+			runtime.GC()
+			b.StartTimer()
+
+			// Load the tree from disk.
+			tree.Load()
+
+			// Delete about 10% of the versions randomly.
+			// The trade-off is usually between load efficiency and delete
+			// efficiency, which is why we do both in this benchmark.
+			// If we can load quickly into a data-structure that allows for
+			// efficient deletes, we are golden.
+			for v := 0; v < numVersions/10; v++ {
+				version := (cmn.RandInt() % numVersions) + 1
+				tree.DeleteVersion(uint64(version))
+			}
+		}
+	})
 }
