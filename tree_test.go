@@ -22,9 +22,27 @@ func init() {
 	flag.Parse()
 }
 
+func getTestDB() (db.DB, func()) {
+	if testLevelDB {
+		d, err := db.NewGoLevelDB("test", ".")
+		if err != nil {
+			panic(err)
+		}
+		return d, func() {
+			d.Close()
+			os.RemoveAll("./test.db")
+		}
+	}
+	return db.NewMemDB(), func() {}
+}
+
 func TestVersionedRandomTree(t *testing.T) {
 	require := require.New(t)
-	tree := NewVersionedTree(100, db.NewMemDB())
+
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewVersionedTree(100, d)
 	versions := 50
 	keysPerVersion := 30
 
@@ -60,7 +78,10 @@ func TestVersionedRandomTree(t *testing.T) {
 
 func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	require := require.New(t)
-	tree := NewVersionedTree(100, db.NewMemDB())
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewVersionedTree(100, d)
 	singleVersionTree := NewVersionedTree(0, db.NewMemDB())
 	versions := 20
 	keysPerVersion := 50
@@ -98,7 +119,10 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	require := require.New(t)
-	tree := NewVersionedTree(100, db.NewMemDB())
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewVersionedTree(100, d)
 	singleVersionTree := NewVersionedTree(0, db.NewMemDB())
 	versions := 30
 	keysPerVersion := 50
@@ -174,18 +198,8 @@ func TestVersionedRandomTreeSpecial2(t *testing.T) {
 
 func TestVersionedTree(t *testing.T) {
 	require := require.New(t)
-
-	var d db.DB
-	var err error
-
-	if testLevelDB {
-		d, err = db.NewGoLevelDB("test", ".")
-		require.NoError(err)
-		defer d.Close()
-		defer os.RemoveAll("./test.db")
-	} else {
-		d = db.NewMemDB()
-	}
+	d, closeDB := getTestDB()
+	defer closeDB()
 
 	tree := NewVersionedTree(100, d)
 
@@ -367,7 +381,10 @@ func TestVersionedTree(t *testing.T) {
 }
 
 func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
-	tree := NewVersionedTree(0, db.NewMemDB())
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewVersionedTree(0, d)
 
 	tree.Set([]byte("key0"), []byte("val0"))
 	tree.Set([]byte("key1"), []byte("val0"))
@@ -592,7 +609,10 @@ func TestVersionedTreeErrors(t *testing.T) {
 
 func TestVersionedCheckpoints(t *testing.T) {
 	require := require.New(t)
-	tree := NewVersionedTree(100, db.NewMemDB())
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewVersionedTree(100, d)
 	versions := 50
 	keysPerVersion := 10
 	versionsPerCheckpoint := 5
