@@ -1,5 +1,5 @@
 hash: 012a45c86f12211f11600f0e690ce2c29f8c0f806af97b256c807268ccb20cfb
-updated: 2017-10-16T18:45:57.800997845+02:00
+updated: 2017-10-17T14:41:43.838457743+02:00
 imports:
 - name: github.com/go-kit/kit
   version: d67bb4c202e3b91377d1079b110a6c9ce23ab2f8
@@ -51,7 +51,7 @@ imports:
   subpackages:
   - data
 - name: github.com/tendermint/tmlibs
-  version: cd2ad19db4bab095800ce49ab107e956dc214327
+  version: 8e5266a9ef2527e68a1571f932db8228a331b556
   subpackages:
   - common
   - db
