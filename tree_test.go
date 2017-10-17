@@ -914,7 +914,7 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NoError(proof.Verify([]byte("k2"), nil, root3))
 	require.Error(proof.Verify([]byte("k2"), nil, root1))
 	require.Error(proof.Verify([]byte("k2"), nil, root2))
-	require.EqualValues(3, proof.(*KeyAbsentProof).Version)
+	require.EqualValues(1, proof.(*KeyAbsentProof).Version)
 }
 
 func TestVersionedTreeHash(t *testing.T) {

@@ -52,7 +52,12 @@ func (tree *orphaningTree) SaveVersion(version uint64) {
 	// may mirror previous tree patterns, with matching hashes.
 	tree.ndb.SaveBranch(tree.root, func(node *Node) {
 		// The node version is set here since it isn't known until we save.
-		node.version = version
+		// Note that we only want to set the version for inner nodes the first
+		// time, as they represent the beginning of the lifetime of that node.
+		// So unless it's a leaf node, we only update version when it's 0.
+		if node.version == 0 || node.isLeaf() {
+			node.version = version
+		}
 		tree.unorphan(node._hash())
 	})
 	tree.ndb.SaveOrphans(version, tree.orphans)

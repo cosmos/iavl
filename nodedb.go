@@ -104,15 +104,6 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 		cmn.PanicSanity("Shouldn't be calling save on an already persisted node.")
 	}
 
-	// Don't overwrite nodes.
-	// This is here because inner nodes are overwritten otherwise, losing
-	// version information, due to the version not affecting the hash.
-	// Adding the version to the hash breaks a lot of things, so this
-	// seems like the best solution for now.
-	if ndb.Has(node.hash) {
-		return
-	}
-
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
 	if _, err := node.writeBytes(buf); err != nil {
