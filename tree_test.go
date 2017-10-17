@@ -216,7 +216,7 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(tree.ndb.leafNodes(), 0)
 
 	// Saving with version zero is an error.
-	_, err = tree.SaveVersion(0)
+	_, err := tree.SaveVersion(0)
 	require.Error(err)
 
 	// Now let's write the keys to storage.
