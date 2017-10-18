@@ -319,8 +319,8 @@ func (ndb *nodeDB) deleteRoot(version uint64) {
 	}
 
 	_, prev, next := ndb.getRoot(version)
-	ndb.updateRootNext(prev, next)
-	ndb.updateRootPrev(next, prev)
+	ndb.setRootNext(prev, next)
+	ndb.setRootPrev(next, prev)
 }
 
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
@@ -404,26 +404,15 @@ func (ndb *nodeDB) SaveRoot(root *Node, version uint64) error {
 	// Note that we don't use the version attribute of the root. This is
 	// because we might be saving an old root at a new version in the case
 	// where the tree wasn't modified between versions.
-	key := ndb.rootKey(version)
 	latest := ndb.getLatestVersion()
-	ndb.updateRootNext(latest, version)
-
-	val := rootValue{
-		Hash: root.hash,
-		Prev: latest,
-		Next: 0,
-	}
-	ndb.batch.Set(key, wire.BinaryBytes(val))
+	ndb.setRootNext(latest, version)
+	ndb.setRoot(version, root.hash, latest, 0)
 	ndb.batch.Set(latestRootKey, wire.BinaryBytes(version))
 
 	return nil
 }
 
-func (ndb *nodeDB) updateRootNext(root, next uint64) {
-	if root == 0 {
-		return
-	}
-	hash, prev, _ := ndb.getRoot(root)
+func (ndb *nodeDB) setRoot(root uint64, hash []byte, prev, next uint64) {
 	val := rootValue{
 		Hash: hash,
 		Prev: prev,
@@ -432,17 +421,14 @@ func (ndb *nodeDB) updateRootNext(root, next uint64) {
 	ndb.batch.Set(ndb.rootKey(root), wire.BinaryBytes(val))
 }
 
-func (ndb *nodeDB) updateRootPrev(root, prev uint64) {
-	if root == 0 {
-		return
-	}
+func (ndb *nodeDB) setRootNext(root, next uint64) {
+	hash, prev, _ := ndb.getRoot(root)
+	ndb.setRoot(root, hash, prev, next)
+}
+
+func (ndb *nodeDB) setRootPrev(root, prev uint64) {
 	hash, _, next := ndb.getRoot(root)
-	val := rootValue{
-		Hash: hash,
-		Prev: prev,
-		Next: next,
-	}
-	ndb.batch.Set(ndb.rootKey(root), wire.BinaryBytes(val))
+	ndb.setRoot(root, hash, prev, next)
 }
 
 ////////////////// Utility and test functions /////////////////////////////////
