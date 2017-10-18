@@ -60,7 +60,9 @@ func (tree *orphaningTree) SaveVersion(version uint64) {
 		}
 		tree.unorphan(node._hash())
 	})
-	tree.ndb.SaveOrphans(version, tree.orphans)
+	tree.ndb.SaveRoot(tree.root, version)
+	tree.ndb.SaveOrphans(tree.orphans)
+	tree.ndb.Commit()
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.

@@ -988,7 +988,7 @@ func TestCopyValueSemantics(t *testing.T) {
 //////////////////////////// BENCHMARKS ///////////////////////////////////////
 
 func BenchmarkTreeLoadAndDelete(b *testing.B) {
-	numVersions := 5000
+	numVersions := 1000
 	numKeysPerVersion := 10
 
 	d, err := db.NewGoLevelDB("bench", ".")
@@ -1024,6 +1024,13 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 			for v := 0; v < numVersions/10; v++ {
 				version := (cmn.RandInt() % numVersions) + 1
 				tree.DeleteVersion(uint64(version))
+			}
+
+			for v := 0; v < numVersions/10; v++ {
+				for i := 0; i < numKeysPerVersion; i++ {
+					tree.Set([]byte(cmn.RandStr(16)), cmn.RandBytes(32))
+				}
+				tree.SaveVersion(tree.LatestVersion() + 1)
 			}
 		}
 	})

@@ -71,13 +71,8 @@ func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
 
 // Load a versioned tree from disk. All tree versions are loaded automatically.
 func (tree *VersionedTree) Load() error {
-	roots, err := tree.ndb.getRoots()
-	if err != nil {
-		return err
-	}
-
 	// Load all roots from the database.
-	for version, root := range roots {
+	tree.ndb.traverseVersions(func(root []byte, version uint64) {
 		t := &Tree{ndb: tree.ndb}
 		t.load(root)
 
@@ -86,7 +81,7 @@ func (tree *VersionedTree) Load() error {
 		if version > tree.latestVersion {
 			tree.latestVersion = version
 		}
-	}
+	})
 	// Set the working tree to a copy of the latest.
 	tree.orphaningTree = newOrphaningTree(
 		tree.versions[tree.latestVersion].clone(),
@@ -129,9 +124,6 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 	tree.orphaningTree = newOrphaningTree(
 		tree.versions[version].clone(),
 	)
-
-	tree.ndb.SaveRoot(tree.root, version)
-	tree.ndb.Commit()
 
 	return tree.root.hash, nil
 }
