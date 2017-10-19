@@ -75,6 +75,9 @@ func (tree *VersionedTree) Load() error {
 	if err != nil {
 		return err
 	}
+	if len(roots) == 0 {
+		return nil
+	}
 
 	// Load all roots from the database.
 	for version, root := range roots {
@@ -87,6 +90,7 @@ func (tree *VersionedTree) Load() error {
 			tree.latestVersion = version
 		}
 	}
+
 	// Set the working tree to a copy of the latest.
 	tree.orphaningTree = newOrphaningTree(
 		tree.versions[tree.latestVersion].clone(),

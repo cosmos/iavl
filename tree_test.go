@@ -541,6 +541,9 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	d := db.NewMemDB()
 	tree := NewVersionedTree(0, d)
 
+	// Loading with an empty root is a no-op.
+	tree.Load()
+
 	tree.Set([]byte("C"), []byte("so43QQFN"))
 	tree.SaveVersion(1)
 
