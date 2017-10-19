@@ -1,5 +1,7 @@
 ## IAVL+ Tree
 
+**Note: Requires Go 1.8+**
+
 A versioned, snapshottable (immutable) AVL+ tree for persistent data.
 
 The purpose of this data structure is to provide persistent storage for key-value pairs (say to store account balances) such that a deterministic merkle root hash can be computed.  The tree is balanced using a variant of the [AVL algortihm](http://en.wikipedia.org/wiki/AVL_tree) so all operations are O(log(n)).
