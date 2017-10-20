@@ -569,6 +569,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree := NewVersionedTree(0, d)
 	ntree.Load()
 
+	require.False(ntree.IsEmpty())
 	require.Equal(uint64(6), ntree.LatestVersion())
 
 	postHash := ntree.Hash()
@@ -584,6 +585,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.DeleteVersion(4)
 	ntree.DeleteVersion(3)
 
+	require.False(ntree.IsEmpty())
 	require.Equal(4, ntree.Size())
 	require.Len(ntree.ndb.nodes(), ntree.nodeSize())
 }
