@@ -34,6 +34,12 @@ func (tree *VersionedTree) LatestVersion() uint64 {
 	return tree.latestVersion
 }
 
+// IsEmpty returns whether or not the tree has any keys. Only trees that are
+// not empty can be saved.
+func (tree *VersionedTree) IsEmpty() bool {
+	return tree.orphaningTree.Size() == 0
+}
+
 // VersionExists returns whether or not a version exists.
 func (tree *VersionedTree) VersionExists(version uint64) bool {
 	_, ok := tree.versions[version]

@@ -206,6 +206,7 @@ func TestVersionedTree(t *testing.T) {
 
 	// We start with zero keys in the databse.
 	require.Equal(0, tree.ndb.size())
+	require.True(tree.IsEmpty())
 
 	// version 0
 
@@ -214,6 +215,7 @@ func TestVersionedTree(t *testing.T) {
 
 	// Still zero keys, since we haven't written them.
 	require.Len(tree.ndb.leafNodes(), 0)
+	require.False(tree.IsEmpty())
 
 	// Saving with version zero is an error.
 	_, err := tree.SaveVersion(0)
@@ -222,6 +224,7 @@ func TestVersionedTree(t *testing.T) {
 	// Now let's write the keys to storage.
 	hash1, err := tree.SaveVersion(1)
 	require.NoError(err)
+	require.False(tree.IsEmpty())
 
 	// Saving twice with the same version is an error.
 	_, err = tree.SaveVersion(1)
