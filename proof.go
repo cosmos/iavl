@@ -41,6 +41,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	n, err := int(0), error(nil)
+
 	wire.WriteInt8(branch.Height, buf, &n, &err)
 	wire.WriteVarint(branch.Size, buf, &n, &err)
 
@@ -55,6 +56,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 		cmn.PanicCrisis(cmn.Fmt("Failed to hash proofInnerNode: %v", err))
 	}
 	hasher.Write(buf.Bytes())
+
 	return hasher.Sum(nil)
 }
 
@@ -68,15 +70,18 @@ func (leaf proofLeafNode) Hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	n, err := int(0), error(nil)
+
 	wire.WriteInt8(0, buf, &n, &err)
 	wire.WriteVarint(1, buf, &n, &err)
 	wire.WriteByteSlice(leaf.KeyBytes, buf, &n, &err)
 	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
 	wire.WriteUint64(leaf.Version, buf, &n, &err)
+
 	if err != nil {
 		cmn.PanicCrisis(cmn.Fmt("Failed to hash proofLeafNode: %v", err))
 	}
 	hasher.Write(buf.Bytes())
+
 	return hasher.Sum(nil)
 }
 
@@ -194,6 +199,7 @@ func (t *Tree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 		return nil, errors.WithStack(ErrNilRoot)
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
+
 	proof := &KeyAbsentProof{
 		RootHash: t.root.hash,
 		Version:  t.root.version,
