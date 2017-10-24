@@ -172,7 +172,7 @@ func (t *Tree) constructKeyAbsentProof(key []byte, proof *KeyAbsentProof) error 
 
 func (t *Tree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, err error) {
 	if t.root == nil {
-		return nil, nil, ErrNilRoot
+		return nil, nil, errors.WithStack(ErrNilRoot)
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
@@ -191,7 +191,7 @@ func (t *Tree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, er
 
 func (t *Tree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
-		return nil, ErrNilRoot
+		return nil, errors.WithStack(ErrNilRoot)
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 	proof := &KeyAbsentProof{
