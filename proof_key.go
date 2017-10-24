@@ -37,10 +37,10 @@ func (proof *KeyExistsProof) Root() []byte {
 // Verify verifies the proof is valid and returns an error if it isn't.
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return ErrInvalidRoot
+		return errors.WithStack(ErrInvalidRoot)
 	}
 	if key == nil || value == nil {
-		return ErrInvalidInputs
+		return errors.WithStack(ErrInvalidInputs)
 	}
 	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}, root)
 }
@@ -77,7 +77,7 @@ func (p *KeyAbsentProof) String() string {
 // Verify verifies the proof is valid and returns an error if it isn't.
 func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return ErrInvalidRoot
+		return errors.WithStack(ErrInvalidRoot)
 	}
 	if key == nil || value != nil {
 		return ErrInvalidInputs
