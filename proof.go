@@ -9,7 +9,7 @@ import (
 
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/go-wire/data"
-	. "github.com/tendermint/tmlibs/common"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 var (
@@ -52,7 +52,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 		wire.WriteByteSlice(childHash, buf, &n, &err)
 	}
 	if err != nil {
-		PanicCrisis(Fmt("Failed to hash proofInnerNode: %v", err))
+		cmn.PanicCrisis(cmn.Fmt("Failed to hash proofInnerNode: %v", err))
 	}
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
@@ -74,7 +74,7 @@ func (leaf proofLeafNode) Hash() []byte {
 	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
 	wire.WriteUint64(leaf.Version, buf, &n, &err)
 	if err != nil {
-		PanicCrisis(Fmt("Failed to hash proofLeafNode: %v", err))
+		cmn.PanicCrisis(cmn.Fmt("Failed to hash proofLeafNode: %v", err))
 	}
 	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
