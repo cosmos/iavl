@@ -614,6 +614,17 @@ func TestVersionedTreeErrors(t *testing.T) {
 
 	// Can't delete current version.
 	require.Error(tree.DeleteVersion(1))
+
+	// Trying to get a key from a version which doesn't exist.
+	_, val := tree.GetVersioned([]byte("key"), 404)
+	require.Nil(val)
+
+	// Same thing with proof. We get an error because a proof couldn't be
+	// constructed.
+	val, proof, err := tree.GetVersionedWithProof([]byte("key"), 404)
+	require.Nil(val)
+	require.Nil(proof)
+	require.Error(err)
 }
 
 func TestVersionedCheckpoints(t *testing.T) {
