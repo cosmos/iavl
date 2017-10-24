@@ -5,12 +5,17 @@
 //  ...
 //
 //  tree := iavl.NewVersionedTree(128, db.NewMemDB())
+//
+//  tree.IsEmpty() // true
+//
 //  tree.Set([]byte("alice"), []byte("abc"))
 //  tree.SaveVersion(1)
 //
 //  tree.Set([]byte("alice"), []byte("xyz"))
 //  tree.Set([]byte("bob"), []byte("xyz"))
 //  tree.SaveVersion(2)
+//
+//  tree.LatestVersion() // 2
 //
 //  tree.GetVersioned([]byte("alice"), 1) // "abc"
 //  tree.GetVersioned([]byte("alice"), 2) // "xyz"
@@ -29,10 +34,9 @@
 // Now we delete an old version:
 //
 //  tree.DeleteVersion(1)
+//  tree.VersionExists(1) // false
 //  tree.Get([]byte("alice")) // "xyz"
 //  tree.GetVersioned([]byte("alice"), 1) // nil
-//
-//  tree.LatestVersion() // 2
 //
 // Can't create a proof of absence for a version we no longer have:
 //
