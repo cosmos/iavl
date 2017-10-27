@@ -10,7 +10,7 @@ import (
 // Note that the nodes are ordered such that the last one is closest
 // to the root of the tree.
 type PathToKey struct {
-	InnerNodes []IAVLProofInnerNode `json:"inner_nodes"`
+	InnerNodes []proofInnerNode `json:"inner_nodes"`
 }
 
 func (p *PathToKey) String() string {
@@ -23,13 +23,13 @@ func (p *PathToKey) String() string {
 
 // verify check that the leafNode's hash matches the path's LeafHash and that
 // the root is the merkle hash of all the inner nodes.
-func (p *PathToKey) verify(leafNode IAVLProofLeafNode, root []byte) error {
-	leafHash := leafNode.Hash()
+func (p *PathToKey) verify(leafNode proofLeafNode, root []byte) error {
+	hash := leafNode.Hash()
 	for _, branch := range p.InnerNodes {
-		leafHash = branch.Hash(leafHash)
+		hash = branch.Hash(hash)
 	}
-	if !bytes.Equal(root, leafHash) {
-		return ErrInvalidProof()
+	if !bytes.Equal(root, hash) {
+		return errors.WithStack(ErrInvalidProof)
 	}
 	return nil
 }
@@ -86,35 +86,35 @@ func (p *PathToKey) isLeftAdjacentTo(p2 *PathToKey) bool {
 }
 
 // PathWithNode is a path to a key which includes the leaf node at that key.
-type PathWithNode struct {
-	Path *PathToKey        `json:"path"`
-	Node IAVLProofLeafNode `json:"node"`
+type pathWithNode struct {
+	Path *PathToKey    `json:"path"`
+	Node proofLeafNode `json:"node"`
 }
 
-func (p *PathWithNode) verify(root []byte) error {
+func (p *pathWithNode) verify(root []byte) error {
 	return p.Path.verify(p.Node, root)
 }
 
 // verifyPaths verifies the left and right paths individually, and makes sure
 // the ordering is such that left < startKey <= endKey < right.
-func verifyPaths(left, right *PathWithNode, startKey, endKey, root []byte) error {
+func verifyPaths(left, right *pathWithNode, startKey, endKey, root []byte) error {
 	if bytes.Compare(startKey, endKey) == 1 {
 		return ErrInvalidInputs
 	}
 	if left != nil {
 		if err := left.verify(root); err != nil {
-			return ErrInvalidProof()
+			return err
 		}
 		if !left.Node.isLesserThan(startKey) {
-			return ErrInvalidProof()
+			return errors.WithStack(ErrInvalidProof)
 		}
 	}
 	if right != nil {
 		if err := right.verify(root); err != nil {
-			return ErrInvalidProof()
+			return err
 		}
 		if !right.Node.isGreaterThan(endKey) {
-			return ErrInvalidProof()
+			return errors.WithStack(ErrInvalidProof)
 		}
 	}
 	return nil
@@ -140,7 +140,7 @@ func verifyNoMissingKeys(paths []*PathToKey) error {
 
 // Checks that with the given left and right paths, no keys can exist in between.
 // Supports nil paths to signify out-of-range.
-func verifyKeyAbsence(left, right *PathWithNode) error {
+func verifyKeyAbsence(left, right *pathWithNode) error {
 	if left != nil && left.Path.isRightmost() {
 		// Range starts outside of the right boundary.
 		return nil
@@ -152,5 +152,5 @@ func verifyKeyAbsence(left, right *PathWithNode) error {
 		// Range is between two existing keys.
 		return nil
 	}
-	return ErrInvalidProof()
+	return errors.WithStack(ErrInvalidProof)
 }

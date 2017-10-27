@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/tendermint/go-wire"
 	"github.com/tendermint/go-wire/data"
 )
@@ -16,11 +17,16 @@ type KeyProof interface {
 
 	// Root returns the root hash of the proof.
 	Root() []byte
+
+	// Serialize itself
+	Bytes() []byte
 }
 
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
-	RootHash   data.Bytes `json:"root_hash"`
+	RootHash data.Bytes `json:"root_hash"`
+	Version  uint64     `json:"version"`
+
 	*PathToKey `json:"path"`
 }
 
@@ -31,28 +37,33 @@ func (proof *KeyExistsProof) Root() []byte {
 // Verify verifies the proof is valid and returns an error if it isn't.
 func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return ErrInvalidRoot
+		return errors.WithStack(ErrInvalidRoot)
 	}
 	if key == nil || value == nil {
-		return ErrInvalidInputs
+		return errors.WithStack(ErrInvalidInputs)
 	}
-	return proof.PathToKey.verify(IAVLProofLeafNode{key, value}, root)
+	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}, root)
+}
+
+// Bytes returns a go-wire binary serialization
+func (proof *KeyExistsProof) Bytes() []byte {
+	return wire.BinaryBytes(proof)
 }
 
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
 func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
-	// TODO: make go-wire never panic
-	n, err := int(0), error(nil)
-	proof := wire.ReadBinary(&KeyExistsProof{}, bytes.NewBuffer(data), proofLimit, &n, &err).(*KeyExistsProof)
+	proof := new(KeyExistsProof)
+	err := wire.ReadBinaryBytes(data, &proof)
 	return proof, err
 }
 
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
+	Version  uint64     `json:"version"`
 
-	Left  *PathWithNode `json:"left"`
-	Right *PathWithNode `json:"right"`
+	Left  *pathWithNode `json:"left"`
+	Right *pathWithNode `json:"right"`
 }
 
 func (proof *KeyAbsentProof) Root() []byte {
@@ -66,18 +77,30 @@ func (p *KeyAbsentProof) String() string {
 // Verify verifies the proof is valid and returns an error if it isn't.
 func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return ErrInvalidRoot
+		return errors.WithStack(ErrInvalidRoot)
 	}
 	if key == nil || value != nil {
 		return ErrInvalidInputs
 	}
 
 	if proof.Left == nil && proof.Right == nil {
-		return ErrInvalidProof()
+		return errors.WithStack(ErrInvalidProof)
 	}
 	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
 		return err
 	}
 
 	return verifyKeyAbsence(proof.Left, proof.Right)
+}
+
+// Bytes returns a go-wire binary serialization
+func (proof *KeyAbsentProof) Bytes() []byte {
+	return wire.BinaryBytes(proof)
+}
+
+// ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
+func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
+	proof := new(KeyAbsentProof)
+	err := wire.ReadBinaryBytes(data, &proof)
+	return proof, err
 }

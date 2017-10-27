@@ -41,11 +41,11 @@ var defaultGraphNodeAttrs = map[string]string{
 	"shape": "circle",
 }
 
-func WriteDOTGraph(w io.Writer, tree *IAVLTree, paths []*PathToKey) {
+func WriteDOTGraph(w io.Writer, tree *Tree, paths []*PathToKey) {
 	ctx := &graphContext{}
 
 	tree.root.hashWithCount()
-	tree.root.traverse(tree, true, func(node *IAVLNode) bool {
+	tree.root.traverse(tree, true, func(node *Node) bool {
 		graphNode := &graphNode{
 			Attrs: map[string]string{},
 			Hash:  fmt.Sprintf("%x", node.hash),
@@ -55,8 +55,9 @@ func WriteDOTGraph(w io.Writer, tree *IAVLTree, paths []*PathToKey) {
 		}
 		shortHash := graphNode.Hash[:7]
 
-		graphNode.Label = mkLabel(fmt.Sprintf("%x", node.key), 16, "sans-serif")
+		graphNode.Label = mkLabel(fmt.Sprintf("%s", node.key), 16, "sans-serif")
 		graphNode.Label += mkLabel(shortHash, 10, "monospace")
+		graphNode.Label += mkLabel(fmt.Sprintf("version=%d", node.version), 10, "monospace")
 
 		if node.value != nil {
 			graphNode.Label += mkLabel(string(node.value), 10, "sans-serif")
