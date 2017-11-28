@@ -7,7 +7,7 @@ import (
 )
 
 // TreeSize is the number of nodes in our test trees
-const TreeSize = 1000
+const TreeSize = 10000
 
 func TestSerialize(t *testing.T) {
 	require := require.New(t)
@@ -16,22 +16,25 @@ func TestSerialize(t *testing.T) {
 		algo     SerializeFunc
 		sameHash bool
 	}{
-		{InOrderSerializer, false},
+		{InOrderSerialize, false},
+		{StableSerialize, true},
 	}
 
 	for i, tc := range cases {
 		tree := makeRandomTree(TreeSize)
 		stored := tc.algo(tree)
 		require.NotNil(stored, "%d", i)
-		require.Equal(len(stored), tree.Size(), "%d", i)
+		require.Equal(tree.Size(), len(stored), "%d", i)
 		origHash := tree.Hash()
+		require.NotNil(origHash)
 
 		empty := NewTree(TreeSize, nil)
 		require.Equal(0, empty.Size(), "%d", i)
 		Restore(empty, stored)
-		require.Equal(len(stored), empty.Size(), "%d", i)
+		require.Equal(tree.Size(), empty.Size(), "%d", i)
 
 		newHash := empty.Hash()
+		require.NotNil(newHash)
 		if tc.sameHash {
 			require.Equal(origHash, newHash, "%d", i)
 		} else {
