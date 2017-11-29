@@ -44,23 +44,16 @@ func (tree *orphaningTree) unorphan(hash []byte) {
 }
 
 // Save the underlying Tree. Saves orphans too.
-func (tree *orphaningTree) SaveVersion(version int64) {
-	// Save the current tree at the given version. For each saved node, we
-	// delete any existing orphan entries in the previous trees.
-	// This is necessary because sometimes tree re-balancing causes nodes to be
-	// incorrectly marked as orphaned, since tree patterns after a re-balance
-	// may mirror previous tree patterns, with matching hashes.
+func (tree *orphaningTree) Save() {
+	// Save the current tree. For each saved node, we delete any existing
+	// orphan entries in the previous trees.  This is necessary because
+	// sometimes tree re-balancing causes nodes to be incorrectly marked as
+	// orphaned, since tree patterns after a re-balance may mirror previous
+	// tree patterns, with matching hashes.
 	tree.ndb.SaveBranch(tree.root, func(node *Node) {
-		// The node version is set here since it isn't known until we save.
-		// Note that we only want to set the version for inner nodes the first
-		// time, as they represent the beginning of the lifetime of that node.
-		// So unless it's a leaf node, we only update version when it's 0.
-		if node.version == 0 || node.isLeaf() {
-			node.version = version
-		}
 		tree.unorphan(node._hash())
 	})
-	tree.ndb.SaveOrphans(version, tree.orphans)
+	tree.ndb.SaveOrphans(tree.version+1, tree.orphans)
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.

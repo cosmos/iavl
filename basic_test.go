@@ -208,7 +208,7 @@ func TestRemove(t *testing.T) {
 			key := keys[mrand.Int31n(l)]
 			t1.Remove(key)
 		}
-		t1.SaveVersion(int64(i))
+		t1.SaveVersion()
 	}
 }
 
@@ -373,7 +373,7 @@ func TestPersistence(t *testing.T) {
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
-	t1.SaveVersion(1)
+	t1.SaveVersion()
 
 	// Load a tree
 	t2 := NewVersionedTree(0, db)
@@ -398,7 +398,7 @@ func TestProof(t *testing.T) {
 	}
 
 	// Persist the items so far
-	tree.SaveVersion(1)
+	tree.SaveVersion()
 
 	// Add more items so it's not all persisted
 	for i := 0; i < 100; i++ {
