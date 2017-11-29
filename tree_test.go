@@ -218,10 +218,10 @@ func TestVersionedTree(t *testing.T) {
 	require.False(tree.IsEmpty())
 
 	// Now let's write the keys to storage.
-	hash1, err := tree.SaveVersion()
-	println(tree.String())
+	hash1, v, err := tree.SaveVersion()
 	require.NoError(err)
 	require.False(tree.IsEmpty())
+	require.EqualValues(1, v)
 
 	// -----1-----
 	// key1 = val0  version=1
@@ -239,9 +239,10 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key3"), []byte("val1"))
 	require.Len(tree.ndb.leafNodes(), len(nodes1))
 
-	hash2, err := tree.SaveVersion()
+	hash2, v2, err := tree.SaveVersion()
 	require.NoError(err)
 	require.False(bytes.Equal(hash1, hash2))
+	require.EqualValues(v+1, v2)
 
 	// Recreate a new tree and load it, to make sure it works in this
 	// scenario.
@@ -267,7 +268,7 @@ func TestVersionedTree(t *testing.T) {
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 
-	hash3, _ := tree.SaveVersion()
+	hash3, _, _ := tree.SaveVersion()
 
 	// -----1-----
 	// key1 = val0  <orphaned> (replaced)
@@ -284,7 +285,7 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(nodes3, 6, "wrong number of nodes")
 	require.Len(tree.ndb.orphans(), 6, "wrong number of orphans")
 
-	hash4, _ := tree.SaveVersion()
+	hash4, _, _ := tree.SaveVersion()
 	require.EqualValues(hash3, hash4)
 	require.NotNil(hash4)
 
@@ -589,7 +590,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 	tree := NewVersionedTree(100, db.NewMemDB())
 
 	// Can't save with empty tree.
-	_, err := tree.SaveVersion()
+	_, _, err := tree.SaveVersion()
 	require.Error(err)
 
 	// Can't delete non-existent versions.
@@ -599,7 +600,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 	tree.Set([]byte("key"), []byte("val"))
 
 	// Saving with content is ok.
-	_, err = tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
 	require.NoError(err)
 
 	// Can't delete current version.
@@ -955,12 +956,12 @@ func TestVersionedTreeHash(t *testing.T) {
 	tree.Set([]byte("I"), []byte("D"))
 	require.Nil(tree.Hash())
 
-	hash1, _ := tree.SaveVersion()
+	hash1, _, _ := tree.SaveVersion()
 
 	tree.Set([]byte("I"), []byte("F"))
 	require.EqualValues(hash1, tree.Hash())
 
-	hash2, _ := tree.SaveVersion()
+	hash2, _, _ := tree.SaveVersion()
 
 	val, proof, err := tree.GetVersionedWithProof([]byte("I"), 2)
 	require.NoError(err)
