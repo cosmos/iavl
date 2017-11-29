@@ -177,7 +177,11 @@ func (proof *KeyRangeProof) Verify(
 	// If we've reached this point, it means our range isn't empty, and we have
 	// a list of keys.
 	for i, path := range proof.PathToKeys {
-		leafNode := proofLeafNode{KeyBytes: keys[i], ValueBytes: values[i]}
+		leafNode := proofLeafNode{
+			KeyBytes:   keys[i],
+			ValueBytes: values[i],
+			Version:    proof.Version,
+		}
 		if err := path.verify(leafNode, root); err != nil {
 			return errors.WithStack(err)
 		}
@@ -231,7 +235,7 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
-	rangeProof = &KeyRangeProof{RootHash: t.root.hash}
+	rangeProof = &KeyRangeProof{RootHash: t.root.hash, Version: t.root.version}
 	rangeStart, rangeEnd := keyStart, keyEnd
 	ascending := bytes.Compare(keyStart, keyEnd) == -1
 	if !ascending {
@@ -296,10 +300,10 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 		// leftmost key.
 		if idx, _ := t.Get(rangeStart); idx > 0 {
 			lkey, lval := t.GetByIndex(idx - 1)
-			path, _, _ := t.root.pathToKey(t, lkey)
+			path, node, _ := t.root.pathToKey(t, lkey)
 			rangeProof.Left = &pathWithNode{
 				Path: path,
-				Node: proofLeafNode{KeyBytes: lkey, ValueBytes: lval},
+				Node: proofLeafNode{lkey, lval, node.version},
 			}
 		}
 	}
@@ -312,10 +316,10 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 		// rightmost key.
 		if idx, _ := t.Get(rangeEnd); idx <= t.Size()-1 {
 			rkey, rval := t.GetByIndex(idx)
-			path, _, _ := t.root.pathToKey(t, rkey)
+			path, node, _ := t.root.pathToKey(t, rkey)
 			rangeProof.Right = &pathWithNode{
 				Path: path,
-				Node: proofLeafNode{KeyBytes: rkey, ValueBytes: rval},
+				Node: proofLeafNode{rkey, rval, node.version},
 			}
 		}
 	}
@@ -332,6 +336,7 @@ func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 	proof = &KeyFirstInRangeProof{}
 	proof.RootHash = t.root.hash
+	proof.Version = t.root.version
 
 	// Get the first value in the range.
 	t.IterateRangeInclusive(keyStart, keyEnd, true, func(k, v []byte) bool {
@@ -378,6 +383,7 @@ func (t *Tree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 
 	proof = &KeyLastInRangeProof{}
 	proof.RootHash = t.root.hash
+	proof.Version = t.root.version
 
 	// Get the last value in the range.
 	t.IterateRangeInclusive(keyStart, keyEnd, false, func(k, v []byte) bool {

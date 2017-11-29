@@ -160,6 +160,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x72}),
+					Version:   1,
 				},
 				Left: &pathWithNode{
 					dummyPathToKey(tree, []byte{0x50}),
@@ -192,6 +193,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0xf7}),
+					Version:   1,
 				},
 			},
 			expectedError: ErrInvalidInputs,
@@ -206,6 +208,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x0a}),
+					Version:   1,
 				},
 			},
 			expectedError: ErrInvalidInputs,
@@ -220,6 +223,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0x11}),
+					Version:   1,
 				},
 				Right: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xf7}),
@@ -237,6 +241,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 			proof: &KeyFirstInRangeProof{
 				KeyExistsProof: KeyExistsProof{
 					RootHash: root,
+					Version:  1,
 				},
 				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
@@ -259,6 +264,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 				KeyExistsProof: KeyExistsProof{
 					RootHash:  root,
 					PathToKey: dummyPathToKey(tree, []byte{0xa1}),
+					Version:   1,
 				},
 				Left: &pathWithNode{
 					Path: dummyPathToKey(tree, []byte{0xa}),
@@ -549,7 +555,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 			keyStart:      []byte{0x0},
 			keyEnd:        []byte{0xff},
 			root:          root,
-			invalidProof:  &KeyRangeProof{RootHash: root},
+			invalidProof:  &KeyRangeProof{RootHash: root, Version: 1},
 			expectedError: ErrInvalidProof,
 		},
 		1: {
@@ -558,7 +564,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 			resultKeys:    [][]byte{{0x1}, {0x2}},
 			resultVals:    [][]byte{{0x1}},
 			root:          root,
-			invalidProof:  &KeyRangeProof{RootHash: root},
+			invalidProof:  &KeyRangeProof{RootHash: root, Version: 1},
 			expectedError: ErrInvalidInputs,
 		},
 		2: { // An invalid proof with two adjacent paths which don't prove anything useful.
@@ -882,7 +888,8 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right: nil,
+				Right:   nil,
+				Version: 1,
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -907,6 +914,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
+				Version: 1,
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -933,6 +941,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
+				Version: 1,
 			},
 			expectedError: nil,
 		},
@@ -959,6 +968,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
+				Version: 1,
 			},
 			expectedError: nil,
 		},
@@ -1230,14 +1240,14 @@ func TestKeyAbsentProofVerify(t *testing.T) {
 		},
 	}
 
-	for _, c := range cases {
+	for i, c := range cases {
 		for _, k := range c.validKeys {
 			err := c.proof.Verify([]byte{k}, nil, c.root)
-			require.NoError(err)
+			require.NoError(err, "Error with case %d: %v", i, err)
 		}
 		for _, k := range c.invalidKeys {
 			err := c.proof.Verify([]byte{k}, nil, c.root)
-			require.Error(err)
+			require.Error(err, "Error with case %d: %v", i, err)
 		}
 	}
 }

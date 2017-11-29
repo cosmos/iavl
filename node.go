@@ -26,14 +26,14 @@ type Node struct {
 	persisted bool
 }
 
-// NewNode returns a new node from a key and value.
-func NewNode(key []byte, value []byte) *Node {
+// NewNode returns a new node from a key, value and version.
+func NewNode(key []byte, value []byte, version int64) *Node {
 	return &Node{
 		key:     key,
 		value:   value,
 		height:  0,
 		size:    1,
-		version: 0,
+		version: version,
 	}
 }
 
@@ -284,6 +284,8 @@ func (node *Node) writeBytes(w io.Writer) (n int, err error) {
 func (node *Node) set(t *Tree, key []byte, value []byte) (
 	newSelf *Node, updated bool, orphaned []*Node,
 ) {
+	version := t.version + 1
+
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1:
@@ -291,8 +293,9 @@ func (node *Node) set(t *Tree, key []byte, value []byte) (
 				key:       node.key,
 				height:    1,
 				size:      2,
-				leftNode:  NewNode(key, value),
+				leftNode:  NewNode(key, value, version),
 				rightNode: node,
+				version:   version,
 			}, false, []*Node{}
 		case 1:
 			return &Node{
@@ -300,10 +303,11 @@ func (node *Node) set(t *Tree, key []byte, value []byte) (
 				height:    1,
 				size:      2,
 				leftNode:  node,
-				rightNode: NewNode(key, value),
+				rightNode: NewNode(key, value, version),
+				version:   version,
 			}, false, []*Node{}
 		default:
-			return NewNode(key, value), true, []*Node{node}
+			return NewNode(key, value, version), true, []*Node{node}
 		}
 	} else {
 		orphaned = append(orphaned, node)
