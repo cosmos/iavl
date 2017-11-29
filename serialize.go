@@ -1,18 +1,18 @@
 package iavl
 
-// KeyValue groups together a key and a value for return codes
-type KeyValue struct {
+// NodeData groups together a key and a value for return codes
+type NodeData struct {
 	Key   []byte
 	Value []byte
 }
 
 // SerializeFunc is any implementation that can serialize
 // an iavl Tree
-type SerializeFunc func(*Tree) []KeyValue
+type SerializeFunc func(*Tree) []NodeData
 
 // Restore will take an (empty) tree restore it
 // from the keys returned from a SerializeFunc
-func Restore(empty *Tree, kvs []KeyValue) {
+func Restore(empty *Tree, kvs []NodeData) {
 	for _, kv := range kvs {
 		empty.Set(kv.Key, kv.Value)
 	}
@@ -22,10 +22,10 @@ func Restore(empty *Tree, kvs []KeyValue) {
 // InOrderSerialize returns all key-values in the
 // key order (as stored). May be nice to read, but
 // when recovering, it will create a different.
-func InOrderSerialize(tree *Tree) []KeyValue {
-	res := make([]KeyValue, 0, tree.Size())
+func InOrderSerialize(tree *Tree) []NodeData {
+	res := make([]NodeData, 0, tree.Size())
 	tree.Iterate(func(key, value []byte) bool {
-		kv := KeyValue{Key: key, Value: value}
+		kv := NodeData{Key: key, Value: value}
 		res = append(res, kv)
 		return false
 	})
@@ -41,14 +41,14 @@ func InOrderSerialize(tree *Tree) []KeyValue {
 // of the left half and the leftmost node of the righthalf.
 // Then go down a level...
 // each time adding leftmost node of the right side.
-// (depth first search)
+// (bredth first search)
 //
 // Imagine 8 nodes in a balanced tree, split in half each time
 // 1
 // 1, 5
 // 1, 5, 3, 7
 // 1, 5, 3, 7, 2, 4, 6, 8
-func StableSerialize(tree *Tree) []KeyValue {
+func StableSerialize(tree *Tree) []NodeData {
 	top := tree.root
 	if top == nil {
 		return nil
@@ -59,7 +59,7 @@ func StableSerialize(tree *Tree) []KeyValue {
 	queue = append(queue, top)
 
 	// to store all results - started with
-	res := make([]KeyValue, 0, tree.Size())
+	res := make([]NodeData, 0, tree.Size())
 	left := leftmost(top)
 	if left != nil {
 		res = append(res, *left)
@@ -85,7 +85,7 @@ func StableSerialize(tree *Tree) []KeyValue {
 				res = append(res, *left)
 			}
 		} else if isLeaf(r) {
-			kv := KeyValue{Key: r.key, Value: r.value}
+			kv := NodeData{Key: r.key, Value: r.value}
 			res = append(res, kv)
 		}
 	}
@@ -101,12 +101,12 @@ func isLeaf(n *Node) bool {
 	return n != nil && n.isLeaf()
 }
 
-func leftmost(node *Node) *KeyValue {
+func leftmost(node *Node) *NodeData {
 	for isInner(node) {
 		node = node.leftNode
 	}
 	if node == nil {
 		return nil
 	}
-	return &KeyValue{Key: node.key, Value: node.value}
+	return &NodeData{Key: node.key, Value: node.value}
 }
