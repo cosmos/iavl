@@ -38,13 +38,24 @@ func GetChunkHashes(tree *Tree, depth uint) [][]byte {
 
 // getNodes returns an array of nodes at the given depth
 func getNodes(tree *Tree, depth uint) []*Node {
+	nodes := make([]*Node, 0, 1<<depth)
+	tree.root.traverseDepth(depth, func(node *Node) {
+		nodes = append(nodes, node)
+	})
+	return nodes
+}
+
+// call cb for every node exactly depth levels below it
+// depth first search to return in tree ordering
+func (node *Node) traverseDepth(depth uint, cb func(*Node)) {
+	// base case
 	if depth == 0 {
-		return []*Node{tree.root}
-	} else if depth == 1 {
-		return []*Node{tree.root.leftNode, tree.root.rightNode}
-	} else {
-		panic("TODO")
+		cb(node)
+		return
 	}
+	// otherwise, decend one more level
+	node.leftNode.traverseDepth(depth-1, cb)
+	node.rightNode.traverseDepth(depth-1, cb)
 }
 
 // position to key can calculte the appropriate sort order
