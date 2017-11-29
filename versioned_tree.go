@@ -75,6 +75,35 @@ func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
 	return tree.orphaningTree.Remove(key)
 }
 
+// LoadVersion loads the given version and all versions prior.
+func (tree *VersionedTree) LoadVersion(version uint64) error {
+	roots, err := tree.ndb.getRoots()
+	if err != nil {
+		return err
+	}
+	if len(roots) == 0 {
+		return nil
+	}
+	if _, ok := roots[version]; !ok {
+		return errors.WithStack(ErrVersionDoesNotExist)
+	}
+
+	// Load all roots from the database up to the given version.
+	for v, root := range roots {
+		if v > version {
+			continue
+		}
+		t := &Tree{ndb: tree.ndb}
+		t.load(root)
+
+		tree.versions[v] = t
+	}
+	tree.latestVersion = version
+	tree.ResetToLatest()
+
+	return nil
+}
+
 // Load a versioned tree from disk. All tree versions are loaded automatically.
 func (tree *VersionedTree) Load() error {
 	roots, err := tree.ndb.getRoots()
@@ -96,13 +125,18 @@ func (tree *VersionedTree) Load() error {
 			tree.latestVersion = version
 		}
 	}
-
 	// Set the working tree to a copy of the latest.
+	tree.ResetToLatest()
+
+	return nil
+}
+
+// ResetToLatest resets the working tree to the latest saved version, discarding
+// any unsaved modifications.
+func (tree *VersionedTree) ResetToLatest() {
 	tree.orphaningTree = newOrphaningTree(
 		tree.versions[tree.latestVersion].clone(),
 	)
-
-	return nil
 }
 
 // GetVersioned gets the value at the specified key and version.
