@@ -25,7 +25,7 @@ type KeyProof interface {
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
 	RootHash data.Bytes `json:"root_hash"`
-	Version  uint64     `json:"version"`
+	Version  int64      `json:"version"`
 
 	*PathToKey `json:"path"`
 }
@@ -60,7 +60,7 @@ func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
-	Version  uint64     `json:"version"`
+	Version  int64      `json:"version"`
 
 	Left  *pathWithNode `json:"left"`
 	Right *pathWithNode `json:"right"`

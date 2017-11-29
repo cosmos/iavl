@@ -208,7 +208,7 @@ func TestRemove(t *testing.T) {
 			key := keys[mrand.Int31n(l)]
 			t1.Remove(key)
 		}
-		t1.SaveVersion(uint64(i))
+		t1.SaveVersion(int64(i))
 	}
 }
 

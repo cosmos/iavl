@@ -11,9 +11,9 @@ var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
-	*orphaningTree                  // The current, working tree.
-	versions       map[uint64]*Tree // The previous, saved versions of the tree.
-	latestVersion  uint64           // The latest saved version.
+	*orphaningTree                 // The current, working tree.
+	versions       map[int64]*Tree // The previous, saved versions of the tree.
+	latestVersion  int64           // The latest saved version.
 	ndb            *nodeDB
 }
 
@@ -24,13 +24,13 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 
 	return &VersionedTree{
 		orphaningTree: newOrphaningTree(head),
-		versions:      map[uint64]*Tree{},
+		versions:      map[int64]*Tree{},
 		ndb:           ndb,
 	}
 }
 
 // LatestVersion returns the latest saved version of the tree.
-func (tree *VersionedTree) LatestVersion() uint64 {
+func (tree *VersionedTree) LatestVersion() int64 {
 	return tree.latestVersion
 }
 
@@ -41,7 +41,7 @@ func (tree *VersionedTree) IsEmpty() bool {
 }
 
 // VersionExists returns whether or not a version exists.
-func (tree *VersionedTree) VersionExists(version uint64) bool {
+func (tree *VersionedTree) VersionExists(version int64) bool {
 	_, ok := tree.versions[version]
 	return ok
 }
@@ -76,7 +76,7 @@ func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
 }
 
 // LoadVersion loads the given version and all versions prior.
-func (tree *VersionedTree) LoadVersion(version uint64) error {
+func (tree *VersionedTree) LoadVersion(version int64) error {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return err
@@ -144,7 +144,7 @@ func (tree *VersionedTree) ResetToLatest() {
 }
 
 // GetVersioned gets the value at the specified key and version.
-func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
+func (tree *VersionedTree) GetVersioned(key []byte, version int64) (
 	index int, value []byte,
 ) {
 	if t, ok := tree.versions[version]; ok {
@@ -155,7 +155,7 @@ func (tree *VersionedTree) GetVersioned(key []byte, version uint64) (
 
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Multiple calls to SaveVersion with the same version are not allowed.
-func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
+func (tree *VersionedTree) SaveVersion(version int64) ([]byte, error) {
 	if _, ok := tree.versions[version]; ok {
 		return nil, errors.Errorf("version %d was already saved", version)
 	}
@@ -186,7 +186,7 @@ func (tree *VersionedTree) SaveVersion(version uint64) ([]byte, error) {
 
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
-func (tree *VersionedTree) DeleteVersion(version uint64) error {
+func (tree *VersionedTree) DeleteVersion(version int64) error {
 	if version == 0 {
 		return errors.New("version must be greater than 0")
 	}
@@ -208,7 +208,7 @@ func (tree *VersionedTree) DeleteVersion(version uint64) error {
 // GetVersionedWithProof gets the value under the key at the specified version
 // if it exists, or returns nil.  A proof of existence or absence is returned
 // alongside the value.
-func (tree *VersionedTree) GetVersionedWithProof(key []byte, version uint64) ([]byte, KeyProof, error) {
+func (tree *VersionedTree) GetVersionedWithProof(key []byte, version int64) ([]byte, KeyProof, error) {
 	if t, ok := tree.versions[version]; ok {
 		return t.GetWithProof(key)
 	}
@@ -219,7 +219,7 @@ func (tree *VersionedTree) GetVersionedWithProof(key []byte, version uint64) ([]
 // and limit. To specify a descending range, swap the start and end keys.
 //
 // Returns a list of keys, a list of values and a proof.
-func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version uint64) ([][]byte, [][]byte, *KeyRangeProof, error) {
+func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version int64) ([][]byte, [][]byte, *KeyRangeProof, error) {
 	if t, ok := tree.versions[version]; ok {
 		return t.GetRangeWithProof(startKey, endKey, limit)
 	}
@@ -228,7 +228,7 @@ func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, l
 
 // GetVersionedFirstInRangeWithProof gets the first key/value pair in the
 // specified range, with a proof.
-func (tree *VersionedTree) GetVersionedFirstInRangeWithProof(startKey, endKey []byte, version uint64) ([]byte, []byte, *KeyFirstInRangeProof, error) {
+func (tree *VersionedTree) GetVersionedFirstInRangeWithProof(startKey, endKey []byte, version int64) ([]byte, []byte, *KeyFirstInRangeProof, error) {
 	if t, ok := tree.versions[version]; ok {
 		return t.GetFirstInRangeWithProof(startKey, endKey)
 	}
@@ -237,7 +237,7 @@ func (tree *VersionedTree) GetVersionedFirstInRangeWithProof(startKey, endKey []
 
 // GetVersionedLastInRangeWithProof gets the last key/value pair in the
 // specified range, with a proof.
-func (tree *VersionedTree) GetVersionedLastInRangeWithProof(startKey, endKey []byte, version uint64) ([]byte, []byte, *KeyLastInRangeProof, error) {
+func (tree *VersionedTree) GetVersionedLastInRangeWithProof(startKey, endKey []byte, version int64) ([]byte, []byte, *KeyLastInRangeProof, error) {
 	if t, ok := tree.versions[version]; ok {
 		return t.GetLastInRangeWithProof(startKey, endKey)
 	}

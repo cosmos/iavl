@@ -15,7 +15,7 @@ import (
 type Node struct {
 	key       []byte
 	value     []byte
-	version   uint64
+	version   int64
 	height    int8
 	size      int
 	hash      []byte
@@ -63,7 +63,7 @@ func MakeNode(buf []byte) (node *Node, err error) {
 	}
 	buf = buf[n:]
 
-	node.version = wire.GetUint64(buf)
+	node.version = wire.GetInt64(buf)
 	buf = buf[8:]
 
 	// Read node body.
@@ -227,7 +227,7 @@ func (node *Node) writeHashBytes(w io.Writer) (n int, err error) {
 	if node.isLeaf() {
 		wire.WriteByteSlice(node.key, w, &n, &err)
 		wire.WriteByteSlice(node.value, w, &n, &err)
-		wire.WriteUint64(node.version, w, &n, &err)
+		wire.WriteInt64(node.version, w, &n, &err)
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
 			cmn.PanicSanity("Found an empty child hash")
@@ -263,7 +263,7 @@ func (node *Node) writeBytes(w io.Writer) (n int, err error) {
 
 	// Unlike writeHashBytes, key is written for inner nodes.
 	wire.WriteByteSlice(node.key, w, &n, &err)
-	wire.WriteUint64(node.version, w, &n, &err)
+	wire.WriteInt64(node.version, w, &n, &err)
 
 	if node.isLeaf() {
 		wire.WriteByteSlice(node.value, w, &n, &err)

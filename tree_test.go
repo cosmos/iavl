@@ -54,7 +54,7 @@ func TestVersionedRandomTree(t *testing.T) {
 			v := []byte(cmn.RandStr(8))
 			tree.Set(k, v)
 		}
-		tree.SaveVersion(uint64(i))
+		tree.SaveVersion(int64(i))
 	}
 	require.Equal(versions, len(tree.ndb.roots()), "wrong number of roots")
 	require.Equal(versions*keysPerVersion, len(tree.ndb.leafNodes()), "wrong number of nodes")
@@ -64,11 +64,11 @@ func TestVersionedRandomTree(t *testing.T) {
 	require.True(len(tree.ndb.nodes()) >= tree.nodeSize())
 
 	for i := 1; i < versions; i++ {
-		tree.DeleteVersion(uint64(i))
+		tree.DeleteVersion(int64(i))
 	}
 
 	require.Len(tree.versions, 1, "tree must have one version left")
-	require.Equal(tree.versions[uint64(versions)].root, tree.root)
+	require.Equal(tree.versions[int64(versions)].root, tree.root)
 
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.
@@ -95,12 +95,12 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 			tree.Set(k, v)
 			singleVersionTree.Set(k, v)
 		}
-		tree.SaveVersion(uint64(i))
+		tree.SaveVersion(int64(i))
 	}
 	singleVersionTree.SaveVersion(1)
 
 	for i := 1; i < versions; i++ {
-		tree.DeleteVersion(uint64(i))
+		tree.DeleteVersion(int64(i))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
@@ -136,12 +136,12 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 			tree.Set(k, v)
 			singleVersionTree.Set(k, v)
 		}
-		tree.SaveVersion(uint64(i))
+		tree.SaveVersion(int64(i))
 	}
 	singleVersionTree.SaveVersion(1)
 
 	for _, i := range rand.Perm(versions - 1) {
-		tree.DeleteVersion(uint64(i + 1))
+		tree.DeleteVersion(int64(i + 1))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
@@ -563,14 +563,14 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	preHash := tree.Hash()
 	require.NotNil(preHash)
 
-	require.Equal(uint64(6), tree.LatestVersion())
+	require.Equal(int64(6), tree.LatestVersion())
 
 	// Reload the tree, to test that roots and orphans are properly loaded.
 	ntree := NewVersionedTree(0, d)
 	ntree.Load()
 
 	require.False(ntree.IsEmpty())
-	require.Equal(uint64(6), ntree.LatestVersion())
+	require.Equal(int64(6), ntree.LatestVersion())
 
 	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
@@ -636,21 +636,21 @@ func TestVersionedCheckpoints(t *testing.T) {
 	versions := 50
 	keysPerVersion := 10
 	versionsPerCheckpoint := 5
-	keys := map[uint64]([][]byte){}
+	keys := map[int64]([][]byte){}
 
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
 			k := []byte(cmn.RandStr(1))
 			v := []byte(cmn.RandStr(8))
-			keys[uint64(i)] = append(keys[uint64(i)], k)
+			keys[int64(i)] = append(keys[int64(i)], k)
 			tree.Set(k, v)
 		}
-		tree.SaveVersion(uint64(i))
+		tree.SaveVersion(int64(i))
 	}
 
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
-			tree.DeleteVersion(uint64(i))
+			tree.DeleteVersion(int64(i))
 		}
 	}
 
@@ -665,8 +665,8 @@ func TestVersionedCheckpoints(t *testing.T) {
 	// Make sure all keys from deleted versions aren't present.
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
-			for _, k := range keys[uint64(i)] {
-				_, val := tree.GetVersioned(k, uint64(i))
+			for _, k := range keys[int64(i)] {
+				_, val := tree.GetVersioned(k, int64(i))
 				require.Nil(val)
 			}
 		}
@@ -674,9 +674,9 @@ func TestVersionedCheckpoints(t *testing.T) {
 
 	// Make sure all keys exist at all checkpoints.
 	for i := 1; i <= versions; i++ {
-		for _, k := range keys[uint64(i)] {
+		for _, k := range keys[int64(i)] {
 			if i%versionsPerCheckpoint == 0 {
-				_, val := tree.GetVersioned(k, uint64(i))
+				_, val := tree.GetVersioned(k, int64(i))
 				require.NotEmpty(val)
 			}
 		}
@@ -877,7 +877,7 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 			tree.Set([]byte(cmn.RandStr(1)), []byte(cmn.RandStr(8)))
 		}
 		sizeBefore := len(tree.ndb.nodes())
-		tree.SaveVersion(uint64(i))
+		tree.SaveVersion(int64(i))
 		sizeAfter := len(tree.ndb.nodes())
 		change := sizeAfter - sizeBefore
 		keysAddedPerVersion[i] = change
@@ -887,7 +887,7 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 	keysDeleted := 0
 	for i := 1; i < versions; i++ {
 		sizeBefore := len(tree.ndb.nodes())
-		tree.DeleteVersion(uint64(i))
+		tree.DeleteVersion(int64(i))
 		sizeAfter := len(tree.ndb.nodes())
 
 		change := sizeBefore - sizeAfter
@@ -1087,7 +1087,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 		for i := 0; i < numKeysPerVersion; i++ {
 			tree.Set([]byte(cmn.RandStr(16)), cmn.RandBytes(32))
 		}
-		tree.SaveVersion(uint64(v))
+		tree.SaveVersion(int64(v))
 	}
 
 	b.Run("LoadAndDelete", func(b *testing.B) {
@@ -1107,7 +1107,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 			// efficient deletes, we are golden.
 			for v := 0; v < numVersions/10; v++ {
 				version := (cmn.RandInt() % numVersions) + 1
-				tree.DeleteVersion(uint64(version))
+				tree.DeleteVersion(int64(version))
 			}
 		}
 	})
