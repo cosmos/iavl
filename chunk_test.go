@@ -35,8 +35,8 @@ func TestMultipleChunks(t *testing.T) {
 	}{
 		{0},
 		{1},
-		// {4},
-		// {7},
+		{4},
+		{7},
 	}
 
 	// get the chunk info we use
