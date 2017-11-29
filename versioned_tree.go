@@ -134,9 +134,13 @@ func (tree *VersionedTree) Load() error {
 // ResetToLatest resets the working tree to the latest saved version, discarding
 // any unsaved modifications.
 func (tree *VersionedTree) ResetToLatest() {
-	tree.orphaningTree = newOrphaningTree(
-		tree.versions[tree.latestVersion].clone(),
-	)
+	if tree.latestVersion > 0 {
+		tree.orphaningTree = newOrphaningTree(
+			tree.versions[tree.latestVersion].clone(),
+		)
+	} else {
+		tree.orphaningTree = newOrphaningTree(&Tree{ndb: tree.ndb})
+	}
 }
 
 // GetVersioned gets the value at the specified key and version.
