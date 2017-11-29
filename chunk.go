@@ -25,18 +25,46 @@ func NewOrderedNode(leaf *Node, prefix uint64) OrderedNodeData {
 	}
 }
 
-// GetChunkHashes returns all the
-func GetChunkHashes(tree *Tree, depth int) [][]byte {
-	// TODO: handle case besides depth=0
-	return [][]byte{tree.Hash()}
+// GetChunkHashes returns all the "checksum" hashes for
+// the chunks that will be sent
+func GetChunkHashes(tree *Tree, depth uint) [][]byte {
+	nodes := getNodes(tree, depth)
+	res := make([][]byte, len(nodes))
+	for i, n := range nodes {
+		res[i] = n.hash
+	}
+	return res
+}
+
+// getNodes returns an array of nodes at the given depth
+func getNodes(tree *Tree, depth uint) []*Node {
+	if depth == 0 {
+		return []*Node{tree.root}
+	} else if depth == 1 {
+		return []*Node{tree.root.leftNode, tree.root.rightNode}
+	} else {
+		panic("TODO")
+	}
+}
+
+// position to key can calculte the appropriate sort order
+// for the count-th node at a given depth, assuming a full
+// tree above this height.
+func positionToKey(depth, count uint) (key uint64) {
+	for d := depth; d > 0; d-- {
+		// lowest digit of count * 2^(d-1)
+		key += uint64((count & 1) << (d - 1))
+		count = count >> 1
+	}
+	return
 }
 
 // GetChunk finds the count-th subtree at depth and
 // generates a Chunk for that data
-func GetChunk(tree *Tree, depth, count int) Chunk {
-	// TODO: handle case besides depth=0, chunk=0
-	node := tree.root
-	return getChunk(node, 0, 0)
+func GetChunk(tree *Tree, depth, count uint) Chunk {
+	node := getNodes(tree, depth)[count]
+	prefix := positionToKey(depth, count)
+	return getChunk(node, prefix, depth)
 }
 
 // getChunk takes a node and serializes all nodes below it
@@ -70,9 +98,9 @@ func (c Chunk) Sort() {
 	})
 }
 
-// Merge does a merge sort of the two slices,
+// MergeChunks does a merge sort of the two Chunks,
 // assuming they were already in sorted order
-func Merge(left, right Chunk) Chunk {
+func MergeChunks(left, right Chunk) Chunk {
 	size, i, j := len(left)+len(right), 0, 0
 	slice := make([]OrderedNodeData, size)
 
