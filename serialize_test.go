@@ -51,5 +51,6 @@ func makeRandomTree(nodes int) *Tree {
 		v := randBytes(32)
 		tree.Set(k, v)
 	}
+	tree.Hash()
 	return tree
 }
