@@ -1004,6 +1004,71 @@ func TestCopyValueSemantics(t *testing.T) {
 	require.Equal([]byte("v2"), val)
 }
 
+func TestResetToLatest(t *testing.T) {
+	require := require.New(t)
+
+	tree := NewVersionedTree(0, db.NewMemDB())
+
+	tree.Set([]byte("k"), []byte("v"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("r"), []byte("v"))
+	tree.Set([]byte("s"), []byte("v"))
+
+	tree.ResetToLatest()
+
+	tree.Set([]byte("t"), []byte("v"))
+
+	tree.SaveVersion(2)
+
+	require.Equal(2, tree.Size())
+
+	_, val := tree.Get([]byte("r"))
+	require.Nil(val)
+
+	_, val = tree.Get([]byte("s"))
+	require.Nil(val)
+
+	_, val = tree.Get([]byte("t"))
+	require.Equal([]byte("v"), val)
+}
+
+func TestLoadVersion(t *testing.T) {
+	require := require.New(t)
+
+	d := db.NewMemDB()
+	tree := NewVersionedTree(0, d)
+
+	tree.Set([]byte("k"), []byte("v"))
+	tree.SaveVersion(1)
+
+	tree.Set([]byte("r"), []byte("v"))
+	tree.SaveVersion(2)
+
+	tree.Set([]byte("s"), []byte("v"))
+	tree.SaveVersion(3)
+
+	tree.Set([]byte("k"), []byte("u"))
+	tree.SaveVersion(4)
+
+	tree = NewVersionedTree(0, d)
+	tree.LoadVersion(2)
+
+	require.EqualValues(2, tree.LatestVersion())
+	require.Len(tree.versions, 2)
+
+	_, val := tree.Get([]byte("r"))
+	require.Equal([]byte("v"), val)
+
+	_, val = tree.Get([]byte("k"))
+	require.Equal([]byte("v"), val)
+
+	_, val = tree.Get([]byte("s"))
+	require.Nil(val)
+
+	require.Error(tree.LoadVersion(5))
+}
+
 //////////////////////////// BENCHMARKS ///////////////////////////////////////
 
 func BenchmarkTreeLoadAndDelete(b *testing.B) {
