@@ -54,7 +54,7 @@ func (prog *program) size() int {
 type instruction struct {
 	op      string
 	k, v    []byte
-	version uint64
+	version int64
 }
 
 func (i instruction) Execute(tree *VersionedTree) {
@@ -93,11 +93,11 @@ func genRandomProgram(size int) *program {
 		case 3, 4:
 			p.addInstruction(instruction{op: "REMOVE", k: k})
 		case 5:
-			p.addInstruction(instruction{op: "SAVE", version: uint64(nextVersion)})
+			p.addInstruction(instruction{op: "SAVE", version: int64(nextVersion)})
 			nextVersion++
 		case 6:
 			if rv := cmn.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
-				p.addInstruction(instruction{op: "DELETE", version: uint64(rv)})
+				p.addInstruction(instruction{op: "DELETE", version: int64(rv)})
 			}
 		}
 	}

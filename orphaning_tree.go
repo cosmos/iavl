@@ -11,14 +11,14 @@ type orphaningTree struct {
 	// A map of orphan hash to orphan version.
 	// The version stored here is the one at which the orphan's lifetime
 	// begins.
-	orphans map[string]uint64
+	orphans map[string]int64
 }
 
 // newOrphaningTree creates a new orphaning tree from the given *Tree.
 func newOrphaningTree(t *Tree) *orphaningTree {
 	return &orphaningTree{
 		Tree:    t,
-		orphans: map[string]uint64{},
+		orphans: map[string]int64{},
 	}
 }
 
@@ -44,7 +44,7 @@ func (tree *orphaningTree) unorphan(hash []byte) {
 }
 
 // Save the underlying Tree. Saves orphans too.
-func (tree *orphaningTree) SaveVersion(version uint64) {
+func (tree *orphaningTree) SaveVersion(version int64) {
 	// Save the current tree at the given version. For each saved node, we
 	// delete any existing orphan entries in the previous trees.
 	// This is necessary because sometimes tree re-balancing causes nodes to be
@@ -78,7 +78,7 @@ func (tree *orphaningTree) addOrphans(orphans []*Node) {
 }
 
 // Delete an orphan from the orphan list. Doesn't write to disk.
-func (tree *orphaningTree) deleteOrphan(hash []byte) (version uint64, deleted bool) {
+func (tree *orphaningTree) deleteOrphan(hash []byte) (version int64, deleted bool) {
 	if version, ok := tree.orphans[string(hash)]; ok {
 		delete(tree.orphans, string(hash))
 		return version, true

@@ -156,7 +156,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	v := uint64(1)
+	v := int64(1)
 	t := NewVersionedTree(100000, db)
 	for i := 0; i < 1000000; i++ {
 		t.Set(i2b(int(RandInt32())), nil)

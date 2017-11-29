@@ -63,7 +63,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 type proofLeafNode struct {
 	KeyBytes   data.Bytes `json:"key"`
 	ValueBytes data.Bytes `json:"value"`
-	Version    uint64     `json:"version"`
+	Version    int64      `json:"version"`
 }
 
 func (leaf proofLeafNode) Hash() []byte {
@@ -75,7 +75,7 @@ func (leaf proofLeafNode) Hash() []byte {
 	wire.WriteVarint(1, buf, &n, &err)
 	wire.WriteByteSlice(leaf.KeyBytes, buf, &n, &err)
 	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
-	wire.WriteUint64(leaf.Version, buf, &n, &err)
+	wire.WriteInt64(leaf.Version, buf, &n, &err)
 
 	if err != nil {
 		cmn.PanicCrisis(cmn.Fmt("Failed to hash proofLeafNode: %v", err))
