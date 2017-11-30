@@ -4,28 +4,46 @@ import (
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
-type CachedTree struct {
-	// this is the parent to write to
-	parent *Tree
-
-	// this is the cache tree we expose
-	*Tree
-}
-
 // CacheWrap clones this tree with a different
 // backing database
 func (t *Tree) CacheWrap() *CachedTree {
-	// ndb := newNodeDB(t.ndb.nodeCacheSize, t.ndb.db.CacheDB())
+	ndb := t.ndb.clone()
+	ndb.batch = newCacheBatch(ndb.batch)
+
 	cache := &Tree{
 		root: t.root,
-		ndb:  t.ndb.Cache(),
+		ndb:  ndb,
 	}
 
 	return &CachedTree{
 		parent: t,
 		Tree:   cache,
 	}
+}
 
+// Cache clones this tree with a different
+// backing database and same type
+//
+// Nicer to use but more magic
+func (t *Tree) Cache() *Tree {
+	ndb := t.ndb.clone()
+	cache := &Tree{
+		root: t.root,
+		ndb:  ndb,
+	}
+
+	// change batch on the cache...
+	ndb.batch = newMagicBatch(ndb.batch, t, cache)
+
+	return cache
+}
+
+type CachedTree struct {
+	// this is the parent to write to
+	parent *Tree
+
+	// this is the cache tree we expose
+	*Tree
 }
 
 // Write writes pending updates to the parent database
@@ -38,14 +56,6 @@ func (c *CachedTree) Write() error {
 	return nil
 }
 
-func (n *nodeDB) Cache() *nodeDB {
-	// make a shallow copy, reuse cache, etc.
-	cacheDB := *n
-	// create a new batch
-	cacheDB.batch = &cacheBatch{parent: cacheDB.batch}
-	return &cacheDB
-}
-
 /////////////////////////////////////////////////
 // cacheBatch
 
@@ -53,6 +63,10 @@ func (n *nodeDB) Cache() *nodeDB {
 type cacheBatch struct {
 	parent dbm.Batch
 	ops    []operation
+}
+
+func newCacheBatch(parent dbm.Batch) *cacheBatch {
+	return &cacheBatch{parent: parent}
 }
 
 var _ dbm.Batch = (*cacheBatch)(nil)
@@ -87,4 +101,30 @@ func (cb *cacheBatch) Write() {
 			cb.parent.Delete(op.key)
 		}
 	}
+}
+
+///////////////////////////////////////////////////
+// magicBatch also updates trees on Write
+
+type magicBatch struct {
+	*cacheBatch
+	parent *Tree
+	self   *Tree
+}
+
+var _ dbm.Batch = (*magicBatch)(nil)
+
+func newMagicBatch(batch dbm.Batch, parent, self *Tree) *magicBatch {
+	return &magicBatch{
+		cacheBatch: newCacheBatch(batch),
+		parent:     parent,
+		self:       self,
+	}
+}
+
+// Commits the batch to the parent batch
+// Also copies the iavl tree from cache to parent
+func (mb *magicBatch) Write() {
+	mb.cacheBatch.Write()
+	mb.parent.root = mb.self.root
 }
