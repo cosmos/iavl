@@ -168,7 +168,7 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 	tree.latestVersion = version
 	tree.versions[version] = tree.orphaningTree.Tree
 
-	tree.orphaningTree.Save()
+	tree.orphaningTree.SaveAs(version)
 	tree.orphaningTree = newOrphaningTree(
 		tree.versions[version].clone(),
 	)

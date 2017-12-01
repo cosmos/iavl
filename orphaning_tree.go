@@ -43,8 +43,11 @@ func (tree *orphaningTree) unorphan(hash []byte) {
 	tree.ndb.Unorphan(hash)
 }
 
-// Save the underlying Tree. Saves orphans too.
-func (tree *orphaningTree) Save() {
+// SaveAs saves the underlying Tree and assigns it a new version.
+// Saves orphans too.
+func (tree *orphaningTree) SaveAs(version int64) {
+	tree.version = version
+
 	// Save the current tree. For each saved node, we delete any existing
 	// orphan entries in the previous trees.  This is necessary because
 	// sometimes tree re-balancing causes nodes to be incorrectly marked as
@@ -53,7 +56,7 @@ func (tree *orphaningTree) Save() {
 	tree.ndb.SaveBranch(tree.root, func(node *Node) {
 		tree.unorphan(node._hash())
 	})
-	tree.ndb.SaveOrphans(tree.version+1, tree.orphans)
+	tree.ndb.SaveOrphans(tree.version, tree.orphans)
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.
