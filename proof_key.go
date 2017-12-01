@@ -60,7 +60,6 @@ func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
-	Version  int64      `json:"version"`
 
 	Left  *pathWithNode `json:"left"`
 	Right *pathWithNode `json:"right"`
