@@ -17,7 +17,7 @@ type Tree struct {
 	version int64
 }
 
-// NewTree creates both im-memory and persistent instances
+// NewTree creates both in-memory and persistent instances
 func NewTree(cacheSize int, db dbm.DB) *Tree {
 	if db == nil {
 		// In-memory Tree.
