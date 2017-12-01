@@ -219,13 +219,13 @@ func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(
 	})
 }
 
-// Clone creates a clone of the tree and increments its version.
+// Clone creates a clone of the tree.
 // Used internally by VersionedTree.
 func (tree *Tree) clone() *Tree {
 	return &Tree{
 		root:    tree.root,
 		ndb:     tree.ndb,
-		version: tree.version + 1,
+		version: tree.version,
 	}
 }
 
