@@ -10,7 +10,9 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Tree is an immutable AVL+ Tree. Note that this tree is not thread-safe.
+// Tree is a container for an immutable AVL+ Tree. Changes are performed by
+// swapping the internal root with a new one, while the container is mutable.
+// Note that this tree is not thread-safe.
 type Tree struct {
 	root    *Node
 	ndb     *nodeDB
