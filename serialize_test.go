@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tmlibs/db"
 )
 
 // TreeSize is the number of nodes in our test trees
@@ -45,7 +46,8 @@ func TestSerialize(t *testing.T) {
 
 // TODO: add some deletes in there as well?
 func makeRandomTree(nodes int) *Tree {
-	tree := NewTree(nodes, nil)
+	tree := NewTree(nodes, db.NewMemDB())
+
 	for i := 0; i <= nodes; i++ {
 		k := randBytes(16)
 		v := randBytes(32)

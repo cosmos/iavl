@@ -50,7 +50,7 @@ func GetChunkHashes(tree *Tree, depth uint) ([][]byte, uint) {
 // getNodes returns an array of nodes at the given depth
 func getNodes(tree *Tree, depth uint) []*Node {
 	nodes := make([]*Node, 0, 1<<depth)
-	tree.root.traverseDepth(depth, func(node *Node) {
+	tree.root.traverseDepth(tree, depth, func(node *Node) {
 		nodes = append(nodes, node)
 	})
 	return nodes
@@ -58,15 +58,16 @@ func getNodes(tree *Tree, depth uint) []*Node {
 
 // call cb for every node exactly depth levels below it
 // depth first search to return in tree ordering
-func (node *Node) traverseDepth(depth uint, cb func(*Node)) {
+func (node *Node) traverseDepth(t *Tree, depth uint, cb func(*Node)) {
 	// base case
 	if depth == 0 {
 		cb(node)
 		return
 	}
+
 	// otherwise, decend one more level
-	node.leftNode.traverseDepth(depth-1, cb)
-	node.rightNode.traverseDepth(depth-1, cb)
+	node.getLeftNode(t).traverseDepth(t, depth-1, cb)
+	node.getRightNode(t).traverseDepth(t, depth-1, cb)
 }
 
 // position to key can calculte the appropriate sort order
@@ -86,7 +87,7 @@ func positionToKey(depth, count uint) (key uint64) {
 func GetChunk(tree *Tree, depth, count uint) Chunk {
 	node := getNodes(tree, depth)[count]
 	prefix := positionToKey(depth, count)
-	return getChunk(node, prefix, depth)
+	return getChunk(tree, node, prefix, depth)
 }
 
 // getChunk takes a node and serializes all nodes below it
@@ -96,18 +97,18 @@ func GetChunk(tree *Tree, depth, count uint) Chunk {
 // (which defines where we add to the prefix)
 //
 // TODO: make this more efficient, *Chunk as arg???
-func getChunk(node *Node, prefix uint64, depth uint) Chunk {
+func getChunk(t *Tree, node *Node, prefix uint64, depth uint) Chunk {
 	if node.isLeaf() {
 		return Chunk{NewOrderedNode(node, prefix)}
 	}
 	res := make(Chunk, 0, node.size)
 	if node.leftNode != nil {
-		left := getChunk(node.leftNode, prefix, depth+1)
+		left := getChunk(t, node.getLeftNode(t), prefix, depth+1)
 		res = append(res, left...)
 	}
 	if node.rightNode != nil {
 		offset := prefix + 1<<depth
-		right := getChunk(node.rightNode, offset, depth+1)
+		right := getChunk(t, node.getRightNode(t), offset, depth+1)
 		res = append(res, right...)
 	}
 	return res
