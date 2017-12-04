@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"math"
 	"sort"
 )
 
@@ -31,10 +30,8 @@ func NewOrderedNode(leaf *Node, prefix uint64) OrderedNodeData {
 // GetChunkHashes returns all the "checksum" hashes for
 // the chunks that will be sent
 func GetChunkHashes(tree *Tree, depth uint) ([][]byte, uint) {
-	// Since the tree is not always perfectly balanced, we give ourselves a
-	// margin such that we don't return leaves by mistake, nor do we return
-	// a depth that isn't balanced.
-	maxDepth := uint(math.Log2(float64(tree.Size()))) - 3
+	// Account for unbalanced trees by capping the depth.
+	maxDepth := uint(tree.root.height / 2)
 	if depth > maxDepth {
 		depth = maxDepth
 	}
