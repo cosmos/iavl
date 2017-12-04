@@ -125,14 +125,14 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 
 	// Write/Read then verify.
 	proofBytes := proof.Bytes()
-	proof2, err := ReadKeyExistsProof(proofBytes)
+	proof2, err := ReadKeyProof(proofBytes)
 	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
 	require.NoError(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
 
 	// Random mutations must not verify
 	for i := 0; i < 10; i++ {
 		badProofBytes := MutateByteSlice(proofBytes)
-		badProof, err := ReadKeyExistsProof(badProofBytes)
+		badProof, err := ReadKeyProof(badProofBytes)
 		// may be invalid... errors are okay
 		if err == nil {
 			assert.Error(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),

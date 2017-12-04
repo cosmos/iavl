@@ -22,6 +22,12 @@ type KeyProof interface {
 	Bytes() []byte
 }
 
+const (
+	// Used for serialization of proofs.
+	keyExistsMagicNumber = 0x50
+	keyAbsentMagicNumber = 0x51
+)
+
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
 	RootHash data.Bytes `json:"root_hash"`
@@ -47,11 +53,11 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyExistsProof) Bytes() []byte {
-	return wire.BinaryBytes(proof)
+	return append([]byte{keyExistsMagicNumber}, wire.BinaryBytes(proof)...)
 }
 
-// ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
-func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
+// readKeyExistsProof will deserialize a KeyExistsProof from bytes.
+func readKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	proof := new(KeyExistsProof)
 	err := wire.ReadBinaryBytes(data, &proof)
 	return proof, err
@@ -94,12 +100,32 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyAbsentProof) Bytes() []byte {
-	return wire.BinaryBytes(proof)
+	return append([]byte{keyAbsentMagicNumber}, wire.BinaryBytes(proof)...)
 }
 
-// ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
-func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
+// readKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
+func readKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
 	proof := new(KeyAbsentProof)
 	err := wire.ReadBinaryBytes(data, &proof)
 	return proof, err
+}
+
+func ReadKeyProof(data []byte) (KeyProof, error) {
+	var err error
+	var n int
+
+	buf := bytes.NewBuffer(data)
+
+	b := wire.ReadByte(buf, &n, &err)
+	if err != nil {
+		return nil, err
+	}
+
+	switch b {
+	case keyExistsMagicNumber:
+		return readKeyExistsProof(buf.Bytes())
+	case keyAbsentMagicNumber:
+		return readKeyAbsentProof(buf.Bytes())
+	}
+	return nil, errors.New("unrecognized proof")
 }
