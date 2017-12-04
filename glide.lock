@@ -1,8 +1,8 @@
-hash: d85321db3ba463c6bde8f76c65524d5bb8bcdbf43702d162b26b71a39d89a3b5
-updated: 2017-10-24T13:20:51.823688121+02:00
+hash: 5bbcbb33c6c7cfbeb1f66e9eb386b12a4bc08b7fe3a0a99d7ce7b21eb15cd158
+updated: 2017-12-03T23:47:38.853349615-08:00
 imports:
 - name: github.com/go-kit/kit
-  version: d67bb4c202e3b91377d1079b110a6c9ce23ab2f8
+  version: e2b298466b32c7cd5579a9b9b07e968fc9d9452c
   subpackages:
   - log
   - log/level
@@ -10,13 +10,13 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-playground/locales
-  version: 1e5f1161c6416a5ff48840eb8724a394e48cc534
+  version: e4cbcb5d0652150d40ad0646651076b6bd2be4f6
   subpackages:
   - currency
 - name: github.com/go-playground/universal-translator
   version: 71201497bace774495daed26a3874fd339e0b538
 - name: github.com/go-stack/stack
-  version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
+  version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/jmhodges/levigo
@@ -26,7 +26,7 @@ imports:
 - name: github.com/pkg/errors
   version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/syndtr/goleveldb
-  version: 8c81ea47d4c41a385645e133e15510fc6a2a74b4
+  version: b89cc31ef7977104127d34c1bd31ebd1a9db2199
   subpackages:
   - leveldb
   - leveldb/cache
@@ -41,11 +41,11 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-wire
-  version: 99d2169a1e39c65983eacaa1da867d6f3218e1c9
+  version: 0a2660d282946ae0beca5c13199faba51a7a118c
   subpackages:
   - data
 - name: github.com/tendermint/tmlibs
-  version: d4c6a68e5871be2d3091f12627eaf3ee15b42ed2
+  version: 17dc8a74497d3fee933592ef860275e6b0dd71d6
   subpackages:
   - common
   - db
@@ -53,11 +53,11 @@ imports:
   - merkle
   - test
 - name: golang.org/x/crypto
-  version: c7af5bf2638a1164f2eb5467c39c6cffbd13a02e
+  version: edd5e9b0879d13ee6970a50153d85b8fec9f7686
   subpackages:
   - ripemd160
 - name: gopkg.in/go-playground/validator.v9
-  version: 6d8c18553ea1ac493d049edd6f102f52e618f085
+  version: 1304298bf10d085adec514b076772a79c9cadb6b
 testImports:
 - name: github.com/davecgh/go-spew
   version: 6d212800a42e8ab5c146b8ace3490ee17e5225f9

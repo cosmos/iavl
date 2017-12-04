@@ -3,7 +3,7 @@ import:
 - package: github.com/tendermint/go-wire
   version: develop
 - package: github.com/tendermint/tmlibs
-  version: develop
+  version: sdk2
   subpackages:
   - common
   - db
