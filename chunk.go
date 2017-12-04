@@ -1,6 +1,9 @@
 package iavl
 
-import "sort"
+import (
+	"math"
+	"sort"
+)
 
 // Chunk is a list of ordered nodes
 // It can be sorted, merged, exported from a tree and
@@ -27,13 +30,21 @@ func NewOrderedNode(leaf *Node, prefix uint64) OrderedNodeData {
 
 // GetChunkHashes returns all the "checksum" hashes for
 // the chunks that will be sent
-func GetChunkHashes(tree *Tree, depth uint) [][]byte {
+func GetChunkHashes(tree *Tree, depth uint) ([][]byte, uint) {
+	// Since the tree is not always perfectly balanced, we give ourselves a
+	// margin such that we don't return leaves by mistake, nor do we return
+	// a depth that isn't balanced.
+	maxDepth := uint(math.Log2(float64(tree.Size()))) - 3
+	if depth > maxDepth {
+		depth = maxDepth
+	}
+
 	nodes := getNodes(tree, depth)
 	res := make([][]byte, len(nodes))
 	for i, n := range nodes {
 		res[i] = n.hash
 	}
-	return res
+	return res, depth
 }
 
 // getNodes returns an array of nodes at the given depth

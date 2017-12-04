@@ -11,7 +11,7 @@ func TestSimpleChunk(t *testing.T) {
 
 	// get the chunk info we use
 	tree := makeRandomTree(TreeSize)
-	hashes := GetChunkHashes(tree, 0)
+	hashes, _ := GetChunkHashes(tree, 0)
 	require.Equal(1, len(hashes))
 	hash := hashes[0]
 	require.Equal(tree.Hash(), hash)
@@ -37,26 +37,27 @@ func TestMultipleChunks(t *testing.T) {
 		{1},
 		{4},
 		{7},
+		{16},
 	}
 
 	// get the chunk info we use
 	tree := makeRandomTree(TreeSize)
 
 	for _, tc := range cases {
-		hashes := GetChunkHashes(tree, tc.depth)
+		hashes, depth := GetChunkHashes(tree, tc.depth)
 		numChunks := len(hashes)
-		require.Equal(1<<tc.depth, numChunks, "%d", tc.depth)
+		require.Equal(1<<depth, numChunks, "%d", tc.depth)
 
 		var accum Chunk
 		for i := 0; i < numChunks; i++ {
 			// get tree as one chunk
-			chunk := GetChunk(tree, tc.depth, uint(i))
-			require.NotEmpty(chunk, "%d/%d", tc.depth, i)
+			chunk := GetChunk(tree, depth, uint(i))
+			require.NotEmpty(chunk, "%d/%d", depth, i)
 
 			// sort chunk and check integrity
 			chunk.Sort()
 			check := chunk.CalculateRoot()
-			require.Equal(hashes[i], check, "%d/%d", tc.depth, i)
+			require.Equal(hashes[i], check, "%d/%d", depth, i)
 
 			// add this chunk to our accum
 			accum = MergeChunks(accum, chunk)
