@@ -48,7 +48,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	if key == nil || value == nil {
 		return errors.WithStack(ErrInvalidInputs)
 	}
-	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}, root)
+	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}.Hash(), root)
 }
 
 // Bytes returns a go-wire binary serialization

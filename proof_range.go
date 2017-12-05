@@ -182,7 +182,7 @@ func (proof *KeyRangeProof) Verify(
 			ValueBytes: values[i],
 			Version:    proof.Version,
 		}
-		if err := path.verify(leafNode, root); err != nil {
+		if err := path.verify(leafNode.Hash(), root); err != nil {
 			return errors.WithStack(err)
 		}
 	}
