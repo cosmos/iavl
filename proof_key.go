@@ -63,6 +63,8 @@ func readKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	return proof, err
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash data.Bytes `json:"root_hash"`
@@ -124,4 +126,29 @@ func ReadKeyProof(data []byte) (KeyProof, error) {
 		return readKeyAbsentProof(val)
 	}
 	return nil, errors.New("unrecognized proof")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// InnerKeyProof represents a proof of existence of an inner node key.
+type InnerKeyProof struct {
+	*KeyExistsProof
+}
+
+// Verify verifies the proof is valid and returns an error if it isn't.
+func (proof *InnerKeyProof) Verify(hash []byte, value []byte, root []byte) error {
+	if !bytes.Equal(proof.RootHash, root) {
+		return errors.WithStack(ErrInvalidRoot)
+	}
+	if hash == nil || value != nil {
+		return errors.WithStack(ErrInvalidInputs)
+	}
+	return proof.PathToKey.verify(hash, root)
+}
+
+// ReadKeyInnerProof will deserialize a InnerKeyProof from bytes.
+func ReadInnerKeyProof(data []byte) (*InnerKeyProof, error) {
+	proof := new(InnerKeyProof)
+	err := wire.ReadBinaryBytes(data, &proof)
+	return proof, err
 }

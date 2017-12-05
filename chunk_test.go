@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tmlibs/db"
 )
 
 func TestSimpleChunk(t *testing.T) {
@@ -11,7 +12,8 @@ func TestSimpleChunk(t *testing.T) {
 
 	// get the chunk info we use
 	tree := makeRandomTree(TreeSize)
-	hashes, _ := GetChunkHashes(tree, 0)
+	hashes, _, _, err := getChunkHashes(tree, 0)
+	require.NoError(err)
 	require.Equal(1, len(hashes))
 	hash := hashes[0]
 	require.Equal(tree.Hash(), hash)
@@ -25,6 +27,11 @@ func TestSimpleChunk(t *testing.T) {
 	chunk.Sort()
 	check := chunk.CalculateRoot()
 	require.Equal(hash, check)
+
+	// Trying to get chunks with a depth that exceeds the maximum allowed
+	// returns an error.
+	_, _, _, err = getChunkHashes(tree, 99)
+	require.Error(err)
 }
 
 func TestMultipleChunks(t *testing.T) {
@@ -37,14 +44,14 @@ func TestMultipleChunks(t *testing.T) {
 		{1},
 		{4},
 		{7},
-		{16},
 	}
 
 	// get the chunk info we use
 	tree := makeRandomTree(TreeSize)
 
 	for _, tc := range cases {
-		hashes, depth := GetChunkHashes(tree, tc.depth)
+		hashes, _, depth, err := getChunkHashes(tree, tc.depth)
+		require.NoError(err)
 		numChunks := len(hashes)
 		require.Equal(1<<depth, numChunks, "%d", tc.depth)
 
@@ -67,4 +74,30 @@ func TestMultipleChunks(t *testing.T) {
 		final := accum.CalculateRoot()
 		require.Equal(tree.Hash(), final, "%d", tc.depth)
 	}
+}
+
+func TestChunkProofs(t *testing.T) {
+	require := require.New(t)
+	tree := makeAlphabetTree()
+
+	hashes, proofs, _ := GetChunkHashesWithProofs(tree)
+	require.NotEmpty(hashes)
+	require.Equal(len(hashes), len(proofs))
+
+	for i, hash := range hashes {
+		err := proofs[i].Verify(hash, nil, tree.Hash())
+		require.NoError(err)
+	}
+}
+
+func makeAlphabetTree() *Tree {
+	t := NewTree(26, db.NewMemDB())
+	alpha := []byte("abcdefghijklmnopqrstuvwxyz")
+
+	for _, a := range alpha {
+		t.Set([]byte{a}, []byte{a})
+	}
+	t.Hash()
+
+	return t
 }
