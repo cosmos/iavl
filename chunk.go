@@ -2,6 +2,9 @@ package iavl
 
 import (
 	"sort"
+
+	"github.com/pkg/errors"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // Chunk is a list of ordered nodes
@@ -27,21 +30,41 @@ func NewOrderedNode(leaf *Node, prefix uint64) OrderedNodeData {
 	}
 }
 
-// GetChunkHashes returns all the "checksum" hashes for
+// getChunkHashes returns all the "checksum" hashes for
 // the chunks that will be sent
-func GetChunkHashes(tree *Tree, depth uint) ([][]byte, uint) {
-	// Account for unbalanced trees by capping the depth.
+func getChunkHashes(tree *Tree, depth uint) ([][]byte, [][]byte, uint, error) {
 	maxDepth := uint(tree.root.height / 2)
 	if depth > maxDepth {
-		depth = maxDepth
+		return nil, nil, 0, errors.New("depth exceeds maximum allowed")
 	}
 
 	nodes := getNodes(tree, depth)
-	res := make([][]byte, len(nodes))
+	hashes := make([][]byte, len(nodes))
+	keys := make([][]byte, len(nodes))
 	for i, n := range nodes {
-		res[i] = n.hash
+		hashes[i] = n.hash
+		keys[i] = n.key
 	}
-	return res, depth
+	return hashes, keys, depth, nil
+}
+
+// GetChunkHashesWithProofs takes a tree and returns the list of chunks with
+// proofs that can be used to synchronize a tree across the network.
+func GetChunkHashesWithProofs(tree *Tree) ([][]byte, []*InnerKeyProof, uint) {
+	hashes, keys, depth, err := getChunkHashes(tree, uint(tree.root.height/2))
+	if err != nil {
+		cmn.PanicSanity(cmn.Fmt("GetChunkHashes: %s", err))
+	}
+	proofs := make([]*InnerKeyProof, len(keys))
+
+	for i, k := range keys {
+		proof, err := tree.getInnerWithProof(k)
+		if err != nil {
+			cmn.PanicSanity(cmn.Fmt("Error getting inner key proof: %s", err))
+		}
+		proofs[i] = proof
+	}
+	return hashes, proofs, depth
 }
 
 // getNodes returns an array of nodes at the given depth
