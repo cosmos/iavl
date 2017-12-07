@@ -64,7 +64,7 @@ func (i instruction) Execute(tree *VersionedTree) {
 	case "REMOVE":
 		tree.Remove(i.k)
 	case "SAVE":
-		tree.SaveVersion(i.version)
+		tree.SaveVersion()
 	case "DELETE":
 		tree.DeleteVersion(i.version)
 	default:

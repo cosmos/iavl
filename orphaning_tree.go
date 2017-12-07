@@ -43,24 +43,29 @@ func (tree *orphaningTree) unorphan(hash []byte) {
 	tree.ndb.Unorphan(hash)
 }
 
-// Save the underlying Tree. Saves orphans too.
-func (tree *orphaningTree) SaveVersion(version int64) {
-	// Save the current tree at the given version. For each saved node, we
-	// delete any existing orphan entries in the previous trees.
-	// This is necessary because sometimes tree re-balancing causes nodes to be
-	// incorrectly marked as orphaned, since tree patterns after a re-balance
-	// may mirror previous tree patterns, with matching hashes.
-	tree.ndb.SaveBranch(tree.root, func(node *Node) {
-		// The node version is set here since it isn't known until we save.
-		// Note that we only want to set the version for inner nodes the first
-		// time, as they represent the beginning of the lifetime of that node.
-		// So unless it's a leaf node, we only update version when it's 0.
-		if node.version == 0 || node.isLeaf() {
-			node.version = version
-		}
-		tree.unorphan(node._hash())
-	})
-	tree.ndb.SaveOrphans(version, tree.orphans)
+// SaveAs saves the underlying Tree and assigns it a new version.
+// Saves orphans too.
+func (tree *orphaningTree) SaveAs(version int64) {
+	tree.version = version
+
+	if tree.root == nil {
+		// There can still be orphans, for example if the root is the node being
+		// removed.
+		tree.ndb.SaveOrphans(tree.version, tree.orphans)
+		tree.ndb.SaveEmptyRoot(version)
+	} else {
+		// Save the current tree. For each saved node, we delete any existing
+		// orphan entries in the previous trees.  This is necessary because
+		// sometimes tree re-balancing causes nodes to be incorrectly marked as
+		// orphaned, since tree patterns after a re-balance may mirror previous
+		// tree patterns, with matching hashes.
+		tree.ndb.SaveBranch(tree.root, func(node *Node) {
+			tree.unorphan(node._hash())
+		})
+		tree.ndb.SaveOrphans(tree.version, tree.orphans)
+		tree.ndb.SaveRoot(tree.root, version)
+	}
+	tree.ndb.Commit()
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.

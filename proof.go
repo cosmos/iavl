@@ -202,7 +202,6 @@ func (t *Tree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 
 	proof := &KeyAbsentProof{
 		RootHash: t.root.hash,
-		Version:  t.root.version,
 	}
 	if err := t.constructKeyAbsentProof(key, proof); err != nil {
 		return nil, errors.Wrap(err, "could not construct proof of non-existence")

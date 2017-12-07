@@ -10,13 +10,16 @@ import (
 	"github.com/pkg/errors"
 )
 
-// Tree is an immutable AVL+ Tree. Note that this tree is not thread-safe.
+// Tree is a container for an immutable AVL+ Tree. Changes are performed by
+// swapping the internal root with a new one, while the container is mutable.
+// Note that this tree is not thread-safe.
 type Tree struct {
-	root *Node
-	ndb  *nodeDB
+	root    *Node
+	ndb     *nodeDB
+	version int64
 }
 
-// NewTree creates both im-memory and persistent instances
+// NewTree creates both in-memory and persistent instances
 func NewTree(cacheSize int, db dbm.DB) *Tree {
 	if db == nil {
 		// In-memory Tree.
@@ -73,7 +76,7 @@ func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
 		cmn.PanicSanity(cmn.Fmt("Attempt to store nil value at key '%s'", key))
 	}
 	if t.root == nil {
-		t.root = NewNode(key, value)
+		t.root = NewNode(key, value, t.version+1)
 		return nil, false
 	}
 	t.root, updated, orphaned = t.root.set(t, key, value)
@@ -218,11 +221,13 @@ func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(
 	})
 }
 
-// Clone creates a clone of the tree. Used internally by VersionedTree.
+// Clone creates a clone of the tree.
+// Used internally by VersionedTree.
 func (tree *Tree) clone() *Tree {
 	return &Tree{
-		root: tree.root,
-		ndb:  tree.ndb,
+		root:    tree.root,
+		ndb:     tree.ndb,
+		version: tree.version,
 	}
 }
 
@@ -234,6 +239,7 @@ func (tree *Tree) load(root []byte) {
 		return
 	}
 	tree.root = tree.ndb.GetNode(root)
+	tree.version = tree.root.version
 }
 
 // nodeSize is like Size, but includes inner nodes too.

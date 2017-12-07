@@ -93,7 +93,7 @@ func (tree *VersionedTree) LoadVersion(version int64) error {
 		if v > version {
 			continue
 		}
-		t := &Tree{ndb: tree.ndb}
+		t := &Tree{ndb: tree.ndb, version: v}
 		t.load(root)
 
 		tree.versions[v] = t
@@ -116,7 +116,7 @@ func (tree *VersionedTree) Load() error {
 
 	// Load all roots from the database.
 	for version, root := range roots {
-		t := &Tree{ndb: tree.ndb}
+		t := &Tree{ndb: tree.ndb, version: version}
 		t.load(root)
 
 		tree.versions[version] = t
@@ -139,7 +139,7 @@ func (tree *VersionedTree) ResetToLatest() {
 			tree.versions[tree.latestVersion].clone(),
 		)
 	} else {
-		tree.orphaningTree = newOrphaningTree(&Tree{ndb: tree.ndb})
+		tree.orphaningTree = newOrphaningTree(&Tree{ndb: tree.ndb, version: 0})
 	}
 }
 
@@ -154,34 +154,26 @@ func (tree *VersionedTree) GetVersioned(key []byte, version int64) (
 }
 
 // SaveVersion saves a new tree version to disk, based on the current state of
-// the tree. Multiple calls to SaveVersion with the same version are not allowed.
-func (tree *VersionedTree) SaveVersion(version int64) ([]byte, error) {
+// the tree. Returns the hash and new version number.
+func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
+	version := tree.latestVersion + 1
+
 	if _, ok := tree.versions[version]; ok {
-		return nil, errors.Errorf("version %d was already saved", version)
-	}
-	if tree.root == nil {
-		return nil, ErrNilRoot
-	}
-	if version == 0 {
-		return nil, errors.New("version must be greater than zero")
-	}
-	if version <= tree.latestVersion {
-		return nil, errors.Errorf("version must be greater than latest (%d <= %d)",
-			version, tree.latestVersion)
+		return nil, version, errors.Errorf("version %d was already saved", version)
 	}
 
 	tree.latestVersion = version
 	tree.versions[version] = tree.orphaningTree.Tree
 
-	tree.orphaningTree.SaveVersion(version)
+	tree.orphaningTree.SaveAs(version)
 	tree.orphaningTree = newOrphaningTree(
 		tree.versions[version].clone(),
 	)
 
-	tree.ndb.SaveRoot(tree.root, version)
-	tree.ndb.Commit()
-
-	return tree.root.hash, nil
+	if tree.root == nil {
+		return nil, version, nil
+	}
+	return tree.root.hash, version, nil
 }
 
 // DeleteVersion deletes a tree version from disk. The version can then no
