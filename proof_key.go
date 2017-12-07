@@ -110,22 +110,18 @@ func readKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
 	return proof, err
 }
 
+// ReadKeyProof reads a KeyProof from a byte-slice.
 func ReadKeyProof(data []byte) (KeyProof, error) {
-	var err error
-	var n int
-
-	buf := bytes.NewBuffer(data)
-
-	b := wire.ReadByte(buf, &n, &err)
-	if err != nil {
-		return nil, err
+	if len(data) == 0 {
+		return nil, errors.New("proof bytes are empty")
 	}
+	b, val := data[0], data[1:]
 
 	switch b {
 	case keyExistsMagicNumber:
-		return readKeyExistsProof(buf.Bytes())
+		return readKeyExistsProof(val)
 	case keyAbsentMagicNumber:
-		return readKeyAbsentProof(buf.Bytes())
+		return readKeyAbsentProof(val)
 	}
 	return nil, errors.New("unrecognized proof")
 }
