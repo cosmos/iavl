@@ -29,9 +29,8 @@ func TestSerializeProofs(t *testing.T) {
 	require.Nil(err, "%+v", err)
 	require.NoError(proof2.Verify(key, val, root))
 
-	if _, ok := proof2.(*KeyExistsProof); !ok {
-		require.FailNow("Proof should be *KeyExistsProof")
-	}
+	_, ok := proof2.(*KeyExistsProof)
+	require.True(ok, "Proof should be *KeyExistsProof")
 
 	// test with key absent
 	key = []byte{0x38}
