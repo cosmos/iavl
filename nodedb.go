@@ -382,22 +382,28 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 // SaveRoot creates an entry on disk for the given root, so that it can be
 // loaded later.
 func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	if len(root.hash) == 0 {
 		cmn.PanicSanity("Hash should not be empty")
 	}
+	return ndb.saveRoot(root.hash, version)
+}
+
+// SaveEmptyRoot creates an entry on disk for an empty root.
+func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
+	return ndb.saveRoot([]byte{}, version)
+}
+
+func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
 	if version <= ndb.getLatestVersion() {
 		return errors.New("can't save root with lower or equal version than latest")
 	}
 
-	// Note that we don't use the version attribute of the root. This is
-	// because we might be saving an old root at a new version in the case
-	// where the tree wasn't modified between versions.
 	key := ndb.rootKey(version)
-	ndb.batch.Set(key, root.hash)
-	ndb.cacheVersion(version, root.hash)
+	ndb.batch.Set(key, hash)
+	ndb.cacheVersion(version, hash)
 
 	return nil
 }
