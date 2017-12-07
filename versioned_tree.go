@@ -161,9 +161,6 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 	if _, ok := tree.versions[version]; ok {
 		return nil, version, errors.Errorf("version %d was already saved", version)
 	}
-	if tree.root == nil {
-		return nil, 0, ErrNilRoot
-	}
 
 	tree.latestVersion = version
 	tree.versions[version] = tree.orphaningTree.Tree
@@ -173,9 +170,9 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 		tree.versions[version].clone(),
 	)
 
-	tree.ndb.SaveRoot(tree.root, version)
-	tree.ndb.Commit()
-
+	if tree.root == nil {
+		return nil, version, nil
+	}
 	return tree.root.hash, version, nil
 }
 

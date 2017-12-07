@@ -197,6 +197,59 @@ func TestVersionedRandomTreeSpecial2(t *testing.T) {
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 }
 
+func TestVersionedEmptyTree(t *testing.T) {
+	require := require.New(t)
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewVersionedTree(0, d)
+
+	hash, v, err := tree.SaveVersion()
+	require.Nil(hash)
+	require.EqualValues(1, v)
+	require.NoError(err)
+
+	hash, v, err = tree.SaveVersion()
+	require.Nil(hash)
+	require.EqualValues(2, v)
+	require.NoError(err)
+
+	hash, v, err = tree.SaveVersion()
+	require.Nil(hash)
+	require.EqualValues(3, v)
+	require.NoError(err)
+
+	hash, v, err = tree.SaveVersion()
+	require.Nil(hash)
+	require.EqualValues(4, v)
+	require.NoError(err)
+
+	require.EqualValues(4, tree.LatestVersion())
+
+	require.True(tree.VersionExists(1))
+	require.True(tree.VersionExists(3))
+
+	require.NoError(tree.DeleteVersion(1))
+	require.NoError(tree.DeleteVersion(3))
+
+	require.False(tree.VersionExists(1))
+	require.False(tree.VersionExists(3))
+
+	tree.Set([]byte("k"), []byte("v"))
+	require.EqualValues(5, tree.root.version)
+
+	// Now reload the tree.
+
+	tree = NewVersionedTree(0, d)
+	tree.Load()
+
+	require.False(tree.VersionExists(1))
+	require.True(tree.VersionExists(2))
+	require.False(tree.VersionExists(3))
+
+	require.Empty(tree.versions[2].root)
+}
+
 func TestVersionedTree(t *testing.T) {
 	require := require.New(t)
 	d, closeDB := getTestDB()
@@ -589,10 +642,6 @@ func TestVersionedTreeErrors(t *testing.T) {
 	require := require.New(t)
 	tree := NewVersionedTree(100, db.NewMemDB())
 
-	// Can't save with empty tree.
-	_, _, err := tree.SaveVersion()
-	require.Error(err)
-
 	// Can't delete non-existent versions.
 	require.Error(tree.DeleteVersion(1))
 	require.Error(tree.DeleteVersion(99))
@@ -600,7 +649,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 	tree.Set([]byte("key"), []byte("val"))
 
 	// Saving with content is ok.
-	_, _, err = tree.SaveVersion()
+	_, _, err := tree.SaveVersion()
 	require.NoError(err)
 
 	// Can't delete current version.

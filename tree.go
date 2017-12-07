@@ -76,7 +76,7 @@ func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
 		cmn.PanicSanity(cmn.Fmt("Attempt to store nil value at key '%s'", key))
 	}
 	if t.root == nil {
-		t.root = NewNode(key, value, 1)
+		t.root = NewNode(key, value, t.version+1)
 		return nil, false
 	}
 	t.root, updated, orphaned = t.root.set(t, key, value)

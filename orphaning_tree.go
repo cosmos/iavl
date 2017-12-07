@@ -48,15 +48,24 @@ func (tree *orphaningTree) unorphan(hash []byte) {
 func (tree *orphaningTree) SaveAs(version int64) {
 	tree.version = version
 
-	// Save the current tree. For each saved node, we delete any existing
-	// orphan entries in the previous trees.  This is necessary because
-	// sometimes tree re-balancing causes nodes to be incorrectly marked as
-	// orphaned, since tree patterns after a re-balance may mirror previous
-	// tree patterns, with matching hashes.
-	tree.ndb.SaveBranch(tree.root, func(node *Node) {
-		tree.unorphan(node._hash())
-	})
-	tree.ndb.SaveOrphans(tree.version, tree.orphans)
+	if tree.root == nil {
+		// There can still be orphans, for example if the root is the node being
+		// removed.
+		tree.ndb.SaveOrphans(tree.version, tree.orphans)
+		tree.ndb.SaveEmptyRoot(version)
+	} else {
+		// Save the current tree. For each saved node, we delete any existing
+		// orphan entries in the previous trees.  This is necessary because
+		// sometimes tree re-balancing causes nodes to be incorrectly marked as
+		// orphaned, since tree patterns after a re-balance may mirror previous
+		// tree patterns, with matching hashes.
+		tree.ndb.SaveBranch(tree.root, func(node *Node) {
+			tree.unorphan(node._hash())
+		})
+		tree.ndb.SaveOrphans(tree.version, tree.orphans)
+		tree.ndb.SaveRoot(tree.root, version)
+	}
+	tree.ndb.Commit()
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.
