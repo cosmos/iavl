@@ -90,7 +90,7 @@ func (node *Node) traverseDepth(t *Tree, depth uint, cb func(*Node)) {
 	node.getRightNode(t).traverseDepth(t, depth-1, cb)
 }
 
-// position to key can calculte the appropriate sort order
+// position to key can calculate the appropriate sort order
 // for the count-th node at a given depth, assuming a full
 // tree above this height.
 func positionToKey(depth, count uint) (key uint64) {
