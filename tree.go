@@ -239,7 +239,6 @@ func (tree *Tree) load(root []byte) {
 		return
 	}
 	tree.root = tree.ndb.GetNode(root)
-	tree.version = tree.root.version
 }
 
 // nodeSize is like Size, but includes inner nodes too.
