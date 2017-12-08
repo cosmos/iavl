@@ -24,7 +24,7 @@ func TestSerialize(t *testing.T) {
 
 	for i, tc := range cases {
 		tree := makeRandomTree(TreeSize)
-		stored := tc.algo(tree)
+		stored := tc.algo(tree, tree.root)
 		require.NotNil(stored, "%d", i)
 		require.Equal(tree.Size(), len(stored), "%d", i)
 		origHash := tree.Hash()

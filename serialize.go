@@ -7,8 +7,8 @@ type NodeData struct {
 }
 
 // SerializeFunc is any implementation that can serialize
-// an iavl Tree
-type SerializeFunc func(*Tree) []NodeData
+// an iavl Node and its descendants.
+type SerializeFunc func(*Tree, *Node) []NodeData
 
 // Restore will take an (empty) tree restore it
 // from the keys returned from a SerializeFunc
@@ -22,22 +22,24 @@ func Restore(empty *Tree, kvs []NodeData) {
 // InOrderSerialize returns all key-values in the
 // key order (as stored). May be nice to read, but
 // when recovering, it will create a different.
-func InOrderSerialize(tree *Tree) []NodeData {
-	res := make([]NodeData, 0, tree.Size())
-	tree.Iterate(func(key, value []byte) bool {
-		kv := NodeData{Key: key, Value: value}
-		res = append(res, kv)
+func InOrderSerialize(t *Tree, root *Node) []NodeData {
+	res := make([]NodeData, 0, root.size)
+	root.traverse(t, true, func(node *Node) bool {
+		if node.height == 0 {
+			kv := NodeData{Key: node.key, Value: node.value}
+			res = append(res, kv)
+		}
 		return false
 	})
 	return res
 }
 
-func StableSerializeBFS(tree *Tree) []NodeData {
-	if tree.root == nil {
+func StableSerializeBFS(t *Tree, root *Node) []NodeData {
+	if root == nil {
 		return nil
 	}
 
-	size := tree.Size()
+	size := root.size
 	visited := map[string][]byte{}
 	keys := make([][]byte, 0, size)
 	numKeys := -1
@@ -47,7 +49,7 @@ func StableSerializeBFS(tree *Tree) []NodeData {
 	// its value in the visited map.
 	for depth := uint(0); len(keys) > numKeys; depth++ {
 		numKeys = len(keys)
-		tree.root.traverseDepth(tree, depth, func(node *Node) {
+		root.traverseDepth(t, depth, func(node *Node) {
 			if _, ok := visited[string(node.key)]; !ok {
 				keys = append(keys, node.key)
 				visited[string(node.key)] = nil
@@ -81,18 +83,18 @@ func StableSerializeBFS(tree *Tree) []NodeData {
 // 1, 5
 // 1, 5, 3, 7
 // 1, 5, 3, 7, 2, 4, 6, 8
-func StableSerialize(tree *Tree) []NodeData {
-	top := tree.root
+func StableSerialize(t *Tree, top *Node) []NodeData {
 	if top == nil {
 		return nil
 	}
+	size := top.size
 
 	// store all pending nodes for depth-first search
-	queue := make([]*Node, 0, tree.Size())
+	queue := make([]*Node, 0, size)
 	queue = append(queue, top)
 
 	// to store all results - started with
-	res := make([]NodeData, 0, tree.Size())
+	res := make([]NodeData, 0, size)
 	left := leftmost(top)
 	if left != nil {
 		res = append(res, *left)
