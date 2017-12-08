@@ -303,6 +303,7 @@ func TestVersionedTree(t *testing.T) {
 	require.NoError(tree.Load())
 
 	require.Len(tree.versions, 2, "wrong number of versions")
+	require.EqualValues(v2, tree.LatestVersion())
 
 	// -----1-----
 	// key1 = val0  <orphaned>
@@ -321,7 +322,8 @@ func TestVersionedTree(t *testing.T) {
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 
-	hash3, _, _ := tree.SaveVersion()
+	hash3, v3, _ := tree.SaveVersion()
+	require.EqualValues(3, v3)
 
 	// -----1-----
 	// key1 = val0  <orphaned> (replaced)

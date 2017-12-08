@@ -46,8 +46,6 @@ func (tree *orphaningTree) unorphan(hash []byte) {
 // SaveAs saves the underlying Tree and assigns it a new version.
 // Saves orphans too.
 func (tree *orphaningTree) SaveAs(version int64) {
-	tree.version = version
-
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
