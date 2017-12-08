@@ -86,8 +86,12 @@ func (node *Node) traverseDepth(t *Tree, depth uint, cb func(*Node)) {
 	}
 
 	// otherwise, decend one more level
-	node.getLeftNode(t).traverseDepth(t, depth-1, cb)
-	node.getRightNode(t).traverseDepth(t, depth-1, cb)
+	if node.leftHash != nil {
+		node.getLeftNode(t).traverseDepth(t, depth-1, cb)
+	}
+	if node.rightHash != nil {
+		node.getRightNode(t).traverseDepth(t, depth-1, cb)
+	}
 }
 
 // position to key can calculate the appropriate sort order
