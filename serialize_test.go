@@ -19,6 +19,7 @@ func TestSerialize(t *testing.T) {
 	}{
 		{InOrderSerialize, false},
 		{StableSerialize, true},
+		{StableSerializeBFS, true},
 	}
 
 	for i, tc := range cases {

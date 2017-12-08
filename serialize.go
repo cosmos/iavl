@@ -32,6 +32,39 @@ func InOrderSerialize(tree *Tree) []NodeData {
 	return res
 }
 
+func StableSerializeBFS(tree *Tree) []NodeData {
+	if tree.root == nil {
+		return nil
+	}
+
+	size := tree.Size()
+	visited := map[string][]byte{}
+	keys := make([][]byte, 0, size)
+	numKeys := -1
+
+	// Breadth-first search. At every depth, add keys in search order. Keep
+	// going as long as we find keys at that depth. When we reach a leaf, set
+	// its value in the visited map.
+	for depth := uint(0); len(keys) > numKeys; depth++ {
+		numKeys = len(keys)
+		tree.root.traverseDepth(tree, depth, func(node *Node) {
+			if _, ok := visited[string(node.key)]; !ok {
+				keys = append(keys, node.key)
+				visited[string(node.key)] = nil
+			}
+			if node.isLeaf() {
+				visited[string(node.key)] = node.value
+			}
+		})
+	}
+
+	nds := make([]NodeData, size)
+	for i, k := range keys {
+		nds[i] = NodeData{k, visited[string(k)]}
+	}
+	return nds
+}
+
 // StableSerialize exports the key value pairs of the tree
 // in an order, such that when Restored from those keys, the
 // new tree would have the same structure (and thus same
