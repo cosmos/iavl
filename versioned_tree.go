@@ -164,7 +164,7 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, errors.Errorf("version %d was already saved", version)
 	}
 
-	tree.version = version
+	tree.version = version // Sets the inner *Tree version.
 	tree.versions[version] = tree.orphaningTree.Tree
 
 	tree.orphaningTree.SaveAs(version)
