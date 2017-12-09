@@ -73,12 +73,3 @@ func (tree *orphaningTree) addOrphans(orphans []*Node) {
 		tree.orphans[string(node.hash)] = node.version
 	}
 }
-
-// Drop an orphan from the orphan list. Doesn't write to disk.
-func (tree *orphaningTree) dropOrphan(hash []byte) (version int64, dropped bool) {
-	if version, ok := tree.orphans[string(hash)]; ok {
-		delete(tree.orphans, string(hash))
-		return version, true
-	}
-	return 0, false
-}
