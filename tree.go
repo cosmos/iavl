@@ -258,17 +258,12 @@ func (tree *Tree) clone() *Tree {
 
 // Load the tree from disk, from the given root hash, including all orphans.
 // Used internally by VersionedTree.
-func (tree *Tree) load(version int64, root []byte) {
+func (tree *Tree) load(root []byte) {
 	if len(root) == 0 {
 		tree.root = nil
 		return
 	}
 	tree.root = tree.ndb.GetNode(root)
-
-	// This is wrong.  When saving a tree w/o updates, the tree's root node's
-	// version gets stale.
-	// tree.version = tree.root.version
-	tree.version = version
 }
 
 // nodeSize is like Size, but includes inner nodes too.

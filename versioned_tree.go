@@ -83,7 +83,7 @@ func (tree *VersionedTree) Load() error {
 	latestVersion := int64(0)
 	for version, root := range roots {
 		t := &Tree{ndb: tree.ndb, version: version}
-		t.load(version, root)
+		t.load(root)
 
 		tree.versions[version] = t
 
