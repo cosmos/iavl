@@ -2,8 +2,6 @@ package iavl
 
 import (
 	"fmt"
-
-	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // orphaningTree is a tree which keeps track of orphaned nodes.
@@ -68,7 +66,7 @@ func (tree *orphaningTree) addOrphans(orphans []*Node) {
 			continue
 		}
 		if len(node.hash) == 0 {
-			cmn.PanicSanity("Expected to find node hash, but was empty")
+			panic("Expected to find node hash, but was empty")
 		}
 		tree.orphans[string(node.hash)] = node.version
 	}
