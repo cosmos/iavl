@@ -369,7 +369,7 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	defer ndb.mtx.Unlock()
 
 	if version != ndb.getLatestVersion()+1 {
-		return errors.New("can't save root with lower or equal version than latest")
+		return fmt.Errorf("Must save consecutive versions. Expected %d, got %d", ndb.getLatestVersion()+1, version)
 	}
 
 	key := ndb.rootKey(version)
