@@ -112,7 +112,7 @@ func TestVersionedTreeFuzz(t *testing.T) {
 
 	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
-			tree := NewVersionedTree(0, db.NewMemDB())
+			tree := NewVersionedTree(db.NewMemDB(), 0)
 			program := genRandomProgram(size)
 			err := program.Execute(tree)
 			if err != nil {
