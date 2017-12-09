@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 
 	"github.com/pkg/errors"
@@ -90,7 +89,7 @@ func (t *Tree) Set(key []byte, value []byte) (updated bool) {
 
 func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
 	if value == nil {
-		cmn.PanicSanity(cmn.Fmt("Attempt to store nil value at key '%s'", key))
+		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))
 	}
 	if t.root == nil {
 		t.root = NewNode(key, value, t.version+1)

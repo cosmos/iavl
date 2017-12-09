@@ -11,7 +11,6 @@ import (
 	"golang.org/x/crypto/ripemd160"
 
 	"github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // Node represents a node in a Tree.
@@ -102,7 +101,7 @@ func (node *Node) String() string {
 // clone creates a shallow copy of a node with its hash set to nil.
 func (node *Node) clone(version int64) *Node {
 	if node.isLeaf() {
-		cmn.PanicSanity("Attempt to copy a leaf node")
+		panic("Attempt to copy a leaf node")
 	}
 	return &Node{
 		key:       node.key,
@@ -189,7 +188,7 @@ func (node *Node) _hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	if _, err := node.writeHashBytes(buf); err != nil {
-		cmn.PanicCrisis(err)
+		panic(err)
 	}
 	hasher.Write(buf.Bytes())
 	node.hash = hasher.Sum(nil)
@@ -208,7 +207,7 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 	buf := new(bytes.Buffer)
 	_, hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
-		cmn.PanicCrisis(err)
+		panic(err)
 	}
 	hasher.Write(buf.Bytes())
 	node.hash = hasher.Sum(nil)
@@ -230,7 +229,7 @@ func (node *Node) writeHashBytes(w io.Writer) (n int, err error) {
 		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
-			cmn.PanicSanity("Found an empty child hash")
+			panic("Found an empty child hash")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
 		wire.WriteByteSlice(node.rightHash, w, &n, &err)
@@ -269,12 +268,12 @@ func (node *Node) writeBytes(w io.Writer) (n int, err error) {
 		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
 		if node.leftHash == nil {
-			cmn.PanicSanity("node.leftHash was nil in writeBytes")
+			panic("node.leftHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
 
 		if node.rightHash == nil {
-			cmn.PanicSanity("node.rightHash was nil in writeBytes")
+			panic("node.rightHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.rightHash, w, &n, &err)
 	}

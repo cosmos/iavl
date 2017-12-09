@@ -8,7 +8,6 @@ import (
 	"sort"
 	"sync"
 
-	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
@@ -73,12 +72,12 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	// Doesn't exist, load.
 	buf := ndb.db.Get(ndb.nodeKey(hash))
 	if buf == nil {
-		cmn.PanicSanity(cmn.Fmt("Value missing for key %x", hash))
+		panic(fmt.Sprintf("Value missing for key %x", hash))
 	}
 
 	node, err := MakeNode(buf)
 	if err != nil {
-		cmn.PanicCrisis(cmn.Fmt("Error reading Node. bytes: %x, error: %v", buf, err))
+		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 	}
 
 	node.hash = hash
@@ -94,16 +93,16 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	defer ndb.mtx.Unlock()
 
 	if node.hash == nil {
-		cmn.PanicSanity("Expected to find node.hash, but none found.")
+		panic("Expected to find node.hash, but none found.")
 	}
 	if node.persisted {
-		cmn.PanicSanity("Shouldn't be calling save on an already persisted node.")
+		panic("Shouldn't be calling save on an already persisted node.")
 	}
 
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
 	if _, err := node.writeBytes(buf); err != nil {
-		cmn.PanicCrisis(err)
+		panic(err)
 	}
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 	debug("BATCH SAVE %X %p\n", node.hash, node)
@@ -119,7 +118,7 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
-			cmn.PanicSanity("Got error from leveldb: " + err.Error())
+			panic("Got error from leveldb: " + err.Error())
 		}
 		return exists
 	}
@@ -267,7 +266,7 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 // deleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) deleteRoot(version int64) {
 	if version == ndb.getLatestVersion() {
-		cmn.PanicSanity("Tried to delete latest version")
+		panic("Tried to delete latest version")
 	}
 
 	key := ndb.rootKey(version)
@@ -294,7 +293,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 		fn(it.Key(), it.Value())
 	}
 	if err := it.GetError(); err != nil {
-		cmn.PanicSanity(err.Error())
+		panic(err)
 	}
 }
 
@@ -307,7 +306,7 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 		fn(it.Key(), it.Value())
 	}
 	if err := it.GetError(); err != nil {
-		cmn.PanicSanity(err.Error())
+		panic(err)
 	}
 }
 
@@ -355,7 +354,7 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 // loaded later.
 func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
-		cmn.PanicSanity("Hash should not be empty")
+		panic("Hash should not be empty")
 	}
 	return ndb.saveRoot(root.hash, version)
 }
@@ -432,7 +431,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	ndb.traversePrefix([]byte(nodePrefix), func(key, value []byte) {
 		node, err := MakeNode(value)
 		if err != nil {
-			cmn.PanicSanity("Couldn't decode node from database")
+			panic("Couldn't decode node from database")
 		}
 		fmt.Sscanf(string(key), nodeKeyFmt, &node.hash)
 		nodes = append(nodes, node)
