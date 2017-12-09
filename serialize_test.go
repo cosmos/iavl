@@ -30,7 +30,7 @@ func TestSerialize(t *testing.T) {
 		origHash := tree.Hash()
 		require.NotNil(origHash)
 
-		empty := NewTree(TreeSize, nil)
+		empty := NewTree(nil, TreeSize)
 		require.Equal(0, empty.Size(), "%d", i)
 		Restore(empty, stored)
 		require.Equal(tree.Size(), empty.Size(), "%d", i)
@@ -47,7 +47,7 @@ func TestSerialize(t *testing.T) {
 
 // TODO: add some deletes in there as well?
 func makeRandomTree(nodes int) *Tree {
-	tree := NewTree(nodes, db.NewMemDB())
+	tree := NewTree(db.NewMemDB(), nodes)
 
 	for i := 0; i <= nodes; i++ {
 		k := randBytes(16)
