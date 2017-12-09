@@ -69,7 +69,7 @@ func N(l, r interface{}) *Node {
 // Setup a deep node
 func T(n *Node) *Tree {
 	d := db.NewDB("test", db.MemDBBackendStr, "")
-	t := NewTree(0, d)
+	t := NewTree(d, 0)
 
 	n.hashWithCount()
 	t.root = n
@@ -156,7 +156,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t := NewVersionedTree(100000, db)
+	t := NewVersionedTree(db, 100000)
 	for i := 0; i < 1000000; i++ {
 		t.Set(i2b(int(RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {

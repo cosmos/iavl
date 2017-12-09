@@ -17,8 +17,8 @@ type VersionedTree struct {
 }
 
 // NewVersionedTree returns a new tree with the specified cache size and datastore.
-func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
-	ndb := newNodeDB(cacheSize, db)
+func NewVersionedTree(db dbm.DB, cacheSize int) *VersionedTree {
+	ndb := newNodeDB(db, cacheSize)
 	head := &Tree{ndb: ndb}
 
 	return &VersionedTree{

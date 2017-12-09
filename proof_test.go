@@ -12,7 +12,7 @@ import (
 )
 
 func TestTreeGetWithProof(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
@@ -44,7 +44,7 @@ func TestTreeGetWithProof(t *testing.T) {
 }
 
 func TestTreeKeyExistsProof(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 
 	// should get false for proof with nil root
 	_, proof, _ := tree.getWithProof([]byte("foo"))
@@ -80,7 +80,7 @@ func TestTreeKeyExistsProof(t *testing.T) {
 }
 
 func TestTreeKeyInRangeProofs(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
@@ -133,7 +133,7 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 }
 
 func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
@@ -301,7 +301,7 @@ func TestTreeKeyFirstInRangeProofsVerify(t *testing.T) {
 }
 
 func TestTreeKeyLastInRangeProofsVerify(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	for _, ikey := range []byte{
 		0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7,
@@ -445,7 +445,7 @@ func TestTreeKeyLastInRangeProofsVerify(t *testing.T) {
 }
 
 func TestTreeKeyRangeProof(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	keys := [][]byte{}
 	for _, ikey := range []byte{
@@ -531,7 +531,7 @@ func TestTreeKeyRangeProof(t *testing.T) {
 }
 
 func TestTreeKeyRangeProofVerify(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	assert := assert.New(t)
 
@@ -1007,7 +1007,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 }
 
 func TestTreeKeyAbsentProof(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 
 	proof, err := tree.keyAbsentProof([]byte{0x1})
@@ -1067,7 +1067,7 @@ func TestTreeKeyAbsentProof(t *testing.T) {
 }
 
 func TestKeyAbsentProofVerify(t *testing.T) {
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	require := require.New(t)
 	allKeys := []byte{0x11, 0x32, 0x50, 0x72, 0x99}
 	for _, ikey := range allKeys {
