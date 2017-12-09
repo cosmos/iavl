@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"container/list"
-	"errors"
 	"fmt"
 	"sort"
 	"sync"
