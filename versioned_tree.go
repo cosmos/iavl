@@ -82,9 +82,14 @@ func (tree *VersionedTree) Load() error {
 	// Load all roots from the database.
 	latestVersion := int64(0)
 	for version, root := range roots {
-		t := &Tree{ndb: tree.ndb, version: version}
-		t.load(root)
 
+		// Construct a tree manually.
+		t := &Tree{}
+		t.ndb = tree.ndb
+		t.version = version
+		if len(root) != 0 {
+			t.root = tree.ndb.GetNode(root)
+		}
 		tree.versions[version] = t
 
 		if version > latestVersion {

@@ -62,6 +62,10 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	if len(hash) == 0 {
+		panic("nodeDB.GetNode() requires hash")
+	}
+
 	// Check the cache.
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
 		// Already exists. Move to back of nodeCacheQueue.
