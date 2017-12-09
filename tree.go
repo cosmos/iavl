@@ -256,16 +256,6 @@ func (tree *Tree) clone() *Tree {
 	}
 }
 
-// Load the tree from disk, from the given root hash, including all orphans.
-// Used internally by VersionedTree.
-func (tree *Tree) load(root []byte) {
-	if len(root) == 0 {
-		tree.root = nil
-		return
-	}
-	tree.root = tree.ndb.GetNode(root)
-}
-
 // nodeSize is like Size, but includes inner nodes too.
 func (t *Tree) nodeSize() int {
 	size := 0
