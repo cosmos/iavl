@@ -173,7 +173,7 @@ func MergeChunks(left, right Chunk) Chunk {
 // iavl tree to calculate the root hash of inserting
 // all the nodes
 func (c Chunk) CalculateRoot() []byte {
-	test := NewTree(2*len(c), nil)
+	test := NewTree(nil, 2*len(c))
 	c.PopulateTree(test)
 	return test.Hash()
 }

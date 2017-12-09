@@ -91,7 +91,7 @@ func TestChunkProofs(t *testing.T) {
 }
 
 func makeAlphabetTree() *Tree {
-	t := NewTree(26, db.NewMemDB())
+	t := NewTree(db.NewMemDB(), 26)
 	alpha := []byte("abcdefghijklmnopqrstuvwxyz")
 
 	for _, a := range alpha {
