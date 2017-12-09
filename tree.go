@@ -264,6 +264,10 @@ func (tree *Tree) load(version int64, root []byte) {
 		return
 	}
 	tree.root = tree.ndb.GetNode(root)
+
+	// This is wrong.  When saving a tree w/o updates, the tree's root node's
+	// version gets stale.
+	// tree.version = tree.root.version
 	tree.version = version
 }
 
