@@ -1,7 +1,7 @@
 package iavl
 
 import (
-	cmn "github.com/tendermint/tmlibs/common"
+	"fmt"
 )
 
 // orphaningTree is a tree which keeps track of orphaned nodes.
@@ -36,34 +36,26 @@ func (tree *orphaningTree) Remove(key []byte) ([]byte, bool) {
 	return val, removed
 }
 
-// Unorphan undoes the orphaning of a node, removing the orphan entry on disk
-// if necessary.
-func (tree *orphaningTree) unorphan(hash []byte) {
-	tree.deleteOrphan(hash)
-	tree.ndb.Unorphan(hash)
-}
-
 // SaveAs saves the underlying Tree and assigns it a new version.
 // Saves orphans too.
 func (tree *orphaningTree) SaveAs(version int64) {
+	if version != tree.version+1 {
+		panic(fmt.Sprintf("Expected to save version %d but tried to save %d", tree.version+1, version))
+	}
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
-		tree.ndb.SaveOrphans(tree.version, tree.orphans)
+		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveEmptyRoot(version)
 	} else {
-		// Save the current tree. For each saved node, we delete any existing
-		// orphan entries in the previous trees.  This is necessary because
-		// sometimes tree re-balancing causes nodes to be incorrectly marked as
-		// orphaned, since tree patterns after a re-balance may mirror previous
-		// tree patterns, with matching hashes.
-		tree.ndb.SaveBranch(tree.root, func(node *Node) {
-			tree.unorphan(node._hash())
-		})
-		tree.ndb.SaveOrphans(tree.version, tree.orphans)
+		debug("SAVE TREE %v\n", version)
+		// Save the current tree.
+		tree.ndb.SaveBranch(tree.root)
+		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
 	tree.ndb.Commit()
+	tree.version = version
 }
 
 // Add orphans to the orphan list. Doesn't write to disk.
@@ -74,17 +66,8 @@ func (tree *orphaningTree) addOrphans(orphans []*Node) {
 			continue
 		}
 		if len(node.hash) == 0 {
-			cmn.PanicSanity("Expected to find node hash, but was empty")
+			panic("Expected to find node hash, but was empty")
 		}
 		tree.orphans[string(node.hash)] = node.version
 	}
-}
-
-// Delete an orphan from the orphan list. Doesn't write to disk.
-func (tree *orphaningTree) deleteOrphan(hash []byte) (version int64, deleted bool) {
-	if version, ok := tree.orphans[string(hash)]; ok {
-		delete(tree.orphans, string(hash))
-		return version, true
-	}
-	return 0, false
 }

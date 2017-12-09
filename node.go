@@ -1,5 +1,8 @@
 package iavl
 
+// NOTE: This file favors int64 as opposed to int for size/counts.
+// The Tree on the other hand favors int.  This is intentional.
+
 import (
 	"bytes"
 	"fmt"
@@ -8,7 +11,6 @@ import (
 	"golang.org/x/crypto/ripemd160"
 
 	"github.com/tendermint/go-wire"
-	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // Node represents a node in a Tree.
@@ -17,7 +19,7 @@ type Node struct {
 	value     []byte
 	version   int64
 	height    int8
-	size      int
+	size      int64
 	hash      []byte
 	leftHash  []byte
 	leftNode  *Node
@@ -51,20 +53,17 @@ func MakeNode(buf []byte) (node *Node, err error) {
 	n := 1 // Keeps track of bytes read.
 	buf = buf[n:]
 
-	node.size, n, err = wire.GetVarint(buf)
-	if err != nil {
-		return nil, err
-	}
-	buf = buf[n:]
+	node.size = wire.GetInt64(buf)
+	buf = buf[8:]
+
+	node.version = wire.GetInt64(buf)
+	buf = buf[8:]
 
 	node.key, n, err = wire.GetByteSlice(buf)
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[n:]
-
-	node.version = wire.GetInt64(buf)
-	buf = buf[8:]
 
 	// Read node body.
 
@@ -100,14 +99,14 @@ func (node *Node) String() string {
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone() *Node {
+func (node *Node) clone(version int64) *Node {
 	if node.isLeaf() {
-		cmn.PanicSanity("Attempt to copy a leaf node")
+		panic("Attempt to copy a leaf node")
 	}
 	return &Node{
 		key:       node.key,
 		height:    node.height,
-		version:   node.version,
+		version:   version,
 		size:      node.size,
 		hash:      nil,
 		leftHash:  node.leftHash,
@@ -138,7 +137,7 @@ func (node *Node) has(t *Tree, key []byte) (has bool) {
 }
 
 // Get a key under the node.
-func (node *Node) get(t *Tree, key []byte) (index int, value []byte) {
+func (node *Node) get(t *Tree, key []byte) (index int64, value []byte) {
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -160,7 +159,7 @@ func (node *Node) get(t *Tree, key []byte) (index int, value []byte) {
 	}
 }
 
-func (node *Node) getByIndex(t *Tree, index int) (key []byte, value []byte) {
+func (node *Node) getByIndex(t *Tree, index int64) (key []byte, value []byte) {
 	if node.isLeaf() {
 		if index == 0 {
 			return node.key, node.value
@@ -189,7 +188,7 @@ func (node *Node) _hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 	if _, err := node.writeHashBytes(buf); err != nil {
-		cmn.PanicCrisis(err)
+		panic(err)
 	}
 	hasher.Write(buf.Bytes())
 	node.hash = hasher.Sum(nil)
@@ -199,7 +198,7 @@ func (node *Node) _hash() []byte {
 
 // Hash the node and its descendants recursively. This usually mutates all
 // descendant nodes. Returns the node hash and number of nodes hashed.
-func (node *Node) hashWithCount() ([]byte, int) {
+func (node *Node) hashWithCount() ([]byte, int64) {
 	if node.hash != nil {
 		return node.hash, 0
 	}
@@ -208,7 +207,7 @@ func (node *Node) hashWithCount() ([]byte, int) {
 	buf := new(bytes.Buffer)
 	_, hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
-		cmn.PanicCrisis(err)
+		panic(err)
 	}
 	hasher.Write(buf.Bytes())
 	node.hash = hasher.Sum(nil)
@@ -220,17 +219,17 @@ func (node *Node) hashWithCount() ([]byte, int) {
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) (n int, err error) {
 	wire.WriteInt8(node.height, w, &n, &err)
-	wire.WriteVarint(node.size, w, &n, &err)
+	wire.WriteInt64(node.size, w, &n, &err)
+	wire.WriteInt64(node.version, w, &n, &err)
 
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
 		wire.WriteByteSlice(node.key, w, &n, &err)
 		wire.WriteByteSlice(node.value, w, &n, &err)
-		wire.WriteInt64(node.version, w, &n, &err)
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
-			cmn.PanicSanity("Found an empty child hash")
+			panic("Found an empty child hash")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
 		wire.WriteByteSlice(node.rightHash, w, &n, &err)
@@ -240,7 +239,7 @@ func (node *Node) writeHashBytes(w io.Writer) (n int, err error) {
 
 // Writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int, err error) {
+func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int64, err error) {
 	if node.leftNode != nil {
 		leftHash, leftCount := node.leftNode.hashWithCount()
 		node.leftHash = leftHash
@@ -259,22 +258,22 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int, 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) (n int, err error) {
 	wire.WriteInt8(node.height, w, &n, &err)
-	wire.WriteVarint(node.size, w, &n, &err)
+	wire.WriteInt64(node.size, w, &n, &err)
+	wire.WriteInt64(node.version, w, &n, &err)
 
 	// Unlike writeHashBytes, key is written for inner nodes.
 	wire.WriteByteSlice(node.key, w, &n, &err)
-	wire.WriteInt64(node.version, w, &n, &err)
 
 	if node.isLeaf() {
 		wire.WriteByteSlice(node.value, w, &n, &err)
 	} else {
 		if node.leftHash == nil {
-			cmn.PanicSanity("node.leftHash was nil in writeBytes")
+			panic("node.leftHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.leftHash, w, &n, &err)
 
 		if node.rightHash == nil {
-			cmn.PanicSanity("node.rightHash was nil in writeBytes")
+			panic("node.rightHash was nil in writeBytes")
 		}
 		wire.WriteByteSlice(node.rightHash, w, &n, &err)
 	}
@@ -311,7 +310,7 @@ func (node *Node) set(t *Tree, key []byte, value []byte) (
 		}
 	} else {
 		orphaned = append(orphaned, node)
-		node = node.clone()
+		node = node.clone(version)
 
 		if bytes.Compare(key, node.key) < 0 {
 			var leftOrphaned []*Node
@@ -341,6 +340,8 @@ func (node *Node) set(t *Tree, key []byte, value []byte) (
 func (node *Node) remove(t *Tree, key []byte) (
 	newHash []byte, newNode *Node, newKey []byte, value []byte, orphaned []*Node,
 ) {
+	version := t.version + 1
+
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			return nil, nil, nil, node.value, []*Node{node}
@@ -362,7 +363,7 @@ func (node *Node) remove(t *Tree, key []byte) (
 		}
 		orphaned = append(orphaned, node)
 
-		newNode := node.clone()
+		newNode := node.clone(version)
 		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
 		newNode.calcHeightAndSize(t)
 		newNode, balanceOrphaned := newNode.balance(t)
@@ -382,7 +383,7 @@ func (node *Node) remove(t *Tree, key []byte) (
 		}
 		orphaned = append(orphaned, node)
 
-		newNode := node.clone()
+		newNode := node.clone(version)
 		newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
 		if newKey != nil {
 			newNode.key = newKey
@@ -410,10 +411,12 @@ func (node *Node) getRightNode(t *Tree) *Node {
 
 // Rotate right and return the new node and orphan.
 func (node *Node) rotateRight(t *Tree) (newNode *Node, orphan *Node) {
+	version := t.version + 1
+
 	// TODO: optimize balance & rotate.
-	node = node.clone()
+	node = node.clone(version)
 	l := node.getLeftNode(t)
-	_l := l.clone()
+	_l := l.clone(version)
 
 	_lrHash, _lrCached := _l.rightHash, _l.rightNode
 	_l.rightHash, _l.rightNode = node.hash, node
@@ -427,10 +430,12 @@ func (node *Node) rotateRight(t *Tree) (newNode *Node, orphan *Node) {
 
 // Rotate left and return the new node and orphan.
 func (node *Node) rotateLeft(t *Tree) (newNode *Node, orphan *Node) {
+	version := t.version + 1
+
 	// TODO: optimize balance & rotate.
-	node = node.clone()
+	node = node.clone(version)
 	r := node.getRightNode(t)
-	_r := r.clone()
+	_r := r.clone(version)
 
 	_rlHash, _rlCached := _r.leftHash, _r.leftNode
 	_r.leftHash, _r.leftNode = node.hash, node

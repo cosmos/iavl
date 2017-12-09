@@ -224,7 +224,7 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.EqualValues(4, v)
 	require.NoError(err)
 
-	require.EqualValues(4, tree.LatestVersion())
+	require.EqualValues(4, tree.Version())
 
 	require.True(tree.VersionExists(1))
 	require.True(tree.VersionExists(3))
@@ -303,7 +303,7 @@ func TestVersionedTree(t *testing.T) {
 	require.NoError(tree.Load())
 
 	require.Len(tree.versions, 2, "wrong number of versions")
-	require.EqualValues(v2, tree.LatestVersion())
+	require.EqualValues(v2, tree.Version())
 
 	// -----1-----
 	// key1 = val0  <orphaned>
@@ -613,14 +613,14 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	preHash := tree.Hash()
 	require.NotNil(preHash)
 
-	require.Equal(int64(6), tree.LatestVersion())
+	require.Equal(6, tree.Version())
 
 	// Reload the tree, to test that roots and orphans are properly loaded.
 	ntree := NewVersionedTree(0, d)
 	ntree.Load()
 
 	require.False(ntree.IsEmpty())
-	require.Equal(int64(6), ntree.LatestVersion())
+	require.Equal(6, ntree.Version())
 
 	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
@@ -1042,7 +1042,7 @@ func TestCopyValueSemantics(t *testing.T) {
 	require.Equal([]byte("v2"), val)
 }
 
-func TestResetToLatest(t *testing.T) {
+func TestRollback(t *testing.T) {
 	require := require.New(t)
 
 	tree := NewVersionedTree(0, db.NewMemDB())
@@ -1053,7 +1053,7 @@ func TestResetToLatest(t *testing.T) {
 	tree.Set([]byte("r"), []byte("v"))
 	tree.Set([]byte("s"), []byte("v"))
 
-	tree.ResetToLatest()
+	tree.Rollback()
 
 	tree.Set([]byte("t"), []byte("v"))
 
@@ -1069,42 +1069,6 @@ func TestResetToLatest(t *testing.T) {
 
 	_, val = tree.Get([]byte("t"))
 	require.Equal([]byte("v"), val)
-}
-
-func TestLoadVersion(t *testing.T) {
-	require := require.New(t)
-
-	d := db.NewMemDB()
-	tree := NewVersionedTree(0, d)
-
-	tree.Set([]byte("k"), []byte("v"))
-	tree.SaveVersion()
-
-	tree.Set([]byte("r"), []byte("v"))
-	tree.SaveVersion()
-
-	tree.Set([]byte("s"), []byte("v"))
-	tree.SaveVersion()
-
-	tree.Set([]byte("k"), []byte("u"))
-	tree.SaveVersion()
-
-	tree = NewVersionedTree(0, d)
-	tree.LoadVersion(2)
-
-	require.EqualValues(2, tree.LatestVersion())
-	require.Len(tree.versions, 2)
-
-	_, val := tree.Get([]byte("r"))
-	require.Equal([]byte("v"), val)
-
-	_, val = tree.Get([]byte("k"))
-	require.Equal([]byte("v"), val)
-
-	_, val = tree.Get([]byte("s"))
-	require.Nil(val)
-
-	require.Error(tree.LoadVersion(5))
 }
 
 //////////////////////////// BENCHMARKS ///////////////////////////////////////
