@@ -19,7 +19,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]byte) {
-	t := iavl.NewVersionedTree(size, db)
+	t := iavl.NewVersionedTree(db, size)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {

@@ -19,14 +19,14 @@ type Tree struct {
 }
 
 // NewTree creates both in-memory and persistent instances
-func NewTree(cacheSize int, db dbm.DB) *Tree {
+func NewTree(db dbm.DB, cacheSize int) *Tree {
 	if db == nil {
 		// In-memory Tree.
 		return &Tree{}
 	}
 	return &Tree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(cacheSize, db),
+		ndb: newNodeDB(db, cacheSize),
 	}
 }
 
