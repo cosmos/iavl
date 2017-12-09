@@ -28,11 +28,6 @@ func NewVersionedTree(cacheSize int, db dbm.DB) *VersionedTree {
 	}
 }
 
-// LatestVersion returns the latest saved version of the tree.
-func (tree *VersionedTree) LatestVersion() int64 {
-	return tree.orphaningTree.version
-}
-
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
 // not empty can be saved.
 func (tree *VersionedTree) IsEmpty() bool {
@@ -74,35 +69,6 @@ func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
 	return tree.orphaningTree.Remove(key)
 }
 
-// LoadVersion loads the given version and all versions prior.
-func (tree *VersionedTree) LoadVersion(version int64) error {
-	roots, err := tree.ndb.getRoots()
-	if err != nil {
-		return err
-	}
-	if len(roots) == 0 {
-		return nil
-	}
-	if _, ok := roots[version]; !ok {
-		return errors.WithStack(ErrVersionDoesNotExist)
-	}
-
-	// Load all roots from the database up to the given version.
-	for v, root := range roots {
-		if v > version {
-			continue
-		}
-		t := &Tree{ndb: tree.ndb, version: v}
-		t.load(root)
-
-		tree.versions[v] = t
-	}
-	tree.version = version
-	tree.ResetToLatest()
-
-	return nil
-}
-
 // Load a versioned tree from disk. All tree versions are loaded automatically.
 func (tree *VersionedTree) Load() error {
 	roots, err := tree.ndb.getRoots()
@@ -117,7 +83,7 @@ func (tree *VersionedTree) Load() error {
 	latestVersion := int64(0)
 	for version, root := range roots {
 		t := &Tree{ndb: tree.ndb, version: version}
-		t.load(root)
+		t.load(version, root)
 
 		tree.versions[version] = t
 
@@ -133,9 +99,9 @@ func (tree *VersionedTree) Load() error {
 	return nil
 }
 
-// ResetToLatest resets the working tree to the latest saved version, discarding
+// Rollback resets the working tree to the latest saved version, discarding
 // any unsaved modifications.
-func (tree *VersionedTree) ResetToLatest() {
+func (tree *VersionedTree) Rollback() {
 	if tree.version > 0 {
 		tree.orphaningTree = newOrphaningTree(
 			tree.versions[tree.version].clone(),
@@ -164,18 +130,14 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, errors.Errorf("version %d was already saved", version)
 	}
 
-	tree.version = version // Sets the inner *Tree version.
+	// Persist version and stash to .versions.
+	tree.orphaningTree.SaveAs(version)
 	tree.versions[version] = tree.orphaningTree.Tree
 
-	tree.orphaningTree.SaveAs(version)
-	tree.orphaningTree = newOrphaningTree(
-		tree.versions[version].clone(),
-	)
+	// Set new working tree.
+	tree.orphaningTree = newOrphaningTree(tree.orphaningTree.clone())
 
-	if tree.root == nil {
-		return nil, version, nil
-	}
-	return tree.root.hash, version, nil
+	return tree.Hash(), version, nil
 }
 
 // DeleteVersion deletes a tree version from disk. The version can then no
