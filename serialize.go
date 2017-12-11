@@ -1,6 +1,6 @@
 package iavl
 
-// NodeData groups together a key and a value for return codes
+// NodeData groups together a key and a value for return codes.
 type NodeData struct {
 	Key   []byte
 	Value []byte
@@ -11,7 +11,7 @@ type NodeData struct {
 type SerializeFunc func(*Tree, *Node) []NodeData
 
 // Restore will take an (empty) tree restore it
-// from the keys returned from a SerializeFunc
+// from the keys returned from a SerializeFunc.
 func Restore(empty *Tree, kvs []NodeData) {
 	for _, kv := range kvs {
 		empty.Set(kv.Key, kv.Value)
@@ -34,6 +34,7 @@ func InOrderSerialize(t *Tree, root *Node) []NodeData {
 	return res
 }
 
+// StableSerializeBFS serializes the tree in a breadth-first manner.
 func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 	if root == nil {
 		return nil

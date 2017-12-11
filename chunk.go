@@ -7,19 +7,19 @@ import (
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
-// Chunk is a list of ordered nodes
+// Chunk is a list of ordered nodes.
 // It can be sorted, merged, exported from a tree and
-// used to generate a new tree
+// used to generate a new tree.
 type Chunk []OrderedNodeData
 
 // OrderedNodeData is the data to recreate a leaf node,
-// along with a SortOrder to define a BFS insertion order
+// along with a SortOrder to define a BFS insertion order.
 type OrderedNodeData struct {
 	SortOrder uint64
 	NodeData
 }
 
-// NewOrderedNode creates the data from a leaf node
+// NewOrderedNode creates the data from a leaf node.
 func NewOrderedNode(leaf *Node, prefix uint64) OrderedNodeData {
 	return OrderedNodeData{
 		SortOrder: prefix,
@@ -31,7 +31,7 @@ func NewOrderedNode(leaf *Node, prefix uint64) OrderedNodeData {
 }
 
 // getChunkHashes returns all the "checksum" hashes for
-// the chunks that will be sent
+// the chunks that will be sent.
 func getChunkHashes(tree *Tree, depth uint) ([][]byte, [][]byte, uint, error) {
 	maxDepth := uint(tree.root.height / 2)
 	if depth > maxDepth {
@@ -67,7 +67,7 @@ func GetChunkHashesWithProofs(tree *Tree) ([][]byte, []*InnerKeyProof, uint) {
 	return hashes, proofs, depth
 }
 
-// getNodes returns an array of nodes at the given depth
+// getNodes returns an array of nodes at the given depth.
 func getNodes(tree *Tree, depth uint) []*Node {
 	nodes := make([]*Node, 0, 1<<depth)
 	tree.root.traverseDepth(tree, depth, func(node *Node) {
@@ -77,7 +77,7 @@ func getNodes(tree *Tree, depth uint) []*Node {
 }
 
 // call cb for every node exactly depth levels below it
-// depth first search to return in tree ordering
+// depth first search to return in tree ordering.
 func (node *Node) traverseDepth(t *Tree, depth uint, cb func(*Node)) {
 	// base case
 	if depth == 0 {
@@ -106,7 +106,7 @@ func positionToKey(depth, count uint) (key uint64) {
 }
 
 // GetChunk finds the count-th subtree at depth and
-// generates a Chunk for that data
+// generates a Chunk for that data.
 func GetChunk(tree *Tree, depth, count uint) Chunk {
 	node := getNodes(tree, depth)[count]
 	prefix := positionToKey(depth, count)
@@ -137,7 +137,7 @@ func getChunk(t *Tree, node *Node, prefix uint64, depth uint) Chunk {
 	return res
 }
 
-// Sort does an inline quicksort
+// Sort does an inline quicksort.
 func (c Chunk) Sort() {
 	sort.Slice(c, func(i, j int) bool {
 		return c[i].SortOrder < c[j].SortOrder
@@ -145,7 +145,7 @@ func (c Chunk) Sort() {
 }
 
 // MergeChunks does a merge sort of the two Chunks,
-// assuming they were already in sorted order
+// assuming they were already in sorted order.
 func MergeChunks(left, right Chunk) Chunk {
 	size, i, j := len(left)+len(right), 0, 0
 	slice := make([]OrderedNodeData, size)
@@ -170,14 +170,14 @@ func MergeChunks(left, right Chunk) Chunk {
 
 // CalculateRoot creates a temporary in-memory
 // iavl tree to calculate the root hash of inserting
-// all the nodes
+// all the nodes.
 func (c Chunk) CalculateRoot() []byte {
 	test := NewTree(nil, 2*len(c))
 	c.PopulateTree(test)
 	return test.Hash()
 }
 
-// PopulateTree adds all the chunks in order to the given tree
+// PopulateTree adds all the chunks in order to the given tree.
 func (c Chunk) PopulateTree(empty *Tree) {
 	for _, data := range c {
 		empty.Set(data.Key, data.Value)
