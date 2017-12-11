@@ -71,7 +71,7 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 	return nds
 }
 
-// StableSerialize exports the key value pairs of the tree
+// StableSerializeFrey exports the key value pairs of the tree
 // in an order, such that when Restored from those keys, the
 // new tree would have the same structure (and thus same
 // shape) as the original tree.
@@ -87,7 +87,7 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 // 1, 5
 // 1, 5, 3, 7
 // 1, 5, 3, 7, 2, 4, 6, 8
-func StableSerialize(t *Tree, top *Node) []NodeData {
+func StableSerializeFrey(t *Tree, top *Node) []NodeData {
 	if top == nil {
 		return nil
 	}

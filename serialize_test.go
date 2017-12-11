@@ -18,7 +18,7 @@ func TestSerialize(t *testing.T) {
 		sameHash bool
 	}{
 		{InOrderSerialize, false},
-		{StableSerialize, true},
+		{StableSerializeFrey, true},
 		{StableSerializeBFS, true},
 	}
 
