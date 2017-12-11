@@ -94,21 +94,29 @@ func (leaf proofLeafNode) isGreaterThan(key []byte) bool {
 	return bytes.Compare(leaf.KeyBytes, key) == 1
 }
 
-func (node *Node) pathToKey(t *Tree, key []byte) (*PathToKey, *Node, error) {
+func (node *Node) pathToInnerKey(t *Tree, key []byte) (*PathToKey, *Node, error) {
 	path := &PathToKey{}
-	val, err := node._pathToKey(t, key, path)
+	val, err := node._pathToKey(t, key, false, path)
 	return path, val, err
 }
-func (node *Node) _pathToKey(t *Tree, key []byte, path *PathToKey) (*Node, error) {
+
+func (node *Node) pathToKey(t *Tree, key []byte) (*PathToKey, *Node, error) {
+	path := &PathToKey{}
+	val, err := node._pathToKey(t, key, true, path)
+	return path, val, err
+}
+func (node *Node) _pathToKey(t *Tree, key []byte, skipInner bool, path *PathToKey) (*Node, error) {
 	if node.height == 0 {
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
 		return nil, errors.New("key does not exist")
+	} else if !skipInner && bytes.Equal(node.key, key) {
+		return node, nil
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		if n, err := node.getLeftNode(t)._pathToKey(t, key, path); err != nil {
+		if n, err := node.getLeftNode(t)._pathToKey(t, key, skipInner, path); err != nil {
 			return nil, err
 		} else {
 			branch := proofInnerNode{
@@ -123,7 +131,7 @@ func (node *Node) _pathToKey(t *Tree, key []byte, path *PathToKey) (*Node, error
 		}
 	}
 
-	if n, err := node.getRightNode(t)._pathToKey(t, key, path); err != nil {
+	if n, err := node.getRightNode(t)._pathToKey(t, key, skipInner, path); err != nil {
 		return nil, err
 	} else {
 		branch := proofInnerNode{
@@ -195,6 +203,27 @@ func (t *Tree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, er
 		Version:   node.version,
 	}
 	return node.value, proof, nil
+}
+
+func (t *Tree) getInnerWithProof(key []byte) (proof *InnerKeyProof, err error) {
+	if t.root == nil {
+		return nil, errors.WithStack(ErrNilRoot)
+	}
+	t.root.hashWithCount() // Ensure that all hashes are calculated.
+
+	path, node, err := t.root.pathToInnerKey(t, key)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not construct path to key")
+	}
+
+	proof = &InnerKeyProof{
+		&KeyExistsProof{
+			RootHash:  t.root.hash,
+			PathToKey: path,
+			Version:   node.version,
+		},
+	}
+	return proof, nil
 }
 
 func (t *Tree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
