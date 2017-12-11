@@ -47,6 +47,10 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 	// Breadth-first search. At every depth, add keys in search order. Keep
 	// going as long as we find keys at that depth. When we reach a leaf, set
 	// its value in the visited map.
+	// Since we have an AVL+ tree, the inner nodes contain only keys and not
+	// values, while the leaves contain both. Note also that there are N-1 inner
+	// nodes for N keys, so one of the leaf keys is only set once we reach the leaves
+	// of the tree.
 	for depth := uint(0); len(keys) > numKeys; depth++ {
 		numKeys = len(keys)
 		root.traverseDepth(t, depth, func(node *Node) {
