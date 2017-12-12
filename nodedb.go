@@ -290,26 +290,26 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	it := ndb.db.Iterator()
-	defer it.Close()
+	iter := ndb.db.Iterator(dbm.BeginningKey(), dbm.EndingKey())
+	defer iter.Release()
 
-	for ; it.Valid(); it.Next() {
-		fn(it.Key(), it.Value())
+	for ; iter.Valid(); iter.Next() {
+		fn(iter.Key(), iter.Value())
 	}
-	if err := it.GetError(); err != nil {
+	if err := iter.GetError(); err != nil {
 		panic(err)
 	}
 }
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	it := dbm.IteratePrefix(ndb.db, prefix)
-	defer it.Close()
+	iter := dbm.IteratePrefix(ndb.db, prefix)
+	defer iter.Release()
 
-	for ; it.Valid(); it.Next() {
-		fn(it.Key(), it.Value())
+	for ; iter.Valid(); iter.Next() {
+		fn(iter.Key(), iter.Value())
 	}
-	if err := it.GetError(); err != nil {
+	if err := iter.GetError(); err != nil {
 		panic(err)
 	}
 }
@@ -419,12 +419,19 @@ func (ndb *nodeDB) roots() map[int64][]byte {
 	return roots
 }
 
+// Not efficient.
+// NOTE: DB cannot implement Size() because
+// mutations are not always synchronous.
 func (ndb *nodeDB) size() int {
-	it := ndb.db.Iterator()
+	iter := ndb.db.Iterator(dbm.BeginningKey(), dbm.EndingKey())
+	defer iter.Release()
 	size := 0
 
-	for ; it.Valid(); it.Next() {
+	for ; iter.Valid(); iter.Next() {
 		size++
+	}
+	if err := iter.GetError(); err != nil {
+		panic(err)
 	}
 	return size
 }
