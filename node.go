@@ -505,10 +505,16 @@ func (node *Node) balance(t *Tree) (newSelf *Node, orphaned []*Node) {
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
 func (node *Node) traverse(t *Tree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, cb)
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, func(node *Node, depth uint8) bool {
+		return cb(node)
+	})
 }
 
-func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, cb func(*Node) bool) bool {
+func (node *Node) traverseWithDepth(t *Tree, ascending bool, cb func(*Node, uint8) bool) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, cb)
+}
+
+func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
 	afterStart := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
 	if inclusive {
@@ -518,7 +524,7 @@ func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, in
 	stop := false
 	if afterStart && beforeEnd {
 		// IterateRange ignores this if not leaf
-		stop = cb(node)
+		stop = cb(node, depth)
 	}
 	if stop {
 		return stop
@@ -530,24 +536,24 @@ func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, in
 	if ascending {
 		// check lower nodes, then higher
 		if afterStart {
-			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
 		}
 		if stop {
 			return stop
 		}
 		if beforeEnd {
-			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
 		}
 	} else {
 		// check the higher nodes first
 		if beforeEnd {
-			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
 		}
 		if stop {
 			return stop
 		}
 		if afterStart {
-			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, cb)
+			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
 		}
 	}
 
