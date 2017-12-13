@@ -1,9 +1,15 @@
 package iavl
 
-// NodeData groups together a key and a value for return codes.
+import (
+	"fmt"
+	"math"
+)
+
+// NodeData groups together a key, value and depth.
 type NodeData struct {
 	Key   []byte
 	Value []byte
+	Depth uint8
 }
 
 // SerializeFunc is any implementation that can serialize
@@ -24,9 +30,9 @@ func Restore(empty *Tree, kvs []NodeData) {
 // when recovering, it will create a different.
 func InOrderSerialize(t *Tree, root *Node) []NodeData {
 	res := make([]NodeData, 0, root.size)
-	root.traverse(t, true, func(node *Node) bool {
+	root.traverseWithDepth(t, true, func(node *Node, depth uint8) bool {
 		if node.height == 0 {
-			kv := NodeData{Key: node.key, Value: node.value}
+			kv := NodeData{Key: node.key, Value: node.value, Depth: depth}
 			res = append(res, kv)
 		}
 		return false
@@ -67,7 +73,7 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 
 	nds := make([]NodeData, size)
 	for i, k := range keys {
-		nds[i] = NodeData{k, visited[string(k)]}
+		nds[i] = NodeData{k, visited[string(k)], 0}
 	}
 	return nds
 }

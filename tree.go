@@ -222,7 +222,7 @@ func (t *Tree) IterateRange(start, end []byte, ascending bool, fn func(key []byt
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, false, func(node *Node) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, 0, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {
@@ -237,7 +237,7 @@ func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, true, func(node *Node) bool {
+	return t.root.traverseInRange(t, start, end, ascending, true, 0, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		} else {
