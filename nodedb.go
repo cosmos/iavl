@@ -296,9 +296,6 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	for ; iter.Valid(); iter.Next() {
 		fn(iter.Key(), iter.Value())
 	}
-	if err := iter.GetError(); err != nil {
-		panic(err)
-	}
 }
 
 // Traverse all keys with a certain prefix.
@@ -308,9 +305,6 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 
 	for ; iter.Valid(); iter.Next() {
 		fn(iter.Key(), iter.Value())
-	}
-	if err := iter.GetError(); err != nil {
-		panic(err)
 	}
 }
 
@@ -429,9 +423,6 @@ func (ndb *nodeDB) size() int {
 
 	for ; iter.Valid(); iter.Next() {
 		size++
-	}
-	if err := iter.GetError(); err != nil {
-		panic(err)
 	}
 	return size
 }

@@ -45,7 +45,7 @@ imports:
   subpackages:
   - data
 - name: github.com/tendermint/tmlibs
-  version: 0d03cd9e31a1cebca1616a42acb65e307535223a
+  version: 5636a02d035258701974da39c62d13c1d76f8ae8
   subpackages:
   - common
   - db
