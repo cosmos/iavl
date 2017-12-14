@@ -39,40 +39,28 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 	depths := make([][]*Node, maxDepth+1)
 
 	// Go through all the leaf nodes, grouping them in pairs and creating their
-	// parents at depth - 1.
+	// parents recursively.
 	for _, kv := range kvs {
 		var (
 			// Left and right nodes.
 			l *Node = nil
-			r *Node = NewNode(kv.Key, kv.Value, 0)
+			r *Node = NewNode(kv.Key, kv.Value, 1)
 		)
 
-		d := kv.Depth                    // Current depth.
-		depths[d] = append(depths[d], r) // Add the leaf node to this depth.
-		nodes := depths[d]               // List of nodes at this depth.
+		depth := kv.Depth                        // Current depth.
+		depths[depth] = append(depths[depth], r) // Add the leaf node to this depth.
 
 		// If the nodes at this level are uneven after adding a node to it, it
 		// means we have to wait for another node to be appended before we have
-		// a pair.
-		if len(nodes)%2 != 0 {
-			continue
-		}
+		// a pair. If we do have a pair, go up the tree until we don't.
+		for d := depth; len(depths[d])%2 == 0; d-- {
+			nodes := depths[d] // List of nodes at this depth.
 
-		// Now we have both a left and a right.
-		l = nodes[len(nodes)-1-1]
+			l = nodes[len(nodes)-1-1]
+			r = nodes[len(nodes)-1]
 
-		// If the current depth is the greatest, build the parent of the two
-		// children.
-		if int(d) == len(depths)-1 {
-			depths[d-1] = append(depths[d-1], makeParentNode(l, r))
-		}
-	}
-
-	// Now take care of inner nodes up to the root.
-	for d := maxDepth - 1; d > 0; d-- {
-		nodes := depths[d]
-		for i := 0; i < len(nodes); i += 2 {
-			depths[d-1] = append(depths[d-1], makeParentNode(nodes[i], nodes[i+1]))
+			p := makeParentNode(l, r)
+			depths[d-1] = append(depths[d-1], p)
 		}
 	}
 	empty.root = depths[0][0]
@@ -86,7 +74,7 @@ func makeParentNode(l, r *Node) *Node {
 		size:      l.size + r.size,
 		leftNode:  l,
 		rightNode: r,
-		version:   0,
+		version:   1,
 	}
 }
 
