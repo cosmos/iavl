@@ -54,7 +54,7 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 		// If the nodes at this level are uneven after adding a node to it, it
 		// means we have to wait for another node to be appended before we have
 		// a pair.
-		if len(nodes) < 2 || len(nodes)%2 != 0 {
+		if len(nodes)%2 != 0 {
 			continue
 		}
 
