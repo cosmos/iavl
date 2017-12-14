@@ -25,29 +25,23 @@ func Restore(empty *Tree, kvs []NodeData) {
 }
 
 func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
-	// First we need to know what the max depth is. Ideally this should be
-	// available without having to iterate over the keys.
-	maxDepth := uint8(0)
-	for _, kv := range kvs {
-		if kv.Depth > maxDepth {
-			maxDepth = kv.Depth
-		}
-	}
-
-	// Create an array of arrays of nodes of size maxDepth + 1. We're going to
-	// store each depth in here, forming a kind of pyramid.
-	depths := make([][]*Node, maxDepth+1)
+	// Create an array of arrays of nodes. We're going to store each depth in
+	// here, forming a kind of pyramid.
+	depths := [][]*Node{}
 
 	// Go through all the leaf nodes, grouping them in pairs and creating their
 	// parents recursively.
 	for _, kv := range kvs {
 		var (
 			// Left and right nodes.
-			l *Node = nil
-			r *Node = NewNode(kv.Key, kv.Value, 1)
+			l     *Node = nil
+			r     *Node = NewNode(kv.Key, kv.Value, 1)
+			depth uint8 = kv.Depth
 		)
-
-		depth := kv.Depth                        // Current depth.
+		// Create depths as needed.
+		for len(depths) < int(depth)+1 {
+			depths = append(depths, []*Node{})
+		}
 		depths[depth] = append(depths[depth], r) // Add the leaf node to this depth.
 
 		// If the nodes at this level are uneven after adding a node to it, it
