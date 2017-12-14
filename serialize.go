@@ -1,10 +1,5 @@
 package iavl
 
-import (
-	"fmt"
-	"math"
-)
-
 // NodeData groups together a key, value and depth.
 type NodeData struct {
 	Key   []byte
@@ -16,6 +11,10 @@ type NodeData struct {
 // an iavl Node and its descendants.
 type SerializeFunc func(*Tree, *Node) []NodeData
 
+// RestoreFunc is an implementation that can restore an iavl tree from
+// NodeData.
+type RestoreFunc func(*Tree, []NodeData)
+
 // Restore will take an (empty) tree restore it
 // from the keys returned from a SerializeFunc.
 func Restore(empty *Tree, kvs []NodeData) {
@@ -23,6 +22,72 @@ func Restore(empty *Tree, kvs []NodeData) {
 		empty.Set(kv.Key, kv.Value)
 	}
 	empty.Hash()
+}
+
+func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
+	// First we need to know what the max depth is. Ideally this should be
+	// available without having to iterate over the keys.
+	maxDepth := uint8(0)
+	for _, kv := range kvs {
+		if kv.Depth > maxDepth {
+			maxDepth = kv.Depth
+		}
+	}
+
+	// Create an array of arrays of nodes of size maxDepth + 1. We're going to
+	// store each depth in here, forming a kind of pyramid.
+	depths := make([][]*Node, maxDepth+1)
+
+	// Go through all the leaf nodes, grouping them in pairs and creating their
+	// parents at depth - 1.
+	for _, kv := range kvs {
+		var (
+			// Left and right nodes.
+			l *Node = nil
+			r *Node = NewNode(kv.Key, kv.Value, 0)
+		)
+
+		d := kv.Depth                    // Current depth.
+		depths[d] = append(depths[d], r) // Add the leaf node to this depth.
+		nodes := depths[d]               // List of nodes at this depth.
+
+		// If the nodes at this level are uneven after adding a node to it, it
+		// means we have to wait for another node to be appended before we have
+		// a pair.
+		if len(nodes) < 2 || len(nodes)%2 != 0 {
+			continue
+		}
+
+		// Now we have both a left and a right.
+		l = nodes[len(nodes)-1-1]
+
+		// If the current depth is the greatest, build the parent of the two
+		// children.
+		if int(d) == len(depths)-1 {
+			depths[d-1] = append(depths[d-1], makeParentNode(l, r))
+		}
+	}
+
+	// Now take care of inner nodes up to the root.
+	for d := maxDepth - 1; d > 0; d-- {
+		nodes := depths[d]
+		for i := 0; i < len(nodes); i += 2 {
+			depths[d-1] = append(depths[d-1], makeParentNode(nodes[i], nodes[i+1]))
+		}
+	}
+	empty.root = depths[0][0]
+	empty.Hash()
+}
+
+func makeParentNode(l, r *Node) *Node {
+	return &Node{
+		key:       leftmost(r).Key,
+		height:    l.height + 1, // Is this correct?
+		size:      l.size + r.size,
+		leftNode:  l,
+		rightNode: r,
+		version:   0,
+	}
 }
 
 // InOrderSerialize returns all key-values in the
