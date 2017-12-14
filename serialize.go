@@ -82,7 +82,7 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 func makeParentNode(l, r *Node) *Node {
 	return &Node{
 		key:       leftmost(r).Key,
-		height:    l.height + 1, // Is this correct?
+		height:    maxInt8(l.height, r.height) + 1,
 		size:      l.size + r.size,
 		leftNode:  l,
 		rightNode: r,
