@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tmlibs/db"
 
 	"testing"
 )
@@ -445,7 +446,7 @@ func TestTreeKeyLastInRangeProofsVerify(t *testing.T) {
 }
 
 func TestTreeKeyRangeProof(t *testing.T) {
-	tree := NewTree(nil, 0)
+	tree := NewVersionedTree(db.NewMemDB(), 0)
 	require := require.New(t)
 	keys := [][]byte{}
 	for _, ikey := range []byte{
@@ -454,6 +455,7 @@ func TestTreeKeyRangeProof(t *testing.T) {
 		key := []byte{ikey}
 		keys = append(keys, key)
 		tree.Set(key, []byte(randstr(8)))
+		tree.SaveVersion()
 	}
 	root := tree.Hash()
 
@@ -515,7 +517,7 @@ func TestTreeKeyRangeProof(t *testing.T) {
 
 		for limit := -1; limit < len(keys); limit++ {
 			var expected [][]byte
-			tree.IterateRangeInclusive(startKey, endKey, ascending, func(k, v []byte) bool {
+			tree.IterateRangeInclusive(startKey, endKey, ascending, func(k, v []byte, _ int64) bool {
 				expected = append(expected, k)
 				return len(expected) == limit
 			})
@@ -555,7 +557,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 			keyStart:      []byte{0x0},
 			keyEnd:        []byte{0xff},
 			root:          root,
-			invalidProof:  &KeyRangeProof{RootHash: root, Version: 1},
+			invalidProof:  &KeyRangeProof{RootHash: root},
 			expectedError: ErrInvalidProof,
 		},
 		1: {
@@ -564,7 +566,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 			resultKeys:    [][]byte{{0x1}, {0x2}},
 			resultVals:    [][]byte{{0x1}},
 			root:          root,
-			invalidProof:  &KeyRangeProof{RootHash: root, Version: 1},
+			invalidProof:  &KeyRangeProof{RootHash: root},
 			expectedError: ErrInvalidInputs,
 		},
 		2: { // An invalid proof with two adjacent paths which don't prove anything useful.
@@ -700,6 +702,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
+				Versions: []int64{1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -716,6 +719,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x11}),
 					Node: dummyLeafNode([]byte{0x11}, []byte{0x11}),
 				},
+				Versions: []int64{1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -732,6 +736,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x32}),
 					Node: dummyLeafNode([]byte{0x32}, []byte{0x32}),
 				},
+				Versions: []int64{1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -747,6 +752,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x11}),
 					dummyPathToKey(tree, []byte{0x50}),
 				},
+				Versions: []int64{1, 1},
 			},
 			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
@@ -767,6 +773,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0xf7}),
 					Node: dummyLeafNode([]byte{0xf7}, []byte{0xf7}),
 				},
+				Versions: []int64{1, 1, 1},
 			},
 			expectedError: errors.New("paths #2 and #3 are not adjacent"),
 		},
@@ -787,6 +794,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0xa}),
 					Node: dummyLeafNode([]byte{0xa}, []byte{0xa}),
 				},
+				Versions: []int64{1, 1, 1},
 			},
 			expectedError: errors.New("paths #0 and #1 are not adjacent"),
 		},
@@ -801,6 +809,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 				PathToKeys: []*PathToKey{
 					dummyPathToKey(tree, []byte{0x11}).dropRoot(),
 				},
+				Versions: []int64{1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -815,6 +824,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x0a}),
 					Node: dummyLeafNode([]byte{0x0a}, []byte{0x0a}),
 				},
+				Versions: []int64{},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -829,6 +839,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x99}),
 					Node: dummyLeafNode([]byte{0x99}, []byte{0x99}),
 				},
+				Versions: []int64{},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -844,6 +855,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 				PathToKeys: []*PathToKey{
 					dummyPathToKey(tree, []byte{0x2e}),
 				},
+				Versions: []int64{1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -868,6 +880,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
+				Versions: []int64{1, 1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -888,8 +901,8 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					dummyPathToKey(tree, []byte{0x2e}),
 					dummyPathToKey(tree, []byte{0x32}),
 				},
-				Right:   nil,
-				Version: 1,
+				Right:    nil,
+				Versions: []int64{1, 1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -914,7 +927,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
-				Version: 1,
+				Versions: []int64{1, 1},
 			},
 			expectedError: ErrInvalidProof,
 		},
@@ -941,7 +954,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
-				Version: 1,
+				Versions: []int64{1, 1, 1},
 			},
 			expectedError: nil,
 		},
@@ -968,7 +981,7 @@ func TestTreeKeyRangeProofVerify(t *testing.T) {
 					Path: dummyPathToKey(tree, []byte{0x50}),
 					Node: dummyLeafNode([]byte{0x50}, []byte{0x50}),
 				},
-				Version: 1,
+				Versions: []int64{1, 1, 1},
 			},
 			expectedError: nil,
 		},
