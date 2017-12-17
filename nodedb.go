@@ -56,6 +56,12 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	return ndb
 }
 
+// make a shallow copy, reuse cache, etc.
+func (n *nodeDB) clone() *nodeDB {
+	cacheDB := *n
+	return &cacheDB
+}
+
 // GetNode gets a node from cache or disk. If it is an inner node, it does not
 // load its children.
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
