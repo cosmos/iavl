@@ -1,5 +1,5 @@
-hash: 5bbcbb33c6c7cfbeb1f66e9eb386b12a4bc08b7fe3a0a99d7ce7b21eb15cd158
-updated: 2017-12-15T16:09:16.692856119-05:00
+hash: f4ea0d9c87de8a3e87330cd6ed7f3c0db938704165725bde9ad62b853a33a2da
+updated: 2017-12-17T17:37:30.600533728-08:00
 imports:
 - name: github.com/go-kit/kit
   version: e2b298466b32c7cd5579a9b9b07e968fc9d9452c
@@ -45,12 +45,11 @@ imports:
   subpackages:
   - data
 - name: github.com/tendermint/tmlibs
-  version: 92266594131564924136a056902a11d4d76c30cb
+  version: 4ce8448d7fcf92b040046f894474ce2f7e779b67
   subpackages:
   - common
   - db
   - log
-  - merkle
   - test
 - name: golang.org/x/crypto
   version: edd5e9b0879d13ee6970a50153d85b8fec9f7686

@@ -4,10 +4,6 @@ import:
   version: develop
 - package: github.com/tendermint/tmlibs
   version: sdk2
-  subpackages:
-  - common
-  - db
-  - merkle
 - package: golang.org/x/crypto
   subpackages:
   - ripemd160
