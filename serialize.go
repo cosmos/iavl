@@ -1,14 +1,19 @@
 package iavl
 
-// NodeData groups together a key and a value for return codes.
+// NodeData groups together a key, value and depth.
 type NodeData struct {
 	Key   []byte
 	Value []byte
+	Depth uint8
 }
 
 // SerializeFunc is any implementation that can serialize
 // an iavl Node and its descendants.
 type SerializeFunc func(*Tree, *Node) []NodeData
+
+// RestoreFunc is an implementation that can restore an iavl tree from
+// NodeData.
+type RestoreFunc func(*Tree, []NodeData)
 
 // Restore will take an (empty) tree restore it
 // from the keys returned from a SerializeFunc.
@@ -19,14 +24,62 @@ func Restore(empty *Tree, kvs []NodeData) {
 	empty.Hash()
 }
 
+func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
+	// Create an array of arrays of nodes. We're going to store each depth in
+	// here, forming a kind of pyramid.
+	depths := [][]*Node{}
+
+	// Go through all the leaf nodes, grouping them in pairs and creating their
+	// parents recursively.
+	for _, kv := range kvs {
+		var (
+			// Left and right nodes.
+			l     *Node = nil
+			r     *Node = NewNode(kv.Key, kv.Value, 1)
+			depth uint8 = kv.Depth
+		)
+		// Create depths as needed.
+		for len(depths) < int(depth)+1 {
+			depths = append(depths, []*Node{})
+		}
+		depths[depth] = append(depths[depth], r) // Add the leaf node to this depth.
+
+		// If the nodes at this level are uneven after adding a node to it, it
+		// means we have to wait for another node to be appended before we have
+		// a pair. If we do have a pair, go up the tree until we don't.
+		for d := depth; len(depths[d])%2 == 0; d-- {
+			nodes := depths[d] // List of nodes at this depth.
+
+			l = nodes[len(nodes)-1-1]
+			r = nodes[len(nodes)-1]
+
+			p := makeParentNode(l, r)
+			depths[d-1] = append(depths[d-1], p)
+		}
+	}
+	empty.root = depths[0][0]
+	empty.Hash()
+}
+
+func makeParentNode(l, r *Node) *Node {
+	return &Node{
+		key:       leftmost(r).Key,
+		height:    maxInt8(l.height, r.height) + 1,
+		size:      l.size + r.size,
+		leftNode:  l,
+		rightNode: r,
+		version:   1,
+	}
+}
+
 // InOrderSerialize returns all key-values in the
 // key order (as stored). May be nice to read, but
 // when recovering, it will create a different.
 func InOrderSerialize(t *Tree, root *Node) []NodeData {
 	res := make([]NodeData, 0, root.size)
-	root.traverse(t, true, func(node *Node) bool {
+	root.traverseWithDepth(t, true, func(node *Node, depth uint8) bool {
 		if node.height == 0 {
-			kv := NodeData{Key: node.key, Value: node.value}
+			kv := NodeData{Key: node.key, Value: node.value, Depth: depth}
 			res = append(res, kv)
 		}
 		return false
@@ -67,7 +120,7 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 
 	nds := make([]NodeData, size)
 	for i, k := range keys {
-		nds[i] = NodeData{k, visited[string(k)]}
+		nds[i] = NodeData{k, visited[string(k)], 0}
 	}
 	return nds
 }

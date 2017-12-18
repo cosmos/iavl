@@ -417,13 +417,10 @@ func (ndb *nodeDB) roots() map[int64][]byte {
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
 func (ndb *nodeDB) size() int {
-	itr := ndb.db.Iterator(nil, nil)
-	defer itr.Close()
 	size := 0
-
-	for ; itr.Valid(); itr.Next() {
+	ndb.traverse(func(k, v []byte) {
 		size++
-	}
+	})
 	return size
 }
 
