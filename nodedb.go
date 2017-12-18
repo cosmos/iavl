@@ -290,21 +290,21 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	iter := ndb.db.Iterator(dbm.BeginningKey(), dbm.EndingKey())
-	defer iter.Release()
+	itr := ndb.db.Iterator(nil, nil)
+	defer itr.Close()
 
-	for ; iter.Valid(); iter.Next() {
-		fn(iter.Key(), iter.Value())
+	for ; itr.Valid(); itr.Next() {
+		fn(itr.Key(), itr.Value())
 	}
 }
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	iter := dbm.IteratePrefix(ndb.db, prefix)
-	defer iter.Release()
+	itr := dbm.IteratePrefix(ndb.db, prefix)
+	defer itr.Close()
 
-	for ; iter.Valid(); iter.Next() {
-		fn(iter.Key(), iter.Value())
+	for ; itr.Valid(); itr.Next() {
+		fn(itr.Key(), itr.Value())
 	}
 }
 
@@ -417,11 +417,11 @@ func (ndb *nodeDB) roots() map[int64][]byte {
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
 func (ndb *nodeDB) size() int {
-	iter := ndb.db.Iterator(dbm.BeginningKey(), dbm.EndingKey())
-	defer iter.Release()
+	itr := ndb.db.Iterator(nil, nil)
+	defer itr.Close()
 	size := 0
 
-	for ; iter.Valid(); iter.Next() {
+	for ; itr.Valid(); itr.Next() {
 		size++
 	}
 	return size
