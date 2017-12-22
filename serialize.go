@@ -53,23 +53,18 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 			l = nodes[len(nodes)-1-1]
 			r = nodes[len(nodes)-1]
 
-			p := makeParentNode(l, r)
-			depths[d-1] = append(depths[d-1], p)
+			depths[d-1] = append(depths[d-1], &Node{
+				key:       leftmost(r).Key,
+				height:    maxInt8(l.height, r.height) + 1,
+				size:      l.size + r.size,
+				leftNode:  l,
+				rightNode: r,
+				version:   1,
+			})
 		}
 	}
 	empty.root = depths[0][0]
 	empty.Hash()
-}
-
-func makeParentNode(l, r *Node) *Node {
-	return &Node{
-		key:       leftmost(r).Key,
-		height:    maxInt8(l.height, r.height) + 1,
-		size:      l.size + r.size,
-		leftNode:  l,
-		rightNode: r,
-		version:   1,
-	}
 }
 
 // InOrderSerialize returns all key-values in the
