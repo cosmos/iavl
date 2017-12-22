@@ -1,6 +1,8 @@
 package iavl
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -55,10 +57,43 @@ func makeRandomTree(nodes int) *Tree {
 	tree := NewTree(db.NewMemDB(), nodes)
 
 	for i := 0; i <= nodes; i++ {
-		k := []byte(randstr(5))
+		k := []byte(randstr(8))
 		v := k
 		tree.Set(k, v)
 	}
 	tree.Hash()
 	return tree
+}
+
+func BenchmarkSerialize(b *testing.B) {
+	cases := []struct {
+		name      string
+		serialize SerializeFunc
+		restore   RestoreFunc
+		sameHash  bool
+	}{
+		{"in-order", InOrderSerialize, RestoreUsingDepth, true},
+		{"frey", StableSerializeFrey, Restore, true},
+		{"bfs", StableSerializeBFS, Restore, true},
+	}
+
+	treeSizes := []int{1000, 10000, 100000, 1000000}
+
+	for _, size := range treeSizes {
+		tree := makeRandomTree(size)
+		origHash := tree.Hash()
+		for _, tc := range cases {
+			b.Run(fmt.Sprintf("%s-%d", tc.name, size), func(b *testing.B) {
+				for n := 0; n < b.N; n++ {
+					stored := tc.serialize(tree, tree.root)
+					empty := NewTree(nil, size)
+					tc.restore(empty, stored)
+
+					if !bytes.Equal(empty.Hash(), origHash) {
+						panic("Tree hashes don't match!")
+					}
+				}
+			})
+		}
+	}
 }
