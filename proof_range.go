@@ -121,7 +121,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 // KeyRangeProof is proof that a range of keys does or does not exist.
 type KeyRangeProof struct {
 	RootHash   data.Bytes   `json:"root_hash"`
-	Version    int64        `json:"version"`
+	Versions   []int64      `json:"versions"`
 	PathToKeys []*PathToKey `json:"paths"`
 
 	Left  *pathWithNode `json:"left"`
@@ -134,11 +134,11 @@ type KeyRangeProof struct {
 func (proof *KeyRangeProof) Verify(
 	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
 ) error {
-	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) {
-		return ErrInvalidInputs
+	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) || len(proof.Versions) != len(keys) {
+		return errors.WithStack(ErrInvalidInputs)
 	}
 	if limit > 0 && len(keys) > limit {
-		return ErrInvalidInputs
+		return errors.WithStack(ErrInvalidInputs)
 	}
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
@@ -180,7 +180,7 @@ func (proof *KeyRangeProof) Verify(
 		leafNode := proofLeafNode{
 			KeyBytes:   keys[i],
 			ValueBytes: values[i],
-			Version:    proof.Version,
+			Version:    proof.Versions[i],
 		}
 		if err := path.verify(leafNode.Hash(), root); err != nil {
 			return errors.WithStack(err)
@@ -235,27 +235,32 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
-	rangeProof = &KeyRangeProof{RootHash: t.root.hash, Version: t.root.version}
+	rangeProof = &KeyRangeProof{RootHash: t.root.hash}
 	rangeStart, rangeEnd := keyStart, keyEnd
 	ascending := bytes.Compare(keyStart, keyEnd) == -1
 	if !ascending {
 		rangeStart, rangeEnd = rangeEnd, rangeStart
 	}
 
-	limited := t.IterateRangeInclusive(rangeStart, rangeEnd, ascending, func(k, v []byte) bool {
+	versions := []int64{}
+	limited := t.IterateRangeInclusive(rangeStart, rangeEnd, ascending, func(k, v []byte, version int64) bool {
 		keys = append(keys, k)
 		values = append(values, v)
+		versions = append(versions, version)
 		return len(keys) == limit
 	})
 
 	// Construct the paths such that they are always in ascending order.
 	rangeProof.PathToKeys = make([]*PathToKey, len(keys))
+	rangeProof.Versions = make([]int64, len(keys))
 	for i, k := range keys {
 		path, _, _ := t.root.pathToKey(t, k)
 		if ascending {
 			rangeProof.PathToKeys[i] = path
+			rangeProof.Versions[i] = versions[i]
 		} else {
 			rangeProof.PathToKeys[len(keys)-i-1] = path
+			rangeProof.Versions[len(keys)-i-1] = versions[i]
 		}
 	}
 
@@ -339,7 +344,7 @@ func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 	proof.Version = t.root.version
 
 	// Get the first value in the range.
-	t.IterateRangeInclusive(keyStart, keyEnd, true, func(k, v []byte) bool {
+	t.IterateRangeInclusive(keyStart, keyEnd, true, func(k, v []byte, _ int64) bool {
 		key, value = k, v
 		return true
 	})
@@ -386,7 +391,7 @@ func (t *Tree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
 	proof.Version = t.root.version
 
 	// Get the last value in the range.
-	t.IterateRangeInclusive(keyStart, keyEnd, false, func(k, v []byte) bool {
+	t.IterateRangeInclusive(keyStart, keyEnd, false, func(k, v []byte, _ int64) bool {
 		key, value = k, v
 		return true
 	})

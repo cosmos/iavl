@@ -233,13 +233,13 @@ func (t *Tree) IterateRange(start, end []byte, ascending bool, fn func(key []byt
 
 // IterateRangeInclusive makes a callback for all nodes with key between start and end inclusive.
 // If either are nil, then it is open on that side (nil, nil is the same as Iterate)
-func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
+func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key, value []byte, version int64) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
 	return t.root.traverseInRange(t, start, end, ascending, true, 0, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
-			return fn(node.key, node.value)
+			return fn(node.key, node.value, node.version)
 		} else {
 			return false
 		}
