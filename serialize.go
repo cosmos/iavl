@@ -7,13 +7,11 @@ type NodeData struct {
 	Depth uint8
 }
 
-// SerializeFunc is any implementation that can serialize
-// an iavl Node and its descendants.
-type SerializeFunc func(*Tree, *Node) []NodeData
-
-// RestoreFunc is an implementation that can restore an iavl tree from
-// NodeData.
-type RestoreFunc func(*Tree, []NodeData)
+// Serializer is anything that can serialize and restore a *Tree.
+type Serializer interface {
+	Serialize(*Tree, *Node) []NodeData
+	Restore(*Tree, []NodeData)
+}
 
 // Restore will take an (empty) tree restore it
 // from the keys returned from a SerializeFunc.
@@ -24,7 +22,15 @@ func Restore(empty *Tree, kvs []NodeData) {
 	empty.Hash()
 }
 
-func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
+type DepthSerializer struct{}
+
+var _ Serializer = &DepthSerializer{}
+
+func (ds *DepthSerializer) Serialize(t *Tree, root *Node) []NodeData {
+	return InOrderSerialize(t, root)
+}
+
+func (ds *DepthSerializer) Restore(empty *Tree, kvs []NodeData) {
 	// Create an array of arrays of nodes. We're going to store each depth in
 	// here, forming a kind of pyramid.
 	depths := [][]*Node{}
@@ -82,8 +88,16 @@ func InOrderSerialize(t *Tree, root *Node) []NodeData {
 	return res
 }
 
-// StableSerializeBFS serializes the tree in a breadth-first manner.
-func StableSerializeBFS(t *Tree, root *Node) []NodeData {
+// BreadthFirstSerializer can serialize a tree in a breadth-first manner.
+type BreadthFirstSerializer struct{}
+
+var _ Serializer = &BreadthFirstSerializer{}
+
+func (bs *BreadthFirstSerializer) Restore(empty *Tree, nd []NodeData) {
+	Restore(empty, nd)
+}
+
+func (bs *BreadthFirstSerializer) Serialize(t *Tree, root *Node) []NodeData {
 	if root == nil {
 		return nil
 	}
@@ -120,7 +134,7 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 	return nds
 }
 
-// StableSerializeFrey exports the key value pairs of the tree
+// FreySerializer exports the key value pairs of the tree
 // in an order, such that when Restored from those keys, the
 // new tree would have the same structure (and thus same
 // shape) as the original tree.
@@ -136,7 +150,15 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 // 1, 5
 // 1, 5, 3, 7
 // 1, 5, 3, 7, 2, 4, 6, 8
-func StableSerializeFrey(t *Tree, top *Node) []NodeData {
+type FreySerializer struct{}
+
+var _ Serializer = &FreySerializer{}
+
+func (fs *FreySerializer) Restore(empty *Tree, nd []NodeData) {
+	Restore(empty, nd)
+}
+
+func (fs *FreySerializer) Serialize(t *Tree, top *Node) []NodeData {
 	if top == nil {
 		return nil
 	}
