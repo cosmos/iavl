@@ -18,7 +18,7 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]byte) {
+func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]byte) {
 	t := iavl.NewVersionedTree(size, db)
 	keys := make([][]byte, size)
 
@@ -27,10 +27,25 @@ func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]
 		t.Set(key, randBytes(dataLen))
 		keys[i] = key
 	}
-	t.Hash()
-	t.SaveVersion(t.LatestVersion() + 1)
+	commitTree(b, t)
 	runtime.GC()
 	return t, keys
+}
+
+// commit tree saves a new version and deletes and old one...
+func commitTree(b *testing.B, t *iavl.VersionedTree) {
+	t.Hash()
+	version := t.LatestVersion()
+	_, err := t.SaveVersion(version + 1)
+	if err != nil {
+		b.Errorf("Can't save: %v", err)
+	}
+	if version > 1 {
+		err = t.DeleteVersion(version - 1)
+		if err != nil {
+			b.Errorf("Can't delete: %v", err)
+		}
+	}
 }
 
 func runQueries(b *testing.B, t *iavl.VersionedTree, keyLen int) {
@@ -57,22 +72,6 @@ func runInsert(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize i
 		}
 	}
 	return t
-}
-
-// commit tree saves a new version and deletes and old one...
-func commitTree(b *testing.B, t *iavl.VersionedTree) {
-	t.Hash()
-	version := t.LatestVersion()
-	_, err := t.SaveVersion(version + 1)
-	if err != nil {
-		b.Errorf("Can't save: %v", err)
-	}
-	if version > 1 {
-		err = t.DeleteVersion(version - 1)
-		if err != nil {
-			b.Errorf("Can't delete: %v", err)
-		}
-	}
 }
 
 func runUpdate(b *testing.B, t *iavl.VersionedTree, dataLen, blockSize int, keys [][]byte) *iavl.VersionedTree {
@@ -227,7 +226,7 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 		defer func() {
 			err := os.RemoveAll(dirName)
 			if err != nil {
-				fmt.Printf("%+v\n", err)
+				b.Errorf("%+v\n", err)
 			}
 		}()
 
@@ -257,7 +256,7 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	runtime.GC()
 	init := memUseMB()
 
-	t, keys := prepareTree(d, initSize, keyLen, dataLen)
+	t, keys := prepareTree(b, d, initSize, keyLen, dataLen)
 	used := memUseMB() - init
 	fmt.Printf("Init Tree took %0.2f MB\n", used)
 
