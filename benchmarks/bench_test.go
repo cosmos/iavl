@@ -59,14 +59,29 @@ func runInsert(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize i
 	return t
 }
 
+// commit tree saves a new version and deletes and old one...
+func commitTree(b *testing.B, t *iavl.VersionedTree) {
+	t.Hash()
+	version := t.LatestVersion()
+	_, err := t.SaveVersion(version + 1)
+	if err != nil {
+		b.Errorf("Can't save: %v", err)
+	}
+	if version > 1 {
+		err = t.DeleteVersion(version - 1)
+		if err != nil {
+			b.Errorf("Can't delete: %v", err)
+		}
+	}
+}
+
 func runUpdate(b *testing.B, t *iavl.VersionedTree, dataLen, blockSize int, keys [][]byte) *iavl.VersionedTree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
 		t.Set(key, randBytes(dataLen))
 		if i%blockSize == 0 {
-			t.Hash()
-			t.SaveVersion(t.LatestVersion() + 1)
+			commitTree(b, t)
 		}
 	}
 	return t
@@ -81,8 +96,7 @@ func runDelete(b *testing.B, t *iavl.VersionedTree, blockSize int, keys [][]byte
 		// TODO: test if removed, use more keys (from insert)
 		t.Remove(key)
 		if i%blockSize == 0 {
-			t.Hash()
-			t.SaveVersion(t.LatestVersion() + 1)
+			commitTree(b, t)
 		}
 	}
 	return t
@@ -96,7 +110,7 @@ func runBlock(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize in
 
 	lastCommit := t
 	real := t
-	check := t
+	// check := t
 
 	for i := 0; i < b.N; i++ {
 		for j := 0; j < blockSize; j++ {
@@ -110,15 +124,14 @@ func runBlock(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize in
 			data := randBytes(dataLen)
 
 			// perform query and write on check and then real
-			check.Get(key)
-			check.Set(key, data)
+			// check.Get(key)
+			// check.Set(key, data)
 			real.Get(key)
 			real.Set(key, data)
 		}
 
 		// at the end of a block, move it all along....
-		real.Hash()
-		real.SaveVersion(real.LatestVersion() + 1)
+		commitTree(b, real)
 		lastCommit = real
 	}
 
@@ -265,15 +278,15 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 
 	// both of these edit size of the tree too much
 	// need to run with their own tree
-	t = nil // for gc
-	b.Run("insert", func(sub *testing.B) {
-		it, _ := prepareTree(d, initSize, keyLen, dataLen)
-		sub.ResetTimer()
-		runInsert(sub, it, keyLen, dataLen, blockSize)
-	})
-	b.Run("delete", func(sub *testing.B) {
-		dt, dkeys := prepareTree(d, initSize+sub.N, keyLen, dataLen)
-		sub.ResetTimer()
-		runDelete(sub, dt, blockSize, dkeys)
-	})
+	// t = nil // for gc
+	// b.Run("insert", func(sub *testing.B) {
+	// 	it, _ := prepareTree(d, initSize, keyLen, dataLen)
+	// 	sub.ResetTimer()
+	// 	runInsert(sub, it, keyLen, dataLen, blockSize)
+	// })
+	// b.Run("delete", func(sub *testing.B) {
+	// 	dt, dkeys := prepareTree(d, initSize+sub.N, keyLen, dataLen)
+	// 	sub.ResetTimer()
+	// 	runDelete(sub, dt, blockSize, dkeys)
+	// })
 }
