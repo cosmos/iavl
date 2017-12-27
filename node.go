@@ -178,6 +178,20 @@ func (node *Node) getByIndex(t *Tree, index int64) (key []byte, value []byte) {
 	}
 }
 
+func (node *Node) getFirstChild(t *Tree, key []byte) *Node {
+	cmp := bytes.Compare(key, node.key)
+
+	if cmp == 0 {
+		return node
+	} else if node.isLeaf() {
+		return nil
+	} else if cmp > 0 {
+		return node.getRightNode(t).getFirstChild(t, key)
+	} else {
+		return node.getLeftNode(t).getFirstChild(t, key)
+	}
+}
+
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash() []byte {
