@@ -304,7 +304,17 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
-		fn(itr.Key(), itr.Value())
+		// We have to create a copy of the k/v pair here, since we can't
+		// guarantee that the memory isn't re-used by one of the backends.
+		val := itr.Value()
+		v := make([]byte, len(val))
+		copy(v, val)
+
+		key := itr.Key()
+		k := make([]byte, len(key))
+		copy(k, key)
+
+		fn(k, v)
 	}
 }
 
