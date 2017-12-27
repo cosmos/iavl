@@ -11,43 +11,38 @@ import (
 
 // TreeSize is the number of nodes in our test trees
 const TreeSize = 10000
-const TreeVariations = 1
 
 func TestSerialize(t *testing.T) {
 	require := require.New(t)
 
 	cases := []struct {
+		name       string
 		serializer Serializer
-		sameHash   bool
+		tree       *Tree
 	}{
-		{&inOrderSerializer{}, true},
-		{&breadthFirstSerializer{}, true},
+		{"in-order-alpha", &inOrderSerializer{}, makeAlphabetTree()},
+		{"bfs-alpha", &breadthFirstSerializer{}, makeAlphabetTree()},
+		{"in-order", &inOrderSerializer{}, makeRandomTree(TreeSize)},
+		{"bfs", &breadthFirstSerializer{}, makeRandomTree(TreeSize)},
+		{"in-order-versioned", &inOrderSerializer{}, makeRandomVersionedTree(TreeSize)},
 	}
 
 	for i, tc := range cases {
-		for j := 0; j < TreeVariations; j++ {
-			tree := makeRandomTree(TreeSize)
-			serializer := tc.serializer
-			stored := serializer.Serialize(tree, tree.root)
-			require.NotNil(stored, "%d", i)
-			require.Equal(tree.Size(), len(stored), "%d", i)
-			origHash := tree.Hash()
-			require.NotNil(origHash)
+		tree := tc.tree
+		stored := tc.serializer.Serialize(tree, tree.root)
+		require.NotNil(stored, "%d", i)
+		require.Equal(tree.Size(), len(stored), "%d", i)
+		origHash := tree.Hash()
+		require.NotNil(origHash)
 
-			empty := NewTree(nil, TreeSize)
-			require.Equal(0, empty.Size(), "%d", i)
-			serializer.Restore(empty, stored)
-			require.Equal(tree.Size(), empty.Size(), "%d", i)
+		empty := NewTree(nil, TreeSize)
+		require.Equal(0, empty.Size(), "%d", i)
+		tc.serializer.Restore(empty, stored)
+		require.Equal(tree.Size(), empty.Size(), "%d", i)
 
-			newHash := empty.Hash()
-			require.NotNil(newHash)
-			if tc.sameHash {
-				require.Equal(origHash, newHash, "%d", i)
-			} else {
-				require.NotEqual(origHash, newHash, "%d", i)
-			}
-
-		}
+		newHash := empty.Hash()
+		require.NotNil(newHash)
+		require.EqualValues(fmt.Sprintf("%x", origHash), fmt.Sprintf("%x", newHash), "hashes don't match for: %s\n%#v", tc.name, stored)
 	}
 }
 
@@ -62,6 +57,22 @@ func makeRandomTree(nodes int) *Tree {
 	}
 	tree.Hash()
 	return tree
+}
+
+func makeRandomVersionedTree(nodes int) *Tree {
+	tree := NewVersionedTree(db.NewMemDB(), nodes)
+
+	for i := 0; i <= nodes; i++ {
+		k := []byte(randstr(8))
+		v := k
+		tree.Set(k, v)
+
+		if i%(nodes/100) == 0 {
+			tree.SaveVersion()
+		}
+	}
+	tree.Hash()
+	return tree.Tree()
 }
 
 func BenchmarkSerialize(b *testing.B) {
