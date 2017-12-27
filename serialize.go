@@ -13,24 +13,22 @@ type Serializer interface {
 	Restore(*Tree, []NodeData)
 }
 
-// Restore will take an (empty) tree restore it
-// from the keys returned from a SerializeFunc.
-func Restore(empty *Tree, kvs []NodeData) {
-	for _, kv := range kvs {
-		empty.Set(kv.Key, kv.Value)
-	}
-	empty.Hash()
+// NewSerializer returns a new serializer using the default algorithm.
+func NewSerializer() Serializer {
+	return &inOrderSerializer{}
 }
 
-type DepthSerializer struct{}
+// inOrderSerializer serializes a tree in sort order and restores trees
+// bottom-up using depth information.
+type inOrderSerializer struct{}
 
-var _ Serializer = &DepthSerializer{}
+var _ Serializer = &inOrderSerializer{}
 
-func (ds *DepthSerializer) Serialize(t *Tree, root *Node) []NodeData {
+func (s *inOrderSerializer) Serialize(t *Tree, root *Node) []NodeData {
 	return InOrderSerialize(t, root)
 }
 
-func (ds *DepthSerializer) Restore(empty *Tree, kvs []NodeData) {
+func (s *inOrderSerializer) Restore(empty *Tree, kvs []NodeData) {
 	// Create an array of arrays of nodes. We're going to store each depth in
 	// here, forming a kind of pyramid.
 	depths := [][]*Node{}
@@ -88,16 +86,19 @@ func InOrderSerialize(t *Tree, root *Node) []NodeData {
 	return res
 }
 
-// BreadthFirstSerializer can serialize a tree in a breadth-first manner.
-type BreadthFirstSerializer struct{}
+// breadthFirstSerializer can serialize a tree in a breadth-first manner.
+type breadthFirstSerializer struct{}
 
-var _ Serializer = &BreadthFirstSerializer{}
+var _ Serializer = &breadthFirstSerializer{}
 
-func (bs *BreadthFirstSerializer) Restore(empty *Tree, nd []NodeData) {
-	Restore(empty, nd)
+func (s *breadthFirstSerializer) Restore(empty *Tree, kvs []NodeData) {
+	for _, kv := range kvs {
+		empty.Set(kv.Key, kv.Value)
+	}
+	empty.Hash()
 }
 
-func (bs *BreadthFirstSerializer) Serialize(t *Tree, root *Node) []NodeData {
+func (s *breadthFirstSerializer) Serialize(t *Tree, root *Node) []NodeData {
 	if root == nil {
 		return nil
 	}
@@ -132,75 +133,6 @@ func (bs *BreadthFirstSerializer) Serialize(t *Tree, root *Node) []NodeData {
 		nds[i] = NodeData{k, visited[string(k)], 0}
 	}
 	return nds
-}
-
-// FreySerializer exports the key value pairs of the tree
-// in an order, such that when Restored from those keys, the
-// new tree would have the same structure (and thus same
-// shape) as the original tree.
-//
-// the algorithm is basically this: take the leftmost node
-// of the left half and the leftmost node of the righthalf.
-// Then go down a level...
-// each time adding leftmost node of the right side.
-// (bredth first search)
-//
-// Imagine 8 nodes in a balanced tree, split in half each time
-// 1
-// 1, 5
-// 1, 5, 3, 7
-// 1, 5, 3, 7, 2, 4, 6, 8
-type FreySerializer struct{}
-
-var _ Serializer = &FreySerializer{}
-
-func (fs *FreySerializer) Restore(empty *Tree, nd []NodeData) {
-	Restore(empty, nd)
-}
-
-func (fs *FreySerializer) Serialize(t *Tree, top *Node) []NodeData {
-	if top == nil {
-		return nil
-	}
-	size := top.size
-
-	// store all pending nodes for depth-first search
-	queue := make([]*Node, 0, size)
-	queue = append(queue, top)
-
-	// to store all results - started with
-	res := make([]NodeData, 0, size)
-	left := leftmost(top)
-	if left != nil {
-		res = append(res, *left)
-	}
-
-	var n *Node
-	for len(queue) > 0 {
-		// pop
-		n, queue = queue[0], queue[1:]
-
-		// l := n.getLeftNode(tree)
-		l := n.leftNode
-		if isInner(l) {
-			queue = append(queue, l)
-		}
-
-		// r := n.getRightNode(tree)
-		r := n.rightNode
-		if isInner(r) {
-			queue = append(queue, r)
-			left = leftmost(r)
-			if left != nil {
-				res = append(res, *left)
-			}
-		} else if isLeaf(r) {
-			kv := NodeData{Key: r.key, Value: r.value}
-			res = append(res, kv)
-		}
-	}
-
-	return res
 }
 
 func isInner(n *Node) bool {

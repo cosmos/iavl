@@ -20,9 +20,8 @@ func TestSerialize(t *testing.T) {
 		serializer Serializer
 		sameHash   bool
 	}{
-		{&DepthSerializer{}, true},
-		{&FreySerializer{}, true},
-		{&BreadthFirstSerializer{}, true},
+		{&inOrderSerializer{}, true},
+		{&breadthFirstSerializer{}, true},
 	}
 
 	for i, tc := range cases {
@@ -71,9 +70,8 @@ func BenchmarkSerialize(b *testing.B) {
 		serializer Serializer
 		sameHash   bool
 	}{
-		{"in-order", &DepthSerializer{}, true},
-		{"frey", &FreySerializer{}, true},
-		{"bfs", &BreadthFirstSerializer{}, true},
+		{"in-order", &inOrderSerializer{}, true},
+		{"bfs", &breadthFirstSerializer{}, true},
 	}
 
 	treeSizes := []int{1000, 10000, 100000, 1000000}
