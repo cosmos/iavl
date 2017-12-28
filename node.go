@@ -528,6 +528,23 @@ func (node *Node) traverseWithDepth(t *Tree, ascending bool, cb func(*Node, uint
 	return node.traverseInRange(t, nil, nil, ascending, false, 0, cb)
 }
 
+// call cb for every node exactly depth levels below it
+// depth first search to return in tree ordering.
+func (node *Node) traverseDepth(t *Tree, depth uint, cb func(*Node)) {
+	// base case
+	if depth == 0 {
+		cb(node)
+		return
+	}
+	if node.isLeaf() {
+		return
+	}
+
+	// otherwise, descend one more level
+	node.getLeftNode(t).traverseDepth(t, depth-1, cb)
+	node.getRightNode(t).traverseDepth(t, depth-1, cb)
+}
+
 func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
 	afterStart := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0

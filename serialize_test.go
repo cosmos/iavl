@@ -46,6 +46,18 @@ func TestSerialize(t *testing.T) {
 	}
 }
 
+func makeAlphabetTree() *Tree {
+	t := NewTree(db.NewMemDB(), 26)
+	alpha := []byte("abcdefghijklmnopqrstuvwxyz")
+
+	for _, a := range alpha {
+		t.Set([]byte{a}, []byte{a})
+	}
+	t.Hash()
+
+	return t
+}
+
 // TODO: add some deletes in there as well?
 func makeRandomTree(nodes int) *Tree {
 	tree := NewTree(db.NewMemDB(), nodes)
