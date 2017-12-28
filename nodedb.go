@@ -290,12 +290,7 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	itr := ndb.db.Iterator(nil, nil)
-	defer itr.Close()
-
-	for ; itr.Valid(); itr.Next() {
-		fn(itr.Key(), itr.Value())
-	}
+	ndb.traversePrefix([]byte{}, fn)
 }
 
 // Traverse all keys with a certain prefix.
