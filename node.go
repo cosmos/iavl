@@ -178,6 +178,20 @@ func (node *Node) getByIndex(t *Tree, index int64) (key []byte, value []byte) {
 	}
 }
 
+func (node *Node) getFirstChild(t *Tree, key []byte) *Node {
+	cmp := bytes.Compare(key, node.key)
+
+	if cmp == 0 {
+		return node
+	} else if node.isLeaf() {
+		return nil
+	} else if cmp > 0 {
+		return node.getRightNode(t).getFirstChild(t, key)
+	} else {
+		return node.getLeftNode(t).getFirstChild(t, key)
+	}
+}
+
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash() []byte {
@@ -512,6 +526,23 @@ func (node *Node) traverse(t *Tree, ascending bool, cb func(*Node) bool) bool {
 
 func (node *Node) traverseWithDepth(t *Tree, ascending bool, cb func(*Node, uint8) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, 0, cb)
+}
+
+// call cb for every node exactly depth levels below it
+// depth first search to return in tree ordering.
+func (node *Node) traverseDepth(t *Tree, depth uint, cb func(*Node)) {
+	// base case
+	if depth == 0 {
+		cb(node)
+		return
+	}
+	if node.isLeaf() {
+		return
+	}
+
+	// otherwise, descend one more level
+	node.getLeftNode(t).traverseDepth(t, depth-1, cb)
+	node.getRightNode(t).traverseDepth(t, depth-1, cb)
 }
 
 func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {

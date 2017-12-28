@@ -2,32 +2,61 @@ package iavl
 
 // NodeData groups together a key, value and depth.
 type NodeData struct {
-	Key   []byte
-	Value []byte
-	Depth uint8
+	Key          []byte
+	Value        []byte
+	Depth        uint8
+	Version      int64
+	InnerVersion int64
 }
 
-// SerializeFunc is any implementation that can serialize
-// an iavl Node and its descendants.
-type SerializeFunc func(*Tree, *Node) []NodeData
-
-// RestoreFunc is an implementation that can restore an iavl tree from
-// NodeData.
-type RestoreFunc func(*Tree, []NodeData)
-
-// Restore will take an (empty) tree restore it
-// from the keys returned from a SerializeFunc.
-func Restore(empty *Tree, kvs []NodeData) {
-	for _, kv := range kvs {
-		empty.Set(kv.Key, kv.Value)
-	}
-	empty.Hash()
+// Serializer is anything that can serialize and restore a *Tree.
+type Serializer interface {
+	Serialize(*Tree, *Node) []NodeData
+	Restore(*Tree, []NodeData)
 }
 
-func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
+// NewSerializer returns a new serializer using the default algorithm.
+func NewSerializer() Serializer {
+	return &inOrderSerializer{}
+}
+
+// inOrderSerializer serializes a tree in sort order and restores trees
+// bottom-up using depth information.
+type inOrderSerializer struct{}
+
+var _ Serializer = &inOrderSerializer{}
+
+// To serialize in-order, we have to store the depth of each leaf node, as well
+// as all inner-node versions. We store inner-node versions in the leaves, using
+// the same algorith as keys: the version of an inner-node is stored in the leftmost
+// leaf of the right child of that inner-node. Therefore, just like with keys,
+// all but the very first leaf (NodeData) stores inner node versions.
+func (s *inOrderSerializer) Serialize(t *Tree, root *Node) []NodeData {
+	res := make([]NodeData, 0, root.size)
+	root.traverseWithDepth(t, true, func(node *Node, depth uint8) bool {
+		if node.isLeaf() {
+			// The inner parent with the same key as this leaf node will store
+			// its version in this leaf.
+			innerVersion := root.getFirstChild(t, node.key).version
+			kv := NodeData{
+				Key:          node.key,
+				Value:        node.value,
+				Version:      node.version,
+				InnerVersion: innerVersion,
+				Depth:        depth,
+			}
+			res = append(res, kv)
+		}
+		return false
+	})
+	return res
+}
+
+func (s *inOrderSerializer) Restore(empty *Tree, kvs []NodeData) {
 	// Create an array of arrays of nodes. We're going to store each depth in
 	// here, forming a kind of pyramid.
 	depths := [][]*Node{}
+	innerVersions := map[string]int64{}
 
 	// Go through all the leaf nodes, grouping them in pairs and creating their
 	// parents recursively.
@@ -35,7 +64,7 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 		var (
 			// Left and right nodes.
 			l     *Node = nil
-			r     *Node = NewNode(kv.Key, kv.Value, 1)
+			r     *Node = NewNode(kv.Key, kv.Value, kv.Version)
 			depth uint8 = kv.Depth
 		)
 		// Create depths as needed.
@@ -43,6 +72,11 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 			depths = append(depths, []*Node{})
 		}
 		depths[depth] = append(depths[depth], r) // Add the leaf node to this depth.
+
+		// Since leaf nodes only store their own versions, we have to store the
+		// inner version separately, so that as we build the inner parents, we
+		// can quickly retrieve their versions.
+		innerVersions[string(kv.Key)] = kv.InnerVersion
 
 		// If the nodes at this level are uneven after adding a node to it, it
 		// means we have to wait for another node to be appended before we have
@@ -53,13 +87,16 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 			l = nodes[len(nodes)-1-1]
 			r = nodes[len(nodes)-1]
 
+			leftmostKey := leftmost(nil, r).Key
+			version := innerVersions[string(leftmostKey)]
+
 			depths[d-1] = append(depths[d-1], &Node{
-				key:       leftmost(r).Key,
+				key:       leftmostKey,
 				height:    maxInt8(l.height, r.height) + 1,
 				size:      l.size + r.size,
 				leftNode:  l,
 				rightNode: r,
-				version:   1,
+				version:   version,
 			})
 		}
 	}
@@ -67,23 +104,19 @@ func RestoreUsingDepth(empty *Tree, kvs []NodeData) {
 	empty.Hash()
 }
 
-// InOrderSerialize returns all key-values in the
-// key order (as stored). May be nice to read, but
-// when recovering, it will create a different.
-func InOrderSerialize(t *Tree, root *Node) []NodeData {
-	res := make([]NodeData, 0, root.size)
-	root.traverseWithDepth(t, true, func(node *Node, depth uint8) bool {
-		if node.height == 0 {
-			kv := NodeData{Key: node.key, Value: node.value, Depth: depth}
-			res = append(res, kv)
-		}
-		return false
-	})
-	return res
+// breadthFirstSerializer can serialize a tree in a breadth-first manner.
+type breadthFirstSerializer struct{}
+
+var _ Serializer = &breadthFirstSerializer{}
+
+func (s *breadthFirstSerializer) Restore(empty *Tree, kvs []NodeData) {
+	for _, kv := range kvs {
+		empty.Set(kv.Key, kv.Value)
+	}
+	empty.Hash()
 }
 
-// StableSerializeBFS serializes the tree in a breadth-first manner.
-func StableSerializeBFS(t *Tree, root *Node) []NodeData {
+func (s *breadthFirstSerializer) Serialize(t *Tree, root *Node) []NodeData {
 	if root == nil {
 		return nil
 	}
@@ -115,70 +148,9 @@ func StableSerializeBFS(t *Tree, root *Node) []NodeData {
 
 	nds := make([]NodeData, size)
 	for i, k := range keys {
-		nds[i] = NodeData{k, visited[string(k)], 0}
+		nds[i] = NodeData{k, visited[string(k)], 0, 1, 1}
 	}
 	return nds
-}
-
-// StableSerializeFrey exports the key value pairs of the tree
-// in an order, such that when Restored from those keys, the
-// new tree would have the same structure (and thus same
-// shape) as the original tree.
-//
-// the algorithm is basically this: take the leftmost node
-// of the left half and the leftmost node of the righthalf.
-// Then go down a level...
-// each time adding leftmost node of the right side.
-// (bredth first search)
-//
-// Imagine 8 nodes in a balanced tree, split in half each time
-// 1
-// 1, 5
-// 1, 5, 3, 7
-// 1, 5, 3, 7, 2, 4, 6, 8
-func StableSerializeFrey(t *Tree, top *Node) []NodeData {
-	if top == nil {
-		return nil
-	}
-	size := top.size
-
-	// store all pending nodes for depth-first search
-	queue := make([]*Node, 0, size)
-	queue = append(queue, top)
-
-	// to store all results - started with
-	res := make([]NodeData, 0, size)
-	left := leftmost(top)
-	if left != nil {
-		res = append(res, *left)
-	}
-
-	var n *Node
-	for len(queue) > 0 {
-		// pop
-		n, queue = queue[0], queue[1:]
-
-		// l := n.getLeftNode(tree)
-		l := n.leftNode
-		if isInner(l) {
-			queue = append(queue, l)
-		}
-
-		// r := n.getRightNode(tree)
-		r := n.rightNode
-		if isInner(r) {
-			queue = append(queue, r)
-			left = leftmost(r)
-			if left != nil {
-				res = append(res, *left)
-			}
-		} else if isLeaf(r) {
-			kv := NodeData{Key: r.key, Value: r.value}
-			res = append(res, kv)
-		}
-	}
-
-	return res
 }
 
 func isInner(n *Node) bool {
@@ -189,9 +161,9 @@ func isLeaf(n *Node) bool {
 	return n != nil && n.isLeaf()
 }
 
-func leftmost(node *Node) *NodeData {
+func leftmost(t *Tree, node *Node) *NodeData {
 	for isInner(node) {
-		node = node.leftNode
+		node = node.getLeftNode(t)
 	}
 	if node == nil {
 		return nil
