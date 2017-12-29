@@ -205,6 +205,27 @@ func (t *Tree) getWithProof(key []byte) (value []byte, proof *KeyExistsProof, er
 	return node.value, proof, nil
 }
 
+func (t *Tree) getInnerWithProof(key []byte) (proof *InnerKeyProof, err error) {
+	if t.root == nil {
+		return nil, errors.WithStack(ErrNilRoot)
+	}
+	t.root.hashWithCount() // Ensure that all hashes are calculated.
+
+	path, node, err := t.root.pathToInnerKey(t, key)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not construct path to key")
+	}
+
+	proof = &InnerKeyProof{
+		&KeyExistsProof{
+			RootHash:  t.root.hash,
+			PathToKey: path,
+			Version:   node.version,
+		},
+	}
+	return proof, nil
+}
+
 func (t *Tree) keyAbsentProof(key []byte) (*KeyAbsentProof, error) {
 	if t.root == nil {
 		return nil, errors.WithStack(ErrNilRoot)
