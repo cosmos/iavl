@@ -290,12 +290,7 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	itr := ndb.db.Iterator(nil, nil)
-	defer itr.Close()
-
-	for ; itr.Valid(); itr.Next() {
-		fn(itr.Key(), itr.Value())
-	}
+	ndb.traversePrefix([]byte{}, fn)
 }
 
 // Traverse all keys with a certain prefix.
@@ -304,7 +299,17 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
-		fn(itr.Key(), itr.Value())
+		// We have to create a copy of the k/v pair here, since we can't
+		// guarantee that the memory isn't re-used by one of the backends.
+		val := itr.Value()
+		v := make([]byte, len(val))
+		copy(v, val)
+
+		key := itr.Key()
+		k := make([]byte, len(key))
+		copy(k, key)
+
+		fn(k, v)
 	}
 }
 
