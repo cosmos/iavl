@@ -11,6 +11,8 @@ import (
 	db "github.com/tendermint/tmlibs/db"
 )
 
+const historySize = 20
+
 func randBytes(length int) []byte {
 	key := make([]byte, length)
 	// math.rand.Read always returns err=nil
@@ -39,8 +41,8 @@ func commitTree(b *testing.B, t *iavl.VersionedTree) {
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
 	}
-	if version > 2 {
-		err = t.DeleteVersion(version - 2)
+	if version > historySize {
+		err = t.DeleteVersion(version - historySize)
 		if err != nil {
 			b.Errorf("Can't delete: %v", err)
 		}
