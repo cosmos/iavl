@@ -7,7 +7,6 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 
-	"github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -51,13 +50,19 @@ func MakeNode(buf []byte) (node *Node, err error) {
 	n := 1 // Keeps track of bytes read.
 	buf = buf[n:]
 
-	node.size, n, err = wire.GetVarint(buf)
+	node.size, n, err = wire.DecodeInt64(buf)
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[n:]
 
-	node.key, n, err = wire.GetByteSlice(buf)
+	node.version, n, err = wire.DecodeInt64(buf)
+	if err != nil {
+		return nil, err
+	}
+	buf = buf[n:]
+
+	node.key, n, err = wire.DecodeByteSlice(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -69,18 +74,18 @@ func MakeNode(buf []byte) (node *Node, err error) {
 	// Read node body.
 
 	if node.isLeaf() {
-		node.value, _, err = wire.GetByteSlice(buf)
+		node.value, _, err = wire.DecodeByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
 	} else { // Read children.
-		leftHash, n, err := wire.GetByteSlice(buf)
+		leftHash, n, err := wire.DecodeByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
 		buf = buf[n:]
 
-		rightHash, _, err := wire.GetByteSlice(buf)
+		rightHash, _, err := wire.DecodeByteSlice(buf)
 		if err != nil {
 			return nil, err
 		}
@@ -188,8 +193,8 @@ func (node *Node) _hash() []byte {
 
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	if _, err := node.writeHashBytes(buf); err != nil {
-		cmn.PanicCrisis(err)
+	if err := node.writeHashBytes(buf); err != nil {
+		panic(err)
 	}
 	hasher.Write(buf.Bytes())
 	node.hash = hasher.Sum(nil)
@@ -206,7 +211,7 @@ func (node *Node) hashWithCount() ([]byte, int) {
 
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	_, hashCount, err := node.writeHashBytesRecursively(buf)
+	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
 		cmn.PanicCrisis(err)
 	}
@@ -218,29 +223,41 @@ func (node *Node) hashWithCount() ([]byte, int) {
 
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
-func (node *Node) writeHashBytes(w io.Writer) (n int, err error) {
-	wire.WriteInt8(node.height, w, &n, &err)
-	wire.WriteVarint(node.size, w, &n, &err)
+func (node *Node) writeHashBytes(w io.Writer) (err error) {
+	err = wire.EncodeInt8(w, node.height)
+	if err == nil {
+		err = wire.EncodeInt64(w, node.size)
+	}
+	if err == nil {
+		err = wire.EncodeInt64(w, node.version)
+	}
 
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		wire.WriteByteSlice(node.key, w, &n, &err)
-		wire.WriteByteSlice(node.value, w, &n, &err)
-		wire.WriteUint64(node.version, w, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.key)
+		}
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.value)
+		}
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
 			cmn.PanicSanity("Found an empty child hash")
 		}
-		wire.WriteByteSlice(node.leftHash, w, &n, &err)
-		wire.WriteByteSlice(node.rightHash, w, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.leftHash)
+		}
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.rightHash)
+		}
 	}
 	return
 }
 
 // Writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int, err error) {
+func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err error) {
 	if node.leftNode != nil {
 		leftHash, leftCount := node.leftNode.hashWithCount()
 		node.leftHash = leftHash
@@ -251,32 +268,44 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int, 
 		node.rightHash = rightHash
 		hashCount += rightCount
 	}
-	n, err = node.writeHashBytes(w)
+	err = node.writeHashBytes(w)
 
 	return
 }
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer) (n int, err error) {
-	wire.WriteInt8(node.height, w, &n, &err)
-	wire.WriteVarint(node.size, w, &n, &err)
+func (node *Node) writeBytes(w io.Writer) (err error) {
+	err = wire.EncodeInt8(w, node.height)
+	if err == nil {
+		err = wire.EncodeInt64(w, node.size)
+	}
+	if err == nil {
+		err = wire.EncodeInt64(w, node.version)
+	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
-	wire.WriteByteSlice(node.key, w, &n, &err)
-	wire.WriteUint64(node.version, w, &n, &err)
+	if err == nil {
+		err = wire.EncodeByteSlice(w, node.key)
+	}
 
 	if node.isLeaf() {
-		wire.WriteByteSlice(node.value, w, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.value)
+		}
 	} else {
 		if node.leftHash == nil {
 			cmn.PanicSanity("node.leftHash was nil in writeBytes")
 		}
-		wire.WriteByteSlice(node.leftHash, w, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.leftHash)
+		}
 
 		if node.rightHash == nil {
 			cmn.PanicSanity("node.rightHash was nil in writeBytes")
 		}
-		wire.WriteByteSlice(node.rightHash, w, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(w, node.rightHash)
+		}
 	}
 	return
 }

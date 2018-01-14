@@ -46,13 +46,17 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyExistsProof) Bytes() []byte {
-	return wire.BinaryBytes(proof)
+	bz, err := wire.MarshalBinary(proof)
+	if err != nil {
+		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
+	}
+	return append([]byte{keyExistsMagicNumber}, bz...)
 }
 
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
 func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	proof := new(KeyExistsProof)
-	err := wire.ReadBinaryBytes(data, &proof)
+	err := wire.UnmarshalBinary(data, proof)
 	return proof, err
 }
 
@@ -93,12 +97,57 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyAbsentProof) Bytes() []byte {
-	return wire.BinaryBytes(proof)
+	bz, err := wire.MarshalBinary(proof)
+	if err != nil {
+		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
+	}
+	return append([]byte{keyAbsentMagicNumber}, bz...)
 }
 
 // ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
 func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
 	proof := new(KeyAbsentProof)
-	err := wire.ReadBinaryBytes(data, &proof)
+	err := wire.UnmarshalBinary(data, proof)
+	return proof, err
+}
+
+// ReadKeyProof reads a KeyProof from a byte-slice.
+func ReadKeyProof(data []byte) (KeyProof, error) {
+	if len(data) == 0 {
+		return nil, errors.New("proof bytes are empty")
+	}
+	b, val := data[0], data[1:]
+
+	switch b {
+	case keyExistsMagicNumber:
+		return readKeyExistsProof(val)
+	case keyAbsentMagicNumber:
+		return readKeyAbsentProof(val)
+	}
+	return nil, errors.New("unrecognized proof")
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+// InnerKeyProof represents a proof of existence of an inner node key.
+type InnerKeyProof struct {
+	*KeyExistsProof
+}
+
+// Verify verifies the proof is valid and returns an error if it isn't.
+func (proof *InnerKeyProof) Verify(hash []byte, value []byte, root []byte) error {
+	if !bytes.Equal(proof.RootHash, root) {
+		return errors.WithStack(ErrInvalidRoot)
+	}
+	if hash == nil || value != nil {
+		return errors.WithStack(ErrInvalidInputs)
+	}
+	return proof.PathToKey.verify(hash, root)
+}
+
+// ReadKeyInnerProof will deserialize a InnerKeyProof from bytes.
+func ReadInnerKeyProof(data []byte) (*InnerKeyProof, error) {
+	proof := new(InnerKeyProof)
+	err := wire.UnmarshalBinary(data, proof)
 	return proof, err
 }
