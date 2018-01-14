@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/tendermint/go-wire"
-	"github.com/tendermint/go-wire/data"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // KeyProof represents a proof of existence or absence of a single key.
@@ -24,8 +23,8 @@ type KeyProof interface {
 
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
-	RootHash data.Bytes `json:"root_hash"`
-	Version  uint64     `json:"version"`
+	RootHash cmn.HexBytes `json:"root_hash"`
+	Version  int64        `json:"version"`
 
 	*PathToKey `json:"path"`
 }
@@ -59,8 +58,7 @@ func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
-	RootHash data.Bytes `json:"root_hash"`
-	Version  uint64     `json:"version"`
+	RootHash cmn.HexBytes `json:"root_hash"`
 
 	Left  *pathWithNode `json:"left"`
 	Right *pathWithNode `json:"right"`
