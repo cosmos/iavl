@@ -40,18 +40,29 @@ func (n *proofInnerNode) String() string {
 func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	n, err := int(0), error(nil)
 
-	wire.WriteInt8(branch.Height, buf, &n, &err)
-	wire.WriteInt64(branch.Size, buf, &n, &err)
-	wire.WriteInt64(branch.Version, buf, &n, &err)
+	err := wire.EncodeInt8(buf, branch.Height)
+	if err == nil {
+		err = wire.EncodeInt64(buf, branch.Size)
+	}
+	if err == nil {
+		err = wire.EncodeInt64(buf, branch.Version)
+	}
 
 	if len(branch.Left) == 0 {
-		wire.WriteByteSlice(childHash, buf, &n, &err)
-		wire.WriteByteSlice(branch.Right, buf, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(buf, childHash)
+		}
+		if err == nil {
+			err = wire.EncodeByteSlice(buf, branch.Right)
+		}
 	} else {
-		wire.WriteByteSlice(branch.Left, buf, &n, &err)
-		wire.WriteByteSlice(childHash, buf, &n, &err)
+		if err == nil {
+			err = wire.EncodeByteSlice(buf, branch.Left)
+		}
+		if err == nil {
+			err = wire.EncodeByteSlice(buf, childHash)
+		}
 	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash proofInnerNode: %v", err))
@@ -70,14 +81,20 @@ type proofLeafNode struct {
 func (leaf proofLeafNode) Hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
-	n, err := int(0), error(nil)
 
-	wire.WriteInt8(0, buf, &n, &err)
-	wire.WriteInt64(1, buf, &n, &err)
-	wire.WriteInt64(leaf.Version, buf, &n, &err)
-	wire.WriteByteSlice(leaf.KeyBytes, buf, &n, &err)
-	wire.WriteByteSlice(leaf.ValueBytes, buf, &n, &err)
-
+	err := wire.EncodeInt8(buf, 0)
+	if err == nil {
+		err = wire.EncodeInt64(buf, 1)
+	}
+	if err == nil {
+		err = wire.EncodeInt64(buf, leaf.Version)
+	}
+	if err == nil {
+		err = wire.EncodeByteSlice(buf, leaf.KeyBytes)
+	}
+	if err == nil {
+		err = wire.EncodeByteSlice(buf, leaf.ValueBytes)
+	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash proofLeafNode: %v", err))
 	}

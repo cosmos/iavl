@@ -1,8 +1,12 @@
-hash: f4ea0d9c87de8a3e87330cd6ed7f3c0db938704165725bde9ad62b853a33a2da
-updated: 2018-01-14T12:38:38.745578455-08:00
+hash: 082f114e002a46dcf9948ecafdf283fd7dffaf961583c613f7e5da75bc4510af
+updated: 2018-01-14T18:04:28.411156286-05:00
 imports:
+- name: github.com/davecgh/go-spew
+  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  subpackages:
+  - spew
 - name: github.com/go-kit/kit
-  version: 953e747656a7bbb5e1f998608b460458958b70cc
+  version: e2b298466b32c7cd5579a9b9b07e968fc9d9452c
   subpackages:
   - log
   - log/level
@@ -10,7 +14,7 @@ imports:
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
 - name: github.com/go-stack/stack
-  version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
+  version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gogo/protobuf
   version: 342cbe0a04158f6dcb03ca0079991a51a4248c02
   subpackages:
@@ -24,9 +28,9 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/pkg/errors
-  version: e881fd58d78e04cf6d0de1217f8707c8cc2249bc
+  version: 645ef00459ed84a119197bfb8d8205042c6df63d
 - name: github.com/syndtr/goleveldb
-  version: 34011bf325bce385408353a30b101fe5e923eb6e
+  version: b89cc31ef7977104127d34c1bd31ebd1a9db2199
   subpackages:
   - leveldb
   - leveldb/cache
@@ -41,25 +45,21 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-wire
-  version: 27be46e25124ddf775e23317a83647ce62a93f6b
+  version: b93ebdd4f306833936c243561ec30af3455dc764
 - name: github.com/tendermint/tmlibs
-  version: 2bb538b150f197a04a0b969a27e9ea24d35edbc1
+  version: f2bc5432c31974bb3f5b1a80a53c38e37d481b8d
   subpackages:
   - common
   - db
   - log
   - test
 - name: golang.org/x/crypto
-  version: 13931e22f9e72ea58bb73048bc752b48c6d4d4ac
+  version: edd5e9b0879d13ee6970a50153d85b8fec9f7686
   subpackages:
   - ripemd160
 testImports:
-- name: github.com/davecgh/go-spew
-  version: ecdeabc65495df2dec95d7c4a4c3e021903035e5
-  subpackages:
-  - spew
 - name: github.com/pmezard/go-difflib
-  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
   subpackages:
   - difflib
 - name: github.com/stretchr/testify

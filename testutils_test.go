@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
 	mrand "math/rand"
 
@@ -32,13 +33,13 @@ func randstr(length int) string {
 }
 
 func i2b(i int) []byte {
-	bz := make([]byte, 4)
-	wire.PutInt32(bz, int32(i))
-	return bz
+	buf := new(bytes.Buffer)
+	wire.EncodeInt32(buf, int32(i))
+	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i := wire.GetInt32(bz)
+	i, _, _ := wire.DecodeInt32(bz)
 	return int(i)
 }
 
