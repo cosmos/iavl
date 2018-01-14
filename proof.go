@@ -8,7 +8,7 @@ import (
 	"golang.org/x/crypto/ripemd160"
 
 	"github.com/tendermint/go-wire"
-	"github.com/tendermint/go-wire/data"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 var (
@@ -62,9 +62,9 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 }
 
 type proofLeafNode struct {
-	KeyBytes   data.Bytes `json:"key"`
-	ValueBytes data.Bytes `json:"value"`
-	Version    int64      `json:"version"`
+	KeyBytes   cmn.HexBytes `json:"key"`
+	ValueBytes cmn.HexBytes `json:"value"`
+	Version    int64        `json:"version"`
 }
 
 func (leaf proofLeafNode) Hash() []byte {

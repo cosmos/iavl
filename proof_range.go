@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/tendermint/go-wire/data"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // KeyInRangeProof is an interface which covers both first-in-range and last-in-range proofs.
@@ -120,7 +120,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 
 // KeyRangeProof is proof that a range of keys does or does not exist.
 type KeyRangeProof struct {
-	RootHash   data.Bytes   `json:"root_hash"`
+	RootHash   cmn.HexBytes `json:"root_hash"`
 	Versions   []int64      `json:"versions"`
 	PathToKeys []*PathToKey `json:"paths"`
 
