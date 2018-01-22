@@ -129,9 +129,10 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 	return ndb.db.Get(key) != nil
 }
 
-// SaveBranch saves the given node and all of its descendants.  NOTE: This
-// function clears leftNode/rigthNode recursively and calls hashWithCount on
-// the given node.
+// SaveBranch saves the given node and all of its descendants.
+// NOTE: This function clears leftNode/rigthNode recursively and
+// calls _hash() on the given node.
+// TODO refactor, maybe use hashWithCount() but provide a callback.
 func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 	if node.persisted {
 		return node.hash

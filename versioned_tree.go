@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -149,7 +150,15 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
 
 	if _, ok := tree.versions[version]; ok {
-		return nil, version, errors.Errorf("version %d was already saved", version)
+		// Same hash means idempotent.  Return success.
+		var existingHash = tree.versions[version].Hash()
+		var newHash = tree.orphaningTree.Hash()
+		if bytes.Equal(existingHash, newHash) {
+			tree.orphaningTree = newOrphaningTree(tree.versions[version].clone())
+			return existingHash, version, nil
+		}
+		return nil, version, errors.Errorf("version %d was already saved to different hash %X (existing hash %X)",
+			version, newHash, existingHash)
 	}
 
 	// Persist version and stash to .versions.
