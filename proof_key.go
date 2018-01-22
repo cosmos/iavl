@@ -46,7 +46,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyExistsProof) Bytes() []byte {
-	bz, err := wire.MarshalBinary(proof)
+	bz, err := cdc.MarshalBinary(proof)
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
 	}
@@ -56,7 +56,7 @@ func (proof *KeyExistsProof) Bytes() []byte {
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
 func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	proof := new(KeyExistsProof)
-	err := wire.UnmarshalBinary(data, proof)
+	err := cdc.UnmarshalBinary(data, proof)
 	return proof, err
 }
 
@@ -97,7 +97,7 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyAbsentProof) Bytes() []byte {
-	bz, err := wire.MarshalBinary(proof)
+	bz, err := cdc.MarshalBinary(proof)
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
 	}
@@ -107,7 +107,7 @@ func (proof *KeyAbsentProof) Bytes() []byte {
 // ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
 func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
 	proof := new(KeyAbsentProof)
-	err := wire.UnmarshalBinary(data, proof)
+	err := cdc.UnmarshalBinary(data, proof)
 	return proof, err
 }
 
@@ -148,6 +148,6 @@ func (proof *InnerKeyProof) Verify(hash []byte, value []byte, root []byte) error
 // ReadKeyInnerProof will deserialize a InnerKeyProof from bytes.
 func ReadInnerKeyProof(data []byte) (*InnerKeyProof, error) {
 	proof := new(InnerKeyProof)
-	err := wire.UnmarshalBinary(data, proof)
+	err := cdc.UnmarshalBinary(data, proof)
 	return proof, err
 }
