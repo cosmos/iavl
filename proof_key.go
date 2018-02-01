@@ -24,7 +24,7 @@ type KeyProof interface {
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
 	RootHash cmn.HexBytes `json:"root_hash"`
-	Version  int64        `json:"version"`
+	Version  uint64       `json:"version"`
 
 	*PathToKey `json:"path"`
 }
@@ -50,7 +50,7 @@ func (proof *KeyExistsProof) Bytes() []byte {
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
 	}
-	return append([]byte{keyExistsMagicNumber}, bz...)
+	return bz
 }
 
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
@@ -63,6 +63,7 @@ func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
 	RootHash cmn.HexBytes `json:"root_hash"`
+	Version  uint64       `json:"version"`
 
 	Left  *pathWithNode `json:"left"`
 	Right *pathWithNode `json:"right"`
@@ -101,53 +102,12 @@ func (proof *KeyAbsentProof) Bytes() []byte {
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
 	}
-	return append([]byte{keyAbsentMagicNumber}, bz...)
+	return bz
 }
 
 // ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
 func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
 	proof := new(KeyAbsentProof)
-	err := cdc.UnmarshalBinary(data, proof)
-	return proof, err
-}
-
-// ReadKeyProof reads a KeyProof from a byte-slice.
-func ReadKeyProof(data []byte) (KeyProof, error) {
-	if len(data) == 0 {
-		return nil, errors.New("proof bytes are empty")
-	}
-	b, val := data[0], data[1:]
-
-	switch b {
-	case keyExistsMagicNumber:
-		return readKeyExistsProof(val)
-	case keyAbsentMagicNumber:
-		return readKeyAbsentProof(val)
-	}
-	return nil, errors.New("unrecognized proof")
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-// InnerKeyProof represents a proof of existence of an inner node key.
-type InnerKeyProof struct {
-	*KeyExistsProof
-}
-
-// Verify verifies the proof is valid and returns an error if it isn't.
-func (proof *InnerKeyProof) Verify(hash []byte, value []byte, root []byte) error {
-	if !bytes.Equal(proof.RootHash, root) {
-		return errors.WithStack(ErrInvalidRoot)
-	}
-	if hash == nil || value != nil {
-		return errors.WithStack(ErrInvalidInputs)
-	}
-	return proof.PathToKey.verify(hash, root)
-}
-
-// ReadKeyInnerProof will deserialize a InnerKeyProof from bytes.
-func ReadInnerKeyProof(data []byte) (*InnerKeyProof, error) {
-	proof := new(InnerKeyProof)
 	err := cdc.UnmarshalBinary(data, proof)
 	return proof, err
 }

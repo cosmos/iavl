@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ripemd160"
 
+	wire "github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -41,10 +42,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 
 	err := wire.EncodeInt8(buf, branch.Height)
 	if err == nil {
-		err = wire.EncodeInt64(buf, branch.Size)
-	}
-	if err == nil {
-		err = wire.EncodeInt64(buf, branch.Version)
+		err = wire.EncodeInt64(buf, int64(branch.Size))
 	}
 
 	if len(branch.Left) == 0 {
@@ -73,7 +71,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 type proofLeafNode struct {
 	KeyBytes   cmn.HexBytes `json:"key"`
 	ValueBytes cmn.HexBytes `json:"value"`
-	Version    int64        `json:"version"`
+	Version    uint64       `json:"version"`
 }
 
 func (leaf proofLeafNode) Hash() []byte {
@@ -85,7 +83,7 @@ func (leaf proofLeafNode) Hash() []byte {
 		err = wire.EncodeInt64(buf, 1)
 	}
 	if err == nil {
-		err = wire.EncodeInt64(buf, leaf.Version)
+		err = wire.EncodeUint64(buf, leaf.Version)
 	}
 	if err == nil {
 		err = wire.EncodeByteSlice(buf, leaf.KeyBytes)

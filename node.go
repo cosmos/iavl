@@ -7,6 +7,7 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 
+	wire "github.com/tendermint/go-wire"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -50,13 +51,15 @@ func MakeNode(buf []byte) (node *Node, err error) {
 	n := 1 // Keeps track of bytes read.
 	buf = buf[n:]
 
-	node.size, n, err = wire.DecodeInt64(buf)
+	var i int64
+	i, n, err = wire.DecodeInt64(buf)
+	node.size = int(i) // TODO: mind overflow
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[n:]
 
-	node.version, n, err = wire.DecodeInt64(buf)
+	node.version, n, err = wire.DecodeUint64(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -67,9 +70,6 @@ func MakeNode(buf []byte) (node *Node, err error) {
 		return nil, err
 	}
 	buf = buf[n:]
-
-	node.version = wire.GetUint64(buf)
-	buf = buf[8:]
 
 	// Read node body.
 
@@ -226,10 +226,10 @@ func (node *Node) hashWithCount() ([]byte, int) {
 func (node *Node) writeHashBytes(w io.Writer) (err error) {
 	err = wire.EncodeInt8(w, node.height)
 	if err == nil {
-		err = wire.EncodeInt64(w, node.size)
+		err = wire.EncodeInt64(w, int64(node.size))
 	}
 	if err == nil {
-		err = wire.EncodeInt64(w, node.version)
+		err = wire.EncodeUint64(w, node.version)
 	}
 
 	// Key is not written for inner nodes, unlike writeBytes.
@@ -257,7 +257,7 @@ func (node *Node) writeHashBytes(w io.Writer) (err error) {
 
 // Writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err error) {
+func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int, err error) {
 	if node.leftNode != nil {
 		leftHash, leftCount := node.leftNode.hashWithCount()
 		node.leftHash = leftHash
@@ -277,10 +277,10 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 func (node *Node) writeBytes(w io.Writer) (err error) {
 	err = wire.EncodeInt8(w, node.height)
 	if err == nil {
-		err = wire.EncodeInt64(w, node.size)
+		err = wire.EncodeInt64(w, int64(node.size))
 	}
 	if err == nil {
-		err = wire.EncodeInt64(w, node.version)
+		err = wire.EncodeUint64(w, node.version)
 	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.

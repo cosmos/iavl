@@ -315,14 +315,11 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	it := ndb.db.Iterator()
+	it := ndb.db.Iterator(nil, nil)
 	defer it.Close()
 
 	for ; it.Valid(); it.Next() {
 		fn(it.Key(), it.Value())
-	}
-	if err := it.GetError(); err != nil {
-		cmn.PanicSanity(err.Error())
 	}
 }
 
@@ -333,9 +330,6 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 
 	for ; it.Valid(); it.Next() {
 		fn(it.Key(), it.Value())
-	}
-	if err := it.GetError(); err != nil {
-		cmn.PanicSanity(err.Error())
 	}
 }
 
@@ -439,7 +433,7 @@ func (ndb *nodeDB) roots() map[uint64][]byte {
 }
 
 func (ndb *nodeDB) size() int {
-	it := ndb.db.Iterator()
+	it := ndb.db.Iterator(nil, nil)
 	size := 0
 
 	for ; it.Valid(); it.Next() {

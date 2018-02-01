@@ -1,54 +1,26 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-hash: d85321db3ba463c6bde8f76c65524d5bb8bcdbf43702d162b26b71a39d89a3b5
-updated: 2017-10-24T13:20:51.823688121+02:00
-imports:
-- name: github.com/go-kit/kit
-  version: d67bb4c202e3b91377d1079b110a6c9ce23ab2f8
-=======
-hash: f4ea0d9c87de8a3e87330cd6ed7f3c0db938704165725bde9ad62b853a33a2da
-updated: 2018-01-14T12:38:38.745578455-08:00
-=======
-hash: 082f114e002a46dcf9948ecafdf283fd7dffaf961583c613f7e5da75bc4510af
-updated: 2018-01-14T18:04:28.411156286-05:00
->>>>>>> 1dfe265... update for new go-wire sdk2
+hash: 96cd0845ecbb728734eb64bbe4470b21a15cd7e7f157620f4f73c137064ef079
+updated: 2018-02-01T09:42:14.609421161Z
 imports:
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: db69d09d2c587e9b9677f991dfcab1fc24d9086e
   subpackages:
   - spew
 - name: github.com/go-kit/kit
-<<<<<<< HEAD
-  version: 953e747656a7bbb5e1f998608b460458958b70cc
->>>>>>> 3e708d3... Use cmn.HexBytes
-=======
-  version: e2b298466b32c7cd5579a9b9b07e968fc9d9452c
->>>>>>> 1dfe265... update for new go-wire sdk2
+  version: 6ce15db334b01fd952bfaec97e467bc1f4db1cb4
   subpackages:
   - log
   - log/level
   - log/term
 - name: github.com/go-logfmt/logfmt
   version: 390ab7935ee28ec6b286364bba9b4dd6410cb3d5
-<<<<<<< HEAD
-- name: github.com/go-playground/locales
-  version: 1e5f1161c6416a5ff48840eb8724a394e48cc534
-  subpackages:
-  - currency
-- name: github.com/go-playground/universal-translator
-  version: 71201497bace774495daed26a3874fd339e0b538
 - name: github.com/go-stack/stack
-  version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
-=======
-- name: github.com/go-stack/stack
-  version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
+  version: 259ab82a6cad3992b4e21ff5cac294ccb06474bc
 - name: github.com/gogo/protobuf
-  version: 342cbe0a04158f6dcb03ca0079991a51a4248c02
+  version: 26de2f9a7d3b1826f275e7a97c8cad5080589426
   subpackages:
   - gogoproto
   - proto
   - protoc-gen-gogo/descriptor
->>>>>>> 3e708d3... Use cmn.HexBytes
 - name: github.com/golang/snappy
   version: 553a641470496b2327abcac10b36396bd98e45c9
 - name: github.com/jmhodges/levigo
@@ -56,17 +28,9 @@ imports:
 - name: github.com/kr/logfmt
   version: b84e30acd515aadc4b783ad4ff83aff3299bdfe0
 - name: github.com/pkg/errors
-  version: 645ef00459ed84a119197bfb8d8205042c6df63d
+  version: 30136e27e2ac8d167177e8a583aa4c3fea5be833
 - name: github.com/syndtr/goleveldb
-<<<<<<< HEAD
-<<<<<<< HEAD
-  version: 8c81ea47d4c41a385645e133e15510fc6a2a74b4
-=======
-  version: 34011bf325bce385408353a30b101fe5e923eb6e
->>>>>>> 3e708d3... Use cmn.HexBytes
-=======
-  version: b89cc31ef7977104127d34c1bd31ebd1a9db2199
->>>>>>> 1dfe265... update for new go-wire sdk2
+  version: 211f780988068502fe874c44dae530528ebd840f
   subpackages:
   - leveldb
   - leveldb/cache
@@ -81,52 +45,25 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-wire
-<<<<<<< HEAD
-<<<<<<< HEAD
-  version: 99d2169a1e39c65983eacaa1da867d6f3218e1c9
-  subpackages:
-  - data
+  version: e723d95ac2838b7ae9919ada25004859236c32ff
 - name: github.com/tendermint/tmlibs
-  version: d4c6a68e5871be2d3091f12627eaf3ee15b42ed2
-=======
-  version: 27be46e25124ddf775e23317a83647ce62a93f6b
-- name: github.com/tendermint/tmlibs
-  version: 2bb538b150f197a04a0b969a27e9ea24d35edbc1
->>>>>>> 3e708d3... Use cmn.HexBytes
-=======
-  version: b93ebdd4f306833936c243561ec30af3455dc764
-- name: github.com/tendermint/tmlibs
-  version: f2bc5432c31974bb3f5b1a80a53c38e37d481b8d
->>>>>>> 1dfe265... update for new go-wire sdk2
+  version: 13f009bf6866852d17a1a402447de07f4fb853bc
   subpackages:
   - common
   - db
   - log
-  - merkle
   - test
 - name: golang.org/x/crypto
-<<<<<<< HEAD
-<<<<<<< HEAD
-  version: c7af5bf2638a1164f2eb5467c39c6cffbd13a02e
+  version: 1875d0a70c90e57f11972aefd42276df65e895b9
   subpackages:
   - ripemd160
-- name: gopkg.in/go-playground/validator.v9
-  version: 6d8c18553ea1ac493d049edd6f102f52e618f085
-=======
-  version: 13931e22f9e72ea58bb73048bc752b48c6d4d4ac
-=======
-  version: edd5e9b0879d13ee6970a50153d85b8fec9f7686
->>>>>>> 1dfe265... update for new go-wire sdk2
-  subpackages:
-  - ripemd160
->>>>>>> 3e708d3... Use cmn.HexBytes
 testImports:
 - name: github.com/pmezard/go-difflib
-  version: d8ed2627bdf02c080bf22230dbb337003b7aba2d
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
   subpackages:
   - difflib
 - name: github.com/stretchr/testify
-  version: b91bfb9ebec76498946beb6af7c0230c7cc7ba6c
+  version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:
   - assert
   - require

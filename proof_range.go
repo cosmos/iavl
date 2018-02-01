@@ -121,7 +121,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 // KeyRangeProof is proof that a range of keys does or does not exist.
 type KeyRangeProof struct {
 	RootHash   cmn.HexBytes `json:"root_hash"`
-	Versions   []int64      `json:"versions"`
+	Version    uint64       `json:"version"`
 	PathToKeys []*PathToKey `json:"paths"`
 
 	Left  *pathWithNode `json:"left"`
