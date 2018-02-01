@@ -106,8 +106,8 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
-	if _, err := node.writeBytes(buf); err != nil {
-		cmn.PanicCrisis(err)
+	if err := node.writeBytes(buf); err != nil {
+		panic(err)
 	}
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 
@@ -315,27 +315,21 @@ func (ndb *nodeDB) traverseOrphansVersion(version uint64, fn func(k, v []byte)) 
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	it := ndb.db.Iterator()
-	defer it.Release()
+	it := ndb.db.Iterator(nil, nil)
+	defer it.Close()
 
-	for it.Next() {
+	for ; it.Valid(); it.Next() {
 		fn(it.Key(), it.Value())
-	}
-	if err := it.Error(); err != nil {
-		cmn.PanicSanity(err.Error())
 	}
 }
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	it := ndb.db.IteratorPrefix(prefix)
-	defer it.Release()
+	it := dbm.IteratePrefix(ndb.db, prefix)
+	defer it.Close()
 
-	for it.Next() {
+	for ; it.Valid(); it.Next() {
 		fn(it.Key(), it.Value())
-	}
-	if err := it.Error(); err != nil {
-		cmn.PanicSanity(err.Error())
 	}
 }
 
@@ -439,10 +433,10 @@ func (ndb *nodeDB) roots() map[uint64][]byte {
 }
 
 func (ndb *nodeDB) size() int {
-	it := ndb.db.Iterator()
+	it := ndb.db.Iterator(nil, nil)
 	size := 0
 
-	for it.Next() {
+	for ; it.Valid(); it.Next() {
 		size++
 	}
 	return size

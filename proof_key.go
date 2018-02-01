@@ -5,8 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/tendermint/go-wire"
-	"github.com/tendermint/go-wire/data"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // KeyProof represents a proof of existence or absence of a single key.
@@ -24,8 +23,8 @@ type KeyProof interface {
 
 // KeyExistsProof represents a proof of existence of a single key.
 type KeyExistsProof struct {
-	RootHash data.Bytes `json:"root_hash"`
-	Version  uint64     `json:"version"`
+	RootHash cmn.HexBytes `json:"root_hash"`
+	Version  uint64       `json:"version"`
 
 	*PathToKey `json:"path"`
 }
@@ -47,20 +46,24 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyExistsProof) Bytes() []byte {
-	return wire.BinaryBytes(proof)
+	bz, err := cdc.MarshalBinary(proof)
+	if err != nil {
+		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
+	}
+	return bz
 }
 
 // ReadKeyExistsProof will deserialize a KeyExistsProof from bytes.
 func ReadKeyExistsProof(data []byte) (*KeyExistsProof, error) {
 	proof := new(KeyExistsProof)
-	err := wire.ReadBinaryBytes(data, &proof)
+	err := cdc.UnmarshalBinary(data, proof)
 	return proof, err
 }
 
 // KeyAbsentProof represents a proof of the absence of a single key.
 type KeyAbsentProof struct {
-	RootHash data.Bytes `json:"root_hash"`
-	Version  uint64     `json:"version"`
+	RootHash cmn.HexBytes `json:"root_hash"`
+	Version  uint64       `json:"version"`
 
 	Left  *pathWithNode `json:"left"`
 	Right *pathWithNode `json:"right"`
@@ -95,12 +98,16 @@ func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
 
 // Bytes returns a go-wire binary serialization
 func (proof *KeyAbsentProof) Bytes() []byte {
-	return wire.BinaryBytes(proof)
+	bz, err := cdc.MarshalBinary(proof)
+	if err != nil {
+		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
+	}
+	return bz
 }
 
 // ReadKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
 func ReadKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
 	proof := new(KeyAbsentProof)
-	err := wire.ReadBinaryBytes(data, &proof)
+	err := cdc.UnmarshalBinary(data, proof)
 	return proof, err
 }
