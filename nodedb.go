@@ -301,7 +301,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	itr := dbm.IteratePrefix(ndb.db, prefix)
+	itr := ndb.db.Iterator(nil, nil)
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
