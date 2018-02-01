@@ -54,7 +54,7 @@ func (prog *program) size() int {
 type instruction struct {
 	op      string
 	k, v    []byte
-	version uint64
+	version int64
 }
 
 func (i instruction) Execute(tree *VersionedTree) {
@@ -64,7 +64,7 @@ func (i instruction) Execute(tree *VersionedTree) {
 	case "REMOVE":
 		tree.Remove(i.k)
 	case "SAVE":
-		tree.SaveVersion(i.version)
+		tree.SaveVersion()
 	case "DELETE":
 		tree.DeleteVersion(i.version)
 	default:
@@ -93,11 +93,11 @@ func genRandomProgram(size int) *program {
 		case 3, 4:
 			p.addInstruction(instruction{op: "REMOVE", k: k})
 		case 5:
-			p.addInstruction(instruction{op: "SAVE", version: uint64(nextVersion)})
+			p.addInstruction(instruction{op: "SAVE", version: int64(nextVersion)})
 			nextVersion++
 		case 6:
 			if rv := cmn.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
-				p.addInstruction(instruction{op: "DELETE", version: uint64(rv)})
+				p.addInstruction(instruction{op: "DELETE", version: int64(rv)})
 			}
 		}
 	}
@@ -112,7 +112,7 @@ func TestVersionedTreeFuzz(t *testing.T) {
 
 	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
-			tree := NewVersionedTree(0, db.NewMemDB())
+			tree := NewVersionedTree(db.NewMemDB(), 0)
 			program := genRandomProgram(size)
 			err := program.Execute(tree)
 			if err != nil {
