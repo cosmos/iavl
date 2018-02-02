@@ -143,7 +143,7 @@ func BenchmarkRandomBytes(b *testing.B) {
 }
 
 type benchmark struct {
-	dbType              string
+	dbType              db.DbBackendType
 	initSize, blockSize int
 	keyLen, dataLen     int
 }
