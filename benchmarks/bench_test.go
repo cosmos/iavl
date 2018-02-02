@@ -196,10 +196,10 @@ func BenchmarkLevelDBBatchSizes(b *testing.B) {
 // in the leveldb, to make sure not everything is cached
 func BenchmarkLevelDBLargeData(b *testing.B) {
 	benchmarks := []benchmark{
-		{"goleveldb", 50000, 100, 32, 100},
-		{"goleveldb", 50000, 100, 32, 1000},
-		{"goleveldb", 50000, 100, 32, 10000},
-		{"goleveldb", 50000, 100, 32, 100000},
+		{db.GoLevelDBBackend, 50000, 100, 32, 100},
+		{db.GoLevelDBBackend, 50000, 100, 32, 1000},
+		{db.GoLevelDBBackend, 50000, 100, 32, 10000},
+		{db.GoLevelDBBackend, 50000, 100, 32, 100000},
 	}
 	runBenchmarks(b, benchmarks)
 }

@@ -1,5 +1,5 @@
-hash: 082f114e002a46dcf9948ecafdf283fd7dffaf961583c613f7e5da75bc4510af
-updated: 2018-01-14T18:04:28.411156286-05:00
+hash: f4ea0d9c87de8a3e87330cd6ed7f3c0db938704165725bde9ad62b853a33a2da
+updated: 2018-02-02T14:13:30.02481+01:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
@@ -45,9 +45,9 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-wire
-  version: b93ebdd4f306833936c243561ec30af3455dc764
+  version: e723d95ac2838b7ae9919ada25004859236c32ff
 - name: github.com/tendermint/tmlibs
-  version: f2bc5432c31974bb3f5b1a80a53c38e37d481b8d
+  version: 95b53c80e1771be6b8c7083771a417e2a888c765
   subpackages:
   - common
   - db
@@ -63,7 +63,7 @@ testImports:
   subpackages:
   - difflib
 - name: github.com/stretchr/testify
-  version: b91bfb9ebec76498946beb6af7c0230c7cc7ba6c
+  version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:
   - assert
   - require
