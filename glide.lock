@@ -1,12 +1,12 @@
-hash: 082f114e002a46dcf9948ecafdf283fd7dffaf961583c613f7e5da75bc4510af
-updated: 2018-01-14T18:04:28.411156286-05:00
+hash: ae99beaaf9e18324c79e4144a30e73d1a009e005dadfd6d9a4739e674ded385c
+updated: 2018-02-02T23:51:14.356463651-05:00
 imports:
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/go-kit/kit
-  version: e2b298466b32c7cd5579a9b9b07e968fc9d9452c
+  version: 4dc7be5d2d12881735283bcab7352178e190fc71
   subpackages:
   - log
   - log/level
@@ -16,7 +16,7 @@ imports:
 - name: github.com/go-stack/stack
   version: 817915b46b97fd7bb80e8ab6b69f01a53ac3eebf
 - name: github.com/gogo/protobuf
-  version: 342cbe0a04158f6dcb03ca0079991a51a4248c02
+  version: 1adfc126b41513cc696b209667c8656ea7aac67c
   subpackages:
   - gogoproto
   - proto
@@ -45,9 +45,9 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-wire
-  version: b93ebdd4f306833936c243561ec30af3455dc764
+  version: dec83f641903b22f039da3974607859715d0377e
 - name: github.com/tendermint/tmlibs
-  version: f2bc5432c31974bb3f5b1a80a53c38e37d481b8d
+  version: 1d7fc78ea171587e9e63da566d3da1b127bfd14c
   subpackages:
   - common
   - db
@@ -63,7 +63,7 @@ testImports:
   subpackages:
   - difflib
 - name: github.com/stretchr/testify
-  version: b91bfb9ebec76498946beb6af7c0230c7cc7ba6c
+  version: 12b6f73e6084dad08a7c6e575284b177ecafbc71
   subpackages:
   - assert
   - require
