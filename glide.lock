@@ -1,8 +1,8 @@
-hash: c283a6403513d8412c9e3d5465a8a42afde5fe87e78944a9e989d643e1068bcd
-updated: 2018-02-02T18:52:58.152249+01:00
+hash: ae99beaaf9e18324c79e4144a30e73d1a009e005dadfd6d9a4739e674ded385c
+updated: 2018-02-02T23:51:14.356463651-05:00
 imports:
 - name: github.com/davecgh/go-spew
-  version: 04cdfd42973bb9c8589fd6a731800cf222fde1a9
+  version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/go-kit/kit
@@ -45,9 +45,9 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-wire
-  version: e723d95ac2838b7ae9919ada25004859236c32ff
+  version: dec83f641903b22f039da3974607859715d0377e
 - name: github.com/tendermint/tmlibs
-  version: cbc63518e589d6b0069f9750127fa83dd6ea5ee3
+  version: 1d7fc78ea171587e9e63da566d3da1b127bfd14c
   subpackages:
   - common
   - db
