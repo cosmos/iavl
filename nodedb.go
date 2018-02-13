@@ -76,7 +76,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	// Doesn't exist, load.
 	buf := ndb.db.Get(ndb.nodeKey(hash))
 	if buf == nil {
-		panic(fmt.Sprintf("Value missing for key %x", hash))
+		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 	}
 
 	node, err := MakeNode(buf)
@@ -301,7 +301,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	itr := ndb.db.Iterator(nil, nil)
+	itr := dbm.IteratePrefix(ndb.db, prefix)
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {

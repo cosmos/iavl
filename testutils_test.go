@@ -68,7 +68,7 @@ func N(l, r interface{}) *Node {
 
 // Setup a deep node
 func T(n *Node) *Tree {
-	d := db.NewDB("test", db.MemDBBackendStr, "")
+	d := db.NewDB("test", db.MemDBBackend, "")
 	t := NewTree(d, 0)
 
 	n.hashWithCount()
@@ -147,7 +147,7 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 }
 
 func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackendStr, "")
+	db := db.NewDB("test", db.MemDBBackend, "")
 	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 
