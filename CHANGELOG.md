@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 (March 2, 2018)
+
+IMPROVEMENT
+
+- Remove spurious print statement from LoadVersion
+
 ## 0.6.0 (March 2, 2018)
 
 BREAKING CHANGES

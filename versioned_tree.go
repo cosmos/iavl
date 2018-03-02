@@ -91,7 +91,6 @@ func (tree *VersionedTree) LoadVersion(targetVersion int64) error {
 	// Load all roots from the database.
 	latestVersion := int64(0)
 	for version, root := range roots {
-		fmt.Printf("ROOTS %d %x\n", version, root)
 
 		// Construct a tree manually.
 		t := &Tree{}
