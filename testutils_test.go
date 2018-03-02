@@ -24,7 +24,7 @@ func dummyPathToKey(t *Tree, key []byte) *PathToKey {
 }
 
 func dummyLeafNode(key, val []byte) proofLeafNode {
-	return proofLeafNode{key, val, 0}
+	return proofLeafNode{key, val, 1}
 }
 
 func randstr(length int) string {
@@ -48,12 +48,12 @@ func N(l, r interface{}) *Node {
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
 	} else {
-		left = NewNode(i2b(l.(int)), nil)
+		left = NewNode(i2b(l.(int)), nil, 0)
 	}
 	if _, ok := r.(*Node); ok {
 		right = r.(*Node)
 	} else {
-		right = NewNode(i2b(r.(int)), nil)
+		right = NewNode(i2b(r.(int)), nil, 0)
 	}
 
 	n := &Node{
@@ -68,8 +68,8 @@ func N(l, r interface{}) *Node {
 
 // Setup a deep node
 func T(n *Node) *Tree {
-	d := db.NewDB("test", db.MemDBBackendStr, "")
-	t := NewTree(0, d)
+	d := db.NewDB("test", db.MemDBBackend, "")
+	t := NewTree(d, 0)
 
 	n.hashWithCount()
 	t.root = n
@@ -125,14 +125,14 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 
 	// Write/Read then verify.
 	proofBytes := proof.Bytes()
-	proof2, err := ReadKeyExistsProof(proofBytes)
+	proof2, err := ReadKeyProof(proofBytes)
 	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
 	require.NoError(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
 
 	// Random mutations must not verify
 	for i := 0; i < 10; i++ {
 		badProofBytes := MutateByteSlice(proofBytes)
-		badProof, err := ReadKeyExistsProof(badProofBytes)
+		badProof, err := ReadKeyProof(badProofBytes)
 		// may be invalid... errors are okay
 		if err == nil {
 			assert.Error(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),
@@ -147,7 +147,7 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 }
 
 func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackendStr, "")
+	db := db.NewDB("test", db.MemDBBackend, "")
 	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 
@@ -156,17 +156,15 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	v := uint64(1)
-	t := NewVersionedTree(100000, db)
+	t := NewVersionedTree(db, 100000)
 	for i := 0; i < 1000000; i++ {
 		t.Set(i2b(int(RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {
-			t.SaveVersion(v)
-			v++
+			t.SaveVersion()
 		}
 	}
 	b.ReportAllocs()
-	t.SaveVersion(v)
+	t.SaveVersion()
 
 	fmt.Println("ok, starting")
 
@@ -178,8 +176,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 		t.Set(ri, nil)
 		t.Remove(ri)
 		if i%100 == 99 {
-			t.SaveVersion(v)
-			v++
+			t.SaveVersion()
 		}
 	}
 }

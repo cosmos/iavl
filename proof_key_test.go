@@ -11,7 +11,7 @@ import (
 func TestSerializeProofs(t *testing.T) {
 	require := require.New(t)
 
-	tree := NewTree(0, nil)
+	tree := NewTree(nil, 0)
 	for _, ikey := range []byte{0x17, 0x42, 0x99} {
 		key := []byte{ikey}
 		tree.Set(key, cmn.RandBytes(8))
@@ -23,12 +23,14 @@ func TestSerializeProofs(t *testing.T) {
 	val, proof, err := tree.GetWithProof(key)
 	require.Nil(err, "%+v", err)
 	require.NotNil(val)
+
 	bin := proof.Bytes()
-	eproof, err := ReadKeyExistsProof(bin)
+	proof2, err := ReadKeyProof(bin)
 	require.Nil(err, "%+v", err)
-	require.NoError(eproof.Verify(key, val, root))
-	_, err = ReadKeyAbsentProof(bin)
-	require.NotNil(err)
+	require.NoError(proof2.Verify(key, val, root))
+
+	_, ok := proof2.(*KeyExistsProof)
+	require.True(ok, "Proof should be *KeyExistsProof")
 
 	// test with key absent
 	key = []byte{0x38}
@@ -36,10 +38,7 @@ func TestSerializeProofs(t *testing.T) {
 	require.Nil(err, "%+v", err)
 	require.Nil(val)
 	bin = proof.Bytes()
-	// I think this is ugly it works this way, but without type-bytes nothing we can do :(
-	// eproof, err = ReadKeyExistsProof(bin)
-	// require.NotNil(err)
-	aproof, err := ReadKeyAbsentProof(bin)
+	aproof, err := ReadKeyProof(bin)
 	require.Nil(err, "%+v", err)
 	require.NoError(aproof.Verify(key, val, root))
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var tree *Tree = NewTree(0, nil)
+	var tree *Tree = NewTree(nil, 0)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -32,7 +32,7 @@ func TestBasic(t *testing.T) {
 
 	// Test 0x00
 	{
-		idx, val := tree.Get([]byte{0x00})
+		idx, val := tree.Get64([]byte{0x00})
 		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
@@ -46,7 +46,7 @@ func TestBasic(t *testing.T) {
 
 	// Test "1"
 	{
-		idx, val := tree.Get([]byte("1"))
+		idx, val := tree.Get64([]byte("1"))
 		if val == nil {
 			t.Errorf("Expected value to exist")
 		}
@@ -60,7 +60,7 @@ func TestBasic(t *testing.T) {
 
 	// Test "2"
 	{
-		idx, val := tree.Get([]byte("2"))
+		idx, val := tree.Get64([]byte("2"))
 		if val == nil {
 			t.Errorf("Expected value to exist")
 		}
@@ -74,7 +74,7 @@ func TestBasic(t *testing.T) {
 
 	// Test "4"
 	{
-		idx, val := tree.Get([]byte("4"))
+		idx, val := tree.Get64([]byte("4"))
 		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
@@ -88,7 +88,7 @@ func TestBasic(t *testing.T) {
 
 	// Test "6"
 	{
-		idx, val := tree.Get([]byte("6"))
+		idx, val := tree.Get64([]byte("6"))
 		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
@@ -103,7 +103,7 @@ func TestBasic(t *testing.T) {
 
 func TestUnit(t *testing.T) {
 
-	expectHash := func(tree *Tree, hashCount int) {
+	expectHash := func(tree *Tree, hashCount int64) {
 		// ensure number of new hash calculations is as expected.
 		hash, count := tree.hashWithCount()
 		if count != hashCount {
@@ -121,7 +121,7 @@ func TestUnit(t *testing.T) {
 		}
 	}
 
-	expectSet := func(tree *Tree, i int, repr string, hashCount int) {
+	expectSet := func(tree *Tree, i int, repr string, hashCount int64) {
 		origNode := tree.root
 		updated := tree.Set(i2b(i), []byte{})
 		// ensure node was added & structure is as expected.
@@ -134,7 +134,7 @@ func TestUnit(t *testing.T) {
 		tree.root = origNode
 	}
 
-	expectRemove := func(tree *Tree, i int, repr string, hashCount int) {
+	expectRemove := func(tree *Tree, i int, repr string, hashCount int64) {
 		origNode := tree.root
 		value, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
@@ -190,7 +190,7 @@ func TestRemove(t *testing.T) {
 
 	d := db.NewDB("test", "memdb", "")
 	defer d.Close()
-	t1 := NewVersionedTree(size, d)
+	t1 := NewVersionedTree(d, size)
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
@@ -208,7 +208,7 @@ func TestRemove(t *testing.T) {
 			key := keys[mrand.Int31n(l)]
 			t1.Remove(key)
 		}
-		t1.SaveVersion(uint64(i))
+		t1.SaveVersion()
 	}
 }
 
@@ -220,7 +220,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	var tree *Tree = NewTree(0, nil)
+	var tree *Tree = NewTree(nil, 0)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -249,7 +249,7 @@ func TestIntegration(t *testing.T) {
 		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
-		if _, val := tree.Get([]byte(r.key)); string(val) != string(r.value) {
+		if _, val := tree.Get64([]byte(r.key)); string(val) != string(r.value) {
 			t.Error("wrong value")
 		}
 	}
@@ -267,7 +267,7 @@ func TestIntegration(t *testing.T) {
 			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
-			_, val := tree.Get([]byte(r.key))
+			_, val := tree.Get64([]byte(r.key))
 			if string(val) != string(r.value) {
 				t.Error("wrong value")
 			}
@@ -302,7 +302,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	var tree *Tree = NewTree(0, nil)
+	var tree *Tree = NewTree(nil, 0)
 
 	// insert all the data
 	for _, r := range records {
@@ -369,17 +369,17 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1 := NewVersionedTree(0, db)
+	t1 := NewVersionedTree(db, 0)
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
-	t1.SaveVersion(1)
+	t1.SaveVersion()
 
 	// Load a tree
-	t2 := NewVersionedTree(0, db)
+	t2 := NewVersionedTree(db, 0)
 	t2.Load()
 	for key, value := range records {
-		_, t2value := t2.Get([]byte(key))
+		_, t2value := t2.Get64([]byte(key))
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}
@@ -391,14 +391,14 @@ func TestProof(t *testing.T) {
 
 	// Construct some random tree
 	db := db.NewMemDB()
-	var tree *VersionedTree = NewVersionedTree(100, db)
+	var tree *VersionedTree = NewVersionedTree(db, 100)
 	for i := 0; i < 1000; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
 	}
 
 	// Persist the items so far
-	tree.SaveVersion(1)
+	tree.SaveVersion()
 
 	// Add more items so it's not all persisted
 	for i := 0; i < 100; i++ {
@@ -420,7 +420,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	var tree *Tree = NewTree(100, db)
+	var tree *Tree = NewTree(db, 100)
 
 	// should get false for proof with nil root
 	_, _, err := tree.GetWithProof([]byte("foo"))

@@ -19,7 +19,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]byte) {
-	t := iavl.NewVersionedTree(size, db)
+	t := iavl.NewVersionedTree(db, size)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
@@ -28,7 +28,7 @@ func prepareTree(db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]
 		keys[i] = key
 	}
 	t.Hash()
-	t.SaveVersion(t.LatestVersion() + 1)
+	t.SaveVersion()
 	runtime.GC()
 	return t, keys
 }
@@ -53,7 +53,7 @@ func runInsert(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize i
 		t.Set(randBytes(keyLen), randBytes(dataLen))
 		if i%blockSize == 0 {
 			t.Hash()
-			t.SaveVersion(t.LatestVersion() + 1)
+			t.SaveVersion()
 		}
 	}
 	return t
@@ -66,7 +66,7 @@ func runUpdate(b *testing.B, t *iavl.VersionedTree, dataLen, blockSize int, keys
 		t.Set(key, randBytes(dataLen))
 		if i%blockSize == 0 {
 			t.Hash()
-			t.SaveVersion(t.LatestVersion() + 1)
+			t.SaveVersion()
 		}
 	}
 	return t
@@ -82,7 +82,7 @@ func runDelete(b *testing.B, t *iavl.VersionedTree, blockSize int, keys [][]byte
 		t.Remove(key)
 		if i%blockSize == 0 {
 			t.Hash()
-			t.SaveVersion(t.LatestVersion() + 1)
+			t.SaveVersion()
 		}
 	}
 	return t
@@ -118,7 +118,7 @@ func runBlock(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize in
 
 		// at the end of a block, move it all along....
 		real.Hash()
-		real.SaveVersion(real.LatestVersion() + 1)
+		real.SaveVersion()
 		lastCommit = real
 	}
 
@@ -143,7 +143,7 @@ func BenchmarkRandomBytes(b *testing.B) {
 }
 
 type benchmark struct {
-	dbType              string
+	dbType              db.DBBackendType
 	initSize, blockSize int
 	keyLen, dataLen     int
 }
