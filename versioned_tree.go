@@ -71,6 +71,8 @@ func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
 }
 
 // Load the latest versioned tree from disk.
+//
+// Returns the version number of the latest version found
 func (tree *VersionedTree) Load() (int64, error) {
 	return tree.LoadVersion(0)
 }
