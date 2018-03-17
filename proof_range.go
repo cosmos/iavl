@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/pkg/errors"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // KeyInRangeProof is an interface which covers both first-in-range and last-in-range proofs.
 type KeyInRangeProof interface {
-	Verify(startKey, endKey, key, value, root []byte) error
+	Verify(startKey, endKey, key, value, root []byte) cmn.Error
 }
 
 // KeyFirstInRangeProof is a proof that a given key is the first in a given range.
@@ -27,26 +26,32 @@ func (proof *KeyFirstInRangeProof) String() string {
 }
 
 // Verify that the first in range proof is valid.
-func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) cmn.Error {
 	if key != nil {
 		inputsOutOfRange := bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1
 		if inputsOutOfRange {
-			return ErrInvalidInputs
+			return cmn.NewErrorWithType(ErrInvalidInputs, "")
 		}
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.NewErrorWithType(ErrInvalidProof, "")
 	}
-	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
-		return err
+	err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root)
+	if err != nil {
+		return err.Trace("verifying paths")
 	}
 	if proof.PathToKey == nil {
-		// If we don't have an existing key, we effectively have a proof of absence.
-		return verifyKeyAbsence(proof.Left, proof.Right)
+		// Absence of PathToKey implies that proof is that of absence.
+		err = verifyKeyAbsence(proof.Left, proof.Right)
+		if err != nil {
+			return err.Trace("verifying proof of absence")
+		}
+		return nil
 	}
 
-	if err := proof.KeyExistsProof.Verify(key, value, root); err != nil {
-		return errors.Wrap(err, "failed to verify key exists proof")
+	err = proof.KeyExistsProof.Verify(key, value, root)
+	if err != nil {
+		return err.Trace("Failed to verify key exists proof")
 	}
 	// If the key returned is equal to our start key, and we've verified
 	// that it exists, there's nothing else to check.
@@ -64,7 +69,7 @@ func (proof *KeyFirstInRangeProof) Verify(startKey, endKey, key, value []byte, r
 	if proof.Left != nil && proof.Left.Path.isLeftAdjacentTo(proof.PathToKey) {
 		return nil
 	}
-	return errors.WithStack(ErrInvalidProof)
+	return cmn.NewErrorWithType(ErrInvalidProof, "")
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -84,12 +89,12 @@ func (proof *KeyLastInRangeProof) String() string {
 }
 
 // Verify that the last in range proof is valid.
-func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) error {
+func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, root []byte) cmn.Error {
 	if key != nil && (bytes.Compare(key, startKey) == -1 || bytes.Compare(key, endKey) == 1) {
-		return ErrInvalidInputs
+		return cmn.NewErrorWithType(ErrInvalidInputs, "")
 	}
 	if proof.Left == nil && proof.Right == nil && proof.PathToKey == nil {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.NewErrorWithType(ErrInvalidProof, "")
 	}
 	if err := verifyPaths(proof.Left, proof.Right, startKey, endKey, root); err != nil {
 		return err
@@ -113,7 +118,7 @@ func (proof *KeyLastInRangeProof) Verify(startKey, endKey, key, value []byte, ro
 		return nil
 	}
 
-	return errors.WithStack(ErrInvalidProof)
+	return cmn.NewErrorWithType(ErrInvalidProof, "")
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -133,12 +138,12 @@ type KeyRangeProof struct {
 // This method expects the same parameters passed to query the range.
 func (proof *KeyRangeProof) Verify(
 	startKey, endKey []byte, limit int, keys, values [][]byte, root []byte,
-) error {
+) cmn.Error {
 	if len(proof.PathToKeys) != len(keys) || len(values) != len(keys) || len(proof.Versions) != len(keys) {
-		return errors.WithStack(ErrInvalidInputs)
+		return cmn.NewErrorWithType(ErrInvalidInputs, "length mismatch")
 	}
 	if limit > 0 && len(keys) > limit {
-		return errors.WithStack(ErrInvalidInputs)
+		return cmn.NewErrorWithType(ErrInvalidInputs, "length over limit")
 	}
 
 	// If startKey > endKey, reverse the keys and values, since our proofs are
@@ -171,7 +176,7 @@ func (proof *KeyRangeProof) Verify(
 	}
 
 	if err := verifyNoMissingKeys(proof.paths()); err != nil {
-		return errors.WithStack(err)
+		return err.Trace("verifying no missing keys")
 	}
 
 	// If we've reached this point, it means our range isn't empty, and we have
@@ -183,7 +188,7 @@ func (proof *KeyRangeProof) Verify(
 			Version:    proof.Versions[i],
 		}
 		if err := path.verify(leafNode.Hash(), root); err != nil {
-			return errors.WithStack(err)
+			return err.Trace("verifying inner nodes")
 		}
 	}
 
@@ -196,13 +201,13 @@ func (proof *KeyRangeProof) Verify(
 	if proof.Left == nil &&
 		!bytes.Equal(startKey, keys[0]) &&
 		!proof.PathToKeys[0].isLeftmost() {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.NewErrorWithType(ErrInvalidProof, "")
 	}
 
 	if proof.Right == nil &&
 		!bytes.Equal(endKey, keys[len(keys)-1]) &&
 		!proof.PathToKeys[len(proof.PathToKeys)-1].isRightmost() {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.NewErrorWithType(ErrInvalidProof, "")
 	}
 	return nil
 }
@@ -228,10 +233,10 @@ func (proof *KeyRangeProof) paths() []*PathToKey {
 ///////////////////////////////////////////////////////////////////////////////
 
 func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
-	keys, values [][]byte, rangeProof *KeyRangeProof, err error,
+	keys, values [][]byte, rangeProof *KeyRangeProof, err cmn.Error,
 ) {
 	if t.root == nil {
-		return nil, nil, nil, ErrNilRoot
+		return nil, nil, nil, cmn.NewErrorWithType(ErrNilRoot, "")
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
@@ -333,10 +338,10 @@ func (t *Tree) getRangeWithProof(keyStart, keyEnd []byte, limit int) (
 }
 
 func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
-	key, value []byte, proof *KeyFirstInRangeProof, err error,
+	key, value []byte, proof *KeyFirstInRangeProof, err cmn.Error,
 ) {
 	if t.root == nil {
-		return nil, nil, nil, ErrNilRoot
+		return nil, nil, nil, cmn.NewErrorWithType(ErrNilRoot, "")
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 	proof = &KeyFirstInRangeProof{}
@@ -379,10 +384,10 @@ func (t *Tree) getFirstInRangeWithProof(keyStart, keyEnd []byte) (
 }
 
 func (t *Tree) getLastInRangeWithProof(keyStart, keyEnd []byte) (
-	key, value []byte, proof *KeyLastInRangeProof, err error,
+	key, value []byte, proof *KeyLastInRangeProof, err cmn.Error,
 ) {
 	if t.root == nil {
-		return nil, nil, nil, ErrNilRoot
+		return nil, nil, nil, cmn.NewErrorWithType(ErrNilRoot, "")
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 

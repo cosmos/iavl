@@ -2,8 +2,9 @@ package iavl
 
 import (
 	"bytes"
+	// "fmt"
 
-	"github.com/pkg/errors"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // PathToKey represents an inner path to a leaf node.
@@ -23,13 +24,17 @@ func (p *PathToKey) String() string {
 
 // verify check that the leafNode's hash matches the path's LeafHash and that
 // the root is the merkle hash of all the inner nodes.
-func (p *PathToKey) verify(leafHash []byte, root []byte) error {
+func (p *PathToKey) verify(leafHash []byte, root []byte) cmn.Error {
 	hash := leafHash
+	// fmt.Printf(">> verify innernodes: %v\n", p.InnerNodes)
 	for _, branch := range p.InnerNodes {
-		hash = branch.Hash(hash)
+		oldHash := hash
+		hash = branch.Hash(oldHash)
+		// fmt.Printf(">> verify branch: %X + %#v -> %X\n", oldHash, branch, hash)
 	}
 	if !bytes.Equal(root, hash) {
-		return errors.WithStack(ErrInvalidProof)
+		// fmt.Printf(">> verify failed: %X (root) != %X (computed)\n", root, hash)
+		return cmn.NewErrorWithType(ErrInvalidProof, "")
 	}
 	return nil
 }
@@ -91,22 +96,22 @@ type pathWithNode struct {
 	Node proofLeafNode `json:"node"`
 }
 
-func (p *pathWithNode) verify(root []byte) error {
+func (p *pathWithNode) verify(root []byte) cmn.Error {
 	return p.Path.verify(p.Node.Hash(), root)
 }
 
 // verifyPaths verifies the left and right paths individually, and makes sure
 // the ordering is such that left < startKey <= endKey < right.
-func verifyPaths(left, right *pathWithNode, startKey, endKey, root []byte) error {
+func verifyPaths(left, right *pathWithNode, startKey, endKey, root []byte) cmn.Error {
 	if bytes.Compare(startKey, endKey) == 1 {
-		return ErrInvalidInputs
+		return cmn.NewErrorWithType(ErrInvalidInputs, "")
 	}
 	if left != nil {
 		if err := left.verify(root); err != nil {
 			return err
 		}
 		if !left.Node.isLesserThan(startKey) {
-			return errors.WithStack(ErrInvalidProof)
+			return cmn.NewErrorWithType(ErrInvalidProof, "")
 		}
 	}
 	if right != nil {
@@ -114,7 +119,7 @@ func verifyPaths(left, right *pathWithNode, startKey, endKey, root []byte) error
 			return err
 		}
 		if !right.Node.isGreaterThan(endKey) {
-			return errors.WithStack(ErrInvalidProof)
+			return cmn.NewErrorWithType(ErrInvalidProof, "")
 		}
 	}
 	return nil
@@ -122,7 +127,7 @@ func verifyPaths(left, right *pathWithNode, startKey, endKey, root []byte) error
 
 // Checks that all paths are adjacent to one another, ie. that there are no
 // keys missing.
-func verifyNoMissingKeys(paths []*PathToKey) error {
+func verifyNoMissingKeys(paths []*PathToKey) cmn.Error {
 	ps := make([]*PathToKey, 0, len(paths))
 	for _, p := range paths {
 		if p != nil {
@@ -132,7 +137,7 @@ func verifyNoMissingKeys(paths []*PathToKey) error {
 	for i := 0; i < len(ps)-1; i++ {
 		// Always check from left to right, since paths are always in ascending order.
 		if !ps[i].isLeftAdjacentTo(ps[i+1]) {
-			return errors.Errorf("paths #%d and #%d are not adjacent", i, i+1)
+			return cmn.NewError("paths #%d and #%d are not adjacent", i, i+1)
 		}
 	}
 	return nil
@@ -140,7 +145,7 @@ func verifyNoMissingKeys(paths []*PathToKey) error {
 
 // Checks that with the given left and right paths, no keys can exist in between.
 // Supports nil paths to signify out-of-range.
-func verifyKeyAbsence(left, right *pathWithNode) error {
+func verifyKeyAbsence(left, right *pathWithNode) cmn.Error {
 	if left != nil && left.Path.isRightmost() {
 		// Range starts outside of the right boundary.
 		return nil
@@ -152,5 +157,5 @@ func verifyKeyAbsence(left, right *pathWithNode) error {
 		// Range is between two existing keys.
 		return nil
 	}
-	return errors.WithStack(ErrInvalidProof)
+	return cmn.NewErrorWithType(ErrInvalidProof, "")
 }
