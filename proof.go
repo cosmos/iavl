@@ -4,8 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/iavl/sha256truncated"
 	cmn "github.com/tendermint/tmlibs/common"
@@ -85,8 +83,8 @@ func (pin proofInnerNode) Hash(childHash []byte) []byte {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash proofInnerNode: %v", err))
 	}
-	hasher.Write(buf.Bytes())
 
+	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
 }
 
@@ -154,7 +152,7 @@ func (node *Node) _PathToLeaf(t *Tree, key []byte, path *PathToLeaf) (*Node, err
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
-		return node, errors.New("key does not exist")
+		return node, cmn.NewError("key does not exist")
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
