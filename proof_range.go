@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pkg/errors"
 	"github.com/tendermint/iavl/sha256truncated"
 	cmn "github.com/tendermint/tmlibs/common"
 )
@@ -17,7 +16,6 @@ type RangeProof struct {
 	LeftPath   PathToLeaf      `json:"left_path"`
 	InnerNodes []PathToLeaf    `json:"inner_nodes"`
 	Leaves     []proofLeafNode `json:"leaves"`
-
 	// temporary
 	treeEnd int // 0 if not set, 1 if true, -1 if false.
 }
@@ -60,14 +58,14 @@ func (proof *RangeProof) StringIndented(indent string) string {
 // For that, use Verify(root).
 func (proof *RangeProof) VerifyItem(i int, key, value []byte) error {
 	if proof == nil {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
 	if !bytes.Equal(proof.Leaves[i].Key, key) {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.ErrorWrap(ErrInvalidProof, "leaf key not same")
 	}
 	valueHash := sha256truncated.Hash(value)
 	if !bytes.Equal(proof.Leaves[i].ValueHash, valueHash) {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.ErrorWrap(ErrInvalidProof, "leaf value hash not same")
 	}
 	return nil
 }
@@ -77,20 +75,20 @@ func (proof *RangeProof) VerifyItem(i int, key, value []byte) error {
 // For that, use Verify(root).
 func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	if proof == nil {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
 	if proof.treeEnd == 0 {
-		return errors.New("must call Verify(root) first.")
+		return cmn.NewError("must call Verify(root) first.")
 	}
 	cmp := bytes.Compare(key, proof.Leaves[0].Key)
 	if cmp < 0 {
 		if proof.LeftPath.isLeftmost() {
 			return nil
 		} else {
-			return errors.New("absence not proved by left path")
+			return cmn.NewError("absence not proved by left path")
 		}
 	} else if cmp == 0 {
-		return errors.New("absence disproved via first item #0")
+		return cmn.NewError("absence disproved via first item #0")
 	}
 	if len(proof.LeftPath) == 0 {
 		return nil // proof ok
@@ -106,7 +104,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		if cmp < 0 {
 			return nil // proof ok
 		} else if cmp == 0 {
-			return fmt.Errorf("absence disproved via item #%v", i)
+			return cmn.NewError("absence disproved via item #%v", i)
 		} else {
 			if i == len(proof.Leaves)-1 {
 				// If last item, check whether
@@ -124,16 +122,16 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 
 	// It's not a valid absence proof.
 	if len(proof.Leaves) < 2 {
-		return errors.New("absence not proved by right leaf (need another leaf?)")
+		return cmn.NewError("absence not proved by right leaf (need another leaf?)")
 	} else {
-		return errors.New("absence not proved by right leaf")
+		return cmn.NewError("absence not proved by right leaf")
 	}
 }
 
 // Verify that proof is valid.
 func (proof *RangeProof) Verify(root []byte) error {
 	if proof == nil {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
 	treeEnd, err := proof._verify(root)
 	if err == nil {
@@ -148,13 +146,13 @@ func (proof *RangeProof) Verify(root []byte) error {
 
 func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 	if !bytes.Equal(proof.RootHash, root) {
-		return false, errors.WithStack(ErrInvalidRoot)
+		return false, cmn.ErrorWrap(ErrInvalidRoot, "root hash doesn't match")
 	}
 	if len(proof.Leaves) == 0 {
-		return false, errors.WithStack(ErrInvalidProof)
+		return false, cmn.ErrorWrap(ErrInvalidProof, "no leaves")
 	}
 	if len(proof.InnerNodes)+1 != len(proof.Leaves) {
-		return false, errors.WithStack(ErrInvalidProof)
+		return false, cmn.ErrorWrap(ErrInvalidProof, "InnerNodes vs Leaves length mismatch, leaves should be 1 more.")
 	}
 
 	// Start from the left path and prove each leaf.
@@ -177,7 +175,7 @@ func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 			Path: path,
 			Leaf: nleaf,
 		}).verify(root); err != nil {
-			return false, false, err
+			return false, false, err.Trace(0, "verifying some path to a leaf")
 		}
 
 		// If we don't have any leaves left, we're done.
@@ -207,7 +205,7 @@ func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 			// Recursively verify inners against remaining leaves.
 			treeEnd, done, err := VERIFY(inners, lpath.Right, rightmost && rpath.isRightmost())
 			if err != nil {
-				return treeEnd, false, err
+				return treeEnd, false, cmn.ErrorWrap(err, "recursive VERIFY call")
 			} else if done {
 				return treeEnd, true, nil
 			}
@@ -223,9 +221,9 @@ func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 	path := proof.LeftPath
 	treeEnd, done, err := VERIFY(path, root, true)
 	if err != nil {
-		return treeEnd, err
+		return treeEnd, cmn.ErrorWrap(err, "root VERIFY call")
 	} else if !done {
-		return treeEnd, errors.New("left over leaves -- malformed proof")
+		return treeEnd, cmn.ErrorWrap(ErrInvalidProof, "left over leaves -- malformed proof")
 	}
 
 	// Ok!
@@ -244,7 +242,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 		panic("limit must be greater or equal to 0 -- 0 means no limit")
 	}
 	if t.root == nil {
-		return nil, nil, errors.WithStack(ErrNilRoot)
+		return nil, nil, cmn.ErrorWrap(ErrNilRoot, "")
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
@@ -387,7 +385,7 @@ func (t *Tree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err er
 			return nil, proof, nil
 		}
 	}
-	return nil, nil, errors.Wrap(err, "could not construct any proof")
+	return nil, nil, cmn.ErrorWrap(err, "could not construct any proof")
 }
 
 // GetRangeWithProof gets key/value pairs within the specified range and limit.
@@ -407,7 +405,7 @@ func (tree *VersionedTree) GetVersionedWithProof(key []byte, version int64) ([]b
 	if t, ok := tree.versions[version]; ok {
 		return t.GetWithProof(key)
 	}
-	return nil, nil, errors.WithStack(ErrVersionDoesNotExist)
+	return nil, nil, cmn.ErrorWrap(ErrVersionDoesNotExist, "")
 }
 
 // GetVersionedRangeWithProof gets key/value pairs within the specified range
@@ -418,5 +416,5 @@ func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, l
 	if t, ok := tree.versions[version]; ok {
 		return t.GetRangeWithProof(startKey, endKey, limit)
 	}
-	return nil, nil, nil, errors.WithStack(ErrVersionDoesNotExist)
+	return nil, nil, nil, cmn.ErrorWrap(ErrVersionDoesNotExist, "")
 }

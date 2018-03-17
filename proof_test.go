@@ -2,11 +2,10 @@ package iavl
 
 import (
 	"bytes"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"testing"
 
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tmlibs/test"
@@ -17,7 +16,7 @@ func TestTreeGetWithProof(t *testing.T) {
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
-		tree.Set(key, []byte(randstr(8)))
+		tree.Set(key, []byte(rand.Str(8)))
 	}
 	root := tree.Hash()
 
@@ -155,14 +154,14 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 
 		// Compute range proof.
 		keys, values, proof, err := tree.GetRangeWithProof(startKey, endKey, 0)
-		require.NoError(err)
+		require.NoError(err, "%+v", err)
 		require.Equal(c.keys, flatten(keys))
 		require.Equal(c.keys, flatten(values))
 
 		// Verify that proof is valid.
 		err = proof.Verify(root)
 
-		require.NoError(err)
+		require.NoError(err, "%+v", err)
 		verifyProof(t, proof, root)
 
 		// Verify each value.

@@ -6,12 +6,21 @@ import (
 	"sort"
 )
 
+func PrintTree(tree *Tree) {
+	ndb, root := tree.ndb, tree.root
+	printNode(ndb, root, 0)
+}
+
 func printNode(ndb *nodeDB, node *Node, indent int) {
 	indentPrefix := ""
 	for i := 0; i < indent; i++ {
 		indentPrefix += "    "
 	}
 
+	if node == nil {
+		fmt.Printf("%s<nil>\n", indentPrefix)
+		return
+	}
 	if node.rightNode != nil {
 		printNode(ndb, node.rightNode, indent+1)
 	} else if node.rightHash != nil {
@@ -21,7 +30,9 @@ func printNode(ndb *nodeDB, node *Node, indent int) {
 
 	hash := node._hash()
 	fmt.Printf("%sh:%X\n", indentPrefix, hash)
-	fmt.Printf("%s%X:%X (%v)\n", indentPrefix, node.key, node.value, node.height)
+	if node.isLeaf() {
+		fmt.Printf("%s%X:%X (%v)\n", indentPrefix, node.key, node.value, node.height)
+	}
 
 	if node.leftNode != nil {
 		printNode(ndb, node.leftNode, indent+1)
