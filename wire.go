@@ -1,7 +1,7 @@
 package iavl
 
 import (
-	amino "github.com/tendermint/go-amino"
+	"github.com/tendermint/go-amino"
 )
 
 var cdc = amino.NewCodec()
@@ -9,9 +9,9 @@ var cdc = amino.NewCodec()
 func init() {
 	// NOTE: It's important that there be no conflicts here,
 	// as that would change the canonical representations.
-	RegisterAmino(cdc)
+	RegisterWire(cdc)
 }
 
-func RegisterAmino(cdc *amino.Codec) {
+func RegisterWire(cdc *amino.Codec) {
 	// TODO
 }
