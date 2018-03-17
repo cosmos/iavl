@@ -41,6 +41,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 
+	// fmt.Printf(">> proofInnerNode.Hash() found height %v\n", branch.Height)
 	err := amino.EncodeInt8(buf, branch.Height)
 	if err == nil {
 		err = amino.EncodeInt64(buf, branch.Size)
@@ -67,8 +68,9 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash proofInnerNode: %v", err))
 	}
-	hasher.Write(buf.Bytes())
+	// fmt.Printf(">> proofInnerNode.Hash() hashing %X\n", buf.Bytes())
 
+	hasher.Write(buf.Bytes())
 	return hasher.Sum(nil)
 }
 
