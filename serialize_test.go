@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	cmn "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/db"
 )
 
@@ -22,7 +23,6 @@ func TestSerialize(t *testing.T) {
 		sameHash  bool
 	}{
 		{InOrderSerialize, RestoreUsingDepth, true},
-		{StableSerializeFrey, Restore, true},
 		{StableSerializeBFS, Restore, true},
 	}
 
@@ -57,7 +57,7 @@ func makeRandomTree(nodes int) *Tree {
 	tree := NewTree(db.NewMemDB(), nodes)
 
 	for i := 0; i <= nodes; i++ {
-		k := []byte(randstr(8))
+		k := []byte(cmn.RandStr(8))
 		v := k
 		tree.Set(k, v)
 	}
@@ -73,7 +73,6 @@ func BenchmarkSerialize(b *testing.B) {
 		sameHash  bool
 	}{
 		{"in-order", InOrderSerialize, RestoreUsingDepth, true},
-		{"frey", StableSerializeFrey, Restore, true},
 		{"bfs", StableSerializeBFS, Restore, true},
 	}
 

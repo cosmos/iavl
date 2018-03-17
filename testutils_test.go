@@ -7,10 +7,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/go-wire"
-	. "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/go-amino"
+	cmn "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/db"
-	. "github.com/tendermint/tmlibs/test"
+	"github.com/tendermint/tmlibs/test"
 
 	"runtime"
 	"testing"
@@ -28,18 +28,14 @@ func dummyLeafNode(key, val []byte) proofLeafNode {
 	return proofLeafNode{key, val, 1}
 }
 
-func randstr(length int) string {
-	return RandStr(length)
-}
-
 func i2b(i int) []byte {
 	buf := new(bytes.Buffer)
-	wire.EncodeInt32(buf, int32(i))
+	amino.EncodeInt32(buf, int32(i))
 	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i, _, _ := wire.DecodeInt32(bz)
+	i, _, _ := amino.DecodeInt32(bz)
 	return int(i)
 }
 
@@ -132,7 +128,7 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 
 	// Random mutations must not verify
 	for i := 0; i < 10; i++ {
-		badProofBytes := MutateByteSlice(proofBytes)
+		badProofBytes := test.MutateByteSlice(proofBytes)
 		badProof, err := ReadKeyProof(badProofBytes)
 		// may be invalid... errors are okay
 		if err == nil {
@@ -143,7 +139,7 @@ func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHa
 	}
 
 	// targetted changes fails...
-	proof.RootHash = MutateByteSlice(proof.RootHash)
+	proof.RootHash = test.MutateByteSlice(proof.RootHash)
 	assert.Error(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
 }
 
@@ -159,7 +155,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	t := NewVersionedTree(db, 100000)
 	for i := 0; i < 1000000; i++ {
-		t.Set(i2b(int(RandInt32())), nil)
+		t.Set(i2b(int(cmn.RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {
 			t.SaveVersion()
 		}
@@ -173,7 +169,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		ri := i2b(int(RandInt32()))
+		ri := i2b(int(cmn.RandInt32()))
 		t.Set(ri, nil)
 		t.Remove(ri)
 		if i%100 == 99 {

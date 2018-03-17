@@ -1,7 +1,7 @@
 package iavl
 
 import (
-	"github.com/tendermint/go-wire"
+	"github.com/tendermint/go-amino"
 )
 
-var cdc = wire.NewCodec()
+var cdc = amino.NewCodec()
