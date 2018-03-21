@@ -70,22 +70,25 @@ func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
 	return tree.orphaningTree.Remove(key)
 }
 
-// Load the latest versioned tree from disk. All tree versions are loaded automatically.
-func (tree *VersionedTree) Load() error {
+// Load the latest versioned tree from disk.
+//
+// Returns the version number of the latest version found
+func (tree *VersionedTree) Load() (int64, error) {
 	return tree.LoadVersion(0)
 }
 
-// Load a versioned tree from disk. All tree versions are loaded automatically.
+// Load a versioned tree from disk.
+//
 // If version is 0, the latest version is loaded.
-// NOTE: This function exists for the ABCI handshake.
-// TODO: Optimize this, why are we loading all the versions?!
-func (tree *VersionedTree) LoadVersion(targetVersion int64) error {
+//
+// Returns the version number of the latest version found
+func (tree *VersionedTree) LoadVersion(targetVersion int64) (int64, error) {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if len(roots) == 0 {
-		return nil
+		return 0, nil
 	}
 
 	// Load all roots from the database.
@@ -110,7 +113,7 @@ func (tree *VersionedTree) LoadVersion(targetVersion int64) error {
 
 	// Validate latestVersion
 	if !(targetVersion == 0 || latestVersion == targetVersion) {
-		return fmt.Errorf("Wanted to load target %v but only found up to %v",
+		return latestVersion, fmt.Errorf("Wanted to load target %v but only found up to %v",
 			targetVersion, latestVersion)
 	}
 
@@ -119,7 +122,7 @@ func (tree *VersionedTree) LoadVersion(targetVersion int64) error {
 		tree.versions[latestVersion].clone(),
 	)
 
-	return nil
+	return latestVersion, nil
 }
 
 // Rollback resets the working tree to the latest saved version, discarding

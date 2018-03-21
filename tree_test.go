@@ -300,7 +300,8 @@ func TestVersionedTree(t *testing.T) {
 	// Recreate a new tree and load it, to make sure it works in this
 	// scenario.
 	tree = NewVersionedTree(d, 100)
-	require.NoError(tree.Load())
+	_, err = tree.Load()
+	require.NoError(err)
 
 	require.Len(tree.versions, 2, "wrong number of versions")
 	require.EqualValues(v2, tree.Version())
@@ -345,7 +346,8 @@ func TestVersionedTree(t *testing.T) {
 	require.NotNil(hash4)
 
 	tree = NewVersionedTree(d, 100)
-	require.NoError(tree.Load())
+	_, err = tree.Load()
+	require.NoError(err)
 
 	// ------------
 	// DB UNCHANGED
@@ -553,7 +555,8 @@ func TestVersionedTreeSpecialCase2(t *testing.T) {
 	tree.SaveVersion()
 
 	tree = NewVersionedTree(d, 100)
-	require.NoError(tree.Load())
+	_, err := tree.Load()
+	require.NoError(err)
 
 	require.NoError(tree.DeleteVersion(2))
 
