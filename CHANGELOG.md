@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0 (March 21, 2018)
+
+BREAKING CHANGES
+
+- LoadVersion and Load return the loaded version number
+    - NOTE: this behaviour was lost previously and we failed to document in changelog,
+        but now it's back :)
+
 ## 0.6.1 (March 2, 2018)
 
 IMPROVEMENT
