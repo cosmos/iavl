@@ -69,7 +69,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	}
 	hasher.Write(buf.Bytes())
 
-	return hasher.Sum(nil)
+	return hasher.Sum(nil)[:20]
 }
 
 type proofLeafNode struct {
@@ -100,7 +100,7 @@ func (leaf proofLeafNode) Hash() []byte {
 	}
 	hasher.Write(buf.Bytes())
 
-	return hasher.Sum(nil)
+	return hasher.Sum(nil)[:20]
 }
 
 func (leaf proofLeafNode) isLesserThan(key []byte) bool {

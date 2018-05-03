@@ -200,7 +200,7 @@ func (node *Node) _hash() []byte {
 		panic(err)
 	}
 	hasher.Write(buf.Bytes())
-	node.hash = hasher.Sum(nil)
+	node.hash = hasher.Sum(nil)[:20]
 
 	return node.hash
 }
@@ -219,7 +219,7 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 		panic(err)
 	}
 	hasher.Write(buf.Bytes())
-	node.hash = hasher.Sum(nil)
+	node.hash = hasher.Sum(nil)[:20]
 
 	return node.hash, hashCount + 1
 }
