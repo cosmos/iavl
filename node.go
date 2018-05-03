@@ -5,6 +5,7 @@ package iavl
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"io"
 
@@ -193,7 +194,7 @@ func (node *Node) _hash() []byte {
 		return node.hash
 	}
 
-	hasher := ripemd160.New()
+	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 	if err := node.writeHashBytes(buf); err != nil {
 		panic(err)
@@ -211,7 +212,7 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 		return node.hash, 0
 	}
 
-	hasher := ripemd160.New()
+	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {

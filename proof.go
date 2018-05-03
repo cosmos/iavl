@@ -2,10 +2,10 @@ package iavl
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ripemd160"
 
 	"github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/tmlibs/common"
@@ -38,7 +38,7 @@ func (n *proofInnerNode) String() string {
 }
 
 func (branch proofInnerNode) Hash(childHash []byte) []byte {
-	hasher := ripemd160.New()
+	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, branch.Height)
@@ -79,7 +79,7 @@ type proofLeafNode struct {
 }
 
 func (leaf proofLeafNode) Hash() []byte {
-	hasher := ripemd160.New()
+	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, 0)
