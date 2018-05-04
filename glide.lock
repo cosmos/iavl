@@ -1,12 +1,12 @@
-hash: ae99beaaf9e18324c79e4144a30e73d1a009e005dadfd6d9a4739e674ded385c
-updated: 2018-02-02T23:51:14.356463651-05:00
+hash: 34e81736343fa6e671443d60ededb5864a3c87ed185952b93a1e97065031e825
+updated: 2018-05-04T11:17:57.011868543+01:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 346938d642f2ec3594ed81d874461961cd0faa76
   subpackages:
   - spew
 - name: github.com/go-kit/kit
-  version: 4dc7be5d2d12881735283bcab7352178e190fc71
+  version: ca4112baa34cb55091301bdc13b1420a122b1b9e
   subpackages:
   - log
   - log/level
@@ -44,10 +44,10 @@ imports:
   - leveldb/storage
   - leveldb/table
   - leveldb/util
-- name: github.com/tendermint/go-wire
-  version: dec83f641903b22f039da3974607859715d0377e
+- name: github.com/tendermint/go-amino
+  version: ed62928576cfcaf887209dc96142cd79cdfff389
 - name: github.com/tendermint/tmlibs
-  version: 1d7fc78ea171587e9e63da566d3da1b127bfd14c
+  version: cc5f287c4798ffe88c04d02df219ecb6932080fd
   subpackages:
   - common
   - db
@@ -57,6 +57,7 @@ imports:
   version: edd5e9b0879d13ee6970a50153d85b8fec9f7686
   subpackages:
   - ripemd160
+  - sha3
 testImports:
 - name: github.com/pmezard/go-difflib
   version: d8ed2627bdf02c080bf22230dbb337003b7aba2d

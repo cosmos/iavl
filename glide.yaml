@@ -2,7 +2,7 @@ package: github.com/tendermint/iavl
 import:
 - package: github.com/pkg/errors
   version: ^0.8.0
-- package: github.com/tendermint/go-wire
+- package: github.com/tendermint/go-amino
   version: develop
 - package: github.com/tendermint/tmlibs
   version: develop
