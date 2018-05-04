@@ -10,7 +10,7 @@ test:
 tools:
 	go get -u -v $(GOTOOLS)
 
-get_vendor_deps:
+get_vendor_deps: tools
 	dep ensure
 
 # bench is the basic tests that shouldn't crash an aws instance
