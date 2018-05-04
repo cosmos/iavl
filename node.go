@@ -9,9 +9,7 @@ import (
 	"io"
 
 	"golang.org/x/crypto/ripemd160"
-	// TODO(ismail): remove alias as soon as we use a more recent version of go-amino
-	// where package wire is renamed to amino
-	amino "github.com/tendermint/go-amino"
+	"github.com/tendermint/go-amino"
 )
 
 // Node represents a node in a Tree.
@@ -47,11 +45,14 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 func MakeNode(buf []byte) (node *Node, err error) {
 	node = &Node{}
 
+	// Keeps track of bytes read.
+	n := 0
+
 	// Read node header.
-
-	node.height = int8(buf[0])
-
-	n := 1 // Keeps track of bytes read.
+	node.height, n, err = amino.DecodeInt8(buf)
+	if err != nil {
+		return nil, err
+	}
 	buf = buf[n:]
 
 	node.size, n, err = amino.DecodeInt64(buf)

@@ -15,7 +15,7 @@ import (
 	"github.com/tendermint/tmlibs/db"
 	. "github.com/tendermint/tmlibs/test"
 
-	amino "github.com/tendermint/go-amino"
+	"github.com/tendermint/go-amino"
 )
 
 func dummyPathToKey(t *Tree, key []byte) *PathToKey {

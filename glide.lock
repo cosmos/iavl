@@ -1,5 +1,5 @@
 hash: 34e81736343fa6e671443d60ededb5864a3c87ed185952b93a1e97065031e825
-updated: 2018-05-04T11:17:57.011868543+01:00
+updated: 2018-05-05T00:48:30.21520063+01:00
 imports:
 - name: github.com/davecgh/go-spew
   version: 346938d642f2ec3594ed81d874461961cd0faa76
@@ -45,7 +45,7 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-amino
-  version: 5d7845f24b843c914cf571dad2ca13c91cf70f0d
+  version: ed62928576cfcaf887209dc96142cd79cdfff389
 - name: github.com/tendermint/tmlibs
   version: cc5f287c4798ffe88c04d02df219ecb6932080fd
   subpackages:

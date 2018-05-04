@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ripemd160"
 
-	amino "github.com/tendermint/go-amino"
+	"github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
