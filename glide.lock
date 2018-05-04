@@ -45,7 +45,7 @@ imports:
   - leveldb/table
   - leveldb/util
 - name: github.com/tendermint/go-amino
-  version: ed62928576cfcaf887209dc96142cd79cdfff389
+  version: 5d7845f24b843c914cf571dad2ca13c91cf70f0d
 - name: github.com/tendermint/tmlibs
   version: cc5f287c4798ffe88c04d02df219ecb6932080fd
   subpackages:

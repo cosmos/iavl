@@ -9,8 +9,9 @@ import (
 	"io"
 
 	"golang.org/x/crypto/ripemd160"
-
-	"github.com/tendermint/go-amino"
+	// TODO(ismail): remove alias as soon as we use a more recent version of go-amino
+	// where package wire is renamed to amino
+	amino "github.com/tendermint/go-amino"
 )
 
 // Node represents a node in a Tree.
