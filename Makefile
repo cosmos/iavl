@@ -5,7 +5,7 @@ PDFFLAGS := -pdf --nodefraction=0.1
 all: get_vendor_deps test
 
 test:
-	go test -v --race `glide novendor`
+	GOCACHE=off go test -v --race `glide novendor`
 
 tools:
 	go get -u -v $(GOTOOLS)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cmn "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/db"
 )
 
@@ -224,7 +223,7 @@ func TestIntegration(t *testing.T) {
 	var tree *Tree = NewTree(nil, 0)
 
 	randomRecord := func() *record {
-		return &record{cmn.RandStr(20), cmn.RandStr(20)}
+		return &record{randstr(20), randstr(20)}
 	}
 
 	for i := range records {
@@ -247,7 +246,7 @@ func TestIntegration(t *testing.T) {
 		if has := tree.Has([]byte(r.key)); !has {
 			t.Error("Missing key", r.key)
 		}
-		if has := tree.Has([]byte(cmn.RandStr(12))); has {
+		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
 		if _, val := tree.Get64([]byte(r.key)); string(val) != string(r.value) {
@@ -265,7 +264,7 @@ func TestIntegration(t *testing.T) {
 			if has := tree.Has([]byte(r.key)); !has {
 				t.Error("Missing key", r.key)
 			}
-			if has := tree.Has([]byte(cmn.RandStr(12))); has {
+			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
 			_, val := tree.Get64([]byte(r.key))
@@ -366,7 +365,7 @@ func TestPersistence(t *testing.T) {
 	// Create some random key value pairs
 	records := make(map[string]string)
 	for i := 0; i < 10000; i++ {
-		records[cmn.RandStr(20)] = cmn.RandStr(20)
+		records[randstr(20)] = randstr(20)
 	}
 
 	// Construct some tree and save it
@@ -394,7 +393,7 @@ func TestProof(t *testing.T) {
 	db := db.NewMemDB()
 	var tree *VersionedTree = NewVersionedTree(db, 100)
 	for i := 0; i < 1000; i++ {
-		key, value := cmn.RandStr(20), cmn.RandStr(20)
+		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
 	}
 
@@ -403,7 +402,7 @@ func TestProof(t *testing.T) {
 
 	// Add more items so it's not all persisted
 	for i := 0; i < 100; i++ {
-		key, value := cmn.RandStr(20), cmn.RandStr(20)
+		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
 	}
 
