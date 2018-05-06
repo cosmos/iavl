@@ -431,7 +431,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	ndb.traversePrefix([]byte(nodePrefix), func(key, value []byte) {
 		node, err := MakeNode(value)
 		if err != nil {
-			panic("Couldn't decode node from database")
+			panic(fmt.Sprintf("Couldn't decode node from database: %v", err))
 		}
 		fmt.Sscanf(string(key), nodeKeyFmt, &node.hash)
 		nodes = append(nodes, node)

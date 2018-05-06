@@ -3,17 +3,19 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"runtime"
+	"testing"
+
 	mrand "math/rand"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/go-wire"
+
 	. "github.com/tendermint/tmlibs/common"
 	"github.com/tendermint/tmlibs/db"
 	. "github.com/tendermint/tmlibs/test"
 
-	"runtime"
-	"testing"
+	"github.com/tendermint/go-amino"
 )
 
 func dummyPathToKey(t *Tree, key []byte) *PathToKey {
@@ -34,12 +36,12 @@ func randstr(length int) string {
 
 func i2b(i int) []byte {
 	buf := new(bytes.Buffer)
-	wire.EncodeInt32(buf, int32(i))
+	amino.EncodeInt32(buf, int32(i))
 	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i, _, _ := wire.DecodeInt32(bz)
+	i, _, _ := amino.DecodeInt32(bz)
 	return int(i)
 }
 

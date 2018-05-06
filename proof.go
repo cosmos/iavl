@@ -7,7 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ripemd160"
 
-	"github.com/tendermint/go-wire"
+	"github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -41,27 +41,27 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 
-	err := wire.EncodeInt8(buf, branch.Height)
+	err := amino.EncodeInt8(buf, branch.Height)
 	if err == nil {
-		err = wire.EncodeInt64(buf, branch.Size)
+		err = amino.EncodeInt64(buf, branch.Size)
 	}
 	if err == nil {
-		err = wire.EncodeInt64(buf, branch.Version)
+		err = amino.EncodeInt64(buf, branch.Version)
 	}
 
 	if len(branch.Left) == 0 {
 		if err == nil {
-			err = wire.EncodeByteSlice(buf, childHash)
+			err = amino.EncodeByteSlice(buf, childHash)
 		}
 		if err == nil {
-			err = wire.EncodeByteSlice(buf, branch.Right)
+			err = amino.EncodeByteSlice(buf, branch.Right)
 		}
 	} else {
 		if err == nil {
-			err = wire.EncodeByteSlice(buf, branch.Left)
+			err = amino.EncodeByteSlice(buf, branch.Left)
 		}
 		if err == nil {
-			err = wire.EncodeByteSlice(buf, childHash)
+			err = amino.EncodeByteSlice(buf, childHash)
 		}
 	}
 	if err != nil {
@@ -82,18 +82,18 @@ func (leaf proofLeafNode) Hash() []byte {
 	hasher := ripemd160.New()
 	buf := new(bytes.Buffer)
 
-	err := wire.EncodeInt8(buf, 0)
+	err := amino.EncodeInt8(buf, 0)
 	if err == nil {
-		err = wire.EncodeInt64(buf, 1)
+		err = amino.EncodeInt64(buf, 1)
 	}
 	if err == nil {
-		err = wire.EncodeInt64(buf, leaf.Version)
+		err = amino.EncodeInt64(buf, leaf.Version)
 	}
 	if err == nil {
-		err = wire.EncodeByteSlice(buf, leaf.KeyBytes)
+		err = amino.EncodeByteSlice(buf, leaf.KeyBytes)
 	}
 	if err == nil {
-		err = wire.EncodeByteSlice(buf, leaf.ValueBytes)
+		err = amino.EncodeByteSlice(buf, leaf.ValueBytes)
 	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash proofLeafNode: %v", err))

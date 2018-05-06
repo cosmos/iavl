@@ -50,7 +50,7 @@ func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error
 	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}.Hash(), root)
 }
 
-// Bytes returns a go-wire binary serialization
+// Bytes returns a go-amino binary serialization
 func (proof *KeyExistsProof) Bytes() []byte {
 	bz, err := cdc.MarshalBinary(proof)
 	if err != nil {
