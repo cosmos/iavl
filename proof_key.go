@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/pkg/errors"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -12,7 +11,7 @@ import (
 type KeyProof interface {
 	// Verify verfies the proof is valid. To verify absence,
 	// the value should be nil.
-	Verify(key, value, root []byte) error
+	Verify(key, value, root []byte) cmn.Error
 
 	// Root returns the root hash of the proof.
 	Root() []byte
@@ -40,30 +39,35 @@ func (proof *KeyExistsProof) Root() []byte {
 }
 
 // Verify verifies the proof is valid and returns an error if it isn't.
-func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) error {
+func (proof *KeyExistsProof) Verify(key []byte, value []byte, root []byte) cmn.Error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return errors.WithStack(ErrInvalidRoot)
+		return cmn.NewErrorWithType(ErrInvalidRoot, "")
 	}
 	if key == nil || value == nil {
-		return errors.WithStack(ErrInvalidInputs)
+		return cmn.NewErrorWithType(ErrInvalidInputs, "")
 	}
 	return proof.PathToKey.verify(proofLeafNode{key, value, proof.Version}.Hash(), root)
 }
 
 // Bytes returns a go-amino binary serialization
-func (proof *KeyExistsProof) Bytes() []byte {
+func (proof *KeyExistsProof) Bytes() (res []byte) {
 	bz, err := cdc.MarshalBinary(proof)
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
 	}
-	return append([]byte{keyExistsMagicNumber}, bz...)
+	res = append([]byte{keyExistsMagicNumber}, bz...)
+	return
 }
 
 // readKeyExistsProof will deserialize a KeyExistsProof from bytes.
-func readKeyExistsProof(data []byte) (*KeyExistsProof, error) {
+func readKeyExistsProof(data []byte) (*KeyExistsProof, cmn.Error) {
 	proof := new(KeyExistsProof)
 	err := cdc.UnmarshalBinary(data, proof)
-	return proof, err
+	if err != nil {
+		return nil, cmn.NewErrorWithCause(err, "unmarshalling proof")
+	} else {
+		return proof, nil
+	}
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -85,44 +89,55 @@ func (p *KeyAbsentProof) String() string {
 }
 
 // Verify verifies the proof is valid and returns an error if it isn't.
-func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) error {
+func (proof *KeyAbsentProof) Verify(key, value []byte, root []byte) cmn.Error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return errors.WithStack(ErrInvalidRoot)
+		return cmn.NewErrorWithType(ErrInvalidRoot, "")
 	}
 	if key == nil || value != nil {
-		return ErrInvalidInputs
+		return cmn.NewErrorWithType(ErrInvalidInputs, "")
 	}
 
 	if proof.Left == nil && proof.Right == nil {
-		return errors.WithStack(ErrInvalidProof)
+		return cmn.NewErrorWithType(ErrInvalidProof, "")
 	}
-	if err := verifyPaths(proof.Left, proof.Right, key, key, root); err != nil {
-		return err
+	err := verifyPaths(proof.Left, proof.Right, key, key, root)
+	if err != nil {
+		return err.Trace("verifying path")
 	}
 
-	return verifyKeyAbsence(proof.Left, proof.Right)
+	err = verifyKeyAbsence(proof.Left, proof.Right)
+	if err != nil {
+		return err.Trace("verifying key absence")
+	}
+
+	return nil
 }
 
-// Bytes returns a go-wire binary serialization
-func (proof *KeyAbsentProof) Bytes() []byte {
+// Bytes returns a go-amino binary serialization
+func (proof *KeyAbsentProof) Bytes() (res []byte) {
 	bz, err := cdc.MarshalBinary(proof)
 	if err != nil {
 		panic(fmt.Sprintf("error marshaling proof (%v): %v", proof, err))
 	}
-	return append([]byte{keyAbsentMagicNumber}, bz...)
+	res = append([]byte{keyAbsentMagicNumber}, bz...)
+	return
 }
 
 // readKeyAbsentProof will deserialize a KeyAbsentProof from bytes.
-func readKeyAbsentProof(data []byte) (*KeyAbsentProof, error) {
+func readKeyAbsentProof(data []byte) (*KeyAbsentProof, cmn.Error) {
 	proof := new(KeyAbsentProof)
 	err := cdc.UnmarshalBinary(data, proof)
-	return proof, err
+	if err != nil {
+		return nil, cmn.NewErrorWithCause(err, "unmarshalling proof")
+	} else {
+		return proof, nil
+	}
 }
 
 // ReadKeyProof reads a KeyProof from a byte-slice.
-func ReadKeyProof(data []byte) (KeyProof, error) {
+func ReadKeyProof(data []byte) (KeyProof, cmn.Error) {
 	if len(data) == 0 {
-		return nil, errors.New("proof bytes are empty")
+		return nil, cmn.NewError("Proof bytes are empty")
 	}
 	b, val := data[0], data[1:]
 
@@ -132,7 +147,7 @@ func ReadKeyProof(data []byte) (KeyProof, error) {
 	case keyAbsentMagicNumber:
 		return readKeyAbsentProof(val)
 	}
-	return nil, errors.New("unrecognized proof")
+	return nil, cmn.NewError("Unrecognized proof type")
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -143,19 +158,23 @@ type InnerKeyProof struct {
 }
 
 // Verify verifies the proof is valid and returns an error if it isn't.
-func (proof *InnerKeyProof) Verify(hash []byte, value []byte, root []byte) error {
+func (proof *InnerKeyProof) Verify(hash []byte, value []byte, root []byte) cmn.Error {
 	if !bytes.Equal(proof.RootHash, root) {
-		return errors.WithStack(ErrInvalidRoot)
+		return cmn.NewErrorWithType(ErrInvalidRoot, "")
 	}
 	if hash == nil || value != nil {
-		return errors.WithStack(ErrInvalidInputs)
+		return cmn.NewErrorWithType(ErrInvalidInputs, "")
 	}
 	return proof.PathToKey.verify(hash, root)
 }
 
 // ReadKeyInnerProof will deserialize a InnerKeyProof from bytes.
-func ReadInnerKeyProof(data []byte) (*InnerKeyProof, error) {
+func ReadInnerKeyProof(data []byte) (*InnerKeyProof, cmn.Error) {
 	proof := new(InnerKeyProof)
 	err := cdc.UnmarshalBinary(data, proof)
-	return proof, err
+	if err != nil {
+		return nil, cmn.NewErrorWithCause(err, "unmarshalling proof")
+	} else {
+		return proof, nil
+	}
 }

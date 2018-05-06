@@ -9,7 +9,9 @@ import (
 	"io"
 
 	"golang.org/x/crypto/ripemd160"
+
 	"github.com/tendermint/go-amino"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // Node represents a node in a Tree.
@@ -42,54 +44,54 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 //
 // The new node doesn't have its hash saved or set.  The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (node *Node, err error) {
+func MakeNode(buf []byte) (node *Node, err cmn.Error) {
 	node = &Node{}
-
-	// Keeps track of bytes read.
 	n := 0
+	cause := error(nil)
 
 	// Read node header.
-	node.height, n, err = amino.DecodeInt8(buf)
-	if err != nil {
-		return nil, err
+
+	node.height, n, cause = amino.DecodeInt8(buf)
+	if cause != nil {
+		return nil, cmn.NewErrorWithCause(cause, "decoding node.height")
 	}
 	buf = buf[n:]
 
-	node.size, n, err = amino.DecodeInt64(buf)
-	if err != nil {
-		return nil, err
+	node.size, n, cause = amino.DecodeInt64(buf)
+	if cause != nil {
+		return nil, cmn.NewErrorWithCause(cause, "decoding node.size")
 	}
 	buf = buf[n:]
 
-	node.version, n, err = amino.DecodeInt64(buf)
-	if err != nil {
-		return nil, err
+	node.version, n, cause = amino.DecodeInt64(buf)
+	if cause != nil {
+		return nil, cmn.NewErrorWithCause(cause, "decoding node.version")
 	}
 	buf = buf[n:]
 
-	node.key, n, err = amino.DecodeByteSlice(buf)
-	if err != nil {
-		return nil, err
+	node.key, n, cause = amino.DecodeByteSlice(buf)
+	if cause != nil {
+		return nil, cmn.NewErrorWithCause(cause, "decoding node.key")
 	}
 	buf = buf[n:]
 
 	// Read node body.
 
 	if node.isLeaf() {
-		node.value, _, err = amino.DecodeByteSlice(buf)
-		if err != nil {
-			return nil, err
+		node.value, _, cause = amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.NewErrorWithCause(cause, "decoding node.value")
 		}
 	} else { // Read children.
-		leftHash, n, err := amino.DecodeByteSlice(buf)
-		if err != nil {
-			return nil, err
+		leftHash, n, cause := amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.NewErrorWithCause(cause, "deocding node.leftHash")
 		}
 		buf = buf[n:]
 
-		rightHash, _, err := amino.DecodeByteSlice(buf)
-		if err != nil {
-			return nil, err
+		rightHash, _, cause := amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.NewErrorWithCause(cause, "decoding node.rightHash")
 		}
 		node.leftHash = leftHash
 		node.rightHash = rightHash
@@ -225,41 +227,51 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
-func (node *Node) writeHashBytes(w io.Writer) (err error) {
-	err = amino.EncodeInt8(w, node.height)
-	if err == nil {
-		err = amino.EncodeInt64(w, node.size)
+func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
+	err := amino.EncodeInt8(w, node.height)
+	if err != nil {
+		return cmn.NewErrorWithCause(err, "writing height")
 	}
-	if err == nil {
-		err = amino.EncodeInt64(w, node.version)
+	err = amino.EncodeInt64(w, node.size)
+	if err != nil {
+		return cmn.NewErrorWithCause(err, "writing size")
+	}
+	err = amino.EncodeInt64(w, node.version)
+	if err != nil {
+		return cmn.NewErrorWithCause(err, "writing version")
 	}
 
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.key)
+		err = amino.EncodeByteSlice(w, node.key)
+		if err != nil {
+			return cmn.NewErrorWithCause(err, "writing key")
 		}
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.value)
+		err = amino.EncodeByteSlice(w, node.value)
+		if err != nil {
+			return cmn.NewErrorWithCause(err, "writing value")
 		}
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
 			panic("Found an empty child hash")
 		}
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.leftHash)
+		err = amino.EncodeByteSlice(w, node.leftHash)
+		if err != nil {
+			return cmn.NewErrorWithCause(err, "writing left hash")
 		}
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.rightHash)
+		err = amino.EncodeByteSlice(w, node.rightHash)
+		if err != nil {
+			return cmn.NewErrorWithCause(err, "writing right hash")
 		}
 	}
-	return
+
+	return nil
 }
 
 // Writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err error) {
+func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err cmn.Error) {
 	if node.leftNode != nil {
 		leftHash, leftCount := node.leftNode.hashWithCount()
 		node.leftHash = leftHash
@@ -276,40 +288,50 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 }
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer) (err error) {
-	err = amino.EncodeInt8(w, node.height)
-	if err == nil {
-		err = amino.EncodeInt64(w, node.size)
+func (node *Node) writeBytes(w io.Writer) cmn.Error {
+	var cause error
+	cause = amino.EncodeInt8(w, node.height)
+	if cause != nil {
+		return cmn.NewErrorWithCause(cause, "writing height")
 	}
-	if err == nil {
-		err = amino.EncodeInt64(w, node.version)
+	cause = amino.EncodeInt64(w, node.size)
+	if cause != nil {
+		return cmn.NewErrorWithCause(cause, "writing size")
+	}
+	cause = amino.EncodeInt64(w, node.version)
+	if cause != nil {
+		return cmn.NewErrorWithCause(cause, "writing version")
 	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
-	if err == nil {
-		err = amino.EncodeByteSlice(w, node.key)
+	cause = amino.EncodeByteSlice(w, node.key)
+	if cause != nil {
+		return cmn.NewErrorWithCause(cause, "writing key")
 	}
 
 	if node.isLeaf() {
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.value)
+		cause = amino.EncodeByteSlice(w, node.value)
+		if cause != nil {
+			return cmn.NewErrorWithCause(cause, "writing value")
 		}
 	} else {
 		if node.leftHash == nil {
 			panic("node.leftHash was nil in writeBytes")
 		}
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.leftHash)
+		cause = amino.EncodeByteSlice(w, node.leftHash)
+		if cause != nil {
+			return cmn.NewErrorWithCause(cause, "writing left hash")
 		}
 
 		if node.rightHash == nil {
 			panic("node.rightHash was nil in writeBytes")
 		}
-		if err == nil {
-			err = amino.EncodeByteSlice(w, node.rightHash)
+		cause = amino.EncodeByteSlice(w, node.rightHash)
+		if cause != nil {
+			return cmn.NewErrorWithCause(cause, "writing right hash")
 		}
 	}
-	return
+	return nil
 }
 
 func (node *Node) set(t *Tree, key []byte, value []byte) (
