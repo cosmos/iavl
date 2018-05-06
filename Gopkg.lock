@@ -60,7 +60,8 @@
 [[projects]]
   name = "github.com/pkg/errors"
   packages = ["."]
-  revision = "e881fd58d78e04cf6d0de1217f8707c8cc2249bc"
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -78,6 +79,7 @@
   version = "v1.2.1"
 
 [[projects]]
+  branch = "master"
   name = "github.com/syndtr/goleveldb"
   packages = [
     "leveldb",
@@ -93,16 +95,15 @@
     "leveldb/table",
     "leveldb/util"
   ]
-  revision = "34011bf325bce385408353a30b101fe5e923eb6e"
+  revision = "ae970a0732be3a1f5311da86118d37b9f4bd2a5a"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/tendermint/go-wire"
+  name = "github.com/tendermint/go-amino"
   packages = ["."]
-  revision = "b8470691aa56b059e06dbfced95a4a21a407df81"
+  revision = "ed62928576cfcaf887209dc96142cd79cdfff389"
+  version = "0.9.9"
 
 [[projects]]
-  branch = "develop"
   name = "github.com/tendermint/tmlibs"
   packages = [
     "common",
@@ -110,16 +111,21 @@
     "log",
     "test"
   ]
-  revision = "c858b3ba78316fdd9096a11409a7e7a493e7d974"
+  revision = "d94e312673e16a11ea55d742cefb3e331228f898"
+  version = "v0.8.2"
 
 [[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["ripemd160"]
-  revision = "13931e22f9e72ea58bb73048bc752b48c6d4d4ac"
+  packages = [
+    "ripemd160",
+    "sha3"
+  ]
+  revision = "4ec37c66abab2c7e02ae775328b2ff001c3f025a"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "301258697f49bf873d1b4b3619186fb819bd5f66ad9979ba528581aa4318c12a"
+  inputs-digest = "4578ae1f3c70984a928c76e8c78d3a6541899f3e1d0186683bcdc96947c5f749"
   solver-name = "gps-cdcl"
   solver-version = 1
