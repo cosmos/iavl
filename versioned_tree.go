@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/pkg/errors"
+	cmn "github.com/tendermint/tmlibs/common"
 	dbm "github.com/tendermint/tmlibs/db"
 )
 
@@ -160,7 +160,7 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 			tree.orphaningTree = newOrphaningTree(tree.versions[version].clone())
 			return existingHash, version, nil
 		}
-		return nil, version, errors.Errorf("version %d was already saved to different hash %X (existing hash %X)",
+		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
 			version, newHash, existingHash)
 	}
 
@@ -178,13 +178,13 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 // longer be accessed.
 func (tree *VersionedTree) DeleteVersion(version int64) error {
 	if version == 0 {
-		return errors.New("version must be greater than 0")
+		return cmn.NewError("version must be greater than 0")
 	}
 	if version == tree.version {
-		return errors.Errorf("cannot delete latest saved version (%d)", version)
+		return cmn.NewError("cannot delete latest saved version (%d)", version)
 	}
 	if _, ok := tree.versions[version]; !ok {
-		return errors.WithStack(ErrVersionDoesNotExist)
+		return cmn.ErrorWrap(ErrVersionDoesNotExist, "")
 	}
 
 	tree.ndb.DeleteVersion(version)
