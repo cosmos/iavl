@@ -312,6 +312,9 @@ func (node *Node) writeBytes(w io.Writer) cmn.Error {
 
 	// Unlike writeHashBytes, key is written for inner nodes.
 	cause = amino.EncodeByteSlice(w, node.key)
+	if cause != nil {
+		return cmn.NewErrorWithCause(cause, "writing key")
+	}
 
 	if node.isLeaf() {
 		cause = amino.EncodeByteSlice(w, node.value)
