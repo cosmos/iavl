@@ -5,11 +5,11 @@ package iavl
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
 
 	"github.com/tendermint/go-amino"
+	"github.com/tendermint/iavl/sha256truncated"
 )
 
 // Node represents a node in a Tree.
@@ -193,13 +193,13 @@ func (node *Node) _hash() []byte {
 		return node.hash
 	}
 
-	hasher := sha256.New()
+	h := sha256truncated.New()
 	buf := new(bytes.Buffer)
 	if err := node.writeHashBytes(buf); err != nil {
 		panic(err)
 	}
-	hasher.Write(buf.Bytes())
-	node.hash = hasher.Sum(nil)[:20]
+	h.Write(buf.Bytes())
+	node.hash = h.Sum(nil)
 
 	return node.hash
 }
@@ -211,14 +211,14 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 		return node.hash, 0
 	}
 
-	hasher := sha256.New()
+	h := sha256truncated.New()
 	buf := new(bytes.Buffer)
 	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
 		panic(err)
 	}
-	hasher.Write(buf.Bytes())
-	node.hash = hasher.Sum(nil)[:20]
+	h.Write(buf.Bytes())
+	node.hash = h.Sum(nil)
 
 	return node.hash, hashCount + 1
 }

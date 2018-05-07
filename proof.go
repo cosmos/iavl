@@ -2,12 +2,12 @@ package iavl
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/pkg/errors"
 
 	"github.com/tendermint/go-amino"
+	"github.com/tendermint/iavl/sha256truncated"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -38,7 +38,7 @@ func (n *proofInnerNode) String() string {
 }
 
 func (branch proofInnerNode) Hash(childHash []byte) []byte {
-	hasher := sha256.New()
+	hasher := sha256truncated.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, branch.Height)
@@ -69,7 +69,7 @@ func (branch proofInnerNode) Hash(childHash []byte) []byte {
 	}
 	hasher.Write(buf.Bytes())
 
-	return hasher.Sum(nil)[:20]
+	return hasher.Sum(nil)
 }
 
 type proofLeafNode struct {
@@ -79,7 +79,7 @@ type proofLeafNode struct {
 }
 
 func (leaf proofLeafNode) Hash() []byte {
-	hasher := sha256.New()
+	hasher := sha256truncated.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, 0)
@@ -100,7 +100,7 @@ func (leaf proofLeafNode) Hash() []byte {
 	}
 	hasher.Write(buf.Bytes())
 
-	return hasher.Sum(nil)[:20]
+	return hasher.Sum(nil)
 }
 
 func (leaf proofLeafNode) isLesserThan(key []byte) bool {
