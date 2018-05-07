@@ -23,7 +23,7 @@ func New() hash.Hash {
 }
 
 func (d *digest) Sum(in []byte) []byte {
-	return d.Hash.Sum(in)[:20]
+	return d.Hash.Sum(in)[:Size]
 }
 
 func (d *digest) Reset() {

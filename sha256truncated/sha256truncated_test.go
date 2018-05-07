@@ -8,7 +8,7 @@ import (
 )
 
 func TestSum(t *testing.T) {
-	// very rudimentary testing here showing the relating between this hasher and sha256;
+	// very rudimentary testing here showing the relation between this hasher and sha256;
 	// assuming sha256 is already well tested
 	s256 := sha256.New()
 	s256Trunc := New()
@@ -22,11 +22,11 @@ func TestSum(t *testing.T) {
 	s256.Write(testStr2)
 	s256Trunc.Write(testStr2)
 
-	require.Equal(t, s256Trunc.Sum(nil), s256.Sum(nil)[:20])
+	require.Equal(t, s256Trunc.Sum(nil), s256.Sum(nil)[:Size])
 }
 
 func TestSize(t *testing.T) {
 	got := New().Size()
-	want := 20
+	want := Size
 	require.Equal(t, got, want)
 }
