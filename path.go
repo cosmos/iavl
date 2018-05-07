@@ -22,7 +22,7 @@ func (p *PathToKey) String() string {
 }
 
 // verify check that the leafNode's hash matches the path's LeafHash and that
-// the root is the merkle hash of all the inner nodes.
+// the root is the Merkle hash of all the inner nodes.
 func (p *PathToKey) verify(leafHash []byte, root []byte) error {
 	hash := leafHash
 	for _, branch := range p.InnerNodes {

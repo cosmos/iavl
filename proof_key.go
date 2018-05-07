@@ -10,7 +10,7 @@ import (
 
 // KeyProof represents a proof of existence or absence of a single key.
 type KeyProof interface {
-	// Verify verfies the proof is valid. To verify absence,
+	// Verify verifies the proof is valid. To verify absence,
 	// the value should be nil.
 	Verify(key, value, root []byte) error
 
