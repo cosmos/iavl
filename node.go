@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/ripemd160"
 	"github.com/tendermint/go-amino"
 )
 
