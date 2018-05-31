@@ -4,7 +4,7 @@
 
 A versioned, snapshottable (immutable) AVL+ tree for persistent data.
 
-The purpose of this data structure is to provide persistent storage for key-value pairs (say to store account balances) such that a deterministic merkle root hash can be computed.  The tree is balanced using a variant of the [AVL algortihm](http://en.wikipedia.org/wiki/AVL_tree) so all operations are O(log(n)).
+The purpose of this data structure is to provide persistent storage for key-value pairs (say to store account balances) such that a deterministic merkle root hash can be computed.  The tree is balanced using a variant of the [AVL algorithm](http://en.wikipedia.org/wiki/AVL_tree) so all operations are O(log(n)).
 
 Nodes of this tree are immutable and indexed by their hash.  Thus any node serves as an immutable snapshot which lets us stage uncommitted transactions from the mempool cheaply, and we can instantly roll back to the last committed state to process transactions of a newly committed block (which may not be the same set of transactions as those from the mempool).
 
