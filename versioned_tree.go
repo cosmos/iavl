@@ -174,6 +174,14 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 	return tree.Hash(), version, nil
 }
 
+// GetVersion returns a copy of a tree
+func (tree *VersionedTree) GetVersion(version int64) *Tree {
+	if t, ok := tree.versions[version]; ok {
+		return t.clone()
+	}
+	return nil
+}
+
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *VersionedTree) DeleteVersion(version int64) error {
