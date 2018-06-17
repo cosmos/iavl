@@ -43,7 +43,7 @@
   branch = "master"
   name = "github.com/golang/snappy"
   packages = ["."]
-  revision = "553a641470496b2327abcac10b36396bd98e45c9"
+  revision = "2e65f85255dbc3072edf28d6b5b8efc472979f5a"
 
 [[projects]]
   branch = "master"
@@ -75,8 +75,8 @@
     "assert",
     "require"
   ]
-  revision = "12b6f73e6084dad08a7c6e575284b177ecafbc71"
-  version = "v1.2.1"
+  revision = "f35b8ab0b5a2cef36673838d662e249dd9c94686"
+  version = "v1.2.2"
 
 [[projects]]
   branch = "master"
@@ -95,13 +95,13 @@
     "leveldb/table",
     "leveldb/util"
   ]
-  revision = "ae970a0732be3a1f5311da86118d37b9f4bd2a5a"
+  revision = "e2150783cd35f5b607daca48afd8c57ec54cc995"
 
 [[projects]]
   name = "github.com/tendermint/go-amino"
   packages = ["."]
-  revision = "ed62928576cfcaf887209dc96142cd79cdfff389"
-  version = "0.9.9"
+  revision = "2106ca61d91029c931fd54968c2bb02dc96b1412"
+  version = "0.10.1"
 
 [[projects]]
   name = "github.com/tendermint/tmlibs"
@@ -111,8 +111,8 @@
     "log",
     "test"
   ]
-  revision = "d94e312673e16a11ea55d742cefb3e331228f898"
-  version = "v0.8.2"
+  revision = "692f1d86a6e2c0efa698fd1e4541b68c74ffaf38"
+  version = "v0.8.4"
 
 [[projects]]
   branch = "master"
@@ -121,11 +121,11 @@
     "ripemd160",
     "sha3"
   ]
-  revision = "4ec37c66abab2c7e02ae775328b2ff001c3f025a"
+  revision = "027cca12c2d63e3d62b670d901e8a2c95854feec"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "4578ae1f3c70984a928c76e8c78d3a6541899f3e1d0186683bcdc96947c5f749"
+  inputs-digest = "ad0d36d68baa70257350b9d22978b903978a6622c1d3c75a597b96e1ba5e96dc"
   solver-name = "gps-cdcl"
   solver-version = 1

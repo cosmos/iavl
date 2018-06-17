@@ -13,5 +13,5 @@ func TestWriteDOTGraph(t *testing.T) {
 		key := []byte{ikey}
 		tree.Set(key, key)
 	}
-	WriteDOTGraph(ioutil.Discard, tree, []*PathToKey{})
+	WriteDOTGraph(ioutil.Discard, tree, []PathToLeaf{})
 }

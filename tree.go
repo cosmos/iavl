@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	dbm "github.com/tendermint/tmlibs/db"
-
-	"github.com/pkg/errors"
 )
 
 // Tree is a container for an immutable AVL+ Tree. Changes are performed by
@@ -141,39 +139,6 @@ func (t *Tree) GetByIndex64(index int64) (key []byte, value []byte) {
 		return nil, nil
 	}
 	return t.root.getByIndex(t, index)
-}
-
-// GetWithProof gets the value under the key if it exists, or returns nil.
-// A proof of existence or absence is returned alongside the value.
-func (t *Tree) GetWithProof(key []byte) ([]byte, KeyProof, error) {
-	value, eproof, err := t.getWithProof(key)
-	if err == nil {
-		return value, eproof, nil
-	}
-
-	aproof, err := t.keyAbsentProof(key)
-	if err == nil {
-		return nil, aproof, nil
-	}
-	return nil, nil, errors.Wrap(err, "could not construct any proof")
-}
-
-// GetRangeWithProof gets key/value pairs within the specified range and limit. To specify a descending
-// range, swap the start and end keys.
-//
-// Returns a list of keys, a list of values and a proof.
-func (t *Tree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) ([][]byte, [][]byte, *KeyRangeProof, error) {
-	return t.getRangeWithProof(startKey, endKey, limit)
-}
-
-// GetFirstInRangeWithProof gets the first key/value pair in the specified range, with a proof.
-func (t *Tree) GetFirstInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyFirstInRangeProof, error) {
-	return t.getFirstInRangeWithProof(startKey, endKey)
-}
-
-// GetLastInRangeWithProof gets the last key/value pair in the specified range, with a proof.
-func (t *Tree) GetLastInRangeWithProof(startKey, endKey []byte) ([]byte, []byte, *KeyLastInRangeProof, error) {
-	return t.getLastInRangeWithProof(startKey, endKey)
 }
 
 // Remove tries to remove a key from the tree and if removed, returns its
