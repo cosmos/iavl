@@ -55,13 +55,13 @@ func MakeNode(buf []byte) (node *Node, err error) {
 	}
 	buf = buf[n:]
 
-	node.size, n, err = amino.DecodeInt64(buf)
+	node.size, n, err = amino.DecodeVarint(buf)
 	if err != nil {
 		return nil, err
 	}
 	buf = buf[n:]
 
-	node.version, n, err = amino.DecodeInt64(buf)
+	node.version, n, err = amino.DecodeVarint(buf)
 	if err != nil {
 		return nil, err
 	}
@@ -228,10 +228,10 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 func (node *Node) writeHashBytes(w io.Writer) (err error) {
 	err = amino.EncodeInt8(w, node.height)
 	if err == nil {
-		err = amino.EncodeInt64(w, node.size)
+		err = amino.EncodeVarint(w, node.size)
 	}
 	if err == nil {
-		err = amino.EncodeInt64(w, node.version)
+		err = amino.EncodeVarint(w, node.version)
 	}
 
 	// Key is not written for inner nodes, unlike writeBytes.
@@ -241,7 +241,10 @@ func (node *Node) writeHashBytes(w io.Writer) (err error) {
 			err = amino.EncodeByteSlice(w, node.key)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(w, node.value)
+			// Indirection needed to provide proofs without values.
+			// (e.g. proofLeafNode.ValueHash)
+			valueHash := sha256truncated.Hash(node.value)
+			err = amino.EncodeByteSlice(w, valueHash)
 		}
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
@@ -279,10 +282,10 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 func (node *Node) writeBytes(w io.Writer) (err error) {
 	err = amino.EncodeInt8(w, node.height)
 	if err == nil {
-		err = amino.EncodeInt64(w, node.size)
+		err = amino.EncodeVarint(w, node.size)
 	}
 	if err == nil {
-		err = amino.EncodeInt64(w, node.version)
+		err = amino.EncodeVarint(w, node.version)
 	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
@@ -547,19 +550,20 @@ func (node *Node) traverseWithDepth(t *Tree, ascending bool, cb func(*Node, uint
 }
 
 func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
-	afterStart := start == nil || bytes.Compare(start, node.key) <= 0
+	afterStart := start == nil || bytes.Compare(start, node.key) < 0
+	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
 	if inclusive {
 		beforeEnd = end == nil || bytes.Compare(node.key, end) <= 0
 	}
 
+	// Run callback per inner/leaf node.
 	stop := false
-	if afterStart && beforeEnd {
-		// IterateRange ignores this if not leaf
+	if !node.isLeaf() || startOrAfter {
 		stop = cb(node, depth)
-	}
-	if stop {
-		return stop
+		if stop {
+			return stop
+		}
 	}
 	if node.isLeaf() {
 		return stop

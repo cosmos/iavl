@@ -42,3 +42,9 @@ func (d *digest) BlockSize() int {
 type digest struct {
 	hash.Hash
 }
+
+func Hash(input []byte) []byte {
+	h := New()
+	h.Write(input)
+	return h.Sum(nil)
+}
