@@ -1,11 +1,12 @@
 # Changelog
 
-## 0.8.0 (TBD)
+## 0.8.0 (June 19, 2018)
 
 BREAKING CHANGES
 
 - Nodes are encoded using proto3/amino style integers and byte slices (ie. varints and
   varint prefixed byte slices)
+- Unified RangeProof
 - Proofs are encoded using Amino
 - Hash function changed from RIPEMD160 to the first 20 bytes of SHA256 output
 
