@@ -481,7 +481,8 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 }
 
 func TestVersionedTreeOrphanDeleting(t *testing.T) {
-	tree := NewVersionedTree(db.NewMemDB(), 0)
+	mdb := db.NewMemDB()
+	tree := NewVersionedTree(mdb, 0)
 
 	tree.Set([]byte("key0"), []byte("val0"))
 	tree.Set([]byte("key1"), []byte("val0"))
@@ -497,6 +498,7 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
+
 	tree.DeleteVersion(2)
 
 	_, val := tree.Get([]byte("key0"))
