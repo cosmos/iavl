@@ -10,6 +10,7 @@ import (
 
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/iavl/sha256truncated"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // Node represents a node in a Tree.
@@ -99,11 +100,16 @@ func MakeNode(buf []byte) (node *Node, err error) {
 
 // String returns a string representation of the node.
 func (node *Node) String() string {
-	if len(node.hash) == 0 {
-		return "<no hash>"
-	} else {
-		return fmt.Sprintf("%x", node.hash)
+	hashstr := "<no hash>"
+	if len(node.hash) > 0 {
+		hashstr = fmt.Sprintf("%X", node.hash)
 	}
+	return fmt.Sprintf("Node{%s:%s@%d %X;%X}#%s",
+		cmn.ColoredBytes(node.key, cmn.Green, cmn.Blue),
+		cmn.ColoredBytes(node.value, cmn.Cyan, cmn.Blue),
+		node.version,
+		node.leftHash, node.rightHash,
+		hashstr)
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.

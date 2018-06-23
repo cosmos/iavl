@@ -8,7 +8,7 @@
   name = "github.com/tendermint/go-amino"
 
 [[constraint]]
-  version = "0.8.2"
+  version = "0.9.0-rc1"
   name = "github.com/tendermint/tmlibs"
 
 [prune]

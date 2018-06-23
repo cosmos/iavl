@@ -30,14 +30,10 @@
   version = "v1.7.0"
 
 [[projects]]
-  name = "github.com/gogo/protobuf"
-  packages = [
-    "gogoproto",
-    "proto",
-    "protoc-gen-gogo/descriptor"
-  ]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -111,8 +107,8 @@
     "log",
     "test"
   ]
-  revision = "692f1d86a6e2c0efa698fd1e4541b68c74ffaf38"
-  version = "v0.8.4"
+  revision = "fb7ec62b2925f48de159aeea73b254ae8c58a738"
+  version = "v0.9.0-rc1"
 
 [[projects]]
   branch = "master"
@@ -126,6 +122,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ad0d36d68baa70257350b9d22978b903978a6622c1d3c75a597b96e1ba5e96dc"
+  inputs-digest = "8a55172f8cb2ae9d808d8b95a285fb77fc54375798152b39287db19bc34ed92b"
   solver-name = "gps-cdcl"
   solver-version = 1
