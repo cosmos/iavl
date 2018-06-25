@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"io"
 
-	"golang.org/x/crypto/ripemd160"
-
-	"github.com/tendermint/go-wire"
+	"github.com/tendermint/go-amino"
+	"github.com/tendermint/iavl/sha256truncated"
+	cmn "github.com/tendermint/tmlibs/common"
 )
 
 // Node represents a node in a Tree.
@@ -43,45 +43,54 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 //
 // The new node doesn't have its hash saved or set.  The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (node *Node, err error) {
+func MakeNode(buf []byte) (node *Node, err cmn.Error) {
 	node = &Node{}
+	n := 0
+	cause := error(nil)
 
 	// Read node header.
 
-	node.height = int8(buf[0])
-
-	n := 1 // Keeps track of bytes read.
+	node.height, n, cause = amino.DecodeInt8(buf)
+	if cause != nil {
+		return nil, cmn.ErrorWrap(cause, "decoding node.height")
+	}
 	buf = buf[n:]
 
-	node.size = wire.GetInt64(buf)
-	buf = buf[8:]
+	node.size, n, cause = amino.DecodeVarint(buf)
+	if cause != nil {
+		return nil, cmn.ErrorWrap(cause, "decoding node.size")
+	}
+	buf = buf[n:]
 
-	node.version = wire.GetInt64(buf)
-	buf = buf[8:]
+	node.version, n, cause = amino.DecodeVarint(buf)
+	if cause != nil {
+		return nil, cmn.ErrorWrap(cause, "decoding node.version")
+	}
+	buf = buf[n:]
 
-	node.key, n, err = wire.GetByteSlice(buf)
-	if err != nil {
-		return nil, err
+	node.key, n, cause = amino.DecodeByteSlice(buf)
+	if cause != nil {
+		return nil, cmn.ErrorWrap(cause, "decoding node.key")
 	}
 	buf = buf[n:]
 
 	// Read node body.
 
 	if node.isLeaf() {
-		node.value, _, err = wire.GetByteSlice(buf)
-		if err != nil {
-			return nil, err
+		node.value, _, cause = amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.ErrorWrap(cause, "decoding node.value")
 		}
 	} else { // Read children.
-		leftHash, n, err := wire.GetByteSlice(buf)
-		if err != nil {
-			return nil, err
+		leftHash, n, cause := amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.ErrorWrap(cause, "deocding node.leftHash")
 		}
 		buf = buf[n:]
 
-		rightHash, _, err := wire.GetByteSlice(buf)
-		if err != nil {
-			return nil, err
+		rightHash, _, cause := amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.ErrorWrap(cause, "decoding node.rightHash")
 		}
 		node.leftHash = leftHash
 		node.rightHash = rightHash
@@ -91,11 +100,16 @@ func MakeNode(buf []byte) (node *Node, err error) {
 
 // String returns a string representation of the node.
 func (node *Node) String() string {
-	if len(node.hash) == 0 {
-		return "<no hash>"
-	} else {
-		return fmt.Sprintf("%x", node.hash)
+	hashstr := "<no hash>"
+	if len(node.hash) > 0 {
+		hashstr = fmt.Sprintf("%X", node.hash)
 	}
+	return fmt.Sprintf("Node{%s:%s@%d %X;%X}#%s",
+		cmn.ColoredBytes(node.key, cmn.Green, cmn.Blue),
+		cmn.ColoredBytes(node.value, cmn.Cyan, cmn.Blue),
+		node.version,
+		node.leftHash, node.rightHash,
+		hashstr)
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
@@ -185,13 +199,13 @@ func (node *Node) _hash() []byte {
 		return node.hash
 	}
 
-	hasher := ripemd160.New()
+	h := sha256truncated.New()
 	buf := new(bytes.Buffer)
-	if _, err := node.writeHashBytes(buf); err != nil {
+	if err := node.writeHashBytes(buf); err != nil {
 		panic(err)
 	}
-	hasher.Write(buf.Bytes())
-	node.hash = hasher.Sum(nil)
+	h.Write(buf.Bytes())
+	node.hash = h.Sum(nil)
 
 	return node.hash
 }
@@ -203,43 +217,68 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 		return node.hash, 0
 	}
 
-	hasher := ripemd160.New()
+	h := sha256truncated.New()
 	buf := new(bytes.Buffer)
-	_, hashCount, err := node.writeHashBytesRecursively(buf)
+	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
 		panic(err)
 	}
-	hasher.Write(buf.Bytes())
-	node.hash = hasher.Sum(nil)
+	h.Write(buf.Bytes())
+	node.hash = h.Sum(nil)
 
 	return node.hash, hashCount + 1
 }
 
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
-func (node *Node) writeHashBytes(w io.Writer) (n int, err error) {
-	wire.WriteInt8(node.height, w, &n, &err)
-	wire.WriteInt64(node.size, w, &n, &err)
-	wire.WriteInt64(node.version, w, &n, &err)
+func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
+	err := amino.EncodeInt8(w, node.height)
+	if err != nil {
+		return cmn.ErrorWrap(err, "writing height")
+	}
+	err = amino.EncodeVarint(w, node.size)
+	if err != nil {
+		return cmn.ErrorWrap(err, "writing size")
+	}
+	err = amino.EncodeVarint(w, node.version)
+	if err != nil {
+		return cmn.ErrorWrap(err, "writing version")
+	}
 
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		wire.WriteByteSlice(node.key, w, &n, &err)
-		wire.WriteByteSlice(node.value, w, &n, &err)
+		err = amino.EncodeByteSlice(w, node.key)
+		if err != nil {
+			return cmn.ErrorWrap(err, "writing key")
+		}
+		// Indirection needed to provide proofs without values.
+		// (e.g. proofLeafNode.ValueHash)
+		valueHash := sha256truncated.Hash(node.value)
+		err = amino.EncodeByteSlice(w, valueHash)
+		if err != nil {
+			return cmn.ErrorWrap(err, "writing value")
+		}
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
 			panic("Found an empty child hash")
 		}
-		wire.WriteByteSlice(node.leftHash, w, &n, &err)
-		wire.WriteByteSlice(node.rightHash, w, &n, &err)
+		err = amino.EncodeByteSlice(w, node.leftHash)
+		if err != nil {
+			return cmn.ErrorWrap(err, "writing left hash")
+		}
+		err = amino.EncodeByteSlice(w, node.rightHash)
+		if err != nil {
+			return cmn.ErrorWrap(err, "writing right hash")
+		}
 	}
-	return
+
+	return nil
 }
 
 // Writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int64, err error) {
+func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err cmn.Error) {
 	if node.leftNode != nil {
 		leftHash, leftCount := node.leftNode.hashWithCount()
 		node.leftHash = leftHash
@@ -250,34 +289,56 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (n int, hashCount int64
 		node.rightHash = rightHash
 		hashCount += rightCount
 	}
-	n, err = node.writeHashBytes(w)
+	err = node.writeHashBytes(w)
 
 	return
 }
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer) (n int, err error) {
-	wire.WriteInt8(node.height, w, &n, &err)
-	wire.WriteInt64(node.size, w, &n, &err)
-	wire.WriteInt64(node.version, w, &n, &err)
+func (node *Node) writeBytes(w io.Writer) cmn.Error {
+	var cause error
+	cause = amino.EncodeInt8(w, node.height)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing height")
+	}
+	cause = amino.EncodeVarint(w, node.size)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing size")
+	}
+	cause = amino.EncodeVarint(w, node.version)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing version")
+	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
-	wire.WriteByteSlice(node.key, w, &n, &err)
+	cause = amino.EncodeByteSlice(w, node.key)
+	if cause != nil {
+		return cmn.ErrorWrap(cause, "writing key")
+	}
 
 	if node.isLeaf() {
-		wire.WriteByteSlice(node.value, w, &n, &err)
+		cause = amino.EncodeByteSlice(w, node.value)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing value")
+		}
 	} else {
 		if node.leftHash == nil {
 			panic("node.leftHash was nil in writeBytes")
 		}
-		wire.WriteByteSlice(node.leftHash, w, &n, &err)
+		cause = amino.EncodeByteSlice(w, node.leftHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing left hash")
+		}
 
 		if node.rightHash == nil {
 			panic("node.rightHash was nil in writeBytes")
 		}
-		wire.WriteByteSlice(node.rightHash, w, &n, &err)
+		cause = amino.EncodeByteSlice(w, node.rightHash)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing right hash")
+		}
 	}
-	return
+	return nil
 }
 
 func (node *Node) set(t *Tree, key []byte, value []byte) (
@@ -515,19 +576,20 @@ func (node *Node) traverseWithDepth(t *Tree, ascending bool, cb func(*Node, uint
 }
 
 func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
-	afterStart := start == nil || bytes.Compare(start, node.key) <= 0
+	afterStart := start == nil || bytes.Compare(start, node.key) < 0
+	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
 	if inclusive {
 		beforeEnd = end == nil || bytes.Compare(node.key, end) <= 0
 	}
 
+	// Run callback per inner/leaf node.
 	stop := false
-	if afterStart && beforeEnd {
-		// IterateRange ignores this if not leaf
+	if !node.isLeaf() || startOrAfter {
 		stop = cb(node, depth)
-	}
-	if stop {
-		return stop
+		if stop {
+			return stop
+		}
 	}
 	if node.isLeaf() {
 		return stop

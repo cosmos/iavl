@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pkg/errors"
-	"github.com/tendermint/tmlibs/db"
-
 	cmn "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tmlibs/db"
 )
 
 // This file implement fuzz testing by generating programs and then running
@@ -32,7 +30,7 @@ func (p *program) Execute(tree *VersionedTree) (err error) {
 				}
 				str += prefix + instr.String() + "\n"
 			}
-			err = errors.Errorf("Program panicked with: %s\n%s", r, str)
+			err = fmt.Errorf("Program panicked with: %s\n%s", r, str)
 		}
 	}()
 

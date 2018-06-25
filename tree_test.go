@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"flag"
-	"math/rand"
 	"os"
 	"runtime"
 	"testing"
@@ -16,8 +15,11 @@ import (
 
 var testLevelDB bool
 var testFuzzIterations int
+var rand *cmn.Rand
 
 func init() {
+	rand = cmn.NewRand()
+	rand.Seed(0) // for determinism
 	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
 	flag.IntVar(&testFuzzIterations, "test.fuzz-iterations", 100000, "number of fuzz testing iterations")
 	flag.Parse()
@@ -50,8 +52,8 @@ func TestVersionedRandomTree(t *testing.T) {
 	// Create a tree of size 1000 with 100 versions.
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
-			k := []byte(cmn.RandStr(8))
-			v := []byte(cmn.RandStr(8))
+			k := []byte(rand.Str(8))
+			v := []byte(rand.Str(8))
 			tree.Set(k, v)
 		}
 		tree.SaveVersion()
@@ -90,8 +92,8 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
 			// Keys of size one are likely to be overwritten.
-			k := []byte(cmn.RandStr(1))
-			v := []byte(cmn.RandStr(8))
+			k := []byte(rand.Str(1))
+			v := []byte(rand.Str(8))
 			tree.Set(k, v)
 			singleVersionTree.Set(k, v)
 		}
@@ -112,7 +114,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
-		_, val := tree.Get([]byte(cmn.RandStr(1)))
+		_, val := tree.Get([]byte(rand.Str(1)))
 		require.NotNil(val)
 		require.NotEmpty(val)
 	}
@@ -131,8 +133,8 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
 			// Keys of size one are likely to be overwritten.
-			k := []byte(cmn.RandStr(1))
-			v := []byte(cmn.RandStr(8))
+			k := []byte(rand.Str(1))
+			v := []byte(rand.Str(8))
 			tree.Set(k, v)
 			singleVersionTree.Set(k, v)
 		}
@@ -153,7 +155,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
-		_, val := tree.Get([]byte(cmn.RandStr(1)))
+		_, val := tree.Get([]byte(rand.Str(1)))
 		require.NotNil(val)
 		require.NotEmpty(val)
 	}
@@ -481,7 +483,8 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 }
 
 func TestVersionedTreeOrphanDeleting(t *testing.T) {
-	tree := NewVersionedTree(db.NewMemDB(), 0)
+	mdb := db.NewMemDB()
+	tree := NewVersionedTree(mdb, 0)
 
 	tree.Set([]byte("key0"), []byte("val0"))
 	tree.Set([]byte("key1"), []byte("val0"))
@@ -497,6 +500,7 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
+
 	tree.DeleteVersion(2)
 
 	_, val := tree.Get([]byte("key0"))
@@ -668,7 +672,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 	// constructed.
 	val, proof, err := tree.GetVersionedWithProof([]byte("key"), 404)
 	require.Nil(val)
-	require.Nil(proof)
+	require.Empty(proof)
 	require.Error(err)
 }
 
@@ -685,8 +689,8 @@ func TestVersionedCheckpoints(t *testing.T) {
 
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
-			k := []byte(cmn.RandStr(1))
-			v := []byte(cmn.RandStr(8))
+			k := []byte(rand.Str(1))
+			v := []byte(rand.Str(8))
 			keys[int64(i)] = append(keys[int64(i)], k)
 			tree.Set(k, v)
 		}
@@ -919,7 +923,7 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
 			// Keys of size one are likely to be overwritten.
-			tree.Set([]byte(cmn.RandStr(1)), []byte(cmn.RandStr(8)))
+			tree.Set([]byte(rand.Str(1)), []byte(rand.Str(8)))
 		}
 		sizeBefore := len(tree.ndb.nodes())
 		tree.SaveVersion()
@@ -952,11 +956,19 @@ func TestVersionedTreeProofs(t *testing.T) {
 	tree.Set([]byte("k3"), []byte("v1"))
 	tree.SaveVersion()
 
+	// fmt.Println("TREE VERSION 1")
+	// printNode(tree.ndb, tree.root, 0)
+	// fmt.Println("TREE VERSION 1 END")
+
 	root1 := tree.Hash()
 
 	tree.Set([]byte("k2"), []byte("v2"))
 	tree.Set([]byte("k4"), []byte("v2"))
 	tree.SaveVersion()
+
+	// fmt.Println("TREE VERSION 2")
+	// printNode(tree.ndb, tree.root, 0)
+	// fmt.Println("TREE VERSION END")
 
 	root2 := tree.Hash()
 	require.NotEqual(root1, root2)
@@ -964,38 +976,45 @@ func TestVersionedTreeProofs(t *testing.T) {
 	tree.Remove([]byte("k2"))
 	tree.SaveVersion()
 
+	// fmt.Println("TREE VERSION 3")
+	// printNode(tree.ndb, tree.root, 0)
+	// fmt.Println("TREE VERSION END")
+
 	root3 := tree.Hash()
 	require.NotEqual(root2, root3)
 
 	val, proof, err := tree.GetVersionedWithProof([]byte("k2"), 1)
 	require.NoError(err)
 	require.EqualValues(val, []byte("v1"))
-	require.EqualValues(1, proof.(*KeyExistsProof).Version)
-	require.NoError(proof.Verify([]byte("k2"), val, root1))
+	require.NoError(proof.Verify(root1), proof.String())
+	require.NoError(proof.VerifyItem(0, []byte("k2"), val))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k4"), 1)
 	require.NoError(err)
 	require.Nil(val)
-	require.NoError(proof.Verify([]byte("k4"), nil, root1))
-	require.Error(proof.Verify([]byte("k4"), val, root2))
+	require.NoError(proof.Verify(root1))
+	require.NoError(proof.VerifyAbsence([]byte("k4")))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 2)
 	require.NoError(err)
 	require.EqualValues(val, []byte("v2"))
-	require.NoError(proof.Verify([]byte("k2"), val, root2))
-	require.Error(proof.Verify([]byte("k2"), val, root1))
+	require.NoError(proof.Verify(root2), proof.String())
+	require.NoError(proof.VerifyItem(0, []byte("k2"), val))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k1"), 2)
 	require.NoError(err)
 	require.EqualValues(val, []byte("v1"))
-	require.NoError(proof.Verify([]byte("k1"), val, root2))
+	require.NoError(proof.Verify(root2))
+	require.NoError(proof.VerifyItem(0, []byte("k1"), val))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 3)
+
 	require.NoError(err)
 	require.Nil(val)
-	require.NoError(proof.Verify([]byte("k2"), nil, root3))
-	require.Error(proof.Verify([]byte("k2"), nil, root1))
-	require.Error(proof.Verify([]byte("k2"), nil, root2))
+	require.NoError(proof.Verify(root3))
+	require.NoError(proof.VerifyAbsence([]byte("k2")))
+	require.Error(proof.Verify(root1))
+	require.Error(proof.Verify(root2))
 }
 
 func TestVersionedTreeHash(t *testing.T) {
@@ -1016,7 +1035,8 @@ func TestVersionedTreeHash(t *testing.T) {
 	val, proof, err := tree.GetVersionedWithProof([]byte("I"), 2)
 	require.NoError(err)
 	require.EqualValues(val, []byte("F"))
-	require.NoError(proof.Verify([]byte("I"), val, hash2))
+	require.NoError(proof.Verify(hash2))
+	require.NoError(proof.VerifyItem(0, []byte("I"), val))
 }
 
 func TestNilValueSemantics(t *testing.T) {
@@ -1090,7 +1110,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 	tree := NewVersionedTree(d, 0)
 	for v := 1; v < numVersions; v++ {
 		for i := 0; i < numKeysPerVersion; i++ {
-			tree.Set([]byte(cmn.RandStr(16)), cmn.RandBytes(32))
+			tree.Set([]byte(rand.Str(16)), rand.Bytes(32))
 		}
 		tree.SaveVersion()
 	}
@@ -1111,7 +1131,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 			// If we can load quickly into a data-structure that allows for
 			// efficient deletes, we are golden.
 			for v := 0; v < numVersions/10; v++ {
-				version := (cmn.RandInt() % numVersions) + 1
+				version := (rand.Int() % numVersions) + 1
 				tree.DeleteVersion(int64(version))
 			}
 		}

@@ -1,22 +1,20 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
-	mrand "math/rand"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"github.com/tendermint/go-wire"
-	. "github.com/tendermint/tmlibs/common"
-	"github.com/tendermint/tmlibs/db"
-	. "github.com/tendermint/tmlibs/test"
-
 	"runtime"
 	"testing"
+
+	mrand "math/rand"
+
+	"github.com/tendermint/go-amino"
+	cmn "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tmlibs/db"
 )
 
-func dummyPathToKey(t *Tree, key []byte) *PathToKey {
-	path, _, err := t.root.pathToKey(t, key)
+func dummyPathToLeaf(t *Tree, key []byte) PathToLeaf {
+	path, _, err := t.root.PathToLeaf(t, key)
 	if err != nil {
 		panic(err)
 	}
@@ -28,17 +26,17 @@ func dummyLeafNode(key, val []byte) proofLeafNode {
 }
 
 func randstr(length int) string {
-	return RandStr(length)
+	return cmn.RandStr(length)
 }
 
 func i2b(i int) []byte {
-	bz := make([]byte, 4)
-	wire.PutInt32(bz, int32(i))
-	return bz
+	buf := new(bytes.Buffer)
+	amino.EncodeInt32(buf, int32(i))
+	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i := wire.GetInt32(bz)
+	i, _, _ := amino.DecodeInt32(bz)
 	return int(i)
 }
 
@@ -119,33 +117,6 @@ func expectTraverse(t *testing.T, trav traverser, start, end string, count int) 
 	}
 }
 
-func testProof(t *testing.T, proof *KeyExistsProof, keyBytes, valueBytes, rootHashBytes []byte) {
-	// Proof must verify.
-	require.NoError(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
-
-	// Write/Read then verify.
-	proofBytes := proof.Bytes()
-	proof2, err := ReadKeyProof(proofBytes)
-	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
-	require.NoError(t, proof2.Verify(keyBytes, valueBytes, proof.RootHash))
-
-	// Random mutations must not verify
-	for i := 0; i < 10; i++ {
-		badProofBytes := MutateByteSlice(proofBytes)
-		badProof, err := ReadKeyProof(badProofBytes)
-		// may be invalid... errors are okay
-		if err == nil {
-			assert.Error(t, badProof.Verify(keyBytes, valueBytes, rootHashBytes),
-				"Proof was still valid after a random mutation:\n%X\n%X",
-				proofBytes, badProofBytes)
-		}
-	}
-
-	// targetted changes fails...
-	proof.RootHash = MutateByteSlice(proof.RootHash)
-	assert.Error(t, proof.Verify(keyBytes, valueBytes, rootHashBytes))
-}
-
 func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
 	db := db.NewDB("test", db.MemDBBackend, "")
 	benchmarkImmutableAvlTreeWithDB(b, db)
@@ -158,7 +129,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	t := NewVersionedTree(db, 100000)
 	for i := 0; i < 1000000; i++ {
-		t.Set(i2b(int(RandInt32())), nil)
+		t.Set(i2b(int(cmn.RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {
 			t.SaveVersion()
 		}
@@ -172,7 +143,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		ri := i2b(int(RandInt32()))
+		ri := i2b(int(cmn.RandInt32()))
 		t.Set(ri, nil)
 		t.Remove(ri)
 		if i%100 == 99 {

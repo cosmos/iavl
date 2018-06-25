@@ -1,19 +1,17 @@
 GOTOOLS := github.com/mitchellh/gox \
-           github.com/Masterminds/glide
-
+           github.com/golang/dep/cmd/dep 
 PDFFLAGS := -pdf --nodefraction=0.1
 
 all: get_vendor_deps test
 
 test:
-	go test -v --race `glide novendor`
+	GOCACHE=off go test -v --race `glide novendor`
 
 tools:
 	go get -u -v $(GOTOOLS)
 
-get_vendor_deps:
-	go get github.com/Masterminds/glide
-	glide install
+get_vendor_deps: tools
+	dep ensure
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
