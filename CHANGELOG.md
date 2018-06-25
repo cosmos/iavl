@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.8.0 (June 19, 2018)
+## 0.8.0 (June 24, 2018)
 
 BREAKING CHANGES
 
