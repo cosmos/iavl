@@ -1,14 +1,13 @@
-
-  [[constraint]]
+[[constraint]]
   name = "github.com/stretchr/testify"
   version = "1.1.4"
 
 [[constraint]]
-  version = "0.9.9"
+  version = "0.10.1"
   name = "github.com/tendermint/go-amino"
 
 [[constraint]]
-  version = "0.8.2"
+  version = "0.9.0-rc1"
   name = "github.com/tendermint/tmlibs"
 
 [prune]

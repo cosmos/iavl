@@ -412,7 +412,7 @@ func TestProof(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, value, value2)
 		if assert.NotNil(t, proof) {
-			testProof(t, proof.(*KeyExistsProof), key, value, tree.Hash())
+			verifyProof(t, proof, tree.Hash())
 		}
 		return false
 	})
@@ -429,8 +429,8 @@ func TestTreeProof(t *testing.T) {
 	// insert lots of info and store the bytes
 	keys := make([][]byte, 200)
 	for i := 0; i < 200; i++ {
-		key, value := randstr(20), randstr(200)
-		tree.Set([]byte(key), []byte(value))
+		key := randstr(20)
+		tree.Set([]byte(key), []byte(key))
 		keys[i] = []byte(key)
 	}
 
@@ -444,7 +444,11 @@ func TestTreeProof(t *testing.T) {
 		value, proof, err := tree.GetWithProof(key)
 		if assert.NoError(t, err) {
 			require.Nil(t, err, "Failed to read proof from bytes: %v", err)
-			assert.NoError(t, proof.Verify(key, value, root))
+			assert.Equal(t, key, value)
+			err := proof.Verify(root)
+			assert.NoError(t, err, "#### %v", proof.String())
+			err = proof.VerifyItem(0, key, key)
+			assert.NoError(t, err, "#### %v", proof.String())
 		}
 	}
 }
