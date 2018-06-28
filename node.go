@@ -585,7 +585,7 @@ func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, in
 
 	// Run callback per inner/leaf node.
 	stop := false
-	if !node.isLeaf() || startOrAfter {
+	if !node.isLeaf() || (startOrAfter && beforeEnd) {
 		stop = cb(node, depth)
 		if stop {
 			return stop

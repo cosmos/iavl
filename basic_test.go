@@ -311,7 +311,6 @@ func TestIterateRange(t *testing.T) {
 			t.Error("should have not been updated")
 		}
 	}
-
 	// test traversing the whole node works... in order
 	viewed := []string{}
 	tree.Iterate(func(key []byte, value []byte) bool {
@@ -330,6 +329,10 @@ func TestIterateRange(t *testing.T) {
 	trav := traverser{}
 	tree.IterateRange([]byte("foo"), []byte("goo"), true, trav.view)
 	expectTraverse(t, trav, "foo", "food", 5)
+
+	trav = traverser{}
+	tree.IterateRange([]byte("aaa"), []byte("abb"), true, trav.view)
+	expectTraverse(t, trav, "", "", 0)
 
 	trav = traverser{}
 	tree.IterateRange(nil, []byte("flap"), true, trav.view)
