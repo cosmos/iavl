@@ -289,7 +289,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 
 	// Traverse starting from afterLeft, until keyEnd or the next leaf
 	// after keyEnd.
-	// nolint: unconvert
+	// nolint
 	var innersq = []PathToLeaf(nil)
 	var inners = PathToLeaf(nil)
 	var lastDepth uint8 = 0
