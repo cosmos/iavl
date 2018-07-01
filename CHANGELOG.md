@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.1
+
+*July 1st, 2018*
+
+BUG FIXES
+
+- fix bug in iterator going outside its range
+
 ## 0.8.0 (June 24, 2018)
 
 BREAKING CHANGES
