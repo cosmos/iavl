@@ -125,3 +125,21 @@ func (pl PathToLeaf) isLeftAdjacentTo(pl2 PathToLeaf) bool {
 
 	return pl.isRightmost() && pl2.isLeftmost()
 }
+
+// returns -1 if invalid.
+func (pl PathToLeaf) Index() (idx int64) {
+	for i, node := range pl {
+		if node.Left == nil {
+			continue
+		} else if node.Right == nil {
+			if i < len(pl)-1 {
+				idx += node.Size - pl[i+1].Size
+			} else {
+				idx += node.Size - 1
+			}
+		} else {
+			return -1
+		}
+	}
+	return idx
+}

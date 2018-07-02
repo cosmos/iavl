@@ -447,7 +447,7 @@ func TestTreeProof(t *testing.T) {
 			assert.Equal(t, key, value)
 			err := proof.Verify(root)
 			assert.NoError(t, err, "#### %v", proof.String())
-			err = proof.VerifyItem(0, key, key)
+			err = proof.VerifyItem(key, key)
 			assert.NoError(t, err, "#### %v", proof.String())
 		}
 	}

@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/tendermint/iavl/sha256truncated"
@@ -20,8 +21,21 @@ type RangeProof struct {
 	treeEnd int // 0 if not set, 1 if true, -1 if false.
 }
 
+func (proof *RangeProof) Keys() (keys [][]byte) {
+	if proof == nil {
+		return nil
+	}
+	for _, leaf := range proof.Leaves {
+		keys = append(keys, leaf.Key)
+	}
+	return keys
+}
+
 // String returns a string representation of the proof.
 func (proof *RangeProof) String() string {
+	if proof == nil {
+		return "<nil-RangeProof>"
+	}
 	return proof.StringIndented("")
 }
 
@@ -53,18 +67,32 @@ func (proof *RangeProof) StringIndented(indent string) string {
 		indent)
 }
 
-// Verify that a leaf is some value.
-// Does not assume that the proof itself is value.
-// For that, use Verify(root).
-func (proof *RangeProof) VerifyItem(i int, key, value []byte) error {
+// The index of the first leaf (of the whole tree).
+// Returns -1 if the proof is nil.
+func (proof *RangeProof) LeftIndex() int64 {
+	if proof == nil {
+		return -1
+	}
+	return proof.LeftPath.Index()
+}
+
+// `i` is the relative index within this RangeProof.
+// Also see LeftIndex().
+// Verify that a key has some value.
+// Does not assume that the proof itself is valid, call Verify() first.
+func (proof *RangeProof) VerifyItem(key, value []byte) error {
+	leaves := proof.Leaves
 	if proof == nil {
 		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
-	if !bytes.Equal(proof.Leaves[i].Key, key) {
-		return cmn.ErrorWrap(ErrInvalidProof, "leaf key not same")
+	i := sort.Search(len(leaves), func(i int) bool {
+		return bytes.Compare(key, leaves[i].Key) <= 0
+	})
+	if i >= len(leaves) || !bytes.Equal(leaves[i].Key, key) {
+		return cmn.ErrorWrap(ErrInvalidProof, "leaf key not found in proof")
 	}
 	valueHash := sha256truncated.Hash(value)
-	if !bytes.Equal(proof.Leaves[i].ValueHash, valueHash) {
+	if !bytes.Equal(leaves[i].ValueHash, valueHash) {
 		return cmn.ErrorWrap(ErrInvalidProof, "leaf value hash not same")
 	}
 	return nil
@@ -236,13 +264,17 @@ func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
 // If keyEnd-1 exists, no later leaves will be included.
+// If keyStart <= keyEnd and both not nil, panics.
 // Limit is never exceeded.
-func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, values [][]byte, err error) {
+func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
+	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
+		panic("if keyStart and keyEnd are present, need keyStart < keyEnd.")
+	}
 	if limit < 0 {
 		panic("limit must be greater or equal to 0 -- 0 means no limit")
 	}
 	if t.root == nil {
-		return nil, nil, cmn.ErrorWrap(ErrNilRoot, "")
+		return nil, nil, nil, cmn.ErrorWrap(ErrNilRoot, "")
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
@@ -250,10 +282,17 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	path, left, err := t.root.PathToLeaf(t, keyStart)
 	if err != nil {
 		// Key doesn't exist, but instead we got the prev leaf (or the
-		// first leaf), which provides proof of absence).
+		// first or last leaf), which provides proof of absence).
 		err = nil
 	}
-	values = append(values, left.value)
+	startOK := keyStart == nil || bytes.Compare(keyStart, left.key) <= 0
+	endOK := keyEnd == nil || bytes.Compare(left.key, keyEnd) < 0
+	// If left.key is in range, add it to key/values.
+	if startOK && endOK {
+		keys = append(keys, left.key) // == keyStart
+		values = append(values, left.value)
+	}
+	// Either way, add to proof leaves.
 	var leaves = []proofLeafNode{proofLeafNode{
 		Key:       left.key,
 		ValueHash: sha256truncated.Hash(left.value),
@@ -273,15 +312,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 			RootHash: t.root.hash,
 			LeftPath: path,
 			Leaves:   leaves,
-		}, values, nil
-	}
-
-	if keyEnd != nil && bytes.Compare(cpIncr(left.key), keyEnd) >= 0 {
-		return &RangeProof{
-			RootHash: t.root.hash,
-			LeftPath: path,
-			Leaves:   leaves,
-		}, values, nil
+		}, keys, values, nil
 	}
 
 	// Get the key after left.key to iterate from.
@@ -294,7 +325,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	var lastDepth uint8 = 0
 	var leafCount = 1 // from left above.
 	var pathCount = 0
-	// var values [][]byte defined as function outs.
+	// var keys, values [][]byte defined as function outs.
 
 	t.root.traverseInRange(t, afterLeft, nil, true, false, 0,
 		func(node *Node, depth uint8) (stop bool) {
@@ -330,14 +361,20 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 					ValueHash: sha256truncated.Hash(node.value),
 					Version:   node.version,
 				})
-				// Append value to values.
-				values = append(values, node.value)
 				leafCount += 1
 				// Maybe terminate because we found enough leaves.
 				if limit > 0 && limit <= leafCount {
 					return true
 				}
-				// Maybe terminate because we've found keyEnd-1 or after.
+				// Terminate if we've found keyEnd or after.
+				if keyEnd != nil && bytes.Compare(node.key, keyEnd) >= 0 {
+					return true
+				}
+				// Value is in range, append to keys and values.
+				keys = append(keys, node.key)
+				values = append(values, node.value)
+				// Terminate if we've found keyEnd-1 or after.
+				// We don't want to fetch any leaves for it.
 				if keyEnd != nil && bytes.Compare(cpIncr(node.key), keyEnd) >= 0 {
 					return true
 				}
@@ -365,7 +402,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 		LeftPath:   path,
 		InnerNodes: innersq,
 		Leaves:     leaves,
-	}, values, nil
+	}, keys, values, nil
 }
 
 //----------------------------------------
@@ -373,7 +410,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 // GetWithProof gets the value under the key if it exists, or returns nil.
 // A proof of existence or absence is returned alongside the value.
 func (t *Tree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err error) {
-	proof, values, err := t.getRangeProof(key, cpIncr(key), 2)
+	proof, _, values, err := t.getRangeProof(key, cpIncr(key), 2)
 	if err == nil {
 		if len(values) > 0 {
 			if !bytes.Equal(proof.Leaves[0].Key, key) {
@@ -389,18 +426,13 @@ func (t *Tree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err er
 }
 
 // GetRangeWithProof gets key/value pairs within the specified range and limit.
-// To specify a descending range, swap the start and end keys.
 func (t *Tree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) (keys, values [][]byte, proof *RangeProof, err error) {
-	proof, values, err = t.getRangeProof(startKey, endKey, limit)
-	for _, leaf := range proof.Leaves {
-		keys = append(keys, leaf.Key)
-	}
+	proof, keys, values, err = t.getRangeProof(startKey, endKey, limit)
 	return
 }
 
 // GetVersionedWithProof gets the value under the key at the specified version
-// if it exists, or returns nil.  A proof of existence or absence is returned
-// alongside the value.
+// if it exists, or returns nil.
 func (tree *VersionedTree) GetVersionedWithProof(key []byte, version int64) ([]byte, *RangeProof, error) {
 	if t, ok := tree.versions[version]; ok {
 		return t.GetWithProof(key)
@@ -409,10 +441,10 @@ func (tree *VersionedTree) GetVersionedWithProof(key []byte, version int64) ([]b
 }
 
 // GetVersionedRangeWithProof gets key/value pairs within the specified range
-// and limit. To specify a descending range, swap the start and end keys.
-//
-// Returns a list of values, a list of keys, and a proof.
-func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version int64) ([][]byte, [][]byte, *RangeProof, error) {
+// and limit.
+func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version int64) (
+	keys, values [][]byte, proof *RangeProof, err error) {
+
 	if t, ok := tree.versions[version]; ok {
 		return t.GetRangeWithProof(startKey, endKey, limit)
 	}
