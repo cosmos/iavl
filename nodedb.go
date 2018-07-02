@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	dbm "github.com/tendermint/tmlibs/db"
+	dbm "github.com/tendermint/tendermint/libs/db"
 )
 
 var (

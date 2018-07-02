@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tendermint/iavl/sha256truncated"
-	cmn "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 type RangeProof struct {
@@ -63,7 +63,7 @@ func (proof *RangeProof) VerifyItem(i int, key, value []byte) error {
 	if !bytes.Equal(proof.Leaves[i].Key, key) {
 		return cmn.ErrorWrap(ErrInvalidProof, "leaf key not same")
 	}
-	valueHash := sha256truncated.Hash(value)
+	valueHash := tmhash.Sum(value)
 	if !bytes.Equal(proof.Leaves[i].ValueHash, valueHash) {
 		return cmn.ErrorWrap(ErrInvalidProof, "leaf value hash not same")
 	}
@@ -256,7 +256,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	values = append(values, left.value)
 	var leaves = []proofLeafNode{proofLeafNode{
 		Key:       left.key,
-		ValueHash: sha256truncated.Hash(left.value),
+		ValueHash: tmhash.Sum(left.value),
 		Version:   left.version,
 	}}
 
@@ -328,7 +328,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 				// Append leaf to leaves.
 				leaves = append(leaves, proofLeafNode{
 					Key:       node.key,
-					ValueHash: sha256truncated.Hash(node.value),
+					ValueHash: tmhash.Sum(node.value),
 					Version:   node.version,
 				})
 				// Append value to values.
