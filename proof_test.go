@@ -223,10 +223,6 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 				proofBytes, badProofBytes)
 		}
 	}
-
-	// targetted changes fails...
-	proof.RootHash = test.MutateByteSlice(proof.RootHash)
-	assert.Error(t, proof.Verify(root))
 }
 
 //----------------------------------------

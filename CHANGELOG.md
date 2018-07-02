@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 (July 1, 2018)
+
+IMPROVEMENTS
+
+- RangeProof.ComputeRootHash() to compute root rather than provide as in Verify(hash)
+
 ## 0.9.0 (July 1, 2018)
 
 BREAKING CHANGES

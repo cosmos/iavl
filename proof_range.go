@@ -13,7 +13,6 @@ import (
 type RangeProof struct {
 	// You don't need the right path because
 	// it can be derived from what we have.
-	RootHash   cmn.HexBytes    `json:"root_hash"`
 	LeftPath   PathToLeaf      `json:"left_path"`
 	InnerNodes []PathToLeaf    `json:"inner_nodes"`
 	Leaves     []proofLeafNode `json:"leaves"`
@@ -49,7 +48,6 @@ func (proof *RangeProof) StringIndented(indent string) string {
 		lstrs = append(lstrs, leaf.StringIndented(indent+"    "))
 	}
 	return fmt.Sprintf(`RangeProof{
-%s  RootHash: %X
 %s  LeftPath: %v
 %s  InnerNodes:
 %s    %v
@@ -57,7 +55,6 @@ func (proof *RangeProof) StringIndented(indent string) string {
 %s    %v
 %s  (treeEnd): %v
 %s}`,
-		indent, proof.RootHash,
 		indent, proof.LeftPath.StringIndented(indent+"  "),
 		indent,
 		indent, strings.Join(istrs, "\n"+indent+"    "),
@@ -161,7 +158,33 @@ func (proof *RangeProof) Verify(root []byte) error {
 	if proof == nil {
 		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
-	treeEnd, err := proof._verify(root)
+	err := proof.verify(root)
+	return err
+}
+
+func (proof *RangeProof) verify(root []byte) (err error) {
+	rootHash, err := proof.computeRootHash()
+	if err != nil {
+		return err
+	} else if !bytes.Equal(rootHash, root) {
+		return cmn.ErrorWrap(ErrInvalidRoot, "root hash doesn't match")
+	}
+	return nil
+}
+
+// ComputeRootHash computes the root hash with leaves.
+// Returns nil if error or proof is nil.
+// Does not verify the root hash.
+func (proof *RangeProof) ComputeRootHash() []byte {
+	if proof == nil {
+		return nil
+	}
+	rootHash, _ := proof.computeRootHash()
+	return rootHash
+}
+
+func (proof *RangeProof) computeRootHash() (rootHash []byte, err error) {
+	rootHash, treeEnd, err := proof._computeRootHash()
 	if err == nil {
 		if treeEnd {
 			proof.treeEnd = 1 // memoize
@@ -169,18 +192,15 @@ func (proof *RangeProof) Verify(root []byte) error {
 			proof.treeEnd = -1 // memoize
 		}
 	}
-	return err
+	return rootHash, err
 }
 
-func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
-	if !bytes.Equal(proof.RootHash, root) {
-		return false, cmn.ErrorWrap(ErrInvalidRoot, "root hash doesn't match")
-	}
+func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err error) {
 	if len(proof.Leaves) == 0 {
-		return false, cmn.ErrorWrap(ErrInvalidProof, "no leaves")
+		return nil, false, cmn.ErrorWrap(ErrInvalidProof, "no leaves")
 	}
 	if len(proof.InnerNodes)+1 != len(proof.Leaves) {
-		return false, cmn.ErrorWrap(ErrInvalidProof, "InnerNodes vs Leaves length mismatch, leaves should be 1 more.")
+		return nil, false, cmn.ErrorWrap(ErrInvalidProof, "InnerNodes vs Leaves length mismatch, leaves should be 1 more.")
 	}
 
 	// Start from the left path and prove each leaf.
@@ -188,28 +208,27 @@ func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 	// shared across recursive calls
 	var leaves = proof.Leaves
 	var innersq = proof.InnerNodes
-	var VERIFY func(path PathToLeaf, root []byte, rightmost bool) (treeEnd bool, done bool, err error)
+	var COMPUTEHASH func(path PathToLeaf, rightmost bool) (hash []byte, treeEnd bool, done bool, err error)
+
 	// rightmost: is the root a rightmost child of the tree?
 	// treeEnd: true iff the last leaf is the last item of the tree.
-	// NOTE: root doesn't necessarily mean root of the tree here.
-	VERIFY = func(path PathToLeaf, root []byte, rightmost bool) (treeEnd bool, done bool, err error) {
+	// Returns the (possibly intermediate, possibly root) hash.
+	COMPUTEHASH = func(path PathToLeaf, rightmost bool) (hash []byte, treeEnd bool, done bool, err error) {
 
 		// Pop next leaf.
 		nleaf, rleaves := leaves[0], leaves[1:]
 		leaves = rleaves
 
-		// Verify leaf with path.
-		if err := (pathWithLeaf{
+		// Compute hash.
+		hash = (pathWithLeaf{
 			Path: path,
 			Leaf: nleaf,
-		}).verify(root); err != nil {
-			return false, false, err.Trace(0, "verifying some path to a leaf")
-		}
+		}).computeRootHash()
 
 		// If we don't have any leaves left, we're done.
 		if len(leaves) == 0 {
 			rightmost = rightmost && path.isRightmost()
-			return rightmost, true, nil
+			return hash, rightmost, true, nil
 		}
 
 		// Prove along path (until we run out of leaves).
@@ -231,31 +250,35 @@ func (proof *RangeProof) _verify(root []byte) (treeEnd bool, err error) {
 			innersq = rinnersq
 
 			// Recursively verify inners against remaining leaves.
-			treeEnd, done, err := VERIFY(inners, lpath.Right, rightmost && rpath.isRightmost())
+			derivedRoot, treeEnd, done, err := COMPUTEHASH(inners, rightmost && rpath.isRightmost())
 			if err != nil {
-				return treeEnd, false, cmn.ErrorWrap(err, "recursive VERIFY call")
-			} else if done {
-				return treeEnd, true, nil
+				return nil, treeEnd, false, cmn.ErrorWrap(err, "recursive COMPUTEHASH call")
+			}
+			if !bytes.Equal(derivedRoot, lpath.Right) {
+				return nil, treeEnd, false, cmn.ErrorWrap(ErrInvalidRoot, "intermediate root hash %X doesn't match, got %X", lpath.Right, derivedRoot)
+			}
+			if done {
+				return hash, treeEnd, true, nil
 			}
 		}
 
-		// We're not done yet. No error, not done either.  Technically if
-		// rightmost, we know there's an error "left over leaves -- malformed
-		// proof", but we return that at the top level, below.
-		return false, false, nil
+		// We're not done yet (leaves left over). No error, not done either.
+		// Technically if rightmost, we know there's an error "left over leaves
+		// -- malformed proof", but we return that at the top level, below.
+		return hash, false, false, nil
 	}
 
 	// Verify!
 	path := proof.LeftPath
-	treeEnd, done, err := VERIFY(path, root, true)
+	rootHash, treeEnd, done, err := COMPUTEHASH(path, true)
 	if err != nil {
-		return treeEnd, cmn.ErrorWrap(err, "root VERIFY call")
+		return nil, treeEnd, cmn.ErrorWrap(err, "root COMPUTEHASH call")
 	} else if !done {
-		return treeEnd, cmn.ErrorWrap(ErrInvalidProof, "left over leaves -- malformed proof")
+		return nil, treeEnd, cmn.ErrorWrap(ErrInvalidProof, "left over leaves -- malformed proof")
 	}
 
 	// Ok!
-	return treeEnd, nil
+	return rootHash, treeEnd, nil
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -309,7 +332,6 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	}
 	if _stop {
 		return &RangeProof{
-			RootHash: t.root.hash,
 			LeftPath: path,
 			Leaves:   leaves,
 		}, keys, values, nil
@@ -398,7 +420,6 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	)
 
 	return &RangeProof{
-		RootHash:   t.root.hash,
 		LeftPath:   path,
 		InnerNodes: innersq,
 		Leaves:     leaves,
