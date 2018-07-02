@@ -9,7 +9,15 @@ import (
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
+type SubstoreCommitID struct {
+	Name string `json:"name"`
+	Version int64 `json:"version"`
+	CommitHash    cmn.HexBytes `json:"commit_hash"`
+}
+
 type RangeProof struct {
+	MultiStoreCommitInfo []SubstoreCommitID `json:"multi_store_commit_info"`
+	StoreName string `json:"store_name"`
 	// You don't need the right path because
 	// it can be derived from what we have.
 	RootHash   cmn.HexBytes    `json:"root_hash"`
