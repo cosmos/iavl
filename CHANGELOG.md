@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0 (July 1, 2018)
+
+BREAKING CHANGES
+
+- RangeProof.VerifyItem doesn't require an index.
+- Only return values in range when getting proof.
+- Return keys as well.
+
+BUG FIXES
+
+- traversal bugs in traverseRange.
+
 ## 0.8.0 (June 24, 2018)
 
 BREAKING CHANGES
