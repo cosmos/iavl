@@ -24,6 +24,13 @@ type RangeProof struct {
 
 }
 
+// Keys returns all the keys in the RangeProof.  NOTE: The keys here may
+// include more keys than provided by tree.GetRangeWithProof or
+// VersionedTree.GetVersionedRangeWithProof.  The keys returned there are only
+// in the provided [startKey,endKey){limit} range.  The keys returned here may
+// include extra keys, such as:
+// - the key before startKey if startKey is provided and doesn't exist;
+// - the key after a queried key with tree.GetWithProof, when the key is absent.
 func (proof *RangeProof) Keys() (keys [][]byte) {
 	if proof == nil {
 		return nil
@@ -81,7 +88,6 @@ func (proof *RangeProof) LeftIndex() int64 {
 	return proof.LeftPath.Index()
 }
 
-// `i` is the relative index within this RangeProof.
 // Also see LeftIndex().
 // Verify that a key has some value.
 // Does not assume that the proof itself is valid, call Verify() first.
@@ -302,7 +308,7 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
 // If keyEnd-1 exists, no later leaves will be included.
-// If keyStart <= keyEnd and both not nil, panics.
+// If keyStart >= keyEnd and both not nil, panics.
 // Limit is never exceeded.
 func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
