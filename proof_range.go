@@ -16,8 +16,12 @@ type RangeProof struct {
 	LeftPath   PathToLeaf      `json:"left_path"`
 	InnerNodes []PathToLeaf    `json:"inner_nodes"`
 	Leaves     []proofLeafNode `json:"leaves"`
-	// temporary
-	treeEnd int // 0 if not set, 1 if true, -1 if false.
+
+	// memoize
+	rootVerified bool
+	rootHash     []byte // valid iff rootVerified is true
+	treeEnd      bool   // valid iff rootVerified is true
+
 }
 
 func (proof *RangeProof) Keys() (keys [][]byte) {
@@ -53,6 +57,8 @@ func (proof *RangeProof) StringIndented(indent string) string {
 %s    %v
 %s  Leaves:
 %s    %v
+%s  (rootVerified): %v
+%s  (rootHash): %X
 %s  (treeEnd): %v
 %s}`,
 		indent, proof.LeftPath.StringIndented(indent+"  "),
@@ -60,6 +66,8 @@ func (proof *RangeProof) StringIndented(indent string) string {
 		indent, strings.Join(istrs, "\n"+indent+"    "),
 		indent,
 		indent, strings.Join(lstrs, "\n"+indent+"    "),
+		indent, proof.rootVerified,
+		indent, proof.rootHash,
 		indent, proof.treeEnd,
 		indent)
 }
@@ -82,6 +90,9 @@ func (proof *RangeProof) VerifyItem(key, value []byte) error {
 	if proof == nil {
 		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
+	if !proof.rootVerified {
+		return cmn.NewError("must call Verify(root) first.")
+	}
 	i := sort.Search(len(leaves), func(i int) bool {
 		return bytes.Compare(key, leaves[i].Key) <= 0
 	})
@@ -102,7 +113,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	if proof == nil {
 		return cmn.ErrorWrap(ErrInvalidProof, "proof is nil")
 	}
-	if proof.treeEnd == 0 {
+	if !proof.rootVerified {
 		return cmn.NewError("must call Verify(root) first.")
 	}
 	cmp := bytes.Compare(key, proof.Leaves[0].Key)
@@ -141,7 +152,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	}
 
 	// It's still a valid proof if our last leaf is the rightmost child.
-	if proof.treeEnd == 1 {
+	if proof.treeEnd {
 		return nil // OK!
 	}
 
@@ -163,11 +174,18 @@ func (proof *RangeProof) Verify(root []byte) error {
 }
 
 func (proof *RangeProof) verify(root []byte) (err error) {
-	rootHash, err := proof.computeRootHash()
-	if err != nil {
-		return err
-	} else if !bytes.Equal(rootHash, root) {
+	rootHash := proof.rootHash
+	if rootHash == nil {
+		derivedHash, err := proof.computeRootHash()
+		if err != nil {
+			return err
+		}
+		rootHash = derivedHash
+	}
+	if !bytes.Equal(rootHash, root) {
 		return cmn.ErrorWrap(ErrInvalidRoot, "root hash doesn't match")
+	} else {
+		proof.rootVerified = true
 	}
 	return nil
 }
@@ -186,11 +204,8 @@ func (proof *RangeProof) ComputeRootHash() []byte {
 func (proof *RangeProof) computeRootHash() (rootHash []byte, err error) {
 	rootHash, treeEnd, err := proof._computeRootHash()
 	if err == nil {
-		if treeEnd {
-			proof.treeEnd = 1 // memoize
-		} else {
-			proof.treeEnd = -1 // memoize
-		}
+		proof.rootHash = rootHash // memoize
+		proof.treeEnd = treeEnd   // memoize
 	}
 	return rootHash, err
 }

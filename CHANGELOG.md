@@ -5,6 +5,7 @@
 IMPROVEMENTS
 
 - RangeProof.ComputeRootHash() to compute root rather than provide as in Verify(hash)
+- RangeProof.Verify\*() first require .Verify(root), which memoizes
 
 ## 0.9.0 (July 1, 2018)
 
