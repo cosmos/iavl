@@ -126,9 +126,8 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	if cmp < 0 {
 		if proof.LeftPath.isLeftmost() {
 			return nil
-		} else {
-			return cmn.NewError("absence not proved by left path")
 		}
+		return cmn.NewError("absence not proved by left path")
 	} else if cmp == 0 {
 		return cmn.NewError("absence disproved via first item #0")
 	}
@@ -165,9 +164,8 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	// It's not a valid absence proof.
 	if len(proof.Leaves) < 2 {
 		return cmn.NewError("absence not proved by right leaf (need another leaf?)")
-	} else {
-		return cmn.NewError("absence not proved by right leaf")
 	}
+	return cmn.NewError("absence not proved by right leaf")
 }
 
 // Verify that proof is valid.
@@ -459,12 +457,10 @@ func (t *Tree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err er
 		if len(values) > 0 {
 			if !bytes.Equal(proof.Leaves[0].Key, key) {
 				return nil, proof, nil
-			} else {
-				return values[0], proof, nil
 			}
-		} else {
-			return nil, proof, nil
+			return values[0], proof, nil
 		}
+		return nil, proof, nil
 	}
 	return nil, nil, cmn.ErrorWrap(err, "could not construct any proof")
 }
