@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.9.1 (July 1, 2018)
+
+IMPROVEMENTS
+
+- RangeProof.ComputeRootHash() to compute root rather than provide as in Verify(hash)
+- RangeProof.Verify\*() first require .Verify(root), which memoizes
+
+## 0.9.0 (July 1, 2018)
+
+BREAKING CHANGES
+
+- RangeProof.VerifyItem doesn't require an index.
+- Only return values in range when getting proof.
+- Return keys as well.
+
+BUG FIXES
+
+- traversal bugs in traverseRange.
+
+## 0.8.2
+
+* Swap `tmlibs` for `tendermint/libs`
+* Remove `sha256truncated` in favour of `tendermint/crypto/tmhash` - same hash
+  function but technically a breaking change to the API, though unlikely to effect anyone.
+
+NOTE this means IAVL is now dependent on Tendermint Core for the libs (since it
+makes heavy use of the `db` package). Ideally, that dependency would be
+abstracted away, and/or this repo will be merged into the Cosmos-SDK, which is
+currently is primary consumer. Once it achieves greater stability, we could
+consider breaking it out into it's own repo again.
+
 ## 0.8.1
 
 *July 1st, 2018*

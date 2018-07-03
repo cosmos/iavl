@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tendermint/libs/db"
 
-	cmn "github.com/tendermint/tmlibs/common"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 var testLevelDB bool
@@ -987,7 +987,7 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(val, []byte("v1"))
 	require.NoError(proof.Verify(root1), proof.String())
-	require.NoError(proof.VerifyItem(0, []byte("k2"), val))
+	require.NoError(proof.VerifyItem([]byte("k2"), val))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k4"), 1)
 	require.NoError(err)
@@ -999,13 +999,13 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(val, []byte("v2"))
 	require.NoError(proof.Verify(root2), proof.String())
-	require.NoError(proof.VerifyItem(0, []byte("k2"), val))
+	require.NoError(proof.VerifyItem([]byte("k2"), val))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k1"), 2)
 	require.NoError(err)
 	require.EqualValues(val, []byte("v1"))
 	require.NoError(proof.Verify(root2))
-	require.NoError(proof.VerifyItem(0, []byte("k1"), val))
+	require.NoError(proof.VerifyItem([]byte("k1"), val))
 
 	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 3)
 
@@ -1036,7 +1036,7 @@ func TestVersionedTreeHash(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(val, []byte("F"))
 	require.NoError(proof.Verify(hash2))
-	require.NoError(proof.VerifyItem(0, []byte("I"), val))
+	require.NoError(proof.VerifyItem([]byte("I"), val))
 }
 
 func TestNilValueSemantics(t *testing.T) {
