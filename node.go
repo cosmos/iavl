@@ -45,11 +45,10 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 // afterwards.
 func MakeNode(buf []byte) (node *Node, err cmn.Error) {
 	node = &Node{}
-	n := 0
-	cause := error(nil)
+	var n int
+	var cause error
 
 	// Read node header.
-
 	node.height, n, cause = amino.DecodeInt8(buf)
 	if cause != nil {
 		return nil, cmn.ErrorWrap(cause, "decoding node.height")

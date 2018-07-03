@@ -150,7 +150,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		} else {
 			if i == len(proof.Leaves)-1 {
 				// If last item, check whether
-				// it's the last item in teh tree.
+				// it's the last item in the tree.
 
 			}
 			continue
@@ -305,12 +305,13 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 ///////////////////////////////////////////////////////////////////////////////
 
 // keyStart is inclusive and keyEnd is exclusive.
+// Returns the range-proof and the included keys and values.
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
 // If keyEnd-1 exists, no later leaves will be included.
 // If keyStart >= keyEnd and both not nil, panics.
 // Limit is never exceeded.
-func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
+func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (*RangeProof, [][]byte, [][]byte, error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
 		panic("if keyStart and keyEnd are present, need keyStart < keyEnd.")
 	}
@@ -327,17 +328,18 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	if err != nil {
 		// Key doesn't exist, but instead we got the prev leaf (or the
 		// first or last leaf), which provides proof of absence).
-		err = nil
+		// err = nil isn't necessary as we do not use it in the returns below
 	}
 	startOK := keyStart == nil || bytes.Compare(keyStart, left.key) <= 0
 	endOK := keyEnd == nil || bytes.Compare(left.key, keyEnd) < 0
 	// If left.key is in range, add it to key/values.
+	var keys, values [][]byte
 	if startOK && endOK {
 		keys = append(keys, left.key) // == keyStart
 		values = append(values, left.value)
 	}
 	// Either way, add to proof leaves.
-	var leaves = []proofLeafNode{proofLeafNode{
+	var leaves = []proofLeafNode{{
 		Key:       left.key,
 		ValueHash: tmhash.Sum(left.value),
 		Version:   left.version,
