@@ -177,7 +177,7 @@ func (proof *RangeProof) Verify(root []byte) error {
 	return err
 }
 
-func (proof *RangeProof) verify(root []byte) (error) {
+func (proof *RangeProof) verify(root []byte) error {
 	rootHash := proof.rootHash
 	if rootHash == nil {
 		derivedHash, err := proof.computeRootHash()
