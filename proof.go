@@ -171,17 +171,16 @@ func (node *Node) _pathToLeaf(t *Tree, key []byte, path *PathToLeaf) (*Node, err
 		*path = append(*path, pin)
 		n, err := node.getLeftNode(t)._pathToLeaf(t, key, path)
 		return n, err
-	} else {
-		// right side
-		pin := proofInnerNode{
-			Height:  node.height,
-			Size:    node.size,
-			Version: node.version,
-			Left:    node.getLeftNode(t).hash,
-			Right:   nil,
-		}
-		*path = append(*path, pin)
-		n, err := node.getRightNode(t)._pathToLeaf(t, key, path)
-		return n, err
 	}
+	// right side
+	pin := proofInnerNode{
+		Height:  node.height,
+		Size:    node.size,
+		Version: node.version,
+		Left:    node.getLeftNode(t).hash,
+		Right:   nil,
+	}
+	*path = append(*path, pin)
+	n, err := node.getRightNode(t)._pathToLeaf(t, key, path)
+	return n, err
 }

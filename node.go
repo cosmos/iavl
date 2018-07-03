@@ -144,9 +144,8 @@ func (node *Node) has(t *Tree, key []byte) (has bool) {
 	}
 	if bytes.Compare(key, node.key) < 0 {
 		return node.getLeftNode(t).has(t, key)
-	} else {
-		return node.getRightNode(t).has(t, key)
 	}
+	return node.getRightNode(t).has(t, key)
 }
 
 // Get a key under the node.
@@ -164,31 +163,28 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte) {
 
 	if bytes.Compare(key, node.key) < 0 {
 		return node.getLeftNode(t).get(t, key)
-	} else {
-		rightNode := node.getRightNode(t)
-		index, value = rightNode.get(t, key)
-		index += node.size - rightNode.size
-		return index, value
 	}
+	rightNode := node.getRightNode(t)
+	index, value = rightNode.get(t, key)
+	index += node.size - rightNode.size
+	return index, value
 }
 
 func (node *Node) getByIndex(t *Tree, index int64) (key []byte, value []byte) {
 	if node.isLeaf() {
 		if index == 0 {
 			return node.key, node.value
-		} else {
-			return nil, nil
 		}
-	} else {
-		// TODO: could improve this by storing the
-		// sizes as well as left/right hash.
-		leftNode := node.getLeftNode(t)
-		if index < leftNode.size {
-			return leftNode.getByIndex(t, index)
-		} else {
-			return node.getRightNode(t).getByIndex(t, index-leftNode.size)
-		}
+		return nil, nil
 	}
+	// TODO: could improve this by storing the
+	// sizes as well as left/right hash.
+	leftNode := node.getLeftNode(t)
+
+	if index < leftNode.size {
+		return leftNode.getByIndex(t, index)
+	}
+	return node.getRightNode(t).getByIndex(t, index-leftNode.size)
 }
 
 // Computes the hash of the node without computing its descendants. Must be
@@ -386,11 +382,10 @@ func (node *Node) set(t *Tree, key []byte, value []byte) (
 
 		if updated {
 			return node, updated, orphaned
-		} else {
-			node.calcHeightAndSize(t)
-			newNode, balanceOrphaned := node.balance(t)
-			return newNode, updated, append(orphaned, balanceOrphaned...)
 		}
+		node.calcHeightAndSize(t)
+		newNode, balanceOrphaned := node.balance(t)
+		return newNode, updated, append(orphaned, balanceOrphaned...)
 	}
 }
 
@@ -530,34 +525,32 @@ func (node *Node) balance(t *Tree) (newSelf *Node, orphaned []*Node) {
 			// Left Left Case
 			newNode, orphaned := node.rotateRight(t)
 			return newNode, []*Node{orphaned}
-		} else {
-			// Left Right Case
-			var leftOrphaned *Node
-
-			left := node.getLeftNode(t)
-			node.leftHash = nil
-			node.leftNode, leftOrphaned = left.rotateLeft(t)
-			newNode, rightOrphaned := node.rotateRight(t)
-
-			return newNode, []*Node{left, leftOrphaned, rightOrphaned}
 		}
+		// Left Right Case
+		var leftOrphaned *Node
+
+		left := node.getLeftNode(t)
+		node.leftHash = nil
+		node.leftNode, leftOrphaned = left.rotateLeft(t)
+		newNode, rightOrphaned := node.rotateRight(t)
+
+		return newNode, []*Node{left, leftOrphaned, rightOrphaned}
 	}
 	if balance < -1 {
 		if node.getRightNode(t).calcBalance(t) <= 0 {
 			// Right Right Case
 			newNode, orphaned := node.rotateLeft(t)
 			return newNode, []*Node{orphaned}
-		} else {
-			// Right Left Case
-			var rightOrphaned *Node
-
-			right := node.getRightNode(t)
-			node.rightHash = nil
-			node.rightNode, rightOrphaned = right.rotateRight(t)
-			newNode, leftOrphaned := node.rotateLeft(t)
-
-			return newNode, []*Node{right, leftOrphaned, rightOrphaned}
 		}
+		// Right Left Case
+		var rightOrphaned *Node
+
+		right := node.getRightNode(t)
+		node.rightHash = nil
+		node.rightNode, rightOrphaned = right.rotateRight(t)
+		newNode, leftOrphaned := node.rotateLeft(t)
+
+		return newNode, []*Node{right, leftOrphaned, rightOrphaned}
 	}
 	// Nothing changed
 	return node, []*Node{}

@@ -52,7 +52,7 @@ func (proof *RangeProof) String() string {
 func (proof *RangeProof) StringIndented(indent string) string {
 	istrs := make([]string, 0, len(proof.InnerNodes))
 	for _, ptl := range proof.InnerNodes {
-		istrs = append(istrs, ptl.StringIndented(indent+"    "))
+		istrs = append(istrs, ptl.stringIndented(indent+"    "))
 	}
 	lstrs := make([]string, 0, len(proof.Leaves))
 	for _, leaf := range proof.Leaves {
@@ -68,7 +68,7 @@ func (proof *RangeProof) StringIndented(indent string) string {
 %s  (rootHash): %X
 %s  (treeEnd): %v
 %s}`,
-		indent, proof.LeftPath.StringIndented(indent+"  "),
+		indent, proof.LeftPath.stringIndented(indent+"  "),
 		indent,
 		indent, strings.Join(istrs, "\n"+indent+"    "),
 		indent,
