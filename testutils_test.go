@@ -13,18 +13,6 @@ import (
 	"github.com/tendermint/tendermint/libs/db"
 )
 
-func dummyPathToLeaf(t *Tree, key []byte) PathToLeaf {
-	path, _, err := t.root.PathToLeaf(t, key)
-	if err != nil {
-		panic(err)
-	}
-	return path
-}
-
-func dummyLeafNode(key, val []byte) proofLeafNode {
-	return proofLeafNode{key, val, 1}
-}
-
 func randstr(length int) string {
 	return cmn.RandStr(length)
 }
