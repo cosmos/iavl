@@ -25,6 +25,8 @@ func TestTreeGetWithProof(t *testing.T) {
 	require.NoError(err)
 	require.NotEmpty(val)
 	require.NotNil(proof)
+	err = proof.VerifyItem(key, val)
+	require.Error(err, "%+v", err) // Verifying item before calling Verify(root)
 	err = proof.Verify(root)
 	require.NoError(err, "%+v", err)
 	err = proof.VerifyItem(key, val)
@@ -35,6 +37,8 @@ func TestTreeGetWithProof(t *testing.T) {
 	require.NoError(err)
 	require.Empty(val)
 	require.NotNil(proof)
+	err = proof.VerifyAbsence(key)
+	require.Error(err, "%+v", err) // Verifying absence before calling Verify(root)
 	err = proof.Verify(root)
 	require.NoError(err, "%+v", err)
 	err = proof.VerifyAbsence(key)
@@ -223,10 +227,6 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 				proofBytes, badProofBytes)
 		}
 	}
-
-	// targetted changes fails...
-	proof.RootHash = test.MutateByteSlice(proof.RootHash)
-	assert.Error(t, proof.Verify(root))
 }
 
 //----------------------------------------
