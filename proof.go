@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/tendermint/go-amino"
-	"github.com/tendermint/iavl/sha256truncated"
-	cmn "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 var (
@@ -54,7 +54,7 @@ func (pin proofInnerNode) StringIndented(indent string) string {
 }
 
 func (pin proofInnerNode) Hash(childHash []byte) []byte {
-	hasher := sha256truncated.New()
+	hasher := tmhash.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, pin.Height)
@@ -113,7 +113,7 @@ func (pln proofLeafNode) StringIndented(indent string) string {
 }
 
 func (pln proofLeafNode) Hash() []byte {
-	hasher := sha256truncated.New()
+	hasher := tmhash.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, 0)
