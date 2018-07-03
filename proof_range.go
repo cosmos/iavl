@@ -56,7 +56,7 @@ func (proof *RangeProof) StringIndented(indent string) string {
 	}
 	lstrs := make([]string, 0, len(proof.Leaves))
 	for _, leaf := range proof.Leaves {
-		lstrs = append(lstrs, leaf.StringIndented(indent+"    "))
+		lstrs = append(lstrs, leaf.stringIndented(indent+"    "))
 	}
 	return fmt.Sprintf(`RangeProof{
 %s  LeftPath: %v

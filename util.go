@@ -6,6 +6,12 @@ import (
 	"sort"
 )
 
+// PrintTree prints the whole tree in an indented form.
+func PrintTree(tree *Tree) {
+	ndb, root := tree.ndb, tree.root
+	printNode(ndb, root, 0)
+}
+
 func printNode(ndb *nodeDB, node *Node, indent int) {
 	indentPrefix := ""
 	for i := 0; i < indent; i++ {

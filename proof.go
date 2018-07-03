@@ -34,10 +34,10 @@ type proofInnerNode struct {
 }
 
 func (pin proofInnerNode) String() string {
-	return pin.StringIndented("")
+	return pin.stringIndented("")
 }
 
-func (pin proofInnerNode) StringIndented(indent string) string {
+func (pin proofInnerNode) stringIndented(indent string) string {
 	return fmt.Sprintf(`proofInnerNode{
 %s  Height:  %v
 %s  Size:    %v
@@ -97,10 +97,10 @@ type proofLeafNode struct {
 }
 
 func (pln proofLeafNode) String() string {
-	return pln.StringIndented("")
+	return pln.stringIndented("")
 }
 
-func (pln proofLeafNode) StringIndented(indent string) string {
+func (pln proofLeafNode) stringIndented(indent string) string {
 	return fmt.Sprintf(`proofLeafNode{
 %s  Key:       %v
 %s  ValueHash: %X

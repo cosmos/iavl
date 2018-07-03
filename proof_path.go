@@ -24,7 +24,7 @@ func (pwl pathWithLeaf) StringIndented(indent string) string {
 %s  Leaf: %v
 %s}`,
 		indent, pwl.Path.StringIndented(indent+"  "),
-		indent, pwl.Leaf.StringIndented(indent+"  "),
+		indent, pwl.Leaf.stringIndented(indent+"  "),
 		indent)
 }
 
@@ -64,7 +64,7 @@ func (pl PathToLeaf) StringIndented(indent string) string {
 			strs[i] = fmt.Sprintf("... (%v total)", len(pl))
 			break
 		}
-		strs[i] = fmt.Sprintf("%v:%v", i, pin.StringIndented(indent+"  "))
+		strs[i] = fmt.Sprintf("%v:%v", i, pin.stringIndented(indent+"  "))
 	}
 	return fmt.Sprintf(`PathToLeaf{
 %s  %v
