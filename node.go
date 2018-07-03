@@ -41,45 +41,50 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 
 // MakeNode constructs an *Node from an encoded byte slice.
 //
-// The new node doesn't have its hash saved or set.  The caller must set it
+// The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (node *Node, err cmn.Error) {
-	node = &Node{}
-	var n int
-	var cause error
+func MakeNode(buf []byte) (*Node, cmn.Error) {
 
-	// Read node header.
-	node.height, n, cause = amino.DecodeInt8(buf)
+	// Read node header (height, size, version, key).
+	height, n, cause := amino.DecodeInt8(buf)
 	if cause != nil {
 		return nil, cmn.ErrorWrap(cause, "decoding node.height")
 	}
 	buf = buf[n:]
 
-	node.size, n, cause = amino.DecodeVarint(buf)
+	size, n, cause := amino.DecodeVarint(buf)
 	if cause != nil {
 		return nil, cmn.ErrorWrap(cause, "decoding node.size")
 	}
 	buf = buf[n:]
 
-	node.version, n, cause = amino.DecodeVarint(buf)
+	ver, n, cause := amino.DecodeVarint(buf)
 	if cause != nil {
 		return nil, cmn.ErrorWrap(cause, "decoding node.version")
 	}
 	buf = buf[n:]
 
-	node.key, n, cause = amino.DecodeByteSlice(buf)
+	key, n, cause := amino.DecodeByteSlice(buf)
 	if cause != nil {
 		return nil, cmn.ErrorWrap(cause, "decoding node.key")
 	}
 	buf = buf[n:]
 
+	node := &Node{
+		height:  height,
+		size:    size,
+		version: ver,
+		key:     key,
+	}
+
 	// Read node body.
 
 	if node.isLeaf() {
-		node.value, _, cause = amino.DecodeByteSlice(buf)
+		val, _, cause := amino.DecodeByteSlice(buf)
 		if cause != nil {
 			return nil, cmn.ErrorWrap(cause, "decoding node.value")
 		}
+		node.value = val
 	} else { // Read children.
 		leftHash, n, cause := amino.DecodeByteSlice(buf)
 		if cause != nil {
