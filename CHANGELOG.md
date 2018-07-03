@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.2 (July 3, 2018)
+
+IMPROVEMTS
+
+- some minor changes: mainly lints, updated parts of documentation, unexported some helpers (#80) 
+
 ## 0.9.1 (July 1, 2018)
 
 IMPROVEMENTS
