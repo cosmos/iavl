@@ -175,9 +175,8 @@ func (t *Tree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	return t.root.traverse(t, true, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
-		} else {
-			return false
 		}
+		return false
 	})
 }
 
@@ -190,9 +189,8 @@ func (t *Tree) IterateRange(start, end []byte, ascending bool, fn func(key []byt
 	return t.root.traverseInRange(t, start, end, ascending, false, 0, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
-		} else {
-			return false
 		}
+		return false
 	})
 }
 
@@ -205,19 +203,18 @@ func (t *Tree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(
 	return t.root.traverseInRange(t, start, end, ascending, true, 0, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value, node.version)
-		} else {
-			return false
 		}
+		return false
 	})
 }
 
 // Clone creates a clone of the tree.
 // Used internally by VersionedTree.
-func (tree *Tree) clone() *Tree {
+func (t *Tree) clone() *Tree {
 	return &Tree{
-		root:    tree.root,
-		ndb:     tree.ndb,
-		version: tree.version,
+		root:    t.root,
+		ndb:     t.ndb,
+		version: t.version,
 	}
 }
 
