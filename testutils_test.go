@@ -66,9 +66,8 @@ func T(n *Node) *Tree {
 func P(n *Node) string {
 	if n.height == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
-	} else {
-		return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
 	}
+	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
 }
 
 func randBytes(length int) []byte {
@@ -89,7 +88,7 @@ func (t *traverser) view(key, value []byte) bool {
 		t.first = string(key)
 	}
 	t.last = string(key)
-	t.count += 1
+	t.count++
 	return false
 }
 

@@ -179,7 +179,7 @@ func (proof *RangeProof) Verify(root []byte) error {
 	return err
 }
 
-func (proof *RangeProof) verify(root []byte) (err error) {
+func (proof *RangeProof) verify(root []byte) (error) {
 	rootHash := proof.rootHash
 	if rootHash == nil {
 		derivedHash, err := proof.computeRootHash()
@@ -190,9 +190,8 @@ func (proof *RangeProof) verify(root []byte) (err error) {
 	}
 	if !bytes.Equal(rootHash, root) {
 		return cmn.ErrorWrap(ErrInvalidRoot, "root hash doesn't match")
-	} else {
-		proof.rootVerified = true
 	}
+	proof.rootVerified = true
 	return nil
 }
 
@@ -389,9 +388,9 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (*RangeProof, [
 						pn.Right != nil && !bytes.Equal(pn.Right, node.rightHash) {
 
 						// We've diverged, so start appending to inners.
-						pathCount = -1
+						pathCount--
 					} else {
-						pathCount += 1
+						pathCount++
 					}
 				}
 			}
@@ -407,7 +406,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (*RangeProof, [
 					ValueHash: tmhash.Sum(node.value),
 					Version:   node.version,
 				})
-				leafCount += 1
+				leafCount++
 				// Maybe terminate because we found enough leaves.
 				if limit > 0 && limit <= leafCount {
 					return true
