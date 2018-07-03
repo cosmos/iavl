@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
-	cmn "github.com/tendermint/tmlibs/common"
-	dbm "github.com/tendermint/tmlibs/db"
+	cmn "github.com/tendermint/tendermint/libs/common"
+	dbm "github.com/tendermint/tendermint/libs/db"
 )
 
 var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")

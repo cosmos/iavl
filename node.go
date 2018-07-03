@@ -9,8 +9,8 @@ import (
 	"io"
 
 	"github.com/tendermint/go-amino"
-	"github.com/tendermint/iavl/sha256truncated"
-	cmn "github.com/tendermint/tmlibs/common"
+	"github.com/tendermint/tendermint/crypto/tmhash"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 // Node represents a node in a Tree.
@@ -199,7 +199,7 @@ func (node *Node) _hash() []byte {
 		return node.hash
 	}
 
-	h := sha256truncated.New()
+	h := tmhash.New()
 	buf := new(bytes.Buffer)
 	if err := node.writeHashBytes(buf); err != nil {
 		panic(err)
@@ -217,7 +217,7 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 		return node.hash, 0
 	}
 
-	h := sha256truncated.New()
+	h := tmhash.New()
 	buf := new(bytes.Buffer)
 	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
@@ -254,7 +254,7 @@ func (node *Node) writeHashBytes(w io.Writer) cmn.Error {
 		}
 		// Indirection needed to provide proofs without values.
 		// (e.g. proofLeafNode.ValueHash)
-		valueHash := sha256truncated.Hash(node.value)
+		valueHash := tmhash.Sum(node.value)
 		err = amino.EncodeByteSlice(w, valueHash)
 		if err != nil {
 			return cmn.ErrorWrap(err, "writing value")

@@ -9,8 +9,8 @@ import (
 	mrand "math/rand"
 
 	"github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/tmlibs/common"
-	"github.com/tendermint/tmlibs/db"
+	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/tendermint/tendermint/libs/db"
 )
 
 func dummyPathToLeaf(t *Tree, key []byte) PathToLeaf {

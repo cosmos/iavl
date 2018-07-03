@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	cmn "github.com/tendermint/tmlibs/common"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 // pathWithLeaf is a path to a leaf node and the leaf node itself.
