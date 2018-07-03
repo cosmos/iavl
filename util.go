@@ -6,6 +6,7 @@ import (
 	"sort"
 )
 
+// PrintTree prints the whole tree in an indented form.
 func PrintTree(tree *Tree) {
 	ndb, root := tree.ndb, tree.root
 	printNode(ndb, root, 0)

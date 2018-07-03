@@ -1,4 +1,4 @@
 package iavl
 
-
-const Version = "0.9.1"
+// Version of iavl.
+const Version = "0.9.2"

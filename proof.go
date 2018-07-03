@@ -34,10 +34,10 @@ type proofInnerNode struct {
 }
 
 func (pin proofInnerNode) String() string {
-	return pin.StringIndented("")
+	return pin.stringIndented("")
 }
 
-func (pin proofInnerNode) StringIndented(indent string) string {
+func (pin proofInnerNode) stringIndented(indent string) string {
 	return fmt.Sprintf(`proofInnerNode{
 %s  Height:  %v
 %s  Size:    %v
@@ -97,10 +97,10 @@ type proofLeafNode struct {
 }
 
 func (pln proofLeafNode) String() string {
-	return pln.StringIndented("")
+	return pln.stringIndented("")
 }
 
-func (pln proofLeafNode) StringIndented(indent string) string {
+func (pln proofLeafNode) stringIndented(indent string) string {
 	return fmt.Sprintf(`proofLeafNode{
 %s  Key:       %v
 %s  ValueHash: %X
@@ -144,10 +144,14 @@ func (pln proofLeafNode) Hash() []byte {
 // a path to the least item.
 func (node *Node) PathToLeaf(t *Tree, key []byte) (PathToLeaf, *Node, error) {
 	path := new(PathToLeaf)
-	val, err := node._PathToLeaf(t, key, path)
+	val, err := node.pathToLeaf(t, key, path)
 	return *path, val, err
 }
-func (node *Node) _PathToLeaf(t *Tree, key []byte, path *PathToLeaf) (*Node, error) {
+
+// pathToLeaf is a helper which recursively constructs the PathToLeaf.
+// As an optimization the already constructed path is passed in as an argument
+// and is shared among recursive calls.
+func (node *Node) pathToLeaf(t *Tree, key []byte, path *PathToLeaf) (*Node, error) {
 	if node.height == 0 {
 		if bytes.Equal(node.key, key) {
 			return node, nil
@@ -165,19 +169,18 @@ func (node *Node) _PathToLeaf(t *Tree, key []byte, path *PathToLeaf) (*Node, err
 			Right:   node.getRightNode(t).hash,
 		}
 		*path = append(*path, pin)
-		n, err := node.getLeftNode(t)._PathToLeaf(t, key, path)
-		return n, err
-	} else {
-		// right side
-		pin := proofInnerNode{
-			Height:  node.height,
-			Size:    node.size,
-			Version: node.version,
-			Left:    node.getLeftNode(t).hash,
-			Right:   nil,
-		}
-		*path = append(*path, pin)
-		n, err := node.getRightNode(t)._PathToLeaf(t, key, path)
+		n, err := node.getLeftNode(t).pathToLeaf(t, key, path)
 		return n, err
 	}
+	// right side
+	pin := proofInnerNode{
+		Height:  node.height,
+		Size:    node.size,
+		Version: node.version,
+		Left:    node.getLeftNode(t).hash,
+		Right:   nil,
+	}
+	*path = append(*path, pin)
+	n, err := node.getRightNode(t).pathToLeaf(t, key, path)
+	return n, err
 }

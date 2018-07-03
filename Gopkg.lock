@@ -102,6 +102,7 @@
 [[projects]]
   name = "github.com/tendermint/tendermint"
   packages = [
+    "crypto/tmhash",
     "libs/common",
     "libs/db",
     "libs/log",
@@ -122,6 +123,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "ad12afa101079a7f5bcd70176fbbab42fd52e844b6c74c0fcf81315d33053f90"
+  inputs-digest = "06b259c645a1a884f870ef81ab220a7302b156f6fc1f1500779d540a7eed0d49"
   solver-name = "gps-cdcl"
   solver-version = 1
