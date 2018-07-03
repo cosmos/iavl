@@ -28,8 +28,19 @@ func (pwl pathWithLeaf) StringIndented(indent string) string {
 		indent)
 }
 
+// `verify` checks that the leaf node's hash + the inner nodes merkle-izes to
+// the given root. If it returns an error, it means the leafHash or the
+// PathToLeaf is incorrect.
 func (pwl pathWithLeaf) verify(root []byte) cmn.Error {
-	return pwl.Path.verify(pwl.Leaf.Hash(), root)
+	leafHash := pwl.Leaf.Hash()
+	return pwl.Path.verify(leafHash, root)
+}
+
+// `computeRootHash` computes the root hash with leaf node.
+// Does not verify the root hash.
+func (pwl pathWithLeaf) computeRootHash() []byte {
+	leafHash := pwl.Leaf.Hash()
+	return pwl.Path.computeRootHash(leafHash)
 }
 
 //----------------------------------------
@@ -62,9 +73,9 @@ func (pl PathToLeaf) StringIndented(indent string) string {
 		indent)
 }
 
-// verify checks that the leaf node's hash + the inner nodes merkle-izes to the
-// given root. If it returns an error, it means the leafHash or the PathToLeaf
-// is incorrect.
+// `verify` checks that the leaf node's hash + the inner nodes merkle-izes to
+// the given root. If it returns an error, it means the leafHash or the
+// PathToLeaf is incorrect.
 func (pl PathToLeaf) verify(leafHash []byte, root []byte) cmn.Error {
 	hash := leafHash
 	for i := len(pl) - 1; i >= 0; i-- {
@@ -75,6 +86,17 @@ func (pl PathToLeaf) verify(leafHash []byte, root []byte) cmn.Error {
 		return cmn.ErrorWrap(ErrInvalidProof, "")
 	}
 	return nil
+}
+
+// `computeRootHash` computes the root hash assuming some leaf hash.
+// Does not verify the root hash.
+func (pl PathToLeaf) computeRootHash(leafHash []byte) []byte {
+	hash := leafHash
+	for i := len(pl) - 1; i >= 0; i-- {
+		pin := pl[i]
+		hash = pin.Hash(hash)
+	}
+	return hash
 }
 
 func (pl PathToLeaf) isLeftmost() bool {
@@ -124,4 +146,22 @@ func (pl PathToLeaf) isLeftAdjacentTo(pl2 PathToLeaf) bool {
 	pl, pl2 = pl.dropRoot(), pl2.dropRoot()
 
 	return pl.isRightmost() && pl2.isLeftmost()
+}
+
+// returns -1 if invalid.
+func (pl PathToLeaf) Index() (idx int64) {
+	for i, node := range pl {
+		if node.Left == nil {
+			continue
+		} else if node.Right == nil {
+			if i < len(pl)-1 {
+				idx += node.Size - pl[i+1].Size
+			} else {
+				idx += node.Size - 1
+			}
+		} else {
+			return -1
+		}
+	}
+	return idx
 }
