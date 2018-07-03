@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tmlibs/db"
+	"github.com/tendermint/tendermint/libs/db"
 )
 
 func TestBasic(t *testing.T) {
@@ -450,7 +450,7 @@ func TestTreeProof(t *testing.T) {
 			assert.Equal(t, key, value)
 			err := proof.Verify(root)
 			assert.NoError(t, err, "#### %v", proof.String())
-			err = proof.VerifyItem(0, key, key)
+			err = proof.VerifyItem(key, key)
 			assert.NoError(t, err, "#### %v", proof.String())
 		}
 	}

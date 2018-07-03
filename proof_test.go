@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/go-amino"
-	"github.com/tendermint/tmlibs/test"
+	"github.com/tendermint/tendermint/libs/test"
 )
 
 func TestTreeGetWithProof(t *testing.T) {
@@ -25,9 +25,11 @@ func TestTreeGetWithProof(t *testing.T) {
 	require.NoError(err)
 	require.NotEmpty(val)
 	require.NotNil(proof)
+	err = proof.VerifyItem(key, val)
+	require.Error(err, "%+v", err) // Verifying item before calling Verify(root)
 	err = proof.Verify(root)
 	require.NoError(err, "%+v", err)
-	err = proof.VerifyItem(0, key, val)
+	err = proof.VerifyItem(key, val)
 	require.NoError(err, "%+v", err)
 
 	key = []byte{0x1}
@@ -35,6 +37,8 @@ func TestTreeGetWithProof(t *testing.T) {
 	require.NoError(err)
 	require.Empty(val)
 	require.NotNil(proof)
+	err = proof.VerifyAbsence(key)
+	require.Error(err, "%+v", err) // Verifying absence before calling Verify(root)
 	err = proof.Verify(root)
 	require.NoError(err, "%+v", err)
 	err = proof.VerifyAbsence(key)
@@ -46,52 +50,50 @@ func TestTreeKeyExistsProof(t *testing.T) {
 	root := tree.Hash()
 
 	// should get false for proof with nil root
-	proof, _, err := tree.getRangeProof([]byte("foo"), nil, 1)
+	proof, _, _, err := tree.getRangeProof([]byte("foo"), nil, 1)
 	assert.NotNil(t, err)
 	assert.NotNil(t, proof.Verify(root))
 
 	// insert lots of info and store the bytes
-	keys := make([][]byte, 200)
+	allkeys := make([][]byte, 200)
 	for i := 0; i < 200; i++ {
 		key := randstr(20)
 		value := "value_for_" + key
 		tree.Set([]byte(key), []byte(value))
-		keys[i] = []byte(key)
+		allkeys[i] = []byte(key)
 	}
-	sortByteSlices(keys) // Sort keys
+	sortByteSlices(allkeys) // Sort all keys
 	root = tree.Hash()
 
 	// query random key fails
-	proof, _, err = tree.getRangeProof([]byte("foo"), nil, 2)
+	proof, _, _, err = tree.getRangeProof([]byte("foo"), nil, 2)
 	assert.Nil(t, err)
 	assert.Nil(t, proof.Verify(root))
 	assert.Nil(t, proof.VerifyAbsence([]byte("foo")), proof.String())
 
 	// query min key fails
-	proof, _, err = tree.getRangeProof([]byte{0x00}, []byte{0x00}, 2)
+	proof, _, _, err = tree.getRangeProof([]byte{0x00}, []byte{0x01}, 2)
 	assert.Nil(t, err)
 	assert.Nil(t, proof.Verify(root))
 	assert.Nil(t, proof.VerifyAbsence([]byte{0x00}))
 
 	// valid proof for real keys
-	for i, key := range keys {
-		var values [][]byte
-		proof, values, err = tree.getRangeProof(key, nil, 2)
+	for i, key := range allkeys {
+		var keys, values [][]byte
+		proof, keys, values, err = tree.getRangeProof(key, nil, 2)
 		require.Nil(t, err)
 
 		require.Equal(t,
 			append([]byte("value_for_"), key...),
 			values[0],
 		)
+		require.Equal(t, key, keys[0])
 		require.Nil(t, proof.Verify(root))
 		require.Nil(t, proof.VerifyAbsence(cpIncr(key)))
-		if i < len(keys)-1 {
-			// There should be 2 items as per limit.
-			if len(values) != 2 {
-				printNode(tree.ndb, tree.root, 0)
-			}
-			require.Equal(t, 2, len(values), proof.String())
-			if i < len(keys)-2 {
+		require.Equal(t, 1, len(keys), proof.String())
+		require.Equal(t, 1, len(values), proof.String())
+		if i < len(allkeys)-1 {
+			if i < len(allkeys)-2 {
 				// No last item... not a proof of absence of large key.
 				require.NotNil(t, proof.VerifyAbsence(bytes.Repeat([]byte{0xFF}, 20)), proof.String())
 			} else {
@@ -99,8 +101,6 @@ func TestTreeKeyExistsProof(t *testing.T) {
 				require.Nil(t, proof.VerifyAbsence(bytes.Repeat([]byte{0xFF}, 20)))
 			}
 		} else {
-			// There should be 1 item since no more can be queried.
-			require.Equal(t, 1, len(values), values)
 			// last item of tree... valid proof of absence of large key.
 			require.Nil(t, proof.VerifyAbsence(bytes.Repeat([]byte{0xFF}, 20)))
 		}
@@ -118,29 +118,41 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 	}
 	root := tree.Hash()
 
+	// For spacing:
+	T := 10
+	nil______ := []byte(nil)
+
 	cases := []struct {
-		startKey byte
-		endKey   byte
-		keys     []byte // one byte per key.
+		start byte
+		end   byte
+		pkeys []byte // proof keys, one byte per key.
+		vals  []byte // keys and values, one byte per key.
+		lidx  int64  // proof left index (index of first proof key).
+		pnc   bool   // does panic
 	}{
-		{startKey: 0x0a, endKey: 0xf7, keys: keys[:10]},
-		{startKey: 0x0a, endKey: 0xf8, keys: keys[:10]},
-		{startKey: 0x0, endKey: 0xff, keys: keys[:]},
-		{startKey: 0x14, endKey: 0xe4, keys: keys[1:9]},
-		{startKey: 0x14, endKey: 0xe5, keys: keys[1:9]},
-		{startKey: 0x14, endKey: 0xe6, keys: keys[1:10]},
-		{startKey: 0x14, endKey: 0xf1, keys: keys[1:10]},
-		{startKey: 0x14, endKey: 0xf7, keys: keys[1:10]},
-		{startKey: 0x14, endKey: 0xff, keys: keys[1:10]},
-		{startKey: 0x2e, endKey: 0x31, keys: keys[2:4]},
-		{startKey: 0x2e, endKey: 0x32, keys: keys[2:4]},
-		{startKey: 0x2f, endKey: 0x32, keys: keys[2:4]},
-		{startKey: 0x2e, endKey: 0x31, keys: keys[2:4]},
-		{startKey: 0x2e, endKey: 0x2f, keys: keys[2:3]},
-		{startKey: 0x12, endKey: 0x31, keys: keys[1:4]},
-		{startKey: 0xf8, endKey: 0xff, keys: keys[9:10]},
-		{startKey: 0x12, endKey: 0x20, keys: keys[1:3]},
-		{startKey: 0x0, endKey: 0x09, keys: keys[0:1]},
+		{start: 0x0a, end: 0xf7, pkeys: keys[0:T], vals: keys[0:9], lidx: 0}, // #0
+		{start: 0x0a, end: 0xf8, pkeys: keys[0:T], vals: keys[0:T], lidx: 0}, // #1
+		{start: 0x00, end: 0xff, pkeys: keys[0:T], vals: keys[0:T], lidx: 0}, // #2
+		{start: 0x14, end: 0xe4, pkeys: keys[1:9], vals: keys[2:8], lidx: 1}, // #3
+		{start: 0x14, end: 0xe5, pkeys: keys[1:9], vals: keys[2:9], lidx: 1}, // #4
+		{start: 0x14, end: 0xe6, pkeys: keys[1:T], vals: keys[2:9], lidx: 1}, // #5
+		{start: 0x14, end: 0xf1, pkeys: keys[1:T], vals: keys[2:9], lidx: 1}, // #6
+		{start: 0x14, end: 0xf7, pkeys: keys[1:T], vals: keys[2:9], lidx: 1}, // #7
+		{start: 0x14, end: 0xff, pkeys: keys[1:T], vals: keys[2:T], lidx: 1}, // #8
+		{start: 0x2e, end: 0x31, pkeys: keys[2:4], vals: keys[2:3], lidx: 2}, // #9
+		{start: 0x2e, end: 0x32, pkeys: keys[2:4], vals: keys[2:3], lidx: 2}, // #10
+		{start: 0x2f, end: 0x32, pkeys: keys[2:4], vals: nil______, lidx: 2}, // #11
+		{start: 0x2e, end: 0x31, pkeys: keys[2:4], vals: keys[2:3], lidx: 2}, // #12
+		{start: 0x2e, end: 0x2f, pkeys: keys[2:3], vals: keys[2:3], lidx: 2}, // #13
+		{start: 0x12, end: 0x31, pkeys: keys[1:4], vals: keys[2:3], lidx: 1}, // #14
+		{start: 0xf8, end: 0xff, pkeys: keys[9:T], vals: nil______, lidx: 9}, // #15
+		{start: 0x12, end: 0x20, pkeys: keys[1:3], vals: nil______, lidx: 1}, // #16
+		{start: 0x00, end: 0x09, pkeys: keys[0:1], vals: nil______, lidx: 0}, // #17
+		{start: 0xf7, end: 0x00, pnc: true},                                  // #18
+		{start: 0xf8, end: 0x00, pnc: true},                                  // #19
+		{start: 0x10, end: 0x10, pnc: true},                                  // #20
+		{start: 0x12, end: 0x12, pnc: true},                                  // #21
+		{start: 0xff, end: 0xf7, pnc: true},                                  // #22
 	}
 
 	// fmt.Println("PRINT TREE")
@@ -149,24 +161,36 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 
 	for i, c := range cases {
 		t.Logf("case %v", i)
-		startKey := []byte{c.startKey}
-		endKey := []byte{c.endKey}
+		start := []byte{c.start}
+		end := []byte{c.end}
+
+		if c.pnc {
+			require.Panics(func() { tree.GetRangeWithProof(start, end, 0) })
+			continue
+		}
 
 		// Compute range proof.
-		keys, values, proof, err := tree.GetRangeWithProof(startKey, endKey, 0)
+		keys, values, proof, err := tree.GetRangeWithProof(start, end, 0)
 		require.NoError(err, "%+v", err)
-		require.Equal(c.keys, flatten(keys))
-		require.Equal(c.keys, flatten(values))
+		require.Equal(c.pkeys, flatten(proof.Keys()))
+		require.Equal(c.vals, flatten(keys))
+		require.Equal(c.vals, flatten(values))
+		require.Equal(c.lidx, proof.LeftIndex())
 
 		// Verify that proof is valid.
 		err = proof.Verify(root)
-
 		require.NoError(err, "%+v", err)
 		verifyProof(t, proof, root)
 
-		// Verify each value.
-		for i, key := range c.keys {
-			err := proof.VerifyItem(i, []byte{key}, []byte{key})
+		// Verify each value of pkeys.
+		for _, key := range c.pkeys {
+			err := proof.VerifyItem([]byte{key}, []byte{key})
+			require.NoError(err)
+		}
+
+		// Verify each value of vals.
+		for _, key := range c.vals {
+			err := proof.VerifyItem([]byte{key}, []byte{key})
 			require.NoError(err)
 		}
 	}
@@ -203,10 +227,6 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 				proofBytes, badProofBytes)
 		}
 	}
-
-	// targetted changes fails...
-	proof.RootHash = test.MutateByteSlice(proof.RootHash)
-	assert.Error(t, proof.Verify(root))
 }
 
 //----------------------------------------

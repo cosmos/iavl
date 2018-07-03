@@ -32,8 +32,8 @@
 [[projects]]
   name = "github.com/golang/protobuf"
   packages = ["proto"]
-  revision = "b4deda0973fb4c70b50d226b1af49f3da59f5265"
-  version = "v1.1.0"
+  revision = "925541529c1fa6821df4e44ce2723319eb2be768"
+  version = "v1.0.0"
 
 [[projects]]
   branch = "master"
@@ -52,6 +52,12 @@
   name = "github.com/kr/logfmt"
   packages = ["."]
   revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+
+[[projects]]
+  name = "github.com/pkg/errors"
+  packages = ["."]
+  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
+  version = "v0.8.0"
 
 [[projects]]
   name = "github.com/pmezard/go-difflib"
@@ -85,7 +91,7 @@
     "leveldb/table",
     "leveldb/util"
   ]
-  revision = "e2150783cd35f5b607daca48afd8c57ec54cc995"
+  revision = "0d5a0ceb10cf9ab89fdd744cc8c50a83134f6697"
 
 [[projects]]
   name = "github.com/tendermint/go-amino"
@@ -94,15 +100,15 @@
   version = "0.10.1"
 
 [[projects]]
-  name = "github.com/tendermint/tmlibs"
+  name = "github.com/tendermint/tendermint"
   packages = [
-    "common",
-    "db",
-    "log",
-    "test"
+    "libs/common",
+    "libs/db",
+    "libs/log",
+    "libs/test"
   ]
-  revision = "fb7ec62b2925f48de159aeea73b254ae8c58a738"
-  version = "v0.9.0-rc1"
+  revision = "5923b6288fe8ce9581936ee97c2bf9cf9c02c2f4"
+  version = "v0.22.0-rc2"
 
 [[projects]]
   branch = "master"
@@ -111,11 +117,11 @@
     "ripemd160",
     "sha3"
   ]
-  revision = "027cca12c2d63e3d62b670d901e8a2c95854feec"
+  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8a55172f8cb2ae9d808d8b95a285fb77fc54375798152b39287db19bc34ed92b"
+  inputs-digest = "ad12afa101079a7f5bcd70176fbbab42fd52e844b6c74c0fcf81315d33053f90"
   solver-name = "gps-cdcl"
   solver-version = 1
