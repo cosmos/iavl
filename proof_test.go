@@ -120,6 +120,8 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 
 	// For spacing:
 	T := 10
+	// disable: don't use underscores in Go names; var nil______ should be nil (golint)
+	// nolint
 	nil______ := []byte(nil)
 
 	cases := []struct {
