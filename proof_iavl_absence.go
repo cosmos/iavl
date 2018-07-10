@@ -3,6 +3,7 @@ package iavl
 import (
 	"fmt"
 
+	"github.com/tendermint/tendermint/crypto/merkle"
 	cmn "github.com/tendermint/tmlibs/common"
 )
 
@@ -20,7 +21,7 @@ type IAVLAbsenceOp struct {
 	Proof *RangeProof `json:"proof"`
 }
 
-var _ ProofOperator = IAVLAbsenceOp{}
+var _ merkle.ProofOperator = IAVLAbsenceOp{}
 
 func NewIAVLAbsenceOp(key string, proof *RangeProof) IAVLAbsenceOp {
 	return IAVLAbsenceOp{
@@ -44,7 +45,10 @@ func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	if err != nil {
 		return nil, cmn.ErrorWrap(err, "computing root hash")
 	}
-	err = op.Proof.VerifyAbsence(op.key)
+	// XXX What is the encoding for keys?
+	// We should decode the key depending on whether it's a string or hex,
+	// maybe based on quotes and 0x prefix?
+	err = op.Proof.VerifyAbsence([]byte(op.key))
 	if err != nil {
 		return nil, cmn.ErrorWrap(err, "verifying absence")
 	}
@@ -55,11 +59,11 @@ func (op IAVLAbsenceOp) GetKey() string {
 	return op.key
 }
 
-func (op IAVLAbsenceOp) ProofOp() ProofOp {
+func (op IAVLAbsenceOp) ProofOp() merkle.ProofOp {
 	bz := cdc.MustMarshalBinary(op)
-	return ProofOp{
+	return merkle.ProofOp{
 		Type: ProofOpIAVLAbsence,
 		Key:  op.key,
 		Data: bz,
-	}, nil
+	}
 }
