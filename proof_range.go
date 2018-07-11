@@ -310,6 +310,7 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 // If keyEnd-1 exists, no later leaves will be included.
 // If keyStart >= keyEnd and both not nil, panics.
 // Limit is never exceeded.
+// If the tree is empty, returns nil proof/keys/values/error.
 func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
 		panic("if keyStart and keyEnd are present, need keyStart < keyEnd.")
@@ -318,7 +319,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 		panic("limit must be greater or equal to 0 -- 0 means no limit")
 	}
 	if t.root == nil {
-		return nil, nil, nil, cmn.ErrorWrap(ErrNilRoot, "")
+		return nil, nil, nil, nil
 	}
 	t.root.hashWithCount() // Ensure that all hashes are calculated.
 
@@ -451,23 +452,20 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 
 // GetWithProof gets the value under the key if it exists, or returns nil.
 // A proof of existence or absence is returned alongside the value.
+// If the tree is empty, proof/error are nil.
 func (t *Tree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err error) {
 	proof, _, values, err := t.getRangeProof(key, cpIncr(key), 2)
-	if err == nil {
-		if len(values) > 0 {
-			if !bytes.Equal(proof.Leaves[0].Key, key) {
-				return nil, proof, nil
-			} else {
-				return values[0], proof, nil
-			}
-		} else {
-			return nil, proof, nil
-		}
+	if err != nil {
+		return nil, nil, cmn.ErrorWrap(err, "constructing range proof")
 	}
-	return nil, nil, cmn.ErrorWrap(err, "could not construct any proof")
+	if len(values) > 0 && bytes.Equal(proof.Leaves[0].Key, key) {
+		return values[0], proof, nil
+	}
+	return nil, proof, nil
 }
 
 // GetRangeWithProof gets key/value pairs within the specified range and limit.
+// If the tree is empty, proof/error are nil.
 func (t *Tree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) (keys, values [][]byte, proof *RangeProof, err error) {
 	proof, keys, values, err = t.getRangeProof(startKey, endKey, limit)
 	return
@@ -475,6 +473,7 @@ func (t *Tree) GetRangeWithProof(startKey []byte, endKey []byte, limit int) (key
 
 // GetVersionedWithProof gets the value under the key at the specified version
 // if it exists, or returns nil.
+// If the tree is empty, proof/error are nil.
 func (tree *VersionedTree) GetVersionedWithProof(key []byte, version int64) ([]byte, *RangeProof, error) {
 	if t, ok := tree.versions[version]; ok {
 		return t.GetWithProof(key)
@@ -484,6 +483,7 @@ func (tree *VersionedTree) GetVersionedWithProof(key []byte, version int64) ([]b
 
 // GetVersionedRangeWithProof gets key/value pairs within the specified range
 // and limit.
+// If the tree is empty, proof/error are nil.
 func (tree *VersionedTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version int64) (
 	keys, values [][]byte, proof *RangeProof, err error) {
 

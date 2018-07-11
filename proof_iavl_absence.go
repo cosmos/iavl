@@ -14,10 +14,10 @@ const ProofOpIAVLAbsence = "iavl:a"
 // If the produced root hash matches the expected hash, the proof
 // is good.
 type IAVLAbsenceOp struct {
-	// encoded in ProofOp.Key, not .Data
-	key string
+	key string // encoded in ProofOp.Key, not .Data
 
-	// To encode in ProofOp.Data
+	// Proof is nil for an empty tree.
+	// The hash of an empty tree is nil.
 	Proof *RangeProof `json:"proof"`
 }
 
@@ -37,6 +37,10 @@ func (op IAVLAbsenceOp) String() string {
 func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	if len(args) != 0 {
 		return nil, cmn.NewError("expected 0 args, got %v", len(args))
+	}
+	// If the tree is nil, the proof is nil, and all keys are absent.
+	if op.Proof == nil {
+		return [][]byte(nil), nil
 	}
 	// Compute the root hash and assume it is valid.
 	// The caller checks the ultimate root later.

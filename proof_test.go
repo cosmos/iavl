@@ -50,9 +50,12 @@ func TestTreeKeyExistsProof(t *testing.T) {
 	root := tree.Hash()
 
 	// should get false for proof with nil root
-	proof, _, _, err := tree.getRangeProof([]byte("foo"), nil, 1)
-	assert.NotNil(t, err)
-	assert.NotNil(t, proof.Verify(root))
+	proof, keys, values, err := tree.getRangeProof([]byte("foo"), nil, 1)
+	assert.Nil(t, proof)
+	assert.Error(t, proof.Verify(root))
+	assert.Nil(t, keys)
+	assert.Nil(t, values)
+	assert.NoError(t, err)
 
 	// insert lots of info and store the bytes
 	allkeys := make([][]byte, 200)

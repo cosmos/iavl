@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.0 (July 11, 2018)
+
+BREAKING CHANGES
+
+- getRangeProof and Get\[Versioned\]\[Range\]WithProof return nil proof/error if tree is empty.
+
 ## 0.9.1 (July 1, 2018)
 
 IMPROVEMENTS
