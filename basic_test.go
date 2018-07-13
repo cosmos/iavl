@@ -12,7 +12,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var tree *Tree = NewTree(nil, 0)
+	tree := NewTree(nil, 0)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -220,7 +220,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	var tree *Tree = NewTree(nil, 0)
+	tree := NewTree(nil, 0)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -302,7 +302,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	var tree *Tree = NewTree(nil, 0)
+	tree := NewTree(nil, 0)
 
 	// insert all the data
 	for _, r := range records {
@@ -394,7 +394,7 @@ func TestProof(t *testing.T) {
 
 	// Construct some random tree
 	db := db.NewMemDB()
-	var tree *VersionedTree = NewVersionedTree(db, 100)
+	tree := NewVersionedTree(db, 100)
 	for i := 0; i < 1000; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
@@ -423,7 +423,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	var tree *Tree = NewTree(db, 100)
+	tree := NewTree(db, 100)
 
 	// should get false for proof with nil root
 	_, _, err := tree.GetWithProof([]byte("foo"))

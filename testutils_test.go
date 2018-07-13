@@ -13,18 +13,6 @@ import (
 	"github.com/tendermint/tendermint/libs/db"
 )
 
-func dummyPathToLeaf(t *Tree, key []byte) PathToLeaf {
-	path, _, err := t.root.PathToLeaf(t, key)
-	if err != nil {
-		panic(err)
-	}
-	return path
-}
-
-func dummyLeafNode(key, val []byte) proofLeafNode {
-	return proofLeafNode{key, val, 1}
-}
-
 func randstr(length int) string {
 	return cmn.RandStr(length)
 }
@@ -78,9 +66,8 @@ func T(n *Node) *Tree {
 func P(n *Node) string {
 	if n.height == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
-	} else {
-		return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
 	}
+	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
 }
 
 func randBytes(length int) []byte {
@@ -101,7 +88,7 @@ func (t *traverser) view(key, value []byte) bool {
 		t.first = string(key)
 	}
 	t.last = string(key)
-	t.count += 1
+	t.count++
 	return false
 }
 

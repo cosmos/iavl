@@ -45,8 +45,8 @@ func (p *program) addInstruction(i instruction) {
 	p.instructions = append(p.instructions, i)
 }
 
-func (prog *program) size() int {
-	return len(prog.instructions)
+func (p *program) size() int {
+	return len(p.instructions)
 }
 
 type instruction struct {

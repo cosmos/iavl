@@ -60,11 +60,11 @@ func (proof *RangeProof) String() string {
 func (proof *RangeProof) StringIndented(indent string) string {
 	istrs := make([]string, 0, len(proof.InnerNodes))
 	for _, ptl := range proof.InnerNodes {
-		istrs = append(istrs, ptl.StringIndented(indent+"    "))
+		istrs = append(istrs, ptl.stringIndented(indent+"    "))
 	}
 	lstrs := make([]string, 0, len(proof.Leaves))
 	for _, leaf := range proof.Leaves {
-		lstrs = append(lstrs, leaf.StringIndented(indent+"    "))
+		lstrs = append(lstrs, leaf.stringIndented(indent+"    "))
 	}
 	return fmt.Sprintf(`RangeProof{
 %s  LeftPath: %v
@@ -76,7 +76,7 @@ func (proof *RangeProof) StringIndented(indent string) string {
 %s  (rootHash): %X
 %s  (treeEnd): %v
 %s}`,
-		indent, proof.LeftPath.StringIndented(indent+"  "),
+		indent, proof.LeftPath.stringIndented(indent+"  "),
 		indent,
 		indent, strings.Join(istrs, "\n"+indent+"    "),
 		indent,
@@ -134,9 +134,8 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	if cmp < 0 {
 		if proof.LeftPath.isLeftmost() {
 			return nil
-		} else {
-			return cmn.NewError("absence not proved by left path")
 		}
+		return cmn.NewError("absence not proved by left path")
 	} else if cmp == 0 {
 		return cmn.NewError("absence disproved via first item #0")
 	}
@@ -158,7 +157,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		} else {
 			if i == len(proof.Leaves)-1 {
 				// If last item, check whether
-				// it's the last item in teh tree.
+				// it's the last item in the tree.
 
 			}
 			continue
@@ -173,9 +172,8 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	// It's not a valid absence proof.
 	if len(proof.Leaves) < 2 {
 		return cmn.NewError("absence not proved by right leaf (need another leaf?)")
-	} else {
-		return cmn.NewError("absence not proved by right leaf")
 	}
+	return cmn.NewError("absence not proved by right leaf")
 }
 
 // Verify that proof is valid.
@@ -187,7 +185,7 @@ func (proof *RangeProof) Verify(root []byte) error {
 	return err
 }
 
-func (proof *RangeProof) verify(root []byte) (err error) {
+func (proof *RangeProof) verify(root []byte) error {
 	rootHash := proof.rootHash
 	if rootHash == nil {
 		derivedHash, err := proof.computeRootHash()
@@ -198,9 +196,8 @@ func (proof *RangeProof) verify(root []byte) (err error) {
 	}
 	if !bytes.Equal(rootHash, root) {
 		return cmn.ErrorWrap(ErrInvalidRoot, "root hash doesn't match")
-	} else {
-		proof.rootVerified = true
 	}
+	proof.rootVerified = true
 	return nil
 }
 
@@ -313,12 +310,13 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 ///////////////////////////////////////////////////////////////////////////////
 
 // keyStart is inclusive and keyEnd is exclusive.
+// Returns the range-proof and the included keys and values.
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
 // If keyEnd-1 exists, no later leaves will be included.
 // If keyStart >= keyEnd and both not nil, panics.
 // Limit is never exceeded.
-func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
+func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (*RangeProof, [][]byte, [][]byte, error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
 		panic("if keyStart and keyEnd are present, need keyStart < keyEnd.")
 	}
@@ -335,17 +333,18 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 	if err != nil {
 		// Key doesn't exist, but instead we got the prev leaf (or the
 		// first or last leaf), which provides proof of absence).
-		err = nil
+		// err = nil isn't necessary as we do not use it in the returns below
 	}
 	startOK := keyStart == nil || bytes.Compare(keyStart, left.key) <= 0
 	endOK := keyEnd == nil || bytes.Compare(left.key, keyEnd) < 0
 	// If left.key is in range, add it to key/values.
+	var keys, values [][]byte
 	if startOK && endOK {
 		keys = append(keys, left.key) // == keyStart
 		values = append(values, left.value)
 	}
 	// Either way, add to proof leaves.
-	var leaves = []proofLeafNode{proofLeafNode{
+	var leaves = []proofLeafNode{{
 		Key:       left.key,
 		ValueHash: tmhash.Sum(left.value),
 		Version:   left.version,
@@ -395,9 +394,9 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 						pn.Right != nil && !bytes.Equal(pn.Right, node.rightHash) {
 
 						// We've diverged, so start appending to inners.
-						pathCount = -1
+						pathCount--
 					} else {
-						pathCount += 1
+						pathCount++
 					}
 				}
 			}
@@ -413,7 +412,7 @@ func (t *Tree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangePr
 					ValueHash: tmhash.Sum(node.value),
 					Version:   node.version,
 				})
-				leafCount += 1
+				leafCount++
 				// Maybe terminate because we found enough leaves.
 				if limit > 0 && limit <= leafCount {
 					return true
@@ -466,12 +465,10 @@ func (t *Tree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err er
 		if len(values) > 0 {
 			if !bytes.Equal(proof.Leaves[0].Key, key) {
 				return nil, proof, nil
-			} else {
-				return values[0], proof, nil
 			}
-		} else {
-			return nil, proof, nil
+			return values[0], proof, nil
 		}
+		return nil, proof, nil
 	}
 	return nil, nil, cmn.ErrorWrap(err, "could not construct any proof")
 }
