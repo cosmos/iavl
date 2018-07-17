@@ -10,15 +10,9 @@ import (
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
-type SubstoreCommitID struct {
-	Name string `json:"name"`
-	Version int64 `json:"version"`
-	CommitHash    cmn.HexBytes `json:"commit_hash"`
-}
-
 type RangeProof struct {
-	MultiStoreCommitInfo []SubstoreCommitID `json:"multi_store_commit_info"`
-	StoreName string `json:"store_name"`
+	// You can attach arbitrary data here
+	Appendix []byte `json:"appendix"`
 	// You don't need the right path because
 	// it can be derived from what we have.
 	LeftPath   PathToLeaf      `json:"left_path"`
