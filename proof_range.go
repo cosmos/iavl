@@ -11,6 +11,8 @@ import (
 )
 
 type RangeProof struct {
+	// You can attach arbitrary data here
+	Appendix []byte `json:"appendix"`
 	// You don't need the right path because
 	// it can be derived from what we have.
 	LeftPath   PathToLeaf      `json:"left_path"`
