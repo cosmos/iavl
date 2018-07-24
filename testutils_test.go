@@ -53,9 +53,9 @@ func N(l, r interface{}) *Node {
 }
 
 // Setup a deep node
-func T(n *Node) *VersionedTree {
+func T(n *Node) *MutableTree {
 	d := db.NewDB("test", db.MemDBBackend, "")
-	t := NewVersionedTree(d, 0)
+	t := NewMutableTree(d, 0)
 
 	n.hashWithCount()
 	t.root = n
@@ -114,7 +114,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t := NewVersionedTree(db, 100000)
+	t := NewMutableTree(db, 100000)
 	for i := 0; i < 1000000; i++ {
 		t.Set(i2b(int(cmn.RandInt32())), nil)
 		if i > 990000 && i%1000 == 999 {

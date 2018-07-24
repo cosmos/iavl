@@ -140,7 +140,7 @@ func (node *Node) isLeaf() bool {
 }
 
 // Check if the node has a descendant with the given key.
-func (node *Node) has(t *Tree, key []byte) (has bool) {
+func (node *Node) has(t *ImmutableTree, key []byte) (has bool) {
 	if bytes.Equal(node.key, key) {
 		return true
 	}
@@ -154,7 +154,7 @@ func (node *Node) has(t *Tree, key []byte) (has bool) {
 }
 
 // Get a key under the node.
-func (node *Node) get(t *Tree, key []byte) (index int64, value []byte) {
+func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte) {
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -175,7 +175,7 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte) {
 	return index, value
 }
 
-func (node *Node) getByIndex(t *Tree, index int64) (key []byte, value []byte) {
+func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value []byte) {
 	if node.isLeaf() {
 		if index == 0 {
 			return node.key, node.value
@@ -341,14 +341,14 @@ func (node *Node) writeBytes(w io.Writer) cmn.Error {
 	return nil
 }
 
-func (node *Node) getLeftNode(t *Tree) *Node {
+func (node *Node) getLeftNode(t *ImmutableTree) *Node {
 	if node.leftNode != nil {
 		return node.leftNode
 	}
 	return t.ndb.GetNode(node.leftHash)
 }
 
-func (node *Node) getRightNode(t *Tree) *Node {
+func (node *Node) getRightNode(t *ImmutableTree) *Node {
 	if node.rightNode != nil {
 		return node.rightNode
 	}
@@ -356,7 +356,7 @@ func (node *Node) getRightNode(t *Tree) *Node {
 }
 
 // Rotate right and return the new node and orphan.
-func (node *Node) rotateRight(t *Tree) (newNode *Node, orphan *Node) {
+func (node *Node) rotateRight(t *ImmutableTree) (newNode *Node, orphan *Node) {
 	version := t.version + 1
 
 	// TODO: optimize balance & rotate.
@@ -375,7 +375,7 @@ func (node *Node) rotateRight(t *Tree) (newNode *Node, orphan *Node) {
 }
 
 // Rotate left and return the new node and orphan.
-func (node *Node) rotateLeft(t *Tree) (newNode *Node, orphan *Node) {
+func (node *Node) rotateLeft(t *ImmutableTree) (newNode *Node, orphan *Node) {
 	version := t.version + 1
 
 	// TODO: optimize balance & rotate.
@@ -394,18 +394,18 @@ func (node *Node) rotateLeft(t *Tree) (newNode *Node, orphan *Node) {
 }
 
 // NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(t *Tree) {
+func (node *Node) calcHeightAndSize(t *ImmutableTree) {
 	node.height = maxInt8(node.getLeftNode(t).height, node.getRightNode(t).height) + 1
 	node.size = node.getLeftNode(t).size + node.getRightNode(t).size
 }
 
-func (node *Node) calcBalance(t *Tree) int {
+func (node *Node) calcBalance(t *ImmutableTree) int {
 	return int(node.getLeftNode(t).height) - int(node.getRightNode(t).height)
 }
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (node *Node) balance(t *Tree) (newSelf *Node, orphaned []*Node) {
+func (node *Node) balance(t *ImmutableTree) (newSelf *Node, orphaned []*Node) {
 	if node.persisted {
 		panic("Unexpected balance() call on persisted node")
 	}
@@ -448,17 +448,17 @@ func (node *Node) balance(t *Tree) (newSelf *Node, orphaned []*Node) {
 }
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
-func (node *Node) traverse(t *Tree, ascending bool, cb func(*Node) bool) bool {
+func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, 0, func(node *Node, depth uint8) bool {
 		return cb(node)
 	})
 }
 
-func (node *Node) traverseWithDepth(t *Tree, ascending bool, cb func(*Node, uint8) bool) bool {
+func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*Node, uint8) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, 0, cb)
 }
 
-func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
+func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
 	afterStart := start == nil || bytes.Compare(start, node.key) < 0
 	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
@@ -506,7 +506,7 @@ func (node *Node) traverseInRange(t *Tree, start, end []byte, ascending bool, in
 }
 
 // Only used in testing...
-func (node *Node) lmd(t *Tree) *Node {
+func (node *Node) lmd(t *ImmutableTree) *Node {
 	if node.isLeaf() {
 		return node
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	tree := NewVersionedTree(db.NewMemDB(), 0)
+	tree := NewMutableTree(db.NewMemDB(), 0)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -103,7 +103,7 @@ func TestBasic(t *testing.T) {
 
 func TestUnit(t *testing.T) {
 
-	expectHash := func(tree *Tree, hashCount int64) {
+	expectHash := func(tree *ImmutableTree, hashCount int64) {
 		// ensure number of new hash calculations is as expected.
 		hash, count := tree.hashWithCount()
 		if count != hashCount {
@@ -121,7 +121,7 @@ func TestUnit(t *testing.T) {
 		}
 	}
 
-	expectSet := func(tree *VersionedTree, i int, repr string, hashCount int64) {
+	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
 		updated := tree.Set(i2b(i), []byte{})
 		// ensure node was added & structure is as expected.
@@ -130,11 +130,11 @@ func TestUnit(t *testing.T) {
 				i, P(origNode), repr, P(tree.root), updated)
 		}
 		// ensure hash calculation requirements
-		expectHash(tree.Tree, hashCount)
+		expectHash(tree.ImmutableTree, hashCount)
 		tree.root = origNode
 	}
 
-	expectRemove := func(tree *VersionedTree, i int, repr string, hashCount int64) {
+	expectRemove := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
 		value, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
@@ -143,7 +143,7 @@ func TestUnit(t *testing.T) {
 				i, P(origNode), repr, P(tree.root), value, removed)
 		}
 		// ensure hash calculation requirements
-		expectHash(tree.Tree, hashCount)
+		expectHash(tree.ImmutableTree, hashCount)
 		tree.root = origNode
 	}
 
@@ -190,7 +190,7 @@ func TestRemove(t *testing.T) {
 
 	d := db.NewDB("test", "memdb", "")
 	defer d.Close()
-	t1 := NewVersionedTree(d, size)
+	t1 := NewMutableTree(d, size)
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
@@ -220,7 +220,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	tree := NewVersionedTree(db.NewMemDB(), 0)
+	tree := NewMutableTree(db.NewMemDB(), 0)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -302,7 +302,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	tree := NewVersionedTree(db.NewMemDB(), 0)
+	tree := NewMutableTree(db.NewMemDB(), 0)
 
 	// insert all the data
 	for _, r := range records {
@@ -372,14 +372,14 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1 := NewVersionedTree(db, 0)
+	t1 := NewMutableTree(db, 0)
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
 	t1.SaveVersion()
 
 	// Load a tree
-	t2 := NewVersionedTree(db, 0)
+	t2 := NewMutableTree(db, 0)
 	t2.Load()
 	for key, value := range records {
 		_, t2value := t2.Get64([]byte(key))
@@ -394,7 +394,7 @@ func TestProof(t *testing.T) {
 
 	// Construct some random tree
 	db := db.NewMemDB()
-	tree := NewVersionedTree(db, 100)
+	tree := NewMutableTree(db, 100)
 	for i := 0; i < 1000; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
@@ -423,7 +423,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	tree := NewVersionedTree(db, 100)
+	tree := NewMutableTree(db, 100)
 
 	// should get false for proof with nil root
 	_, _, err := tree.GetWithProof([]byte("foo"))
