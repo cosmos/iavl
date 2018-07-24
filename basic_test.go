@@ -12,7 +12,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	tree := NewTree(nil, 0)
+	tree := NewVersionedTree(db.NewMemDB(), 0)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -121,7 +121,7 @@ func TestUnit(t *testing.T) {
 		}
 	}
 
-	expectSet := func(tree *Tree, i int, repr string, hashCount int64) {
+	expectSet := func(tree *VersionedTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
 		updated := tree.Set(i2b(i), []byte{})
 		// ensure node was added & structure is as expected.
@@ -130,11 +130,11 @@ func TestUnit(t *testing.T) {
 				i, P(origNode), repr, P(tree.root), updated)
 		}
 		// ensure hash calculation requirements
-		expectHash(tree, hashCount)
+		expectHash(tree.Tree, hashCount)
 		tree.root = origNode
 	}
 
-	expectRemove := func(tree *Tree, i int, repr string, hashCount int64) {
+	expectRemove := func(tree *VersionedTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
 		value, removed := tree.Remove(i2b(i))
 		// ensure node was added & structure is as expected.
@@ -143,7 +143,7 @@ func TestUnit(t *testing.T) {
 				i, P(origNode), repr, P(tree.root), value, removed)
 		}
 		// ensure hash calculation requirements
-		expectHash(tree, hashCount)
+		expectHash(tree.Tree, hashCount)
 		tree.root = origNode
 	}
 
@@ -220,7 +220,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	tree := NewTree(nil, 0)
+	tree := NewVersionedTree(db.NewMemDB(), 0)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -302,7 +302,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	tree := NewTree(nil, 0)
+	tree := NewVersionedTree(db.NewMemDB(), 0)
 
 	// insert all the data
 	for _, r := range records {
@@ -415,7 +415,7 @@ func TestProof(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, value, value2)
 		if assert.NotNil(t, proof) {
-			verifyProof(t, proof, tree.Hash())
+			verifyProof(t, proof, tree.WorkingHash())
 		}
 		return false
 	})
@@ -423,7 +423,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	tree := NewTree(db, 100)
+	tree := NewVersionedTree(db, 100)
 
 	// should get false for proof with nil root
 	_, _, err := tree.GetWithProof([]byte("foo"))
@@ -442,7 +442,7 @@ func TestTreeProof(t *testing.T) {
 	assert.NoError(t, err)
 
 	// valid proof for real keys
-	root := tree.Hash()
+	root := tree.WorkingHash()
 	for _, key := range keys {
 		value, proof, err := tree.GetWithProof(key)
 		if assert.NoError(t, err) {

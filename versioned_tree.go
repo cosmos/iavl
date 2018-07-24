@@ -53,6 +53,10 @@ func (tree *VersionedTree) Hash() []byte {
 	return nil
 }
 
+func (tree *VersionedTree) WorkingHash() []byte {
+	return tree.Tree.Hash()
+}
+
 // String returns a string representation of the tree.
 func (tree *VersionedTree) String() string {
 	return tree.ndb.String()
@@ -60,9 +64,75 @@ func (tree *VersionedTree) String() string {
 
 // Set sets a key in the working tree. Nil values are not supported.
 func (tree *VersionedTree) Set(key, value []byte) bool {
-	orphaned, updated := tree.Tree.set(key, value)
+	orphaned, updated := tree.set(key, value)
 	tree.addOrphans(orphaned)
 	return updated
+}
+
+func (t *VersionedTree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
+	if value == nil {
+		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))
+	}
+	if t.Tree.root == nil {
+		t.Tree.root = NewNode(key, value, t.version+1)
+		return nil, false
+	}
+	t.Tree.root, updated, orphaned = t.recursiveSet(t.Tree.root, key, value)
+
+	return orphaned, updated
+}
+
+func (t *VersionedTree) recursiveSet(node *Node, key []byte, value []byte) (
+	newSelf *Node, updated bool, orphaned []*Node,
+) {
+	version := t.version + 1
+
+	if node.isLeaf() {
+		switch bytes.Compare(key, node.key) {
+		case -1:
+			return &Node{
+				key:       node.key,
+				height:    1,
+				size:      2,
+				leftNode:  NewNode(key, value, version),
+				rightNode: node,
+				version:   version,
+			}, false, []*Node{}
+		case 1:
+			return &Node{
+				key:       key,
+				height:    1,
+				size:      2,
+				leftNode:  node,
+				rightNode: NewNode(key, value, version),
+				version:   version,
+			}, false, []*Node{}
+		default:
+			return NewNode(key, value, version), true, []*Node{node}
+		}
+	} else {
+		orphaned = append(orphaned, node)
+		node = node.clone(version)
+
+		if bytes.Compare(key, node.key) < 0 {
+			var leftOrphaned []*Node
+			node.leftNode, updated, leftOrphaned = t.recursiveSet(node.getLeftNode(t.Tree), key, value)
+			node.leftHash = nil // leftHash is yet unknown
+			orphaned = append(orphaned, leftOrphaned...)
+		} else {
+			var rightOrphaned []*Node
+			node.rightNode, updated, rightOrphaned = t.recursiveSet(node.getRightNode(t.Tree), key, value)
+			node.rightHash = nil // rightHash is yet unknown
+			orphaned = append(orphaned, rightOrphaned...)
+		}
+
+		if updated {
+			return node, updated, orphaned
+		}
+		node.calcHeightAndSize(t.Tree)
+		newNode, balanceOrphaned := node.balance(t.Tree)
+		return newNode, updated, append(orphaned, balanceOrphaned...)
+	}
 }
 
 // Remove removes a key from the working tree.

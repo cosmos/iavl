@@ -341,59 +341,6 @@ func (node *Node) writeBytes(w io.Writer) cmn.Error {
 	return nil
 }
 
-func (node *Node) set(t *Tree, key []byte, value []byte) (
-	newSelf *Node, updated bool, orphaned []*Node,
-) {
-	version := t.version + 1
-
-	if node.isLeaf() {
-		switch bytes.Compare(key, node.key) {
-		case -1:
-			return &Node{
-				key:       node.key,
-				height:    1,
-				size:      2,
-				leftNode:  NewNode(key, value, version),
-				rightNode: node,
-				version:   version,
-			}, false, []*Node{}
-		case 1:
-			return &Node{
-				key:       key,
-				height:    1,
-				size:      2,
-				leftNode:  node,
-				rightNode: NewNode(key, value, version),
-				version:   version,
-			}, false, []*Node{}
-		default:
-			return NewNode(key, value, version), true, []*Node{node}
-		}
-	} else {
-		orphaned = append(orphaned, node)
-		node = node.clone(version)
-
-		if bytes.Compare(key, node.key) < 0 {
-			var leftOrphaned []*Node
-			node.leftNode, updated, leftOrphaned = node.getLeftNode(t).set(t, key, value)
-			node.leftHash = nil // leftHash is yet unknown
-			orphaned = append(orphaned, leftOrphaned...)
-		} else {
-			var rightOrphaned []*Node
-			node.rightNode, updated, rightOrphaned = node.getRightNode(t).set(t, key, value)
-			node.rightHash = nil // rightHash is yet unknown
-			orphaned = append(orphaned, rightOrphaned...)
-		}
-
-		if updated {
-			return node, updated, orphaned
-		}
-		node.calcHeightAndSize(t)
-		newNode, balanceOrphaned := node.balance(t)
-		return newNode, updated, append(orphaned, balanceOrphaned...)
-	}
-}
-
 // removes the node corresponding to the passed key and balances the tree.
 // It returns:
 // - the hash of the new node (or nil if the node is the one removed)

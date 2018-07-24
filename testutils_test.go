@@ -53,9 +53,9 @@ func N(l, r interface{}) *Node {
 }
 
 // Setup a deep node
-func T(n *Node) *Tree {
+func T(n *Node) *VersionedTree {
 	d := db.NewDB("test", db.MemDBBackend, "")
-	t := NewTree(d, 0)
+	t := NewVersionedTree(d, 0)
 
 	n.hashWithCount()
 	t.root = n

@@ -79,25 +79,6 @@ func (t *Tree) Has(key []byte) bool {
 	return t.root.has(t, key)
 }
 
-// Set a key. Nil values are not supported.
-func (t *Tree) Set(key []byte, value []byte) (updated bool) {
-	_, updated = t.set(key, value)
-	return updated
-}
-
-func (t *Tree) set(key []byte, value []byte) (orphaned []*Node, updated bool) {
-	if value == nil {
-		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))
-	}
-	if t.root == nil {
-		t.root = NewNode(key, value, t.version+1)
-		return nil, false
-	}
-	t.root, updated, orphaned = t.root.set(t, key, value)
-
-	return orphaned, updated
-}
-
 // Hash returns the root hash.
 func (t *Tree) Hash() []byte {
 	if t.root == nil {
