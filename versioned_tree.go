@@ -13,9 +13,10 @@ var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
 // VersionedTree is a persistent tree which keeps track of versions.
 type VersionedTree struct {
-	*orphaningTree                 // The current, working tree.
-	versions       map[int64]*Tree // The previous, saved versions of the tree.
-	ndb            *nodeDB
+	*Tree                     // The current, working tree.
+	orphans  map[string]int64 // Nodes removed by changes to working tree
+	versions map[int64]*Tree  // The previous, saved versions of the tree.
+	ndb      *nodeDB
 }
 
 // NewVersionedTree returns a new tree with the specified cache size and datastore.
@@ -24,27 +25,23 @@ func NewVersionedTree(db dbm.DB, cacheSize int) *VersionedTree {
 	head := &Tree{ndb: ndb}
 
 	return &VersionedTree{
-		orphaningTree: newOrphaningTree(head),
-		versions:      map[int64]*Tree{},
-		ndb:           ndb,
+		Tree:     head,
+		orphans:  map[string]int64{},
+		versions: map[int64]*Tree{},
+		ndb:      ndb,
 	}
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
 // not empty can be saved.
 func (tree *VersionedTree) IsEmpty() bool {
-	return tree.orphaningTree.Size() == 0
+	return tree.Tree.Size() == 0
 }
 
 // VersionExists returns whether or not a version exists.
 func (tree *VersionedTree) VersionExists(version int64) bool {
 	_, ok := tree.versions[version]
 	return ok
-}
-
-// Tree returns the current working tree.
-func (tree *VersionedTree) Tree() *Tree {
-	return tree.orphaningTree.Tree
 }
 
 // Hash returns the hash of the latest saved version of the tree, as returned
@@ -62,13 +59,17 @@ func (tree *VersionedTree) String() string {
 }
 
 // Set sets a key in the working tree. Nil values are not supported.
-func (tree *VersionedTree) Set(key, val []byte) bool {
-	return tree.orphaningTree.Set(key, val)
+func (tree *VersionedTree) Set(key, value []byte) bool {
+	orphaned, updated := tree.Tree.set(key, value)
+	tree.addOrphans(orphaned)
+	return updated
 }
 
 // Remove removes a key from the working tree.
 func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
-	return tree.orphaningTree.Remove(key)
+	val, orphaned, removed := tree.Tree.remove(key)
+	tree.addOrphans(orphaned)
+	return val, removed
 }
 
 // Load the latest versioned tree from disk.
@@ -119,9 +120,8 @@ func (tree *VersionedTree) LoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	// Set the working tree to a copy of the latest.
-	tree.orphaningTree = newOrphaningTree(
-		tree.versions[latestVersion].clone(),
-	)
+	tree.Tree = tree.versions[latestVersion].clone()
+	tree.orphans = map[string]int64{}
 
 	return latestVersion, nil
 }
@@ -130,12 +130,11 @@ func (tree *VersionedTree) LoadVersion(targetVersion int64) (int64, error) {
 // any unsaved modifications.
 func (tree *VersionedTree) Rollback() {
 	if tree.version > 0 {
-		tree.orphaningTree = newOrphaningTree(
-			tree.versions[tree.version].clone(),
-		)
+		tree.Tree = tree.versions[tree.version].clone()
 	} else {
-		tree.orphaningTree = newOrphaningTree(&Tree{ndb: tree.ndb, version: 0})
+		tree.Tree = &Tree{ndb: tree.ndb, version: 0}
 	}
+	tree.orphans = map[string]int64{}
 }
 
 // GetVersioned gets the value at the specified key and version.
@@ -156,9 +155,10 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 	if _, ok := tree.versions[version]; ok {
 		// Same hash means idempotent.  Return success.
 		var existingHash = tree.versions[version].Hash()
-		var newHash = tree.orphaningTree.Hash()
+		var newHash = tree.Tree.Hash()
 		if bytes.Equal(existingHash, newHash) {
-			tree.orphaningTree = newOrphaningTree(tree.versions[version].clone())
+			tree.Tree = tree.versions[version].clone()
+			tree.orphans = map[string]int64{}
 			return existingHash, version, nil
 		}
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
@@ -166,11 +166,12 @@ func (tree *VersionedTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	// Persist version and stash to .versions.
-	tree.orphaningTree.SaveAs(version)
-	tree.versions[version] = tree.orphaningTree.Tree
+	tree.SaveOrphans(version)
+	tree.versions[version] = tree.Tree
 
 	// Set new working tree.
-	tree.orphaningTree = newOrphaningTree(tree.orphaningTree.clone())
+	tree.Tree = tree.Tree.clone()
+	tree.orphans = map[string]int64{}
 
 	return tree.Hash(), version, nil
 }
@@ -194,4 +195,38 @@ func (tree *VersionedTree) DeleteVersion(version int64) error {
 	delete(tree.versions, version)
 
 	return nil
+}
+
+func (tree *VersionedTree) SaveOrphans(version int64) {
+	if version != tree.version+1 {
+		panic(fmt.Sprintf("Expected to save version %d but tried to save %d", tree.version+1, version))
+	}
+	if tree.root == nil {
+		// There can still be orphans, for example if the root is the node being
+		// removed.
+		debug("SAVE EMPTY TREE %v\n", version)
+		tree.ndb.SaveOrphans(version, tree.orphans)
+		tree.ndb.SaveEmptyRoot(version)
+	} else {
+		debug("SAVE TREE %v\n", version)
+		// Save the current tree.
+		tree.ndb.SaveBranch(tree.root)
+		tree.ndb.SaveOrphans(version, tree.orphans)
+		tree.ndb.SaveRoot(tree.root, version)
+	}
+	tree.ndb.Commit()
+	tree.version = version
+}
+
+func (tree *VersionedTree) addOrphans(orphans []*Node) {
+	for _, node := range orphans {
+		if !node.persisted {
+			// We don't need to orphan nodes that were never persisted.
+			continue
+		}
+		if len(node.hash) == 0 {
+			panic("Expected to find node hash, but was empty")
+		}
+		tree.orphans[string(node.hash)] = node.version
+	}
 }
