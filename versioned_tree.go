@@ -137,9 +137,84 @@ func (t *VersionedTree) recursiveSet(node *Node, key []byte, value []byte) (
 
 // Remove removes a key from the working tree.
 func (tree *VersionedTree) Remove(key []byte) ([]byte, bool) {
-	val, orphaned, removed := tree.Tree.remove(key)
+	val, orphaned, removed := tree.remove(key)
 	tree.addOrphans(orphaned)
 	return val, removed
+}
+
+// remove tries to remove a key from the tree and if removed, returns its
+// value, nodes orphaned and 'true'.
+func (t *VersionedTree) remove(key []byte) (value []byte, orphans []*Node, removed bool) {
+	if t.root == nil {
+		return nil, nil, false
+	}
+	newRootHash, newRoot, _, value, orphaned := t.recursiveRemove(t.root, key)
+	if len(orphaned) == 0 {
+		return nil, nil, false
+	}
+
+	if newRoot == nil && newRootHash != nil {
+		t.root = t.ndb.GetNode(newRootHash)
+	} else {
+		t.root = newRoot
+	}
+	return value, orphaned, true
+}
+
+// removes the node corresponding to the passed key and balances the tree.
+// It returns:
+// - the hash of the new node (or nil if the node is the one removed)
+// - the node that replaces the orig. node after remove
+// - new leftmost leaf key for tree after successfully removing 'key' if changed.
+// - the removed value
+// - the orphaned nodes.
+func (t *VersionedTree) recursiveRemove(node *Node, key []byte) ([]byte, *Node, []byte, []byte, []*Node) {
+	version := t.version + 1
+
+	if node.isLeaf() {
+		if bytes.Equal(key, node.key) {
+			return nil, nil, nil, node.value, []*Node{node}
+		}
+		return node.hash, node, nil, nil, nil
+	}
+
+	// node.key < key; we go to the left to find the key:
+	if bytes.Compare(key, node.key) < 0 {
+		newLeftHash, newLeftNode, newKey, value, orphaned := t.recursiveRemove(node.getLeftNode(t.Tree), key)
+
+		if len(orphaned) == 0 {
+			return node.hash, node, nil, value, orphaned
+		} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
+			return node.rightHash, node.rightNode, node.key, value, orphaned
+		}
+		orphaned = append(orphaned, node)
+
+		newNode := node.clone(version)
+		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
+		newNode.calcHeightAndSize(t.Tree)
+		newNode, balanceOrphaned := newNode.balance(t.Tree)
+
+		return newNode.hash, newNode, newKey, value, append(orphaned, balanceOrphaned...)
+	}
+	// node.key >= key; either found or look to the right:
+	newRightHash, newRightNode, newKey, value, orphaned := t.recursiveRemove(node.getRightNode(t.Tree), key)
+
+	if len(orphaned) == 0 {
+		return node.hash, node, nil, value, orphaned
+	} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
+		return node.leftHash, node.leftNode, nil, value, orphaned
+	}
+	orphaned = append(orphaned, node)
+
+	newNode := node.clone(version)
+	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
+	if newKey != nil {
+		newNode.key = newKey
+	}
+	newNode.calcHeightAndSize(t.Tree)
+	newNode, balanceOrphaned := newNode.balance(t.Tree)
+
+	return newNode.hash, newNode, nil, value, append(orphaned, balanceOrphaned...)
 }
 
 // Load the latest versioned tree from disk.

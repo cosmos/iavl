@@ -341,62 +341,6 @@ func (node *Node) writeBytes(w io.Writer) cmn.Error {
 	return nil
 }
 
-// removes the node corresponding to the passed key and balances the tree.
-// It returns:
-// - the hash of the new node (or nil if the node is the one removed)
-// - the node that replaces the orig. node after remove
-// - new leftmost leaf key for tree after successfully removing 'key' if changed.
-// - the removed value
-// - the orphaned nodes.
-func (node *Node) remove(t *Tree, key []byte) ([]byte, *Node, []byte, []byte, []*Node) {
-	version := t.version + 1
-
-	if node.isLeaf() {
-		if bytes.Equal(key, node.key) {
-			return nil, nil, nil, node.value, []*Node{node}
-		}
-		return node.hash, node, nil, nil, nil
-	}
-
-	// node.key < key; we go to the left to find the key:
-	if bytes.Compare(key, node.key) < 0 {
-		newLeftHash, newLeftNode, newKey, value, orphaned := node.getLeftNode(t).remove(t, key)
-
-		if len(orphaned) == 0 {
-			return node.hash, node, nil, value, orphaned
-		} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-			return node.rightHash, node.rightNode, node.key, value, orphaned
-		}
-		orphaned = append(orphaned, node)
-
-		newNode := node.clone(version)
-		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
-		newNode.calcHeightAndSize(t)
-		newNode, balanceOrphaned := newNode.balance(t)
-
-		return newNode.hash, newNode, newKey, value, append(orphaned, balanceOrphaned...)
-	}
-	// node.key >= key; either found or look to the right:
-	newRightHash, newRightNode, newKey, value, orphaned := node.getRightNode(t).remove(t, key)
-
-	if len(orphaned) == 0 {
-		return node.hash, node, nil, value, orphaned
-	} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-		return node.leftHash, node.leftNode, nil, value, orphaned
-	}
-	orphaned = append(orphaned, node)
-
-	newNode := node.clone(version)
-	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
-	if newKey != nil {
-		newNode.key = newKey
-	}
-	newNode.calcHeightAndSize(t)
-	newNode, balanceOrphaned := newNode.balance(t)
-
-	return newNode.hash, newNode, nil, value, append(orphaned, balanceOrphaned...)
-}
-
 func (node *Node) getLeftNode(t *Tree) *Node {
 	if node.leftNode != nil {
 		return node.leftNode

@@ -122,32 +122,6 @@ func (t *Tree) GetByIndex64(index int64) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-// Remove tries to remove a key from the tree and if removed, returns its
-// value, and 'true'.
-func (t *Tree) Remove(key []byte) ([]byte, bool) {
-	value, _, removed := t.remove(key)
-	return value, removed
-}
-
-// remove tries to remove a key from the tree and if removed, returns its
-// value, nodes orphaned and 'true'.
-func (t *Tree) remove(key []byte) (value []byte, orphans []*Node, removed bool) {
-	if t.root == nil {
-		return nil, nil, false
-	}
-	newRootHash, newRoot, _, value, orphaned := t.root.remove(t, key)
-	if len(orphaned) == 0 {
-		return nil, nil, false
-	}
-
-	if newRoot == nil && newRootHash != nil {
-		t.root = t.ndb.GetNode(newRootHash)
-	} else {
-		t.root = newRoot
-	}
-	return value, orphaned, true
-}
-
 // Iterate iterates over all keys of the tree, in order.
 func (t *Tree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
