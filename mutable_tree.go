@@ -13,9 +13,10 @@ var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
 // MutableTree is a persistent tree which keeps track of versions.
 type MutableTree struct {
-	*ImmutableTree                          // The current, working tree.
-	orphans        map[string]int64         // Nodes removed by changes to working tree
-	versions       map[int64]*ImmutableTree // The previous, saved versions of the tree.
+	*ImmutableTree                  // The current, working tree.
+	lastSaved      *ImmutableTree   // The most recently saved tree.
+	orphans        map[string]int64 // Nodes removed by changes to working tree.
+	versions       map[int64]bool   // The previous, saved versions of the tree.
 	ndb            *nodeDB
 }
 
@@ -26,8 +27,9 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 
 	return &MutableTree{
 		ImmutableTree: head,
+		lastSaved:     head.clone(),
 		orphans:       map[string]int64{},
-		versions:      map[int64]*ImmutableTree{},
+		versions:      map[int64]bool{},
 		ndb:           ndb,
 	}
 }
@@ -40,15 +42,14 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
-	_, ok := tree.versions[version]
-	return ok
+	return tree.versions[version]
 }
 
 // Hash returns the hash of the latest saved version of the tree, as returned
 // by SaveVersion. If no versions have been saved, Hash returns nil.
 func (tree *MutableTree) Hash() []byte {
 	if tree.version > 0 {
-		return tree.versions[tree.version].Hash()
+		return tree.lastSaved.Hash()
 	}
 	return nil
 }
@@ -222,15 +223,6 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) ([]byte, *Node,
 //
 // Returns the version number of the latest version found
 func (tree *MutableTree) Load() (int64, error) {
-	return tree.LoadVersion(0)
-}
-
-// Load a versioned tree from disk.
-//
-// If version is 0, the latest version is loaded.
-//
-// Returns the version number of the latest version found
-func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return 0, err
@@ -238,45 +230,53 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	if len(roots) == 0 {
 		return 0, nil
 	}
-
-	// Load all roots from the database.
 	latestVersion := int64(0)
-	for version, root := range roots {
-
-		// Construct a tree manually.
-		t := &ImmutableTree{}
-		t.ndb = tree.ndb
-		t.version = version
-		if len(root) != 0 {
-			t.root = tree.ndb.GetNode(root)
-		}
-		tree.versions[version] = t
-
-		if version > latestVersion &&
-			(targetVersion == 0 || version <= targetVersion) {
-
-			latestVersion = version
+	var latestRoot []byte
+	for k, r := range roots {
+		tree.versions[k] = true
+		if k > latestVersion {
+			latestVersion = k
+			latestRoot = r
 		}
 	}
 
-	// Validate latestVersion
-	if !(targetVersion == 0 || latestVersion == targetVersion) {
-		return latestVersion, fmt.Errorf("Wanted to load target %v but only found up to %v",
-			targetVersion, latestVersion)
+	t := &ImmutableTree{
+		ndb:     tree.ndb,
+		version: latestVersion,
+	}
+	if len(latestRoot) != 0 {
+		t.root = tree.ndb.GetNode(latestRoot)
 	}
 
-	// Set the working tree to a copy of the latest.
-	tree.ImmutableTree = tree.versions[latestVersion].clone()
 	tree.orphans = map[string]int64{}
-
+	tree.ImmutableTree = t
+	tree.lastSaved = t.clone()
 	return latestVersion, nil
+}
+
+// GetImmutable loads an ImmutableTree at a given version for querying
+func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
+	rootHash := tree.ndb.getRoot(version)
+	if rootHash == nil {
+		return nil, ErrVersionDoesNotExist
+	} else if len(rootHash) == 0 {
+		return &ImmutableTree{
+			ndb:     tree.ndb,
+			version: version,
+		}, nil
+	}
+	return &ImmutableTree{
+		root:    tree.ndb.GetNode(rootHash),
+		ndb:     tree.ndb,
+		version: version,
+	}, nil
 }
 
 // Rollback resets the working tree to the latest saved version, discarding
 // any unsaved modifications.
 func (tree *MutableTree) Rollback() {
 	if tree.version > 0 {
-		tree.ImmutableTree = tree.versions[tree.version].clone()
+		tree.ImmutableTree = tree.lastSaved.clone()
 	} else {
 		tree.ImmutableTree = &ImmutableTree{ndb: tree.ndb, version: 0}
 	}
@@ -287,7 +287,11 @@ func (tree *MutableTree) Rollback() {
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int, value []byte,
 ) {
-	if t, ok := tree.versions[version]; ok {
+	if tree.versions[version] {
+		t, err := tree.GetImmutable(version)
+		if err != nil {
+			return -1, nil
+		}
 		return t.Get(key)
 	}
 	return -1, nil
@@ -298,25 +302,26 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
 
-	if _, ok := tree.versions[version]; ok {
-		// Same hash means idempotent.  Return success.
-		var existingHash = tree.versions[version].Hash()
-		var newHash = tree.ImmutableTree.Hash()
-		if bytes.Equal(existingHash, newHash) {
-			tree.ImmutableTree = tree.versions[version].clone()
-			tree.orphans = map[string]int64{}
-			return existingHash, version, nil
-		}
-		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
-			version, newHash, existingHash)
+	if tree.root == nil {
+		// There can still be orphans, for example if the root is the node being
+		// removed.
+		debug("SAVE EMPTY TREE %v\n", version)
+		tree.ndb.SaveOrphans(version, tree.orphans)
+		tree.ndb.SaveEmptyRoot(version)
+	} else {
+		debug("SAVE TREE %v\n", version)
+		// Save the current tree.
+		tree.ndb.SaveBranch(tree.root)
+		tree.ndb.SaveOrphans(version, tree.orphans)
+		tree.ndb.SaveRoot(tree.root, version)
 	}
-
-	// Persist version and stash to .versions.
-	tree.saveOrphans(version)
-	tree.versions[version] = tree.ImmutableTree
+	tree.ndb.Commit()
+	tree.version = version
+	tree.versions[version] = true
 
 	// Set new working tree.
 	tree.ImmutableTree = tree.ImmutableTree.clone()
+	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
 
 	return tree.Hash(), version, nil
@@ -341,28 +346,6 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	delete(tree.versions, version)
 
 	return nil
-}
-
-//
-func (tree *MutableTree) saveOrphans(version int64) {
-	if version != tree.version+1 {
-		panic(fmt.Sprintf("Expected to save version %d but tried to save %d", tree.version+1, version))
-	}
-	if tree.root == nil {
-		// There can still be orphans, for example if the root is the node being
-		// removed.
-		debug("SAVE EMPTY TREE %v\n", version)
-		tree.ndb.SaveOrphans(version, tree.orphans)
-		tree.ndb.SaveEmptyRoot(version)
-	} else {
-		debug("SAVE TREE %v\n", version)
-		// Save the current tree.
-		tree.ndb.SaveBranch(tree.root)
-		tree.ndb.SaveOrphans(version, tree.orphans)
-		tree.ndb.SaveRoot(tree.root, version)
-	}
-	tree.ndb.Commit()
-	tree.version = version
 }
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {

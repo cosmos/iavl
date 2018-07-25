@@ -70,7 +70,9 @@ func TestVersionedRandomTree(t *testing.T) {
 	}
 
 	require.Len(tree.versions, 1, "tree must have one version left")
-	require.Equal(tree.versions[int64(versions)].root, tree.root)
+	tr, err := tree.GetImmutable(int64(versions))
+	require.NoError(err, "GetImmutable should not error for version %d", versions)
+	require.Equal(tr.root, tree.root)
 
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.
@@ -249,7 +251,10 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.True(tree.VersionExists(2))
 	require.False(tree.VersionExists(3))
 
-	require.Empty(tree.versions[2].root)
+	t2, err := tree.GetImmutable(2)
+	require.NoError(err, "GetImmutable should not fail for version 2")
+
+	require.Empty(t2.root)
 }
 
 func TestVersionedTree(t *testing.T) {

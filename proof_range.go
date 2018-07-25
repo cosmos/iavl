@@ -474,7 +474,11 @@ func (t *ImmutableTree) GetRangeWithProof(startKey []byte, endKey []byte, limit 
 // GetVersionedWithProof gets the value under the key at the specified version
 // if it exists, or returns nil.
 func (tree *MutableTree) GetVersionedWithProof(key []byte, version int64) ([]byte, *RangeProof, error) {
-	if t, ok := tree.versions[version]; ok {
+	if tree.versions[version] {
+		t, err := tree.GetImmutable(version)
+		if err != nil {
+			return nil, nil, err
+		}
 		return t.GetWithProof(key)
 	}
 	return nil, nil, cmn.ErrorWrap(ErrVersionDoesNotExist, "")
@@ -485,7 +489,11 @@ func (tree *MutableTree) GetVersionedWithProof(key []byte, version int64) ([]byt
 func (tree *MutableTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version int64) (
 	keys, values [][]byte, proof *RangeProof, err error) {
 
-	if t, ok := tree.versions[version]; ok {
+	if tree.versions[version] {
+		t, err := tree.GetImmutable(version)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 		return t.GetRangeWithProof(startKey, endKey, limit)
 	}
 	return nil, nil, nil, cmn.ErrorWrap(ErrVersionDoesNotExist, "")

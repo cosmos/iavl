@@ -390,12 +390,11 @@ func TestPersistence(t *testing.T) {
 }
 
 func TestProof(t *testing.T) {
-	t.Skipf("This test has a race condition causing it to occasionally panic.")
 
 	// Construct some random tree
 	db := db.NewMemDB()
 	tree := NewMutableTree(db, 100)
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 10; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
 	}
@@ -404,7 +403,7 @@ func TestProof(t *testing.T) {
 	tree.SaveVersion()
 
 	// Add more items so it's not all persisted
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 10; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
 	}
