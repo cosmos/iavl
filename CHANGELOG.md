@@ -1,8 +1,14 @@
 # Changelog
 
+## PENDING
+
+IMPROVEMENTS
+
+- Change tendermint dep to ^v0.22.0
+
 ## 0.9.2 (July 3, 2018)
 
-IMPROVEMTS
+IMPROVEMENTS
 
 - some minor changes: mainly lints, updated parts of documentation, unexported some helpers (#80) 
 
