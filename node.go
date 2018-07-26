@@ -355,44 +355,6 @@ func (node *Node) getRightNode(t *ImmutableTree) *Node {
 	return t.ndb.GetNode(node.rightHash)
 }
 
-// Rotate right and return the new node and orphan.
-func (node *Node) rotateRight(t *ImmutableTree) (newNode *Node, orphan *Node) {
-	version := t.version + 1
-
-	// TODO: optimize balance & rotate.
-	node = node.clone(version)
-	l := node.getLeftNode(t)
-	_l := l.clone(version)
-
-	_lrHash, _lrCached := _l.rightHash, _l.rightNode
-	_l.rightHash, _l.rightNode = node.hash, node
-	node.leftHash, node.leftNode = _lrHash, _lrCached
-
-	node.calcHeightAndSize(t)
-	_l.calcHeightAndSize(t)
-
-	return _l, l
-}
-
-// Rotate left and return the new node and orphan.
-func (node *Node) rotateLeft(t *ImmutableTree) (newNode *Node, orphan *Node) {
-	version := t.version + 1
-
-	// TODO: optimize balance & rotate.
-	node = node.clone(version)
-	r := node.getRightNode(t)
-	_r := r.clone(version)
-
-	_rlHash, _rlCached := _r.leftHash, _r.leftNode
-	_r.leftHash, _r.leftNode = node.hash, node
-	node.rightHash, node.rightNode = _rlHash, _rlCached
-
-	node.calcHeightAndSize(t)
-	_r.calcHeightAndSize(t)
-
-	return _r, r
-}
-
 // NOTE: mutates height and size
 func (node *Node) calcHeightAndSize(t *ImmutableTree) {
 	node.height = maxInt8(node.getLeftNode(t).height, node.getRightNode(t).height) + 1
@@ -401,50 +363,6 @@ func (node *Node) calcHeightAndSize(t *ImmutableTree) {
 
 func (node *Node) calcBalance(t *ImmutableTree) int {
 	return int(node.getLeftNode(t).height) - int(node.getRightNode(t).height)
-}
-
-// NOTE: assumes that node can be modified
-// TODO: optimize balance & rotate
-func (node *Node) balance(t *ImmutableTree) (newSelf *Node, orphaned []*Node) {
-	if node.persisted {
-		panic("Unexpected balance() call on persisted node")
-	}
-	balance := node.calcBalance(t)
-
-	if balance > 1 {
-		if node.getLeftNode(t).calcBalance(t) >= 0 {
-			// Left Left Case
-			newNode, orphaned := node.rotateRight(t)
-			return newNode, []*Node{orphaned}
-		}
-		// Left Right Case
-		var leftOrphaned *Node
-
-		left := node.getLeftNode(t)
-		node.leftHash = nil
-		node.leftNode, leftOrphaned = left.rotateLeft(t)
-		newNode, rightOrphaned := node.rotateRight(t)
-
-		return newNode, []*Node{left, leftOrphaned, rightOrphaned}
-	}
-	if balance < -1 {
-		if node.getRightNode(t).calcBalance(t) <= 0 {
-			// Right Right Case
-			newNode, orphaned := node.rotateLeft(t)
-			return newNode, []*Node{orphaned}
-		}
-		// Right Left Case
-		var rightOrphaned *Node
-
-		right := node.getRightNode(t)
-		node.rightHash = nil
-		node.rightNode, rightOrphaned = right.rotateRight(t)
-		newNode, leftOrphaned := node.rotateLeft(t)
-
-		return newNode, []*Node{right, leftOrphaned, rightOrphaned}
-	}
-	// Nothing changed
-	return node, []*Node{}
 }
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
