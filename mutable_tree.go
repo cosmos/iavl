@@ -349,41 +349,41 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 }
 
 // Rotate right and return the new node and orphan.
-func (tree *MutableTree) rotateRight(node *Node) (newNode *Node, orphan *Node) {
+func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node) {
 	version := tree.version + 1
 
 	// TODO: optimize balance & rotate.
 	node = node.clone(version)
-	l := node.getLeftNode(tree.ImmutableTree)
-	_l := l.clone(version)
+	orphaned := node.getLeftNode(tree.ImmutableTree)
+	newNode := orphaned.clone(version)
 
-	_lrHash, _lrCached := _l.rightHash, _l.rightNode
-	_l.rightHash, _l.rightNode = node.hash, node
-	node.leftHash, node.leftNode = _lrHash, _lrCached
+	newNoderHash, newNoderCached := newNode.rightHash, newNode.rightNode
+	newNode.rightHash, newNode.rightNode = node.hash, node
+	node.leftHash, node.leftNode = newNoderHash, newNoderCached
 
 	node.calcHeightAndSize(tree.ImmutableTree)
-	_l.calcHeightAndSize(tree.ImmutableTree)
+	newNode.calcHeightAndSize(tree.ImmutableTree)
 
-	return _l, l
+	return newNode, orphaned
 }
 
 // Rotate left and return the new node and orphan.
-func (tree *MutableTree) rotateLeft(node *Node) (newNode *Node, orphan *Node) {
+func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node) {
 	version := tree.version + 1
 
 	// TODO: optimize balance & rotate.
 	node = node.clone(version)
-	r := node.getRightNode(tree.ImmutableTree)
-	_r := r.clone(version)
+	orphaned := node.getRightNode(tree.ImmutableTree)
+	newNode := orphaned.clone(version)
 
-	_rlHash, _rlCached := _r.leftHash, _r.leftNode
-	_r.leftHash, _r.leftNode = node.hash, node
-	node.rightHash, node.rightNode = _rlHash, _rlCached
+	newNodelHash, newNodelCached := newNode.leftHash, newNode.leftNode
+	newNode.leftHash, newNode.leftNode = node.hash, node
+	node.rightHash, node.rightNode = newNodelHash, newNodelCached
 
 	node.calcHeightAndSize(tree.ImmutableTree)
-	_r.calcHeightAndSize(tree.ImmutableTree)
+	newNode.calcHeightAndSize(tree.ImmutableTree)
 
-	return _r, r
+	return newNode, orphaned
 }
 
 // NOTE: assumes that node can be modified
