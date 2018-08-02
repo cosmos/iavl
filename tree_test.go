@@ -3,12 +3,15 @@ package iavl
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"os"
 	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/db"
+
+	mathrand "math/rand"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
@@ -1020,6 +1023,38 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NoError(proof.VerifyAbsence([]byte("k2")))
 	require.Error(proof.Verify(root1))
 	require.Error(proof.Verify(root2))
+}
+
+func TestOrphans(t *testing.T) {
+	//If you create a sequence of saved versions
+	//Then randomly delete versions other than the first and last until only those two remain
+	//Any remaining orphan nodes should be constrained to just the first version
+	require := require.New(t)
+	tree := NewMutableTree(db.NewMemDB(), 100)
+
+	NUMVERSIONS := 100
+	NUMUPDATES := 100
+
+	for i := 0; i < NUMVERSIONS; i++ {
+		for j := 1; j < NUMUPDATES; j++ {
+			tree.Set(randBytes(2), randBytes(2))
+		}
+		_, _, err := tree.SaveVersion()
+		require.NoError(err, "SaveVersion should not error")
+	}
+
+	idx := mathrand.Perm(NUMVERSIONS - 2)
+	for i := range idx {
+		err := tree.DeleteVersion(int64(i + 2))
+		require.NoError(err, "DeleteVersion should not error")
+	}
+
+	tree.ndb.traverseOrphans(func(k, v []byte) {
+		var fromVersion, toVersion int64
+		fmt.Sscanf(string(k), orphanKeyFmt, &toVersion, &fromVersion)
+		require.Equal(fromVersion, int64(1), "fromVersion should be 1")
+		require.Equal(toVersion, int64(1), "toVersion should be 1")
+	})
 }
 
 func TestVersionedTreeHash(t *testing.T) {
