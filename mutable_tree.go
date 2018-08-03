@@ -220,9 +220,12 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) ([]byte, *Node,
 }
 
 // Load the latest versioned tree from disk.
-//
-// Returns the version number of the latest version found
 func (tree *MutableTree) Load() (int64, error) {
+	return tree.LoadVersion(int64(0))
+}
+
+// Returns the version number of the latest version found
+func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return 0, err
@@ -232,12 +235,18 @@ func (tree *MutableTree) Load() (int64, error) {
 	}
 	latestVersion := int64(0)
 	var latestRoot []byte
-	for k, r := range roots {
-		tree.versions[k] = true
-		if k > latestVersion {
-			latestVersion = k
+	for version, r := range roots {
+		tree.versions[version] = true
+		if version > latestVersion &&
+			(targetVersion == 0 || version <= targetVersion) {
+			latestVersion = version
 			latestRoot = r
 		}
+	}
+
+	if !(targetVersion == 0 || latestVersion == targetVersion) {
+		return latestVersion, fmt.Errorf("Wanted to load target %v but only found up to %v",
+			targetVersion, latestVersion)
 	}
 
 	t := &ImmutableTree{
@@ -301,6 +310,22 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
+
+	if tree.versions[version] {
+		//version already exists, throw an error if attempting to overwrite
+		// Same hash means idempotent.  Return success.
+		existingHash := tree.ndb.getRoot(version)
+		var newHash = tree.WorkingHash()
+		if bytes.Equal(existingHash, newHash) {
+			tree.version = version
+			tree.ImmutableTree = tree.ImmutableTree.clone()
+			tree.lastSaved = tree.ImmutableTree.clone()
+			tree.orphans = map[string]int64{}
+			return existingHash, version, nil
+		}
+		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
+			version, newHash, existingHash)
+	}
 
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
