@@ -1134,6 +1134,38 @@ func TestRollback(t *testing.T) {
 	require.Equal([]byte("v"), val)
 }
 
+func TestOverwrite(t *testing.T) {
+	require := require.New(t)
+
+	mdb := db.NewMemDB()
+	tree := NewMutableTree(mdb, 0)
+
+	// Set one kv pair and save version 1
+	tree.Set([]byte("key1"), []byte("value1"))
+	_, _, err := tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail")
+
+	// Set another kv pair and save version 2
+	tree.Set([]byte("key2"), []byte("value2"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail")
+
+	// Reload tree at version 1
+	tree = NewMutableTree(mdb, 0)
+	_, err = tree.LoadVersion(int64(1))
+	require.NoError(err, "LoadVersion should not fail")
+
+	// Attempt to put a different kv pair into the tree and save
+	tree.Set([]byte("key2"), []byte("different value 2"))
+	_, _, err = tree.SaveVersion()
+	require.Error(err, "SaveVersion should fail because of changed value")
+
+	// Replay the original transition from version 1 to version 2 and attempt to save
+	tree.Set([]byte("key2"), []byte("value2"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, overwrite was idempotent")
+}
+
 //////////////////////////// BENCHMARKS ///////////////////////////////////////
 
 func BenchmarkTreeLoadAndDelete(b *testing.B) {
