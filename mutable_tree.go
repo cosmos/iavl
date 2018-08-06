@@ -245,7 +245,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	if !(targetVersion == 0 || latestVersion == targetVersion) {
-		return latestVersion, fmt.Errorf("Wanted to load target %v but only found up to %v",
+		return latestVersion, fmt.Errorf("wanted to load target %v but only found up to %v",
 			targetVersion, latestVersion)
 	}
 
