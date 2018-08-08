@@ -140,7 +140,7 @@ func (tree *VersionedTree) Rollback() {
 
 // GetVersioned gets the value at the specified key and version.
 func (tree *VersionedTree) GetVersioned(key []byte, version int64) (
-	index int, value []byte,
+	index int64, value []byte,
 ) {
 	if t, ok := tree.versions[version]; ok {
 		return t.Get(key)

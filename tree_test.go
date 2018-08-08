@@ -74,7 +74,7 @@ func TestVersionedRandomTree(t *testing.T) {
 
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.
-	require.Len(tree.ndb.leafNodes(), tree.Size())
+	require.Len(tree.ndb.leafNodes(), int(tree.Size()))
 
 	require.Equal(tree.nodeSize(), len(tree.ndb.nodes()))
 }
@@ -108,7 +108,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version. The simple tree must be equal
 	// too.
-	require.Len(tree.ndb.leafNodes(), tree.Size())
+	require.Len(tree.ndb.leafNodes(), int(tree.Size()))
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 	require.Len(tree.ndb.nodes(), singleVersionTree.nodeSize())
 
@@ -149,7 +149,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version. The simple tree must be equal
 	// too.
-	require.Len(tree.ndb.leafNodes(), tree.Size())
+	require.Len(tree.ndb.leafNodes(), int(tree.Size()))
 	require.Len(tree.ndb.nodes(), tree.nodeSize())
 	require.Len(tree.ndb.nodes(), singleVersionTree.nodeSize())
 
@@ -620,14 +620,14 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	preHash := tree.Hash()
 	require.NotNil(preHash)
 
-	require.Equal(6, tree.Version())
+	require.Equal(int64(6), tree.Version())
 
 	// Reload the tree, to test that roots and orphans are properly loaded.
 	ntree := NewVersionedTree(d, 0)
 	ntree.Load()
 
 	require.False(ntree.IsEmpty())
-	require.Equal(6, ntree.Version())
+	require.Equal(int64(6), ntree.Version())
 
 	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
@@ -643,7 +643,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.DeleteVersion(3)
 
 	require.False(ntree.IsEmpty())
-	require.Equal(4, ntree.Size())
+	require.Equal(int64(4), ntree.Size())
 	require.Len(ntree.ndb.nodes(), ntree.nodeSize())
 }
 
@@ -1082,7 +1082,7 @@ func TestRollback(t *testing.T) {
 
 	tree.SaveVersion()
 
-	require.Equal(2, tree.Size())
+	require.Equal(int64(2), tree.Size())
 
 	_, val := tree.Get([]byte("r"))
 	require.Nil(val)
