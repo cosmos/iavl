@@ -8,17 +8,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/go-amino"
+	"github.com/tendermint/tendermint/libs/db"
 	"github.com/tendermint/tendermint/libs/test"
 )
 
 func TestTreeGetWithProof(t *testing.T) {
-	tree := NewTree(nil, 0)
+	tree := NewMutableTree(db.NewMemDB(), 0)
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
 		tree.Set(key, []byte(rand.Str(8)))
 	}
-	root := tree.Hash()
+	root := tree.WorkingHash()
 
 	key := []byte{0x32}
 	val, proof, err := tree.GetWithProof(key)
@@ -46,8 +47,8 @@ func TestTreeGetWithProof(t *testing.T) {
 }
 
 func TestTreeKeyExistsProof(t *testing.T) {
-	tree := NewTree(nil, 0)
-	root := tree.Hash()
+	tree := NewMutableTree(db.NewMemDB(), 0)
+	root := tree.WorkingHash()
 
 	// should get false for proof with nil root
 	proof, _, _, err := tree.getRangeProof([]byte("foo"), nil, 1)
@@ -63,7 +64,7 @@ func TestTreeKeyExistsProof(t *testing.T) {
 		allkeys[i] = []byte(key)
 	}
 	sortByteSlices(allkeys) // Sort all keys
-	root = tree.Hash()
+	root = tree.WorkingHash()
 
 	// query random key fails
 	proof, _, _, err = tree.getRangeProof([]byte("foo"), nil, 2)
@@ -109,14 +110,14 @@ func TestTreeKeyExistsProof(t *testing.T) {
 }
 
 func TestTreeKeyInRangeProofs(t *testing.T) {
-	tree := NewTree(nil, 0)
+	tree := NewMutableTree(db.NewMemDB(), 0)
 	require := require.New(t)
 	keys := []byte{0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7} // 10 total.
 	for _, ikey := range keys {
 		key := []byte{ikey}
 		tree.Set(key, key)
 	}
-	root := tree.Hash()
+	root := tree.WorkingHash()
 
 	// For spacing:
 	T := 10

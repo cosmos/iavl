@@ -7,7 +7,7 @@ import (
 )
 
 // PrintTree prints the whole tree in an indented form.
-func PrintTree(tree *Tree) {
+func PrintTree(tree *ImmutableTree) {
 	ndb, root := tree.ndb, tree.root
 	printNode(ndb, root, 0)
 }

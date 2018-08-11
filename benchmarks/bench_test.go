@@ -20,8 +20,8 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.VersionedTree, [][]byte) {
-	t := iavl.NewVersionedTree(db, size)
+func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
+	t := iavl.NewMutableTree(db, size)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
@@ -35,7 +35,7 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Versi
 }
 
 // commit tree saves a new version and deletes and old one...
-func commitTree(b *testing.B, t *iavl.VersionedTree) {
+func commitTree(b *testing.B, t *iavl.MutableTree) {
 	t.Hash()
 	_, version, err := t.SaveVersion()
 	if err != nil {
@@ -49,14 +49,14 @@ func commitTree(b *testing.B, t *iavl.VersionedTree) {
 	}
 }
 
-func runQueries(b *testing.B, t *iavl.VersionedTree, keyLen int) {
+func runQueries(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
 		t.Get(q)
 	}
 }
 
-func runKnownQueries(b *testing.B, t *iavl.VersionedTree, keys [][]byte) {
+func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
@@ -64,7 +64,7 @@ func runKnownQueries(b *testing.B, t *iavl.VersionedTree, keys [][]byte) {
 	}
 }
 
-func runInsert(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize int) *iavl.VersionedTree {
+func runInsert(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int) *iavl.MutableTree {
 	for i := 1; i <= b.N; i++ {
 		t.Set(randBytes(keyLen), randBytes(dataLen))
 		if i%blockSize == 0 {
@@ -75,7 +75,7 @@ func runInsert(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize i
 	return t
 }
 
-func runUpdate(b *testing.B, t *iavl.VersionedTree, dataLen, blockSize int, keys [][]byte) *iavl.VersionedTree {
+func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
@@ -87,7 +87,7 @@ func runUpdate(b *testing.B, t *iavl.VersionedTree, dataLen, blockSize int, keys
 	return t
 }
 
-func runDelete(b *testing.B, t *iavl.VersionedTree, blockSize int, keys [][]byte) *iavl.VersionedTree {
+func runDelete(b *testing.B, t *iavl.MutableTree, blockSize int, keys [][]byte) *iavl.MutableTree {
 	var key []byte
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
@@ -103,7 +103,7 @@ func runDelete(b *testing.B, t *iavl.VersionedTree, blockSize int, keys [][]byte
 }
 
 // runBlock measures time for an entire block, not just one tx
-func runBlock(b *testing.B, t *iavl.VersionedTree, keyLen, dataLen, blockSize int, keys [][]byte) *iavl.VersionedTree {
+func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
 	l := int32(len(keys))
 
 	// XXX: This was adapted to work with VersionedTree but needs to be re-thought.
