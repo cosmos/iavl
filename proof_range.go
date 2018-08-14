@@ -365,7 +365,6 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (*Rang
 	// nolint
 	var innersq = []PathToLeaf(nil)
 	var inners = PathToLeaf(nil)
-	var lastDepth uint8 = 0
 	var leafCount = 1 // from left above.
 	var pathCount = 0
 	// var keys, values [][]byte defined as function outs.
@@ -435,7 +434,6 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (*Rang
 					})
 				}
 			}
-			lastDepth = depth
 			return false
 		},
 	)

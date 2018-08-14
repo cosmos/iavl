@@ -71,8 +71,6 @@ func cpIncr(bz []byte) (ret []byte) {
 		ret[i] = byte(0x00)
 		if i == 0 {
 			return append(ret, 0x00)
-			// Overflow
-			return nil
 		}
 	}
 	return []byte{0x00}
