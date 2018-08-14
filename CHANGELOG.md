@@ -10,7 +10,7 @@ IMPROVEMENTS
 
 IMPROVEMENTS
 
-- some minor changes: mainly lints, updated parts of documentation, unexported some helpers (#80) 
+- some minor changes: mainly lints, updated parts of documentation, unexported some helpers (#80)
 
 ## 0.9.1 (July 1, 2018)
 
