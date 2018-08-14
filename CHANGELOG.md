@@ -1,10 +1,24 @@
 # Changelog
 
-## PENDING
+## 0.10.0
+
+BREAKING CHANGES
+
+- refactored API for clean separation of [mutable][1] and [immutable][2] tree (#92, #88);
+with possibility to:
+  - load read-only snapshots at previous versions on demand
+  - load mutable trees at the most recently saved tree
+
+[1]: https://github.com/tendermint/iavl/blob/9e62436856efa94c1223043be36ebda01ae0b6fc/mutable_tree.go#L14-L21
+[2]: https://github.com/tendermint/iavl/blob/9e62436856efa94c1223043be36ebda01ae0b6fc/immutable_tree.go#L10-L17
+
+BUG FIXES
+
+- remove memory leaks (#92)
 
 IMPROVEMENTS
 
-- Change tendermint dep to ^v0.22.0
+- Change tendermint dep to ^v0.22.0 (#91)
 
 ## 0.9.2 (July 3, 2018)
 
