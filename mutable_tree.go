@@ -226,22 +226,22 @@ func (tree *MutableTree) Load() (int64, error) {
 
 // Returns the version number of the latest version found
 func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
-	roots, err := tree.ndb.getRoots()
-	if err != nil {
-		return 0, err
-	}
-	if len(roots) == 0 {
-		return 0, nil
-	}
 	latestVersion := int64(0)
 	var latestRoot []byte
-	for version, r := range roots {
-		tree.versions[version] = true
+	tree.ndb.traversePrefix([]byte(rootPrefix), func(k, v []byte) {
+		var version int64
+		fmt.Sscanf(string(k), rootPrefixFmt, &version)
+		root := v
+
 		if version > latestVersion &&
 			(targetVersion == 0 || version <= targetVersion) {
+			tree.versions[version] = true
 			latestVersion = version
-			latestRoot = r
+			latestRoot = root
 		}
+	})
+	if len(tree.versions) == 0 {
+		return 0, nil
 	}
 
 	if !(targetVersion == 0 || latestVersion == targetVersion) {

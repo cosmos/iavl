@@ -1158,7 +1158,7 @@ func TestOverwrite(t *testing.T) {
 	// Attempt to put a different kv pair into the tree and save
 	tree.Set([]byte("key2"), []byte("different value 2"))
 	_, _, err = tree.SaveVersion()
-	require.Error(err, "SaveVersion should fail because of changed value")
+	require.NoError(err, "SaveVersion should not fail because of changed value is supported")
 
 	// Replay the original transition from version 1 to version 2 and attempt to save
 	tree.Set([]byte("key2"), []byte("value2"))
