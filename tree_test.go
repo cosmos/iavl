@@ -1167,7 +1167,7 @@ func TestOverwrite(t *testing.T) {
 
 	// Reload tree at version 1
 	tree = NewMutableTree(mdb, 0)
-	_, err = tree.LoadVersionOverwrite(int64(1))
+	_, err = tree.LoadVersionForOverwriting(int64(1))
 	require.NoError(err, "LoadVersion should not fail")
 
 	// Attempt to put a different kv pair into the tree and save

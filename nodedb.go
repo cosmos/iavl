@@ -152,12 +152,12 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 }
 
 // DeleteVersion deletes a tree version from disk.
-func (ndb *nodeDB) DeleteVersion(version int64) {
+func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	ndb.deleteOrphans(version)
-	ndb.deleteRoot(version)
+	ndb.deleteRoot(version, checkLatestVersion)
 }
 
 // Saves orphaned nodes to disk under a special prefix.
@@ -264,8 +264,8 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 }
 
 // deleteRoot deletes the root entry from disk, but not the node it points to.
-func (ndb *nodeDB) deleteRoot(version int64) {
-	if version == ndb.getLatestVersion() {
+func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) {
+	if checkLatestVersion && version == ndb.getLatestVersion() {
 		panic("Tried to delete latest version")
 	}
 
