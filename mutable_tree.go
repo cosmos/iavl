@@ -264,12 +264,11 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 }
 
 // LoadVersionOverwrite returns the version number of the latest version found.
-// Version information higher than targetVersion won't be loaded.
-// Thus higher version data can be overwritten later.
+// Higher versions' data will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
 	latestVersion, err := tree.LoadVersion(targetVersion)
 	if err != nil {
-		panic(err.Error())
+		return latestVersion, err
 	}
 	tree.deleteVersionsFrom(latestVersion+1)
 	return latestVersion, nil
