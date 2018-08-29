@@ -16,7 +16,7 @@ type program struct {
 	instructions []instruction
 }
 
-func (p *program) Execute(tree *VersionedTree) (err error) {
+func (p *program) Execute(tree *MutableTree) (err error) {
 	var errLine int
 
 	defer func() {
@@ -55,7 +55,7 @@ type instruction struct {
 	version int64
 }
 
-func (i instruction) Execute(tree *VersionedTree) {
+func (i instruction) Execute(tree *MutableTree) {
 	switch i.op {
 	case "SET":
 		tree.Set(i.k, i.v)
@@ -103,14 +103,14 @@ func genRandomProgram(size int) *program {
 }
 
 // Generate many programs and run them.
-func TestVersionedTreeFuzz(t *testing.T) {
+func TestMutableTreeFuzz(t *testing.T) {
 	maxIterations := testFuzzIterations
 	progsPerIteration := 100000
 	iterations := 0
 
 	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
-			tree := NewVersionedTree(db.NewMemDB(), 0)
+			tree := NewMutableTree(db.NewMemDB(), 0)
 			program := genRandomProgram(size)
 			err := program.Execute(tree)
 			if err != nil {
