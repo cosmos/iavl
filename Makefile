@@ -1,11 +1,11 @@
-GOTOOLS := github.com/mitchellh/gox \
-           github.com/golang/dep/cmd/dep 
+GOTOOLS := github.com/golang/dep/cmd/dep
+
 PDFFLAGS := -pdf --nodefraction=0.1
 
 all: get_vendor_deps test
 
 test:
-	GOCACHE=off go test -v --race `glide novendor`
+	GOCACHE=off go test -v --race
 
 tools:
 	go get -u -v $(GOTOOLS)
