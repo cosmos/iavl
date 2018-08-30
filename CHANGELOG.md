@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+BREAKING CHANGES
+
+- Changed internal database key format to store int64 key components in a full 8-byte fixed width. 
+
+
+IMPROVEMENTS
+
+- Database key format avoids use of fmt.Sprintf fmt.Sscanf leading to ~10% speedup in benchmark BenchmarkTreeLoadAndDelete
+
 ## 0.10.0
 
 BREAKING CHANGES
