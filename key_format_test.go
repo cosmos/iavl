@@ -44,11 +44,27 @@ func TestNegativeKeys(t *testing.T) {
 	key := []byte{'e',
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, byte(0xff + a + 1),
 		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, byte(0xff + b + 1)}
-	assert.Equal(t, key,
-		kf.Key(a, b))
+	assert.Equal(t, key, kf.Key(a, b))
 
 	var ao, bo = new(int64), new(int64)
 	kf.Scan(key, ao, bo)
 	assert.Equal(t, a, *ao)
 	assert.Equal(t, b, *bo)
+}
+
+func TestOverflow(t *testing.T) {
+	kf := NewKeyFormat(byte('o'), 8, 8)
+
+	var a int64 = 1 << 62
+	var b uint64 = 1 << 63
+	key := []byte{'o',
+		0x40, 0, 0, 0, 0, 0, 0, 0,
+		0x80, 0, 0, 0, 0, 0, 0, 0,
+	}
+	assert.Equal(t, key, kf.Key(a, b))
+
+	var ao, bo = new(int64), new(int64)
+	kf.Scan(key, ao, bo)
+	assert.Equal(t, a, *ao)
+	assert.Equal(t, int64(b), *bo)
 }

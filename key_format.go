@@ -13,9 +13,22 @@ type KeyFormat struct {
 }
 
 // Create a []byte key format based on a single byte prefix and fixed width key segments each of whose length is
-// specified by by the corresponding element of layout
+// specified by by the corresponding element of layout.
+//
+// For example, to store keys that could index some objects by a version number and their SHA256 hash using the form:
+// 'c<version uint64><hash [32]byte>' then you would define the KeyFormat with:
+//
+//  var keyFormat = NewKeyFormat('c', 8, 32)
+//
+// Then you can create a key with:
+//
+//  func ObjectKey(version uint64, objectBytes []byte) []byte {
+//  	hasher := sha256.New()
+//  	hasher.Sum(nil)
+//  	return keyFormat.Key(version, hasher.Sum(nil))
+//  }
 func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
-	// For prefix
+	// For prefix byte
 	length := 1
 	for _, l := range layout {
 		length += int(l)
@@ -27,7 +40,7 @@ func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 	}
 }
 
-// Format the byte segments into the key format - will panic if the segment lengths to do match the layout.
+// Format the byte segments into the key format - will panic if the segment lengths do not match the layout.
 func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
 	key := make([]byte, kf.length)
 	key[0] = kf.prefix
@@ -45,9 +58,9 @@ func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
 	return key[:n]
 }
 
-// Format the args passed into the key format - will panic if the arguments passed to not match the length
+// Format the args passed into the key format - will panic if the arguments passed do not match the length
 // of the segment to which they correspond. When called with no arguments returns the raw prefix (useful as a start
-// element of the entire keys space when sorted lexicographically)
+// element of the entire keys space when sorted lexicographically).
 func (kf *KeyFormat) Key(args ...interface{}) []byte {
 	if len(args) > len(kf.layout) {
 		panic(fmt.Errorf("KeyFormat.Key() is provided with %d args but format only has %d segments",
@@ -60,7 +73,7 @@ func (kf *KeyFormat) Key(args ...interface{}) []byte {
 	return kf.KeyBytes(segments...)
 }
 
-// Reads out the bytes associated with each segment of the key format from key
+// Reads out the bytes associated with each segment of the key format from key.
 func (kf *KeyFormat) ScanBytes(key []byte) [][]byte {
 	segments := make([][]byte, len(kf.layout))
 	n := 1
@@ -87,7 +100,7 @@ func (kf *KeyFormat) Scan(key []byte, args ...interface{}) {
 	}
 }
 
-// Return the prefix as a string
+// Return the prefix as a string.
 func (kf *KeyFormat) Prefix() string {
 	return string([]byte{kf.prefix})
 }
@@ -95,6 +108,7 @@ func (kf *KeyFormat) Prefix() string {
 func scan(a interface{}, value []byte) {
 	switch v := a.(type) {
 	case *int64:
+		// Negative values will be mapped correctly when read in as uint64 and then type converted
 		*v = int64(binary.BigEndian.Uint64(value))
 	case *uint64:
 		*v = binary.BigEndian.Uint64(value)
@@ -108,20 +122,23 @@ func scan(a interface{}, value []byte) {
 func format(a interface{}) []byte {
 	switch v := a.(type) {
 	case uint64:
-		bs := make([]byte, 8)
-		binary.BigEndian.PutUint64(bs, v)
-		return bs
-	case uint:
-		return format(uint64(v))
+		return formatUint64(v)
 	case int64:
-		bs := make([]byte, 8)
-		binary.BigEndian.PutUint64(bs, uint64(v))
-		return bs
+		return formatUint64(uint64(v))
+	// Provide formatting from int,uint as a convenience to avoid casting arguments
+	case uint:
+		return formatUint64(uint64(v))
 	case int:
-		return format(int64(v))
+		return formatUint64(uint64(v))
 	case []byte:
 		return v
 	default:
 		panic(fmt.Errorf("KeyFormat format() does not support formatting value of type %T: %v", a, a))
 	}
+}
+
+func formatUint64(v uint64) []byte {
+	bs := make([]byte, 8)
+	binary.BigEndian.PutUint64(bs, v)
+	return bs
 }
