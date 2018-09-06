@@ -2,8 +2,6 @@ package benchmarks
 
 import (
 	"fmt"
-	"math"
-	"math/rand"
 	"os"
 	"testing"
 
@@ -11,45 +9,13 @@ import (
 	db "github.com/tendermint/tendermint/libs/db"
 )
 
-var dbChoices = []db.DBBackendType{"memdb", "goleveldb"}
-
-func MakeTree(keySize int, dataSize int, numItems int, dataBase db.DB, cacheSize int) [][]byte {
-	rand.Seed(123456789)
-	t := iavl.NewMutableTree(dataBase, cacheSize)
-	keys := make([][]byte, numItems)
-	for i := 0; i < numItems; i++ {
-		k := randBytes(keySize)
-		keys[i] = k
-		t.Set(k, randBytes(dataSize))
-	}
-	t.SaveVersion()
-	return keys
-}
-
-func getKeyNotInTree(dataBase db.DB, keySize int) []byte {
-	tree := iavl.NewMutableTree(dataBase, 0)
-	tree.Load()
-	for {
-		key := randBytes(keySize)
-		if tree.Has(key) == false {
-			return key
-		}
-	}
-}
-
-func getKeyInTree(keys [][]byte) []byte {
-	return keys[rand.Intn(len(keys))]
-}
-
 // Benchmarks setting a specific key/value pair in a mutable tree loaded from a db
 func benchmarkSet(b *testing.B, key []byte, value []byte, dataBase db.DB, cacheSize int) {
 	tree := iavl.NewMutableTree(dataBase, cacheSize)
 	tree.Load()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		//b.StartTimer()
 		tree.Set(key, value)
-		//b.StopTimer()
 		tree.Rollback()
 	}
 }
@@ -64,74 +30,38 @@ func benchmarkRemove(b *testing.B, key []byte, dataBase db.DB, cacheSize int) {
 	}
 }
 
-func mkRange(start uint, end uint, step uint) []uint {
-	size := uint(math.Ceil(float64(end-start) / float64(step)))
-	ret := make([]uint, size)
-	for i := uint(0); i < size; i++ {
-		ret[i] = start + (i * step)
+func benchmarkGet(b *testing.B, key []byte, dataBase db.DB, cacheSize int) {
+	tree := iavl.NewMutableTree(dataBase, cacheSize)
+	tree.Load()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree.Get(key)
 	}
-	return ret
 }
 
-func mkRangeHelper(ranges [][]uint, cur [][]uint) [][]uint {
-	if len(ranges) == 0 {
-		return cur
-	}
-	todo := ranges[0]
-	parts := mkRange(todo[0], todo[1], todo[2])
-	newsize := len(parts) * len(cur)
-	nxt := make([][]uint, newsize)
-	for i := 0; i < len(parts); i++ {
-		for j := 0; j < len(cur); j++ {
-			nc := make([]uint, len(cur[j])+1)
-			copy(nc, cur[j])
-			nc[len(cur[j])] = parts[i]
-			nxt[j+(i*len(cur))] = nc
-		}
-	}
-	return mkRangeHelper(ranges[1:], nxt)
-}
-
-func MakeMultiRange(ranges [][]uint) [][]uint {
-	return mkRangeHelper(ranges, [][]uint{{}})
-}
-
-//for debugging the multi range constructor
-// func BenchmarkTryMultiRange(b *testing.B) {
-// 	fmt.Println(MakeMultiRange([][]uint{{5, 16, 5}, {5, 16, 5}, {10, 11, 5}, {10, 11, 5}, {10, 11, 5}, {10, 11, 5}, {0, 2, 1}}))
-// }
+var logTreeSizeRange = []uint{5, 21, 7}
+var logTreeKeySize = []uint{5, 11, 5}
+var logTreeDataSize = []uint{5, 11, 5}
+var logCacheSizeRange = []uint{0, 15, 7}
+var logArgKeySize = []uint{5, 11, 5}
+var logArgDataSize = []uint{5, 11, 5}
+var choiceDataBase = []uint{0, 2, 1}
+var dbChoices = []db.DBBackendType{"memdb", "goleveldb"}
 
 func BenchmarkInsert(b *testing.B) {
-	logTreeSizeRange := []uint{5, 21, 5}
-	logCacheSizeRange := []uint{0, 21, 5}
-	logInsertedKeySize := []uint{5, 11, 5}
-	logInsertedDataSize := []uint{5, 11, 5}
-	logCurrentKeySize := []uint{5, 11, 5}
-	logCurrentDataSize := []uint{5, 11, 5}
-	choiceDataBase := []uint{0, 2, 1}
 	fmt.Println("tree, cache, update data, current key, current data, db")
 	params := MakeMultiRange([][]uint{
-		logTreeSizeRange, logCacheSizeRange, logInsertedKeySize,
-		logInsertedDataSize, logCurrentKeySize, logCurrentDataSize,
+		logTreeSizeRange, logCacheSizeRange, logArgKeySize,
+		logArgDataSize, logTreeKeySize, logTreeDataSize,
 		choiceDataBase,
 	})
 	fmt.Printf("number of datapoints to collect: %d\n", len(params))
 	for x, p := range params {
-		lts := p[0]
-		lcs := p[1]
-		liks := p[2]
-		lids := p[3]
-		lcks := p[4]
-		lcds := p[5]
-		cdb := dbChoices[p[6]]
-
-		dirName := "BenchData/test.db"
-
-		dataBase := db.NewDB("test", cdb, dirName)
-		MakeTree(1<<lcks, 1<<lcds, 1<<lts, dataBase, 1<<lcs)
-		key := getKeyNotInTree(dataBase, 1<<liks)
-		data := randBytes(1 << lids)
-		b.Run(fmt.Sprintf("Insert - %d (%d %d %d %d %d %d %s)", x, lts, lcs, liks, lids, lcks, lcds, cdb), func(b *testing.B) {
+		lts, lcs, laks, lads, ltks, ltds, cdb := p[0], p[1], p[2], p[3], p[4], p[5], dbChoices[p[6]]
+		_, dataBase := MakeTree(1<<ltks, 1<<ltds, 1<<lts, 1<<lcs, cdb)
+		key := getKeyNotInTree(dataBase, 1<<laks)
+		data := randBytes(1 << lads)
+		b.Run(fmt.Sprintf("%d (%d %d %d %d %d %d %s)", x, lts, lcs, laks, lads, ltks, ltds, cdb), func(b *testing.B) {
 			benchmarkSet(b, key, data, dataBase, 1<<lcs)
 		})
 		dataBase.Close()
@@ -140,34 +70,19 @@ func BenchmarkInsert(b *testing.B) {
 }
 
 func BenchmarkUpdate(b *testing.B) {
-	logTreeSizeRange := []uint{5, 21, 5}
-	logCacheSizeRange := []uint{0, 21, 5}
-	logUpdatedDataSize := []uint{5, 11, 5}
-	logCurrentKeySize := []uint{5, 11, 5}
-	logCurrentDataSize := []uint{5, 11, 5}
-	choiceDataBase := []uint{0, 2, 1}
 	fmt.Println("tree, cache, current key, current data, db")
 	params := MakeMultiRange([][]uint{
 		logTreeSizeRange, logCacheSizeRange,
-		logUpdatedDataSize, logCurrentKeySize, logCurrentDataSize,
+		logArgDataSize, logTreeKeySize, logTreeDataSize,
 		choiceDataBase,
 	})
 	fmt.Printf("number of datapoints to collect: %d\n", len(params))
 	for x, p := range params {
-		lts := p[0]
-		lcs := p[1]
-		luds := p[2]
-		lcks := p[3]
-		lcds := p[4]
-		cdb := dbChoices[p[5]]
-
-		dirName := "BenchData/test.db"
-
-		dataBase := db.NewDB("test", cdb, dirName)
-		keys := MakeTree(1<<lcks, 1<<lcds, 1<<lts, dataBase, 1<<lcs)
+		lts, lcs, lads, ltks, ltds, cdb := p[0], p[1], p[2], p[3], p[4], dbChoices[p[5]]
+		keys, dataBase := MakeTree(1<<ltks, 1<<ltds, 1<<lts, 1<<lcs, cdb)
 		key := getKeyInTree(keys)
-		data := randBytes(1 << luds)
-		b.Run(fmt.Sprintf("Update - %d (%d %d %d %d %d %s)", x, lts, lcs, luds, lcks, lcds, cdb), func(b *testing.B) {
+		data := randBytes(1 << lads)
+		b.Run(fmt.Sprintf("%d (%d %d %d %d %d %s)", x, lts, lcs, lads, ltks, ltds, cdb), func(b *testing.B) {
 			benchmarkSet(b, key, data, dataBase, 1<<lcs)
 		})
 		dataBase.Close()
@@ -176,31 +91,56 @@ func BenchmarkUpdate(b *testing.B) {
 }
 
 func BenchmarkRemove(b *testing.B) {
-	logTreeSizeRange := []uint{5, 21, 5}
-	logCacheSizeRange := []uint{0, 21, 5}
-	logCurrentKeySize := []uint{5, 11, 5}
-	logCurrentDataSize := []uint{5, 11, 5}
-	choiceDataBase := []uint{0, 2, 1}
-	fmt.Println("tree, cache, current key, current data, db")
+	fmt.Println("tree, cache, tree key, tree data, db")
 	params := MakeMultiRange([][]uint{
-		logTreeSizeRange, logCacheSizeRange, logCurrentKeySize, logCurrentDataSize,
+		logTreeSizeRange, logCacheSizeRange, logTreeKeySize, logTreeDataSize,
 		choiceDataBase,
 	})
 	fmt.Printf("number of datapoints to collect: %d\n", len(params))
 	for x, p := range params {
-		lts := p[0]
-		lcs := p[1]
-		lcks := p[2]
-		lcds := p[3]
-		cdb := dbChoices[p[4]]
-
-		dirName := "BenchData/test.db"
-
-		dataBase := db.NewDB("test", cdb, dirName)
-		keys := MakeTree(1<<lcks, 1<<lcds, 1<<lts, dataBase, 1<<lcs)
+		lts, lcs, ltks, ltds, cdb := p[0], p[1], p[2], p[3], dbChoices[p[4]]
+		keys, dataBase := MakeTree(1<<ltks, 1<<ltds, 1<<lts, 1<<lcs, cdb)
 		key := getKeyInTree(keys)
-		b.Run(fmt.Sprintf("Remove - %d (%d %d %d %d %s)", x, lts, lcs, lcks, lcds, cdb), func(b *testing.B) {
+		b.Run(fmt.Sprintf("%d (%d %d %d %d %s)", x, lts, lcs, ltks, ltds, cdb), func(b *testing.B) {
 			benchmarkRemove(b, key, dataBase, 1<<lcs)
+		})
+		dataBase.Close()
+		os.RemoveAll(dirName)
+	}
+}
+
+func BenchmarkQueryHit(b *testing.B) {
+	fmt.Println("tree, cache, tree key, tree data, db")
+	params := MakeMultiRange([][]uint{
+		logTreeSizeRange, logCacheSizeRange, logTreeKeySize, logTreeDataSize,
+		choiceDataBase,
+	})
+	fmt.Printf("number of datapoints to collect: %d\n", len(params))
+	for x, p := range params {
+		lts, lcs, ltks, ltds, cdb := p[0], p[1], p[2], p[3], dbChoices[p[4]]
+		keys, dataBase := MakeTree(1<<ltks, 1<<ltds, 1<<lts, 1<<lcs, cdb)
+		key := getKeyInTree(keys)
+		b.Run(fmt.Sprintf("%d (%d %d %d %d %s)", x, lts, lcs, ltks, ltds, cdb), func(b *testing.B) {
+			benchmarkGet(b, key, dataBase, 1<<lcs)
+		})
+		dataBase.Close()
+		os.RemoveAll(dirName)
+	}
+}
+
+func BenchmarkQueryMiss(b *testing.B) {
+	fmt.Println("tree, cache, tree key, tree data, db")
+	params := MakeMultiRange([][]uint{
+		logTreeSizeRange, logCacheSizeRange, logTreeKeySize, logTreeDataSize,
+		choiceDataBase,
+	})
+	fmt.Printf("number of datapoints to collect: %d\n", len(params))
+	for x, p := range params {
+		lts, lcs, ltks, ltds, cdb := p[0], p[1], p[2], p[3], dbChoices[p[4]]
+		_, dataBase := MakeTree(1<<ltks, 1<<ltds, 1<<lts, 1<<lcs, cdb)
+		key := getKeyNotInTree(dataBase, 1<<ltks)
+		b.Run(fmt.Sprintf("%d (%d %d %d %d %s)", x, lts, lcs, ltks, ltds, cdb), func(b *testing.B) {
+			benchmarkGet(b, key, dataBase, 1<<lcs)
 		})
 		dataBase.Close()
 		os.RemoveAll(dirName)
