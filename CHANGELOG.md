@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.11.0 (September 7, 2018)
 
 BREAKING CHANGES
 
