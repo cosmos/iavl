@@ -1,0 +1,79 @@
+tree, cache, tree key, tree data, db
+number of datapoints to collect: 72
+goos: linux
+goarch: amd64
+pkg: github.com/tendermint/iavl/benchmarks
+BenchmarkRemove/0_(5_0_5_5_memdb)-8         	   50000	     36088 ns/op	   12516 B/op	     221 allocs/op
+BenchmarkRemove/1_(12_0_5_5_memdb)-8        	   30000	     58210 ns/op	   19883 B/op	     321 allocs/op
+BenchmarkRemove/2_(19_0_5_5_memdb)-8        	   20000	     73390 ns/op	   27073 B/op	     439 allocs/op
+BenchmarkRemove/3_(5_7_5_5_memdb)-8         	  200000	      7810 ns/op	    1664 B/op	      20 allocs/op
+BenchmarkRemove/4_(12_7_5_5_memdb)-8        	  100000	     18232 ns/op	    4641 B/op	      37 allocs/op
+BenchmarkRemove/5_(19_7_5_5_memdb)-8        	  100000	     21899 ns/op	    6178 B/op	      50 allocs/op
+BenchmarkRemove/6_(5_14_5_5_memdb)-8        	  200000	      7033 ns/op	    1664 B/op	      20 allocs/op
+BenchmarkRemove/7_(12_14_5_5_memdb)-8       	  100000	     18272 ns/op	    4641 B/op	      37 allocs/op
+BenchmarkRemove/8_(19_14_5_5_memdb)-8       	  100000	     22162 ns/op	    6177 B/op	      50 allocs/op
+BenchmarkRemove/9_(5_0_10_5_memdb)-8        	   50000	     34427 ns/op	   21760 B/op	     138 allocs/op
+BenchmarkRemove/10_(12_0_10_5_memdb)-8      	   20000	     87115 ns/op	   59241 B/op	     365 allocs/op
+BenchmarkRemove/11_(19_0_10_5_memdb)-8      	   20000	     93280 ns/op	   70722 B/op	     439 allocs/op
+BenchmarkRemove/12_(5_7_10_5_memdb)-8       	  300000	      5571 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/13_(12_7_10_5_memdb)-8      	  100000	     17687 ns/op	    5025 B/op	      40 allocs/op
+BenchmarkRemove/14_(19_7_10_5_memdb)-8      	  100000	     21075 ns/op	    6177 B/op	      50 allocs/op
+BenchmarkRemove/15_(5_14_10_5_memdb)-8      	  300000	      5922 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/16_(12_14_10_5_memdb)-8     	  100000	     18192 ns/op	    5025 B/op	      40 allocs/op
+BenchmarkRemove/17_(19_14_10_5_memdb)-8     	  100000	     20799 ns/op	    6178 B/op	      50 allocs/op
+BenchmarkRemove/18_(5_0_5_10_memdb)-8       	   50000	     32812 ns/op	   11836 B/op	     138 allocs/op
+BenchmarkRemove/19_(12_0_5_10_memdb)-8      	   20000	     83087 ns/op	   30472 B/op	     365 allocs/op
+BenchmarkRemove/20_(19_0_5_10_memdb)-8      	   20000	     72853 ns/op	   34016 B/op	     439 allocs/op
+BenchmarkRemove/21_(5_7_5_10_memdb)-8       	  300000	      6081 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/22_(12_7_5_10_memdb)-8      	  100000	     19543 ns/op	    5025 B/op	      40 allocs/op
+BenchmarkRemove/23_(19_7_5_10_memdb)-8      	  100000	     20280 ns/op	    6177 B/op	      50 allocs/op
+BenchmarkRemove/24_(5_14_5_10_memdb)-8      	  200000	      5959 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/25_(12_14_5_10_memdb)-8     	  100000	     19571 ns/op	    5025 B/op	      40 allocs/op
+BenchmarkRemove/26_(19_14_5_10_memdb)-8     	  100000	     19959 ns/op	    6178 B/op	      50 allocs/op
+BenchmarkRemove/27_(5_0_10_10_memdb)-8      	   30000	     55638 ns/op	   25730 B/op	     138 allocs/op
+BenchmarkRemove/28_(12_0_10_10_memdb)-8     	   20000	     77217 ns/op	   51540 B/op	     300 allocs/op
+BenchmarkRemove/29_(19_0_10_10_memdb)-8     	   20000	     80529 ns/op	   68743 B/op	     425 allocs/op
+BenchmarkRemove/30_(5_7_10_10_memdb)-8      	  200000	      6663 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/31_(12_7_10_10_memdb)-8     	  100000	     14440 ns/op	    3536 B/op	      34 allocs/op
+BenchmarkRemove/32_(19_7_10_10_memdb)-8     	  100000	     19318 ns/op	    5960 B/op	      48 allocs/op
+BenchmarkRemove/33_(5_14_10_10_memdb)-8     	  200000	      6837 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/34_(12_14_10_10_memdb)-8    	  100000	     14360 ns/op	    3536 B/op	      34 allocs/op
+BenchmarkRemove/35_(19_14_10_10_memdb)-8    	  100000	     19163 ns/op	    5960 B/op	      48 allocs/op
+BenchmarkRemove/36_(5_0_5_5_goleveldb)-8    	   20000	     98232 ns/op	   17670 B/op	     313 allocs/op
+BenchmarkRemove/37_(12_0_5_5_goleveldb)-8   	   10000	    172138 ns/op	   27048 B/op	     449 allocs/op
+BenchmarkRemove/38_(19_0_5_5_goleveldb)-8   	    5000	    382925 ns/op	   65030 B/op	     974 allocs/op
+BenchmarkRemove/39_(5_7_5_5_goleveldb)-8    	  200000	      9594 ns/op	    1664 B/op	      20 allocs/op
+BenchmarkRemove/40_(12_7_5_5_goleveldb)-8   	  100000	     21852 ns/op	    4641 B/op	      37 allocs/op
+BenchmarkRemove/41_(19_7_5_5_goleveldb)-8   	   50000	     25274 ns/op	    6177 B/op	      50 allocs/op
+BenchmarkRemove/42_(5_14_5_5_goleveldb)-8   	  200000	      9615 ns/op	    1664 B/op	      20 allocs/op
+BenchmarkRemove/43_(12_14_5_5_goleveldb)-8  	  100000	     22462 ns/op	    4641 B/op	      37 allocs/op
+BenchmarkRemove/44_(19_14_5_5_goleveldb)-8  	  100000	     25397 ns/op	    6178 B/op	      50 allocs/op
+BenchmarkRemove/45_(5_0_10_5_goleveldb)-8   	   10000	    119270 ns/op	   39910 B/op	     194 allocs/op
+BenchmarkRemove/46_(12_0_10_5_goleveldb)-8  	    5000	    388991 ns/op	  130946 B/op	     824 allocs/op
+BenchmarkRemove/47_(19_0_10_5_goleveldb)-8  	    3000	    541958 ns/op	  155896 B/op	     979 allocs/op
+BenchmarkRemove/48_(5_7_10_5_goleveldb)-8   	  200000	      7363 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/49_(12_7_10_5_goleveldb)-8  	  100000	     20847 ns/op	    5040 B/op	      40 allocs/op
+BenchmarkRemove/50_(19_7_10_5_goleveldb)-8  	   50000	     26396 ns/op	    6181 B/op	      50 allocs/op
+BenchmarkRemove/51_(5_14_10_5_goleveldb)-8  	  200000	      7532 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/52_(12_14_10_5_goleveldb)-8 	  100000	     21028 ns/op	    5040 B/op	      40 allocs/op
+BenchmarkRemove/53_(19_14_10_5_goleveldb)-8 	   50000	     27764 ns/op	    6181 B/op	      50 allocs/op
+BenchmarkRemove/54_(5_0_5_10_goleveldb)-8   	   20000	     87947 ns/op	   19262 B/op	     194 allocs/op
+BenchmarkRemove/55_(12_0_5_10_goleveldb)-8  	    3000	    336656 ns/op	   71061 B/op	     820 allocs/op
+BenchmarkRemove/56_(19_0_5_10_goleveldb)-8  	    5000	    441280 ns/op	   79711 B/op	     978 allocs/op
+BenchmarkRemove/57_(5_7_5_10_goleveldb)-8   	  200000	      7644 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/58_(12_7_5_10_goleveldb)-8  	  100000	     21459 ns/op	    5033 B/op	      40 allocs/op
+BenchmarkRemove/59_(19_7_5_10_goleveldb)-8  	   50000	     27605 ns/op	    6179 B/op	      50 allocs/op
+BenchmarkRemove/60_(5_14_5_10_goleveldb)-8  	  200000	      7555 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/61_(12_14_5_10_goleveldb)-8 	  100000	     21976 ns/op	    5034 B/op	      40 allocs/op
+BenchmarkRemove/62_(19_14_5_10_goleveldb)-8 	   50000	     27886 ns/op	    6179 B/op	      50 allocs/op
+BenchmarkRemove/63_(5_0_10_10_goleveldb)-8  	   10000	    163294 ns/op	   48488 B/op	     194 allocs/op
+BenchmarkRemove/64_(12_0_10_10_goleveldb)-8 	    5000	    360350 ns/op	  114275 B/op	     671 allocs/op
+BenchmarkRemove/65_(19_0_10_10_goleveldb)-8 	    3000	    553703 ns/op	  150704 B/op	     937 allocs/op
+BenchmarkRemove/66_(5_7_10_10_goleveldb)-8  	  200000	      8120 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/67_(12_7_10_10_goleveldb)-8 	  100000	     17444 ns/op	    3539 B/op	      34 allocs/op
+BenchmarkRemove/68_(19_7_10_10_goleveldb)-8 	   50000	     27394 ns/op	    5962 B/op	      48 allocs/op
+BenchmarkRemove/69_(5_14_10_10_goleveldb)-8 	  200000	      8510 ns/op	    1272 B/op	      16 allocs/op
+BenchmarkRemove/70_(12_14_10_10_goleveldb)-8         	  100000	     18386 ns/op	    3539 B/op	      34 allocs/op
+BenchmarkRemove/71_(19_14_10_10_goleveldb)-8         	   50000	     27064 ns/op	    5963 B/op	      48 allocs/op
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	1448.794s

@@ -20,5 +20,5 @@ cd ~/go/src/github.com/${REPOUSER}/iavl
 git checkout ${BRANCH}
 
 make get_vendor_deps
-make bench > results.txt
+make newbench
 

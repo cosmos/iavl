@@ -1,0 +1,79 @@
+tree, cache, tree key, tree data, db
+number of datapoints to collect: 72
+goos: linux
+goarch: amd64
+pkg: github.com/tendermint/iavl/benchmarks
+BenchmarkQueryMiss/0_(5_0_5_5_memdb)-8         	  200000	      8494 ns/op	    2849 B/op	      53 allocs/op
+BenchmarkQueryMiss/1_(12_0_5_5_memdb)-8        	  100000	     18111 ns/op	    5731 B/op	     107 allocs/op
+BenchmarkQueryMiss/2_(19_0_5_5_memdb)-8        	  100000	     24675 ns/op	    8608 B/op	     161 allocs/op
+BenchmarkQueryMiss/3_(5_7_5_5_memdb)-8         	 2000000	       984 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/4_(12_7_5_5_memdb)-8        	 1000000	      1824 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/5_(19_7_5_5_memdb)-8        	  500000	      2765 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/6_(5_14_5_5_memdb)-8        	 2000000	       995 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/7_(12_14_5_5_memdb)-8       	 1000000	      1834 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/8_(19_14_5_5_memdb)-8       	  500000	      2886 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/9_(5_0_10_5_memdb)-8        	  200000	      8647 ns/op	    5858 B/op	      35 allocs/op
+BenchmarkQueryMiss/10_(12_0_10_5_memdb)-8      	   50000	     23140 ns/op	   17634 B/op	     107 allocs/op
+BenchmarkQueryMiss/11_(19_0_10_5_memdb)-8      	   50000	     35630 ns/op	   27936 B/op	     170 allocs/op
+BenchmarkQueryMiss/12_(5_7_10_5_memdb)-8       	 2000000	       634 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/13_(12_7_10_5_memdb)-8      	 1000000	      1823 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/14_(19_7_10_5_memdb)-8      	  500000	      3095 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/15_(5_14_10_5_memdb)-8      	 2000000	       653 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/16_(12_14_10_5_memdb)-8     	 1000000	      1909 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/17_(19_14_10_5_memdb)-8     	  500000	      2910 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/18_(5_0_5_10_memdb)-8       	  200000	      8160 ns/op	    2881 B/op	      35 allocs/op
+BenchmarkQueryMiss/19_(12_0_5_10_memdb)-8      	  100000	     21557 ns/op	    6721 B/op	     107 allocs/op
+BenchmarkQueryMiss/20_(19_0_5_10_memdb)-8      	   50000	     24858 ns/op	   10080 B/op	     170 allocs/op
+BenchmarkQueryMiss/21_(5_7_5_10_memdb)-8       	 2000000	       615 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/22_(12_7_5_10_memdb)-8      	 1000000	      1850 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/23_(19_7_5_10_memdb)-8      	  500000	      3028 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/24_(5_14_5_10_memdb)-8      	 2000000	       642 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/25_(12_14_5_10_memdb)-8     	 1000000	      1861 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/26_(19_14_5_10_memdb)-8     	  500000	      2901 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/27_(5_0_10_10_memdb)-8      	  100000	     18165 ns/op	    8323 B/op	      44 allocs/op
+BenchmarkQueryMiss/28_(12_0_10_10_memdb)-8     	  100000	     23532 ns/op	   17153 B/op	      98 allocs/op
+BenchmarkQueryMiss/29_(19_0_10_10_memdb)-8     	   50000	     33562 ns/op	   28928 B/op	     170 allocs/op
+BenchmarkQueryMiss/30_(5_7_10_10_memdb)-8      	 2000000	       778 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/31_(12_7_10_10_memdb)-8     	 1000000	      1699 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/32_(19_7_10_10_memdb)-8     	  500000	      2926 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/33_(5_14_10_10_memdb)-8     	 2000000	       776 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/34_(12_14_10_10_memdb)-8    	 1000000	      1726 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/35_(19_14_10_10_memdb)-8    	  500000	      3047 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/36_(5_0_5_5_goleveldb)-8    	  100000	     23381 ns/op	    4193 B/op	      77 allocs/op
+BenchmarkQueryMiss/37_(12_0_5_5_goleveldb)-8   	   30000	     54875 ns/op	    8418 B/op	     155 allocs/op
+BenchmarkQueryMiss/38_(19_0_5_5_goleveldb)-8   	   10000	    145090 ns/op	   23891 B/op	     378 allocs/op
+BenchmarkQueryMiss/39_(5_7_5_5_goleveldb)-8    	 2000000	       948 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/40_(12_7_5_5_goleveldb)-8   	 1000000	      1829 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/41_(19_7_5_5_goleveldb)-8   	  500000	      2856 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/42_(5_14_5_5_goleveldb)-8   	 2000000	       963 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/43_(12_14_5_5_goleveldb)-8  	 1000000	      1825 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/44_(19_14_5_5_goleveldb)-8  	  500000	      2902 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/45_(5_0_10_5_goleveldb)-8   	   50000	     34558 ns/op	   11043 B/op	      51 allocs/op
+BenchmarkQueryMiss/46_(12_0_10_5_goleveldb)-8  	   10000	    126276 ns/op	   40887 B/op	     255 allocs/op
+BenchmarkQueryMiss/47_(19_0_10_5_goleveldb)-8  	   10000	    223106 ns/op	   64482 B/op	     402 allocs/op
+BenchmarkQueryMiss/48_(5_7_10_5_goleveldb)-8   	 2000000	       659 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/49_(12_7_10_5_goleveldb)-8  	 1000000	      1885 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/50_(19_7_10_5_goleveldb)-8  	  500000	      2932 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/51_(5_14_10_5_goleveldb)-8  	 2000000	       621 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/52_(12_14_10_5_goleveldb)-8 	 1000000	      1873 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/53_(19_14_10_5_goleveldb)-8 	  500000	      2933 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/54_(5_0_5_10_goleveldb)-8   	  100000	     20525 ns/op	    4849 B/op	      51 allocs/op
+BenchmarkQueryMiss/55_(12_0_5_10_goleveldb)-8  	   20000	     97267 ns/op	   18050 B/op	     253 allocs/op
+BenchmarkQueryMiss/56_(19_0_5_10_goleveldb)-8  	   10000	    171350 ns/op	   27660 B/op	     403 allocs/op
+BenchmarkQueryMiss/57_(5_7_5_10_goleveldb)-8   	 2000000	       633 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/58_(12_7_5_10_goleveldb)-8  	 1000000	      1799 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/59_(19_7_5_10_goleveldb)-8  	  500000	      2893 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/60_(5_14_5_10_goleveldb)-8  	 2000000	       639 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/61_(12_14_5_10_goleveldb)-8 	 1000000	      1861 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/62_(19_14_5_10_goleveldb)-8 	  500000	      2933 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/63_(5_0_10_10_goleveldb)-8  	   30000	     54669 ns/op	   15957 B/op	      64 allocs/op
+BenchmarkQueryMiss/64_(12_0_10_10_goleveldb)-8 	   10000	    126469 ns/op	   39598 B/op	     233 allocs/op
+BenchmarkQueryMiss/65_(19_0_10_10_goleveldb)-8 	    5000	    250385 ns/op	   66850 B/op	     401 allocs/op
+BenchmarkQueryMiss/66_(5_7_10_10_goleveldb)-8  	 2000000	       791 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/67_(12_7_10_10_goleveldb)-8 	 1000000	      1642 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/68_(19_7_10_10_goleveldb)-8 	  500000	      2969 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/69_(5_14_10_10_goleveldb)-8 	 2000000	       786 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/70_(12_14_10_10_goleveldb)-8         	 1000000	      1707 ns/op	       0 B/op	       0 allocs/op
+BenchmarkQueryMiss/71_(19_14_10_10_goleveldb)-8         	  500000	      2933 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	1442.060s

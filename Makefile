@@ -33,11 +33,11 @@ fullbench:
 
 newbench:
 	cd benchmarks && \
-		go test -bench=Insert --benchmem --timeout=1h . | tee -a res/insert.txt && \
-		go test -bench=Update --benchmem --timeout=1h . | tee -a res/update.txt && \
-		go test -bench=Remove --benchmem --timeout=1h . | tee -a res/remove.txt && \
-		go test -bench=QueryHit --benchmem --timeout=1h . | tee -a res/queryHit.txt && \
-		go test -bench=QueryMiss --benchmem --timeout=1h . | tee -a res/queryMiss.txt && \
+		go test -bench=Insert --benchmem --timeout=3h . | tee -a res/insert.txt && \
+		go test -bench=Update --benchmem --timeout=3h . | tee -a res/update.txt && \
+		go test -bench=Remove --benchmem --timeout=3h . | tee -a res/remove.txt && \
+		go test -bench=QueryHit --benchmem --timeout=3h . | tee -a res/queryHit.txt && \
+		go test -bench=QueryMiss --benchmem --timeout=3h . | tee -a res/queryMiss.txt
 
 
 # note that this just profiles the in-memory version, not persistence
