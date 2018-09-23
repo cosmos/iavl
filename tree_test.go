@@ -13,6 +13,7 @@ import (
 	mathrand "math/rand"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
+	"strconv"
 )
 
 var testLevelDB bool
@@ -1163,16 +1164,80 @@ func TestOverwrite(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("value2"))
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail, overwrite was idempotent")
+}
 
-	// Reload tree at version 1
+func TestLoadVersionForOverwriting(t *testing.T) {
+	require := require.New(t)
+
+	mdb := db.NewMemDB()
+	tree := NewMutableTree(mdb, 0)
+
+	maxLength := 100
+	count := 1
+	for {
+		countStr := strconv.Itoa(count)
+		// Set one kv pair and save version
+		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		_, _, err := tree.SaveVersion()
+		require.NoError(err, "SaveVersion should not fail")
+		count++
+		if count > maxLength {
+			break
+		}
+	}
+
 	tree = NewMutableTree(mdb, 0)
-	_, err = tree.LoadVersionForOverwriting(int64(1))
+	_, err := tree.LoadVersionForOverwriting(int64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
 
-	// Attempt to put a different kv pair into the tree and save
-	tree.Set([]byte("key2"), []byte("different value 2"))
+	version := 1
+	for {
+		exist := tree.VersionExists(int64(version))
+		require.True(exist, "versions no more than 50 should exist")
+		version++
+		if version > maxLength/2 {
+			break
+		}
+	}
+	for {
+		exist := tree.VersionExists(int64(version))
+		require.False(exist, "versions more than 50 should have been deleted")
+		version++
+		if version > maxLength {
+			break
+		}
+	}
+
+	tree.Set([]byte("key49"), []byte("value49 different"))
 	_, _, err = tree.SaveVersion()
-	require.NoError(err, "SaveVersion should not fail because the tree is load by LoadVersionOverwrite")
+	require.NoError(err, "SaveVersion should not fail, overwrite was allowed")
+
+	tree.Set([]byte("key50"), []byte("value50 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, overwrite was allowed")
+
+	// Reload tree at version 50, the latest tree version is 52
+	tree = NewMutableTree(mdb, 0)
+	_, err = tree.LoadVersion(int64(maxLength / 2))
+	require.NoError(err, "LoadVersion should not fail")
+
+	tree.Set([]byte("key49"), []byte("value49 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, write the same value")
+
+	tree.Set([]byte("key50"), []byte("value50 different different"))
+	_, _, err = tree.SaveVersion()
+	require.Error(err, "SaveVersion should fail, overwrite was not allowed")
+
+	tree.Set([]byte("key50"), []byte("value50 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, write the same value")
+
+	//The tree version now is 52 which is equal to latest version.
+	//Now any key value can be written into the tree
+	tree.Set([]byte("key any value"), []byte("value any value"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail.")
 }
 
 //////////////////////////// BENCHMARKS ///////////////////////////////////////

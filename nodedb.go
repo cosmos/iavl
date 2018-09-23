@@ -244,6 +244,10 @@ func (ndb *nodeDB) updateLatestVersion(version int64) {
 	}
 }
 
+func (ndb *nodeDB) resetLatestVersion(version int64) {
+	ndb.latestVersion = version
+}
+
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	itr := ndb.db.ReverseIterator(
 		rootKeyFormat.Key(version-1),
