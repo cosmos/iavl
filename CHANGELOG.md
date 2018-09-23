@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.11.0 (September 7, 2018)
+
+BREAKING CHANGES
+
+- Changed internal database key format to store int64 key components in a full 8-byte fixed width ([#107])
+- Removed some architecture dependent methods (e.g., use `Get` instead of `Get64` etc) ([#96])  
+
+IMPROVEMENTS
+
+- Database key format avoids use of fmt.Sprintf fmt.Sscanf leading to ~10% speedup in benchmark BenchmarkTreeLoadAndDelete ([#107], thanks to [@silasdavis])
+
+[#107]: https://github.com/tendermint/iavl/pull/107
+[@silasdavis]: https://github.com/silasdavis
+[#96]: https://github.com/tendermint/iavl/pull/96
+
 ## 0.10.0
 
 BREAKING CHANGES
