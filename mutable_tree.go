@@ -387,7 +387,7 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 // deleteVersionsFrom deletes tree version from disk specified version to latest version. The version can then no
 // longer be accessed.
 func (tree *MutableTree) deleteVersionsFrom(version int64) error {
-	targetVersion := version
+	newLatestVersion := version - 1
 	lastestVersion := tree.ndb.getLatestVersion()
 	for {
 		if version > lastestVersion {
@@ -407,7 +407,7 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 		version++
 	}
 	tree.ndb.Commit()
-	tree.ndb.resetLatestVersion(targetVersion - 1)
+	tree.ndb.resetLatestVersion(newLatestVersion)
 	return nil
 }
 
