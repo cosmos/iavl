@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,7 +14,6 @@ import (
 	mathrand "math/rand"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
-	"strconv"
 )
 
 var testLevelDB bool
@@ -1189,7 +1189,7 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	_, err = tree.LoadVersionForOverwriting(int64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
 
-	for version := 1; version <= maxLength / 2; version++ {
+	for version := 1; version <= maxLength/2; version++ {
 		exist := tree.VersionExists(int64(version))
 		require.True(exist, "versions no more than 50 should exist")
 	}
