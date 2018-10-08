@@ -1173,39 +1173,30 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	tree := NewMutableTree(mdb, 0)
 
 	maxLength := 100
-	count := 1
-	for {
+	for count := 1; count <= maxLength; count++ {
 		countStr := strconv.Itoa(count)
 		// Set one kv pair and save version
 		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
 		_, _, err := tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not fail")
-		count++
-		if count > maxLength {
-			break
-		}
 	}
 
 	tree = NewMutableTree(mdb, 0)
-	_, err := tree.LoadVersionForOverwriting(int64(maxLength / 2))
+	targetVersion, err := tree.LoadVersionForOverwriting(int64(maxLength * 2))
+	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+	tree = NewMutableTree(mdb, 0)
+	_, err = tree.LoadVersionForOverwriting(int64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
 
-	version := 1
-	for {
+	for version := 1; version <= maxLength / 2; version++ {
 		exist := tree.VersionExists(int64(version))
 		require.True(exist, "versions no more than 50 should exist")
-		version++
-		if version > maxLength/2 {
-			break
-		}
 	}
-	for {
+
+	for version := (maxLength / 2) + 1; version <= maxLength; version++ {
 		exist := tree.VersionExists(int64(version))
 		require.False(exist, "versions more than 50 should have been deleted")
-		version++
-		if version > maxLength {
-			break
-		}
 	}
 
 	tree.Set([]byte("key49"), []byte("value49 different"))
