@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -1163,6 +1164,71 @@ func TestOverwrite(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("value2"))
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail, overwrite was idempotent")
+}
+
+func TestLoadVersionForOverwriting(t *testing.T) {
+	require := require.New(t)
+
+	mdb := db.NewMemDB()
+	tree := NewMutableTree(mdb, 0)
+
+	maxLength := 100
+	for count := 1; count <= maxLength; count++ {
+		countStr := strconv.Itoa(count)
+		// Set one kv pair and save version
+		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		_, _, err := tree.SaveVersion()
+		require.NoError(err, "SaveVersion should not fail")
+	}
+
+	tree = NewMutableTree(mdb, 0)
+	targetVersion, err := tree.LoadVersionForOverwriting(int64(maxLength * 2))
+	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+	tree = NewMutableTree(mdb, 0)
+	_, err = tree.LoadVersionForOverwriting(int64(maxLength / 2))
+	require.NoError(err, "LoadVersion should not fail")
+
+	for version := 1; version <= maxLength/2; version++ {
+		exist := tree.VersionExists(int64(version))
+		require.True(exist, "versions no more than 50 should exist")
+	}
+
+	for version := (maxLength / 2) + 1; version <= maxLength; version++ {
+		exist := tree.VersionExists(int64(version))
+		require.False(exist, "versions more than 50 should have been deleted")
+	}
+
+	tree.Set([]byte("key49"), []byte("value49 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, overwrite was allowed")
+
+	tree.Set([]byte("key50"), []byte("value50 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, overwrite was allowed")
+
+	// Reload tree at version 50, the latest tree version is 52
+	tree = NewMutableTree(mdb, 0)
+	_, err = tree.LoadVersion(int64(maxLength / 2))
+	require.NoError(err, "LoadVersion should not fail")
+
+	tree.Set([]byte("key49"), []byte("value49 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, write the same value")
+
+	tree.Set([]byte("key50"), []byte("value50 different different"))
+	_, _, err = tree.SaveVersion()
+	require.Error(err, "SaveVersion should fail, overwrite was not allowed")
+
+	tree.Set([]byte("key50"), []byte("value50 different"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail, write the same value")
+
+	//The tree version now is 52 which is equal to latest version.
+	//Now any key value can be written into the tree
+	tree.Set([]byte("key any value"), []byte("value any value"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail.")
 }
 
 //////////////////////////// BENCHMARKS ///////////////////////////////////////
