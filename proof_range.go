@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	cmn "github.com/tendermint/tmlibs/common"
+	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 type RangeProof struct {
