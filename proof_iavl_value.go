@@ -38,7 +38,7 @@ func IAVLValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 		return nil, cmn.NewError("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
 	var op IAVLValueOp // a bit strange as we'll discard this, but it works.
-	err := cdc.UnmarshalBinary(pop.Data, &op)
+	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
 	if err != nil {
 		return nil, cmn.ErrorWrap(err, "decoding ProofOp.Data into IAVLValueOp")
 	}
@@ -46,7 +46,7 @@ func IAVLValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 }
 
 func (op IAVLValueOp) ProofOp() merkle.ProofOp {
-	bz := cdc.MustMarshalBinary(op)
+	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
 	return merkle.ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,

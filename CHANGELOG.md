@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.1 (October 29, 2018)
+
+IMPROVEMENTS
+
+- Uses GoAmino v0.14
+
 ## 0.11.0 (September 7, 2018)
 
 BREAKING CHANGES

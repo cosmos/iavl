@@ -130,15 +130,15 @@
   revision = "6b91fda63f2e36186f1c9d0e48578defb69c5d43"
 
 [[projects]]
-  digest = "1:2c971a45c89ca2ccc735af50919cdee05fbdc54d4bf50625073693300e31ead8"
+  digest = "1:10b3a599325740c84a7c81f3f3cb2e1fdb70b3ea01b7fa28495567a2519df431"
   name = "github.com/tendermint/go-amino"
   packages = ["."]
   pruneopts = "UT"
-  revision = "faa6e731944e2b7b6a46ad202902851e8ce85bee"
-  version = "v0.12.0"
+  revision = "6dcc6ddc143e116455c94b25c1004c99e0d0ca12"
+  version = "v0.14.0"
 
 [[projects]]
-  digest = "1:46606869f7275e78e2f86c9e521429eb2c84663229376626d83bd2c6843fe0a9"
+  digest = "1:7708275e1b9592bc7f8fb891708108bab6fda505eec6f8ce24f623445b60fbef"
   name = "github.com/tendermint/tendermint"
   packages = [
     "crypto/merkle",
@@ -150,8 +150,8 @@
     "libs/test",
   ]
   pruneopts = "UT"
-  revision = "37928cb9907a60ae79d5b387d1d89ffc43dc07d8"
-  version = "v0.26.0-dev0"
+  revision = "bc0d672b26dbbd6858e97a570c87e3c20cbf199e"
+  version = "v0.26.0-rc0"
 
 [[projects]]
   branch = "master"
