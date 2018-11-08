@@ -110,7 +110,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:59483b8e8183f10ab21a85ba1f4cbb4a2335d48891801f79ed7b9499f44d383c"
+  digest = "1:9ff9e1808adfc43f788f1c1e9fd2660c285b522243da985a4c043ec6f2a2d736"
   name = "github.com/syndtr/goleveldb"
   packages = [
     "leveldb",
@@ -127,7 +127,7 @@
     "leveldb/util",
   ]
   pruneopts = "UT"
-  revision = "6b91fda63f2e36186f1c9d0e48578defb69c5d43"
+  revision = "f9080354173f192dfc8821931eacf9cfd6819253"
 
 [[projects]]
   digest = "1:10b3a599325740c84a7c81f3f3cb2e1fdb70b3ea01b7fa28495567a2519df431"
@@ -138,7 +138,7 @@
   version = "v0.14.0"
 
 [[projects]]
-  digest = "1:7708275e1b9592bc7f8fb891708108bab6fda505eec6f8ce24f623445b60fbef"
+  digest = "1:5de13783e9b12aa4deea757faf150a83fd73bd1bab1b0365071ecba2775bc331"
   name = "github.com/tendermint/tendermint"
   packages = [
     "crypto/merkle",
@@ -150,19 +150,19 @@
     "libs/test",
   ]
   pruneopts = "UT"
-  revision = "bc0d672b26dbbd6858e97a570c87e3c20cbf199e"
-  version = "v0.26.0-rc0"
+  revision = "c086d0a34102bd42873d20445673ea1d18a539cd"
+  version = "v0.26.0"
 
 [[projects]]
   branch = "master"
-  digest = "1:adbbe8e62fac8ca28b576e82d87210a77a990f4cc73353085b2b2cde1bc9ff3b"
+  digest = "1:0a733d91d2a819c502ba47ecddfd51a9938b3d61213d24d559947aed81230f70"
   name = "golang.org/x/crypto"
   packages = [
     "ripemd160",
     "sha3",
   ]
   pruneopts = "UT"
-  revision = "0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb"
+  revision = "e4dc69e5b2fd71dcaf8bd5d054eb936deb78d1fa"
 
 [solve-meta]
   analyzer-name = "dep"

@@ -1,10 +1,20 @@
 # Changelog
 
+## 0.11.2 (November 8, 2018)
+
+IMPROVEMENTS
+
+- Update to latest tendermint (0.26.0) 
+
 ## 0.11.1 (October 29, 2018)
 
 IMPROVEMENTS
 
-- Uses GoAmino v0.14
+- Update to GoAmino v0.14.0
+- Add `LoadVersionForOverwriting` which allows loading a target version and deletes subsequent versions of the (mutable) tree ([#102], thanks to [@HaoyangLiu])
+
+[#102]: https://github.com/tendermint/iavl/pull/102
+[@HaoyangLiu]: https://github.com/HaoyangLiu
 
 ## 0.11.0 (September 7, 2018)
 
