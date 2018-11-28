@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.11.2 (November 26, 2018)
+## 0.12.0 (November 26, 2018)
 
 IMPROVEMENTS
 
