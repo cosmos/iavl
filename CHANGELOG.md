@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0 (November 26, 2018)
+
+BREAKING CHANGES
+
+- Uses new Tendermint ReverseIterator API.  See https://github.com/tendermint/tendermint/pull/2913
+
+## 0.11.1 (October 29, 2018)
+
+IMPROVEMENTS
+
+- Uses GoAmino v0.14
+
 ## 0.11.0 (September 7, 2018)
 
 BREAKING CHANGES
@@ -34,6 +46,12 @@ BUG FIXES
 IMPROVEMENTS
 
 - Change tendermint dep to ^v0.22.0 (#91)
+
+## 0.10.0 (July 11, 2018)
+
+BREAKING CHANGES
+
+- getRangeProof and Get\[Versioned\]\[Range\]WithProof return nil proof/error if tree is empty.
 
 ## 0.9.2 (July 3, 2018)
 

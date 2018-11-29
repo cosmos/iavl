@@ -51,9 +51,12 @@ func TestTreeKeyExistsProof(t *testing.T) {
 	root := tree.WorkingHash()
 
 	// should get false for proof with nil root
-	proof, _, _, err := tree.getRangeProof([]byte("foo"), nil, 1)
-	assert.NotNil(t, err)
-	assert.NotNil(t, proof.Verify(root))
+	proof, keys, values, err := tree.getRangeProof([]byte("foo"), nil, 1)
+	assert.Nil(t, proof)
+	assert.Error(t, proof.Verify(root))
+	assert.Nil(t, keys)
+	assert.Nil(t, values)
+	assert.NoError(t, err)
 
 	// insert lots of info and store the bytes
 	allkeys := make([][]byte, 200)
@@ -205,21 +208,21 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 
 	// Write/Read then verify.
 	cdc := amino.NewCodec()
-	proofBytes := cdc.MustMarshalBinary(proof)
+	proofBytes := cdc.MustMarshalBinaryLengthPrefixed(proof)
 	var proof2 = new(RangeProof)
-	err := cdc.UnmarshalBinary(proofBytes, proof2)
+	err := cdc.UnmarshalBinaryLengthPrefixed(proofBytes, proof2)
 	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
 
 	// Random mutations must not verify
 	for i := 0; i < 1e4; i++ {
 		badProofBytes := test.MutateByteSlice(proofBytes)
 		var badProof = new(RangeProof)
-		err := cdc.UnmarshalBinary(badProofBytes, badProof)
+		err := cdc.UnmarshalBinaryLengthPrefixed(badProofBytes, badProof)
 		if err != nil {
 			continue // couldn't even decode.
 		}
 		// re-encode to make sure it's actually different.
-		badProofBytes2 := cdc.MustMarshalBinary(badProof)
+		badProofBytes2 := cdc.MustMarshalBinaryLengthPrefixed(badProof)
 		if bytes.Equal(proofBytes, badProofBytes2) {
 			continue // didn't mutate successfully.
 		}

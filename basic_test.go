@@ -423,10 +423,14 @@ func TestProof(t *testing.T) {
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
 	tree := NewMutableTree(db, 100)
+	assert.Equal(t, tree.Hash(), []byte(nil))
 
 	// should get false for proof with nil root
-	_, _, err := tree.GetWithProof([]byte("foo"))
-	assert.Error(t, err)
+	value, proof, err := tree.GetWithProof([]byte("foo"))
+	assert.Nil(t, value)
+	assert.Nil(t, proof)
+	assert.Error(t, proof.Verify([]byte(nil)))
+	assert.NoError(t, err)
 
 	// insert lots of info and store the bytes
 	keys := make([][]byte, 200)
@@ -436,9 +440,15 @@ func TestTreeProof(t *testing.T) {
 		keys[i] = []byte(key)
 	}
 
+	tree.SaveVersion()
+
 	// query random key fails
-	_, _, err = tree.GetWithProof([]byte("foo"))
+	value, proof, err = tree.GetWithProof([]byte("foo"))
+	assert.Nil(t, value)
+	assert.NotNil(t, proof)
 	assert.NoError(t, err)
+	assert.NoError(t, proof.Verify(tree.Hash()))
+	assert.NoError(t, proof.VerifyAbsence([]byte("foo")))
 
 	// valid proof for real keys
 	root := tree.WorkingHash()
