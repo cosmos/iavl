@@ -8,7 +8,7 @@
 
 [[constraint]]
   name = "github.com/tendermint/tendermint"
-  branch = "jae/reverseiterator"
+  version = "v0.27.0-dev1"
 
 [prune]
   go-tests = true

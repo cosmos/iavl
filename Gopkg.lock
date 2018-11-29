@@ -138,8 +138,7 @@
   version = "v0.14.1"
 
 [[projects]]
-  branch = "jae/reverseiterator"
-  digest = "1:43695e4fe608b6fdb28d71a5ae7e7f744f67a354b5eeb37a80db0d4141d21b29"
+  digest = "1:a0fe2dfa98e218733ef751fcdfaceaac7192776020dd64c0cedc84daa07199d6"
   name = "github.com/tendermint/tendermint"
   packages = [
     "crypto/merkle",
@@ -150,7 +149,8 @@
     "libs/test",
   ]
   pruneopts = "UT"
-  revision = "b582a9ea65633c41bf8b61fb0284faba86b4a1c4"
+  revision = "44b769b1acd0b2aaa8c199b0885bc2811191fb2e"
+  version = "v0.27.0-dev1"
 
 [[projects]]
   branch = "master"
