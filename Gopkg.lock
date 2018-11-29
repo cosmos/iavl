@@ -22,12 +22,12 @@
   version = "v0.6.0"
 
 [[projects]]
-  digest = "1:31a18dae27a29aa074515e43a443abfd2ba6deb6d69309d8d7ce789c45f34659"
+  digest = "1:4062bc6de62d73e2be342243cf138cf499b34d558876db8d9430e2149388a4d8"
   name = "github.com/go-logfmt/logfmt"
   packages = ["."]
   pruneopts = "UT"
-  revision = "390ab7935ee28ec6b286364bba9b4dd6410cb3d5"
-  version = "v0.3.0"
+  revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
@@ -110,7 +110,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:59483b8e8183f10ab21a85ba1f4cbb4a2335d48891801f79ed7b9499f44d383c"
+  digest = "1:9ff9e1808adfc43f788f1c1e9fd2660c285b522243da985a4c043ec6f2a2d736"
   name = "github.com/syndtr/goleveldb"
   packages = [
     "leveldb",
@@ -127,42 +127,41 @@
     "leveldb/util",
   ]
   pruneopts = "UT"
-  revision = "6b91fda63f2e36186f1c9d0e48578defb69c5d43"
+  revision = "f9080354173f192dfc8821931eacf9cfd6819253"
 
 [[projects]]
-  digest = "1:10b3a599325740c84a7c81f3f3cb2e1fdb70b3ea01b7fa28495567a2519df431"
+  digest = "1:ad9c4c1a4e7875330b1f62906f2830f043a23edb5db997e3a5ac5d3e6eadf80a"
   name = "github.com/tendermint/go-amino"
   packages = ["."]
   pruneopts = "UT"
-  revision = "6dcc6ddc143e116455c94b25c1004c99e0d0ca12"
-  version = "v0.14.0"
+  revision = "dc14acf9ef15f85828bfbc561ed9dd9d2a284885"
+  version = "v0.14.1"
 
 [[projects]]
-  digest = "1:7708275e1b9592bc7f8fb891708108bab6fda505eec6f8ce24f623445b60fbef"
+  digest = "1:a0fe2dfa98e218733ef751fcdfaceaac7192776020dd64c0cedc84daa07199d6"
   name = "github.com/tendermint/tendermint"
   packages = [
     "crypto/merkle",
     "crypto/tmhash",
     "libs/common",
     "libs/db",
-    "libs/errors",
     "libs/log",
     "libs/test",
   ]
   pruneopts = "UT"
-  revision = "bc0d672b26dbbd6858e97a570c87e3c20cbf199e"
-  version = "v0.26.0-rc0"
+  revision = "44b769b1acd0b2aaa8c199b0885bc2811191fb2e"
+  version = "v0.27.0-dev1"
 
 [[projects]]
   branch = "master"
-  digest = "1:adbbe8e62fac8ca28b576e82d87210a77a990f4cc73353085b2b2cde1bc9ff3b"
+  digest = "1:0a733d91d2a819c502ba47ecddfd51a9938b3d61213d24d559947aed81230f70"
   name = "golang.org/x/crypto"
   packages = [
     "ripemd160",
     "sha3",
   ]
   pruneopts = "UT"
-  revision = "0c41d7ab0a0ee717d4590a44bcb987dfd9e183eb"
+  revision = "9eb0be3963eaeb646c9a9b6d11f3da2b249bb2ca"
 
 [solve-meta]
   analyzer-name = "dep"

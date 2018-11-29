@@ -250,8 +250,8 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	itr := ndb.db.ReverseIterator(
-		rootKeyFormat.Key(version-1),
-		rootKeyFormat.Key(0),
+		rootKeyFormat.Key(1),
+		rootKeyFormat.Key(version),
 	)
 	defer itr.Close()
 

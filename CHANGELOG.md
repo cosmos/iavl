@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0 (November 26, 2018)
+
+BREAKING CHANGES
+
+- Uses new Tendermint ReverseIterator API.  See https://github.com/tendermint/tendermint/pull/2913
+
 ## 0.11.1 (October 29, 2018)
 
 IMPROVEMENTS
