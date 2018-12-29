@@ -345,14 +345,16 @@ func (node *Node) getLeftNode(t *ImmutableTree) *Node {
 	if node.leftNode != nil {
 		return node.leftNode
 	}
-	return t.ndb.GetNode(node.leftHash)
+	node.leftNode = t.ndb.GetNode(node.leftHash)
+	return node.leftNode
 }
 
 func (node *Node) getRightNode(t *ImmutableTree) *Node {
 	if node.rightNode != nil {
 		return node.rightNode
 	}
-	return t.ndb.GetNode(node.rightHash)
+	node.rightNode = t.ndb.GetNode(node.rightHash)
+	return node.rightNode
 }
 
 // NOTE: mutates height and size
@@ -370,6 +372,41 @@ func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool
 	return node.traverseInRange(t, nil, nil, ascending, false, 0, func(node *Node, depth uint8) bool {
 		return cb(node)
 	})
+}
+
+// traverseFirst is a wrapper over traverseInRange when we want the whole tree and will traverse the leaf nodes
+func (node *Node) traverseFirst(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, func(node *Node, depth uint8) bool {
+		return cb(node)
+	})
+}
+
+// only used by IterateMiddle with same pre-requirement must be met
+func (node *Node) traverseMiddle(cb func(*Node)) {
+	if node.leftNode != nil {
+		node.leftNode.traverseMiddle(cb)
+	}
+	cb(node)
+	if node.rightNode != nil {
+		node.rightNode.traverseMiddle(cb)
+	}
+}
+
+func recoverFromRemoteNodes(preOrder []*Node, inOrder [][]byte, prebeg, preend, inbeg, inend int) *Node {
+	if prebeg < preend && inbeg < inend {
+		rev := preOrder[prebeg]
+		var mid int
+		for mid = inbeg; mid < inend; mid++ {
+			if bytes.Compare(rev.key, inOrder[mid]) == 0 {
+				break
+			}
+		}
+		span := mid - inbeg
+		rev.leftNode = recoverFromRemoteNodes(preOrder, inOrder, prebeg+1, prebeg+1+span, inbeg, inbeg+span)
+		rev.rightNode = recoverFromRemoteNodes(preOrder, inOrder, prebeg+1+span, preend, inbeg+span+1, inend)
+		return rev
+	}
+	return nil
 }
 
 func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*Node, uint8) bool) bool {

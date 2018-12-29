@@ -310,7 +310,15 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
+	return tree.saveVersionImpl(version)
+}
 
+// directly save tree at specific version (for initial state sync usage)
+func (tree *MutableTree) SaveVersionAt(version int64) ([]byte, int64, error) {
+	return tree.saveVersionImpl(version)
+}
+
+func (tree *MutableTree) saveVersionImpl(version int64) ([]byte, int64, error) {
 	if tree.versions[version] {
 		//version already exists, throw an error if attempting to overwrite
 		// Same hash means idempotent.  Return success.
@@ -350,6 +358,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.orphans = map[string]int64{}
 
 	return tree.Hash(), version, nil
+
 }
 
 // DeleteVersion deletes a tree version from disk. The version can then no

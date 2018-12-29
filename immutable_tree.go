@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -49,6 +50,12 @@ func (t *ImmutableTree) Size() int64 {
 // Version returns the version of the tree.
 func (t *ImmutableTree) Version() int64 {
 	return t.version
+}
+
+// TODO: revisit
+// Set version for state reactor
+func (t *ImmutableTree) SetVersion(ver int64) {
+	t.version = ver
 }
 
 // Height returns the height of the tree.
@@ -112,6 +119,34 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped
 		}
 		return false
 	})
+}
+
+// used by state syncing
+func (t *ImmutableTree) IterateFirst(fn func(nodeBytes []byte)) {
+	if t.root == nil {
+		return
+	}
+	t.root.traverseFirst(t, true, func(node *Node) bool {
+		var b bytes.Buffer
+		if err := node.writeBytes(&b); err != nil {
+			panic(err)
+		}
+		fn(b.Bytes())
+		return false
+	})
+}
+
+// used by state syncing, assuming IterateFirst has alread loaded nodes from db
+func (t *ImmutableTree) IterateMiddle(fn func(key []byte, value []byte, version int64)) {
+	if t.root != nil {
+		t.root.traverseMiddle(func(node *Node) {
+			fn(node.key, node.value, node.version)
+		})
+	}
+}
+
+func (t *ImmutableTree) RecoverFromRemoteNodes(rootFirst []*Node, rootMiddleKeys [][]byte) {
+	t.root = recoverFromRemoteNodes(rootFirst, rootMiddleKeys, 0, len(rootFirst), 0, len(rootMiddleKeys))
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
