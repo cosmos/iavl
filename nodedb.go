@@ -43,7 +43,7 @@ type nodeDB struct {
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
+func NewNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	ndb := &nodeDB{
 		db:             db,
 		batch:          db.NewBatch(),

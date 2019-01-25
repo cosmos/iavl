@@ -22,7 +22,7 @@ type MutableTree struct {
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
-	ndb := newNodeDB(db, cacheSize)
+	ndb := NewNodeDB(db, cacheSize)
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{

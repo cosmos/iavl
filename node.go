@@ -192,6 +192,10 @@ func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value [
 	return node.getRightNode(t).getByIndex(t, index-leftNode.size)
 }
 
+func (node *Node) Hash() []byte {
+	return node._hash()
+}
+
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash() []byte {
