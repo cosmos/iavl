@@ -430,3 +430,25 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	}
 	return node.getLeftNode(t).lmd(t)
 }
+
+// Load node and all dependant node from the backdatabase.
+// Set all nodeas to not persisted, so will be reloaded back to
+// the backing database on a SaveVersion.
+func (node *Node) LoadAndSetNotPersisted(t *MutableTree) {
+	if len(node.leftHash) > 0 {
+		if node.leftNode == nil {
+			node.leftNode = t.ndb.GetNode(node.leftHash)
+		}
+		node.leftNode.LoadAndSetNotPersisted(t)
+	}
+
+	if len(node.rightHash) > 0 {
+		if node.rightNode == nil {
+			node.rightNode = t.ndb.GetNode(node.rightHash)
+		}
+		node.rightNode.LoadAndSetNotPersisted(t)
+
+	}
+
+	node.persisted = false
+}

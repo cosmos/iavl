@@ -270,7 +270,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	if err != nil {
 		return latestVersion, err
 	}
-	tree.deleteVersionsFrom(targetVersion+1)
+	tree.deleteVersionsFrom(targetVersion + 1)
 	return targetVersion, nil
 }
 
@@ -500,4 +500,43 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 		}
 		tree.orphans[string(node.hash)] = node.version
 	}
+}
+
+// NewSliceAt creates a copy of the current tree at given version. The same result
+// as deleting all other versions with DeleteVersion.
+// Uses input db as the backing database.
+func (tree *MutableTree) NewSliceAt(version int64, newDb dbm.DB) ([]byte, int64, *MutableTree, error) {
+	_, _, err := tree.SaveVersion()
+	if err != nil {
+		return nil, 0, nil, cmn.NewError("Saving tree: %v", err)
+	}
+
+	iNewTree, err := tree.GetImmutable(version)
+	if err != nil {
+		return nil, 0, nil, cmn.NewError("Getting imutable tree: %v", err)
+	}
+
+	tempTree := MutableTree{
+		ImmutableTree: iNewTree,
+		lastSaved:     tree.lastSaved,         // The most recently saved tree.
+		orphans:       make(map[string]int64), // Nodes removed by changes to working tree.
+		versions:      make(map[int64]bool),   // The previous, saved versions of the tree.
+		ndb:           tree.ndb,
+	}
+	tempTree.versions[version] = true
+
+	tempTree.root.LoadAndSetNotPersisted(&tempTree)
+	tempTree.ndb = newNodeDB(newDb, tempTree.ndb.nodeCacheSize)
+	tempTree.ndb.latestVersion = version - 1
+	if err := tempTree.ndb.SaveRoot(tempTree.root, version); err != nil {
+		return nil, 0, nil, err
+	}
+	hash, version, err := tempTree.SaveVersion()
+
+	newTree := NewMutableTree(newDb, tempTree.ndb.nodeCacheSize)
+	_, err = newTree.LoadVersion(version)
+	if err != nil {
+		return nil, 0, nil, cmn.NewError("Loading new tree: %v", err)
+	}
+	return hash, version, newTree, nil
 }
