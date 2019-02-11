@@ -7,6 +7,47 @@ import (
 	"testing"
 )
 
+const (
+	numBlocks = 10
+	blockSize = 10
+)
+
+func TestFuzzNewSlice(t *testing.T) {
+	tree := NewMutableTree(db.NewMemDB(), 0)
+	historicBlocks := generateBlocks(numBlocks, blockSize)
+	runBlocks(t, tree, historicBlocks)
+
+	_, _, newTree, err := tree.NewSliceAt(tree.Version(), db.NewMemDB(), false)
+	require.NoError(t, err)
+
+	futureBlocks := generateBlocks(numBlocks, blockSize)
+	runBlocks(t, tree, futureBlocks)
+	runBlocks(t, newTree, futureBlocks)
+	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
+	require.Equal(t, tree.Version(), newTree.Version())
+
+}
+
+func generateBlocks(numBlocks, blockSize int) []*program {
+	var history []*program
+	for i := 0; i < numBlocks; i++ {
+		history = append(history, genRandomProgram(blockSize))
+	}
+	return history
+}
+
+func runBlocks(t *testing.T, tree *MutableTree, blocks []*program) {
+	for _, block := range blocks {
+		if err := block.Execute(tree); err != nil {
+			require.NoError(t, err)
+		}
+		if _, _, err := tree.SaveVersion(); err != nil {
+			require.NoError(t, err)
+		}
+	}
+
+}
+
 func TestNewSlice(t *testing.T) {
 	memDb := db.NewMemDB()
 	mutTree := NewMutableTree(memDb, .0)
@@ -24,36 +65,32 @@ func TestNewSlice(t *testing.T) {
 
 	_ = mutTree.Set([]byte("#alice"), []byte("xyz"))
 	_, _ = mutTree.Remove([]byte("#bob"))
-
 	_ = mutTree.Set([]byte("#alice"), []byte("zzzz"))
 	_ = mutTree.Set([]byte("#fred"), []byte("zzzz"))
 	_ = mutTree.Set([]byte("#mary"), []byte("zzzz"))
 	hash, version, err = mutTree.SaveVersion()
-	hash = hash
-	version = version
 	require.NoError(t, err)
 
 	newMemDb := db.NewMemDB()
-	newHash, _, newTree, err := mutTree.NewSliceAt(version, newMemDb)
-	require.NoError(t, err)
-	require.Equal(t, 0, bytes.Compare(hash, newHash))
+	_, newVersion, newTree, err := mutTree.NewSliceAt(mutTree.Version(), newMemDb, false)
+
+	require.Equal(t, mutTree.Version(), newVersion)
+	require.Equal(t, 0, bytes.Compare(mutTree.Hash(), newTree.Hash()))
 
 	mutTree.Set([]byte("#sally"), []byte("xxx"))
 	newTree.Set([]byte("#sally"), []byte("xxx"))
 
-	_, _ = mutTree.Remove([]byte("#fred"))
-	_, _ = newTree.Remove([]byte("#fred"))
+	oldTreeHash, _, err := mutTree.SaveVersion()
+	require.NoError(t, err)
+	newTreeHash, _, err := newTree.SaveVersion()
+	require.NoError(t, err)
 
-	hash, _, err = mutTree.SaveVersion()
-	require.NoError(t, err)
-	newHash, _, err = newTree.SaveVersion()
-	require.NoError(t, err)
-	require.Equal(t, 0, bytes.Compare(hash, newHash))
+	require.Equal(t, 0, bytes.Compare(oldTreeHash, newTreeHash))
 
 	keys, values, _, err := mutTree.GetRangeWithProof([]byte("#"), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, len(keys), len(values))
-	newKeys, newValues, _, err := mutTree.GetRangeWithProof([]byte("#"), nil, 0)
+	newKeys, newValues, _, err := newTree.GetRangeWithProof([]byte("#"), nil, 0)
 	require.NoError(t, err)
 	require.Equal(t, len(newKeys), len(newValues))
 	require.Equal(t, len(keys), len(newKeys))
@@ -61,5 +98,4 @@ func TestNewSlice(t *testing.T) {
 		require.Equal(t, 0, bytes.Compare(keys[i], newKeys[i]))
 		require.Equal(t, 0, bytes.Compare(values[i], newValues[i]))
 	}
-
 }
