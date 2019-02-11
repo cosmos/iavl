@@ -37,12 +37,9 @@ func generateBlocks(numBlocks, blockSize int) []*program {
 
 func runBlocks(t *testing.T, tree *MutableTree, blocks []*program) {
 	for _, block := range blocks {
-		if err := block.Execute(tree); err != nil {
-			require.NoError(t, err)
-		}
-		if _, _, err := tree.SaveVersion(); err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, block.Execute(tree))
+		_, _, err := tree.SaveVersion()
+		require.NoError(t, err)
 	}
 }
 
