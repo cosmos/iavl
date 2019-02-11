@@ -98,9 +98,7 @@ func TestNewSlice(t *testing.T) {
 	}
 
 	newNewMemDB := db.NewMemDB()
-	h, v, newOldTree, err := mutTree.NewSliceAt(oldVersion, newNewMemDB)
-	h = h
-	v = v
+	_, _, newOldTree, err := mutTree.NewSliceAt(oldVersion, newNewMemDB)
 	require.Equal(t, oldVersion, newOldTree.Version())
 	require.Equal(t, 0, bytes.Compare(oldHash, newOldTree.Hash()))
 
