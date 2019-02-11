@@ -17,7 +17,7 @@ func TestFuzzNewSlice(t *testing.T) {
 	historicBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, historicBlocks)
 
-	_, _, newTree, err := tree.NewSliceAt(tree.Version(), db.NewMemDB(), false)
+	_, _, newTree, err := tree.NewSliceAt(tree.Version(), db.NewMemDB())
 	require.NoError(t, err)
 
 	futureBlocks := generateBlocks(numBlocks, blockSize)
@@ -25,7 +25,6 @@ func TestFuzzNewSlice(t *testing.T) {
 	runBlocks(t, newTree, futureBlocks)
 	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
 	require.Equal(t, tree.Version(), newTree.Version())
-
 }
 
 func generateBlocks(numBlocks, blockSize int) []*program {
@@ -45,7 +44,6 @@ func runBlocks(t *testing.T, tree *MutableTree, blocks []*program) {
 			require.NoError(t, err)
 		}
 	}
-
 }
 
 func TestNewSlice(t *testing.T) {
@@ -68,11 +66,11 @@ func TestNewSlice(t *testing.T) {
 	_ = mutTree.Set([]byte("#alice"), []byte("zzzz"))
 	_ = mutTree.Set([]byte("#fred"), []byte("zzzz"))
 	_ = mutTree.Set([]byte("#mary"), []byte("zzzz"))
-	hash, version, err = mutTree.SaveVersion()
+	oldHash, oldVersion, err := mutTree.SaveVersion()
 	require.NoError(t, err)
 
 	newMemDb := db.NewMemDB()
-	_, newVersion, newTree, err := mutTree.NewSliceAt(mutTree.Version(), newMemDb, false)
+	_, newVersion, newTree, err := mutTree.NewSliceAt(mutTree.Version(), newMemDb)
 
 	require.Equal(t, mutTree.Version(), newVersion)
 	require.Equal(t, 0, bytes.Compare(mutTree.Hash(), newTree.Hash()))
@@ -98,4 +96,12 @@ func TestNewSlice(t *testing.T) {
 		require.Equal(t, 0, bytes.Compare(keys[i], newKeys[i]))
 		require.Equal(t, 0, bytes.Compare(values[i], newValues[i]))
 	}
+
+	newNewMemDB := db.NewMemDB()
+	h, v, newOldTree, err := mutTree.NewSliceAt(oldVersion, newNewMemDB)
+	h = h
+	v = v
+	require.Equal(t, oldVersion, newOldTree.Version())
+	require.Equal(t, 0, bytes.Compare(oldHash, newOldTree.Hash()))
+
 }
