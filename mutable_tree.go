@@ -502,22 +502,27 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 	}
 }
 
-// NewSliceAt creates a copy of the current tree at given version. The same result
-// as deleting all other versions with DeleteVersion.
+// NewSliceAt creates a copy of the current tree from given version.
 // Uses input db as the backing database.
-func (tree *MutableTree) NewSliceAt(version int64, newDb dbm.DB) ([]byte, int64, *MutableTree, error) {
-	_, _, err := tree.SaveVersion()
-	if err != nil {
-		return nil, 0, nil, cmn.NewError("Saving tree: %v", err)
+// Includes a SaveVersion so will increment the version number
+func (tree *MutableTree) NewSliceAt(version int64, newDb dbm.DB, skipSave bool) ([]byte, int64, *MutableTree, error) {
+	// SaveVersion ensure that the tree is loaded onto backing database and all persisted flags are set to true.
+	// This can be optionally skipped, however this risks the new database being corrupted if there is unsaved data
+	// plus the version numbers will not match.
+	if !skipSave {
+		if _, _, err := tree.SaveVersion(); err != nil {
+			return nil, 0, nil, cmn.NewError("Saving tree: %v", err)
+		}
 	}
 
-	iNewTree, err := tree.GetImmutable(version)
+	// Build a new tree from our desired version
+	tempImmutableTree, err := tree.GetImmutable(version)
 	if err != nil {
 		return nil, 0, nil, cmn.NewError("Getting imutable tree: %v", err)
 	}
 
 	tempTree := MutableTree{
-		ImmutableTree: iNewTree,
+		ImmutableTree: tempImmutableTree,
 		lastSaved:     tree.lastSaved,         // The most recently saved tree.
 		orphans:       make(map[string]int64), // Nodes removed by changes to working tree.
 		versions:      make(map[int64]bool),   // The previous, saved versions of the tree.
@@ -525,18 +530,26 @@ func (tree *MutableTree) NewSliceAt(version int64, newDb dbm.DB) ([]byte, int64,
 	}
 	tempTree.versions[version] = true
 
+	// Load all nodes for our version from the backing database but mark as unsaved.
 	tempTree.root.LoadAndSetNotPersisted(&tempTree)
+
+	// Change the backing to the newDb.
 	tempTree.ndb = newNodeDB(newDb, tempTree.ndb.nodeCacheSize)
+
+	// Save data to new backing database. Only data marked as not persisted will be saved/
+	// Root key needs to be saved separably.
 	tempTree.ndb.latestVersion = version - 1
 	if err := tempTree.ndb.SaveRoot(tempTree.root, version); err != nil {
 		return nil, 0, nil, err
 	}
-	hash, version, err := tempTree.SaveVersion()
+	_, tempVersion, err := tempTree.SaveVersion()
 
+	// Create new tree from the backing database. All data from other versions should be lost.
 	newTree := NewMutableTree(newDb, tempTree.ndb.nodeCacheSize)
-	_, err = newTree.LoadVersion(version)
+	_, err = newTree.LoadVersion(tempVersion)
 	if err != nil {
 		return nil, 0, nil, cmn.NewError("Loading new tree: %v", err)
 	}
-	return hash, version, newTree, nil
+
+	return newTree.Hash(), newTree.Version(), newTree, nil
 }
