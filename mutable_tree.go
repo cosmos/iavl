@@ -505,13 +505,13 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 // IMPORTANT This function assumes there has been no transactions since the last SaveVersion. If unsure about
 // this do a SaveVersion immediately before calling this function.
 //
-// NewSliceAt creates a copy of the current tree consisting only of the given version.
-// Uses input db as a new backing database.
-func (tree *MutableTree) NewSliceAt(version int64, newDb dbm.DB) ([]byte, int64, *MutableTree, error) {
+// SaveVersionToDB creates a copy of the current tree consisting of the given version.
+// and saves only the data for that version to the given database.
+func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, int64, error) {
 	// Build a new tree from our desired version
 	tempImmutableTree, err := tree.GetImmutable(version)
 	if err != nil {
-		return nil, 0, nil, cmn.NewError("Getting imutable tree: %v", err)
+		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
 	}
 	// We want the final version number to be the same as the input parameter, but we will need to do
 	// a SaveVersion to put the data into the new database. Hence this trick of decrementing the version.
@@ -531,20 +531,11 @@ func (tree *MutableTree) NewSliceAt(version int64, newDb dbm.DB) ([]byte, int64,
 	// Change the backing to the newDb.
 	tempTree.ndb = newNodeDB(newDb, tempTree.ndb.nodeCacheSize)
 
-	// Save data to new backing database. Only data marked as not persisted will be saved/
+	// Save data to new backing database. Only data marked as not persisted will be saved
 	// Root key needs to be saved separably.
 	tempTree.ndb.latestVersion = version - 2
 	if err := tempTree.ndb.SaveRoot(tempTree.root, version-1); err != nil {
-		return nil, 0, nil, err
+		return nil, 0, err
 	}
-	_, _, err = tempTree.SaveVersion()
-
-	// Create new tree from the backing database. All data from other versions should be lost.
-	newTree := NewMutableTree(newDb, tempTree.ndb.nodeCacheSize)
-	_, err = newTree.LoadVersion(version)
-	if err != nil {
-		return nil, 0, nil, cmn.NewError("Loading new tree: %v", err)
-	}
-
-	return newTree.Hash(), newTree.Version(), newTree, nil
+	return tempTree.SaveVersion()
 }

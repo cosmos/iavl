@@ -2,9 +2,11 @@ package iavl
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/db"
 	"testing"
+	"time"
 )
 
 const (
@@ -12,17 +14,56 @@ const (
 	blockSize = 10
 )
 
-func TestFuzzNewSlice(t *testing.T) {
+func TestFuzzTestSaveVersionToDB(t *testing.T) {
 	tree := NewMutableTree(db.NewMemDB(), 0)
 	historicBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, historicBlocks)
 
-	_, _, newTree, err := tree.NewSliceAt(tree.Version(), db.NewMemDB())
+	newDb := db.NewMemDB()
+	_, _, err := tree.SaveVersionToDB(tree.Version(), newDb)
+	require.NoError(t, err)
+	newTree := NewMutableTree(newDb, 0)
+	_, err = newTree.LoadVersion(tree.Version())
 	require.NoError(t, err)
 
 	futureBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, futureBlocks)
 	runBlocks(t, newTree, futureBlocks)
+	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
+	require.Equal(t, tree.Version(), newTree.Version())
+}
+
+func TestCompaireTimeVersionToDB(t *testing.T) {
+	t.Skip()
+	var err error
+	tree := NewMutableTree(db.NewMemDB(), 0)
+	historicBlocks := generateBlocks(numBlocks, blockSize)
+	runBlocks(t, tree, historicBlocks)
+
+	start := time.Now()
+
+	newDb := db.NewMemDB()
+	_, _, err = tree.SaveVersionToDB(tree.Version(), newDb)
+	require.NoError(t, err)
+	newTree := NewMutableTree(newDb, 0)
+	_, err = newTree.LoadVersion(tree.Version())
+	require.NoError(t, err)
+	now := time.Now()
+	elapsed := now.Sub(start)
+	fmt.Println("Time to slice tree ", elapsed, " blocks ", numBlocks, " of size ", blockSize)
+
+	start = time.Now()
+	for version := 1; version < int(tree.Version()); version++ {
+		if err := tree.DeleteVersion(int64(version)); err != nil {
+			fmt.Println("version ", version, " err", err)
+		}
+	}
+	now = time.Now()
+	elapsed = now.Sub(start)
+	fmt.Println("Time to delete tree version by version ", elapsed, " blocks ", numBlocks, " of size ", blockSize)
+
+	require.NoError(t, err)
+
 	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
 	require.Equal(t, tree.Version(), newTree.Version())
 }
@@ -43,7 +84,7 @@ func runBlocks(t *testing.T, tree *MutableTree, blocks []*program) {
 	}
 }
 
-func TestNewSlice(t *testing.T) {
+func TestSaveVersionToDB(t *testing.T) {
 	memDb := db.NewMemDB()
 	mutTree := NewMutableTree(memDb, .0)
 
@@ -67,7 +108,11 @@ func TestNewSlice(t *testing.T) {
 	require.NoError(t, err)
 
 	newMemDb := db.NewMemDB()
-	_, newVersion, newTree, err := mutTree.NewSliceAt(mutTree.Version(), newMemDb)
+	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb)
+	require.NoError(t, err)
+	newTree := NewMutableTree(newMemDb, 0)
+	_, err = newTree.LoadVersion(mutTree.Version())
+	require.NoError(t, err)
 
 	require.Equal(t, mutTree.Version(), newVersion)
 	require.Equal(t, 0, bytes.Compare(mutTree.Hash(), newTree.Hash()))
@@ -95,8 +140,11 @@ func TestNewSlice(t *testing.T) {
 	}
 
 	newNewMemDB := db.NewMemDB()
-	_, _, newOldTree, err := mutTree.NewSliceAt(oldVersion, newNewMemDB)
+	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB)
+	require.NoError(t, err)
+	newOldTree := NewMutableTree(newNewMemDB, 0)
+	_, err = newOldTree.LoadVersion(oldVersion)
+	require.NoError(t, err)
 	require.Equal(t, oldVersion, newOldTree.Version())
 	require.Equal(t, 0, bytes.Compare(oldHash, newOldTree.Hash()))
-
 }
