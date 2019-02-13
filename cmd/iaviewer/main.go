@@ -126,15 +126,4 @@ func encodeId(id []byte) string {
 func PrintShape(tree *iavl.MutableTree) {
 	shape := tree.RenderShape("  ", parseWeaveKey)
 	fmt.Println(strings.Join(shape, "\n"))
-
-	// _, _, proof, err := tree.GetRangeWithProof(nil, nil, 0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// fmt.Printf("Left path: %s\n", proof.LeftPath)
-	// for i, p := range proof.InnerNodes {
-	// 	fmt.Printf("%d: %s\n", i, p)
-	// }
-	// return nil
 }

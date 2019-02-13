@@ -53,16 +53,16 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 		return []string{fmt.Sprintf("%s<nil>", strings.Repeat(indent, depth))}
 	}
 	// print this one
-	here := fmt.Sprintf("%s%s", strings.Repeat(indent, depth), node.CompactString(encoder))
+	here := fmt.Sprintf("%s%d %s", strings.Repeat(indent, depth), depth, node.CompactString(encoder))
 
 	if node.isLeaf() {
 		return []string{here}
 	}
 
-	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
 	left := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder)
-	result := append(right, here)
-	result = append(result, left...)
+	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
+	result := append(left, here)
+	result = append(result, right...)
 	return result
 }
 
