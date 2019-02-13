@@ -507,7 +507,12 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 //
 // SaveVersionToDB creates a copy of the current tree consisting of the given version.
 // and saves only the data for that version to the given database.
+// Use version == 0 to save the latest version.
 func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, int64, error) {
+	if version == 0 {
+		version = tree.ndb.getLatestVersion()
+	}
+
 	// Build a new tree from our desired version
 	tempImmutableTree, err := tree.GetImmutable(version)
 	if err != nil {
