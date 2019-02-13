@@ -19,21 +19,25 @@ const (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) != 1 {
-		fmt.Println("Usage: iaviewer <leveldb dir>")
+	if len(args) != 2 || (args[0] != "data" && args[0] != "shape") {
+		fmt.Println("Usage: iaviewer [data|shape] <leveldb dir>")
 		os.Exit(1)
 	}
-	tree, err := ReadTree(args[0])
+
+	tree, err := ReadTree(args[1])
 	if err != nil {
 		fmt.Printf("Error reading data: %s\n", err)
 		os.Exit(2)
 	}
 	fmt.Printf("Successfully read tree in %s\n", args[0])
 
-	PrintKeys(tree)
-
-	fmt.Printf("Hash: %X\n", tree.Hash())
-	fmt.Printf("Size: %X\n", tree.Size())
+	if args[0] == "data" {
+		PrintKeys(tree)
+		fmt.Printf("Hash: %X\n", tree.Hash())
+		fmt.Printf("Size: %X\n", tree.Size())
+	} else if args[0] == "shape" {
+		PrintShape(tree)
+	}
 }
 
 func OpenDb(dir string) (dbm.DB, error) {
@@ -118,4 +122,17 @@ func encodeId(id []byte) string {
 		}
 	}
 	return string(id)
+}
+
+func PrintShape(tree *iavl.MutableTree) error {
+	_, _, proof, err := tree.GetRangeWithProof(nil, nil, 0)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Left path: %s\n", proof.LeftPath)
+	for i, p := range proof.InnerNodes {
+		fmt.Printf("%d: %s\n", i, p)
+	}
+	return nil
 }
