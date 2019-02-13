@@ -12,7 +12,7 @@ import (
 	dbm "github.com/tendermint/tendermint/libs/db"
 )
 
-// TODO: make these configurable?
+// TODO: make this configurable?
 const (
 	DefaultCacheSize int = 10000
 )
@@ -29,7 +29,6 @@ func main() {
 		fmt.Printf("Error reading data: %s\n", err)
 		os.Exit(2)
 	}
-	fmt.Printf("Successfully read tree in %s\n", args[0])
 
 	if args[0] == "data" {
 		PrintKeys(tree)
@@ -58,7 +57,7 @@ func OpenDb(dir string) (dbm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	PrintDbStats(db)
+	// PrintDbStats(db)
 	return db, nil
 }
 
@@ -124,15 +123,18 @@ func encodeId(id []byte) string {
 	return string(id)
 }
 
-func PrintShape(tree *iavl.MutableTree) error {
-	_, _, proof, err := tree.GetRangeWithProof(nil, nil, 0)
-	if err != nil {
-		return err
-	}
+func PrintShape(tree *iavl.MutableTree) {
+	shape := tree.RenderShape("  ", parseWeaveKey)
+	fmt.Println(strings.Join(shape, "\n"))
 
-	fmt.Printf("Left path: %s\n", proof.LeftPath)
-	for i, p := range proof.InnerNodes {
-		fmt.Printf("%d: %s\n", i, p)
-	}
-	return nil
+	// _, _, proof, err := tree.GetRangeWithProof(nil, nil, 0)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// fmt.Printf("Left path: %s\n", proof.LeftPath)
+	// for i, p := range proof.InnerNodes {
+	// 	fmt.Printf("%d: %s\n", i, p)
+	// }
+	// return nil
 }

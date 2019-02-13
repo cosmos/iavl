@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tendermint/go-amino"
+	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
@@ -114,6 +114,19 @@ func (node *Node) String() string {
 		node.version,
 		node.leftHash, node.rightHash,
 		hashstr)
+}
+
+func (node *Node) CompactString(encoder func([]byte) string) string {
+	if node == nil {
+		return "<nil>"
+	}
+	if !node.isLeaf() {
+		if len(node.hash) > 0 {
+			return fmt.Sprintf("- %X", node.hash)
+		}
+		return "- <no hash>"
+	}
+	return fmt.Sprintf("* %s", encoder(node.key))
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
