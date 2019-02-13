@@ -2,7 +2,10 @@ GOTOOLS := github.com/golang/dep/cmd/dep
 
 PDFFLAGS := -pdf --nodefraction=0.1
 
-all: get_vendor_deps test
+all: get_vendor_deps test install
+
+install:
+	go install ./cmd/iaviewer
 
 test:
 	GOCACHE=off go test -v --race
