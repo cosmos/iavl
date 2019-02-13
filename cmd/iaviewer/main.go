@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"strings"
@@ -25,8 +27,11 @@ func main() {
 		fmt.Printf("Error reading data: %s\n", err)
 		os.Exit(2)
 	}
+
 	fmt.Printf("Successfully read tree in %s\n", args[0])
 	fmt.Printf("  Hash: %X\n", tree.Hash())
+	fmt.Printf("  Size: %X\n", tree.Size())
+
 	PrintKeys(tree)
 }
 
@@ -44,7 +49,6 @@ func OpenDb(dir string) (dbm.DB, error) {
 		return nil, fmt.Errorf("Cannot cut paths on %s", dir)
 	}
 	name := dir[cut+1:]
-	fmt.Println(dir[:cut], name)
 	db, err := dbm.NewGoLevelDB(name, dir[:cut])
 	if err != nil {
 		return nil, err
@@ -85,4 +89,33 @@ func ReadTree(dir string) (*iavl.MutableTree, error) {
 
 func PrintKeys(tree *iavl.MutableTree) {
 	fmt.Println("Printing all keys")
+	tree.Iterate(func(key []byte, value []byte) bool {
+		cut := bytes.IndexRune(key, ':')
+		prefix := string(key[:cut])
+		id := key[cut+1:]
+		fmt.Printf("  %s:%s\n", prefix, encodeId(id))
+		return false
+	})
+}
+
+// parseWeaveKey assumes a separating : where all in front should be ascii,
+// and all afterwards may be ascii or binary
+func parseWeaveKey(key []byte) string {
+	cut := bytes.IndexRune(key, ':')
+	if cut == -1 {
+		return encodeId(key)
+	}
+	prefix := key[:cut]
+	id := key[cut+1:]
+	return fmt.Sprintf("%s:%s\n", encodeId(prefix), encodeId(id))
+}
+
+// casts to a string if it is printable ascii, hex-encodes otherwise
+func encodeId(id []byte) string {
+	for _, b := range id {
+		if b < 0x20 || b >= 0x80 {
+			return strings.ToUpper(hex.EncodeToString(id))
+		}
+	}
+	return string(id)
 }
