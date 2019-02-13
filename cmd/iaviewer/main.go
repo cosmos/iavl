@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"os"
@@ -27,12 +28,12 @@ func main() {
 		fmt.Printf("Error reading data: %s\n", err)
 		os.Exit(2)
 	}
-
 	fmt.Printf("Successfully read tree in %s\n", args[0])
-	fmt.Printf("  Hash: %X\n", tree.Hash())
-	fmt.Printf("  Size: %X\n", tree.Size())
 
 	PrintKeys(tree)
+
+	fmt.Printf("Hash: %X\n", tree.Hash())
+	fmt.Printf("Size: %X\n", tree.Size())
 }
 
 func OpenDb(dir string) (dbm.DB, error) {
@@ -88,12 +89,11 @@ func ReadTree(dir string) (*iavl.MutableTree, error) {
 }
 
 func PrintKeys(tree *iavl.MutableTree) {
-	fmt.Println("Printing all keys")
+	fmt.Println("Printing all keys with hashed values (to detect diff)")
 	tree.Iterate(func(key []byte, value []byte) bool {
-		cut := bytes.IndexRune(key, ':')
-		prefix := string(key[:cut])
-		id := key[cut+1:]
-		fmt.Printf("  %s:%s\n", prefix, encodeId(id))
+		printKey := parseWeaveKey(key)
+		digest := sha256.Sum256(value)
+		fmt.Printf("  %s\n    %X\n", printKey, digest)
 		return false
 	})
 }
@@ -107,7 +107,7 @@ func parseWeaveKey(key []byte) string {
 	}
 	prefix := key[:cut]
 	id := key[cut+1:]
-	return fmt.Sprintf("%s:%s\n", encodeId(prefix), encodeId(id))
+	return fmt.Sprintf("%s:%s", encodeId(prefix), encodeId(id))
 }
 
 // casts to a string if it is printable ascii, hex-encodes otherwise
