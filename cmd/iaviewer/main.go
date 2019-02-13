@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/tendermint/iavl"
@@ -19,12 +20,22 @@ const (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) != 2 || (args[0] != "data" && args[0] != "shape") {
-		fmt.Println("Usage: iaviewer [data|shape] <leveldb dir>")
+	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions") {
+		fmt.Println("Usage: iaviewer <data|shape|versions> <leveldb dir> [version number]")
 		os.Exit(1)
 	}
 
-	tree, err := ReadTree(args[1])
+	version := 0
+	if len(args) == 3 {
+		var err error
+		version, err = strconv.Atoi(args[2])
+		if err != nil {
+			fmt.Printf("Invalid version number: %s\n", err)
+			os.Exit(3)
+		}
+	}
+
+	tree, err := ReadTree(args[1], version)
 	if err != nil {
 		fmt.Printf("Error reading data: %s\n", err)
 		os.Exit(2)
@@ -36,6 +47,8 @@ func main() {
 		fmt.Printf("Size: %X\n", tree.Size())
 	} else if args[0] == "shape" {
 		PrintShape(tree)
+	} else if args[0] == "versions" {
+		PrintVersions(tree)
 	}
 }
 
@@ -80,13 +93,15 @@ func PrintDbStats(db dbm.DB) {
 	}
 }
 
-func ReadTree(dir string) (*iavl.MutableTree, error) {
+// ReadTree loads an iavl tree from the directory
+// If version is 0, load latest, otherwise, load named version
+func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
 	db, err := OpenDb(dir)
 	if err != nil {
 		return nil, err
 	}
 	tree := iavl.NewMutableTree(db, DefaultCacheSize)
-	ver, err := tree.Load()
+	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err
 }
@@ -126,4 +141,12 @@ func encodeId(id []byte) string {
 func PrintShape(tree *iavl.MutableTree) {
 	shape := tree.RenderShape("  ", parseWeaveKey)
 	fmt.Println(strings.Join(shape, "\n"))
+}
+
+func PrintVersions(tree *iavl.MutableTree) {
+	versions := tree.GetVersions()
+	fmt.Println("Available versions:")
+	for _, v := range versions {
+		fmt.Printf("  %d\n", v)
+	}
 }
