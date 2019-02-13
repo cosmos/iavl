@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.1 (February 12, 2019)
+
+IMPROVEMENTS
+
+ - Use Tendermint v0.30
+
 ## 0.12.0 (November 26, 2018)
 
 BREAKING CHANGES
