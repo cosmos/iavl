@@ -502,6 +502,48 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 	}
 }
 
+func (tree *MutableTree) SaveVersionToDBDebug(
+	version int64,
+	newDb dbm.DB,
+	loadCallback func(height int8, size int64) bool,
+) ([]byte, int64, error) {
+	if version == 0 {
+		version = tree.ndb.getLatestVersion()
+	}
+
+	// Build a new tree from our desired version
+	tempImmutableTree, err := tree.GetImmutable(version)
+	if err != nil {
+		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
+	}
+	// We want the final version number to be the same as the input parameter, but we will need to do
+	// a SaveVersion to put the data into the new database. Hence this trick of decrementing the version.
+	tempImmutableTree.version = tempImmutableTree.version - 1
+
+	tempTree := MutableTree{
+		ImmutableTree: tempImmutableTree,
+		lastSaved:     tree.lastSaved,         // The most recently saved tree.
+		orphans:       make(map[string]int64), // Nodes removed by changes to working tree.
+		versions:      make(map[int64]bool),   // The previous, saved versions of the tree.
+		ndb:           tree.ndb,
+	}
+
+	fmt.Println("root height", tempTree.root.height, "size", tempTree.root.size)
+	// Load all nodes for our version from the backing database but mark as unsaved.
+	tempTree.root.LoadAndSetNotPersistedDebug(&tempTree, loadCallback)
+
+	// Change the backing to the newDb.
+	tempTree.ndb = newNodeDB(newDb, tempTree.ndb.nodeCacheSize)
+
+	// Save data to new backing database. Only data marked as not persisted will be saved
+	// Root key needs to be saved separably.
+	tempTree.ndb.latestVersion = version - 2
+	if err := tempTree.ndb.SaveRoot(tempTree.root, version-1); err != nil {
+		return nil, 0, err
+	}
+	return tempTree.SaveVersion()
+}
+
 // IMPORTANT This function assumes there has been no transactions since the last SaveVersion. If unsure about
 // this do a SaveVersion immediately before calling this function.
 //
@@ -530,6 +572,7 @@ func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, i
 		ndb:           tree.ndb,
 	}
 
+	fmt.Println("root height", tempTree.root.height, "size", tempTree.root.size)
 	// Load all nodes for our version from the backing database but mark as unsaved.
 	tempTree.root.LoadAndSetNotPersisted(&tempTree)
 

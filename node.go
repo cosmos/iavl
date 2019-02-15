@@ -452,3 +452,23 @@ func (node *Node) LoadAndSetNotPersisted(t *MutableTree) {
 
 	node.persisted = false
 }
+
+func (node *Node) LoadAndSetNotPersistedDebug(t *MutableTree, loadCallback func(height int8, size int64) bool) {
+	if len(node.leftHash) > 0 {
+		if node.leftNode == nil {
+			node.leftNode = t.ndb.GetNode(node.leftHash)
+		}
+		node.leftNode.LoadAndSetNotPersisted(t)
+	}
+
+	if len(node.rightHash) > 0 {
+		if node.rightNode == nil {
+			node.rightNode = t.ndb.GetNode(node.rightHash)
+		}
+		node.rightNode.LoadAndSetNotPersisted(t)
+
+	}
+
+	node.persisted = false
+	loadCallback(node.height, node.size)
+}
