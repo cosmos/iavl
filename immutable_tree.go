@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -41,24 +40,41 @@ func (t *ImmutableTree) String() string {
 
 // RenderShape provides a nested tree shape, ident is prepended in each level
 // Returns an array of strings, one per line, to join with "\n" or display otherwise
-func (t *ImmutableTree) RenderShape(indent string, encoder func([]byte) string) []string {
+func (t *ImmutableTree) RenderShape(indent string, encoder func([]byte, int, bool) string) []string {
 	if encoder == nil {
-		encoder = hex.EncodeToString
+		encoder = defaultNodeEncoder
 	}
 	return t.renderNode(t.root, indent, 0, encoder)
 }
 
-func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder func([]byte) string) []string {
-	if node == nil {
-		return []string{fmt.Sprintf("%s<nil>", strings.Repeat(indent, depth))}
+// defaultNodeEncoder takes an id (hash, or key for leaf notes) and whether or not this is a leaf node
+// and returns a string we wish to print.
+// client can override this formating
+func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
+	prefix := "- "
+	if isLeaf {
+		prefix = "* "
 	}
-	// print this one
-	here := fmt.Sprintf("%s%d %s", strings.Repeat(indent, depth), depth, node.CompactString(encoder))
+	if len(id) == 0 {
+		return fmt.Sprintf("%s<nil>", prefix)
+	}
+	return fmt.Sprintf("%s%X", prefix, id)
+}
 
+func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder func([]byte, int, bool) string) []string {
+	prefix := strings.Repeat(indent, depth)
+	// handle nil
+	if node == nil {
+		return []string{fmt.Sprintf("%s<nil>", prefix)}
+	}
+	// handle leaf
 	if node.isLeaf() {
+		here := fmt.Sprintf("%s%s", prefix, encoder(node.key, depth, true))
 		return []string{here}
 	}
 
+	// recurse on inner node
+	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
 	left := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder)
 	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
 	result := append(left, here)

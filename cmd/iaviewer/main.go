@@ -139,8 +139,20 @@ func encodeId(id []byte) string {
 }
 
 func PrintShape(tree *iavl.MutableTree) {
-	shape := tree.RenderShape("  ", parseWeaveKey)
+	// shape := tree.RenderShape("  ", nil)
+	shape := tree.RenderShape("  ", nodeEncoder)
 	fmt.Println(strings.Join(shape, "\n"))
+}
+
+func nodeEncoder(id []byte, depth int, isLeaf bool) string {
+	prefix := fmt.Sprintf("-%d ", depth)
+	if isLeaf {
+		prefix = fmt.Sprintf("*%d ", depth)
+	}
+	if len(id) == 0 {
+		return fmt.Sprintf("%s<nil>", prefix)
+	}
+	return fmt.Sprintf("%s%s", prefix, parseWeaveKey(id))
 }
 
 func PrintVersions(tree *iavl.MutableTree) {
