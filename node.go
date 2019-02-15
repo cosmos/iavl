@@ -431,6 +431,32 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	return node.getLeftNode(t).lmd(t)
 }
 
+func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb nodeDB) {
+	if !node.isLeaf() {
+		node.getLeftNode(tree).LoadAndSave(tree, targetNdb)
+		node.getRightNode(tree).LoadAndSave(tree, targetNdb)
+	}
+	node.persisted = false
+	targetNdb.SaveNode(node)
+	//fmt.Printf("In node height %v key %v value %v\n", node.height, string(node.key), string(node.value))
+	targetNdb.Commit()
+}
+
+func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb nodeDB, callback func(height int8, size int64) bool) {
+	if callback(node.height, node.size) {
+		return
+	}
+
+	if !node.isLeaf() {
+		node.getLeftNode(tree).LoadAndSaveCallback(tree, targetNdb, callback)
+		node.getRightNode(tree).LoadAndSaveCallback(tree, targetNdb, callback)
+	}
+	node.persisted = false
+	targetNdb.SaveNode(node)
+	//fmt.Printf("In node height %v key %v value %v\n", node.height, string(node.key), string(node.value))
+	targetNdb.Commit()
+}
+
 // Load node and all dependant node from the backdatabase.
 // Set all nodeas to not persisted, so will be reloaded back to
 // the backing database on a SaveVersion.
@@ -449,26 +475,29 @@ func (node *Node) LoadAndSetNotPersisted(t *MutableTree) {
 		node.rightNode.LoadAndSetNotPersisted(t)
 
 	}
-
+	fmt.Printf("In node height %v key %v value %v\n", node.height, string(node.key), string(node.value))
 	node.persisted = false
 }
 
 func (node *Node) LoadAndSetNotPersistedDebug(t *MutableTree, loadCallback func(height int8, size int64) bool) {
+	if finish := loadCallback(node.height, node.size); finish {
+		return
+	}
+
 	if len(node.leftHash) > 0 {
 		if node.leftNode == nil {
 			node.leftNode = t.ndb.GetNode(node.leftHash)
 		}
-		node.leftNode.LoadAndSetNotPersisted(t)
+		node.leftNode.LoadAndSetNotPersistedDebug(t, loadCallback)
 	}
 
 	if len(node.rightHash) > 0 {
 		if node.rightNode == nil {
 			node.rightNode = t.ndb.GetNode(node.rightHash)
 		}
-		node.rightNode.LoadAndSetNotPersisted(t)
+		node.rightNode.LoadAndSetNotPersistedDebug(t, loadCallback)
 
 	}
 
 	node.persisted = false
-	loadCallback(node.height, node.size)
 }

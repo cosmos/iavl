@@ -502,7 +502,57 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 	}
 }
 
+// IMPORTANT This function assumes there has been no transactions since the last SaveVersion. If unsure about
+// this do a SaveVersion immediately before calling this function.
+//
+// SaveVersionToDB creates a copy of the current tree consisting of the given version.
+// and saves only the data for that version to the given database.
+// Use version == 0 to save the latest version.
+func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, int64, error) {
+	if version == 0 {
+		version = tree.ndb.getLatestVersion()
+	}
+
+	// Build a new tree from our desired version
+	immutableTree, err := tree.GetImmutable(version)
+	if err != nil {
+		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
+	}
+
+	newNdb := newNodeDB(newDb, tree.ndb.nodeCacheSize)
+	newNdb.latestVersion = version - 1
+	if err := newNdb.SaveRoot(tree.root, version); err != nil {
+		return nil, 0, err
+	}
+	tree.root.LoadAndSave(immutableTree, *newNdb)
+	return tree.root.hash, version, nil
+}
+
 func (tree *MutableTree) SaveVersionToDBDebug(
+	version int64,
+	newDb dbm.DB,
+	callback func(height int8, size int64) bool,
+) ([]byte, int64, error) {
+	if version == 0 {
+		version = tree.ndb.getLatestVersion()
+	}
+
+	// Build a new tree from our desired version
+	immutableTree, err := tree.GetImmutable(version)
+	if err != nil {
+		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
+	}
+
+	newNdb := newNodeDB(newDb, tree.ndb.nodeCacheSize)
+	newNdb.latestVersion = version - 1
+	if err := newNdb.SaveRoot(tree.root, version); err != nil {
+		return nil, 0, err
+	}
+	tree.root.LoadAndSaveCallback(immutableTree, *newNdb, callback)
+	return tree.root.hash, version, nil
+}
+
+func (tree *MutableTree) SaveVersionToDBOldDebug(
 	version int64,
 	newDb dbm.DB,
 	loadCallback func(height int8, size int64) bool,
@@ -550,7 +600,7 @@ func (tree *MutableTree) SaveVersionToDBDebug(
 // SaveVersionToDB creates a copy of the current tree consisting of the given version.
 // and saves only the data for that version to the given database.
 // Use version == 0 to save the latest version.
-func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, int64, error) {
+func (tree *MutableTree) SaveVersionToDBOld(version int64, newDb dbm.DB) ([]byte, int64, error) {
 	if version == 0 {
 		version = tree.ndb.getLatestVersion()
 	}
@@ -572,7 +622,7 @@ func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, i
 		ndb:           tree.ndb,
 	}
 
-	fmt.Println("root height", tempTree.root.height, "size", tempTree.root.size)
+	fmt.Println("verssion", version, "root height", tempTree.root.height, "size", tempTree.root.size)
 	// Load all nodes for our version from the backing database but mark as unsaved.
 	tempTree.root.LoadAndSetNotPersisted(&tempTree)
 
