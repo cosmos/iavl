@@ -46,8 +46,8 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 	return tree.versions[version]
 }
 
-// GetVersions returns all available versions
-func (tree *MutableTree) GetVersions() []int {
+// AvailableVersions returns all available versions
+func (tree *MutableTree) AvailableVersions() []int {
 	res := make([]int, 0, len(tree.versions))
 	for i, v := range tree.versions {
 		if v {
