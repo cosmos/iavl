@@ -37,10 +37,12 @@ type nodeDB struct {
 	db    dbm.DB     // Persistent node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
-	latestVersion  int64
-	nodeCache      map[string]*list.Element // Node cache.
-	nodeCacheSize  int                      // Node cache size limit in elements.
-	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+	latestVersion    int64
+	nodeCache        map[string]*list.Element // Node cache.
+	nodeCacheSize    int                      // Node cache size limit in elements.
+	nodeCacheQueue   *list.List               // LRU queue of cache elements. Used for deletion.
+	savesPerCommit   uint64
+	savesSinceCommit uint64
 }
 
 func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {

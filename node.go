@@ -438,23 +438,26 @@ func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb nodeDB) {
 	}
 	node.persisted = false
 	targetNdb.SaveNode(node)
-	//fmt.Printf("In node height %v key %v value %v\n", node.height, string(node.key), string(node.value))
 	targetNdb.Commit()
 }
 
-func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb nodeDB, callback func(height int8, size int64) bool) {
+func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb nodeDB, savesPerCommit uint64, callback func(height int8, size int64) bool) {
 	if callback(node.height, node.size) {
 		return
 	}
 
 	if !node.isLeaf() {
-		node.getLeftNode(tree).LoadAndSaveCallback(tree, targetNdb, callback)
-		node.getRightNode(tree).LoadAndSaveCallback(tree, targetNdb, callback)
+		node.getLeftNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, callback)
+		node.getRightNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, callback)
 	}
 	node.persisted = false
 	targetNdb.SaveNode(node)
-	//fmt.Printf("In node height %v key %v value %v\n", node.height, string(node.key), string(node.value))
-	targetNdb.Commit()
+	targetNdb.savesSinceCommit++
+	if targetNdb.savesSinceCommit >= targetNdb.savesPerCommit {
+		targetNdb.Commit()
+		targetNdb.savesSinceCommit = 0
+	}
+
 }
 
 // Load node and all dependant node from the backdatabase.

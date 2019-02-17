@@ -531,6 +531,7 @@ func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB) ([]byte, i
 func (tree *MutableTree) SaveVersionToDBDebug(
 	version int64,
 	newDb dbm.DB,
+	savesPerCommit uint64,
 	callback func(height int8, size int64) bool,
 ) ([]byte, int64, error) {
 	if version == 0 {
@@ -548,7 +549,7 @@ func (tree *MutableTree) SaveVersionToDBDebug(
 	if err := newNdb.SaveRoot(tree.root, version); err != nil {
 		return nil, 0, err
 	}
-	tree.root.LoadAndSaveCallback(immutableTree, *newNdb, callback)
+	tree.root.LoadAndSaveCallback(immutableTree, *newNdb, savesPerCommit, callback)
 	return tree.root.hash, version, nil
 }
 
