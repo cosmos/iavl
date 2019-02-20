@@ -24,7 +24,7 @@ func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize),
+		ndb: newNodeDB(db, cacheSize, nil),
 	}
 }
 

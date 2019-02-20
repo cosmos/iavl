@@ -41,9 +41,10 @@ type nodeDB struct {
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+	getLeafValueCb func(key []byte) []byte  // Optional callback to get values stored in leaf nodes.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, getLeafValueCb func(key []byte) []byte) *nodeDB {
 	ndb := &nodeDB{
 		db:             db,
 		batch:          db.NewBatch(),
@@ -51,6 +52,7 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
+		getLeafValueCb: getLeafValueCb,
 	}
 	return ndb
 }
@@ -78,7 +80,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 	}
 
-	node, err := MakeNode(buf)
+	node, err := MakeNode(buf, ndb.getLeafValueCb)
 	if err != nil {
 		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 	}
@@ -104,7 +106,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
-	if err := node.writeBytes(buf); err != nil {
+	if err := node.writeBytes(buf, ndb.getLeafValueCb == nil); err != nil {
 		panic(err)
 	}
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
@@ -428,7 +430,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	nodes := []*Node{}
 
 	ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) {
-		node, err := MakeNode(value)
+		node, err := MakeNode(value, ndb.getLeafValueCb)
 		if err != nil {
 			panic(fmt.Sprintf("Couldn't decode node from database: %v", err))
 		}
