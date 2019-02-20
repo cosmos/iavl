@@ -525,7 +525,7 @@ func (tree *MutableTree) SaveVersionToDB(version int64, newDb dbm.DB, savesPerCo
 		return nil, 0, err
 	}
 	savesSinceLastCommit := uint64(0)
-	tree.root.LoadAndSave(immutableTree, *newNdb, savesPerCommit, &savesSinceLastCommit)
+	tree.root.LoadAndSave(immutableTree, newNdb, savesPerCommit, &savesSinceLastCommit)
 	newNdb.Commit()
 	return tree.root.hash, version, nil
 }

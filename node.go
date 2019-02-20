@@ -431,7 +431,7 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	return node.getLeftNode(t).lmd(t)
 }
 
-func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64) {
+func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64) {
 	if !node.isLeaf() {
 		node.getLeftNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit)
 		node.getRightNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit)
@@ -445,7 +445,7 @@ func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb nodeDB, savesPerCom
 	}
 }
 
-func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8, size int64) bool) {
+func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8, size int64) bool) {
 	if callback(node.height, node.size) {
 		return
 	}
