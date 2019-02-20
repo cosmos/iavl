@@ -431,76 +431,34 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	return node.getLeftNode(t).lmd(t)
 }
 
-func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb nodeDB) {
+func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64) {
 	if !node.isLeaf() {
-		node.getLeftNode(tree).LoadAndSave(tree, targetNdb)
-		node.getRightNode(tree).LoadAndSave(tree, targetNdb)
+		node.getLeftNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit)
+		node.getRightNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit)
 	}
 	node.persisted = false
 	targetNdb.SaveNode(node)
-	targetNdb.Commit()
+	*savesSinceLastCommit++
+	if *savesSinceLastCommit >= savesPerCommit && savesPerCommit != 0 {
+		targetNdb.Commit()
+		*savesSinceLastCommit = 0
+	}
 }
 
-func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb nodeDB, savesPerCommit uint64, callback func(height int8, size int64) bool) {
+func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8, size int64) bool) {
 	if callback(node.height, node.size) {
 		return
 	}
 
 	if !node.isLeaf() {
-		node.getLeftNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, callback)
-		node.getRightNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, callback)
+		node.getLeftNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
+		node.getRightNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
 	}
 	node.persisted = false
 	targetNdb.SaveNode(node)
-	targetNdb.savesSinceCommit++
-	if targetNdb.savesSinceCommit >= targetNdb.savesPerCommit {
+	*savesSinceLastCommit++
+	if *savesSinceLastCommit >= savesPerCommit && savesPerCommit != 0 {
 		targetNdb.Commit()
-		targetNdb.savesSinceCommit = 0
+		*savesSinceLastCommit = 0
 	}
-
-}
-
-// Load node and all dependant node from the backdatabase.
-// Set all nodeas to not persisted, so will be reloaded back to
-// the backing database on a SaveVersion.
-func (node *Node) LoadAndSetNotPersisted(t *MutableTree) {
-	if len(node.leftHash) > 0 {
-		if node.leftNode == nil {
-			node.leftNode = t.ndb.GetNode(node.leftHash)
-		}
-		node.leftNode.LoadAndSetNotPersisted(t)
-	}
-
-	if len(node.rightHash) > 0 {
-		if node.rightNode == nil {
-			node.rightNode = t.ndb.GetNode(node.rightHash)
-		}
-		node.rightNode.LoadAndSetNotPersisted(t)
-
-	}
-	fmt.Printf("In node height %v key %v value %v\n", node.height, string(node.key), string(node.value))
-	node.persisted = false
-}
-
-func (node *Node) LoadAndSetNotPersistedDebug(t *MutableTree, loadCallback func(height int8, size int64) bool) {
-	if finish := loadCallback(node.height, node.size); finish {
-		return
-	}
-
-	if len(node.leftHash) > 0 {
-		if node.leftNode == nil {
-			node.leftNode = t.ndb.GetNode(node.leftHash)
-		}
-		node.leftNode.LoadAndSetNotPersistedDebug(t, loadCallback)
-	}
-
-	if len(node.rightHash) > 0 {
-		if node.rightNode == nil {
-			node.rightNode = t.ndb.GetNode(node.rightHash)
-		}
-		node.rightNode.LoadAndSetNotPersistedDebug(t, loadCallback)
-
-	}
-
-	node.persisted = false
 }

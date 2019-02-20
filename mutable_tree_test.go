@@ -15,19 +15,19 @@ import (
 )
 
 const (
-	numBlocks    = 10
-	blockSize    = 10
+	numBlocks    = 100
+	blockSize    = 100
 	maxLogDbSize = 8
 )
 
 func TestFuzzTestSaveVersionToDB(t *testing.T) {
-	t.Skip()
+	//t.Skip()
 	tree := NewMutableTree(db.NewMemDB(), 0)
 	historicBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, historicBlocks)
 
 	newDb := db.NewMemDB()
-	_, _, err := tree.SaveVersionToDB(0, newDb)
+	_, _, err := tree.SaveVersionToDB(0, newDb, 5)
 	require.NoError(t, err)
 	newTree := NewMutableTree(newDb, 0)
 	_, err = newTree.LoadVersion(tree.Version())
@@ -63,7 +63,7 @@ func TestBenchmarkSaveVersionToDB(t *testing.T) {
 		require.NoError(t, err)
 
 		start := time.Now()
-		_, _, err = tree.SaveVersionToDB(0, newDb)
+		_, _, err = tree.SaveVersionToDB(0, newDb, 5)
 		now := time.Now()
 		elapsed := now.Sub(start)
 
@@ -106,7 +106,7 @@ func TestCompaireTimeVersionToDB(t *testing.T) {
 	start := time.Now()
 
 	newDb := db.NewMemDB()
-	_, _, err = tree.SaveVersionToDB(tree.Version(), newDb)
+	_, _, err = tree.SaveVersionToDB(tree.Version(), newDb, 5)
 	require.NoError(t, err)
 	newTree := NewMutableTree(newDb, 0)
 	_, err = newTree.LoadVersion(tree.Version())
@@ -175,7 +175,6 @@ func TestInterate(t *testing.T) {
 	numKeys := uint64(0)
 	keyTotal := uint64(0)
 	valueTotal := uint64(0)
-	//memDb.Print()
 
 	mutTree.IterateRangeInclusive(
 		nil,
@@ -185,10 +184,8 @@ func TestInterate(t *testing.T) {
 			numKeys++
 			keyTotal += uint64(len(key))
 			valueTotal += uint64(len(value))
-			//if logPeriod > 0 && numKeys % logPeriod == logPeriod-1 {
 			log.Printf("numKeys %v\tkeys tmem%v\tvalue mem%v", numKeys, keyTotal, valueTotal)
 			log.Printf("key %v\tvalue%v\tversion%v", string(key), string(value), version)
-			//}
 			return false
 		},
 	)
@@ -217,27 +214,13 @@ func TestSaveVersionToDB(t *testing.T) {
 	_ = mutTree.Set([]byte("#mary"), []byte("zzzz"))
 	oldHash, oldVersion, err := mutTree.SaveVersion()
 	require.NoError(t, err)
-	/*
-		newMemDb1 := db.NewMemDB()
-		fmt.Println("old save");
-		newHash1, newVersion1, err := mutTree.SaveVersionToDBOld(mutTree.Version(), newMemDb1); newHash1 = newHash1; newVersion1 = newVersion1
-		fmt.Println("--------------------------------------------------");
-		require.NoError(t, err)
-		newTree1 := NewMutableTree(newMemDb1, 0)
-		_, err = newTree1.LoadVersion(mutTree.Version())
-		require.NoError(t, err)
-		require.Equal(t, mutTree.Version(), newVersion1)
-		require.Equal(t, 0, bytes.Compare(mutTree.Hash(), newTree1.Hash()))
-	*/
-	//mutTree.Iterate(func(key []byte, value []byte) bool{
-	//	fmt.Printf("iterate key %v value %v\n", string(key), string(value))
-	//	return false
-	//})
+	memDb.Print()
+	fmt.Println()
 
 	newMemDb := db.NewMemDB()
 	fmt.Println()
 	fmt.Println("new save")
-	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb)
+	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb, 5)
 	fmt.Println("--------------------------------------------------")
 	require.NoError(t, err)
 	newTree := NewMutableTree(newMemDb, 0)
@@ -270,12 +253,17 @@ func TestSaveVersionToDB(t *testing.T) {
 	}
 
 	newNewMemDB := db.NewMemDB()
-	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB)
+	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB, 5)
 	require.NoError(t, err)
 	newOldTree := NewMutableTree(newNewMemDB, 0)
+	fmt.Println("new new mem db")
+	newNewMemDB.Print()
+	fmt.Println()
 	_, err = newOldTree.LoadVersion(oldVersion)
 	require.NoError(t, err)
 	require.Equal(t, oldVersion, newOldTree.Version())
+
 	oldHash = oldHash
-	//require.Equal(t, 0, bytes.Compare(oldHash, newOldTree.Hash()))
+	oldVersion = oldVersion
+
 }
