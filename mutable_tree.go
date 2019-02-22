@@ -534,7 +534,7 @@ func (tree *MutableTree) SaveVersionToDBDebug(
 	version int64,
 	newDb dbm.DB,
 	savesPerCommit uint64,
-	callback func(height int8, size int64) bool,
+	callback func(height int8) bool,
 ) ([]byte, int64, error) {
 	if version == 0 {
 		version = tree.ndb.getLatestVersion()

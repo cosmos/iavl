@@ -445,8 +445,8 @@ func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb *nodeDB, savesPerCo
 	}
 }
 
-func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8, size int64) bool) {
-	if callback(node.height, node.size) {
+func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8) bool) {
+	if callback(node.height) {
 		return
 	}
 
