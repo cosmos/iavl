@@ -4,24 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/db"
-	"log"
-	"math"
-	"os"
-	"strconv"
 	"testing"
-	"time"
 )
 
 const (
-	numBlocks    = 100
-	blockSize    = 100
-	maxLogDbSize = 8
+	numBlocks = 10
+	blockSize = 10
 )
 
 func TestFuzzTestSaveVersionToDB(t *testing.T) {
-	//t.Skip()
 	tree := NewMutableTree(db.NewMemDB(), 0)
 	historicBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, historicBlocks)
@@ -36,97 +28,6 @@ func TestFuzzTestSaveVersionToDB(t *testing.T) {
 	futureBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, futureBlocks)
 	runBlocks(t, newTree, futureBlocks)
-	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
-	require.Equal(t, tree.Version(), newTree.Version())
-}
-
-func TestBenchmarkSaveVersionToDB(t *testing.T) {
-	t.Skip()
-	for logDbSize := 1; logDbSize < maxLogDbSize; logDbSize++ {
-		dbSize := int(math.Pow(10, float64(logDbSize)))
-		transactions := genSetProgram(dbSize)
-
-		originalDbName := "dbs/testOrignalDb_" + strconv.Itoa(dbSize)
-		_ = os.Remove(originalDbName)
-		originalDb, err := db.NewGoLevelDB(originalDbName, ".")
-		require.NoError(t, err)
-		tree := NewMutableTree(originalDb, 0)
-
-		_, _, err = tree.SaveVersion()
-		_, _, err = tree.SaveVersion()
-		require.NoError(t, transactions.Execute(tree))
-		_, _, err = tree.SaveVersion()
-
-		newDbName := "dbs/newDb_" + strconv.Itoa(dbSize)
-		_ = os.Remove(newDbName)
-		newDb, err := db.NewGoLevelDB(newDbName, ".")
-		require.NoError(t, err)
-
-		start := time.Now()
-		_, _, err = tree.SaveVersionToDB(0, newDb, 5)
-		now := time.Now()
-		elapsed := now.Sub(start)
-
-		require.NoError(t, err)
-		fmt.Printf(
-			"benchmarke SaveVersionToDB" + fmt.Sprintf("\tnum transactions %v\teleapsed time %v\n",
-				dbSize,
-				elapsed,
-			))
-
-		newTree := NewMutableTree(newDb, 0)
-		_, err = newTree.LoadVersion(tree.Version())
-		futureBlocks := generateBlocks(numBlocks, blockSize)
-		runBlocks(t, tree, futureBlocks)
-		runBlocks(t, newTree, futureBlocks)
-		require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
-		require.Equal(t, tree.Version(), newTree.Version())
-
-	}
-}
-
-// Generate a random program of the given size.
-func genSetProgram(size int) *program {
-	p := &program{}
-
-	for p.size() < size {
-		k, v := []byte(common.RandStr(1)), []byte(common.RandStr(1))
-		p.addInstruction(instruction{op: "SET", k: k, v: v})
-	}
-	return p
-}
-
-func TestCompaireTimeVersionToDB(t *testing.T) {
-	t.Skip()
-	var err error
-	tree := NewMutableTree(db.NewMemDB(), 0)
-	historicBlocks := generateBlocks(numBlocks, blockSize)
-	runBlocks(t, tree, historicBlocks)
-
-	start := time.Now()
-
-	newDb := db.NewMemDB()
-	_, _, err = tree.SaveVersionToDB(tree.Version(), newDb, 5)
-	require.NoError(t, err)
-	newTree := NewMutableTree(newDb, 0)
-	_, err = newTree.LoadVersion(tree.Version())
-	require.NoError(t, err)
-	now := time.Now()
-	elapsed := now.Sub(start)
-	fmt.Println("Time to slice tree ", elapsed, " blocks ", numBlocks, " of size ", blockSize)
-
-	start = time.Now()
-	for version := 1; version < int(tree.Version()); version++ {
-		if err := tree.DeleteVersion(int64(version)); err != nil {
-			fmt.Println("version ", version, " err", err)
-		}
-	}
-	now = time.Now()
-	elapsed = now.Sub(start)
-	fmt.Println("Time to delete tree version by version ", elapsed, " blocks ", numBlocks, " of size ", blockSize)
-
-	require.NoError(t, err)
-
 	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
 	require.Equal(t, tree.Version(), newTree.Version())
 }
@@ -147,52 +48,7 @@ func runBlocks(t *testing.T, tree *MutableTree, blocks []*program) {
 	}
 }
 
-func TestInterate(t *testing.T) {
-	t.Skip()
-	memDb := db.NewMemDB()
-	mutTree := NewMutableTree(memDb, .0)
-
-	_ = mutTree.Set([]byte("#alice"), []byte("abc"))
-	_ = mutTree.Set([]byte("#jane"), []byte("yellow"))
-	hash, version, err := mutTree.SaveVersion()
-	require.NoError(t, err)
-
-	_ = mutTree.Set([]byte("#bob"), []byte("pqr"))
-	_ = mutTree.Set([]byte("#alice"), []byte("ass"))
-	hash, version, err = mutTree.SaveVersion()
-	hash = hash
-	version = version
-	require.NoError(t, err)
-
-	_ = mutTree.Set([]byte("#alice"), []byte("xyz"))
-	_, _ = mutTree.Remove([]byte("#bob"))
-	_ = mutTree.Set([]byte("#alice"), []byte("cccc"))
-	_ = mutTree.Set([]byte("#fred"), []byte("zzzz"))
-	_ = mutTree.Set([]byte("#mary"), []byte("zzzz"))
-	_, _, err = mutTree.SaveVersion()
-	require.NoError(t, err)
-
-	numKeys := uint64(0)
-	keyTotal := uint64(0)
-	valueTotal := uint64(0)
-
-	mutTree.IterateRangeInclusive(
-		nil,
-		nil,
-		true,
-		func(key, value []byte, version int64) bool {
-			numKeys++
-			keyTotal += uint64(len(key))
-			valueTotal += uint64(len(value))
-			log.Printf("numKeys %v\tkeys tmem%v\tvalue mem%v", numKeys, keyTotal, valueTotal)
-			log.Printf("key %v\tvalue%v\tversion%v", string(key), string(value), version)
-			return false
-		},
-	)
-}
-
 func TestSaveVersionToDB(t *testing.T) {
-	//t.Skip()
 	memDb := db.NewMemDB()
 	mutTree := NewMutableTree(memDb, .0)
 
@@ -214,12 +70,8 @@ func TestSaveVersionToDB(t *testing.T) {
 	_ = mutTree.Set([]byte("#mary"), []byte("zzzz"))
 	oldHash, oldVersion, err := mutTree.SaveVersion()
 	require.NoError(t, err)
-	memDb.Print()
-	fmt.Println()
 
 	newMemDb := db.NewMemDB()
-	fmt.Println()
-	fmt.Println("new save")
 	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb, 5)
 	fmt.Println("--------------------------------------------------")
 	require.NoError(t, err)
@@ -256,9 +108,6 @@ func TestSaveVersionToDB(t *testing.T) {
 	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB, 5)
 	require.NoError(t, err)
 	newOldTree := NewMutableTree(newNewMemDB, 0)
-	fmt.Println("new new mem db")
-	newNewMemDB.Print()
-	fmt.Println()
 	_, err = newOldTree.LoadVersion(oldVersion)
 	require.NoError(t, err)
 	require.Equal(t, oldVersion, newOldTree.Version())
