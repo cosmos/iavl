@@ -33,11 +33,12 @@ var (
 )
 
 type nodeDB struct {
-	mtx   sync.Mutex // Read/write lock.
-	db    dbm.DB     // Persistent node storage.
-	batch dbm.Batch  // Batched writing buffer.
+	db       dbm.DB     // Persistent node storage.
+	batchMtx sync.Mutex // Read/write lock to protect the batch.
+	batch    dbm.Batch  // Batched writing buffer.
 
 	latestVersion  int64
+	nodeCacheMtx   sync.Mutex               // Read/write lock to protect the node cache.
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
@@ -60,18 +61,14 @@ func newNodeDB(db dbm.DB, cacheSize int, getLeafValueCb func(key []byte) []byte)
 // GetNode gets a node from cache or disk. If it is an inner node, it does not
 // load its children.
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	if len(hash) == 0 {
 		panic("nodeDB.GetNode() requires hash")
 	}
 
 	// Check the cache.
-	if elem, ok := ndb.nodeCache[string(hash)]; ok {
-		// Already exists. Move to back of nodeCacheQueue.
-		ndb.nodeCacheQueue.MoveToBack(elem)
-		return elem.Value.(*Node)
+	node := ndb.getCachedNode(hash)
+	if node != nil {
+		return node
 	}
 
 	// Doesn't exist, load.
@@ -94,9 +91,6 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 // SaveNode saves a node to disk.
 func (ndb *nodeDB) SaveNode(node *Node) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	if node.hash == nil {
 		panic("Expected to find node.hash, but none found.")
 	}
@@ -104,16 +98,24 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 		panic("Shouldn't be calling save on an already persisted node.")
 	}
 
+	ndb.writeNode(node)
+	ndb.cacheNode(node)
+}
+
+func (ndb *nodeDB) writeNode(node *Node) {
+	ndb.batchMtx.Lock()
+	defer ndb.batchMtx.Unlock()
+
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
 	if err := node.writeBytes(buf, ndb.getLeafValueCb == nil); err != nil {
 		panic(err)
 	}
+
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 	debug("BATCH SAVE %X %p\n", node.hash, node)
 
 	node.persisted = true
-	ndb.cacheNode(node)
 }
 
 // Has checks if a hash exists in the database.
@@ -157,8 +159,8 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 
 // DeleteVersion deletes a tree version from disk.
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	ndb.batchMtx.Lock()
+	defer ndb.batchMtx.Unlock()
 
 	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version, checkLatestVersion)
@@ -168,8 +170,8 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
 func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	ndb.batchMtx.Lock()
+	defer ndb.batchMtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
 	for hash, fromVersion := range orphans {
@@ -306,7 +308,23 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	}
 }
 
+func (ndb *nodeDB) getCachedNode(hash []byte) *Node {
+	ndb.nodeCacheMtx.Lock()
+	defer ndb.nodeCacheMtx.Unlock()
+
+	if elem, ok := ndb.nodeCache[string(hash)]; ok {
+		// Already exists. Move to back of nodeCacheQueue.
+		ndb.nodeCacheQueue.MoveToBack(elem)
+		return elem.Value.(*Node)
+	}
+
+	return nil
+}
+
 func (ndb *nodeDB) uncacheNode(hash []byte) {
+	ndb.nodeCacheMtx.Lock()
+	defer ndb.nodeCacheMtx.Unlock()
+
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
 		ndb.nodeCacheQueue.Remove(elem)
 		delete(ndb.nodeCache, string(hash))
@@ -316,6 +334,9 @@ func (ndb *nodeDB) uncacheNode(hash []byte) {
 // Add a node to the cache and pop the least recently used node if we've
 // reached the cache size limit.
 func (ndb *nodeDB) cacheNode(node *Node) {
+	ndb.nodeCacheMtx.Lock()
+	defer ndb.nodeCacheMtx.Unlock()
+
 	elem := ndb.nodeCacheQueue.PushBack(node)
 	ndb.nodeCache[string(node.hash)] = elem
 
@@ -328,8 +349,8 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 
 // Write to disk.
 func (ndb *nodeDB) Commit() {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	ndb.batchMtx.Lock()
+	defer ndb.batchMtx.Unlock()
 
 	ndb.batch.Write()
 	ndb.batch = ndb.db.NewBatch()
@@ -365,8 +386,8 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 }
 
 func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	ndb.batchMtx.Lock()
+	defer ndb.batchMtx.Unlock()
 
 	if version != ndb.getLatestVersion()+1 {
 		return fmt.Errorf("Must save consecutive versions. Expected %d, got %d", ndb.getLatestVersion()+1, version)
