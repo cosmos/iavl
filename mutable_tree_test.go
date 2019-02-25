@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/db"
 	"testing"
 )
@@ -19,23 +20,59 @@ func TestFuzzTestSaveVersionToDB(t *testing.T) {
 	runBlocks(t, tree, historicBlocks)
 
 	newDb := db.NewMemDB()
-	_, _, err := tree.SaveVersionToDB(0, newDb, 5, nil)
+	_, cloneVersion, err := tree.SaveVersionToDB(0, newDb, 5, nil)
 	require.NoError(t, err)
-	newTree := NewMutableTree(newDb, 0)
-	_, err = newTree.LoadVersion(tree.Version())
+	cloneTree := NewMutableTree(newDb, 0)
+	_, err = cloneTree.LoadVersion(cloneVersion)
 	require.NoError(t, err)
 
 	futureBlocks := generateBlocks(numBlocks, blockSize)
 	runBlocks(t, tree, futureBlocks)
-	runBlocks(t, newTree, futureBlocks)
-	require.Equal(t, 0, bytes.Compare(tree.Hash(), newTree.Hash()))
-	require.Equal(t, tree.Version(), newTree.Version())
+	runBlocks(t, cloneTree, futureBlocks)
+
+	for version := cloneVersion; version < cloneVersion+numBlocks; version++ {
+		_, err := tree.LoadVersion(version)
+		require.NoError(t, err)
+		_, err = cloneTree.LoadVersion(version)
+		require.NoError(t, err)
+		require.Equal(t, 0, bytes.Compare(tree.Hash(), cloneTree.Hash()))
+	}
+}
+
+func TestFuzzTestVersions(t *testing.T) {
+	memDb := db.NewMemDB()
+	tree := NewMutableTree(memDb, 0)
+
+	blockTxs := generateBlocks(numBlocks, blockSize)
+	runBlocks(t, tree, blockTxs)
+
+	for version := int64(2); version < numBlocks; version++ {
+		cloneDb := db.NewMemDB()
+		_, _, err := tree.SaveVersionToDB(version, cloneDb, 5, nil)
+		require.NoError(t, err)
+		cloneTree := NewMutableTree(cloneDb, 0)
+		_, err = cloneTree.LoadVersion(version)
+		require.NoError(t, err)
+		for block := version; block < numBlocks; block++ {
+
+			require.NoError(t, blockTxs[block].Execute(cloneTree))
+			_, saveVersion, err := cloneTree.SaveVersion()
+			require.NoError(t, err)
+
+			_, err = cloneTree.LoadVersion(saveVersion)
+			require.NoError(t, err)
+			_, err = tree.LoadVersion(saveVersion)
+			require.NoError(t, err)
+
+			require.Equal(t, 0, bytes.Compare(tree.Hash(), cloneTree.Hash()))
+		}
+	}
 }
 
 func generateBlocks(numBlocks, blockSize int) []*program {
 	var history []*program
 	for i := 0; i < numBlocks; i++ {
-		history = append(history, genRandomProgram(blockSize))
+		history = append(history, genRandomProgramNoSave(blockSize))
 	}
 	return history
 }
@@ -115,4 +152,26 @@ func TestSaveVersionToDB(t *testing.T) {
 	oldHash = oldHash
 	oldVersion = oldVersion
 
+}
+
+// Generate a random program of the given size.
+func genRandomProgramNoSave(size int) *program {
+	p := &program{}
+	nextVersion := 1
+
+	for p.size() < size {
+		k, v := []byte(common.RandStr(1)), []byte(common.RandStr(1))
+
+		switch common.RandInt() % 7 {
+		case 0, 1, 2:
+			p.addInstruction(instruction{op: "SET", k: k, v: v})
+		case 3, 4, 5:
+			p.addInstruction(instruction{op: "REMOVE", k: k})
+		case 6:
+			if rv := common.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
+				p.addInstruction(instruction{op: "DELETE", version: int64(rv)})
+			}
+		}
+	}
+	return p
 }
