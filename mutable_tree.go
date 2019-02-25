@@ -505,9 +505,13 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 // IMPORTANT This function assumes there has been no transactions since the last SaveVersion. If unsure about
 // this do a SaveVersion immediately before calling this function.
 //
-// SaveVersionToDB creates a copy of the current tree consisting of the given version.
-// and saves only the data for that version to the given database.
-// Use version == 0 to save the latest version.
+// SaveVersionToDB creates a copy of the current tree consisting of just one version
+// version - The version we wish to clone. Use version == 0 to save the latest version.
+// newDb   - Database to hold the cloned data.
+// savesPerCommit - Number of saves between each commit, allows memory speed fine tuning.
+//                      savesPerCommit = 0 no saves, maximum RAM use.
+//                      savesPerCommit = 1 commit after each save.
+// callback     - Callback function, allows for displaying debug information. Parameter is height of node being processed.
 func (tree *MutableTree) SaveVersionToDB(
 	version int64,
 	newDb dbm.DB,
@@ -522,19 +526,24 @@ func (tree *MutableTree) SaveVersionToDB(
 		}
 	}
 
-	// Build a new tree from our desired version
+	// Build a new tree for our desired version
 	immutableTree, err := tree.GetImmutable(version)
 	if err != nil {
 		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
 	}
-
 	newNdb := newNodeDB(newDb, tree.ndb.nodeCacheSize)
+
+	// Set the version. Version number gets incremented on saving, so set to version before the one we want.
 	newNdb.latestVersion = version - 1
 	if err := newNdb.SaveRoot(tree.root, version); err != nil {
 		return nil, 0, err
 	}
+
+	// Recursively save tree to the database
 	savesSinceLastCommit := uint64(0)
-	tree.root.LoadAndSaveCallback(immutableTree, newNdb, savesPerCommit, &savesSinceLastCommit, callback)
+	tree.root.LoadAndSave(immutableTree, newNdb, savesPerCommit, &savesSinceLastCommit, callback)
+
+	// Ensure all data in the tree has been committed to the database
 	newNdb.Commit()
 	return tree.root.hash, version, nil
 }

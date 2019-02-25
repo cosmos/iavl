@@ -54,7 +54,6 @@ func TestFuzzTestVersions(t *testing.T) {
 		_, err = cloneTree.LoadVersion(version)
 		require.NoError(t, err)
 		for block := version; block < numBlocks; block++ {
-
 			require.NoError(t, blockTxs[block].Execute(cloneTree))
 			_, saveVersion, err := cloneTree.SaveVersion()
 			require.NoError(t, err)

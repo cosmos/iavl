@@ -431,19 +431,21 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	return node.getLeftNode(t).lmd(t)
 }
 
-func (node *Node) LoadAndSaveCallback(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8) bool) {
+// Recursively save nodes under current root to a new database. Provide callback to allow debug information.
+func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8) bool) {
 	if callback != nil && callback(node.height) {
 		return
 	}
 
 	if !node.isLeaf() {
-		node.getLeftNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
-		node.getRightNode(tree).LoadAndSaveCallback(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
+		node.getLeftNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
+		node.getRightNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
 	}
 	node.persisted = false
 	targetNdb.SaveNode(node)
+
 	*savesSinceLastCommit++
-	if *savesSinceLastCommit >= savesPerCommit && savesPerCommit != 0 {
+	if savesPerCommit != 0 && *savesSinceLastCommit >= savesPerCommit {
 		targetNdb.Commit()
 		*savesSinceLastCommit = 0
 	}
