@@ -516,6 +516,10 @@ func (tree *MutableTree) SaveVersionToDB(
 ) ([]byte, int64, error) {
 	if version == 0 {
 		version = tree.ndb.getLatestVersion()
+	} else {
+		if _, err := tree.LoadVersion(version); err != nil {
+			return nil, 0, err
+		}
 	}
 
 	// Build a new tree from our desired version
