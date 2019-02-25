@@ -19,7 +19,7 @@ func TestFuzzTestSaveVersionToDB(t *testing.T) {
 	runBlocks(t, tree, historicBlocks)
 
 	newDb := db.NewMemDB()
-	_, _, err := tree.SaveVersionToDB(0, newDb, 5)
+	_, _, err := tree.SaveVersionToDB(0, newDb, 5, nil)
 	require.NoError(t, err)
 	newTree := NewMutableTree(newDb, 0)
 	_, err = newTree.LoadVersion(tree.Version())
@@ -72,7 +72,7 @@ func TestSaveVersionToDB(t *testing.T) {
 	require.NoError(t, err)
 
 	newMemDb := db.NewMemDB()
-	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb, 5)
+	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb, 5, nil)
 	fmt.Println("--------------------------------------------------")
 	require.NoError(t, err)
 	newTree := NewMutableTree(newMemDb, 0)
@@ -105,7 +105,7 @@ func TestSaveVersionToDB(t *testing.T) {
 	}
 
 	newNewMemDB := db.NewMemDB()
-	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB, 5)
+	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB, 5, nil)
 	require.NoError(t, err)
 	newOldTree := NewMutableTree(newNewMemDB, 0)
 	_, err = newOldTree.LoadVersion(oldVersion)
