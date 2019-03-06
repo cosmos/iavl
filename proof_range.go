@@ -150,7 +150,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		} else {
 			if i == len(proof.Leaves)-1 {
 				// If last item, check whether
-				// it's the last item in teh tree.
+				// it's the last item in the tree.
 
 			}
 			continue
