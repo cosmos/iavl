@@ -53,4 +53,4 @@ exploremem:
 delve:
 	dlv test ./benchmarks -- -test.bench=.
 
-.PHONY: all test tools
+.PHONY: all lint test tools
