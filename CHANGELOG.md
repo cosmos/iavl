@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.12.2 (February 12, 2019)
+## 0.12.2 (March 13, 2019)
 
 IMPROVEMENTS
 
