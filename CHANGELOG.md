@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.12.2 (March 13, 2019)
+
+IMPROVEMENTS
+
+ - Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: https://github.com/tendermint/tendermint/pull/3397)
+
+
 ## 0.12.1 (February 12, 2019)
 
 IMPROVEMENTS
