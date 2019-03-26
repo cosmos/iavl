@@ -40,16 +40,19 @@ func (t *ImmutableTree) String() string {
 
 // RenderShape provides a nested tree shape, ident is prepended in each level
 // Returns an array of strings, one per line, to join with "\n" or display otherwise
-func (t *ImmutableTree) RenderShape(indent string, encoder func([]byte, int, bool) string) []string {
+func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) []string {
 	if encoder == nil {
 		encoder = defaultNodeEncoder
 	}
 	return t.renderNode(t.root, indent, 0, encoder)
 }
 
-// defaultNodeEncoder takes an id (hash, or key for leaf notes) and whether or not this is a leaf node
-// and returns a string we wish to print.
-// client can override this formating
+// NodeEncoder will take an id (hash, or key for leaf nodes), the depth of the node,
+// and whether or not this is a leaf node.
+// It returns the string we wish to print, for iaviwer
+type NodeEncoder func(id []byte, depth int, isLeaf bool) string
+
+// defaultNodeEncoder can encode any node unless the client overrides it
 func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
 	prefix := "- "
 	if isLeaf {
