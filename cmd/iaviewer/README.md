@@ -15,24 +15,6 @@ make get_vendor_deps
 make install
 ```
 
-However, as this PR lives in another repo on another branch, it is a bit trickier to build.
-If you are not familiar with the nuances of compiling forks of go projects, follow the
-steps below:
-
-```shell
-# note we must check into the original path
-go get github.com/tendermint/iavl
-cd ${GOPATH}/src/github.com/tendermint/iavl
-
-# this is needed to check out the proper version
-git remote add pr https://github.com/iov-one/iavl.git
-git fetch pr
-git checkout iaviewer
-
-make get_vendor_deps
-make install
-```
-
 ## Using the tool
 
 First make sure it is properly installed and you have `${GOPATH}/bin` in your `PATH`.
@@ -97,7 +79,7 @@ diff a-cur.data b-cur.data
 ```
 
 Hmmm... everything is the same, except the hash. Odd...
-So odd that I [wrote an article about it](https://medium.com/@ethan.frey)
+So odd that I [wrote an article about it](https://medium.com/@ethan.frey/tracking-down-a-tendermint-consensus-failure-77f6ff414406)
 
 And finally, if we want to inspect which keys were modified in the last block:
 
