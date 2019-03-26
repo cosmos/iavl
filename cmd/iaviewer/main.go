@@ -21,7 +21,7 @@ const (
 func main() {
 	args := os.Args[1:]
 	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions") {
-		fmt.Println("Usage: iaviewer <data|shape|versions> <leveldb dir> [version number]")
+		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions> <leveldb dir> [version number]")
 		os.Exit(1)
 	}
 
@@ -30,15 +30,15 @@ func main() {
 		var err error
 		version, err = strconv.Atoi(args[2])
 		if err != nil {
-			fmt.Printf("Invalid version number: %s\n", err)
-			os.Exit(3)
+			fmt.Fprintf(os.Stderr, "Invalid version number: %s\n", err)
+			os.Exit(1)
 		}
 	}
 
 	tree, err := ReadTree(args[1], version)
 	if err != nil {
-		fmt.Printf("Error reading data: %s\n", err)
-		os.Exit(2)
+		fmt.Fprintf(os.Stderr, "Error reading data: %s\n", err)
+		os.Exit(1)
 	}
 
 	if args[0] == "data" {
