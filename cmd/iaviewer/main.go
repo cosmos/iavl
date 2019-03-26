@@ -58,26 +58,22 @@ func OpenDb(dir string) (dbm.DB, error) {
 	} else if strings.HasSuffix(dir, ".db/") {
 		dir = dir[:len(dir)-4]
 	} else {
-		return nil, fmt.Errorf("Database directory must end with .db")
+		return nil, fmt.Errorf("database directory must end with .db")
 	}
 	// TODO: doesn't work on windows!
 	cut := strings.LastIndex(dir, "/")
 	if cut == -1 {
-		return nil, fmt.Errorf("Cannot cut paths on %s", dir)
+		return nil, fmt.Errorf("cannot cut paths on %s", dir)
 	}
 	name := dir[cut+1:]
 	db, err := dbm.NewGoLevelDB(name, dir[:cut])
 	if err != nil {
 		return nil, err
 	}
-	// PrintDbStats(db)
 	return db, nil
 }
 
 func PrintDbStats(db dbm.DB) {
-	// stats, _ := json.MarshalIndent(db.Stats(), "", "  ")
-	// fmt.Println(string(stats))
-
 	count := 0
 	prefix := map[string]int{}
 	iter := db.Iterator(nil, nil)
