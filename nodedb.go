@@ -37,10 +37,11 @@ type nodeDB struct {
 	db    dbm.DB     // Persistent node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
-	latestVersion  int64
-	nodeCache      map[string]*list.Element // Node cache.
-	nodeCacheSize  int                      // Node cache size limit in elements.
-	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+	latestVersion            int64
+	nodeCache                map[string]*list.Element // Node cache.
+	nodeCacheSize            int                      // Node cache size limit in elements.
+	nodeCacheOnlyFlushOnSave bool
+	nodeCacheQueue           *list.List // LRU queue of cache elements. Used for deletion.
 }
 
 func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
@@ -51,6 +52,19 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
+	}
+	return ndb
+}
+
+func NewNodeDB3(db dbm.DB, cacheSize int, nodeCacheOnlyFlushOnSave bool) *nodeDB {
+	ndb := &nodeDB{
+		db:                       db,
+		batch:                    db.NewBatch(),
+		latestVersion:            0, // initially invalid
+		nodeCache:                make(map[string]*list.Element),
+		nodeCacheSize:            cacheSize,
+		nodeCacheQueue:           list.New(),
+		nodeCacheOnlyFlushOnSave: nodeCacheOnlyFlushOnSave,
 	}
 	return ndb
 }
@@ -169,7 +183,8 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	toVersion := ndb.getPreviousVersion(version)
+	// When saving a new version, the previous version will always be one less than the new version
+	toVersion := version - 1
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
@@ -317,7 +332,15 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 	elem := ndb.nodeCacheQueue.PushBack(node)
 	ndb.nodeCache[string(node.hash)] = elem
 
-	if ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
+	if !ndb.nodeCacheOnlyFlushOnSave && ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
+		oldest := ndb.nodeCacheQueue.Front()
+		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
+		delete(ndb.nodeCache, string(hash))
+	}
+}
+
+func (ndb *nodeDB) ForceFlushCache() {
+	for ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
 		oldest := ndb.nodeCacheQueue.Front()
 		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
 		delete(ndb.nodeCache, string(hash))
@@ -365,10 +388,6 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-
-	if version != ndb.getLatestVersion()+1 {
-		return fmt.Errorf("Must save consecutive versions. Expected %d, got %d", ndb.getLatestVersion()+1, version)
-	}
 
 	key := ndb.rootKey(version)
 	ndb.batch.Set(key, hash)

@@ -270,7 +270,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	if err != nil {
 		return latestVersion, err
 	}
-	tree.deleteVersionsFrom(targetVersion+1)
+	tree.deleteVersionsFrom(targetVersion + 1)
 	return targetVersion, nil
 }
 
@@ -320,6 +320,24 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+	hash, version, err := tree.saveTree()
+	if err != nil {
+		return hash, version, err
+	}
+	tree.ndb.Commit()
+	return tree.setVersion(version)
+}
+
+// Creates a new version and its hash without saving to disk
+func (tree *MutableTree) NewVersion() ([]byte, int64, error) {
+	hash, version, err := tree.saveTree()
+	if err != nil {
+		return hash, version, err
+	}
+	return tree.setVersion(version)
+}
+
+func (tree *MutableTree) saveTree() ([]byte, int64, error) {
 	version := tree.version + 1
 
 	if tree.versions[version] {
@@ -351,7 +369,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
-	tree.ndb.Commit()
+	return nil, version, nil
+}
+
+func (tree *MutableTree) setVersion(version int64) ([]byte, int64, error) {
 	tree.version = version
 	tree.versions[version] = true
 
