@@ -339,7 +339,7 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 	}
 }
 
-func (ndb *nodeDB) ForceFlushCache() {
+func (ndb *nodeDB) FlushCache() {
 	for ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
 		oldest := ndb.nodeCacheQueue.Front()
 		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
@@ -354,6 +354,7 @@ func (ndb *nodeDB) Commit() {
 
 	ndb.batch.Write()
 	ndb.batch = ndb.db.NewBatch()
+	ndb.FlushCache()
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
