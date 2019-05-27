@@ -12,7 +12,7 @@ import (
 // Note that this tree is not thread-safe.
 type ImmutableTree struct {
 	root    *Node
-	ndb     *nodeDB
+	ndb     NodeDB
 	version int64
 }
 
@@ -22,9 +22,14 @@ func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 		// In-memory Tree.
 		return &ImmutableTree{}
 	}
+	// NodeDB-backed Tree.
+	return NewImmutableTreeWithNodeDB(NewNodeDB(db, cacheSize, nil))
+}
+
+// NewImmutableTreeWithNodeDB creates an instance that's persisted to the given NodeDB
+func NewImmutableTreeWithNodeDB(ndb NodeDB) *ImmutableTree {
 	return &ImmutableTree{
-		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize),
+		ndb: ndb,
 	}
 }
 
