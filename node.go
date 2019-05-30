@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tendermint/go-amino"
+	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
@@ -43,7 +43,7 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 //
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (*Node, cmn.Error) {
+func MakeNode(buf []byte, getLeafValueCb func(key []byte) []byte) (*Node, cmn.Error) {
 
 	// Read node header (height, size, version, key).
 	height, n, cause := amino.DecodeInt8(buf)
@@ -80,11 +80,15 @@ func MakeNode(buf []byte) (*Node, cmn.Error) {
 	// Read node body.
 
 	if node.isLeaf() {
-		val, _, cause := amino.DecodeByteSlice(buf)
-		if cause != nil {
-			return nil, cmn.ErrorWrap(cause, "decoding node.value")
+		if getLeafValueCb != nil {
+			node.value = getLeafValueCb(node.key)
+		} else {
+			val, _, cause := amino.DecodeByteSlice(buf)
+			if cause != nil {
+				return nil, cmn.ErrorWrap(cause, "decoding node.value")
+			}
+			node.value = val
 		}
-		node.value = val
 	} else { // Read children.
 		leftHash, n, cause := amino.DecodeByteSlice(buf)
 		if cause != nil {
@@ -295,7 +299,7 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err c
 }
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer) cmn.Error {
+func (node *Node) writeBytes(w io.Writer, writeValue bool) cmn.Error {
 	var cause error
 	cause = amino.EncodeInt8(w, node.height)
 	if cause != nil {
@@ -317,9 +321,11 @@ func (node *Node) writeBytes(w io.Writer) cmn.Error {
 	}
 
 	if node.isLeaf() {
-		cause = amino.EncodeByteSlice(w, node.value)
-		if cause != nil {
-			return cmn.ErrorWrap(cause, "writing value")
+		if writeValue {
+			cause = amino.EncodeByteSlice(w, node.value)
+			if cause != nil {
+				return cmn.ErrorWrap(cause, "writing value")
+			}
 		}
 	} else {
 		if node.leftHash == nil {

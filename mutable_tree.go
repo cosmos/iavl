@@ -17,12 +17,17 @@ type MutableTree struct {
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
 	versions       map[int64]bool   // The previous, saved versions of the tree.
-	ndb            *nodeDB
+	ndb            NodeDB
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
-	ndb := newNodeDB(db, cacheSize)
+	ndb := NewNodeDB(db, cacheSize, nil)
+	return NewMutableTreeWithNodeDB(ndb)
+}
+
+// NewMutableTreeWithNodeDB returns a new tree with the specified NodeDB.
+func NewMutableTreeWithNodeDB(ndb NodeDB) *MutableTree {
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
@@ -270,7 +275,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	if err != nil {
 		return latestVersion, err
 	}
-	tree.deleteVersionsFrom(targetVersion+1)
+	tree.deleteVersionsFrom(targetVersion + 1)
 	return targetVersion, nil
 }
 
