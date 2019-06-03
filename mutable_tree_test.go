@@ -3,10 +3,11 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/db"
-	"testing"
 )
 
 const (
@@ -20,7 +21,8 @@ func TestFuzzTestSaveVersionToDB(t *testing.T) {
 	runBlocks(t, tree, historicBlocks)
 
 	newDb := db.NewMemDB()
-	_, cloneVersion, err := tree.SaveVersionToDB(0, newDb, 5, nil)
+	newNdb := NewNodeDB(newDb, 10000, nil)
+	_, cloneVersion, err := tree.SaveVersionToDB(0, newNdb, 5, nil)
 	require.NoError(t, err)
 	cloneTree := NewMutableTree(newDb, 0)
 	_, err = cloneTree.LoadVersion(cloneVersion)
@@ -48,7 +50,8 @@ func TestFuzzTestVersions(t *testing.T) {
 
 	for version := int64(2); version < numBlocks; version++ {
 		cloneDb := db.NewMemDB()
-		_, _, err := tree.SaveVersionToDB(version, cloneDb, 5, nil)
+		cloneNdb := NewNodeDB(cloneDb, 10000, nil)
+		_, _, err := tree.SaveVersionToDB(version, cloneNdb, 5, nil)
 		require.NoError(t, err)
 		cloneTree := NewMutableTree(cloneDb, 0)
 		_, err = cloneTree.LoadVersion(version)
@@ -108,7 +111,8 @@ func TestSaveVersionToDB(t *testing.T) {
 	require.NoError(t, err)
 
 	newMemDb := db.NewMemDB()
-	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemDb, 5, nil)
+	newMemNdb := NewNodeDB(newMemDb, 10000, nil)
+	_, newVersion, err := mutTree.SaveVersionToDB(mutTree.Version(), newMemNdb, 5, nil)
 	fmt.Println("--------------------------------------------------")
 	require.NoError(t, err)
 	newTree := NewMutableTree(newMemDb, 0)
@@ -141,7 +145,8 @@ func TestSaveVersionToDB(t *testing.T) {
 	}
 
 	newNewMemDB := db.NewMemDB()
-	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewMemDB, 5, nil)
+	newNewNdb := NewNodeDB(newNewMemDB, 10000, nil)
+	_, _, err = mutTree.SaveVersionToDB(oldVersion, newNewNdb, 5, nil)
 	require.NoError(t, err)
 	newOldTree := NewMutableTree(newNewMemDB, 0)
 	_, err = newOldTree.LoadVersion(oldVersion)

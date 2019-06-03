@@ -519,7 +519,7 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 // callback     - Callback function, allows for displaying debug information. Parameter is height of node being processed.
 func (tree *MutableTree) SaveVersionToDB(
 	version int64,
-	newDb dbm.DB,
+	ndb NodeDB,
 	savesPerCommit uint64,
 	callback func(height int8) bool,
 ) ([]byte, int64, error) {
@@ -536,19 +536,18 @@ func (tree *MutableTree) SaveVersionToDB(
 	if err != nil {
 		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
 	}
-	newNdb := newNodeDB(newDb, tree.ndb.nodeCacheSize)
 
 	// Set the version. Version number gets incremented on saving, so set to version before the one we want.
-	newNdb.latestVersion = version - 1
-	if err := newNdb.SaveRoot(tree.root, version); err != nil {
+	ndb.resetLatestVersion(version - 1)
+	if err := ndb.SaveRoot(tree.root, version); err != nil {
 		return nil, 0, err
 	}
 
 	// Recursively save tree to the database
 	savesSinceLastCommit := uint64(0)
-	tree.root.LoadAndSave(immutableTree, newNdb, savesPerCommit, &savesSinceLastCommit, callback)
+	tree.root.LoadAndSave(immutableTree, ndb, savesPerCommit, &savesSinceLastCommit, callback)
 
 	// Ensure all data in the tree has been committed to the database
-	newNdb.Commit()
+	ndb.Commit()
 	return tree.root.hash, version, nil
 }

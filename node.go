@@ -437,8 +437,12 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	return node.getLeftNode(t).lmd(t)
 }
 
-// Recursively save nodes under current root to a new database. Provide callback to allow debug information.
-func (node *Node) LoadAndSave(tree *ImmutableTree, targetNdb *nodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64, callback func(height int8) bool) {
+// LoadAndSave recursively saves nodes under current root to a new database.
+// Provide a callback to receive debug information.
+func (node *Node) LoadAndSave(
+	tree *ImmutableTree, targetNdb NodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64,
+	callback func(height int8) bool,
+) {
 	if callback != nil && callback(node.height) {
 		return
 	}
