@@ -325,6 +325,24 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+	hash, version, err := tree.saveTree()
+	if err != nil {
+		return hash, version, err
+	}
+	tree.ndb.Commit()
+	return tree.setVersion(version)
+}
+
+// Creates a new version and its hash without saving to disk
+func (tree *MutableTree) NewVersion() ([]byte, int64, error) {
+	hash, version, err := tree.saveTree()
+	if err != nil {
+		return hash, version, err
+	}
+	return tree.setVersion(version)
+}
+
+func (tree *MutableTree) saveTree() ([]byte, int64, error) {
 	version := tree.version + 1
 
 	if tree.versions[version] {
@@ -342,7 +360,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
 			version, newHash, existingHash)
 	}
-
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
@@ -357,6 +374,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.ndb.SaveRoot(tree.root, version)
 	}
 	tree.ndb.Commit()
+	return nil, version, nil
+}
+
+func (tree *MutableTree) setVersion(version int64) ([]byte, int64, error) {
 	tree.version = version
 	tree.versions[version] = true
 
@@ -364,7 +385,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
-
 	return tree.Hash(), version, nil
 }
 
@@ -387,6 +407,36 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	delete(tree.versions, version)
 
 	return nil
+}
+
+func (tree *MutableTree) DeleteMemoryVersion(version int64, noPreviousVersion bool) error {
+	if version == 0 {
+		return cmn.NewError("version must be greater than 0")
+	}
+	if version == tree.version {
+		return cmn.NewError("cannot delete latest saved version (%d)", version)
+	}
+	if _, ok := tree.versions[version]; !ok {
+		return cmn.ErrorWrap(ErrVersionDoesNotExist, "")
+	}
+	previous := int64(0)
+	if !noPreviousVersion {
+		previous = getPreviousVersion(tree.versions, version)
+	}
+	tree.ndb.DeleteMemoryVersion(version, previous)
+	delete(tree.versions, version)
+
+	return nil
+}
+
+func getPreviousVersion(versions map[int64]bool, version int64) int64 {
+	for v := int64(version - 1); v > 0; v-- {
+		found, ok := versions[v]
+		if ok && found {
+			return v
+		}
+	}
+	return 0
 }
 
 // deleteVersionsFrom deletes tree version from disk specified version to latest version. The version can then no

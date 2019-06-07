@@ -71,15 +71,15 @@ func TestFuzzTestVersions(t *testing.T) {
 	}
 }
 
-func generateBlocks(numBlocks, blockSize int) []*program {
-	var history []*program
+func generateBlocks(numBlocks, blockSize int) []*Program {
+	var history []*Program
 	for i := 0; i < numBlocks; i++ {
 		history = append(history, genRandomProgramNoSave(blockSize))
 	}
 	return history
 }
 
-func runBlocks(t *testing.T, tree *MutableTree, blocks []*program) {
+func runBlocks(t *testing.T, tree *MutableTree, blocks []*Program) {
 	for _, block := range blocks {
 		require.NoError(t, block.Execute(tree))
 		_, _, err := tree.SaveVersion()
@@ -158,9 +158,9 @@ func TestSaveVersionToDB(t *testing.T) {
 
 }
 
-// Generate a random program of the given size.
-func genRandomProgramNoSave(size int) *program {
-	p := &program{}
+// Generate a random Program of the given size.
+func genRandomProgramNoSave(size int) *Program {
+	p := &Program{}
 	nextVersion := 1
 
 	for p.size() < size {

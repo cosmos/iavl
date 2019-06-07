@@ -147,6 +147,10 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	})
 }
 
+func (t *ImmutableTree) MaxChacheSizeExceeded() bool {
+	return t.ndb.MaxChacheSizeExceeded()
+}
+
 // Clone creates a clone of the tree.
 // Used internally by MutableTree.
 func (t *ImmutableTree) clone() *ImmutableTree {

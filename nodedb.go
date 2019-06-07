@@ -44,6 +44,7 @@ type NodeDB interface {
 	SaveEmptyRoot(version int64) error
 	Commit()
 	String() string
+	MaxChacheSizeExceeded() bool
 
 	getRoot(version int64) []byte
 	getRoots() (map[int64][]byte, error)
@@ -64,11 +65,13 @@ type nodeDB struct {
 	db    dbm.DB     // Persistent node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
-	latestVersion  int64
-	nodeCache      map[string]*list.Element // Node cache.
-	nodeCacheSize  int                      // Node cache size limit in elements.
-	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
-	getLeafValueCb func(key []byte) []byte  // Optional callback to get values stored in leaf nodes.
+	latestVersion            int64
+	nodeCache                map[string]*list.Element // Node cache.
+	nodeCacheSize            int                      // Node cache size limit in elements.
+	nodeMaxCacheSize         uint64                   // Node maximum cache size. Save to disk and reduce cache if exceeded.
+	nodeCacheOnlyFlushOnSave bool                     // Only check the cache when saving.
+	nodeCacheQueue           *list.List               // LRU queue of cache elements. Used for deletion.
+	getLeafValueCb           func(key []byte) []byte  // Optional callback to get values stored in leaf nodes.
 }
 
 var _ NodeDB = (*nodeDB)(nil)
@@ -82,6 +85,21 @@ func NewNodeDB(db dbm.DB, cacheSize int, getLeafValueCb func(key []byte) []byte)
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
 		getLeafValueCb: getLeafValueCb,
+	}
+	return ndb
+}
+
+func NewNodeDB3(db dbm.DB, minCacheSize, maxCacheSize uint64, nodeCacheOnlyFlushOnSave bool, getLeafValueCb func(key []byte) []byte) NodeDB {
+	ndb := &nodeDB{
+		db:                       db,
+		batch:                    db.NewBatch(),
+		latestVersion:            0, // initially invalid
+		nodeCache:                make(map[string]*list.Element),
+		nodeCacheSize:            int(minCacheSize),
+		nodeMaxCacheSize:         maxCacheSize,
+		nodeCacheQueue:           list.New(),
+		getLeafValueCb:           getLeafValueCb,
+		nodeCacheOnlyFlushOnSave: nodeCacheOnlyFlushOnSave,
 	}
 	return ndb
 }
@@ -193,6 +211,15 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 	ndb.deleteRoot(version, checkLatestVersion)
 }
 
+// DeleteVersion deletes a tree version from memory.
+func (ndb *nodeDB) DeleteMemoryVersion(version, previous int64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	ndb.deleteOrphansWithPredecessor(version, previous)
+	ndb.deleteRoot(version, false)
+}
+
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
@@ -200,7 +227,8 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	toVersion := ndb.getPreviousVersion(version)
+	// When saving a new version, the previous version will always be one less than the new version
+	toVersion := version - 1
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
@@ -222,6 +250,10 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 	// Will be zero if there is no previous version.
 	predecessor := ndb.getPreviousVersion(version)
 
+	ndb.deleteOrphansWithPredecessor(version, predecessor)
+}
+
+func (ndb *nodeDB) deleteOrphansWithPredecessor(version, predecessor int64) {
 	// Traverse orphans with a lifetime ending at the version specified.
 	// TODO optimize.
 	ndb.traverseOrphansVersion(version, func(key, hash []byte) {
@@ -234,11 +266,11 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		// Delete orphan key and reverse-lookup key.
 		ndb.batch.Delete(key)
 
-		// If there is no predecessor, or the predecessor is earlier than the
-		// beginning of the lifetime (ie: negative lifetime), or the lifetime
-		// spans a single version and that version is the one being deleted, we
-		// can delete the orphan.  Otherwise, we shorten its lifetime, by
-		// moving its endpoint to the previous version.
+		// If there is no predecessor,
+		// or the predecessor is earlier than the  beginning of the lifetime (ie: negative lifetime),
+		// or the lifetime spans a single version and that version is the one being deleted,
+		// we can delete the orphan.
+		// Otherwise, we shorten its lifetime, by moving its endpoint to the previous version.
 		if predecessor < fromVersion || fromVersion == toVersion {
 			debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.batch.Delete(ndb.nodeKey(hash))
@@ -342,13 +374,25 @@ func (ndb *nodeDB) uncacheNode(hash []byte) {
 	}
 }
 
+func (ndb *nodeDB) MaxChacheSizeExceeded() bool {
+	return ndb.nodeMaxCacheSize > 0 && uint64(ndb.nodeCacheQueue.Len()) > ndb.nodeMaxCacheSize
+}
+
 // Add a node to the cache and pop the least recently used node if we've
 // reached the cache size limit.
 func (ndb *nodeDB) cacheNode(node *Node) {
 	elem := ndb.nodeCacheQueue.PushBack(node)
 	ndb.nodeCache[string(node.hash)] = elem
 
-	if ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
+	if !ndb.nodeCacheOnlyFlushOnSave && ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
+		oldest := ndb.nodeCacheQueue.Front()
+		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
+		delete(ndb.nodeCache, string(hash))
+	}
+}
+
+func (ndb *nodeDB) FlushCache() {
+	for ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
 		oldest := ndb.nodeCacheQueue.Front()
 		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
 		delete(ndb.nodeCache, string(hash))
@@ -362,6 +406,7 @@ func (ndb *nodeDB) Commit() {
 
 	ndb.batch.Write()
 	ndb.batch = ndb.db.NewBatch()
+	ndb.FlushCache()
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {

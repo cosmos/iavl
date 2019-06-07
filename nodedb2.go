@@ -488,3 +488,7 @@ func (ndb *nodeDB2) String() string {
 	})
 	return "-" + "\n" + str + "-"
 }
+
+func (ndb *nodeDB2) MaxChacheSizeExceeded() bool {
+	return true
+}
