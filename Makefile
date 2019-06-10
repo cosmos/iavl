@@ -5,7 +5,8 @@ PDFFLAGS := -pdf --nodefraction=0.1
 all: get_vendor_deps test
 
 test:
-	GOCACHE=off go test -v --race
+	go clean -testcache
+	go test -v --race
 
 tools:
 	go get -u -v $(GOTOOLS)

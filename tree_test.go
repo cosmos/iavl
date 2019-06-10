@@ -213,51 +213,36 @@ func TestVersionedEmptyTree(t *testing.T) {
 
 	hash, v, err := tree.SaveVersion()
 	require.Nil(hash)
-	require.EqualValues(1, v)
+	require.EqualValues(0, v)
 	require.NoError(err)
 
 	hash, v, err = tree.SaveVersion()
 	require.Nil(hash)
-	require.EqualValues(2, v)
+	require.EqualValues(0, v)
 	require.NoError(err)
 
-	hash, v, err = tree.SaveVersion()
-	require.Nil(hash)
-	require.EqualValues(3, v)
-	require.NoError(err)
-
-	hash, v, err = tree.SaveVersion()
-	require.Nil(hash)
-	require.EqualValues(4, v)
-	require.NoError(err)
-
-	require.EqualValues(4, tree.Version())
-
-	require.True(tree.VersionExists(1))
-	require.True(tree.VersionExists(3))
-
-	require.NoError(tree.DeleteVersion(1))
-	require.NoError(tree.DeleteVersion(3))
+	require.EqualValues(0, tree.Version())
 
 	require.False(tree.VersionExists(1))
 	require.False(tree.VersionExists(3))
 
+	require.Error(tree.DeleteVersion(0))
+
 	tree.Set([]byte("k"), []byte("v"))
-	require.EqualValues(5, tree.root.version)
+	require.EqualValues(1, tree.root.version)
+	hash, v, err = tree.SaveVersion()
+	require.NotNil(hash)
+	require.EqualValues(1, v)
+	require.NoError(err)
 
 	// Now reload the tree.
 
 	tree = NewMutableTree(d, 0)
 	tree.Load()
 
-	require.False(tree.VersionExists(1))
-	require.True(tree.VersionExists(2))
+	require.True(tree.VersionExists(1))
+	require.False(tree.VersionExists(2))
 	require.False(tree.VersionExists(3))
-
-	t2, err := tree.GetImmutable(2)
-	require.NoError(err, "GetImmutable should not fail for version 2")
-
-	require.Empty(t2.root)
 }
 
 func TestVersionedTree(t *testing.T) {
@@ -621,21 +606,21 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	tree.Set([]byte("X"), []byte("AoWWC1kN"))
 	tree.SaveVersion()
 
-	tree.SaveVersion()
-	tree.SaveVersion()
-	tree.SaveVersion()
+	tree.SaveVersion() //version: 3
+	tree.SaveVersion() //version: 3
+	tree.SaveVersion() //version: 3
 
 	preHash := tree.Hash()
 	require.NotNil(preHash)
 
-	require.Equal(int64(6), tree.Version())
+	require.Equal(int64(3), tree.Version())
 
 	// Reload the tree, to test that roots and orphans are properly loaded.
 	ntree := NewMutableTree(d, 0)
 	ntree.Load()
 
 	require.False(ntree.IsEmpty())
-	require.Equal(int64(6), ntree.Version())
+	require.Equal(int64(3), ntree.Version())
 
 	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
@@ -643,13 +628,10 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion()
 
-	ntree.DeleteVersion(6)
-	ntree.DeleteVersion(5)
-	ntree.DeleteVersion(1)
 	ntree.DeleteVersion(2)
-	ntree.DeleteVersion(4)
 	ntree.DeleteVersion(3)
-
+	ntree.DeleteVersion(1)
+	
 	require.False(ntree.IsEmpty())
 	require.Equal(int64(4), ntree.Size())
 	require.Len(ntree.ndb.nodes(), ntree.nodeSize())
@@ -757,11 +739,11 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 	tree.Set(key, []byte("val2"))
 	tree.SaveVersion()
 
-	// When version 1 is deleted, the orphans should move to the next
+	// When version 2 is deleted, the orphans should move to the next
 	// checkpoint, which is version 10.
-	tree.DeleteVersion(1)
+	tree.DeleteVersion(2)
 
-	_, val := tree.GetVersioned(key, 2)
+	_, val := tree.GetVersioned(key, 1)
 	require.NotEmpty(val)
 	require.Equal([]byte("val1"), val)
 }

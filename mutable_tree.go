@@ -320,6 +320,10 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+	if bytes.Compare(tree.lastSaved.Hash(), tree.WorkingHash()) == 0 {
+		return tree.lastSaved.Hash(), tree.version, nil
+	}
+
 	version := tree.version + 1
 
 	if tree.versions[version] {
