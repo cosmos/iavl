@@ -34,7 +34,7 @@ var (
 type nodeDB struct {
 	mtx   sync.Mutex // Read/write lock.
 	db    dbm.DB     // Persistent node storage.
-	dbMem dbm.DB     // Persistent node storage.
+	dbMem dbm.DB     // Memory node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
 	latestVersion int64
@@ -174,7 +174,9 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToD
 	}
 	for hash, fromVersion := range orphans {
 		if fromVersion > toVersion && flushToDisk == false {
-			//	fmt.Printf("In theory we dont need to save an orphan that was deleted in a version in memory %v-%v %X\n", fromVersion, toVersion, hash)
+			//toVersion2 := ndb.getPreviousVersion(version)
+
+			//fmt.Printf("In theory we dont need to save an orphan that was deleted in a version in memory %v-%v %X (old db-%v)\n", fromVersion, toVersion, hash, toVersion2)
 			continue
 		}
 
