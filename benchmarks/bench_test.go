@@ -37,7 +37,11 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 // commit tree saves a new version and deletes and old one...
 func commitTree(b *testing.B, t *iavl.MutableTree) {
 	t.Hash()
-	_, version, err := t.SaveVersion()
+	var err error
+	var version int64
+
+	_, version, err = t.SaveVersionMem() //this will flush for us every so often
+
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
 	}

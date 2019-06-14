@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"bytes"
-	"container/list"
 	"fmt"
 	"sort"
 	"sync"
@@ -35,27 +34,23 @@ var (
 type nodeDB struct {
 	mtx   sync.Mutex // Read/write lock.
 	db    dbm.DB     // Persistent node storage.
+	dbMem dbm.DB     // Persistent node storage.
 	batch dbm.Batch  // Batched writing buffer.
 
-	latestVersion  int64
-	nodeCache      map[string]*list.Element // Node cache.
-	nodeCacheSize  int                      // Node cache size limit in elements.
-	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+	latestVersion int64
 }
 
 func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	ndb := &nodeDB{
-		db:             db,
-		batch:          db.NewBatch(),
-		latestVersion:  0, // initially invalid
-		nodeCache:      make(map[string]*list.Element),
-		nodeCacheSize:  cacheSize,
-		nodeCacheQueue: list.New(),
+		db:            db,
+		dbMem:         dbm.NewMemDB(),
+		batch:         db.NewBatch(),
+		latestVersion: 0, // initially invalid
 	}
 	return ndb
 }
 
-// GetNode gets a node from cache or disk. If it is an inner node, it does not
+// GetNode gets a node from memory or disk. If it is an inner node, it does not
 // load its children.
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
@@ -65,17 +60,14 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		panic("nodeDB.GetNode() requires hash")
 	}
 
-	// Check the cache.
-	if elem, ok := ndb.nodeCache[string(hash)]; ok {
-		// Already exists. Move to back of nodeCacheQueue.
-		ndb.nodeCacheQueue.MoveToBack(elem)
-		return elem.Value.(*Node)
-	}
-
-	// Doesn't exist, load.
-	buf := ndb.db.Get(ndb.nodeKey(hash))
+	//Try reading from memory
+	buf := ndb.dbMem.Get(ndb.nodeKey(hash))
 	if buf == nil {
-		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
+		// Doesn't exist, load from disk
+		buf = ndb.db.Get(ndb.nodeKey(hash))
+		if buf == nil {
+			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
+		}
 	}
 
 	node, err := MakeNode(buf)
@@ -85,13 +77,12 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 	node.hash = hash
 	node.persisted = true
-	ndb.cacheNode(node)
 
 	return node
 }
 
 // SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *Node) {
+func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -107,11 +98,16 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	if err := node.writeBytes(buf); err != nil {
 		panic(err)
 	}
-	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	if flushToDisk == false {
+		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	} else {
+		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	}
 	debug("BATCH SAVE %X %p\n", node.hash, node)
 
-	node.persisted = true
-	ndb.cacheNode(node)
+	if flushToDisk == true {
+		node.persisted = true
+	}
 }
 
 // Has checks if a hash exists in the database.
@@ -132,20 +128,20 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
-func (ndb *nodeDB) SaveBranch(node *Node) []byte {
+func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	if node.persisted {
 		return node.hash
 	}
 
 	if node.leftNode != nil {
-		node.leftHash = ndb.SaveBranch(node.leftNode)
+		node.leftHash = ndb.SaveBranch(node.leftNode, flushToDisk)
 	}
 	if node.rightNode != nil {
-		node.rightHash = ndb.SaveBranch(node.rightNode)
+		node.rightHash = ndb.SaveBranch(node.rightNode, flushToDisk)
 	}
 
 	node._hash()
-	ndb.SaveNode(node)
+	ndb.SaveNode(node, flushToDisk)
 
 	node.leftNode = nil
 	node.rightNode = nil
@@ -165,12 +161,23 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToDisk bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	toVersion := ndb.getPreviousVersion(version)
+	var toVersion int64
+	if flushToDisk == true {
+		toVersion = ndb.getPreviousVersion(version)
+	} else {
+		//UGH
+		toVersion = ndb.getPreviousVersion2(version)
+	}
 	for hash, fromVersion := range orphans {
+		if fromVersion > toVersion && flushToDisk == false {
+			//	fmt.Printf("In theory we dont need to save an orphan that was deleted in a version in memory %v-%v %X\n", fromVersion, toVersion, hash)
+			continue
+		}
+
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
 	}
@@ -211,7 +218,6 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		if predecessor < fromVersion || fromVersion == toVersion {
 			debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.batch.Delete(ndb.nodeKey(hash))
-			ndb.uncacheNode(hash)
 		} else {
 			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.saveOrphan(hash, fromVersion, predecessor)
@@ -249,6 +255,14 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 }
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
+	return ndb.getPreviousVersioni(version, false)
+}
+
+func (ndb *nodeDB) getPreviousVersion2(version int64) int64 {
+	return ndb.getPreviousVersioni(version, true)
+}
+
+func (ndb *nodeDB) getPreviousVersioni(version int64, mem bool) int64 {
 	itr := ndb.db.ReverseIterator(
 		rootKeyFormat.Key(1),
 		rootKeyFormat.Key(version),
@@ -304,26 +318,6 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	}
 }
 
-func (ndb *nodeDB) uncacheNode(hash []byte) {
-	if elem, ok := ndb.nodeCache[string(hash)]; ok {
-		ndb.nodeCacheQueue.Remove(elem)
-		delete(ndb.nodeCache, string(hash))
-	}
-}
-
-// Add a node to the cache and pop the least recently used node if we've
-// reached the cache size limit.
-func (ndb *nodeDB) cacheNode(node *Node) {
-	elem := ndb.nodeCacheQueue.PushBack(node)
-	ndb.nodeCache[string(node.hash)] = elem
-
-	if ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
-		oldest := ndb.nodeCacheQueue.Front()
-		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
-		delete(ndb.nodeCache, string(hash))
-	}
-}
-
 // Write to disk.
 func (ndb *nodeDB) Commit() {
 	ndb.mtx.Lock()
@@ -331,7 +325,7 @@ func (ndb *nodeDB) Commit() {
 
 	ndb.batch.Write()
 	ndb.batch.Close()
-	ndb.batch = ndb.db.NewBatch()
+
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
