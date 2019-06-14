@@ -154,7 +154,7 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	ndb.deleteOrphans(version)
+	//	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version, checkLatestVersion)
 }
 
