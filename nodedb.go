@@ -154,7 +154,7 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	//	ndb.deleteOrphans(version)
+	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version, checkLatestVersion)
 }
 
@@ -326,8 +326,8 @@ func (ndb *nodeDB) Commit() {
 	defer ndb.mtx.Unlock()
 
 	ndb.batch.Write()
-	ndb.batch.Close()
-
+	//	ndb.batch.Close()
+	//TODO BACKPORT
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
