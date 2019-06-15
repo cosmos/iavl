@@ -79,6 +79,8 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 			panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 		}
 
+	} else {
+		node.persistedMem = true
 	}
 
 	node.hash = hash
@@ -95,7 +97,7 @@ func (ndb *nodeDB) GetNodeMemOnly(hash []byte) *Node {
 	//TODO locks, only on inner version
 	node := ndb.memNodes[string(hash)]
 	if node == nil {
-		fmt.Printf("unable to find node --%X in mem\n", hash)
+		//TODO		fmt.Printf("unable to find node --%X in mem\n", hash)
 	}
 	return node
 }
@@ -108,9 +110,13 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	if node.hash == nil {
 		panic("Expected to find node.hash, but none found.")
 	}
+	if node.persistedMem == true && flushToDisk == false {
+		return
+	}
 	if node.persisted {
 		panic("Shouldn't be calling save on an already persisted node.")
 	}
+	//fmt.Printf("SaveNode-%X\n", node.hash)
 
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
@@ -119,15 +125,17 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	}
 
 	//	fmt.Printf("Saving Hash -%X\n", node.hash)
-	ndb.memNodes[string(node.hash)] = node
 	if flushToDisk == true {
 		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+		node.persisted = true
+		//fmt.Printf("Persisted-%X\n", node.hash)
+	} else {
+		ndb.memNodes[string(node.hash)] = node
+		node.persistedMem = true
 	}
+
 	//debug("BATCH SAVE %X %p --%v\n left -%X \n right -%X \n", node.hash, node, node, node.leftHash, node.rightHash)
 
-	if flushToDisk == true {
-		node.persisted = true
-	}
 }
 
 // Has checks if a hash exists in the database.
@@ -153,15 +161,20 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 		//debug("Skipping cause persisted -%X\n", node.hash)
 		return node.hash
 	}
+	if node.persistedMem && flushToDisk == false {
+		return node.hash
+	}
 
-	if node.leftHash != nil && node.leftNode == nil {
-		//debug("Trying to load left node -%X\n", node.leftHash)
-		node.leftNode = ndb.GetNodeMemOnly(node.leftHash)
-	}
-	if node.rightHash != nil && node.rightNode == nil {
-		//	debug("Trying to load right node -%X\n", node.rightHash)
-		node.rightNode = ndb.GetNode(node.rightHash)
-	}
+	/*
+		if node.leftHash != nil && node.leftNode == nil {
+			//debug("Trying to load left node -%X\n", node.leftHash)
+			node.leftNode = ndb.GetNodeMemOnly(node.leftHash)
+		}
+		if node.rightHash != nil && node.rightNode == nil {
+			//	debug("Trying to load right node -%X\n", node.rightHash)
+			node.rightNode = ndb.GetNode(node.rightHash)
+		}
+	*/
 
 	if node.leftNode != nil {
 		//debug("save left branch-%X\n", node.leftNode)
@@ -176,8 +189,10 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	node._hash()
 	ndb.SaveNode(node, flushToDisk)
 
-	node.leftNode = nil
-	node.rightNode = nil
+	if flushToDisk == true {
+		node.leftNode = nil
+		node.rightNode = nil
+	}
 
 	//debug("saving(%d) node hash-%X\n", flushToDisk, node.hash)
 	return node.hash
