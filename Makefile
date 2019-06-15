@@ -5,7 +5,7 @@ PDFFLAGS := -pdf --nodefraction=0.1
 all: get_vendor_deps test
 
 test:
-	GOCACHE=off go test -v --race
+	go test -v --race
 
 tools:
 	go get -u -v $(GOTOOLS)
@@ -31,6 +31,12 @@ fullbench:
 		go test -bench=Mem . && \
 		go test -timeout=60m -bench=LevelDB .
 
+profile-medium:
+	cd benchmarks && \
+		go test -bench=Medium -cpuprofile=cpu.out -memprofile=mem.out . && \
+		go tool pprof ${PDFFLAGS} benchmarks.test cpu.out > cpu.pdf && \
+		go tool pprof --alloc_space ${PDFFLAGS} benchmarks.test mem.out > mem_space.pdf && \
+		go tool pprof --alloc_objects ${PDFFLAGS} benchmarks.test mem.out > mem_obj.pdf
 
 # note that this just profiles the in-memory version, not persistence
 profile:

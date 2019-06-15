@@ -16,6 +16,7 @@ type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
+	memversions    map[int64]bool   // The previous, saved versions of the tree in mem.
 	versions       map[int64]bool   // The previous, saved versions of the tree.
 	ndb            *nodeDB
 }
@@ -29,6 +30,7 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 		ImmutableTree: head,
 		lastSaved:     head.clone(),
 		orphans:       map[string]int64{},
+		memversions:   map[int64]bool{},
 		versions:      map[int64]bool{},
 		ndb:           ndb,
 	}
@@ -317,12 +319,25 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
+var nextTimeClear = false
+
 // SaveVersionMem saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
 	version := tree.version + 1
-	if version%10 == 0 {
-		return tree.saveVersion(true)
+	if nextTimeClear {
+		//	tree.ndb.dbMem = dbm.NewMemDB()
+		//	tree.memversions = map[int64]bool{}
+		//		fmt.Printf("CLEARED MEMORY-------------\n")
+	}
+	if version%20 == 0 {
+		x, y, err := tree.saveVersion(true)
+		nextTimeClear = true
+		tree.ndb.dbMem = dbm.NewMemDB()
+		tree.memversions = map[int64]bool{}
+		//tree.ndb.memNodes = map[string]*Node{}
+		fmt.Printf("CLEARED MEMORY-------------\n")
+		return x, y, err
 	}
 
 	return tree.saveVersion(false)
@@ -341,6 +356,7 @@ func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 		tree.ndb.batch = tree.ndb.db.NewBatch()
 	} else {
 		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
+		tree.memversions[version] = true
 	}
 
 	if tree.versions[version] {
@@ -363,19 +379,21 @@ func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
-		tree.ndb.SaveOrphans(version, tree.orphans, false)
+		tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
 		tree.ndb.SaveEmptyRoot(version)
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
-		tree.ndb.SaveBranch(tree.root, false)
-		tree.ndb.SaveOrphans(version, tree.orphans, false)
+		tree.ndb.SaveBranch(tree.root, flushToDisk)
+		tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
 	tree.ndb.Commit()
 	tree.version = version
 	tree.versions[version] = true
-
+	if flushToDisk == false {
+		tree.memversions[version] = true
+	}
 	// Set new working tree.
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
@@ -387,16 +405,19 @@ func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
-	tree.ndb.batch = nil
-	return nil
-	/*
-		if flushToDisk == true {
-			tree.ndb.batch = tree.ndb.db.NewBatch()
-		} else {
-			tree.ndb.batch = nil
+	return tree.DeleteVersionFull(version, true)
+}
+
+func (tree *MutableTree) DeleteVersionFull(version int64, memDeleteAlso bool) error {
+	if tree.memversions[version] == true {
+		//sometimes you dont want to bother deleting versions in memory
+		if memDeleteAlso == false {
 			return nil
-			//		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
-		}*/
+		}
+		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
+	} else {
+		tree.ndb.batch = tree.ndb.db.NewBatch()
+	}
 
 	if version == 0 {
 		return cmn.NewError("version must be greater than 0")
@@ -419,7 +440,6 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 // deleteVersionsFrom deletes tree version from disk specified version to latest version. The version can then no
 // longer be accessed.
 func (tree *MutableTree) deleteVersionsFrom(version int64) error {
-	panic("weeeee")
 	if version <= 0 {
 		return cmn.NewError("version must be greater than 0")
 	}

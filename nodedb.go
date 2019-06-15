@@ -32,10 +32,11 @@ var (
 )
 
 type nodeDB struct {
-	mtx   sync.Mutex // Read/write lock.
-	db    dbm.DB     // Persistent node storage.
-	dbMem dbm.DB     // Memory node storage.
-	batch dbm.Batch  // Batched writing buffer.
+	mtx      sync.Mutex // Read/write lock.
+	db       dbm.DB     // Persistent node storage.
+	dbMem    dbm.DB     // Memory node storage.
+	batch    dbm.Batch  // Batched writing buffer.
+	memNodes map[string]*Node
 
 	latestVersion int64
 }
@@ -44,6 +45,7 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	ndb := &nodeDB{
 		db:            db,
 		dbMem:         dbm.NewMemDB(),
+		memNodes:      map[string]*Node{},
 		batch:         db.NewBatch(),
 		latestVersion: 0, // initially invalid
 	}
@@ -55,29 +57,46 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	fromDisk := false
 
 	if len(hash) == 0 {
 		panic("nodeDB.GetNode() requires hash")
 	}
 
 	//Try reading from memory
-	buf := ndb.dbMem.Get(ndb.nodeKey(hash))
-	if buf == nil {
+	var err error
+	node := ndb.GetNodeMemOnly(hash)
+	if node == nil {
 		// Doesn't exist, load from disk
-		buf = ndb.db.Get(ndb.nodeKey(hash))
+		buf := ndb.db.Get(ndb.nodeKey(hash))
 		if buf == nil {
 			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 		}
-	}
+		fromDisk = true
 
-	node, err := MakeNode(buf)
-	if err != nil {
-		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
+		node, err = MakeNode(buf)
+		if err != nil {
+			panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
+		}
+
 	}
 
 	node.hash = hash
-	node.persisted = true
+	if fromDisk == true {
+		node.persisted = true
+	}
 
+	return node
+}
+
+// GetNode gets a node from memory or disk. If it is an inner node, it does not
+// load its children.
+func (ndb *nodeDB) GetNodeMemOnly(hash []byte) *Node {
+	//TODO locks, only on inner version
+	node := ndb.memNodes[string(hash)]
+	if node == nil {
+		fmt.Printf("unable to find node --%X in mem\n", hash)
+	}
 	return node
 }
 
@@ -98,12 +117,13 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	if err := node.writeBytes(buf); err != nil {
 		panic(err)
 	}
-	if flushToDisk == false {
-		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
-	} else {
+
+	//	fmt.Printf("Saving Hash -%X\n", node.hash)
+	ndb.memNodes[string(node.hash)] = node
+	if flushToDisk == true {
 		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 	}
-	debug("BATCH SAVE %X %p\n", node.hash, node)
+	//debug("BATCH SAVE %X %p --%v\n left -%X \n right -%X \n", node.hash, node, node, node.leftHash, node.rightHash)
 
 	if flushToDisk == true {
 		node.persisted = true
@@ -130,15 +150,28 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 // TODO refactor, maybe use hashWithCount() but provide a callback.
 func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	if node.persisted {
+		//debug("Skipping cause persisted -%X\n", node.hash)
 		return node.hash
 	}
 
+	if node.leftHash != nil && node.leftNode == nil {
+		//debug("Trying to load left node -%X\n", node.leftHash)
+		node.leftNode = ndb.GetNodeMemOnly(node.leftHash)
+	}
+	if node.rightHash != nil && node.rightNode == nil {
+		//	debug("Trying to load right node -%X\n", node.rightHash)
+		node.rightNode = ndb.GetNode(node.rightHash)
+	}
+
 	if node.leftNode != nil {
+		//debug("save left branch-%X\n", node.leftNode)
 		node.leftHash = ndb.SaveBranch(node.leftNode, flushToDisk)
 	}
 	if node.rightNode != nil {
+		//debug("save right branch-%X\n", node.rightNode)
 		node.rightHash = ndb.SaveBranch(node.rightNode, flushToDisk)
 	}
+	//debug("before saving(%d) node hash-%X\n left-%X -- %v\n right-%X -%v\n", flushToDisk, node.hash, node.leftHash, node.leftNode, node.rightHash, node.rightNode)
 
 	node._hash()
 	ndb.SaveNode(node, flushToDisk)
@@ -146,6 +179,7 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	node.leftNode = nil
 	node.rightNode = nil
 
+	//debug("saving(%d) node hash-%X\n", flushToDisk, node.hash)
 	return node.hash
 }
 
@@ -166,17 +200,16 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToD
 	defer ndb.mtx.Unlock()
 
 	var toVersion int64
-	if flushToDisk == true {
+	toVersion = ndb.getPreviousVersion2(version)
+	if toVersion == 0 {
 		toVersion = ndb.getPreviousVersion(version)
-	} else {
-		//UGH
-		toVersion = ndb.getPreviousVersion2(version)
-	}
-	for hash, fromVersion := range orphans {
-		if fromVersion > toVersion && flushToDisk == false {
-			//toVersion2 := ndb.getPreviousVersion(version)
+	} //see if we have something on disk if we dont have anything from mem
 
-			//fmt.Printf("In theory we dont need to save an orphan that was deleted in a version in memory %v-%v %X (old db-%v)\n", fromVersion, toVersion, hash, toVersion2)
+	for hash, fromVersion := range orphans {
+		if fromVersion > toVersion && flushToDisk == true {
+			toVersion2 := ndb.getPreviousVersion(version)
+
+			fmt.Printf("In theory we dont need to save an orphan that was deleted in a version in memory %v-%v %X (old db-%v)\n", fromVersion, toVersion, hash, toVersion2)
 			continue
 		}
 
@@ -257,15 +290,15 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 }
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
-	return ndb.getPreviousVersioni(version, false)
+	return ndb.getPreviousVersioni(version, ndb.db)
 }
 
 func (ndb *nodeDB) getPreviousVersion2(version int64) int64 {
-	return ndb.getPreviousVersioni(version, true)
+	return ndb.getPreviousVersioni(version, ndb.dbMem)
 }
 
-func (ndb *nodeDB) getPreviousVersioni(version int64, mem bool) int64 {
-	itr := ndb.db.ReverseIterator(
+func (ndb *nodeDB) getPreviousVersioni(version int64, db dbm.DB) int64 {
+	itr := db.ReverseIterator(
 		rootKeyFormat.Key(1),
 		rootKeyFormat.Key(version),
 	)
@@ -363,6 +396,7 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	//TODO NEED TO BE ABLE TO SET THIS TO MEMORY ALSO
 	if version != ndb.getLatestVersion()+1 {
 		return fmt.Errorf("Must save consecutive versions. Expected %d, got %d", ndb.getLatestVersion()+1, version)
 	}
