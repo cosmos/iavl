@@ -46,7 +46,7 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 		b.Errorf("Can't save: %v", err)
 	}
 	if version > historySize {
-		err = t.DeleteVersion(version-historySize, false)
+		err = t.DeleteVersion(version - historySize)
 		if err != nil {
 			b.Errorf("Can't delete: %v", err)
 		}

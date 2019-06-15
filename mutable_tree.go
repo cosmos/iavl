@@ -322,16 +322,16 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
 	version := tree.version + 1
 	if version%10 == 0 {
-		return tree.saveVersion(false)
+		return tree.saveVersion(true)
 	}
 
-	return tree.saveVersion(true)
+	return tree.saveVersion(false)
 }
 
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
-	return tree.saveVersion(false)
+	return tree.saveVersion(true)
 }
 
 func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
