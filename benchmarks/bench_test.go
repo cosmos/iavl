@@ -46,7 +46,7 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 		b.Errorf("Can't save: %v", err)
 	}
 	if version > historySize {
-		err = t.DeleteVersion(version - historySize)
+		err = t.DeleteVersionFull(version-historySize, false)
 		if err != nil {
 			b.Errorf("Can't delete: %v", err)
 		}
@@ -167,11 +167,11 @@ type benchmark struct {
 
 func BenchmarkMedium(b *testing.B) {
 	benchmarks := []benchmark{
-		{"memdb", 100000, 100, 16, 40},
+		//{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
 		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
-		{"leveldb", 100000, 100, 16, 40},
+		//{"leveldb", 100000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -267,15 +267,17 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 
 	b.ResetTimer()
 
-	b.Run("query-miss", func(sub *testing.B) {
-		runQueries(sub, t, keyLen)
-	})
-	b.Run("query-hits", func(sub *testing.B) {
-		runKnownQueries(sub, t, keys)
-	})
-	b.Run("update", func(sub *testing.B) {
-		t = runUpdate(sub, t, dataLen, blockSize, keys)
-	})
+	/*
+		b.Run("query-miss", func(sub *testing.B) {
+			runQueries(sub, t, keyLen)
+		})
+		b.Run("query-hits", func(sub *testing.B) {
+			runKnownQueries(sub, t, keys)
+		})
+		b.Run("update", func(sub *testing.B) {
+			t = runUpdate(sub, t, dataLen, blockSize, keys)
+		})
+	*/
 	b.Run("block", func(sub *testing.B) {
 		t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
 	})
