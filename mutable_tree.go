@@ -325,17 +325,12 @@ var nextTimeClear = false
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
 	version := tree.version + 1
-	if nextTimeClear {
-		//	tree.ndb.dbMem = dbm.NewMemDB()
-		//	tree.memversions = map[int64]bool{}
-		//		fmt.Printf("CLEARED MEMORY-------------\n")
-	}
 	if version%20 == 0 {
 		x, y, err := tree.saveVersion(true)
 		nextTimeClear = true
 		tree.ndb.dbMem = dbm.NewMemDB()
 		tree.memversions = map[int64]bool{}
-		//tree.ndb.memNodes = map[string]*Node{}
+		tree.ndb.memNodes = map[string]*Node{}
 		fmt.Printf("CLEARED MEMORY-------------\n")
 		return x, y, err
 	}
