@@ -93,8 +93,6 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 			panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 		}
 
-	} else {
-		node.persistedMem = true
 	}
 
 	node.hash = hash
@@ -134,8 +132,8 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 		node.persisted = true
 		//fmt.Printf("Persisted-%X\n", node.hash)
 	} else {
-		ndb.memNodes[string(node.hash)] = node
 		node.persistedMem = true
+		ndb.memNodes[string(node.hash)] = node
 	}
 
 	//debug("BATCH SAVE %X %p --%v\n left -%X \n right -%X \n", node.hash, node, node, node.leftHash, node.rightHash)

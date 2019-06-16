@@ -413,6 +413,7 @@ func (tree *MutableTree) DeleteVersionFull(version int64, memDeleteAlso bool) er
 			return nil
 		}
 		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
+		delete(tree.memversions, version)
 	} else {
 		tree.ndb.batch = tree.ndb.db.NewBatch()
 	}
