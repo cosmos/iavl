@@ -410,8 +410,7 @@ func (ndb *nodeDB) Commit() {
 	defer ndb.mtx.Unlock()
 
 	ndb.batch.Write()
-	//	ndb.batch.Close()
-	//TODO BACKPORT
+	ndb.batch.Close()
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
