@@ -64,7 +64,6 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	fromDisk := false
 
 	if len(hash) == 0 {
 		panic("nodeDB.GetNode() requires hash")
@@ -86,20 +85,16 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		if buf == nil {
 			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 		}
-		fromDisk = true
 
 		node, err = MakeNode(buf)
 		if err != nil {
 			panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 		}
-
+		node.persisted = true
 	}
 
 	node.hash = hash
 	ndb.cacheNode(node)
-	if fromDisk == true {
-		node.persisted = true
-	}
 
 	return node
 }
