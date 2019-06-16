@@ -79,7 +79,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 	//Try reading from memory
 	var err error
-	node := ndb.GetNodeMemOnly(hash)
+	node := ndb.memNodes[string(hash)]
 	if node == nil {
 		// Doesn't exist, load from disk
 		buf := ndb.db.Get(ndb.nodeKey(hash))
@@ -103,17 +103,6 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		node.persisted = true
 	}
 
-	return node
-}
-
-// GetNode gets a node from memory or disk. If it is an inner node, it does not
-// load its children.
-func (ndb *nodeDB) GetNodeMemOnly(hash []byte) *Node {
-	//TODO locks, only on inner version
-	node := ndb.memNodes[string(hash)]
-	if node == nil {
-		//TODO		fmt.Printf("unable to find node --%X in mem\n", hash)
-	}
 	return node
 }
 
@@ -180,26 +169,12 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 		return node.hash
 	}
 
-	/*
-		if node.leftHash != nil && node.leftNode == nil {
-			//debug("Trying to load left node -%X\n", node.leftHash)
-			node.leftNode = ndb.GetNodeMemOnly(node.leftHash)
-		}
-		if node.rightHash != nil && node.rightNode == nil {
-			//	debug("Trying to load right node -%X\n", node.rightHash)
-			node.rightNode = ndb.GetNode(node.rightHash)
-		}
-	*/
-
 	if node.leftNode != nil {
-		//debug("save left branch-%X\n", node.leftNode)
 		node.leftHash = ndb.SaveBranch(node.leftNode, flushToDisk)
 	}
 	if node.rightNode != nil {
-		//debug("save right branch-%X\n", node.rightNode)
 		node.rightHash = ndb.SaveBranch(node.rightNode, flushToDisk)
 	}
-	//debug("before saving(%d) node hash-%X\n left-%X -- %v\n right-%X -%v\n", flushToDisk, node.hash, node.leftHash, node.leftNode, node.rightHash, node.rightNode)
 
 	node._hash()
 	ndb.SaveNode(node, flushToDisk)
@@ -209,7 +184,6 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 		node.rightNode = nil
 	}
 
-	//debug("saving(%d) node hash-%X\n", flushToDisk, node.hash)
 	return node.hash
 }
 
