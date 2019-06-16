@@ -45,6 +45,13 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
 	}
+	if version > historySize {
+		err = t.DeleteVersionFull(version-historySize, false)
+		if err != nil {
+			b.Errorf("Can't delete: %v", err)
+		}
+	}
+
 	//Lets flush every X blocks
 	if version%historySize == 0 {
 		/*
@@ -284,7 +291,6 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	b.Run("update", func(sub *testing.B) {
 		t = runUpdate(sub, t, dataLen, blockSize, keys)
 	})
-
 	b.Run("block", func(sub *testing.B) {
 		t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
 	})

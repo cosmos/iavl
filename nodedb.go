@@ -203,13 +203,6 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToD
 	} //see if we have something on disk if we dont have anything from mem
 
 	for hash, fromVersion := range orphans {
-		if fromVersion > toVersion && flushToDisk == true {
-			toVersion2 := ndb.getPreviousVersion(version)
-
-			fmt.Printf("In theory we dont need to save an orphan that was deleted in a version in memory %v-%v %X (old db-%v)\n", fromVersion, toVersion, hash, toVersion2)
-			continue
-		}
-
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
 	}
