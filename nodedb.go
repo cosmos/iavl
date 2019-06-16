@@ -197,7 +197,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToD
 	defer ndb.mtx.Unlock()
 
 	var toVersion int64
-	toVersion = ndb.getPreviousVersion2(version)
+	toVersion = ndb.getPreviousVersioni(version, ndb.dbMem)
 	if toVersion == 0 {
 		toVersion = ndb.getPreviousVersion(version)
 	} //see if we have something on disk if we dont have anything from mem
@@ -289,10 +289,6 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	return ndb.getPreviousVersioni(version, ndb.db)
-}
-
-func (ndb *nodeDB) getPreviousVersion2(version int64) int64 {
-	return ndb.getPreviousVersioni(version, ndb.dbMem)
 }
 
 func (ndb *nodeDB) getPreviousVersioni(version int64, db dbm.DB) int64 {
