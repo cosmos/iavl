@@ -389,9 +389,7 @@ func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 	tree.ndb.Commit()
 	tree.version = version
 	tree.versions[version] = true
-	if flushToDisk == false {
-		tree.memversions[version] = true
-	}
+
 	// Set new working tree.
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
