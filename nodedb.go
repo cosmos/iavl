@@ -370,6 +370,11 @@ func (ndb *nodeDB) Commit() {
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
+	memroot := ndb.dbMem.Get(ndb.rootKey(version))
+	if len(memroot) > 0 {
+		return memroot
+	}
+
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
