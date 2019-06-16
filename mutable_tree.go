@@ -11,8 +11,6 @@ import (
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
-var MutateVersionInterval = int64(20)
-
 // MutableTree is a persistent tree which keeps track of versions.
 type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
@@ -326,18 +324,21 @@ var nextTimeClear = false
 // SaveVersionMem saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
-	version := tree.version + 1
-	if version%MutateVersionInterval == 0 {
-		x, y, err := tree.saveVersion(true)
-		nextTimeClear = true
-		tree.ndb.dbMem = dbm.NewMemDB()
-		tree.memversions = map[int64]bool{}
-		tree.ndb.memNodes = map[string]*Node{}
-		fmt.Printf("CLEARED MEMORY-----height-%d--MutateVersionInterval-%d-----\n", version, MutateVersionInterval)
-		return x, y, err
-	}
-
 	return tree.saveVersion(false)
+}
+
+// FlushMemDisk saves a new tree to disk and removes all the versions in memory
+// TODO keep some in an LRU Cache
+func (tree *MutableTree) FlushMemVersionDisk() ([]byte, int64, error) {
+	//if version%MutateVersionInterval == 0 {
+	x, y, err := tree.saveVersion(true)
+	nextTimeClear = true
+	tree.ndb.dbMem = dbm.NewMemDB()
+	tree.memversions = map[int64]bool{}
+	tree.ndb.memNodes = map[string]*Node{}
+	fmt.Printf("CLEARED MEMORY-----height-%d-------\n", tree.version+1)
+	return x, y, err
+	//}
 }
 
 // SaveVersion saves a new tree version to disk, based on the current state of

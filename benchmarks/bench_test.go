@@ -45,10 +45,18 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
 	}
-	if version > historySize {
-		err = t.DeleteVersionFull(version-historySize, false)
+	//Lets flush every X blocks
+	if version%historySize == 0 {
+		/*
+			err = t.DeleteVersionFull(version-historySize, false)
+			if err != nil {
+				b.Errorf("Can't delete: %v", err)
+			}
+		*/
+		//We don't need to delete all the versions when using mem versions, just flush to disk
+		_, _, err = t.FlushMemVersionDisk()
 		if err != nil {
-			b.Errorf("Can't delete: %v", err)
+			b.Errorf("Can't save: %v", err)
 		}
 	}
 }
