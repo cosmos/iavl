@@ -150,7 +150,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 	return lastCommit
 }
 
-/*func BenchmarkRandomBytes(b *testing.B) {
+func BenchmarkRandomBytes(b *testing.B) {
 	benchmarks := []struct {
 		length int
 	}{
@@ -166,7 +166,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 		})
 	}
 }
-*/
+
 type benchmark struct {
 	dbType              db.DBBackendType
 	initSize, blockSize int
