@@ -377,13 +377,15 @@ func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
-		tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
+		// Assume orphans not needed any more. So don't save any
+		//tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
 		tree.ndb.SaveEmptyRoot(version)
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
 		tree.ndb.SaveBranch(tree.root, flushToDisk)
-		tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
+		// Assume orphans not needed any more. So don't save any
+		//tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
 	tree.ndb.Commit()
