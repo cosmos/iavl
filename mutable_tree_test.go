@@ -28,5 +28,5 @@ func TestDelete(t *testing.T) {
 	tree.versions[version] = true
 
 	k1Value, _, err = tree.GetVersionedWithProof([]byte("k1"), version)
-	require.Nil(t, bytes.Compare([]byte("Fred"), k1Value))
+	require.Equal(t, 0, bytes.Compare([]byte("Fred"), k1Value))
 }
