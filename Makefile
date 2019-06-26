@@ -2,7 +2,10 @@ GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
 
 PDFFLAGS := -pdf --nodefraction=0.1
 
-all: lint test
+all: lint test install
+
+install:
+	go install ./cmd/iaviewer
 
 test:
 	go test -v --race
@@ -53,4 +56,4 @@ exploremem:
 delve:
 	dlv test ./benchmarks -- -test.bench=.
 
-.PHONY: all lint test tools
+.PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench
