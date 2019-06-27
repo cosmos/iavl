@@ -1140,6 +1140,10 @@ func TestLazyLoadVersion(t *testing.T) {
 	tree := NewMutableTree(mdb, 0)
 	maxVersions := 10
 
+	version, err := tree.LazyLoadVersion(0)
+	require.NoError(t, err, "unexpected error")
+	require.Equal(t, version, int64(0), "expected latest version to be zero")
+
 	for i := 0; i < maxVersions; i++ {
 		tree.Set([]byte(fmt.Sprintf("key_%d", i+1)), []byte(fmt.Sprintf("value_%d", i+1)))
 
@@ -1148,7 +1152,7 @@ func TestLazyLoadVersion(t *testing.T) {
 	}
 
 	// require the ability to lazy load the latest version
-	version, err := tree.LazyLoadVersion(int64(maxVersions))
+	version, err = tree.LazyLoadVersion(int64(maxVersions))
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions))
 
