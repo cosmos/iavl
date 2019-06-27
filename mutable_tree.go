@@ -224,21 +224,54 @@ func (tree *MutableTree) Load() (int64, error) {
 	return tree.LoadVersion(int64(0))
 }
 
+// LazyLoadVersion attempts to lazy load only the specified target version
+// without loading previous roots/versions. If the targetVersion is invalid, an
+// error is returned along with the latest version.
+func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
+	latestVersion := tree.ndb.getLatestVersion()
+	if targetVersion == 0 || latestVersion < targetVersion {
+		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
+	}
+
+	rootHash := tree.ndb.getRoot(targetVersion)
+	if rootHash == nil {
+		return latestVersion, ErrVersionDoesNotExist
+	}
+
+	tree.versions[targetVersion] = true
+
+	iTree := &ImmutableTree{
+		ndb:     tree.ndb,
+		version: targetVersion,
+		root:    tree.ndb.GetNode(rootHash),
+	}
+
+	tree.orphans = map[string]int64{}
+	tree.ImmutableTree = iTree
+	tree.lastSaved = iTree.clone()
+
+	return targetVersion, nil
+}
+
 // Returns the version number of the latest version found
 func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return 0, err
 	}
+
 	if len(roots) == 0 {
 		return 0, nil
 	}
+
 	latestVersion := int64(0)
+
 	var latestRoot []byte
 	for version, r := range roots {
+		fmt.Println("Iterating over root:", version)
+
 		tree.versions[version] = true
-		if version > latestVersion &&
-			(targetVersion == 0 || version <= targetVersion) {
+		if version > latestVersion && (targetVersion == 0 || version <= targetVersion) {
 			latestVersion = version
 			latestRoot = r
 		}
@@ -253,6 +286,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		ndb:     tree.ndb,
 		version: latestVersion,
 	}
+
 	if len(latestRoot) != 0 {
 		t.root = tree.ndb.GetNode(latestRoot)
 	}
@@ -260,6 +294,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	tree.orphans = map[string]int64{}
 	tree.ImmutableTree = t
 	tree.lastSaved = t.clone()
+
 	return latestVersion, nil
 }
 
@@ -270,7 +305,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	if err != nil {
 		return latestVersion, err
 	}
-	tree.deleteVersionsFrom(targetVersion+1)
+	tree.deleteVersionsFrom(targetVersion + 1)
 	return targetVersion, nil
 }
 
