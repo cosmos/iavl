@@ -264,8 +264,6 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		return 0, err
 	}
 
-	fmt.Println("NUM ROOTS:", len(roots))
-
 	if len(roots) == 0 {
 		return 0, nil
 	}
@@ -274,8 +272,6 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 
 	var latestRoot []byte
 	for version, r := range roots {
-		fmt.Println("Iterating over root:", version)
-
 		tree.versions[version] = true
 		if version > latestVersion && (targetVersion == 0 || version <= targetVersion) {
 			latestVersion = version
