@@ -228,7 +228,7 @@ func (tree *MutableTree) Load() (int64, error) {
 // without loading previous roots/versions. If the targetVersion is invalid, an
 // error is returned along with the latest version.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
-	if targetVersion == 0 {
+	if targetVersion <= 0 {
 		return 0, nil
 	}
 
