@@ -228,8 +228,9 @@ func (tree *MutableTree) Load() (int64, error) {
 // without loading previous roots/versions. Lazy loading should be used in cases
 // where only reads are expected. Any writes to a lazy loaded tree may result in
 // unexpected behavior. If the targetVersion is non-positive, the latest version
-// will be loaded by default. If the latest version is non-positive or the root
-// does not exist, an error will be returned.
+// will be loaded by default. If the latest version is non-positive, this method
+// performs a no-op. Otherwise, if the root does not exist, an error will be
+// returned.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	latestVersion := tree.ndb.getLatestVersion()
 	if latestVersion < targetVersion {
