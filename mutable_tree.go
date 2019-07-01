@@ -225,16 +225,24 @@ func (tree *MutableTree) Load() (int64, error) {
 }
 
 // LazyLoadVersion attempts to lazy load only the specified target version
-// without loading previous roots/versions. If the targetVersion is invalid, an
-// error is returned along with the latest version.
+// without loading previous roots/versions. Lazy loading should be used in cases
+// where only reads are expected. Any writes to a lazy loaded tree may result in
+// unexpected behavior. If the targetVersion is invalid, an error is returned
+// along with the latest version.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
-	if targetVersion <= 0 {
-		return 0, nil
-	}
-
 	latestVersion := tree.ndb.getLatestVersion()
 	if latestVersion < targetVersion {
 		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
+	}
+
+	// no versions have been saved if the latest version is non-positive
+	if latestVersion <= 0 {
+		return 0, nil
+	}
+
+	// default to the latest version if the targeted version is non-positive
+	if targetVersion <= 0 {
+		targetVersion = latestVersion
 	}
 
 	rootHash := tree.ndb.getRoot(targetVersion)
