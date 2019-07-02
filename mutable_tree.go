@@ -16,6 +16,7 @@ type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
+	memVersions    map[int64]bool   // The previous, saved versions of the tree in mem.
 	versions       map[int64]bool   // The previous, saved versions of the tree.
 	ndb            *nodeDB
 }
@@ -29,6 +30,7 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 		ImmutableTree: head,
 		lastSaved:     head.clone(),
 		orphans:       map[string]int64{},
+		memVersions:   map[int64]bool{},
 		versions:      map[int64]bool{},
 		ndb:           ndb,
 	}
@@ -364,10 +366,36 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
+// SaveVersionMem saves a new tree version to disk, based on the current state of
+// the tree. Returns the hash and new version number.
+func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
+	return tree.saveVersion(false)
+}
+
+// FlushMemDisk saves a new tree to disk and removes all the versions in memory
+func (tree *MutableTree) FlushMemVersionDisk() ([]byte, int64, error) {
+	x, y, err := tree.saveVersion(true)
+	tree.ndb.dbMem = dbm.NewMemDB()
+	tree.memVersions = map[int64]bool{}
+	tree.ndb.memNodes = map[string]*Node{}
+	return x, y, err
+}
+
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+	return tree.saveVersion(true)
+}
+
+func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 	version := tree.version + 1
+
+	if flushToDisk {
+		tree.ndb.batch = tree.ndb.db.NewBatch()
+	} else {
+		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
+		tree.memVersions[version] = true
+	}
 
 	if tree.versions[version] {
 		//version already exists, throw an error if attempting to overwrite
@@ -389,13 +417,15 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
-		tree.ndb.SaveOrphans(version, tree.orphans)
+		// Assume orphans not needed any more. So don't save any
+		tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
 		tree.ndb.SaveEmptyRoot(version)
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
-		tree.ndb.SaveBranch(tree.root)
-		tree.ndb.SaveOrphans(version, tree.orphans)
+		tree.ndb.SaveBranch(tree.root, flushToDisk)
+		// Assume orphans not needed any more. So don't save any
+		tree.ndb.SaveOrphans(version, tree.orphans, flushToDisk)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
 	tree.ndb.Commit()
@@ -413,6 +443,23 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
+	return tree.DeleteVersionFull(version, true)
+}
+
+// DeleteVersionFull deletes a tree version from disk or memory based on the flag. The version can then no
+// longer be accessed.
+func (tree *MutableTree) DeleteVersionFull(version int64, memDeleteAlso bool) error {
+	if tree.memVersions[version] {
+		//sometimes you dont want to bother deleting versions in memory
+		if !memDeleteAlso {
+			return nil
+		}
+		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
+		delete(tree.memVersions, version)
+	} else {
+		tree.ndb.batch = tree.ndb.db.NewBatch()
+	}
+
 	if version == 0 {
 		return cmn.NewError("version must be greater than 0")
 	}

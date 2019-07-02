@@ -33,9 +33,11 @@ var (
 )
 
 type nodeDB struct {
-	mtx   sync.Mutex // Read/write lock.
-	db    dbm.DB     // Persistent node storage.
-	batch dbm.Batch  // Batched writing buffer.
+	mtx      sync.Mutex // Read/write lock.
+	db       dbm.DB     // Persistent node storage.
+	dbMem    dbm.DB     // Memory node storage.
+	batch    dbm.Batch  // Batched writing buffer.
+	memNodes map[string]*Node
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -46,6 +48,8 @@ type nodeDB struct {
 func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	ndb := &nodeDB{
 		db:             db,
+		dbMem:          dbm.NewMemDB(),
+		memNodes:       map[string]*Node{},
 		batch:          db.NewBatch(),
 		latestVersion:  0, // initially invalid
 		nodeCache:      make(map[string]*list.Element),
@@ -55,7 +59,7 @@ func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	return ndb
 }
 
-// GetNode gets a node from cache or disk. If it is an inner node, it does not
+// GetNode gets a node from memory or disk. If it is an inner node, it does not
 // load its children.
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
@@ -72,31 +76,39 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		return elem.Value.(*Node)
 	}
 
-	// Doesn't exist, load.
-	buf := ndb.db.Get(ndb.nodeKey(hash))
-	if buf == nil {
-		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
-	}
+	//Try reading from memory
+	var err error
+	node := ndb.memNodes[string(hash)]
+	if node == nil {
+		// Doesn't exist, load from disk
+		buf := ndb.db.Get(ndb.nodeKey(hash))
+		if buf == nil {
+			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
+		}
 
-	node, err := MakeNode(buf)
-	if err != nil {
-		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
+		node, err = MakeNode(buf)
+		if err != nil {
+			panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
+		}
+		node.persisted = true
 	}
 
 	node.hash = hash
-	node.persisted = true
 	ndb.cacheNode(node)
 
 	return node
 }
 
 // SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *Node) {
+func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	if node.hash == nil {
 		panic("Expected to find node.hash, but none found.")
+	}
+	if node.persistedMem && !flushToDisk {
+		return
 	}
 	if node.persisted {
 		panic("Shouldn't be calling save on an already persisted node.")
@@ -107,11 +119,14 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	if err := node.writeBytes(buf); err != nil {
 		panic(err)
 	}
-	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
-	debug("BATCH SAVE %X %p\n", node.hash, node)
 
-	node.persisted = true
-	ndb.cacheNode(node)
+	if flushToDisk {
+		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+		node.persisted = true
+	} else {
+		node.persistedMem = true
+		ndb.memNodes[string(node.hash)] = node
+	}
 }
 
 // Has checks if a hash exists in the database.
@@ -132,23 +147,28 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
-func (ndb *nodeDB) SaveBranch(node *Node) []byte {
+func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	if node.persisted {
+		return node.hash
+	}
+	if node.persistedMem && !flushToDisk {
 		return node.hash
 	}
 
 	if node.leftNode != nil {
-		node.leftHash = ndb.SaveBranch(node.leftNode)
+		node.leftHash = ndb.SaveBranch(node.leftNode, flushToDisk)
 	}
 	if node.rightNode != nil {
-		node.rightHash = ndb.SaveBranch(node.rightNode)
+		node.rightHash = ndb.SaveBranch(node.rightNode, flushToDisk)
 	}
 
 	node._hash()
-	ndb.SaveNode(node)
+	ndb.SaveNode(node, flushToDisk)
 
-	node.leftNode = nil
-	node.rightNode = nil
+	if flushToDisk {
+		node.leftNode = nil
+		node.rightNode = nil
+	}
 
 	return node.hash
 }
@@ -165,11 +185,16 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToDisk bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	toVersion := ndb.getPreviousVersion(version)
+	var toVersion int64
+	toVersion = ndb.getPreviousVersioni(version, ndb.dbMem)
+	if toVersion == 0 {
+		toVersion = ndb.getPreviousVersion(version)
+	} //see if we have something on disk if we dont have anything from mem
+
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
@@ -249,7 +274,11 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 }
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
-	itr := ndb.db.ReverseIterator(
+	return ndb.getPreviousVersionFromDB(version, ndb.db)
+}
+
+func (ndb *nodeDB) getPreviousVersionFromDB(version int64, db dbm.DB) int64 {
+	itr := db.ReverseIterator(
 		rootKeyFormat.Key(1),
 		rootKeyFormat.Key(version),
 	)
@@ -330,11 +359,15 @@ func (ndb *nodeDB) Commit() {
 	defer ndb.mtx.Unlock()
 
 	ndb.batch.Write()
-	ndb.batch.Close()
 	ndb.batch = ndb.db.NewBatch()
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
+	memroot := ndb.dbMem.Get(ndb.rootKey(version))
+	if len(memroot) > 0 {
+		return memroot
+	}
+
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
