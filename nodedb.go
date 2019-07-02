@@ -32,33 +32,6 @@ var (
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
 )
 
-// NodeDB is used by MutableTree & ImmutableTree to persist & load nodes to a DB
-type NodeDB interface {
-	GetNode(hash []byte) *Node
-	SaveNode(node *Node)
-	Has(hash []byte) bool
-	SaveBranch(node *Node) []byte
-	DeleteVersion(version int64, checkLatestVersion bool)
-	SaveOrphans(version int64, orphans map[string]int64)
-	SaveRoot(root *Node, version int64) error
-	SaveEmptyRoot(version int64) error
-	Commit()
-	String() string
-
-	getRoot(version int64) []byte
-	getRoots() (map[int64][]byte, error)
-	getLatestVersion() int64
-	resetLatestVersion(version int64)
-
-	// Only for tests
-	roots() map[int64][]byte
-	leafNodes() []*Node
-	nodes() []*Node
-	orphans() [][]byte
-	size() int
-	traverseOrphans(fn func(k, v []byte))
-}
-
 type nodeDB struct {
 	mtx   sync.Mutex // Read/write lock.
 	db    dbm.DB     // Persistent node storage.
@@ -68,12 +41,9 @@ type nodeDB struct {
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
-	getLeafValueCb func(key []byte) []byte  // Optional callback to get values stored in leaf nodes.
 }
 
-var _ NodeDB = (*nodeDB)(nil)
-
-func NewNodeDB(db dbm.DB, cacheSize int, getLeafValueCb func(key []byte) []byte) NodeDB {
+func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	ndb := &nodeDB{
 		db:             db,
 		batch:          db.NewBatch(),
@@ -81,7 +51,6 @@ func NewNodeDB(db dbm.DB, cacheSize int, getLeafValueCb func(key []byte) []byte)
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
-		getLeafValueCb: getLeafValueCb,
 	}
 	return ndb
 }
@@ -109,7 +78,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 	}
 
-	node, err := MakeNode(buf, ndb.getLeafValueCb)
+	node, err := MakeNode(buf)
 	if err != nil {
 		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 	}
@@ -135,7 +104,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 
 	// Save node bytes to db.
 	buf := new(bytes.Buffer)
-	if err := node.writeBytes(buf, ndb.getLeafValueCb == nil); err != nil {
+	if err := node.writeBytes(buf); err != nil {
 		panic(err)
 	}
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
@@ -361,6 +330,7 @@ func (ndb *nodeDB) Commit() {
 	defer ndb.mtx.Unlock()
 
 	ndb.batch.Write()
+	ndb.batch.Close()
 	ndb.batch = ndb.db.NewBatch()
 }
 
@@ -459,7 +429,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	nodes := []*Node{}
 
 	ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) {
-		node, err := MakeNode(value, ndb.getLeafValueCb)
+		node, err := MakeNode(value)
 		if err != nil {
 			panic(fmt.Sprintf("Couldn't decode node from database: %v", err))
 		}

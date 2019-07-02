@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	amino "github.com/tendermint/go-amino"
+	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
@@ -43,7 +43,7 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 //
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(buf []byte, getLeafValueCb func(key []byte) []byte) (*Node, cmn.Error) {
+func MakeNode(buf []byte) (*Node, cmn.Error) {
 
 	// Read node header (height, size, version, key).
 	height, n, cause := amino.DecodeInt8(buf)
@@ -80,15 +80,11 @@ func MakeNode(buf []byte, getLeafValueCb func(key []byte) []byte) (*Node, cmn.Er
 	// Read node body.
 
 	if node.isLeaf() {
-		if getLeafValueCb != nil {
-			node.value = getLeafValueCb(node.key)
-		} else {
-			val, _, cause := amino.DecodeByteSlice(buf)
-			if cause != nil {
-				return nil, cmn.ErrorWrap(cause, "decoding node.value")
-			}
-			node.value = val
+		val, _, cause := amino.DecodeByteSlice(buf)
+		if cause != nil {
+			return nil, cmn.ErrorWrap(cause, "decoding node.value")
 		}
+		node.value = val
 	} else { // Read children.
 		leftHash, n, cause := amino.DecodeByteSlice(buf)
 		if cause != nil {
@@ -299,7 +295,7 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err c
 }
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer, writeValue bool) cmn.Error {
+func (node *Node) writeBytes(w io.Writer) cmn.Error {
 	var cause error
 	cause = amino.EncodeInt8(w, node.height)
 	if cause != nil {
@@ -321,11 +317,9 @@ func (node *Node) writeBytes(w io.Writer, writeValue bool) cmn.Error {
 	}
 
 	if node.isLeaf() {
-		if writeValue {
-			cause = amino.EncodeByteSlice(w, node.value)
-			if cause != nil {
-				return cmn.ErrorWrap(cause, "writing value")
-			}
+		cause = amino.EncodeByteSlice(w, node.value)
+		if cause != nil {
+			return cmn.ErrorWrap(cause, "writing value")
 		}
 	} else {
 		if node.leftHash == nil {
@@ -435,28 +429,4 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 		return node
 	}
 	return node.getLeftNode(t).lmd(t)
-}
-
-// LoadAndSave recursively saves nodes under current root to a new database.
-// Provide a callback to receive debug information.
-func (node *Node) LoadAndSave(
-	tree *ImmutableTree, targetNdb NodeDB, savesPerCommit uint64, savesSinceLastCommit *uint64,
-	callback func(height int8) bool,
-) {
-	if callback != nil && callback(node.height) {
-		return
-	}
-
-	if !node.isLeaf() {
-		node.getLeftNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
-		node.getRightNode(tree).LoadAndSave(tree, targetNdb, savesPerCommit, savesSinceLastCommit, callback)
-	}
-	node.persisted = false
-	targetNdb.SaveNode(node)
-
-	*savesSinceLastCommit++
-	if savesPerCommit != 0 && *savesSinceLastCommit >= savesPerCommit {
-		targetNdb.Commit()
-		*savesSinceLastCommit = 0
-	}
 }

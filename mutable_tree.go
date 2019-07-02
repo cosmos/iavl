@@ -17,17 +17,12 @@ type MutableTree struct {
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
 	versions       map[int64]bool   // The previous, saved versions of the tree.
-	ndb            NodeDB
+	ndb            *nodeDB
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
-	ndb := NewNodeDB(db, cacheSize, nil)
-	return NewMutableTreeWithNodeDB(ndb)
-}
-
-// NewMutableTreeWithNodeDB returns a new tree with the specified NodeDB.
-func NewMutableTreeWithNodeDB(ndb NodeDB) *MutableTree {
+	ndb := newNodeDB(db, cacheSize)
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
@@ -229,21 +224,66 @@ func (tree *MutableTree) Load() (int64, error) {
 	return tree.LoadVersion(int64(0))
 }
 
+// LazyLoadVersion attempts to lazy load only the specified target version
+// without loading previous roots/versions. Lazy loading should be used in cases
+// where only reads are expected. Any writes to a lazy loaded tree may result in
+// unexpected behavior. If the targetVersion is non-positive, the latest version
+// will be loaded by default. If the latest version is non-positive, this method
+// performs a no-op. Otherwise, if the root does not exist, an error will be
+// returned.
+func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
+	latestVersion := tree.ndb.getLatestVersion()
+	if latestVersion < targetVersion {
+		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
+	}
+
+	// no versions have been saved if the latest version is non-positive
+	if latestVersion <= 0 {
+		return 0, nil
+	}
+
+	// default to the latest version if the targeted version is non-positive
+	if targetVersion <= 0 {
+		targetVersion = latestVersion
+	}
+
+	rootHash := tree.ndb.getRoot(targetVersion)
+	if rootHash == nil {
+		return latestVersion, ErrVersionDoesNotExist
+	}
+
+	tree.versions[targetVersion] = true
+
+	iTree := &ImmutableTree{
+		ndb:     tree.ndb,
+		version: targetVersion,
+		root:    tree.ndb.GetNode(rootHash),
+	}
+
+	tree.orphans = map[string]int64{}
+	tree.ImmutableTree = iTree
+	tree.lastSaved = iTree.clone()
+
+	return targetVersion, nil
+}
+
 // Returns the version number of the latest version found
 func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return 0, err
 	}
+
 	if len(roots) == 0 {
 		return 0, nil
 	}
+
 	latestVersion := int64(0)
+
 	var latestRoot []byte
 	for version, r := range roots {
 		tree.versions[version] = true
-		if version > latestVersion &&
-			(targetVersion == 0 || version <= targetVersion) {
+		if version > latestVersion && (targetVersion == 0 || version <= targetVersion) {
 			latestVersion = version
 			latestRoot = r
 		}
@@ -258,6 +298,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		ndb:     tree.ndb,
 		version: latestVersion,
 	}
+
 	if len(latestRoot) != 0 {
 		t.root = tree.ndb.GetNode(latestRoot)
 	}
@@ -265,6 +306,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	tree.orphans = map[string]int64{}
 	tree.ImmutableTree = t
 	tree.lastSaved = t.clone()
+
 	return latestVersion, nil
 }
 
@@ -505,49 +547,4 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 		}
 		tree.orphans[string(node.hash)] = node.version
 	}
-}
-
-// IMPORTANT This function assumes there has been no transactions since the last SaveVersion. If unsure about
-// this do a SaveVersion immediately before calling this function.
-//
-// SaveVersionToDB creates a copy of the current tree consisting of just one version
-// version - The version we wish to clone. Use version == 0 to save the latest version.
-// newDb   - Database to hold the cloned data.
-// savesPerCommit - Number of saves between each commit, allows memory speed fine tuning.
-//                      savesPerCommit = 0 no saves, maximum RAM use.
-//                      savesPerCommit = 1 commit after each save.
-// callback     - Callback function, allows for displaying debug information. Parameter is height of node being processed.
-func (tree *MutableTree) SaveVersionToDB(
-	version int64,
-	ndb NodeDB,
-	savesPerCommit uint64,
-	callback func(height int8) bool,
-) ([]byte, int64, error) {
-	if version == 0 {
-		version = tree.ndb.getLatestVersion()
-	} else {
-		if _, err := tree.LoadVersion(version); err != nil {
-			return nil, 0, err
-		}
-	}
-
-	// Build a new tree for our desired version
-	immutableTree, err := tree.GetImmutable(version)
-	if err != nil {
-		return nil, 0, cmn.NewError("Getting imutable tree: %v", err)
-	}
-
-	// Set the version. Version number gets incremented on saving, so set to version before the one we want.
-	ndb.resetLatestVersion(version - 1)
-	if err := ndb.SaveRoot(tree.root, version); err != nil {
-		return nil, 0, err
-	}
-
-	// Recursively save tree to the database
-	savesSinceLastCommit := uint64(0)
-	tree.root.LoadAndSave(immutableTree, ndb, savesPerCommit, &savesSinceLastCommit, callback)
-
-	// Ensure all data in the tree has been committed to the database
-	ndb.Commit()
-	return tree.root.hash, version, nil
 }
