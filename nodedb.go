@@ -190,7 +190,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToD
 	defer ndb.mtx.Unlock()
 
 	var toVersion int64
-	toVersion = ndb.getPreviousVersioni(version, ndb.dbMem)
+	toVersion = ndb.getPreviousVersionDB(version, ndb.dbMem)
 	if toVersion == 0 {
 		toVersion = ndb.getPreviousVersion(version)
 	} //see if we have something on disk if we dont have anything from mem
