@@ -25,8 +25,8 @@ type Node struct {
 	leftNode     *Node
 	rightHash    []byte
 	rightNode    *Node
+	saved        bool
 	persisted    bool
-	persistedMem bool
 }
 
 // NewNode returns a new node from a key, value and version.

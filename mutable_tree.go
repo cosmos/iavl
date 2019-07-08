@@ -16,13 +16,15 @@ type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
-	memVersions    map[int64]bool   // The previous, saved versions of the tree in mem.
-	versions       map[int64]bool   // The previous, saved versions of the tree.
+	versions       map[int64]bool   // The previous versions of the tree saved in disk or memory.
 	ndb            *nodeDB
+	// Pruning fields
+	keepEvery  int64 // Saves version to disk periodically
+	keepRecent int64 // Saves recent versions in memory
 }
 
-// NewMutableTree returns a new tree with the specified cache size and datastore.
-func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
+// NewMutableTree returns a new tree with the specified cache size and datastore and pruning options
+func NewMutableTree(db dbm.DB, cacheSize int, keepEvery, keepRecent int64) *MutableTree {
 	ndb := newNodeDB(db, cacheSize)
 	head := &ImmutableTree{ndb: ndb}
 
@@ -30,9 +32,10 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 		ImmutableTree: head,
 		lastSaved:     head.clone(),
 		orphans:       map[string]int64{},
-		memVersions:   map[int64]bool{},
 		versions:      map[int64]bool{},
 		ndb:           ndb,
+		keepEvery: keepEvery,
+		keepRecent: keepRecent,
 	}
 }
 
@@ -366,6 +369,10 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
+func (tree *MutableTree) saveToDisk(version int64) bool {
+	return tree.keepEvery != 0 && version%tree.keepEvery == 0
+}
+
 // SaveVersionMem saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
@@ -374,28 +381,26 @@ func (tree *MutableTree) SaveVersionMem() ([]byte, int64, error) {
 
 // FlushMemDisk saves a new tree to disk and removes all the versions in memory
 func (tree *MutableTree) FlushMemVersionDisk() ([]byte, int64, error) {
-	x, y, err := tree.saveVersion(true)
+	hash, version, err := tree.saveVersion(true)
 	tree.ndb.dbMem = dbm.NewMemDB()
-	tree.memVersions = map[int64]bool{}
+
 	tree.ndb.memNodes = map[string]*Node{}
-	return x, y, err
+	return hash, version, err
 }
 
-// SaveVersion saves a new tree version to disk, based on the current state of
-// the tree. Returns the hash and new version number.
+// SaveVersion saves a new tree version to memDB and removes old version, 
+// based on the current state of the tree. Returns the hash and new version number.
+// If version is snapshot version, persist version to disk as well
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
-	return tree.saveVersion(true)
-}
-
-func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 	version := tree.version + 1
+
+	// check if version needs to be flushed to disk as well
+	flushToDisk := saveToDisk(version)
 
 	if flushToDisk {
 		tree.ndb.batch = tree.ndb.db.NewBatch()
-	} else {
-		tree.ndb.batch = tree.ndb.dbMem.NewBatch()
-		tree.memVersions[version] = true
 	}
+	tree.ndb.memBatch = tree.ndb.dbMem.NewBatch()
 
 	if tree.versions[version] {
 		//version already exists, throw an error if attempting to overwrite
@@ -412,6 +417,10 @@ func (tree *MutableTree) saveVersion(flushToDisk bool) ([]byte, int64, error) {
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
 			version, newHash, existingHash)
 	}
+	tree.versions[version] = true
+
+	// Delete oldest recent version in memDB
+	tree.DeleteVersionMem(version)
 
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
@@ -475,6 +484,11 @@ func (tree *MutableTree) DeleteVersionFull(version int64, memDeleteAlso bool) er
 
 	delete(tree.versions, version)
 
+	return nil
+}
+
+func DeleteVersionMem(version int64) error {
+	//tree.ndb.batchMem = tree.ndb.dbMem.NewBatch()
 	return nil
 }
 

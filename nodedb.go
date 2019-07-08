@@ -35,9 +35,9 @@ var (
 type nodeDB struct {
 	mtx      sync.Mutex // Read/write lock.
 	db       dbm.DB     // Persistent node storage.
-	dbMem    dbm.DB     // Memory node storage.
+	memDb    dbm.DB     // Memory node storage.
 	batch    dbm.Batch  // Batched writing buffer.
-	memNodes map[string]*Node
+	memBatch dbm.Batch  // Batched writing buffer for memDB.
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -48,9 +48,9 @@ type nodeDB struct {
 func newNodeDB(db dbm.DB, cacheSize int) *nodeDB {
 	ndb := &nodeDB{
 		db:             db,
-		dbMem:          dbm.NewMemDB(),
-		memNodes:       map[string]*Node{},
+		memDb:          dbm.NewMemDB(),
 		batch:          db.NewBatch(),
+		memBatch:       memDb.NewBatch(),
 		latestVersion:  0, // initially invalid
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
@@ -77,21 +77,23 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	}
 
 	//Try reading from memory
-	var err error
-	node := ndb.memNodes[string(hash)]
-	if node == nil {
+	buf := ndb.memDb.Get(ndb.nodeKey(hash))
+	persisted := false
+	if buf == nil {
 		// Doesn't exist, load from disk
 		buf := ndb.db.Get(ndb.nodeKey(hash))
 		if buf == nil {
 			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 		}
-
-		node, err = MakeNode(buf)
-		if err != nil {
-			panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
-		}
-		node.persisted = true
+		persisted = true
 	}
+
+	node, err = MakeNode(buf)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
+	}
+	node.saved = true
+	node.persisted = true
 
 	node.hash = hash
 	ndb.cacheNode(node)
@@ -123,18 +125,23 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	if flushToDisk {
 		ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 		node.persisted = true
-	} else {
-		node.persistedMem = true
-		ndb.memNodes[string(node.hash)] = node
 	}
+
+	node.saved = true
+	ndb.memBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 }
 
 // Has checks if a hash exists in the database.
 func (ndb *nodeDB) Has(hash []byte) bool {
 	key := ndb.nodeKey(hash)
 
+	exists, err := ndb.memDb.Has(key, nil)
+	if exists {
+		return exists
+	}
+
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		exists, err := ldb.DB().Has(key, nil)
+		exists, err = ldb.DB().Has(key, nil)
 		if err != nil {
 			panic("Got error from leveldb: " + err.Error())
 		}
@@ -148,10 +155,7 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
 func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
-	if node.persisted {
-		return node.hash
-	}
-	if node.persistedMem && !flushToDisk {
+	if node.saved {
 		return node.hash
 	}
 
@@ -197,17 +201,20 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToD
 
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
-		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
+		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
 	}
 }
 
-// Saves a single orphan to disk.
-func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) {
+// Saves a single orphan to memDB. If flushToDisk, persist to disk as well.
+func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushToDisk bool) {
 	if fromVersion > toVersion {
 		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
 	}
 	key := ndb.orphanKey(fromVersion, toVersion, hash)
-	ndb.batch.Set(key, hash)
+	if flushToDisk {
+		ndb.batch.Set(key, hash)
+	}
+	ndb.memBatch.Set(key, hash)
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
@@ -359,7 +366,9 @@ func (ndb *nodeDB) Commit() {
 	defer ndb.mtx.Unlock()
 
 	ndb.batch.Write()
+	ndb.memBatch.Write()
 	ndb.batch = ndb.db.NewBatch()
+	ndb.memBatch = ndb.dbMem.NewBatch()
 }
 
 func (ndb *nodeDB) getRoot(version int64) []byte {
