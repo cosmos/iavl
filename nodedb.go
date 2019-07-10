@@ -33,12 +33,12 @@ var (
 )
 
 type nodeDB struct {
-	mtx      sync.Mutex // Read/write lock.
-	db       dbm.DB     // Persistent node storage.
-	memDb    dbm.DB     // Memory node storage.
-	batch    dbm.Batch  // Batched writing buffer.
-	memBatch dbm.Batch  // Batched writing buffer for memDB.
-	memVersions int64   // number of versions in memDB
+	mtx         sync.Mutex // Read/write lock.
+	db          dbm.DB     // Persistent node storage.
+	memDb       dbm.DB     // Memory node storage.
+	batch       dbm.Batch  // Batched writing buffer.
+	memBatch    dbm.Batch  // Batched writing buffer for memDB.
+	memVersions int64      // number of versions in memDB
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -257,7 +257,7 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		} else {
 			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			var flushToDisk bool
-			if predecessor > latestVersion - memVersions {
+			if predecessor > latestVersion-memVersions {
 				flushToDisk = false
 			} else {
 				flushToDisk = true
@@ -298,7 +298,7 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	// If version exists in memDB, check memDB for any previous version
-	if (version > ndb.latestVersion - ndb.memVersions) {
+	if version > ndb.latestVersion-ndb.memVersions {
 		prev := getPreviousVersionFromDB(version, ndb.memDb)
 		if prev {
 			return prev
@@ -341,7 +341,7 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 // Traverse orphans ending at a certain version.
 func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 	prefix := orphanKeyFormat.Key(version)
-	if version > ndb.latestVersion - memVersions {
+	if version > ndb.latestVersion-memVersions {
 		ndb.traversePrefixFromDB(ndb.memDb, prefix, fn)
 	} else {
 		ndb.traversePrefixFromDB(ndb.db, prefix, fn)
@@ -366,7 +366,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 }
 
 // Traverse all keys from provided DB
-func traverseFromDB(db dbm.DB, fn (func key, value []byte)) {
+func traverseFromDB(db dbm.DB, fn func(key, value []byte)) {
 	itr := db.Iterator(nil, nil)
 	defer itr.Close()
 

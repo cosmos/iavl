@@ -15,18 +15,18 @@ import (
 
 // Node represents a node in a Tree.
 type Node struct {
-	key          []byte
-	value        []byte
-	version      int64
-	height       int8
-	size         int64
-	hash         []byte
-	leftHash     []byte
-	leftNode     *Node
-	rightHash    []byte
-	rightNode    *Node
-	saved        bool
-	persisted    bool
+	key       []byte
+	value     []byte
+	version   int64
+	height    int8
+	size      int64
+	hash      []byte
+	leftHash  []byte
+	leftNode  *Node
+	rightHash []byte
+	rightNode *Node
+	saved     bool // saved to memory or disk
+	persisted bool // persisted to disk
 }
 
 // NewNode returns a new node from a key, value and version.

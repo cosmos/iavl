@@ -34,8 +34,8 @@ func NewMutableTree(db dbm.DB, cacheSize int, keepEvery, keepRecent int64) *Muta
 		orphans:       map[string]int64{},
 		versions:      map[int64]bool{},
 		ndb:           ndb,
-		keepEvery: keepEvery,
-		keepRecent: keepRecent,
+		keepEvery:     keepEvery,
+		keepRecent:    keepRecent,
 	}
 }
 
@@ -388,7 +388,7 @@ func (tree *MutableTree) FlushMemVersionDisk() ([]byte, int64, error) {
 	return hash, version, err
 }
 
-// SaveVersion saves a new tree version to memDB and removes old version, 
+// SaveVersion saves a new tree version to memDB and removes old version,
 // based on the current state of the tree. Returns the hash and new version number.
 // If version is snapshot version, persist version to disk as well
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
