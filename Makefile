@@ -2,10 +2,18 @@ GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
 
 PDFFLAGS := -pdf --nodefraction=0.1
 
+LINKER_FLAG := -ldflags "-X main.COLOR_ON=on"
+
 all: lint test install
 
+
+
 install:
+ifeq ($(COLORS_ON),)
 	go install ./cmd/iaviewer
+else
+	go install $(LINKER_FLAG) ./cmd/iaviewer
+endif
 
 test:
 	go test -v --race

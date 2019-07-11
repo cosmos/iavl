@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 )
@@ -145,6 +146,12 @@ func Cyan(args ...interface{}) string {
 }
 
 func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string) string {
+	colors := os.Getenv("COLORS_ON")
+	if colors == "" {
+		for _, b := range data {
+			return string(b)
+		}
+	}
 	s := ""
 	for _, b := range data {
 		if 0x21 <= b && b < 0x7F {
