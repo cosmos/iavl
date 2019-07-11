@@ -145,8 +145,11 @@ func Cyan(args ...interface{}) string {
 	return treatAll(ANSIFgCyan, args...)
 }
 
+// Coloredbytes takes in the byte that you would like to show as a string and byte
+// and display them in different colors, if `TENDERMINT_IAVL_COLORS_ON` is set to on.
 func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string) string {
-	colors := os.Getenv("COLORS_ON")
+	// If TENDERMINT_IAVL_COLORS_ON is set to on then colors will be used for bytes and strings
+	colors := os.Getenv("TENDERMINT_IAVL_COLORS_ON")
 	if colors == "" {
 		for _, b := range data {
 			return string(b)
