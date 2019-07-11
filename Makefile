@@ -1,17 +1,30 @@
-GOTOOLS := github.com/golang/dep/cmd/dep
+GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
 
 PDFFLAGS := -pdf --nodefraction=0.1
 
-all: get_vendor_deps test
+LDFLAGS := -ldflags "-X TENDERMINT_IAVL_COLORS_ON=on"
+
+all: lint test install
+
+
+
+install:
+ifeq ($(COLORS_ON),)
+	go install ./cmd/iaviewer
+else
+	go install $(LDFLAGS) ./cmd/iaviewer
+endif
 
 test:
-	GOCACHE=off go test -v --race
+	go test -v --race
 
 tools:
-	go get -u -v $(GOTOOLS)
+	go get -v $(GOTOOLS)
 
-get_vendor_deps: tools
-	dep ensure
+# look into .golangci.yml for enabling / disabling linters
+lint:
+	@echo "--> Running linter"
+	@golangci-lint run
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
@@ -51,4 +64,4 @@ exploremem:
 delve:
 	dlv test ./benchmarks -- -test.bench=.
 
-.PHONY: all test tools
+.PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench

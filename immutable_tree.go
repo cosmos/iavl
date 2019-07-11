@@ -38,6 +38,53 @@ func (t *ImmutableTree) String() string {
 	return "Tree{" + strings.Join(leaves, ", ") + "}"
 }
 
+// RenderShape provides a nested tree shape, ident is prepended in each level
+// Returns an array of strings, one per line, to join with "\n" or display otherwise
+func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) []string {
+	if encoder == nil {
+		encoder = defaultNodeEncoder
+	}
+	return t.renderNode(t.root, indent, 0, encoder)
+}
+
+// NodeEncoder will take an id (hash, or key for leaf nodes), the depth of the node,
+// and whether or not this is a leaf node.
+// It returns the string we wish to print, for iaviwer
+type NodeEncoder func(id []byte, depth int, isLeaf bool) string
+
+// defaultNodeEncoder can encode any node unless the client overrides it
+func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
+	prefix := "- "
+	if isLeaf {
+		prefix = "* "
+	}
+	if len(id) == 0 {
+		return fmt.Sprintf("%s<nil>", prefix)
+	}
+	return fmt.Sprintf("%s%X", prefix, id)
+}
+
+func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder func([]byte, int, bool) string) []string {
+	prefix := strings.Repeat(indent, depth)
+	// handle nil
+	if node == nil {
+		return []string{fmt.Sprintf("%s<nil>", prefix)}
+	}
+	// handle leaf
+	if node.isLeaf() {
+		here := fmt.Sprintf("%s%s", prefix, encoder(node.key, depth, true))
+		return []string{here}
+	}
+
+	// recurse on inner node
+	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
+	left := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder)
+	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
+	result := append(left, here)
+	result = append(result, right...)
+	return result
+}
+
 // Size returns the number of leaf nodes in the tree.
 func (t *ImmutableTree) Size() int64 {
 	if t.root == nil {

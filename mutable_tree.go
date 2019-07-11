@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"sort"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
 	dbm "github.com/tendermint/tendermint/libs/db"
@@ -43,6 +44,18 @@ func (tree *MutableTree) IsEmpty() bool {
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
 	return tree.versions[version]
+}
+
+// AvailableVersions returns all available versions in ascending order
+func (tree *MutableTree) AvailableVersions() []int {
+	res := make([]int, 0, len(tree.versions))
+	for i, v := range tree.versions {
+		if v {
+			res = append(res, int(i))
+		}
+	}
+	sort.Sort(sort.IntSlice(res))
+	return res
 }
 
 // Hash returns the hash of the latest saved version of the tree, as returned
