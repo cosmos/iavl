@@ -237,21 +237,66 @@ func (tree *MutableTree) Load() (int64, error) {
 	return tree.LoadVersion(int64(0))
 }
 
+// LazyLoadVersion attempts to lazy load only the specified target version
+// without loading previous roots/versions. Lazy loading should be used in cases
+// where only reads are expected. Any writes to a lazy loaded tree may result in
+// unexpected behavior. If the targetVersion is non-positive, the latest version
+// will be loaded by default. If the latest version is non-positive, this method
+// performs a no-op. Otherwise, if the root does not exist, an error will be
+// returned.
+func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
+	latestVersion := tree.ndb.getLatestVersion()
+	if latestVersion < targetVersion {
+		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
+	}
+
+	// no versions have been saved if the latest version is non-positive
+	if latestVersion <= 0 {
+		return 0, nil
+	}
+
+	// default to the latest version if the targeted version is non-positive
+	if targetVersion <= 0 {
+		targetVersion = latestVersion
+	}
+
+	rootHash := tree.ndb.getRoot(targetVersion)
+	if rootHash == nil {
+		return latestVersion, ErrVersionDoesNotExist
+	}
+
+	tree.versions[targetVersion] = true
+
+	iTree := &ImmutableTree{
+		ndb:     tree.ndb,
+		version: targetVersion,
+		root:    tree.ndb.GetNode(rootHash),
+	}
+
+	tree.orphans = map[string]int64{}
+	tree.ImmutableTree = iTree
+	tree.lastSaved = iTree.clone()
+
+	return targetVersion, nil
+}
+
 // Returns the version number of the latest version found
 func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	roots, err := tree.ndb.getRoots()
 	if err != nil {
 		return 0, err
 	}
+
 	if len(roots) == 0 {
 		return 0, nil
 	}
+
 	latestVersion := int64(0)
+
 	var latestRoot []byte
 	for version, r := range roots {
 		tree.versions[version] = true
-		if version > latestVersion &&
-			(targetVersion == 0 || version <= targetVersion) {
+		if version > latestVersion && (targetVersion == 0 || version <= targetVersion) {
 			latestVersion = version
 			latestRoot = r
 		}
@@ -266,6 +311,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		ndb:     tree.ndb,
 		version: latestVersion,
 	}
+
 	if len(latestRoot) != 0 {
 		t.root = tree.ndb.GetNode(latestRoot)
 	}
@@ -273,6 +319,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	tree.orphans = map[string]int64{}
 	tree.ImmutableTree = t
 	tree.lastSaved = t.clone()
+
 	return latestVersion, nil
 }
 
