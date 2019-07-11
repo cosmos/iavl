@@ -109,8 +109,8 @@ func (node *Node) String() string {
 		hashstr = fmt.Sprintf("%X", node.hash)
 	}
 	return fmt.Sprintf("Node{%s:%s@%d %X;%X}#%s",
-		node.key,
-		node.value,
+		ColoredBytes(node.key, Green, Blue),
+		ColoredBytes(node.value, Cyan, Blue),
 		node.version,
 		node.leftHash, node.rightHash,
 		hashstr)
