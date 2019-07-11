@@ -18,14 +18,11 @@ type MutableTree struct {
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
 	versions       map[int64]bool   // The previous versions of the tree saved in disk or memory.
 	ndb            *nodeDB
-	// Pruning fields
-	keepEvery  int64 // Saves version to disk periodically
-	keepRecent int64 // Saves recent versions in memory
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore and pruning options
 func NewMutableTree(db dbm.DB, cacheSize int, keepEvery, keepRecent int64) *MutableTree {
-	ndb := newNodeDB(db, cacheSize)
+	ndb := newNodeDB(db, cacheSize, keepRecent, keepEvery)
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{

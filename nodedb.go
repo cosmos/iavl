@@ -33,12 +33,13 @@ var (
 )
 
 type nodeDB struct {
-	mtx         sync.Mutex // Read/write lock.
-	db          dbm.DB     // Persistent node storage.
-	memDb       dbm.DB     // Memory node storage.
-	batch       dbm.Batch  // Batched writing buffer.
-	memBatch    dbm.Batch  // Batched writing buffer for memDB.
-	memVersions int64      // number of versions in memDB
+	mtx        sync.Mutex // Read/write lock.
+	db         dbm.DB     // Persistent node storage.
+	memDb      dbm.DB     // Memory node storage.
+	batch      dbm.Batch  // Batched writing buffer.
+	memBatch   dbm.Batch  // Batched writing buffer for memDB.
+	keepRecent int64      // number of recent versions to store in memDB
+	keepEvery  int64      // frequency of snaphots saved to disk
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -46,13 +47,14 @@ type nodeDB struct {
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int, versionsInMem int64) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, keepRecent, keepEvery int64) *nodeDB {
 	ndb := &nodeDB{
 		db:             db,
 		memDb:          dbm.NewMemDB(),
 		batch:          db.NewBatch(),
 		memBatch:       memDb.NewBatch(),
-		memVersions:    versionsInMem,
+		keepRecent:     keepRecent,
+		keepEvery:      keepEvery,
 		latestVersion:  0, // initially invalid
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
@@ -174,10 +176,8 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	node._hash()
 	ndb.SaveNode(node, flushToDisk)
 
-	if flushToDisk {
-		node.leftNode = nil
-		node.rightNode = nil
-	}
+	node.leftNode = nil
+	node.rightNode = nil
 
 	return node.hash
 }
@@ -191,6 +191,14 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
 	ndb.deleteRoot(version, checkLatestVersion)
 }
 
+func (ndb *nodeDB) containsSnapshot(fromVersion, toVersion int64) bool {
+	return toVersion/ndb.keepEvery != fromVersion/ndb.keepEvery
+}
+
+func (ndb *nodeDB) versionInMemDB(version int64) {
+	return version > ndb.latestVersion-ndb.keepRecent
+}
+
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
@@ -199,17 +207,12 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	defer ndb.mtx.Unlock()
 
 	var toVersion int64
-	var flushToDisk bool
 	toVersion = ndb.getPreviousVersionFromDB(version, ndb.memDb)
-	if toVersion {
-		flushToDisk = false
-	} else {
-		toVersion = ndb.getPreviousVersionFromDB(version, ndb.db)
-		flushToDisk = true
-	}
 
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
+		// if snapshot version in between fromVersion and toVersion, then flush to disk
+		flushToDisk := containsSnapshot(fromVersion, toVersion)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
 	}
 }
@@ -222,13 +225,13 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 	key := ndb.orphanKey(fromVersion, toVersion, hash)
 	if flushToDisk {
 		ndb.batch.Set(key, hash)
-	} else {
-		ndb.memBatch.Set(key, hash)
 	}
+	ndb.memBatch.Set(key, hash)
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
+// TODO: fix this function
 func (ndb *nodeDB) deleteOrphans(version int64) {
 	// Will be zero if there is no previous version.
 	predecessor := ndb.getPreviousVersion(version)
@@ -243,7 +246,12 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
 		// Delete orphan key and reverse-lookup key.
-		ndb.batch.Delete(key)
+		if containsSnapshot(fromVersion, toVersion) {
+			ndb.batch.Delete(key)
+		}
+		if versionInMemDB(toVersion) {
+			ndb.memBatch.Delete(key)
+		}
 
 		// If there is no predecessor, or the predecessor is earlier than the
 		// beginning of the lifetime (ie: negative lifetime), or the lifetime
@@ -257,7 +265,7 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		} else {
 			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			var flushToDisk bool
-			if predecessor > latestVersion-memVersions {
+			if predecessor > latestVersion-ndb.keepRecent {
 				flushToDisk = false
 			} else {
 				flushToDisk = true
@@ -298,7 +306,7 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 	// If version exists in memDB, check memDB for any previous version
-	if version > ndb.latestVersion-ndb.memVersions {
+	if version > ndb.latestVersion-ndb.ndb.keepRecent {
 		prev := getPreviousVersionFromDB(version, ndb.memDb)
 		if prev {
 			return prev
@@ -341,9 +349,10 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 // Traverse orphans ending at a certain version.
 func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 	prefix := orphanKeyFormat.Key(version)
-	if version > ndb.latestVersion-memVersions {
+	if version > ndb.latestVersion-ndb.keepRecent {
 		ndb.traversePrefixFromDB(ndb.memDb, prefix, fn)
-	} else {
+	}
+	if version%keepEvery == 0 {
 		ndb.traversePrefixFromDB(ndb.db, prefix, fn)
 	}
 }
