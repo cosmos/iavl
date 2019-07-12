@@ -22,8 +22,15 @@ type MutableTree struct {
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore and pruning options
-func NewMutableTree(db dbm.DB, cacheSize int, keepEvery, keepRecent int64) *MutableTree {
-	ndb := newNodeDB(db, cacheSize, keepRecent, keepEvery)
+// To maintain backwards compatibility, this function will initialize PruningStrategy{keepEvery: 1, keepRecent: 0}
+func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
+	// memDB is initialized but should never be written to
+	memDB := dbm.NewMemDB()
+	return NewMutableTreePruningOpts(db, memDB, cacheSize, 1, 0)
+}
+
+func NewMutableTreePruningOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *MutableTree {
+	ndb := newNodeDB(snapDB, recentDB, cacheSize, keepEvery, keepRecent)
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
@@ -404,14 +411,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
-		// Assume orphans not needed any more. So don't save any
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveEmptyRoot(version)
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
 		tree.ndb.SaveTree(tree.root, version)
-		// Assume orphans not needed any more. So don't save any
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
@@ -427,7 +432,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	// Prune nodeDB and delete any pruned versions from tree.versions
 	prunedVersions := tree.ndb.PruneRecentVersions()
 	for _, pVer := range prunedVersions {
-		delete(tree.versions, version)
+		delete(tree.versions, pVer)
 	}
 
 	return tree.Hash(), version, nil

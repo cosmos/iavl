@@ -47,7 +47,7 @@ type nodeDB struct {
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 }
 
-func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, keepRecent, keepEvery int64) *nodeDB {
+func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *nodeDB {
 	ndb := &nodeDB{
 		snapshotDB:     snapshotDB,
 		recentDB:       recentDB,
@@ -64,7 +64,7 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, keepRecent, ke
 }
 
 func (ndb *nodeDB) isSnapshotVersion(version int64) bool {
-	return version%ndb.keepEvery == 0
+	return ndb.keepEvery != 0 && version%ndb.keepEvery == 0
 }
 
 func (ndb *nodeDB) isRecentVersion(version int64) bool {

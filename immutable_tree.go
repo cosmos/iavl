@@ -24,7 +24,15 @@ func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize),
+		// memDB created but should never be written to
+		ndb: newNodeDB(db, dbm.NewMemDB(), cacheSize, 1, 0),
+	}
+}
+
+func NewImmutableTreePruning(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *ImmutableTree {
+	return &ImmutableTree{
+		// NodeDB-backed Tree.
+		ndb: newNodeDB(snapDB, recentDB, cacheSize, keepEvery, keepRecent),
 	}
 }
 
