@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/libs/db"
 
@@ -69,6 +70,12 @@ func TestVersionedRandomTree(t *testing.T) {
 	// db than in the current tree version.
 	require.True(len(tree.ndb.nodes()) >= tree.nodeSize())
 
+	// Ensure it returns all versions in sorted order
+	available := tree.AvailableVersions()
+	assert.Equal(t, versions, len(available))
+	assert.Equal(t, 1, available[0])
+	assert.Equal(t, versions, available[len(available)-1])
+
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersion(int64(i))
 	}
@@ -77,6 +84,11 @@ func TestVersionedRandomTree(t *testing.T) {
 	tr, err := tree.GetImmutable(int64(versions))
 	require.NoError(err, "GetImmutable should not error for version %d", versions)
 	require.Equal(tr.root, tree.root)
+
+	// we should only have one available version now
+	available = tree.AvailableVersions()
+	assert.Equal(t, 1, len(available))
+	assert.Equal(t, versions, available[0])
 
 	// After cleaning up all previous versions, we should have as many nodes
 	// in the db as in the current tree version.

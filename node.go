@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tendermint/go-amino"
+	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	cmn "github.com/tendermint/tendermint/libs/common"
 )
@@ -110,8 +110,8 @@ func (node *Node) String() string {
 		hashstr = fmt.Sprintf("%X", node.hash)
 	}
 	return fmt.Sprintf("Node{%s:%s@%d %X;%X}#%s",
-		cmn.ColoredBytes(node.key, cmn.Green, cmn.Blue),
-		cmn.ColoredBytes(node.value, cmn.Cyan, cmn.Blue),
+		ColoredBytes(node.key, Green, Blue),
+		ColoredBytes(node.value, Cyan, Blue),
 		node.version,
 		node.leftHash, node.rightHash,
 		hashstr)
