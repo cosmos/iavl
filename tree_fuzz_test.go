@@ -2,9 +2,9 @@ package iavl
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/db"
 )
 
@@ -83,9 +83,9 @@ func genRandomProgram(size int) *program {
 	nextVersion := 1
 
 	for p.size() < size {
-		k, v := []byte(cmn.RandStr(1)), []byte(cmn.RandStr(1))
+		k, v := []byte(RandStr(1)), []byte(RandStr(1))
 
-		switch cmn.RandInt() % 7 {
+		switch rand.Int() % 7 {
 		case 0, 1, 2:
 			p.addInstruction(instruction{op: "SET", k: k, v: v})
 		case 3, 4:
@@ -94,7 +94,7 @@ func genRandomProgram(size int) *program {
 			p.addInstruction(instruction{op: "SAVE", version: int64(nextVersion)})
 			nextVersion++
 		case 6:
-			if rv := cmn.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
+			if rv := rand.Int() % nextVersion; rv < nextVersion && rv > 0 {
 				p.addInstruction(instruction{op: "DELETE", version: int64(rv)})
 			}
 		}

@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 var (
@@ -88,9 +88,9 @@ func (pin proofInnerNode) Hash(childHash []byte) []byte {
 //----------------------------------------
 
 type proofLeafNode struct {
-	Key       cmn.HexBytes `json:"key"`
-	ValueHash cmn.HexBytes `json:"value"`
-	Version   int64        `json:"version"`
+	Key       []byte `json:"key"`
+	ValueHash []byte `json:"value"`
+	Version   int64  `json:"version"`
 }
 
 func (pln proofLeafNode) String() string {
@@ -153,7 +153,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
-		return node, cmn.NewError("key does not exist")
+		return node, errors.New("key does not exist")
 	}
 
 	if bytes.Compare(key, node.key) < 0 {

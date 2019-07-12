@@ -17,7 +17,7 @@ func TestTreeGetWithProof(t *testing.T) {
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
-		tree.Set(key, []byte(random.Str(8)))
+		tree.Set(key, []byte(RandStr(8)))
 	}
 	root := tree.WorkingHash()
 

@@ -9,12 +9,11 @@ import (
 	mrand "math/rand"
 
 	"github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/tendermint/libs/common"
 	"github.com/tendermint/tendermint/libs/db"
 )
 
 func randstr(length int) string {
-	return cmn.RandStr(length)
+	return RandStr(length)
 }
 
 func i2b(i int) []byte {
@@ -119,7 +118,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 	t := NewMutableTree(db, 100000)
 	value := []byte{}
 	for i := 0; i < 1000000; i++ {
-		t.Set(i2b(int(cmn.RandInt32())), value)
+		t.Set(i2b(int(mrand.Int31())), value)
 		if i > 990000 && i%1000 == 999 {
 			t.SaveVersion()
 		}
@@ -131,7 +130,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		ri := i2b(int(cmn.RandInt32()))
+		ri := i2b(int(mrand.Int31()))
 		t.Set(ri, value)
 		t.Remove(ri)
 		if i%100 == 99 {
