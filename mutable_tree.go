@@ -433,7 +433,7 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return cmn.ErrorWrap(ErrVersionDoesNotExist, "")
 	}
 
-	tree.ndb.DeleteVersion(version, tree.latestVersion)
+	tree.ndb.DeleteVersion(version, true)
 	tree.ndb.Commit()
 
 	delete(tree.versions, version)
