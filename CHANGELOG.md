@@ -1,23 +1,35 @@
 # Changelog
 
+## 0.12.3 (July 12, 2019)
+
+Special thanks to external contributors on this release:
+@ethanfrey
+
+### IMPROVEMENTS
+
+- Implement LazyLoadVersion (@alexanderbez)
+  LazyLoadVersion attempts to lazy load only the specified target version
+  without loading previous roots/versions. - see [goDoc](https://godoc.org/github.com/tendermint/iavl#MutableTree.LazyLoadVersion)
+- Move to go.mod (@Liamsi)
+- `iaviewer` command to visualize IAVL database from leveldb (@ethanfrey)
+
 ## 0.12.2 (March 13, 2019)
 
 IMPROVEMENTS
 
- - Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: https://github.com/tendermint/tendermint/pull/3397)
-
+- Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: https://github.com/tendermint/tendermint/pull/3397)
 
 ## 0.12.1 (February 12, 2019)
 
 IMPROVEMENTS
 
- - Use Tendermint v0.30
+- Use Tendermint v0.30
 
 ## 0.12.0 (November 26, 2018)
 
 BREAKING CHANGES
 
-- Uses new Tendermint ReverseIterator API.  See https://github.com/tendermint/tendermint/pull/2913
+- Uses new Tendermint ReverseIterator API. See https://github.com/tendermint/tendermint/pull/2913
 
 ## 0.11.1 (October 29, 2018)
 
@@ -30,7 +42,7 @@ IMPROVEMENTS
 BREAKING CHANGES
 
 - Changed internal database key format to store int64 key components in a full 8-byte fixed width ([#107])
-- Removed some architecture dependent methods (e.g., use `Get` instead of `Get64` etc) ([#96])  
+- Removed some architecture dependent methods (e.g., use `Get` instead of `Get64` etc) ([#96])
 
 IMPROVEMENTS
 
@@ -45,7 +57,7 @@ IMPROVEMENTS
 BREAKING CHANGES
 
 - refactored API for clean separation of [mutable][1] and [immutable][2] tree (#92, #88);
-with possibility to:
+  with possibility to:
   - load read-only snapshots at previous versions on demand
   - load mutable trees at the most recently saved tree
 
@@ -93,8 +105,8 @@ BUG FIXES
 
 ## 0.8.2
 
-* Swap `tmlibs` for `tendermint/libs`
-* Remove `sha256truncated` in favour of `tendermint/crypto/tmhash` - same hash
+- Swap `tmlibs` for `tendermint/libs`
+- Remove `sha256truncated` in favour of `tendermint/crypto/tmhash` - same hash
   function but technically a breaking change to the API, though unlikely to effect anyone.
 
 NOTE this means IAVL is now dependent on Tendermint Core for the libs (since it
@@ -105,7 +117,7 @@ consider breaking it out into it's own repo again.
 
 ## 0.8.1
 
-*July 1st, 2018*
+_July 1st, 2018_
 
 BUG FIXES
 
@@ -126,8 +138,8 @@ BREAKING CHANGES
 BREAKING CHANGES
 
 - LoadVersion and Load return the loaded version number
-    - NOTE: this behaviour was lost previously and we failed to document in changelog,
-        but now it's back :)
+  - NOTE: this behaviour was lost previously and we failed to document in changelog,
+    but now it's back :)
 
 ## 0.6.1 (March 2, 2018)
 
@@ -160,4 +172,3 @@ FEATURES
 
 First versioned release!
 (Originally accidentally released as v0.2.0)
-
