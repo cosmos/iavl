@@ -251,9 +251,10 @@ func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) {
 		ndb.deleteOrphansMem(version)
 	}
 	if ndb.isSnapshotVersion(version) && !memOnly {
+		predecessor := getPreviousVersionFromDB(version, ndb.snapshotDB)
 		traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
 			ndb.snapshotDB.Delete(key)
-			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, key, hash)
+			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, predecessor, key, hash)
 		})
 	}
 }
@@ -272,21 +273,22 @@ func (ndb *nodeDB) deleteOrphansMem(version int64) {
 			return
 		}
 
+		predecessor := getPreviousVersionFromDB(version, ndb.recentDB)
+
 		// user is manually deleting version from memDB
 		// thus predecessor may exist in memDB
 		// Will be zero if there is no previous version.
-		ndb.deleteOrphansHelper(ndb.recentDB, ndb.recentBatch, false, key, hash)
+		ndb.deleteOrphansHelper(ndb.recentDB, ndb.recentBatch, false, predecessor, key, hash)
 	})
 }
 
-func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk bool, key, hash []byte) {
+func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk bool, predecessor int64, key, hash []byte) {
 	var fromVersion, toVersion int64
 
 	// See comment on `orphanKeyFmt`. Note that here, `version` and
 	// `toVersion` are always equal.
 	orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
-	predecessor := getPreviousVersionFromDB(toVersion, db)
 	// If there is no predecessor, or the predecessor is earlier than the
 	// beginning of the lifetime (ie: negative lifetime), or the lifetime
 	// spans a single version and that version is the one being deleted, we

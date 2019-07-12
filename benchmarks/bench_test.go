@@ -36,31 +36,14 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 	return t, keys
 }
 
-// commit tree saves a new version and deletes and old one...
+// commit tree saves a new version according to pruning strategy passed into IAVL
 func commitTree(b *testing.B, t *iavl.MutableTree) {
 	t.Hash()
-	var err error
-	var version int64
 
-	_, version, err = t.SaveVersionMem() //this will flush for us every so often
+	_, _, err := t.SaveVersion() //this will flush for us every so often
 
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
-	}
-	if version > historySize {
-		err = t.DeleteVersionFull(version-historySize, false)
-		if err != nil {
-			b.Errorf("Can't delete: %v", err)
-		}
-	}
-
-	//Lets flush every X blocks
-	if version%historySize == 0 {
-		//We don't need to delete all the versions when using mem versions, just flush to disk
-		_, _, err = t.FlushMemVersionDisk()
-		if err != nil {
-			b.Errorf("Can't save: %v", err)
-		}
 	}
 }
 

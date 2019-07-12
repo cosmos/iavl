@@ -1041,7 +1041,7 @@ func TestVersionedTreeProofs(t *testing.T) {
 func TestOrphans(t *testing.T) {
 	//If you create a sequence of saved versions
 	//Then randomly delete versions other than the first and last until only those two remain
-	//Any remaining orphan nodes should be constrained to just the first version
+	//Any remaining orphan nodes should either have fromVersion == firstVersion || toVersion == lastVersion
 	require := require.New(t)
 	tree := NewMutableTree(db.NewMemDB(), 100)
 
@@ -1065,8 +1065,8 @@ func TestOrphans(t *testing.T) {
 	tree.ndb.traverseOrphans(func(k, v []byte) {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
-		require.Equal(fromVersion, int64(1), "fromVersion should be 1")
-		require.Equal(toVersion, int64(1), "toVersion should be 1")
+		require.True(fromVersion == int64(1) || toVersion == int64(99), fmt.Sprintf(`Unexpected orphan key exists: %v with fromVersion = %d and toVersion = %d.\n 
+			Any orphan remaining in db should have either fromVersion == 1 or toVersion == 99. Since Version 1 and 99 are only versions in db`, k, fromVersion, toVersion))
 	})
 }
 
