@@ -480,10 +480,14 @@ func (ndb *nodeDB) Commit() {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	ndb.snapshotBatch.Write()
-	ndb.snapshotBatch.Close()
-	ndb.recentBatch.Write()
-	ndb.recentBatch.Close()
+	if ndb.keepEvery != 0 {
+		ndb.snapshotBatch.Write()
+		ndb.snapshotBatch.Close()
+	}
+	if ndb.keepRecent != 0 {
+		ndb.recentBatch.Write()
+		ndb.recentBatch.Close()
+	}
 	ndb.snapshotBatch = ndb.snapshotDB.NewBatch()
 	ndb.recentBatch = ndb.recentDB.NewBatch()
 }
