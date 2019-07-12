@@ -154,6 +154,12 @@ func (ndb *nodeDB) Has(hash []byte) bool {
 	return ndb.snapshotDB.Get(key) != nil
 }
 
+// SaveTree takes a rootNode and version. Saves all nodes in tree using SaveBranch
+func (ndb *nodeDB) SaveTree(root *Node, version int64) []byte {
+	flushToDisk := isSnapshotVersion(version)
+	return SaveBranch(root, flushToDisk)
+}
+
 // SaveBranch saves the given node and all of its descendants.
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
@@ -281,11 +287,13 @@ func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk b
 	}
 }
 
-func (ndb *nodeDB) PruneRecentVersions() {
+func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64) {
 	if ndb.latestVersion - ndb.keepRecent <= 0 {
-		return
+		return nil
 	}
-	ndb.DeleteVersionFromRecent(ndb.latestVersion-keepRecent)
+	pruneVer := ndb.latestVersion-keepRecent
+	ndb.DeleteVersionFromRecent(pruneVer)
+	return append(prunedVersions, pruneVer)
 }
 
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {

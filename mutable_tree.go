@@ -397,9 +397,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
-		// For now: flushToDisk is calculated in here. Ideally mutableTree has no notion of pruning
-		flushToDisk := version%tree.ndb.keepEvery == 0
-		tree.ndb.SaveBranch(tree.root, flushToDisk)
+		tree.ndb.SaveTree(tree.root, version)
 		// Assume orphans not needed any more. So don't save any
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveRoot(tree.root, version)
@@ -413,8 +411,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
 
-	// Prune nodeDB
-	tree.ndb.PruneRecentVersions()
+	// Prune nodeDB and delete any pruned versions from tree.versions
+	prunedVersions := tree.ndb.PruneRecentVersions()
+	for _, pVer := range prunedVersions {
+		delete(tree.versions, version)
+	}
 
 	return tree.Hash(), version, nil
 }
