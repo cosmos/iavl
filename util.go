@@ -202,7 +202,7 @@ func Bytes(n int) []byte {
 	// use random bytes generated from the internal PRNG
 	bs := make([]byte, n)
 	for i := 0; i < len(bs); i++ {
-		bs[i] = byte(rand.Int() & 0xFF)
+		bs[i] = byte(rand.Int() & 0xFF) //nolint: gosec Turn off gosec here because this is for testing
 	}
 	return bs
 }
