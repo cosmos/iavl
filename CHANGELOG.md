@@ -5,7 +5,7 @@
 Special thanks to external contributors on this release:
 @ethanfrey
 
-### IMPROVEMENTS
+IMPROVEMENTS
 
 - Implement LazyLoadVersion (@alexanderbez)
   LazyLoadVersion attempts to lazy load only the specified target version
