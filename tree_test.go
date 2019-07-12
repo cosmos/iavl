@@ -1057,7 +1057,6 @@ func TestOrphans(t *testing.T) {
 	}
 
 	idx := mathrand.Perm(NUMVERSIONS - 2)
-	fmt.Printf("PERMUTATION: %v\n", idx)
 	for _, v := range idx {
 		err := tree.DeleteVersion(int64(v + 1))
 		require.NoError(err, "DeleteVersion should not error")
