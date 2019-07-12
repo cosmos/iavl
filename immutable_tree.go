@@ -29,7 +29,7 @@ func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	}
 }
 
-func NewImmutableTreePruning(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *ImmutableTree {
+func NewImmutableTreePruningOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *ImmutableTree {
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
 		ndb: newNodeDB(snapDB, recentDB, cacheSize, keepEvery, keepRecent),

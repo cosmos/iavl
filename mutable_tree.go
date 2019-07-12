@@ -420,6 +420,13 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
+
+	// Prune nodeDB and delete any pruned versions from tree.versions
+	prunedVersions := tree.ndb.PruneRecentVersions()
+	for _, pVer := range prunedVersions {
+		delete(tree.versions, pVer)
+	}
+	
 	tree.ndb.Commit()
 	tree.version = version
 	tree.versions[version] = true
@@ -429,11 +436,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
 
-	// Prune nodeDB and delete any pruned versions from tree.versions
-	prunedVersions := tree.ndb.PruneRecentVersions()
-	for _, pVer := range prunedVersions {
-		delete(tree.versions, pVer)
-	}
 
 	return tree.Hash(), version, nil
 }

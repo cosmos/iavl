@@ -5,7 +5,7 @@ import (
 )
 
 func debug(format string, args ...interface{}) {
-	if false {
+	if true {
 		fmt.Printf(format, args...)
 	}
 }
