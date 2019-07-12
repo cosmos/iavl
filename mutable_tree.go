@@ -426,7 +426,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	for _, pVer := range prunedVersions {
 		delete(tree.versions, pVer)
 	}
-	
+
 	tree.ndb.Commit()
 	tree.version = version
 	tree.versions[version] = true
@@ -435,7 +435,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
-
 
 	return tree.Hash(), version, nil
 }

@@ -11,8 +11,6 @@ import (
 	db "github.com/tendermint/tendermint/libs/db"
 )
 
-const historySize = 20
-
 func randBytes(length int) []byte {
 	key := make([]byte, length)
 	// math.rand.Read always returns err=nil
