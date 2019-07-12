@@ -281,6 +281,13 @@ func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk b
 	}
 }
 
+func (ndb *nodeDB) PruneRecentVersions() {
+	if ndb.latestVersion - ndb.keepRecent <= 0 {
+		return
+	}
+	ndb.DeleteVersionFromRecent(ndb.latestVersion-keepRecent)
+}
+
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
 	return nodeKeyFormat.KeyBytes(hash)
 }
