@@ -35,7 +35,7 @@ func NewIAVLValueOp(key []byte, proof *RangeProof) IAVLValueOp {
 
 func IAVLValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
-		return nil, errors.New(fmt.Sprintf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue))
+		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
 	var op IAVLValueOp // a bit strange as we'll discard this, but it works.
 	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)

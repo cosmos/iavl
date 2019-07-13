@@ -34,7 +34,7 @@ func NewIAVLAbsenceOp(key []byte, proof *RangeProof) IAVLAbsenceOp {
 
 func IAVLAbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
-		return nil, errors.New(fmt.Sprintf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence))
+		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
 	var op IAVLAbsenceOp // a bit strange as we'll discard this, but it works.
 	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
@@ -59,7 +59,7 @@ func (op IAVLAbsenceOp) String() string {
 
 func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	if len(args) != 0 {
-		return nil, errors.New(fmt.Sprintf("expected 0 args, got %v", len(args)))
+		return nil, errors.Errorf("expected 0 args, got %v", len(args))
 	}
 	// If the tree is nil, the proof is nil, and all keys are absent.
 	if op.Proof == nil {
