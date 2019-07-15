@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/tendermint/tendermint/libs/db"
+	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 // This file implement fuzz testing by generating programs and then running
@@ -83,7 +84,7 @@ func genRandomProgram(size int) *program {
 	nextVersion := 1
 
 	for p.size() < size {
-		k, v := []byte(RandStr(1)), []byte(RandStr(1))
+		k, v := []byte(cmn.RandStr(1)), []byte(cmn.RandStr(1))
 
 		switch rand.Int() % 7 { //nolint: gosec Turn off gosec here because this is for testing
 		case 0, 1, 2:

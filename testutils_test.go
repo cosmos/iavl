@@ -10,10 +10,11 @@ import (
 
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/libs/db"
+	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 func randstr(length int) string {
-	return RandStr(length)
+	return cmn.RandStr(length)
 }
 
 func i2b(i int) []byte {

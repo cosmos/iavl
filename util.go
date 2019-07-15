@@ -3,11 +3,9 @@ package iavl
 import (
 	"bytes"
 	"fmt"
-	"math/rand"
 	"os"
 	"sort"
 	"strings"
-	"sync"
 )
 
 // PrintTree prints the whole tree in an indented form.
@@ -166,52 +164,4 @@ func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string
 		}
 	}
 	return s
-}
-
-// -------------------------------------------------
-
-const (
-	strChars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" // 62 characters
-)
-
-func RandStr(length int) string {
-	chars := []byte{}
-MAIN_LOOP:
-	for {
-		val := rand.Int63()
-		for i := 0; i < 10; i++ {
-			v := int(val & 0x3f) // rightmost 6 bits
-			if v >= 62 {         // only 62 characters in strChars
-				val >>= 6
-				continue
-			} else {
-				chars = append(chars, strChars[v])
-				if len(chars) == length {
-					break MAIN_LOOP
-				}
-				val >>= 6
-			}
-		}
-	}
-
-	return string(chars)
-}
-
-func Bytes(n int) []byte {
-	// cRandBytes isn't guaranteed to be fast so instead
-	// use random bytes generated from the internal PRNG
-	bs := make([]byte, n)
-	for i := 0; i < len(bs); i++ {
-		bs[i] = byte(rand.Int() & 0xFF) //nolint: gosec Turn off gosec here because this is for testing
-	}
-	return bs
-}
-
-// Perm returns a pseudo-random permutation of n integers in [0, n).
-func Perm(n int) []int {
-	var mutex sync.Mutex
-	mutex.Lock()
-	perm := rand.Perm(n)
-	mutex.Unlock()
-	return perm
 }
