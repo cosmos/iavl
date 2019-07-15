@@ -173,7 +173,10 @@ func (ndb *nodeDB) SaveTree(root *Node, version int64) []byte {
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
 func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
-	if node.saved {
+	if node.saved && !flushToDisk {
+		return node.hash
+	}
+	if node.persisted {
 		return node.hash
 	}
 
