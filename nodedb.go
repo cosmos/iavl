@@ -313,6 +313,9 @@ func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64) {
 	}
 	pruneVer := ndb.latestVersion - ndb.keepRecent
 	ndb.DeleteVersionFromRecent(pruneVer, true)
+	if ndb.isSnapshotVersion(pruneVer) {
+		return nil
+	}
 	return append(prunedVersions, pruneVer)
 }
 
@@ -388,6 +391,10 @@ func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion, memOnly bool) {
 
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traversePrefix(orphanKeyFormat.Key(), fn)
+}
+
+func traverseOrphansFromDB(db dbm.DB, fn func(k, v []byte)) {
+	traversePrefixFromDB(db, orphanKeyFormat.Key(), fn)
 }
 
 // Traverse orphans ending at a certain version.
@@ -511,7 +518,6 @@ func (ndb *nodeDB) getRoot(version int64) []byte {
 	return ndb.snapshotDB.Get(ndb.rootKey(version))
 }
 
-// NOTE: will get duplicated root if snapshot version exists in DB and memDB
 func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 	roots := map[int64][]byte{}
 
