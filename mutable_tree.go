@@ -567,7 +567,7 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, orphaned []*Node) {
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
 	for _, node := range orphans {
-		if !node.persisted {
+		if !node.saved {
 			// We don't need to orphan nodes that were never persisted.
 			continue
 		}

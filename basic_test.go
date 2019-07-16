@@ -12,7 +12,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	tree := NewMutableTree(db.NewMemDB(), 0)
+	tree := getTestTree(0)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -185,12 +185,10 @@ func TestUnit(t *testing.T) {
 }
 
 func TestRemove(t *testing.T) {
-	size := 10000
 	keyLen, dataLen := 16, 40
 
-	d := db.NewDB("test", "memdb", "")
-	defer d.Close()
-	t1 := NewMutableTree(d, size)
+	size := 10000
+	t1 := getTestTree(size)
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
@@ -220,7 +218,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	tree := NewMutableTree(db.NewMemDB(), 0)
+	tree := getTestTree(0)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -302,7 +300,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	tree := NewMutableTree(db.NewMemDB(), 0)
+	tree := getTestTree(0)
 
 	// insert all the data
 	for _, r := range records {
@@ -392,8 +390,7 @@ func TestPersistence(t *testing.T) {
 func TestProof(t *testing.T) {
 
 	// Construct some random tree
-	db := db.NewMemDB()
-	tree := NewMutableTree(db, 100)
+	tree := getTestTree(100)
 	for i := 0; i < 10; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))

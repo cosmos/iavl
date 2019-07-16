@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	cmn "github.com/tendermint/tendermint/libs/common"
-	"github.com/tendermint/tendermint/libs/db"
 )
 
 // This file implement fuzz testing by generating programs and then running
@@ -110,7 +109,7 @@ func TestMutableTreeFuzz(t *testing.T) {
 
 	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
-			tree := NewMutableTree(db.NewMemDB(), 0)
+			tree := getTestTree(0)
 			program := genRandomProgram(size)
 			err := program.Execute(tree)
 			if err != nil {
