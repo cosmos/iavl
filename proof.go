@@ -91,7 +91,7 @@ func (pin proofInnerNode) Hash(childHash []byte) []byte {
 type proofLeafNode struct {
 	Key       cmn.HexBytes `json:"key"`
 	ValueHash cmn.HexBytes `json:"value"`
-	Version   int64  `json:"version"`
+	Version   int64        `json:"version"`
 }
 
 func (pln proofLeafNode) String() string {
