@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/db"
+	"github.com/tendermint/tm-cmn/db"
 	cmn "github.com/tendermint/tm-cmn/common"
 
 	mathrand "math/rand"

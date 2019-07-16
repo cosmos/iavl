@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/go-amino"
-	"github.com/tendermint/tendermint/libs/db"
+	"github.com/tendermint/tm-cmn/db"
 	"github.com/tendermint/tendermint/libs/test"
 	cmn "github.com/tendermint/tm-cmn/common"
 )

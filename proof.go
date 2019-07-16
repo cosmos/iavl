@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 var (
@@ -88,8 +89,8 @@ func (pin proofInnerNode) Hash(childHash []byte) []byte {
 //----------------------------------------
 
 type proofLeafNode struct {
-	Key       []byte `json:"key"`
-	ValueHash []byte `json:"value"`
+	Key       cmn.HexBytes `json:"key"`
+	ValueHash cmn.HexBytes `json:"value"`
 	Version   int64  `json:"version"`
 }
 
