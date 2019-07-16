@@ -932,11 +932,9 @@ func TestVersionedCheckpointsSpecialCase7(t *testing.T) {
 	tree.GetVersioned([]byte("A"), 3)
 }
 
-/*
-// TODO: Must rewrite to account for pruning
 func TestVersionedTreeEfficiency(t *testing.T) {
 	require := require.New(t)
-	tree := getTestTree(0)
+	tree := NewMutableTree(db.NewMemDB(), 0)
 	versions := 20
 	keysPerVersion := 100
 	keysAddedPerVersion := map[int]int{}
@@ -951,7 +949,6 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 		tree.SaveVersion()
 		sizeAfter := len(tree.ndb.nodes())
 		change := sizeAfter - sizeBefore
-		fmt.Printf("Change after SaveVersion(%d): %d\n", i, change)
 		keysAddedPerVersion[i] = change
 		keysAdded += change
 	}
@@ -964,15 +961,13 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 			sizeAfter := len(tree.ndb.nodes())
 
 			change := sizeBefore - sizeAfter
-			fmt.Printf("Change after DeleteVersion(%d): %d\n", i, change)
 			keysDeleted += change
 
-			// require.InDelta(change, keysAddedPerVersion[i], float64(keysPerVersion)/5)
+			require.InDelta(change, keysAddedPerVersion[i], float64(keysPerVersion)/5)
 		}
 	}
 	require.Equal(keysAdded-tree.nodeSize(), keysDeleted)
 }
-*/
 
 func TestVersionedTreeProofs(t *testing.T) {
 	require := require.New(t)
