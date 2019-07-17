@@ -224,8 +224,11 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
-		// if snapshot version in between fromVersion and toVersion, then flush to disk. Or fromVersion == toVersion == snapshotVersion
-		flushToDisk := fromVersion/ndb.keepEvery != toVersion/ndb.keepEvery || (ndb.isSnapshotVersion(toVersion) && ndb.isSnapshotVersion(fromVersion))
+		flushToDisk := false
+		if ndb.keepEvery != 0 {
+			// if snapshot version in between fromVersion and toVersion, then flush to disk. Or fromVersion == toVersion == snapshotVersion
+			flushToDisk = fromVersion/ndb.keepEvery != toVersion/ndb.keepEvery || (ndb.isSnapshotVersion(toVersion) && ndb.isSnapshotVersion(fromVersion))
+		}
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
 	}
 }

@@ -152,3 +152,82 @@ func TestDeleteOrphans(t *testing.T) {
 	}
 	traverseOrphansFromDB(mt.ndb.recentDB, lastfn)
 }
+
+func TestNoSnapshots(t *testing.T) {
+	db, mdb, close := getTestDBs()
+	defer close()
+
+	keepRecent := rand.Int63n(8) + 2 //keep at least 2 versions in memDB
+	mt := NewMutableTreePruningOpts(db, mdb, 5, 0, keepRecent) // test no snapshots
+
+	for i := 0; i < 50; i++ {
+		// set 5 keys per version
+		for j := 0; j < 5; j++ {
+			key := make([]byte, 8)
+			val := make([]byte, 8)
+			binary.BigEndian.PutUint64(key, uint64(rand.Int63()))
+			binary.BigEndian.PutUint64(val, uint64(rand.Int63()))
+			mt.Set(key, val)
+		}
+		_, _, err := mt.SaveVersion()
+		require.Nil(t, err, "SaveVersion failed")
+	}
+
+	versions := mt.AvailableVersions()
+	require.Equal(t, keepRecent, int64(len(versions)), "Versions in nodeDB not equal to recent versions")
+	for i := 0; int64(i) < keepRecent; i++ {
+		seen := false
+		for _, v := range versions {
+			if v == int(mt.Version()) - i {
+				seen = true
+			}
+		}
+		require.True(t, seen, fmt.Sprintf("Version %d is not available even though it is recent", mt.Version() - int64(i)))
+	}
+
+	size := 0
+	traverseFromDB(mt.ndb.snapshotDB, func(k, v []byte) {
+		size++
+	})
+	// check that nothing persisted to snapshotDB
+	require.Equal(t, 0, size, "SnapshotDB should be empty")
+}
+
+func TestNoRecents(t *testing.T) {
+	db, mdb, close := getTestDBs()
+	defer close()
+
+	mt := NewMutableTreePruningOpts(db, mdb, 5, 1, 0)
+
+	for i := 0; i < 50; i++ {
+		// set 5 keys per version
+		for j := 0; j < 5; j++ {
+			key := make([]byte, 8)
+			val := make([]byte, 8)
+			binary.BigEndian.PutUint64(key, uint64(rand.Int63()))
+			binary.BigEndian.PutUint64(val, uint64(rand.Int63()))
+			mt.Set(key, val)
+		}
+		_, _, err := mt.SaveVersion()
+		require.Nil(t, err, "SaveVersion failed")
+	}
+
+	size := 0
+	traverseFromDB(mt.ndb.recentDB, func(k, v []byte) {
+		size++
+	})
+	// check that nothing persisted to recentDB
+	require.Equal(t, 0, size, "recentDB should be empty")
+
+	versions := mt.AvailableVersions()
+	require.Equal(t, 50, len(versions), "Versions in nodeDB not equal to snapshot versions")
+	for i := 1; i <= 50; i++ {
+		seen := false
+		for _, v := range versions {
+			if v == i {
+				seen = true
+			}
+		}
+		require.True(t, seen, fmt.Sprintf("Version %d is not available even though it is snpashhot version", i))
+	}
+}

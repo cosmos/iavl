@@ -819,8 +819,8 @@ func TestVersionedCheckpointsSpecialCase3(t *testing.T) {
 }
 
 func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
-	tree := getTestTree(0)
-
+	tree := NewMutableTree(db.NewMemDB(), 0)
+	
 	tree.Set([]byte("U"), []byte("XamDUtiJ"))
 	tree.Set([]byte("A"), []byte("UkZBuYIU"))
 	tree.Set([]byte("H"), []byte("7a9En4uw"))
