@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
+	"github.com/pkg/errors"
 )
 
 // pathWithLeaf is a path to a leaf node and the leaf node itself.
@@ -31,7 +31,7 @@ func (pwl pathWithLeaf) StringIndented(indent string) string {
 // `verify` checks that the leaf node's hash + the inner nodes merkle-izes to
 // the given root. If it returns an error, it means the leafHash or the
 // PathToLeaf is incorrect.
-func (pwl pathWithLeaf) verify(root []byte) cmn.Error {
+func (pwl pathWithLeaf) verify(root []byte) error {
 	leafHash := pwl.Leaf.Hash()
 	return pwl.Path.verify(leafHash, root)
 }
@@ -76,14 +76,14 @@ func (pl PathToLeaf) stringIndented(indent string) string {
 // `verify` checks that the leaf node's hash + the inner nodes merkle-izes to
 // the given root. If it returns an error, it means the leafHash or the
 // PathToLeaf is incorrect.
-func (pl PathToLeaf) verify(leafHash []byte, root []byte) cmn.Error {
+func (pl PathToLeaf) verify(leafHash []byte, root []byte) error {
 	hash := leafHash
 	for i := len(pl) - 1; i >= 0; i-- {
 		pin := pl[i]
 		hash = pin.Hash(hash)
 	}
 	if !bytes.Equal(root, hash) {
-		return cmn.ErrorWrap(ErrInvalidProof, "")
+		return errors.Wrap(ErrInvalidProof, "")
 	}
 	return nil
 }

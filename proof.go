@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	cmn "github.com/tendermint/tendermint/libs/common"
+	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 var (
@@ -153,7 +155,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
-		return node, cmn.NewError("key does not exist")
+		return node, errors.New("key does not exist")
 	}
 
 	if bytes.Compare(key, node.key) < 0 {

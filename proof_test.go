@@ -8,8 +8,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/go-amino"
-	"github.com/tendermint/tendermint/libs/db"
+	"github.com/tendermint/tm-cmn/db"
 	"github.com/tendermint/tendermint/libs/test"
+	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 func TestTreeGetWithProof(t *testing.T) {
@@ -17,7 +18,7 @@ func TestTreeGetWithProof(t *testing.T) {
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
-		tree.Set(key, []byte(random.Str(8)))
+		tree.Set(key, []byte(cmn.RandStr(8)))
 	}
 	root := tree.WorkingHash()
 
@@ -61,7 +62,7 @@ func TestTreeKeyExistsProof(t *testing.T) {
 	// insert lots of info and store the bytes
 	allkeys := make([][]byte, 200)
 	for i := 0; i < 200; i++ {
-		key := randstr(20)
+		key := cmn.RandStr(20)
 		value := "value_for_" + key
 		tree.Set([]byte(key), []byte(value))
 		allkeys[i] = []byte(key)

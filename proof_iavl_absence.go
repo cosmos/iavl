@@ -3,8 +3,9 @@ package iavl
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
+
 	"github.com/tendermint/tendermint/crypto/merkle"
-	cmn "github.com/tendermint/tendermint/libs/common"
 )
 
 const ProofOpIAVLAbsence = "iavl:a"
@@ -34,12 +35,12 @@ func NewIAVLAbsenceOp(key []byte, proof *RangeProof) IAVLAbsenceOp {
 
 func IAVLAbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
-		return nil, cmn.NewError("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
+		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
 	var op IAVLAbsenceOp // a bit strange as we'll discard this, but it works.
 	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
 	if err != nil {
-		return nil, cmn.ErrorWrap(err, "decoding ProofOp.Data into IAVLAbsenceOp")
+		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLAbsenceOp")
 	}
 	return NewIAVLAbsenceOp(pop.Key, op.Proof), nil
 }
@@ -59,7 +60,7 @@ func (op IAVLAbsenceOp) String() string {
 
 func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	if len(args) != 0 {
-		return nil, cmn.NewError("expected 0 args, got %v", len(args))
+		return nil, errors.Errorf("expected 0 args, got %v", len(args))
 	}
 	// If the tree is nil, the proof is nil, and all keys are absent.
 	if op.Proof == nil {
@@ -70,14 +71,14 @@ func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	root := op.Proof.ComputeRootHash()
 	err := op.Proof.Verify(root)
 	if err != nil {
-		return nil, cmn.ErrorWrap(err, "computing root hash")
+		return nil, errors.Wrap(err, "computing root hash")
 	}
 	// XXX What is the encoding for keys?
 	// We should decode the key depending on whether it's a string or hex,
 	// maybe based on quotes and 0x prefix?
 	err = op.Proof.VerifyAbsence([]byte(op.key))
 	if err != nil {
-		return nil, cmn.ErrorWrap(err, "verifying absence")
+		return nil, errors.Wrap(err, "verifying absence")
 	}
 	return [][]byte{root}, nil
 }
