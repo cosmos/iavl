@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"math/rand"
 	"os"
 	"runtime"
 	"strconv"
@@ -12,17 +11,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tm-cmn/db"
 	cmn "github.com/tendermint/tm-cmn/common"
-
-	mathrand "math/rand"
+	"github.com/tendermint/tm-cmn/db"
 )
 
 var testLevelDB bool
 var testFuzzIterations int
+var random *cmn.Rand
 
 func init() {
-	mathrand.Seed(0) // for determinism
+	random = cmn.NewRand()
+	random.Seed(0) // for determinism
 	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
 	flag.IntVar(&testFuzzIterations, "test.fuzz-iterations", 100000, "number of fuzz testing iterations")
 	flag.Parse()
@@ -1317,7 +1316,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 			// If we can load quickly into a data-structure that allows for
 			// efficient deletes, we are golden.
 			for v := 0; v < numVersions/10; v++ {
-				version := (rand.Int() % numVersions) + 1
+				version := (cmn.RandInt() % numVersions) + 1
 				tree.DeleteVersion(int64(version))
 			}
 		}

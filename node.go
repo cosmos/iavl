@@ -9,6 +9,7 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
+
 	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
