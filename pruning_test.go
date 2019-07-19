@@ -127,30 +127,103 @@ func TestDeleteOrphans(t *testing.T) {
 	// check orphans in recentDB are expected
 	traverseOrphansFromDB(mt.ndb.recentDB, recentFn)
 
-	// delete snapshot orphans except latest version
+	// delete snapshot versions except latest version
 	for j := keepEvery; j < mt.Version(); j += keepEvery {
 		err := mt.DeleteVersion(j)
 		require.Nil(t, err, fmt.Sprintf("Could not delete version %d", j))
 	}
 
+	size := 0
 	lastfn := func(key, v []byte) {
-		var fromVersion, toVersion int64
-
-		// See comment on `orphanKeyFmt`. Note that here, `version` and
-		// `toVersion` are always equal.
-		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-
-		// only orphans that should exist have toVersion = latestVersion
-		require.Equal(t, mt.Version(), toVersion, fmt.Sprintf("Unexpected Orphan with toVersion: %d", toVersion))
+		size++
 	}
 	traverseOrphansFromDB(mt.ndb.snapshotDB, lastfn)
+	require.Equal(t, 0, size, "Orphans still exist in SnapshotDB")
 
+	size = 0
 	// delete all recent orphans escept latest version
 	for k := mt.Version()-keepRecent+1; k < mt.Version(); k++ {
 		err := mt.DeleteVersion(k)
 		require.Nil(t, err, fmt.Sprintf("Could not delete version %d", k))
 	}
 	traverseOrphansFromDB(mt.ndb.recentDB, lastfn)
+	require.Equal(t, 0, size, "Orphans still exist in recentDB")
+
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), fmt.Sprintf("More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", keepEvery, keepRecent))
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), fmt.Sprintf("More nodes in snapshotDB than expected. KeepEvery: %d, KeepRecent: %d.", keepEvery, keepRecent))
+}
+
+func TestDBState(t *testing.T) {
+	db, mdb, close := getTestDBs()
+	defer close()
+
+	keepRecent := int64(5)
+	keepEvery := int64(1)
+	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+
+	// create 5 versions
+	for i := 0; i < 5; i++ {
+		// set 5 keys per version
+		for j := 0; j < 5; j++ {
+			key := make([]byte, 8)
+			val := make([]byte, 8)
+			binary.BigEndian.PutUint64(key, uint64(rand.Int63()))
+			binary.BigEndian.PutUint64(val, uint64(rand.Int63()))
+			mt.Set(key, val)
+		}
+		_, _, err := mt.SaveVersion()
+		require.Nil(t, err, "SaveVersion failed")
+	}
+
+	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+
+	for i := 1; i < 5; i++ {
+		err := mt.DeleteVersion(int64(i))
+		require.Nil(t, err, fmt.Sprintf("Could not delete version: %d", i))
+	}
+
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+}
+
+func TestSanity(t *testing.T) {
+	db, mdb, close := getTestDBs()
+	defer close()
+
+	keepRecent := int64(5)
+	keepEvery := int64(5)
+	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+
+	// create 5 versions
+	for i := 0; i < 10; i++ {
+		// set keys per version
+		mt.Set([]byte(fmt.Sprintf("Key%d", i)), []byte(fmt.Sprintf("Val%d", i)))
+		_, _, err := mt.SaveVersion()
+		require.Nil(t, err, "SaveVersion failed")
+	}
+
+	//require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "SnapshotDB did not save correctly")
+
+	for i := 9; i > 0; i-- {
+		mt.ndb.DeleteVersionFromRecent(int64(i), true)
+		mt.ndb.Commit()
+	}
+
+	size := 0
+	fn := func(k, v []byte) {
+		size++;
+	}
+	traverseOrphansFromDB(mt.ndb.recentDB, fn)
+	require.Equal(t, 0, size, "Not all orphans deleted")
+
+	//require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
+
+	for i := 9; i > 0; i-- {
+		mt.DeleteVersion(int64(i))
+	}
+
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
 }
 
 func TestNoSnapshots(t *testing.T) {

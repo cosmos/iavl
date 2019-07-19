@@ -442,6 +442,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
+	debug("DELETE VERSION: %d\n", version)
 	if version == 0 {
 		return cmn.NewError("version must be greater than 0")
 	}
