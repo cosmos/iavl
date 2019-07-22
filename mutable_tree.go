@@ -420,6 +420,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		tree.ndb.SaveRoot(tree.root, version)
 	}
+	tree.ndb.Commit()
 
 	// Prune nodeDB and delete any pruned versions from tree.versions
 	prunedVersions := tree.ndb.PruneRecentVersions()

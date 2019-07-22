@@ -542,7 +542,10 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 
 func TestVersionedTreeSpecialCase(t *testing.T) {
 	require := require.New(t)
-	tree := getTestTree(100)
+	d, closeDB := getTestDB()
+	defer closeDB()
+
+	tree := NewMutableTree(d, 0)
 
 	tree.Set([]byte("key1"), []byte("val0"))
 	tree.Set([]byte("key2"), []byte("val0"))
@@ -563,7 +566,7 @@ func TestVersionedTreeSpecialCase(t *testing.T) {
 
 func TestVersionedTreeSpecialCase2(t *testing.T) {
 	require := require.New(t)
-	
+
 	d := db.NewMemDB()
 	tree := NewMutableTree(d, 100)
 
@@ -820,7 +823,7 @@ func TestVersionedCheckpointsSpecialCase3(t *testing.T) {
 
 func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	tree := NewMutableTree(db.NewMemDB(), 0)
-	
+
 	tree.Set([]byte("U"), []byte("XamDUtiJ"))
 	tree.Set([]byte("A"), []byte("UkZBuYIU"))
 	tree.Set([]byte("H"), []byte("7a9En4uw"))

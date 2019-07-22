@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"fmt"
 	"bytes"
 	"testing"
 
@@ -29,4 +30,15 @@ func TestDelete(t *testing.T) {
 
 	k1Value, _, err = tree.GetVersionedWithProof([]byte("k1"), version)
 	require.Equal(t, 0, bytes.Compare([]byte("Fred"), k1Value))
+}
+
+func TestTraverse(t *testing.T) {
+	memDb := db.NewMemDB()
+	tree := NewMutableTree(memDb, 0)
+
+	for i := 0; i < 6; i++ {
+		tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+	}
+
+	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
 }

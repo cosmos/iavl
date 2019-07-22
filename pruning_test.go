@@ -3,8 +3,8 @@ package iavl
 import (
 	"encoding/binary"
 	"fmt"
-	"os"
 	"math/rand"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -62,16 +62,16 @@ func TestSave(t *testing.T) {
 	for j := keepEvery; j <= mt.Version(); j += keepEvery {
 		require.True(t, mt.VersionExists(int64(j)), fmt.Sprintf("Expected snapshot version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", j, keepEvery, keepRecent))
 	}
-	for k := mt.Version()-keepRecent+1; k <= mt.Version(); k++ {
+	for k := mt.Version() - keepRecent + 1; k <= mt.Version(); k++ {
 		require.True(t, mt.VersionExists(int64(k)), fmt.Sprintf("Expected recent version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", k, keepEvery, keepRecent))
 	}
 
 	// check that there only exists correct number of roots in nodeDB
 	roots, err := mt.ndb.getRoots()
 	require.Nil(t, err, "Error in getRoots")
-	numRoots := 1000 / keepEvery + keepRecent
+	numRoots := 1000/keepEvery + keepRecent
 	// decrement if there is overlap between snapshot and recent versions
-	if 1000 % keepEvery == 0 {
+	if 1000%keepEvery == 0 {
 		numRoots--
 	}
 	require.Equal(t, numRoots, int64(len(roots)), "nodeDB does not contain expected number of roots")
@@ -83,10 +83,10 @@ func TestDeleteOrphans(t *testing.T) {
 
 	keepRecent := rand.Int63n(8) + 2 //keep at least 2 versions in memDB
 	keepEvery := (rand.Int63n(3) + 1) * 100
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreePruningOpts(db, mdb, 500, keepEvery, keepRecent)
 
-	// create 1000 versions
-	for i := 0; i < 1000; i++ {
+	// create 1200 versions (multiple of any possible snapshotting version)
+	for i := 0; i < 1200; i++ {
 		// set 5 keys per version
 		for j := 0; j < 5; j++ {
 			key := make([]byte, 8)
@@ -121,7 +121,7 @@ func TestDeleteOrphans(t *testing.T) {
 		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
 		// toVersion must exist in recentDB
-		require.True(t, toVersion > mt.Version() - keepRecent, fmt.Sprintf("Orphan in recentDB has unexpected fromVersion: %d. Should have been deleted", fromVersion))
+		require.True(t, toVersion > mt.Version()-keepRecent, fmt.Sprintf("Orphan in recentDB has unexpected fromVersion: %d. Should have been deleted", fromVersion))
 	}
 
 	// check orphans in recentDB are expected
@@ -142,7 +142,7 @@ func TestDeleteOrphans(t *testing.T) {
 
 	size = 0
 	// delete all recent orphans escept latest version
-	for k := mt.Version()-keepRecent+1; k < mt.Version(); k++ {
+	for k := mt.Version() - keepRecent + 1; k < mt.Version(); k++ {
 		err := mt.DeleteVersion(k)
 		require.Nil(t, err, fmt.Sprintf("Could not delete version %d", k))
 	}
@@ -186,43 +186,130 @@ func TestDBState(t *testing.T) {
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
 }
 
-func TestSanity(t *testing.T) {
+func TestSanity1(t *testing.T) {
 	db, mdb, close := getTestDBs()
 	defer close()
 
-	keepRecent := int64(5)
+	keepRecent := int64(1)
 	keepEvery := int64(5)
 	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
 
 	// create 5 versions
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 5; i++ {
 		// set keys per version
-		mt.Set([]byte(fmt.Sprintf("Key%d", i)), []byte(fmt.Sprintf("Val%d", i)))
+		// set 2 keys per version
+		for j := 0; j < 2; j++ {
+			key := []byte(fmt.Sprintf("%d: Key:v%d:i%d", rand.Int63(), i+1, j))
+			val := []byte(fmt.Sprintf("Val:v%d:i%d", i, j))
+			mt.Set(key, val)
+		}
+
 		_, _, err := mt.SaveVersion()
 		require.Nil(t, err, "SaveVersion failed")
 	}
 
-	//require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "SnapshotDB did not save correctly")
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "SnapshotDB did not save correctly")
 
-	for i := 9; i > 0; i-- {
+	for i := 1; i < 5; i++ {
 		mt.ndb.DeleteVersionFromRecent(int64(i), true)
 		mt.ndb.Commit()
 	}
 
+	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
+
 	size := 0
 	fn := func(k, v []byte) {
-		size++;
+		size++
 	}
 	traverseOrphansFromDB(mt.ndb.recentDB, fn)
 	require.Equal(t, 0, size, "Not all orphans deleted")
 
-	//require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
+	size = 0
+	traverseOrphansFromDB(mt.ndb.snapshotDB, fn)
+	require.Equal(t, 0, size, "Not all orphans in snapshotDBdeleted")
 
-	for i := 9; i > 0; i-- {
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
+}
+
+func TestSanity2(t *testing.T) {
+	db, mdb, close := getTestDBs()
+	defer close()
+
+	keepRecent := int64(1)
+	keepEvery := int64(5)
+	mt := NewMutableTreePruningOpts(db, mdb, 0, keepEvery, keepRecent)
+
+	// create 5 versions
+	for i := 0; i < 5; i++ {
+		// set keys per version
+		for j := 0; j < 2; j++ {
+			mt.Set([]byte(fmt.Sprintf("%dKey%d|%d", rand.Int63(), i, j)), []byte(fmt.Sprintf("Val%d%d", i, j)))
+		}
+		_, _, err := mt.SaveVersion()
+		require.Nil(t, err, "SaveVersion failed")
+	}
+
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "SnapshotDB did not save correctly")
+
+	size := 0
+	fn := func(k, v []byte) {
+		size++
+	}
+	traverseOrphansFromDB(mt.ndb.snapshotDB, fn)
+	require.Equal(t, 0, size, "Not all orphans deleted")
+
+	size = 0
+	traverseOrphansFromDB(mt.ndb.recentDB, fn)
+	require.Equal(t, 0, size, "Not all orphans deleted from RecentDB")
+
+	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
+
+	for i := 1; i < 5; i++ {
 		mt.DeleteVersion(int64(i))
 	}
 
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	require.Equal(t, mt.nodeSize()+size, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
+}
+
+func TestSanity3(t *testing.T) {
+	db, mdb, close := getTestDBs()
+	defer close()
+
+	keepRecent := int64(4)
+	keepEvery := int64(100)
+	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+
+	// create 1000 versions
+	numSnapNodes := 0
+	for i := 0; i < 200; i++ {
+		// set 5 keys per version
+		var key, val []byte
+		for j := 0; j < 5; j++ {
+			key = []byte(fmt.Sprintf("%d: Key:v%d:i%d", rand.Int63(), i+1, j))
+			val = []byte(fmt.Sprintf("Val:v%d:i%d", i, j))
+		}
+		mt.Set(key, val)
+		_, _, err := mt.SaveVersion()
+		if int64(i+1)%keepEvery == 0 {
+			numSnapNodes += mt.nodeSize()
+		}
+		require.Nil(t, err, "SaveVersion failed")
+	}
+
+	fn := func(n *Node) bool {
+		if n.version <= 100 {
+			numSnapNodes--
+		}
+		return false
+	}
+	mt.root.traverse(mt.ImmutableTree, true, fn)
+
+	require.Equal(t, numSnapNodes, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
+
+	mt.DeleteVersion(100)
+
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
 }
 
@@ -230,7 +317,7 @@ func TestNoSnapshots(t *testing.T) {
 	db, mdb, close := getTestDBs()
 	defer close()
 
-	keepRecent := rand.Int63n(8) + 2 //keep at least 2 versions in memDB
+	keepRecent := rand.Int63n(8) + 2                           //keep at least 2 versions in memDB
 	mt := NewMutableTreePruningOpts(db, mdb, 5, 0, keepRecent) // test no snapshots
 
 	for i := 0; i < 50; i++ {
@@ -251,11 +338,11 @@ func TestNoSnapshots(t *testing.T) {
 	for i := 0; int64(i) < keepRecent; i++ {
 		seen := false
 		for _, v := range versions {
-			if v == int(mt.Version()) - i {
+			if v == int(mt.Version())-i {
 				seen = true
 			}
 		}
-		require.True(t, seen, fmt.Sprintf("Version %d is not available even though it is recent", mt.Version() - int64(i)))
+		require.True(t, seen, fmt.Sprintf("Version %d is not available even though it is recent", mt.Version()-int64(i)))
 	}
 
 	size := 0

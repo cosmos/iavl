@@ -134,13 +134,14 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 		panic(err)
 	}
 
+	if !node.saved {
+		node.saved = true
+		ndb.recentBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	}
 	if flushToDisk {
 		ndb.snapshotBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 		node.persisted = true
 	}
-
-	node.saved = true
-	ndb.recentBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 }
 
 // Has checks if a hash exists in the database.
@@ -180,20 +181,22 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 		return node.hash
 	}
 
-	if node.leftNode != nil {
+	if node.size != 1 {
+		if node.leftNode == nil {
+			node.leftNode = ndb.GetNode(node.leftHash)
+		}
+		if node.rightNode == nil {
+			node.rightNode = ndb.GetNode(node.rightHash)
+		}
 		node.leftHash = ndb.SaveBranch(node.leftNode, flushToDisk)
-	}
-	if node.rightNode != nil {
 		node.rightHash = ndb.SaveBranch(node.rightNode, flushToDisk)
 	}
 
 	node._hash()
 	ndb.SaveNode(node, flushToDisk)
 
-	if node.persisted {
-		node.leftNode = nil
-		node.rightNode = nil
-	}
+	node.leftNode = nil
+	node.rightNode = nil
 
 	return node.hash
 }
@@ -227,8 +230,8 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	for hash, fromVersion := range orphans {
 		flushToDisk := false
 		if ndb.keepEvery != 0 {
-			// if snapshot version in between fromVersion and toVersion, then flush to disk. Or fromVersion == toVersion == snapshotVersion
-			flushToDisk = fromVersion/ndb.keepEvery != toVersion/ndb.keepEvery || (ndb.isSnapshotVersion(toVersion) && ndb.isSnapshotVersion(fromVersion))
+			// if snapshot version in between fromVersion and toVersion INCLUSIVE, then flush to disk.
+			flushToDisk = fromVersion/ndb.keepEvery != toVersion/ndb.keepEvery || ndb.isSnapshotVersion(fromVersion)
 		}
 		debug("SAVEORPHAN %v-%v %X flushToDisk: %t\n", fromVersion, toVersion, hash, flushToDisk)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
@@ -259,13 +262,11 @@ func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) {
 		ndb.deleteOrphansMem(version)
 	}
 	if ndb.isSnapshotVersion(version) && !memOnly {
-		debug("DELETE ORPHAN FROM SNAPSHOT\n")
 		predecessor := getPreviousVersionFromDB(version, ndb.snapshotDB)
 		traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
 			ndb.snapshotDB.Delete(key)
 			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, predecessor, key, hash)
 		})
-		debug("END DELETE ORPHAN FROM SNAPSHOT\n")
 	}
 }
 
