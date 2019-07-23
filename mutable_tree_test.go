@@ -1,12 +1,12 @@
 package iavl
 
 import (
-	"fmt"
 	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/db"
+	"github.com/tendermint/tm-cmn/db"
 )
 
 func TestDelete(t *testing.T) {

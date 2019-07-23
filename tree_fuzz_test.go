@@ -2,9 +2,10 @@ package iavl
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
+	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 // This file implement fuzz testing by generating programs and then running
@@ -84,7 +85,7 @@ func genRandomProgram(size int) *program {
 	for p.size() < size {
 		k, v := []byte(cmn.RandStr(1)), []byte(cmn.RandStr(1))
 
-		switch cmn.RandInt() % 7 {
+		switch rand.Int() % 7 { //nolint: gosec Turn off gosec here because this is for testing
 		case 0, 1, 2:
 			p.addInstruction(instruction{op: "SET", k: k, v: v})
 		case 3, 4:
@@ -93,7 +94,7 @@ func genRandomProgram(size int) *program {
 			p.addInstruction(instruction{op: "SAVE", version: int64(nextVersion)})
 			nextVersion++
 		case 6:
-			if rv := cmn.RandInt() % nextVersion; rv < nextVersion && rv > 0 {
+			if rv := rand.Int() % nextVersion; rv < nextVersion && rv > 0 { //nolint: gosec Turn off gosec here because this is for testing
 				p.addInstruction(instruction{op: "DELETE", version: int64(rv)})
 			}
 		}

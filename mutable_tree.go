@@ -5,8 +5,9 @@ import (
 	"fmt"
 	"sort"
 
-	cmn "github.com/tendermint/tendermint/libs/common"
-	dbm "github.com/tendermint/tendermint/libs/db"
+	"github.com/pkg/errors"
+
+	dbm "github.com/tendermint/tm-cmn/db"
 )
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
@@ -445,13 +446,13 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 func (tree *MutableTree) DeleteVersion(version int64) error {
 	debug("DELETE VERSION: %d\n", version)
 	if version == 0 {
-		return cmn.NewError("version must be greater than 0")
+		return errors.New("version must be greater than 0")
 	}
 	if version == tree.version {
-		return cmn.NewError("cannot delete latest saved version (%d)", version)
+		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
 	if _, ok := tree.versions[version]; !ok {
-		return cmn.ErrorWrap(ErrVersionDoesNotExist, "")
+		return errors.Wrap(ErrVersionDoesNotExist, "")
 	}
 
 	tree.ndb.DeleteVersion(version, true)
@@ -466,16 +467,16 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 // longer be accessed.
 func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	if version <= 0 {
-		return cmn.NewError("version must be greater than 0")
+		return errors.New("version must be greater than 0")
 	}
 	newLatestVersion := version - 1
 	lastestVersion := tree.ndb.getLatestVersion()
 	for ; version <= lastestVersion; version++ {
 		if version == tree.version {
-			return cmn.NewError("cannot delete latest saved version (%d)", version)
+			return errors.Errorf("cannot delete latest saved version (%d)", version)
 		}
 		if _, ok := tree.versions[version]; !ok {
-			return cmn.ErrorWrap(ErrVersionDoesNotExist, "")
+			return errors.Wrap(ErrVersionDoesNotExist, "")
 		}
 		tree.ndb.DeleteVersion(version, false)
 		delete(tree.versions, version)

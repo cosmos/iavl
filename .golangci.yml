@@ -29,7 +29,6 @@ linters:
     - gochecknoinits
     - scopelint
     - stylecheck
-
 # linters-settings:
 #   govet:
 #     check-shadowing: true
