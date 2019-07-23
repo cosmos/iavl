@@ -22,7 +22,7 @@ type MutableTree struct {
 	ndb            *nodeDB
 }
 
-// NewMutableTree returns a new tree with the specified cache size and datastore and pruning options
+// NewMutableTree returns a new tree with the specified cache size and datastore
 // To maintain backwards compatibility, this function will initialize PruningStrategy{keepEvery: 1, keepRecent: 0}
 func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 	// memDB is initialized but should never be written to
@@ -30,6 +30,7 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 	return NewMutableTreePruningOpts(db, memDB, cacheSize, 1, 0)
 }
 
+// NewMutableTreePruningOpts returns a new tree with the specified cache size, datastores and pruning options
 func NewMutableTreePruningOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *MutableTree {
 	ndb := newNodeDB(snapDB, recentDB, cacheSize, keepEvery, keepRecent)
 	head := &ImmutableTree{ndb: ndb}

@@ -141,6 +141,7 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	if flushToDisk {
 		ndb.snapshotBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 		node.persisted = true
+		node.saved = true
 	}
 }
 

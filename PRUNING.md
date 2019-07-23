@@ -1,3 +1,5 @@
+# Pruning
+
 Setting Pruning fields in the IAVL tree can optimize performance by only writing versions to disk if they are meant to be persisted indefinitely. Versions that are known to be deleted eventually are temporarily held in memory until they are ready to be pruned. This greatly reduces the I/O load of IAVL.
 
 We can set custom pruning fields in IAVL using: `NewMutableTreePruningOpts`
@@ -16,7 +18,7 @@ keepEvery  int64n // Saves version to disk periodically
 keepRecent int64  // Saves recent versions in memory
 ```
 
-If version is not going to be persisted to disk, the version is simply saved in `recentDB` (typically a memDB)
+If version is not going to be persisted to disk, the version is simply saved in `recentDB` (typically a `memDB`)
 If version is persisted to disk, the version is written to `recentDB` **and** `snapshotDB` (typically `levelDB`)
 
 #### Orphans:

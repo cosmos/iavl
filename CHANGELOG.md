@@ -1,9 +1,5 @@
 # Changelog
 
-## Pending
-
-- [IAVL] Ability to store temporary versions in memory only, and flush to disk every X versions. This should greatly reduce IO requirements and disk storage. (@mattkanwisher Loom Network)
-
 ## 0.12.3 (July 12, 2019)
 
 Special thanks to external contributors on this release:
