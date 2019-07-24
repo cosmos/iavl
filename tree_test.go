@@ -339,8 +339,8 @@ func TestVersionedTree(t *testing.T) {
 	require.Len(nodes2, 5, "db should have grown in size")
 	require.Len(tree.ndb.orphans(), 3, "db should have three orphans")
 
-	// Create two more orphans.
-	tree.Remove([]byte("key1"))
+	// Create three more orphans.
+	tree.Remove([]byte("key1")) // orphans both leaf node and inner node containing "key1" and "key2"
 	tree.Set([]byte("key2"), []byte("val2"))
 
 	hash3, v3, _ := tree.SaveVersion()
@@ -359,7 +359,7 @@ func TestVersionedTree(t *testing.T) {
 
 	nodes3 := tree.ndb.leafNodes()
 	require.Len(nodes3, 6, "wrong number of nodes")
-	require.Len(tree.ndb.orphans(), 6, "wrong number of orphans")
+	require.Len(tree.ndb.orphans(), 7, "wrong number of orphans")
 
 	hash4, _, _ := tree.SaveVersion()
 	require.EqualValues(hash3, hash4)

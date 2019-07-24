@@ -208,10 +208,12 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) ([]byte, *Node,
 
 		if len(orphaned) == 0 {
 			return node.hash, node, nil, value, orphaned
-		} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-			return node.rightHash, node.rightNode, node.key, value, orphaned
 		}
 		orphaned = append(orphaned, node)
+		if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
+			orphaned = append(orphaned, node)
+			return node.rightHash, node.rightNode, node.key, value, orphaned
+		}
 
 		newNode := node.clone(version)
 		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
@@ -225,10 +227,11 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) ([]byte, *Node,
 
 	if len(orphaned) == 0 {
 		return node.hash, node, nil, value, orphaned
-	} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-		return node.leftHash, node.leftNode, nil, value, orphaned
 	}
 	orphaned = append(orphaned, node)
+	if newRightHash == nil && newRightNode == nil { // right node held value, was removed
+		return node.leftHash, node.leftNode, nil, value, orphaned
+	}
 
 	newNode := node.clone(version)
 	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
