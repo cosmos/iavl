@@ -216,13 +216,13 @@ func BenchmarkLevelDBLargeData(b *testing.B) {
 
 func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 	pruningStrategies := []pruningstrat{
-		{0, 0}       // prune everything
-		{1, 0},      // default pruning strategy
-		{0, 1},      // keep single recent version
-		{100, 5},    // simple pruning
-		{1000, 10},  // average pruning
-		{1000, 1},   // extreme pruning
-		{10000, 100} // SDK pruning
+		{0, 0},       // prune everything
+		{1, 0},       // default pruning strategy
+		{0, 1},       // keep single recent version
+		{100, 5},     // simple pruning
+		{1000, 10},   // average pruning
+		{1000, 1},    // extreme pruning
+		{10000, 100}, // SDK pruning
 	}
 	for _, ps := range pruningStrategies {
 		for _, bb := range benchmarks {
