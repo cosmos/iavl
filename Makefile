@@ -44,6 +44,9 @@ fullbench:
 		go test -bench=Mem . && \
 		go test -timeout=60m -bench=LevelDB .
 
+benchprune:
+	cd benchmarks && \
+		go test -bench=PruningStrategies
 
 # note that this just profiles the in-memory version, not persistence
 profile:

@@ -157,10 +157,6 @@ type benchmark struct {
 	keyLen, dataLen     int
 }
 
-type pruningstrat struct {
-	keepEvery, keepRecent int64
-}
-
 func BenchmarkMedium(b *testing.B) {
 	benchmarks := []benchmark{
 		{"memdb", 100000, 100, 16, 40},
@@ -216,7 +212,6 @@ func BenchmarkLevelDBLargeData(b *testing.B) {
 
 func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 	pruningStrategies := []pruningstrat{
-		{0, 0},       // prune everything
 		{1, 0},       // default pruning strategy
 		{0, 1},       // keep single recent version
 		{100, 5},     // simple pruning
