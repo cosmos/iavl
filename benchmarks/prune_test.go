@@ -14,7 +14,7 @@ type pruningstrat struct {
 }
 
 // To test effect of pruning strategy, we must measure time to execute many blocks
-// Execute 50000 blocks with the given IAVL tree's pruning strategy
+// Execute 30000 blocks with the given IAVL tree's pruning strategy
 func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int64, keyLen, dataLen int) {
 	// prepare a dir for the db and cleanup afterwards
 	dirName := fmt.Sprintf("./%s-db", prefix)
@@ -39,8 +39,8 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	// reset timer after initialization logic
 	b.ResetTimer()
 	t, _ := prepareTree(b, snapDB, db.NewMemDB(), keepEvery, keepRecent, 5, keyLen, dataLen)
-	// create 50000 versions
-	for i := 0; i < 50000; i++ {
+	// create 30000 versions
+	for i := 0; i < 30000; i++ {
 		// create 5 keys per version
 		for j := 0; j < 5; j++ {
 			t.Set(randBytes(keyLen), randBytes(dataLen))

@@ -46,7 +46,7 @@ fullbench:
 
 benchprune:
 	cd benchmarks && \
-		go test -bench=PruningStrategies
+		go test -bench=PruningStrategies -timeout=24h
 
 # note that this just profiles the in-memory version, not persistence
 profile:
