@@ -6,7 +6,6 @@ import (
 	"runtime"
 	"testing"
 
-	"github.com/syndtr/goleveldb/opts"
 	db "github.com/tendermint/tm-cmn/db"
 )
 
@@ -29,8 +28,7 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	runtime.GC()
 
 	// always initialize tree with goleveldb as snapshotDB and memDB as recentDB
-	dbOptions := opts.Options{}
-	snapDB := NewGoLevelDBWithOpts("test", dirName, &dbOptions)
+	snapDB := db.NewDB("test", "goleveldb", dirName)
 	defer snapDB.Close()
 
 	// var mem runtime.MemStats

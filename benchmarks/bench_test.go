@@ -21,7 +21,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, snapdb db.DB, memdb db.DB, keepEvery int64, keepRecent int64, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t := iavl.NewMutableTreePruningOpts(snapdb, memdb, size, keepEvery, keepRecent)
+	t := iavl.NewMutableTreeWithOpts(snapdb, memdb, size, iavl.BenchingOptions(keepEvery, keepRecent))
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
