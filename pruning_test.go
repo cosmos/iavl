@@ -28,7 +28,7 @@ func TestSave(t *testing.T) {
 
 	keepRecent := rand.Int63n(8) + 2 //keep at least 2 versions in memDB
 	keepEvery := (rand.Int63n(3) + 1) * 100
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	// create 1000 versions
 	for i := 0; i < 1000; i++ {
@@ -50,7 +50,7 @@ func TestSave(t *testing.T) {
 		ver := int64(v)
 		// check that version is supposed to exist given pruning strategy
 		require.True(t, ver%keepEvery == 0 || mt.Version()-ver <= keepRecent,
-			"Version: %d should not exist. KeepEvery: %d, KeepRecent: %d", v, keepEvery, keepRecent)
+			"Version: %d should not exist. KeepEvery: %d, KeepRecent: %d", v, PruningOptions(keepEvery, keepRecent))
 
 		// check that root exists in nodeDB
 		lv, err := mt.LazyLoadVersion(ver)
@@ -60,10 +60,10 @@ func TestSave(t *testing.T) {
 
 	// check all expected versions are available.
 	for j := keepEvery; j <= mt.Version(); j += keepEvery {
-		require.True(t, mt.VersionExists(int64(j)), "Expected snapshot version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", j, keepEvery, keepRecent)
+		require.True(t, mt.VersionExists(int64(j)), "Expected snapshot version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", j, PruningOptions(keepEvery, keepRecent))
 	}
 	for k := mt.Version() - keepRecent + 1; k <= mt.Version(); k++ {
-		require.True(t, mt.VersionExists(int64(k)), "Expected recent version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", k, keepEvery, keepRecent)
+		require.True(t, mt.VersionExists(int64(k)), "Expected recent version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", k, PruningOptions(keepEvery, keepRecent))
 	}
 
 	// check that there only exists correct number of roots in nodeDB
@@ -83,7 +83,7 @@ func TestDeleteOrphans(t *testing.T) {
 
 	keepRecent := rand.Int63n(8) + 2 //keep at least 2 versions in memDB
 	keepEvery := (rand.Int63n(3) + 1) * 100
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	// create 1200 versions (multiple of any possible snapshotting version)
 	for i := 0; i < 1200; i++ {
@@ -149,8 +149,8 @@ func TestDeleteOrphans(t *testing.T) {
 	traverseOrphansFromDB(mt.ndb.recentDB, lastfn)
 	require.Equal(t, 0, size, "Orphans still exist in recentDB")
 
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", keepEvery, keepRecent)
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "More nodes in snapshotDB than expected. KeepEvery: %d, KeepRecent: %d.", keepEvery, keepRecent)
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
+	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "More nodes in snapshotDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
 }
 
 func TestReplaceKeys(t *testing.T) {
@@ -159,7 +159,7 @@ func TestReplaceKeys(t *testing.T) {
 
 	keepRecent := int64(1) //keep 1 version in memDB
 	keepEvery := int64(5)
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	// Replace the same 10 keys with different values
 	for i := 0; i < 10; i++ {
@@ -195,7 +195,7 @@ func TestRemoveKeys(t *testing.T) {
 
 	keepRecent := int64(1) //keep 1 version in memDB
 	keepEvery := int64(10)
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	for v := 0; v < 10; v++ {
 		for i := 0; i < 10; i++ {
@@ -228,7 +228,7 @@ func TestDBState(t *testing.T) {
 
 	keepRecent := int64(5)
 	keepEvery := int64(1)
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	// create 5 versions
 	for i := 0; i < 5; i++ {
@@ -261,7 +261,7 @@ func TestSanity1(t *testing.T) {
 
 	keepRecent := int64(1)
 	keepEvery := int64(5)
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	// create 5 versions
 	for i := 0; i < 5; i++ {
@@ -307,7 +307,7 @@ func TestSanity2(t *testing.T) {
 
 	keepRecent := int64(1)
 	keepEvery := int64(5)
-	mt := NewMutableTreePruningOpts(db, mdb, 0, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 0, PruningOptions(keepEvery, keepRecent))
 
 	// create 5 versions
 	for i := 0; i < 5; i++ {
@@ -348,7 +348,7 @@ func TestSanity3(t *testing.T) {
 
 	keepRecent := int64(4)
 	keepEvery := int64(100)
-	mt := NewMutableTreePruningOpts(db, mdb, 5, keepEvery, keepRecent)
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(keepEvery, keepRecent))
 
 	// create 1000 versions
 	numSnapNodes := 0
@@ -387,8 +387,8 @@ func TestNoSnapshots(t *testing.T) {
 	db, mdb, close := getTestDBs()
 	defer close()
 
-	keepRecent := rand.Int63n(8) + 2                           //keep at least 2 versions in memDB
-	mt := NewMutableTreePruningOpts(db, mdb, 5, 0, keepRecent) // test no snapshots
+	keepRecent := rand.Int63n(8) + 2                                        //keep at least 2 versions in memDB
+	mt := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(0, keepRecent)) // test no snapshots
 
 	for i := 0; i < 50; i++ {
 		// set 5 keys per version
@@ -424,10 +424,10 @@ func TestNoSnapshots(t *testing.T) {
 }
 
 func TestNoRecents(t *testing.T) {
-	db, mdb, close := getTestDBs()
+	db, _, close := getTestDBs()
 	defer close()
 
-	mt := NewMutableTreePruningOpts(db, mdb, 5, 1, 0)
+	mt := NewMutableTree(db, 5)
 
 	for i := 0; i < 50; i++ {
 		// set 5 keys per version

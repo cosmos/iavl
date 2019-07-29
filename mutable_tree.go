@@ -27,12 +27,12 @@ type MutableTree struct {
 func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 	// memDB is initialized but should never be written to
 	memDB := dbm.NewMemDB()
-	return NewMutableTreePruningOpts(db, memDB, cacheSize, 1, 0)
+	return NewMutableTreeWithOpts(db, memDB, cacheSize, nil)
 }
 
-// NewMutableTreePruningOpts returns a new tree with the specified cache size, datastores and pruning options
-func NewMutableTreePruningOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, keepEvery, keepRecent int64) *MutableTree {
-	ndb := newNodeDB(snapDB, recentDB, cacheSize, keepEvery, keepRecent)
+// NewMutableTreeWithOpts returns a new tree with the specified cache size, datastores and options
+func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *MutableTree {
+	ndb := newNodeDB(snapDB, recentDB, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{

@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/syndtr/goleveldb/opts"
 	db "github.com/tendermint/tm-cmn/db"
 )
 
@@ -28,19 +29,20 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	runtime.GC()
 
 	// always initialize tree with goleveldb as snapshotDB and memDB as recentDB
-	snapDB := db.NewDB("test", "goleveldb", dirName)
+	dbOptions := opts.Options{}
+	snapDB := NewGoLevelDBWithOpts("test", dirName, &dbOptions)
 	defer snapDB.Close()
 
-	var mem runtime.MemStats
-	runtime.ReadMemStats(&mem)
-	memSize := mem.Alloc
-	maxVersion := 0
+	// var mem runtime.MemStats
+	// runtime.ReadMemStats(&mem)
+	// memSize := mem.Alloc
+	// maxVersion := 0
 
 	// reset timer after initialization logic
 	b.ResetTimer()
 	t, _ := prepareTree(b, snapDB, db.NewMemDB(), keepEvery, keepRecent, 5, keyLen, dataLen)
 	// create 30000 versions
-	for i := 0; i < 30000; i++ {
+	for i := 0; i < b.N; i++ {
 		// create 5 keys per version
 		for j := 0; j < 5; j++ {
 			t.Set(randBytes(keyLen), randBytes(dataLen))
@@ -49,28 +51,29 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 		if err != nil {
 			b.Errorf("Can't save version %d: %v", i, err)
 		}
-		// Pause timer to garbage-collect and remeasure memory usage
-		b.StopTimer()
-		runtime.GC()
-		runtime.ReadMemStats(&mem)
-		// update memSize if it has increased after saveVersion
-		if memSize < mem.Alloc {
-			memSize = mem.Alloc
-			maxVersion = i
-		}
-		b.StartTimer()
+		// // Pause timer to garbage-collect and remeasure memory usage
+		// b.StopTimer()
+		// runtime.GC()
+		// runtime.ReadMemStats(&mem)
+		// // update memSize if it has increased after saveVersion
+		// if memSize < mem.Alloc {
+		// 	memSize = mem.Alloc
+		// 	maxVersion = i
+		// }
+		// b.StartTimer()
 	}
-	fmt.Printf("Maxmimum Memory usage was %0.2f MB at height %d\n", float64(memSize)/1000000, maxVersion)
+	//fmt.Printf("Maxmimum Memory usage was %0.2f MB at height %d\n", float64(memSize)/1000000, maxVersion)
+	b.StopTimer()
 }
 
 func BenchmarkPruningStrategies(b *testing.B) {
 	ps := []pruningstrat{
-		{1, 0},       // default pruning strategy
-		{0, 1},       // keep single recent version
-		{100, 5},     // simple pruning
-		{1000, 10},   // average pruning
-		{1000, 1},    // extreme pruning
-		{10000, 100}, // SDK pruning
+		{1, 0},   // default pruning strategy
+		{0, 1},   // keep single recent version
+		{100, 5}, // simple pruning
+		// {1000, 10},   // average pruning
+		// {1000, 1},    // extreme pruning
+		// {10000, 100}, // SDK pruning
 	}
 	for _, ps := range ps {
 		prefix := fmt.Sprintf("PruningStrategy{%d-%d}-KeyLen:%d-DataLen:%d", ps.keepEvery, ps.keepRecent, 16, 40)
