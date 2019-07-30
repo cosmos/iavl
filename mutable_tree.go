@@ -211,7 +211,6 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) ([]byte, *Node,
 		}
 		orphaned = append(orphaned, node)
 		if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-			orphaned = append(orphaned, node)
 			return node.rightHash, node.rightNode, node.key, value, orphaned
 		}
 

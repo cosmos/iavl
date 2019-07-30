@@ -40,7 +40,7 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	b.ResetTimer()
 	t, _ := prepareTree(b, snapDB, db.NewMemDB(), keepEvery, keepRecent, 5, keyLen, dataLen)
 	// create 30000 versions
-	for i := 0; i < b.N; i++ {
+	for i := 0; i < 5000; i++ {
 		// create 5 keys per version
 		for j := 0; j < 5; j++ {
 			t.Set(randBytes(keyLen), randBytes(dataLen))
@@ -59,6 +59,9 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 		// 	maxVersion = i
 		// }
 		// b.StartTimer()
+		b.StopTimer()
+		runtime.GC()
+		b.StartTimer()
 	}
 	//fmt.Printf("Maxmimum Memory usage was %0.2f MB at height %d\n", float64(memSize)/1000000, maxVersion)
 	b.StopTimer()
@@ -66,8 +69,10 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 
 func BenchmarkPruningStrategies(b *testing.B) {
 	ps := []pruningstrat{
-		{1, 0},   // default pruning strategy
-		{0, 1},   // keep single recent version
+		{1, 0}, // default pruning strategy
+		//{1, 1},
+		{0, 1}, // keep single recent version
+		{100, 1},
 		{100, 5}, // simple pruning
 		// {1000, 10},   // average pruning
 		// {1000, 1},    // extreme pruning
