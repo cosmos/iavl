@@ -16,7 +16,8 @@ func DefaultOptions() *Options {
 	}
 }
 
-// Return Options with given pruning strategy. Sync=false
+// PruningOptions returns Options with a given pruning strategy.
+// Sync is set to false
 func PruningOptions(keepEvery, keepRecent int64) *Options {
 	return &Options{
 		KeepEvery:  keepEvery,
@@ -26,7 +27,7 @@ func PruningOptions(keepEvery, keepRecent int64) *Options {
 }
 
 // BenchingOptions returns Options intended for benchmark tests
-// with given pruning strategy. Sync = true
+// with a given pruning strategy. Sync is set to true
 func BenchingOptions(keepEvery, keepRecent int64) *Options {
 	return &Options{
 		KeepEvery:  keepEvery,
