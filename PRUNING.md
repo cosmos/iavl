@@ -9,7 +9,8 @@ We can set custom pruning fields in IAVL using: `NewMutableTreePruningOpts`
 
 ### NodeDB
 NodeDB has extra fields:
-```
+
+```go
 recentDB    dbm.DB     // Memory node storage.
 recentBatch dbm.Batch  // Batched writing buffer for memDB.
 
@@ -22,7 +23,8 @@ If version is not going to be persisted to disk, the version is simply saved in 
 If version is persisted to disk, the version is written to `recentDB` **and** `snapshotDB` (typically `levelDB`)
 
 #### Orphans:
-Save orphan to memDB under `o|toVersion|fromVersion`.
+
+Save orphan to `memDB` under `o|toVersion|fromVersion`.
 
 If there exists snapshot version `snapVersion` s.t. `fromVersion < snapVersion < toVersion`, save orphan to disk as well under `o|snapVersion|fromVersion`.
 NOTE: in unlikely event, that two snapshot versions exist between `fromVersion` and `toVersion`, we use closest snapshot version that is less than `toVersion`
