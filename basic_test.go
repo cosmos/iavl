@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tm-cmn/db"
+	"github.com/tendermint/tm-db/db"
 )
 
 func TestBasic(t *testing.T) {

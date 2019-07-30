@@ -10,7 +10,7 @@ import (
 
 	"github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/iavl/common"
-	"github.com/tendermint/tm-cmn/db"
+	"github.com/tendermint/tm-db/db"
 )
 
 func randstr(length int) string {

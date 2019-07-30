@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	cmn "github.com/tendermint/iavl/common"
-	"github.com/tendermint/tm-cmn/db"
+	"github.com/tendermint/tm-db/db"
 )
 
 var testLevelDB bool
