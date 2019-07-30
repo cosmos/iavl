@@ -9,7 +9,7 @@ import (
 	mrand "math/rand"
 
 	"github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/tm-cmn/common"
+	cmn "github.com/tendermint/iavl/common"
 	"github.com/tendermint/tm-cmn/db"
 )
 

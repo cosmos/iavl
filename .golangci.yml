@@ -7,15 +7,12 @@ linters:
     - gocyclo
     - golint
     - gosimple
-    - goimports
-    - gofmt
     - unused
     - govet
     - deadcode
     - structcheck
     - maligned
     - errcheck
-    - staticcheck
     - dupl
     - ineffassign
     - interfacer
@@ -28,7 +25,6 @@ linters:
     - gocritic
     - gochecknoinits
     - scopelint
-    - stylecheck
 # linters-settings:
 #   govet:
 #     check-shadowing: true

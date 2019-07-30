@@ -8,9 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/go-amino"
+	cmn "github.com/tendermint/iavl/common"
 	"github.com/tendermint/tm-cmn/db"
-	"github.com/tendermint/tendermint/libs/test"
-	cmn "github.com/tendermint/tm-cmn/common"
 )
 
 func TestTreeGetWithProof(t *testing.T) {
@@ -216,7 +215,7 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 
 	// Random mutations must not verify
 	for i := 0; i < 1e4; i++ {
-		badProofBytes := test.MutateByteSlice(proofBytes)
+		badProofBytes := cmn.MutateByteSlice(proofBytes)
 		var badProof = new(RangeProof)
 		err := cdc.UnmarshalBinaryLengthPrefixed(badProofBytes, badProof)
 		if err != nil {
