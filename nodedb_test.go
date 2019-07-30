@@ -26,7 +26,7 @@ func makeHashes(b *testing.B, seed int64) [][]byte {
 	b.StopTimer()
 	rnd := rand.NewSource(seed)
 	hashes := make([][]byte, b.N)
-	hashBytes := 8*((hashSize+7)/8)
+	hashBytes := 8 * ((hashSize + 7) / 8)
 	for i := 0; i < b.N; i++ {
 		hashes[i] = make([]byte, hashBytes)
 		for b := 0; b < hashBytes; b += 8 {

@@ -98,7 +98,7 @@ func (proof *RangeProof) VerifyItem(key, value []byte) error {
 		return errors.Wrap(ErrInvalidProof, "proof is nil")
 	}
 	if !proof.rootVerified {
-		return errors.New("must call Verify(root) first.")
+		return errors.New("must call Verify(root) first")
 	}
 	i := sort.Search(len(leaves), func(i int) bool {
 		return bytes.Compare(key, leaves[i].Key) <= 0
@@ -121,7 +121,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		return errors.Wrap(ErrInvalidProof, "proof is nil")
 	}
 	if !proof.rootVerified {
-		return errors.New("must call Verify(root) first.")
+		return errors.New("must call Verify(root) first")
 	}
 	cmp := bytes.Compare(key, proof.Leaves[0].Key)
 	if cmp < 0 {
@@ -149,11 +149,11 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		} else if cmp == 0 {
 			return errors.New(fmt.Sprintf("absence disproved via item #%v", i))
 		} else {
-			if i == len(proof.Leaves)-1 {
-				// If last item, check whether
-				// it's the last item in the tree.
+			// if i == len(proof.Leaves)-1 {
+			// If last item, check whether
+			// it's the last item in the tree.
 
-			}
+			// }
 			continue
 		}
 	}
@@ -338,11 +338,13 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 		values = append(values, left.value)
 	}
 	// Either way, add to proof leaves.
-	var leaves = []proofLeafNode{proofLeafNode{
-		Key:       left.key,
-		ValueHash: tmhash.Sum(left.value),
-		Version:   left.version,
-	}}
+	var leaves = []proofLeafNode{
+		{
+			Key:       left.key,
+			ValueHash: tmhash.Sum(left.value),
+			Version:   left.version,
+		},
+	}
 
 	// 1: Special case if limit is 1.
 	// 2: Special case if keyEnd is left.key+1.
@@ -388,7 +390,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 						// We've diverged, so start appending to inners.
 						pathCount = -1
 					} else {
-						pathCount += 1
+						pathCount++
 					}
 				}
 			}
@@ -404,7 +406,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 					ValueHash: tmhash.Sum(node.value),
 					Version:   node.version,
 				})
-				leafCount += 1
+				leafCount++
 				// Maybe terminate because we found enough leaves.
 				if limit > 0 && limit <= leafCount {
 					return true
