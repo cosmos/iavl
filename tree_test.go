@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cmn "github.com/tendermint/tm-cmn/common"
+	cmn "github.com/tendermint/iavl/common"
 	"github.com/tendermint/tm-cmn/db"
 )
 
@@ -1233,11 +1233,11 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	}
 
 	tree = NewMutableTree(mdb, 0)
-	targetVersion, err := tree.LoadVersionForOverwriting(int64(maxLength * 2))
+	targetVersion, _ := tree.LoadVersionForOverwriting(int64(maxLength * 2))
 	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
 
 	tree = NewMutableTree(mdb, 0)
-	_, err = tree.LoadVersionForOverwriting(int64(maxLength / 2))
+	_, err := tree.LoadVersionForOverwriting(int64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
 
 	for version := 1; version <= maxLength/2; version++ {

@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
-	cmn "github.com/tendermint/tm-cmn/common"
+	cmn "github.com/tendermint/iavl/common"
 )
 
 // This file implement fuzz testing by generating programs and then running
