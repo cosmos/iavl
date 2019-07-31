@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.4 (July 30, 2019)
+
+### IMPROVEMENTS
+
+- [/#46](https://github.com/tendermint/iavl/issues/46) Removal of all instances of cmn from tendermint in Ival repo
+
 ## 0.12.3 (July 12, 2019)
 
 Special thanks to external contributors on this release:
