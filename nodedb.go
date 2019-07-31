@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/tendermint/tendermint/crypto/tmhash"
-	dbm "github.com/tendermint/tm-cmn/db"
+	dbm "github.com/tendermint/tm-db"
 )
 
 const (
