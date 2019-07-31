@@ -4,7 +4,7 @@
 
 ### IMPROVEMENTS
 
-- [/#46](https://github.com/tendermint/iavl/issues/46) Removal of all instances of cmn from tendermint in Ival repo
+- [\#46](https://github.com/tendermint/iavl/issues/46) Removed all instances of cmn (tendermint/tendermint/libs/common)
 
 ## 0.12.3 (July 12, 2019)
 
