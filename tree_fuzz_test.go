@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	cmn "github.com/tendermint/iavl/common"
-	"github.com/tendermint/tm-db/db"
+	db "github.com/tendermint/tm-db"
 )
 
 // This file implement fuzz testing by generating programs and then running
