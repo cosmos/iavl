@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.12.4 (July 30, 2019)
+## 0.12.4 (July 31, 2019)
 
 ### IMPROVEMENTS
 
