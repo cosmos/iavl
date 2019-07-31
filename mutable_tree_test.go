@@ -21,7 +21,7 @@ func TestDelete(t *testing.T) {
 
 	require.NoError(t, tree.DeleteVersion(version))
 
-	k1Value, _, err := tree.GetVersionedWithProof([]byte("k1"), version)
+	k1Value, _, _ := tree.GetVersionedWithProof([]byte("k1"), version)
 	require.Nil(t, k1Value)
 
 	key := tree.ndb.rootKey(version)
@@ -29,6 +29,7 @@ func TestDelete(t *testing.T) {
 	tree.versions[version] = true
 
 	k1Value, _, err = tree.GetVersionedWithProof([]byte("k1"), version)
+	require.Nil(t, err)
 	require.Equal(t, 0, bytes.Compare([]byte("Fred"), k1Value))
 }
 
