@@ -8,7 +8,7 @@ require (
 	github.com/stretchr/testify v1.3.0
 	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tendermint v0.32.1
-	github.com/tendermint/tm-cmn v0.0.0-20190716080004-dfcde30d5acb
+	github.com/tendermint/tm-db v0.1.1
 	golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a
 	golang.org/x/sys v0.0.0-20190312061237-fead79001313 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect

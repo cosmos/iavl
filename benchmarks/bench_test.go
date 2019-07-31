@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/tendermint/iavl"
-	db "github.com/tendermint/tm-cmn/db"
+	db "github.com/tendermint/tm-db"
 )
 
 func randBytes(length int) []byte {

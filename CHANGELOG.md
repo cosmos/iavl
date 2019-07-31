@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.4 (July 31, 2019)
+
+### IMPROVEMENTS
+
+- [\#46](https://github.com/tendermint/iavl/issues/46) Removed all instances of cmn (tendermint/tendermint/libs/common)
+
 ## 0.12.3 (July 12, 2019)
 
 Special thanks to external contributors on this release:
