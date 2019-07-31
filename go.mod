@@ -3,8 +3,6 @@ module github.com/tendermint/iavl
 go 1.12
 
 require (
-	github.com/go-kit/kit v0.9.0 // indirect
-	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.3.0
 	github.com/tendermint/go-amino v0.14.1
