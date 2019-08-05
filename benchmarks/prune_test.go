@@ -2,11 +2,12 @@ package benchmarks
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 	"runtime"
 	"testing"
 
-	db "github.com/tendermint/tm-cmn/db"
+	db "github.com/tendermint/tm-db"
 )
 
 type pruningstrat struct {
@@ -35,15 +36,21 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	// runtime.ReadMemStats(&mem)
 	// memSize := mem.Alloc
 	// maxVersion := 0
+	var keys [][]byte
+	for i := 0; i < 100; i++ {
+		keys = append(keys, randBytes(keyLen))
+	}
 
 	// reset timer after initialization logic
 	b.ResetTimer()
 	t, _ := prepareTree(b, snapDB, db.NewMemDB(), keepEvery, keepRecent, 5, keyLen, dataLen)
+
 	// create 30000 versions
 	for i := 0; i < 5000; i++ {
-		// create 5 keys per version
+		// set 5 keys per version
 		for j := 0; j < 5; j++ {
-			t.Set(randBytes(keyLen), randBytes(dataLen))
+			index := rand.Int63n(100)
+			t.Set(keys[index], randBytes(dataLen))
 		}
 		_, _, err := t.SaveVersion()
 		if err != nil {

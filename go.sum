@@ -108,8 +108,6 @@ github.com/tendermint/go-amino v0.14.1 h1:o2WudxNfdLNBwMyl2dqOJxiro5rfrEaU0Ugs6o
 github.com/tendermint/go-amino v0.14.1/go.mod h1:i/UKE5Uocn+argJJBb12qTZsCDBcAYMbR92AaJVmKso=
 github.com/tendermint/tendermint v0.32.1 h1:J8ddXMbCmG6GZjdCl/N1wgdXDU9uO91J2Y5CA9xYfGo=
 github.com/tendermint/tendermint v0.32.1/go.mod h1:jmPDAKuNkev9793/ivn/fTBnfpA9mGBww8MPRNPNxnU=
-github.com/tendermint/tm-db v0.0.0-20190731085305-94017c88bf1d h1:yCHL2COLGLNfb4sA9AlzIHpapb8UATvAQyJulS6Eg6Q=
-github.com/tendermint/tm-db v0.0.0-20190731085305-94017c88bf1d/go.mod h1:0cPKWu2Mou3IlxecH+MEUSYc1Ch537alLe6CpFrKzgw=
 github.com/tendermint/tm-db v0.1.1 h1:G3Xezy3sOk9+ekhjZ/kjArYIs1SmwV+1OUgNkj7RgV0=
 github.com/tendermint/tm-db v0.1.1/go.mod h1:0cPKWu2Mou3IlxecH+MEUSYc1Ch537alLe6CpFrKzgw=
 go.etcd.io/bbolt v1.3.3 h1:MUGmc65QhB3pIlaQ5bB4LwqSj6GIonVJXpZiaKNyaKk=
