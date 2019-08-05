@@ -8,7 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db")
+	db "github.com/tendermint/tm-db"
+)
 
 func getTestDBs() (db.DB, db.DB, func()) {
 	d, err := db.NewGoLevelDB("test", ".")
