@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tm-cmn/db"
+	db "github.com/tendermint/tm-db"
 )
 
 func TestDelete(t *testing.T) {
