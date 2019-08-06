@@ -28,10 +28,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// store := ""
-	// if len(args) > 2 {
-	// 	store = args[2]
-	// }
+	store := ""
+	if len(args) > 2 {
+		store = args[2]
+	}
 
 	version := 0
 	if len(args) == 4 {
@@ -49,14 +49,17 @@ func main() {
 		os.Exit(1)
 	}
 
-	if args[0] == "stores" {
-		latest, err := GetLatestVersion(db)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
-			os.Exit(1)
-		}
-		fmt.Printf("Latest: %d\n", latest)
+	latest, err := GetLatestVersion(db)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Latest: %d\n", latest)
+	if version == 0 {
+		version = int(latest)
+	}
 
+	if args[0] == "stores" {
 		stores, err := GetSubStores(db, latest)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
@@ -69,9 +72,9 @@ func main() {
 		return
 	}
 
-	tree, err := ReadTree(args[1], version)
+	tree, err := ReadTree(db, store, version)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading data: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error reading tree: %s\n", err)
 		os.Exit(1)
 	}
 
@@ -172,13 +175,9 @@ func GetSubStores(db dbm.DB, ver int64) ([]string, error) {
 
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
-func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
-	db, err := OpenDb(dir)
-	if err != nil {
-		return nil, err
-	}
-
-	subdb := dbm.NewPrefixDB(db, []byte("s/k:acc/"))
+func ReadTree(db dbm.DB, store string, version int) (*iavl.MutableTree, error) {
+	key := "s/k:" + store + "/"
+	subdb := dbm.NewPrefixDB(db, []byte(key))
 	tree := iavl.NewMutableTree(subdb, DefaultCacheSize)
 
 	ver, err := tree.LoadVersion(int64(version))
