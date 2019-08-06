@@ -19,21 +19,54 @@ const (
 	DefaultCacheSize int = 10000
 )
 
+// NOTE: this is hacked to work with cosmos-sdk.RootMultiStore
+
 func main() {
 	args := os.Args[1:]
-	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions") {
-		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions> <leveldb dir> [version number]")
+	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions" && args[0] != "stores") {
+		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions|stores> <leveldb dir> [store] [version number]")
 		os.Exit(1)
 	}
 
+	// store := ""
+	// if len(args) > 2 {
+	// 	store = args[2]
+	// }
+
 	version := 0
-	if len(args) == 3 {
+	if len(args) == 4 {
 		var err error
-		version, err = strconv.Atoi(args[2])
+		version, err = strconv.Atoi(args[3])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Invalid version number: %s\n", err)
 			os.Exit(1)
 		}
+	}
+
+	db, err := OpenDb(args[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Cannot open %s: %s\n", args[1], err)
+		os.Exit(1)
+	}
+
+	if args[0] == "stores" {
+		latest, err := GetLatestVersion(db)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Latest: %d\n", latest)
+
+		stores, err := GetSubStores(db, latest)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
+			os.Exit(1)
+		}
+
+		for _, store := range stores {
+			fmt.Println(store)
+		}
+		return
 	}
 
 	tree, err := ReadTree(args[1], version)
@@ -111,6 +144,32 @@ type CommitID struct {
 	Hash    []byte
 }
 
+func GetLatestVersion(db dbm.DB) (int64, error) {
+	cdc := amino.NewCodec()
+	bz := db.Get([]byte("s/latest"))
+	var latest int64
+	err := cdc.UnmarshalBinaryLengthPrefixed(bz, &latest)
+	return latest, err
+}
+
+func GetSubStores(db dbm.DB, ver int64) ([]string, error) {
+	var cInfo commitInfo
+	cdc := amino.NewCodec()
+
+	stateKey := []byte(fmt.Sprintf("s/%d", ver))
+	stateBz := db.Get(stateKey)
+	err := cdc.UnmarshalBinaryLengthPrefixed(stateBz, &cInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	var res []string
+	for _, sinfo := range cInfo.StoreInfos {
+		res = append(res, sinfo.Name)
+	}
+	return res, nil
+}
+
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
 func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
@@ -118,27 +177,9 @@ func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
 	if err != nil {
 		return nil, err
 	}
-	tree := iavl.NewMutableTree(db, DefaultCacheSize)
-	fmt.Printf("Dir: %s\nDB: %v\nTree: %#v\n", dir, db, tree)
 
-	cdc := amino.NewCodec()
-
-	bz := db.Get([]byte("s/latest"))
-	var latest int64
-	err = cdc.UnmarshalBinaryLengthPrefixed(bz, &latest)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("latest: %d (%x)\n", latest, bz)
-
-	stateKey := []byte(fmt.Sprintf("s/%d", latest))
-	stateBz := db.Get(stateKey)
-	var cInfo commitInfo
-	err = cdc.UnmarshalBinaryLengthPrefixed(stateBz, &cInfo)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Printf("Commit info: %#v\n", cInfo)
+	subdb := dbm.NewPrefixDB(db, []byte("s/k:acc/"))
+	tree := iavl.NewMutableTree(subdb, DefaultCacheSize)
 
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Want Version: %d\nGot version: %d\n", version, ver)
