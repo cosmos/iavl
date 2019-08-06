@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	amino "github.com/tendermint/go-amino"
 	"github.com/tendermint/iavl"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -89,6 +90,27 @@ func PrintDbStats(db dbm.DB) {
 	}
 }
 
+type commitInfo struct {
+	// Version
+	Version int64
+	// Store info for
+	StoreInfos []storeInfo
+}
+
+type storeInfo struct {
+	Name string
+	Core storeCore
+}
+
+type storeCore struct {
+	CommitID CommitID
+}
+
+type CommitID struct {
+	Version int64
+	Hash    []byte
+}
+
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
 func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
@@ -97,8 +119,29 @@ func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
 		return nil, err
 	}
 	tree := iavl.NewMutableTree(db, DefaultCacheSize)
+	fmt.Printf("Dir: %s\nDB: %v\nTree: %#v\n", dir, db, tree)
+
+	cdc := amino.NewCodec()
+
+	bz := db.Get([]byte("s/latest"))
+	var latest int64
+	err = cdc.UnmarshalBinaryLengthPrefixed(bz, &latest)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("latest: %d (%x)\n", latest, bz)
+
+	stateKey := []byte(fmt.Sprintf("s/%d", latest))
+	stateBz := db.Get(stateKey)
+	var cInfo commitInfo
+	err = cdc.UnmarshalBinaryLengthPrefixed(stateBz, &cInfo)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Commit info: %#v\n", cInfo)
+
 	ver, err := tree.LoadVersion(int64(version))
-	fmt.Printf("Got version: %d\n", ver)
+	fmt.Printf("Want Version: %d\nGot version: %d\n", version, ver)
 	return tree, err
 }
 

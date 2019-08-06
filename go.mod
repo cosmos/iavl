@@ -3,6 +3,7 @@ module github.com/tendermint/iavl
 go 1.12
 
 require (
+	github.com/gogo/protobuf v1.2.1
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.3.0
 	github.com/tendermint/go-amino v0.14.1
