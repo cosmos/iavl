@@ -206,7 +206,7 @@ func GetSubStores(db dbm.DB, ver int64) ([]string, error) {
 		return nil, err
 	}
 
-	var res []string
+	res := make([]string, len(cInfo.StoreInfos))
 	for _, sinfo := range cInfo.StoreInfos {
 		res = append(res, sinfo.Name)
 	}
