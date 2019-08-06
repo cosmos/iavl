@@ -56,19 +56,6 @@ func main() {
 	}
 	fmt.Printf("Latest: %d\n", latest)
 
-	if args[0] == "rollback" {
-		// TODO: rollback all substores
-		err = SetLatestVersion(db, latest-2)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
-			os.Exit(1)
-		}
-	}
-
-	if version == 0 {
-		version = int(latest)
-	}
-
 	if args[0] == "stores" {
 		stores, err := GetSubStores(db, latest)
 		if err != nil {
@@ -80,6 +67,31 @@ func main() {
 			fmt.Println(store)
 		}
 		return
+	}
+
+	if args[0] == "rollback" {
+		stores, err := GetSubStores(db, latest)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
+			os.Exit(1)
+		}
+
+		// rollback all substores
+		target := latest - 2
+		for _, store := range stores {
+			fmt.Printf("Rolling back %s to %d\n", store, target)
+			RollbackSubStore(db, store, target)
+		}
+
+		err = SetLatestVersion(db, target)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
+	if version == 0 {
+		version = int(latest)
 	}
 
 	tree, err := ReadTree(db, store, version)
@@ -173,6 +185,14 @@ func GetLatestVersion(db dbm.DB) (int64, error) {
 	var latest int64
 	err := cdc.UnmarshalBinaryLengthPrefixed(bz, &latest)
 	return latest, err
+}
+
+func RollbackSubStore(db dbm.DB, store string, target int64) error {
+	key := "s/k:" + store + "/"
+	subdb := dbm.NewPrefixDB(db, []byte(key))
+	tree := iavl.NewMutableTree(subdb, DefaultCacheSize)
+	_, err := tree.LoadVersionForOverwriting(target)
+	return err
 }
 
 func GetSubStores(db dbm.DB, ver int64) ([]string, error) {
