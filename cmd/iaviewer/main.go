@@ -23,8 +23,8 @@ const (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions" && args[0] != "stores") {
-		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions|stores> <leveldb dir> [store] [version number]")
+	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions" && args[0] != "stores" && args[0] != "rollback") {
+		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions|stores|rollback> <leveldb dir> [store] [version number]")
 		os.Exit(1)
 	}
 
@@ -55,6 +55,16 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Printf("Latest: %d\n", latest)
+
+	if args[0] == "rollback" {
+		// TODO: rollback all substores
+		err = SetLatestVersion(db, latest-2)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Cannot show stores: %s\n", err)
+			os.Exit(1)
+		}
+	}
+
 	if version == 0 {
 		version = int(latest)
 	}
@@ -145,6 +155,16 @@ type storeCore struct {
 type CommitID struct {
 	Version int64
 	Hash    []byte
+}
+
+func SetLatestVersion(db dbm.DB, latest int64) error {
+	cdc := amino.NewCodec()
+	bz, err := cdc.MarshalBinaryLengthPrefixed(latest)
+	if err != nil {
+		return err
+	}
+	db.Set([]byte("s/latest"), bz)
+	return nil
 }
 
 func GetLatestVersion(db dbm.DB) (int64, error) {
