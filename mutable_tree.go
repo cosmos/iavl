@@ -34,6 +34,25 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 	}
 }
 
+func (tree *MutableTree) LatestVersion(maxVersion int64) (int64, error) {
+	roots, err := tree.ndb.getRoots()
+	if err != nil {
+		return 0, err
+	}
+
+	if len(roots) == 0 {
+		return 0, nil
+	}
+
+	latestVersion := int64(0)
+	for version := range roots {
+		if version > latestVersion && (maxVersion == 0 || version <= maxVersion) {
+			latestVersion = version
+		}
+	}
+	return latestVersion, nil
+}
+
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
 // not empty can be saved.
 func (tree *MutableTree) IsEmpty() bool {
