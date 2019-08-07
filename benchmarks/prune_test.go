@@ -81,6 +81,9 @@ func BenchmarkPruningStrategies(b *testing.B) {
 		{0, 1}, // keep single recent version
 		{100, 1},
 		{100, 5}, // simple pruning
+		{5, 1},
+		{5, 2},
+		{10, 2},
 		// {1000, 10},   // average pruning
 		// {1000, 1},    // extreme pruning
 		// {10000, 100}, // SDK pruning
