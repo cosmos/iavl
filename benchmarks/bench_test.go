@@ -206,7 +206,7 @@ func BenchmarkLevelDBBatchSizes(b *testing.B) {
 }
 
 // BenchmarkLevelDBLargeData is intended to push disk limits
-// in the foleveldb, to make sure not everything is cached
+// in the goleveldb, to make sure not everything is cached
 func BenchmarkLevelDBLargeData(b *testing.B) {
 	benchmarks := []benchmark{
 		{"goleveldb", 50000, 100, 32, 100},
