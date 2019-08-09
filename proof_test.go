@@ -228,7 +228,7 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 			continue // didn't mutate successfully.
 		}
 		// may be invalid... errors are okay
-		if err == nil {
+		if err == nil { // nolint:govet
 			assert.Errorf(t, badProof.Verify(root),
 				"Proof was still valid after a random mutation:\n%X\n%X",
 				proofBytes, badProofBytes)
