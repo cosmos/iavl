@@ -55,7 +55,7 @@ func (tree *MutableTree) AvailableVersions() []int {
 			res = append(res, int(i))
 		}
 	}
-	sort.Sort(sort.IntSlice(res))
+	sort.Ints(res)
 	return res
 }
 
@@ -331,7 +331,10 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	if err != nil {
 		return latestVersion, err
 	}
-	tree.deleteVersionsFrom(targetVersion + 1)
+	err = tree.deleteVersionsFrom(targetVersion + 1)
+	if err != nil {
+		panic(err)
+	}
 	return targetVersion, nil
 }
 
@@ -404,13 +407,19 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
 		tree.ndb.SaveOrphans(version, tree.orphans)
-		tree.ndb.SaveEmptyRoot(version)
+		err := tree.ndb.SaveEmptyRoot(version)
+		if err != nil {
+			panic(err)
+		}
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
 		tree.ndb.SaveBranch(tree.root)
 		tree.ndb.SaveOrphans(version, tree.orphans)
-		tree.ndb.SaveRoot(tree.root, version)
+		err := tree.ndb.SaveRoot(tree.root, version)
+		if err != nil {
+			panic(err)
+		}
 	}
 	tree.ndb.Commit()
 	tree.version = version

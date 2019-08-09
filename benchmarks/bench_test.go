@@ -1,3 +1,4 @@
+// nolint: errcheck scopelint
 package benchmarks
 
 import (
