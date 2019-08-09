@@ -141,6 +141,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 }
 
 func BenchmarkRandomBytes(b *testing.B) {
+	fmt.Printf("%s\n", iavl.GetVersionInfo())
 	benchmarks := []struct {
 		length int
 	}{
@@ -169,7 +170,6 @@ func BenchmarkMedium(b *testing.B) {
 		{"goleveldb", 100000, 100, 16, 40},
 		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
-		{"leveldb", 100000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -180,7 +180,6 @@ func BenchmarkSmall(b *testing.B) {
 		{"goleveldb", 1000, 100, 4, 10},
 		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
-		{"leveldb", 1000, 100, 4, 10},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -191,7 +190,6 @@ func BenchmarkLarge(b *testing.B) {
 		{"goleveldb", 1000000, 100, 16, 40},
 		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
-		{"leveldb", 1000000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -208,7 +206,7 @@ func BenchmarkLevelDBBatchSizes(b *testing.B) {
 }
 
 // BenchmarkLevelDBLargeData is intended to push disk limits
-// in the leveldb, to make sure not everything is cached
+// in the goleveldb, to make sure not everything is cached
 func BenchmarkLevelDBLargeData(b *testing.B) {
 	benchmarks := []benchmark{
 		{"goleveldb", 50000, 100, 32, 100},
@@ -220,6 +218,7 @@ func BenchmarkLevelDBLargeData(b *testing.B) {
 }
 
 func runBenchmarks(b *testing.B, benchmarks []benchmark) {
+	fmt.Printf("%s\n", iavl.GetVersionInfo())
 	for _, bb := range benchmarks {
 		prefix := fmt.Sprintf("%s-%d-%d-%d-%d", bb.dbType, bb.initSize,
 			bb.blockSize, bb.keyLen, bb.dataLen)
