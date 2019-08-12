@@ -135,6 +135,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 }
 
 func BenchmarkRandomBytes(b *testing.B) {
+	fmt.Printf("%s\n", iavl.GetVersionInfo())
 	benchmarks := []struct {
 		length int
 	}{
@@ -199,7 +200,7 @@ func BenchmarkLevelDBBatchSizes(b *testing.B) {
 }
 
 // BenchmarkLevelDBLargeData is intended to push disk limits
-// in the leveldb, to make sure not everything is cached
+// in the goleveldb, to make sure not everything is cached
 func BenchmarkLevelDBLargeData(b *testing.B) {
 	benchmarks := []benchmark{
 		{"goleveldb", 50000, 100, 32, 100},
@@ -211,6 +212,7 @@ func BenchmarkLevelDBLargeData(b *testing.B) {
 }
 
 func runBenchmarks(b *testing.B, benchmarks []benchmark) {
+	fmt.Printf("%s\n", iavl.GetVersionInfo())
 	pruningStrategies := []pruningstrat{
 		{1, 0},       // default pruning strategy
 		{0, 1},       // keep single recent version

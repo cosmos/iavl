@@ -1,6 +1,6 @@
 ## IAVL+ Tree
 
-**Note: Requires Go 1.8+**
+**Note: Requires Go 1.11+**
 
 A versioned, snapshottable (immutable) AVL+ tree for persistent data.
 
