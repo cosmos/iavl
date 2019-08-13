@@ -6,7 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/tendermint/go-amino"
+	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/iavl/common"
 	"github.com/tendermint/tendermint/crypto/tmhash"
 )
@@ -83,7 +83,10 @@ func (pin proofInnerNode) Hash(childHash []byte) []byte {
 		panic(fmt.Sprintf("Failed to hash proofInnerNode: %v", err))
 	}
 
-	hasher.Write(buf.Bytes())
+	_, err = hasher.Write(buf.Bytes())
+	if err != nil {
+		panic(err)
+	}
 	return hasher.Sum(nil)
 }
 
@@ -131,7 +134,11 @@ func (pln proofLeafNode) Hash() []byte {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash proofLeafNode: %v", err))
 	}
-	hasher.Write(buf.Bytes())
+	_, err = hasher.Write(buf.Bytes())
+	if err != nil {
+		panic(err)
+
+	}
 
 	return hasher.Sum(nil)
 }

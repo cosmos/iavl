@@ -1,3 +1,4 @@
+// nolint: errcheck
 package iavl
 
 import (
@@ -7,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tendermint/go-amino"
+	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/iavl/common"
 	db "github.com/tendermint/tm-db"
 )
@@ -227,7 +228,7 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 			continue // didn't mutate successfully.
 		}
 		// may be invalid... errors are okay
-		if err == nil {
+		if err == nil { // nolint:govet
 			assert.Errorf(t, badProof.Verify(root),
 				"Proof was still valid after a random mutation:\n%X\n%X",
 				proofBytes, badProofBytes)
