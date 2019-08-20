@@ -14,7 +14,7 @@ When an IAVL tree is saved, the nodeDB first checks the version against the Prun
 
 The nodeDB saves the roothash of the IAVL tree under the key: `r|<version>`.
 
-It marshals and saves any new node that has been created under: `n|<hash>`. For more details on how the node gets marshaled, see [node documentation](./node.md). Any old node that is still part of the latest IAVL tree will not get rewritten. Instead it's parent will simply have a hash pointer with which the nodeDB can retrieve the old node if necessary.
+It marshals and saves any new node that has been created under: `n|<hash>`. For more details on how the node gets marshaled, see [node documentation](./node.md). Any old node that is still part of the latest IAVL tree will not get rewritten. Instead its parent will simply have a hash pointer with which the nodeDB can retrieve the old node if necessary.
 
 Any old nodes that were part of the previous version IAVL but are no longer part of this one have been saved in an orphan map `orphan.hash => orphan.version`. This map will get passed into the nodeDB's `SaveVersion` function. The map maps from the orphan's hash to the version that it was added to the IAVL tree. The nodeDB iterates through this map and stores each marshalled orphan node under the key: `o|toVersion|fromVersion`. Since the toVersion is always the previous version (if we are saving version `v`, toVersion of all new orphans is `v-1`), we can save the orphans by iterating over the map and saving: `o|(latestVersion-1)|orphan.fromVersion => orphan.hash`.
 
