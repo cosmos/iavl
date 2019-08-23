@@ -137,7 +137,6 @@ RemovedValue is the value that was at the node that was removed. It does not get
 
 If `removeKey` does not exist in the IAVL tree, RemovedValue is `nil`.
 
-
 ##### Orphans
 
 Just like `recursiveSet`, any node that gets recursed upon by `recursiveRemove` in a successful `Remove` call will have to be orphaned. The Orphans list in `recursiveRemove` accumulates the list of orphans so that it can return them to `Remove`. `Remove` will then iterate through this list and add all the orphans to the mutable tree's `orphans` map.
@@ -145,6 +144,218 @@ Just like `recursiveSet`, any node that gets recursed upon by `recursiveRemove` 
 If the `removeKey` does not exist in the IAVL tree, then the orphans list is `nil`.
 
 ### Balance
+
+Anytime a node is unbalanced such that the height of its left branch and the height of its right branch differs by more than 1, the IAVL tree will rebalance itself.
+
+This is acheived by rotating the subtrees until there is no more than one height difference between two branches of any subtree in the IAVL.
+
+Since Balance is mutating the structure of the tree, any displaced nodes will be orphaned.
+
+#### RotateRight
+
+To rotate right on a node `rotatedNode`, we first orphan its left child. We clone the left child to create a new node `newNode`. We set `newNode`'s right hash and child to the `rotatedNode`. We now set `rotatedNode`'s left child to be the old right child of `newNode`.
+
+Visualization (Nodes are numbered to show correct key order is still preserved):
+
+Before `RotateRight(node8)`:
+```
+    |---9
+8---|
+    |       |---7
+    |   |---6
+    |   |   |---5
+    |---4
+        |   |---3
+        |---2
+            |---1
+```
+
+After `RotateRight(node8)`:
+```
+         |---9
+     |---8
+     |   |   |---7
+     |   |---6
+     |       |---5
+4'---|
+     |   |---1
+     |---2
+         |---3
+
+Orphaned: 4
+```
+
+Note that the key order for subtrees is still preserved.
+
+#### RotateLeft
+
+Similarly, to rotate left on a node `rotatedNode` we first orphan its right child. We clone the right child to create a new node `newNode`. We set the `newNode`'s left hash and child to the `rotatedNode`. We then set the `rotatedNode`'s right child to be the old left child of the node.
+
+Before `RotateLeft(node2)`:
+```
+            |---9
+        |---8
+        |   |---7
+    |---6
+    |   |   |---5
+    |   |---4
+    |       |---3
+2---|
+    |---1
+```
+
+After `RotateLeft(node2)`:
+```
+         |---9
+     |---8
+     |   |---7
+6'---|
+     |       |---5
+     |   |---4
+     |   |   |---3  
+     |---2
+         |---1
+
+Orphaned: 6
+```
+
+The IAVL detects whenever a subtree has become unbalanced by 2 (after any set/remove). If this does happen, then the tree is immediately rebalanced. Thus, any unbalanced subtree can only exist in 4 states:
+
+#### Left Left Case
+
+1. `RotateRight(node8)`
+
+**Before: Left Left Unbalanced**
+```
+    |---9
+8---|
+    |   |---6
+    |---4
+        |   |---3
+        |---2
+```
+
+**After 1: Balanced**
+```
+         |---9
+     |---8
+     |   |---6
+4'---|
+     |   |---3
+     |---2
+
+Orphaned: 4
+```
+
+#### Left Right Case
+
+Make tree left left unbalanced, and then balance.
+
+1. `RotateLeft(node4)`
+2. `RotateRight(node8)`
+
+**Before: Left Right Unbalanced**
+```
+    |---9
+8---|
+    |   |---6
+    |   |   |---5
+    |---4
+        |---2
+```
+
+**After 1: Left Left Unbalanced**
+```
+    |---9
+8---|
+    |---6'
+        |   |---5
+        |---4
+            |---2
+
+Orphaned: 6
+```
+
+**After 2: Balanced**
+```
+         |---9
+     |---8
+6'---|
+     |   |---5
+     |---4
+         |---2
+
+Orphaned: 6
+```
+
+Note: 6 got orphaned again, so omit list repitition
+
+#### Right Right Case
+
+1. `RotateLeft(node2)`
+
+**Before: Right Right Unbalanced**
+```
+            |---9
+        |---8
+    |---6
+    |   |---4
+2---|
+    |---1
+```
+
+**After: Balanced**
+```
+         |---9
+     |---8
+6'---|
+     |   |---4
+     |---2
+         |---1
+
+Orphaned: 6
+```
+
+#### Right Left Case
+
+Make tree right right unbalanced, then balance.
+
+1. `RotateRight(6)`
+2. `RotateLeft(2)`
+
+**Before: Right Left Unbalanced**
+```
+        |---8
+    |---6
+    |   |---4
+    |       |---3
+2---|
+    |---1
+```
+
+**After 1: Right Right Unbalanced**
+```
+            |---8
+        |---6
+    |---4'
+    |   |---3
+2---|
+    |---1
+
+Orphaned: 4
+```
+
+**After 2: Balanced**
+```
+         |---8
+     |---6
+4'---|
+     |   |---3
+     |---2
+         |---1
+
+Orphaned: 4
+```
 
 ### SaveVersion
 
