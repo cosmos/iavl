@@ -21,7 +21,148 @@ The versions map stores which versions of the IAVL are stored in nodeDB. Anytime
 
 ### Set
 
+Set can be used to add a new key-value pair to the IAVL tree, or to update an existing key with a new value.
+
+Set starts at the root of the IAVL tree, if the key is less than or equal to the root key, it recursively calls set on root's left child. Else, it recursively calls set on root's right child. It continues to recurse down the IAVL tree based on comparing the set key and the node key until it reaches a leaf node.
+
+If the leaf node has the same key as the set key, then the set is just updating an existing key with a new value. The value is updated, and the old version of the node is orphaned.
+
+If the leaf node does not have the same key as the set key, then the set is trying to add a new key to the IAVL tree. The leaf node is replaced by an inner node that has the original leaf node and the new node from the set call as its children.
+
+If the `setKey` < `leafKey`:
+
+```golang
+// new leaf node that gets created by Set
+// since this is a new update since latest saved version,
+// this node has version=latestVersion+1
+newVersion := latestVersion+1
+newNode := NewNode(key, value, newVersion)
+// original leaf node: originalLeaf gets replaced by inner node below
+Node{
+    key:       setKey,       // inner node key is equal to left child's key
+    height:    1,            // height=1 since node is parent of leaves
+    size:      2,            // 2 leaf nodes under this node
+    leftNode:  newNode,      // left Node is the new added leaf node
+    rightNode: originalLeaf, // right Node is the original leaf node
+    version:   newVersion,   // inner node is new since lastVersion, so it has an incremented version
+}
+```
+
+If `setKey` > `leafKey`:
+
+```golang
+// new leaf node that gets created by Set
+// since this is a new update since latest saved version,
+// this node has version=latestVersion+1
+newVersion := latestVersion+1
+newNode := NewNode(key, value, latestVersion+1)
+// original leaf node: originalLeaf gets replaced by inner node below
+Node{
+    key:       leafKey,      // inner node key is equal to left child's key
+    height:    1,            // height=1 since node is parent of leaves
+    size:      2,            // 2 leaf nodes under this node
+    leftNode:  originalLeaf, // left Node is the original leaf node
+    rightNode: newNode,      // right Node  is the new added leaf node
+    version:   newVersion,   // inner node is new since lastVersion, so it has an incremented version
+}
+```
+
+Any node that gets recursed upon during a Set call is necessarily orphaned since it will either have a new value (in the case of an update) or it will have a new descendant. The recursive calls accumulate a list of orphans as it descends down the IAVL tree. This list of orphans is ultimately added to the mutable tree's orphan list at the end of the Set call.
+
+After each set, the current working tree has its height and size recalculated. If the height of the left branch and right branch of the working tree differs by more than one, then the mutable tree has to be balanced before the Set call can return.
+
 ### Remove
+
+Remove is another recursive function to remove a key-value pair from the IAVL pair. If the key that is trying to be removed does not exist, Remove is a no-op.
+
+Remove recurses down the IAVL tree in the same way that Set does until it reaches a leaf node. If the leaf node's key is equal to the remove key, the node is removed, and all of its parents are recursively updated. If not, the remove call does nothing.
+
+#### Height-1 Inner Node Updates
+
+If a node has its direct child removed, it no longer needs to exist since its parent can refer to the single remaining child.
+
+
+
+Before RightLeaf removed:
+```
+                   |---RightLeaf
+IAVLTREE---Parent--|
+                   |---LeftLeaf
+```
+
+After RightLeaf removed:
+```
+IAVLTREE---LeftLeaf
+
+orphaned = [RightLeaf, Parent]
+```
+
+#### Recursive Remove
+
+Remove works by calling an inner function `recursiveRemove` that returns the following values after a recursive call `recursiveRemove(recurseNode, removeKey)`:
+
+##### NewHash
+
+If a node in recurseNode's subtree gets removed, then the hash of the recurseNode will change. Thus during the recursive calls down the subtree, all of recurseNode's children will return their new hashes after the remove (if they have changed). Using this information, recurseNode can calculate its own updated hash and return that value.
+
+If recurseNode is the node getting removed itself, NewHash is `nil`.
+
+##### ReplaceNode
+
+Just like with recursiveSet, any node that gets recursed upon (in a successful remove) will get orphaned since its hash must be updated and the nodes are immutable. Thus, ReplaceNode is the new node that replaces `recurseNode`.
+
+If recurseNode is the leaf that gets removed, then ReplaceNode is `nil`.
+
+If recurseNode is the direct parent of the leaf that got removed, then it can simply be replaced by the other child. Since the parent of recurseNode can directly refer to recurseNode's remaining child. For example if recurseNode's left child gets removed, the following happens:
+
+
+Before LeftLeaf removed:
+```
+                        |---RightLeaf
+IAVLTREE---recurseNode--|
+                        |---LeftLeaf
+```
+
+After LeftLeaf removed:
+```
+IAVLTREE---RightLeaf
+
+ReplaceNode = RightLeaf
+orphaned = [LeftLeaf, recurseNode]
+```
+
+If recurseNode is an inner node that got called in the recursiveRemove, but is not a direct parent of the removed leaf. Then an updated version of the node will exist in the tree. Notably, it will have an incremented version, a new hash (as explained in the `NewHash` section), and recalculated height and size.
+
+The ReplaceNode will be a cloned version of `recurseNode` with an incremented version. The hash will be updated given the NewHash of recurseNode's left child or right child (depending on which branch got recurse upon).
+
+The height and size of the ReplaceNode will have to be calculated since these values can change after the `remove`.
+
+It's possible that the subtree for `ReplaceNode` will have to be rebalanced (see `Balance` section). If this is the case, this will also update `ReplaceNode`'s hash since the structure of `ReplaceNode`'s subtree will change.
+
+##### LeftmostLeafKey
+
+The LeftmostLeafKey is the key of the leftmost leaf of `recurseNode`'s subtree. This is only used if `recurseNode` is the right child of its parent. Since inner nodes should have their key equal to the leftmost key of their right branch (if leftmostkey is not `nil`). If recurseNode is the right child of its parent `parentNode`, `parentNode` will set its key to `parentNode.key = leftMostKeyOfRecurseNodeSubTree`.
+
+If `recurseNode` is a leaf, it will return `nil`.
+
+If `recurseNode` is a parent of the leaf that got removed, it will return its own key if the left child was removed. If the right child is removed, it will return `nil`.
+
+If `recurseNode` is a generic inner node that isn't a direct parent of the removed node, it will return the leftmost key of its child's recursive call if `node.key < removeKey`. It will return `nil` otherwise.
+
+If `removeKey` does not exist in the IAVL tree, leftMostKey is `nil` for entire recursive stack.
+
+##### RemovedValue
+
+RemovedValue is the value that was at the node that was removed. It does not get changed as it travels up the recursive stack.
+
+If `removeKey` does not exist in the IAVL tree, RemovedValue is `nil`.
+
+
+##### Orphans
+
+Just like `recursiveSet`, any node that gets recursed upon by `recursiveRemove` in a successful `Remove` call will have to be orphaned. The Orphans list in `recursiveRemove` accumulates the list of orphans so that it can return them to `Remove`. `Remove` will then iterate through this list and add all the orphans to the mutable tree's `orphans` map.
+
+If the `removeKey` does not exist in the IAVL tree, then the orphans list is `nil`.
 
 ### Balance
 

@@ -1,4 +1,4 @@
-# Overview
+# IAVL Spec
 
 The IAVL tree is a versioned, snapshottable (immutable) AVL+ tree for persistent data.
 
