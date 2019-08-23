@@ -77,26 +77,6 @@ Remove is another recursive function to remove a key-value pair from the IAVL pa
 
 Remove recurses down the IAVL tree in the same way that Set does until it reaches a leaf node. If the leaf node's key is equal to the remove key, the node is removed, and all of its parents are recursively updated. If not, the remove call does nothing.
 
-#### Height-1 Inner Node Updates
-
-If a node has its direct child removed, it no longer needs to exist since its parent can refer to the single remaining child.
-
-
-
-Before RightLeaf removed:
-```
-                   |---RightLeaf
-IAVLTREE---Parent--|
-                   |---LeftLeaf
-```
-
-After RightLeaf removed:
-```
-IAVLTREE---LeftLeaf
-
-orphaned = [RightLeaf, Parent]
-```
-
 #### Recursive Remove
 
 Remove works by calling an inner function `recursiveRemove` that returns the following values after a recursive call `recursiveRemove(recurseNode, removeKey)`:
