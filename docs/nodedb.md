@@ -90,4 +90,9 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 
 ### Pruning Versions
 
-If the nodeDB is passed in a PruningStrategy with `strategy.keepRecent != 0`, it will maintain the specified number of recent versions in the memDB. When a new version `v` gets saved, the IAVL version `v - strategy.keepRecent` will be deleted from `recentDB` (Calls `DeleteVersion(v - strategy.KeepRecent, memOnly=true)`). This ensures that at any given point, there are only `strategy.keepRecent` versions in `recentDB`.
+If the nodeDB is passed in a PruningStrategy with `strategy.keepRecent != 0`, it will maintain the specified number of recent versions in the memDB.
+When `PruneRecentVersions`, the IAVL version `v - strategy.keepRecent` will be deleted from `recentDB` (Calls `DeleteVersion(v - strategy.KeepRecent, memOnly=true)`). This ensures that at any given point, there are only `strategy.keepRecent` versions in `recentDB`.
+
+Note this is not called immediately in `nodeDB`, the caller (in most cases `MutableTree`) is responsible for calling `PruneRecentVersions` after each save to ensure that `recentDB` is always holding at most `keepRecent` versions.
+
+`PruneRecentVersions` will return the version numbers that no longer exist in the nodeDB. If the version that got pruned is a snapshot version, `PruneRecentVersions` returns `nil` since the version will still exist in the `snapshotDB`. Else, `PruneRecentVersions` will return a list containing the pruned version number.

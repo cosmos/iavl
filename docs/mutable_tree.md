@@ -359,4 +359,29 @@ Orphaned: 4
 
 ### SaveVersion
 
+SaveVersion saves the current working tree as the latest version, `tree.version+1`.
+
+If the tree's root is empty, then there are no nodes to save. The `nodeDB` must still save any orphans since the root itself could be the node that has been removed since the last version. Then the `nodeDB` also saves the empty root for this version.
+
+If the root is not empty. Then SaveVersion will ensure that the `nodeDB` saves the orphans, roots and any new nodes that have been created since the last version was saved.
+
+SaveVersion also calls `nodeDB.Commit`, this ensures that any batched writes from the last save gets committed to the appropriate databases.
+
+`tree.version` gets incremented and the versions map has `versions[tree.version] = true`.
+
+It will set the lastSaved `ImmutableTree` to the current working tree, and clone the tree to allow for future updates on the next working tree. It also resets orphans to the empty map.
+
+Lastly, it returns the tree's hash, the latest version, and nil for error.
+
+SaveVersion will error if a tree at the version trying to be saved already exists.
+
+If the IAVL has a custom pruning strategy (`pruningStrategy.keepRecent != 0`), then the nodeDB's `recentDB` must be pruned to ensure that there only exist `keepRecent` versions of the IAVL in the nodeDB. To ensure this, `SaveVersion` will call `PruneRecentVersions` which will return the version numbers which no longer exist in the nodeDB after `recentDB` has been pruned.
+`SaveVersion` will then have to update the versions map to set all pruned versions to `false` so that users are aware that the versions are no longer available.
+
 ### DeleteVersion
+
+DeleteVersion will simply call nodeDB's `DeleteVersion` function which is documented in the [nodeDB docs](./nodedb.md) and then call `nodeDB.Commit` to flush all batched updates.
+
+It will also delete the version from the versions map.
+
+DeleteVersion will return an error if the version is invalid, or nonexistent. DeleteVersion will also return an error if the version trying to be deleted is the latest version of the IAVL tree since that is unallowed.
