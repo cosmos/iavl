@@ -301,6 +301,20 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 	return
 }
 
+func (node *Node) aminoSize() int {
+	n := 1 +
+		amino.VarintSize(node.size) +
+		amino.VarintSize(node.version) +
+		amino.ByteSliceSize(node.key)
+	if node.isLeaf() {
+		n += amino.ByteSliceSize(node.value)
+	} else {
+		n += amino.ByteSliceSize(node.leftHash) +
+			amino.ByteSliceSize(node.rightHash)
+	}
+	return n
+}
+
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) error {
 	cause := amino.EncodeInt8(w, node.height)
