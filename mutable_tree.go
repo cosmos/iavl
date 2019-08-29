@@ -78,6 +78,12 @@ func (tree *MutableTree) String() string {
 	return tree.ndb.String()
 }
 
+// Set/Remove will orphan at most tree.Height nodes,
+// balancing the tree after a Set/Remove will orphan at most 3 nodes.
+func (tree *MutableTree) prepareOrphansSlice() []*Node {
+	return make([]*Node, 0, tree.Height()+3)
+}
+
 // Set sets a key in the working tree. Nil values are not supported.
 func (tree *MutableTree) Set(key, value []byte) bool {
 	orphaned, updated := tree.set(key, value)
@@ -85,23 +91,22 @@ func (tree *MutableTree) Set(key, value []byte) bool {
 	return updated
 }
 
-func (tree *MutableTree) set(key []byte, value []byte) ([]*Node, bool) {
+func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
 	if value == nil {
 		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))
 	}
 
-	updated := false
 	if tree.ImmutableTree.root == nil {
 		tree.ImmutableTree.root = NewNode(key, value, tree.version+1)
 		return nil, updated
 	}
 
-	orphaned := make([]*Node, 0, tree.Height()*2)
-	tree.ImmutableTree.root, updated = tree.recursiveSet(tree.ImmutableTree.root, key, value, &orphaned)
-	return orphaned, updated
+	orphans = tree.prepareOrphansSlice()
+	tree.ImmutableTree.root, updated = tree.recursiveSet(tree.ImmutableTree.root, key, value, &orphans)
+	return orphans, updated
 }
 
-func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orphaned *[]*Node) (
+func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orphans *[]*Node) (
 	newSelf *Node, updated bool,
 ) {
 	version := tree.version + 1
@@ -127,18 +132,18 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				version:   version,
 			}, false
 		default:
-			*orphaned = append(*orphaned, node)
+			*orphans = append(*orphans, node)
 			return NewNode(key, value, version), true
 		}
 	} else {
-		*orphaned = append(*orphaned, node)
+		*orphans = append(*orphans, node)
 		node = node.clone(version)
 
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated = tree.recursiveSet(node.getLeftNode(tree.ImmutableTree), key, value, orphaned)
+			node.leftNode, updated = tree.recursiveSet(node.getLeftNode(tree.ImmutableTree), key, value, orphans)
 			node.leftHash = nil // leftHash is yet unknown
 		} else {
-			node.rightNode, updated = tree.recursiveSet(node.getRightNode(tree.ImmutableTree), key, value, orphaned)
+			node.rightNode, updated = tree.recursiveSet(node.getRightNode(tree.ImmutableTree), key, value, orphans)
 			node.rightHash = nil // rightHash is yet unknown
 		}
 
@@ -146,8 +151,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 			return node, updated
 		}
 		node.calcHeightAndSize(tree.ImmutableTree)
-		newNode, balanceOrphaned := tree.balance(node)
-		*orphaned = append(*orphaned, balanceOrphaned...)
+		newNode := tree.balance(node, orphans)
 		return newNode, updated
 	}
 }
@@ -161,11 +165,11 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool) {
 
 // remove tries to remove a key from the tree and if removed, returns its
 // value, nodes orphaned and 'true'.
-func (tree *MutableTree) remove(key []byte) ([]byte, []*Node, bool) {
+func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, removed bool) {
 	if tree.root == nil {
 		return nil, nil, false
 	}
-	orphaned := make([]*Node, 0, tree.Height()*2)
+	orphaned = tree.prepareOrphansSlice()
 	newRootHash, newRoot, _, value := tree.recursiveRemove(tree.root, key, &orphaned)
 	if len(orphaned) == 0 {
 		return nil, nil, false
@@ -186,12 +190,12 @@ func (tree *MutableTree) remove(key []byte) ([]byte, []*Node, bool) {
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
 // - the orphaned nodes.
-func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphaned *[]*Node) ([]byte, *Node, []byte, []byte) {
+func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Node) (newHash []byte, newSelf *Node, newKey []byte, newValue []byte) {
 	version := tree.version + 1
 
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
-			*orphaned = append(*orphaned, node)
+			*orphans = append(*orphans, node)
 			return nil, nil, nil, node.value
 		}
 		return node.hash, node, nil, nil
@@ -199,31 +203,30 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphaned *[]*No
 
 	// node.key < key; we go to the left to find the key:
 	if bytes.Compare(key, node.key) < 0 {
-		newLeftHash, newLeftNode, newKey, value := tree.recursiveRemove(node.getLeftNode(tree.ImmutableTree), key, orphaned)
+		newLeftHash, newLeftNode, newKey, value := tree.recursiveRemove(node.getLeftNode(tree.ImmutableTree), key, orphans)
 
-		if len(*orphaned) == 0 {
+		if len(*orphans) == 0 {
 			return node.hash, node, nil, value
 		} else if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
 			return node.rightHash, node.rightNode, node.key, value
 		}
-		*orphaned = append(*orphaned, node)
+		*orphans = append(*orphans, node)
 
 		newNode := node.clone(version)
 		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
 		newNode.calcHeightAndSize(tree.ImmutableTree)
-		newNode, balanceOrphaned := tree.balance(newNode)
-		*orphaned = append(*orphaned, balanceOrphaned...)
+		newNode = tree.balance(newNode, orphans)
 		return newNode.hash, newNode, newKey, value
 	}
 	// node.key >= key; either found or look to the right:
-	newRightHash, newRightNode, newKey, value := tree.recursiveRemove(node.getRightNode(tree.ImmutableTree), key, orphaned)
+	newRightHash, newRightNode, newKey, value := tree.recursiveRemove(node.getRightNode(tree.ImmutableTree), key, orphans)
 
-	if len(*orphaned) == 0 {
+	if len(*orphans) == 0 {
 		return node.hash, node, nil, value
 	} else if newRightHash == nil && newRightNode == nil { // right node held value, was removed
 		return node.leftHash, node.leftNode, nil, value
 	}
-	*orphaned = append(*orphaned, node)
+	*orphans = append(*orphans, node)
 
 	newNode := node.clone(version)
 	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
@@ -231,8 +234,7 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphaned *[]*No
 		newNode.key = newKey
 	}
 	newNode.calcHeightAndSize(tree.ImmutableTree)
-	newNode, balanceOrphaned := tree.balance(newNode)
-	*orphaned = append(*orphaned, balanceOrphaned...)
+	newNode = tree.balance(newNode, orphans)
 	return newNode.hash, newNode, nil, value
 }
 
@@ -517,7 +519,7 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node) {
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (tree *MutableTree) balance(node *Node) (newSelf *Node, orphaned []*Node) {
+func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node) {
 	if node.persisted {
 		panic("Unexpected balance() call on persisted node")
 	}
@@ -527,7 +529,8 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, orphaned []*Node) {
 		if node.getLeftNode(tree.ImmutableTree).calcBalance(tree.ImmutableTree) >= 0 {
 			// Left Left Case
 			newNode, orphaned := tree.rotateRight(node)
-			return newNode, []*Node{orphaned}
+			*orphans = append(*orphans, orphaned)
+			return newNode
 		}
 		// Left Right Case
 		var leftOrphaned *Node
@@ -536,14 +539,15 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, orphaned []*Node) {
 		node.leftHash = nil
 		node.leftNode, leftOrphaned = tree.rotateLeft(left)
 		newNode, rightOrphaned := tree.rotateRight(node)
-
-		return newNode, []*Node{left, leftOrphaned, rightOrphaned}
+		*orphans = append(*orphans, left, leftOrphaned, rightOrphaned)
+		return newNode
 	}
 	if balance < -1 {
 		if node.getRightNode(tree.ImmutableTree).calcBalance(tree.ImmutableTree) <= 0 {
 			// Right Right Case
 			newNode, orphaned := tree.rotateLeft(node)
-			return newNode, []*Node{orphaned}
+			*orphans = append(*orphans, orphaned)
+			return newNode
 		}
 		// Right Left Case
 		var rightOrphaned *Node
@@ -553,10 +557,11 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, orphaned []*Node) {
 		node.rightNode, rightOrphaned = tree.rotateRight(right)
 		newNode, leftOrphaned := tree.rotateLeft(node)
 
-		return newNode, []*Node{right, leftOrphaned, rightOrphaned}
+		*orphans = append(*orphans, right, leftOrphaned, rightOrphaned)
+		return newNode
 	}
 	// Nothing changed
-	return node, []*Node{}
+	return node
 }
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
