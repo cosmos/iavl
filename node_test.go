@@ -24,21 +24,14 @@ func TestNode_aminoSize(t *testing.T) {
 	}
 
 	// leaf node
-	var buf bytes.Buffer
-	err := node.writeBytes(&buf)
-	require.NoError(t, err)
-	require.Equal(t, buf.Len(), node.aminoSize())
+	require.Equal(t, 26, node.aminoSize())
 
 	// non-leaf node
 	node.height = 1
-	buf.Reset()
-	err = node.writeBytes(&buf)
-	require.NoError(t, err)
-	require.Equal(t, buf.Len(), node.aminoSize())
+	require.Equal(t, 57, node.aminoSize())
 }
 
 func BenchmarkNode_aminoSize(b *testing.B) {
-	b.StopTimer()
 	node := &Node{
 		key:       randBytes(25),
 		value:     randBytes(100),
@@ -49,14 +42,13 @@ func BenchmarkNode_aminoSize(b *testing.B) {
 		rightHash: randBytes(20),
 	}
 	b.ReportAllocs()
-	b.StartTimer()
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		node.aminoSize()
 	}
 }
 
 func BenchmarkNode_WriteBytes(b *testing.B) {
-	b.StopTimer()
 	node := &Node{
 		key:       randBytes(25),
 		value:     randBytes(100),
@@ -66,31 +58,21 @@ func BenchmarkNode_WriteBytes(b *testing.B) {
 		leftHash:  randBytes(20),
 		rightHash: randBytes(20),
 	}
-	b.ReportAllocs()
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		var buf bytes.Buffer
-		buf.Reset()
-		_ = node.writeBytes(&buf)
-	}
-}
-
-func BenchmarkNode_WriteBytesPrealloc(b *testing.B) {
-	b.StopTimer()
-	node := &Node{
-		key:       randBytes(25),
-		value:     randBytes(100),
-		version:   rand.Int63n(10000000),
-		height:    1,
-		size:      rand.Int63n(10000000),
-		leftHash:  randBytes(20),
-		rightHash: randBytes(20),
-	}
-	b.ReportAllocs()
-	b.StartTimer()
-	for i := 0; i < b.N; i++ {
-		var buf bytes.Buffer
-		buf.Grow(node.aminoSize())
-		_ = node.writeBytes(&buf)
-	}
+	b.ResetTimer()
+	b.Run("NoPreAllocate", func(sub *testing.B) {
+		sub.ReportAllocs()
+		for i := 0; i < sub.N; i++ {
+			var buf bytes.Buffer
+			buf.Reset()
+			_ = node.writeBytes(&buf)
+		}
+	})
+	b.Run("PreAllocate", func(sub *testing.B) {
+		sub.ReportAllocs()
+		for i := 0; i < sub.N; i++ {
+			var buf bytes.Buffer
+			buf.Grow(node.aminoSize())
+			_ = node.writeBytes(&buf)
+		}
+	})
 }
