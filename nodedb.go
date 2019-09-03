@@ -103,8 +103,9 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	}
 
 	// Save node bytes to db.
-	buf := new(bytes.Buffer)
-	if err := node.writeBytes(buf); err != nil {
+	var buf bytes.Buffer
+	buf.Grow(node.aminoSize())
+	if err := node.writeBytes(&buf); err != nil {
 		panic(err)
 	}
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
