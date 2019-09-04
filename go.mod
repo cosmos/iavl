@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/pkg/errors v0.8.1
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tendermint v0.32.1
 	github.com/tendermint/tm-db v0.1.1
