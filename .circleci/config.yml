@@ -15,7 +15,7 @@ jobs:
             export PATH="$GOBIN:$PATH"
             go env
             go version
-            make tools && make lint && make test
+            make tools && make test
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
