@@ -13,3 +13,23 @@ The IAVL tree will typically be wrapped by a `MutableTree` to enable updates to 
 When a node is no longer part of the latest IAVL tree, it is called an orphan. The orphaned node will exist in the nodeDB so long as there are versioned IAVL trees that are persisted in nodeDB that contain the orphaned node. Once all trees that referred to orphaned node have been deleted from database, the orphaned node will also get deleted.
 
 In Ethereum, the analog is [Patricia tries](http://en.wikipedia.org/wiki/Radix_tree).  There are tradeoffs.  Keys do not need to be hashed prior to insertion in IAVL+ trees, so this provides faster iteration in the key space which may benefit some applications.  The logic is simpler to implement, requiring only two types of nodes -- inner nodes and leaf nodes.  On the other hand, while IAVL+ trees provide a deterministic merkle root hash, it depends on the order of transactions.  In practice this shouldn't be a problem, since you can efficiently encode the tree structure when serializing the tree contents.
+
+### Suggested Order for Understanding IAVL
+
+1. [Node docs](./node/node.md)
+    - Explains node structure
+    - Explains how node gets marshalled and hashed
+2. [KeyFormat docs](./node/key_format.md)
+    - Explains keyformats for how nodes, orphans, and roots are stored under formatted keys in database
+3. [NodeDB docs](./node/nodedb.md): 
+    - Explains how nodes, orphans, roots get saved in database
+    - Explains saving and deleting tree logic.
+    - Explains how pruning IAVL tree works
+4. [ImmutableTree docs](./tree/immutable_tree.md)
+    - Explains ImmutableTree structure
+    - Explains ImmutableTree Iteration functions
+5. [MutableTree docs](./tree/mutable_tree.md)
+    - Explains MutableTree structure
+    - Explains how to make updates (set/delete) to current working tree of IAVL
+    - Explains how automatic rebalancing of IAVL works
+    - Explains how Saving and Deleting versions of IAVL works

@@ -33,7 +33,7 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 }
 ```
 
-Get by index will return both the key and the value. The index is the index in the sorted list of leaf nodes. The leftmost leaf has index 0. It's neighbor has index 1 and so on.
+Get by index will return both the key and the value. The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0. It's neighbor has index 1 and so on.
 
 ```golang
 // GetByIndex gets the key and value at the specified index.
