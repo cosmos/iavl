@@ -15,7 +15,7 @@ type Node struct {
 	hash      []byte // hash of above field and leftHash, rightHash
 	leftHash  []byte // hash of left child
 	leftNode  *Node  // pointer to left child
-    rightHash []byte // hash of right child
+        rightHash []byte // hash of right child
 	rightNode *Node  // pointer to right child
 	saved     bool   // saved to memory or disk
 	persisted bool   // persisted to disk
