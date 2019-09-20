@@ -266,15 +266,19 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	b.ResetTimer()
 
 	b.Run("query-miss", func(sub *testing.B) {
+		sub.ReportAllocs()
 		runQueries(sub, t, keyLen)
 	})
 	b.Run("query-hits", func(sub *testing.B) {
+		sub.ReportAllocs()
 		runKnownQueries(sub, t, keys)
 	})
 	b.Run("update", func(sub *testing.B) {
+		sub.ReportAllocs()
 		t = runUpdate(sub, t, dataLen, blockSize, keys)
 	})
 	b.Run("block", func(sub *testing.B) {
+		sub.ReportAllocs()
 		t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
 	})
 
