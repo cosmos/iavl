@@ -7,6 +7,6 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/tendermint/go-amino v0.14.1
 	github.com/tendermint/tendermint v0.32.3
-	github.com/tendermint/tm-db v0.1.1
+	github.com/tendermint/tm-db v0.2.0
 	golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a
 )
