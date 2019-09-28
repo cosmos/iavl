@@ -360,7 +360,7 @@ func TestVersionedTree(t *testing.T) {
 
 	nodes3 := tree.ndb.leafNodes()
 	require.Len(nodes3, 6, "wrong number of nodes")
-	require.Len(tree.ndb.orphans(), 6, "wrong number of orphans")
+	require.Len(tree.ndb.orphans(), 7, "wrong number of orphans")
 
 	hash4, _, _ := tree.SaveVersion()
 	require.EqualValues(hash3, hash4)
