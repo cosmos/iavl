@@ -11,4 +11,4 @@ Special thanks to external contributors on this release:
 
 ### Bug Fix
 
-- [/#177](https://github.com/tendermint/iavl/pull/177)Collect all orphans after remove (@rickyyangz)
+- [/#177](https://github.com/tendermint/iavl/pull/177) Collect all orphans after remove (@rickyyangz)
