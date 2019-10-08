@@ -43,3 +43,22 @@ func TestTraverse(t *testing.T) {
 
 	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
 }
+
+func TestEmptyRecents(t *testing.T) {
+	memDB := db.NewMemDB()
+	opts := Options{
+		KeepRecent: 100,
+		KeepEvery:  10000,
+	}
+
+	tree := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, &opts)
+	hash, version, err := tree.SaveVersion()
+
+	require.Nil(t, err)
+	require.Equal(t, int64(1), version)
+	require.Nil(t, hash)
+	require.True(t, tree.VersionExists(int64(1)))
+
+	_, err = tree.GetImmutable(int64(1))
+	require.Nil(t, err)
+}

@@ -528,7 +528,7 @@ func (ndb *nodeDB) getRoot(version int64) []byte {
 	if ndb.isRecentVersion(version) {
 		memroot := ndb.recentDB.Get(ndb.rootKey(version))
 		// TODO: maybe I shouldn't check in snapshot if it isn't here
-		if len(memroot) > 0 {
+		if memroot != nil {
 			return memroot
 		}
 	}
