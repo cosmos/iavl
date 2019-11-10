@@ -1,0 +1,46 @@
+syntax = "proto3";
+package proto;
+
+import "google/api/annotations.proto";
+
+// ----------------------------------------------------------------------------
+// gRPC service
+// ----------------------------------------------------------------------------
+
+service IAVL {
+  rpc Ping(PingRequest) returns (PongResponse){
+    option (google.api.http) = {
+      get: "/v1/ping",
+    };
+  }
+}
+
+message PingRequest {
+}
+
+message PongResponse {
+  string reply = 1;
+}
+
+// ----------------------------------------------------------------------------
+// Request types
+// ----------------------------------------------------------------------------
+
+// ----------------------------------------------------------------------------
+// Response types
+// ----------------------------------------------------------------------------
+
+// Tree interface {
+//   Has(key []byte) bool
+//   Get(key []byte) (index int64, value []byte)
+//   Set(key, value []byte) bool
+//   Remove(key []byte) ([]byte, bool)
+//   SaveVersion() ([]byte, int64, error)
+//   DeleteVersion(version int64) error
+//   Version() int64
+//   Hash() []byte
+//   VersionExists(version int64) bool
+//   GetVersioned(key []byte, version int64) (int64, []byte)
+//   GetVersionedWithProof(key []byte, version int64) ([]byte, *iavl.RangeProof, error)
+//   GetImmutable(version int64) (*iavl.ImmutableTree, error)
+// }
