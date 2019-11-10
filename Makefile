@@ -74,4 +74,11 @@ protogen:
 	--grpc-gateway_out=logtostderr=true:. \
 	proto/iavl_api.proto
 
-.PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench protogen
+protolint:
+	protoc -I/usr/local/include -I. \
+	-I$(GOPATH)/src \
+	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
+	--lint_out=. \
+	proto/iavl_api.proto
+
+.PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench protogen protolint

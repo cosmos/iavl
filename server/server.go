@@ -6,10 +6,10 @@ import (
 	pb "github.com/tendermint/iavl/proto"
 )
 
-var _ pb.IAVLServer = (*IAVLServer)(nil)
+var _ pb.IAVLServiceServer = (*IAVLServer)(nil)
 
-// iavlServer implements the gRPC IAVLServer interface. It provides a gRPC API
-// over an IAVL tree.
+// iavlServer implements the gRPC IAVLServiceServer interface. It provides a gRPC
+// API over an IAVL tree.
 type IAVLServer struct {
 }
 
