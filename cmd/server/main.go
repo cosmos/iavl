@@ -62,7 +62,7 @@ func main() {
 	var svrOpts []grpc.ServerOption
 	grpcServer := grpc.NewServer(svrOpts...)
 
-	pb.RegisterIAVLServer(grpcServer, server.New())
+	pb.RegisterIAVLServiceServer(grpcServer, server.New())
 
 	trapSignal(func() {
 		grpcServer.GracefulStop()
