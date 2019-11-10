@@ -14,6 +14,10 @@ jobs:
           name: test
           command: |
             make test
+      - run:
+          name: protolint
+          command: |
+            make protolint
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
