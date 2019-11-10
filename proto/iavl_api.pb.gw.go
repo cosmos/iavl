@@ -31,7 +31,7 @@ var _ = runtime.String
 var _ = utilities.NewDoubleArray
 var _ = descriptor.ForMessage
 
-func request_IAVL_Ping_0(ctx context.Context, marshaler runtime.Marshaler, client IAVLClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func request_IAVLService_Ping_0(ctx context.Context, marshaler runtime.Marshaler, client IAVLServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq PingRequest
 	var metadata runtime.ServerMetadata
 
@@ -40,7 +40,7 @@ func request_IAVL_Ping_0(ctx context.Context, marshaler runtime.Marshaler, clien
 
 }
 
-func local_request_IAVL_Ping_0(ctx context.Context, marshaler runtime.Marshaler, server IAVLServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+func local_request_IAVLService_Ping_0(ctx context.Context, marshaler runtime.Marshaler, server IAVLServiceServer, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
 	var protoReq PingRequest
 	var metadata runtime.ServerMetadata
 
@@ -49,12 +49,12 @@ func local_request_IAVL_Ping_0(ctx context.Context, marshaler runtime.Marshaler,
 
 }
 
-// RegisterIAVLHandlerServer registers the http handlers for service IAVL to "mux".
-// UnaryRPC     :call IAVLServer directly.
+// RegisterIAVLServiceHandlerServer registers the http handlers for service IAVLService to "mux".
+// UnaryRPC     :call IAVLServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
-func RegisterIAVLHandlerServer(ctx context.Context, mux *runtime.ServeMux, server IAVLServer) error {
+func RegisterIAVLServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server IAVLServiceServer) error {
 
-	mux.Handle("GET", pattern_IAVL_Ping_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_IAVLService_Ping_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -63,23 +63,23 @@ func RegisterIAVLHandlerServer(ctx context.Context, mux *runtime.ServeMux, serve
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := local_request_IAVL_Ping_0(rctx, inboundMarshaler, server, req, pathParams)
+		resp, md, err := local_request_IAVLService_Ping_0(rctx, inboundMarshaler, server, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_IAVL_Ping_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_IAVLService_Ping_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
 	return nil
 }
 
-// RegisterIAVLHandlerFromEndpoint is same as RegisterIAVLHandler but
+// RegisterIAVLServiceHandlerFromEndpoint is same as RegisterIAVLServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterIAVLHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterIAVLServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -99,23 +99,23 @@ func RegisterIAVLHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux,
 		}()
 	}()
 
-	return RegisterIAVLHandler(ctx, mux, conn)
+	return RegisterIAVLServiceHandler(ctx, mux, conn)
 }
 
-// RegisterIAVLHandler registers the http handlers for service IAVL to "mux".
+// RegisterIAVLServiceHandler registers the http handlers for service IAVLService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterIAVLHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	return RegisterIAVLHandlerClient(ctx, mux, NewIAVLClient(conn))
+func RegisterIAVLServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	return RegisterIAVLServiceHandlerClient(ctx, mux, NewIAVLServiceClient(conn))
 }
 
-// RegisterIAVLHandlerClient registers the http handlers for service IAVL
-// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "IAVLClient".
-// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "IAVLClient"
+// RegisterIAVLServiceHandlerClient registers the http handlers for service IAVLService
+// to "mux". The handlers forward requests to the grpc endpoint over the given implementation of "IAVLServiceClient".
+// Note: the gRPC framework executes interceptors within the gRPC handler. If the passed in "IAVLServiceClient"
 // doesn't go through the normal gRPC flow (creating a gRPC client etc.) then it will be up to the passed in
-// "IAVLClient" to call the correct interceptors.
-func RegisterIAVLHandlerClient(ctx context.Context, mux *runtime.ServeMux, client IAVLClient) error {
+// "IAVLServiceClient" to call the correct interceptors.
+func RegisterIAVLServiceHandlerClient(ctx context.Context, mux *runtime.ServeMux, client IAVLServiceClient) error {
 
-	mux.Handle("GET", pattern_IAVL_Ping_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("GET", pattern_IAVLService_Ping_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -124,14 +124,14 @@ func RegisterIAVLHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
-		resp, md, err := request_IAVL_Ping_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_IAVLService_Ping_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_IAVL_Ping_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_IAVLService_Ping_0(ctx, mux, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -139,9 +139,9 @@ func RegisterIAVLHandlerClient(ctx context.Context, mux *runtime.ServeMux, clien
 }
 
 var (
-	pattern_IAVL_Ping_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "ping"}, "", runtime.AssumeColonVerbOpt(true)))
+	pattern_IAVLService_Ping_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "ping"}, "", runtime.AssumeColonVerbOpt(true)))
 )
 
 var (
-	forward_IAVL_Ping_0 = runtime.ForwardResponseMessage
+	forward_IAVLService_Ping_0 = runtime.ForwardResponseMessage
 )

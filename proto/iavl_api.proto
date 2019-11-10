@@ -7,7 +7,7 @@ import "google/api/annotations.proto";
 // gRPC service
 // ----------------------------------------------------------------------------
 
-service IAVL {
+service IAVLService {
   rpc Ping(PingRequest) returns (PongResponse){
     option (google.api.http) = {
       get: "/v1/ping",
@@ -15,20 +15,19 @@ service IAVL {
   }
 }
 
-message PingRequest {
-}
-
-message PongResponse {
-  string reply = 1;
-}
-
 // ----------------------------------------------------------------------------
 // Request types
 // ----------------------------------------------------------------------------
 
+message PingRequest {}
+
 // ----------------------------------------------------------------------------
 // Response types
 // ----------------------------------------------------------------------------
+
+message PongResponse {
+  string reply = 1;
+}
 
 // Tree interface {
 //   Has(key []byte) bool
