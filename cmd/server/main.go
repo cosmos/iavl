@@ -65,6 +65,7 @@ func main() {
 	pb.RegisterIAVLServiceServer(grpcServer, server.New())
 
 	trapSignal(func() {
+		log.Info("performing cleanup...")
 		grpcServer.GracefulStop()
 	})
 
@@ -98,7 +99,7 @@ func startRPCGateway() error {
 
 	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
 
-	err := pb.RegisterIAVLHandlerFromEndpoint(
+	err := pb.RegisterIAVLServiceHandlerFromEndpoint(
 		context.Background(), gatewayMux, *gRPCEndpoint, dialOpts,
 	)
 	if err != nil {
