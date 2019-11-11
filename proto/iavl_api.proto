@@ -31,6 +31,14 @@ service IAVLService {
       body: "*"
     };
   }
+
+  // Remove returns a result after removing a key/value pair from the IAVL tree.
+  rpc Remove(RemoveRequest) returns (RemoveResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/remove"
+      body: "*"
+    };
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -52,6 +60,10 @@ message SetRequest {
   bytes value = 2;
 }
 
+message RemoveRequest {
+  bytes key = 1;
+}
+
 // ----------------------------------------------------------------------------
 // Response types
 // ----------------------------------------------------------------------------
@@ -69,9 +81,12 @@ message SetResponse {
   bool result = 1;
 }
 
+message RemoveResponse {
+  bytes value = 1;
+  bool removed = 2;
+}
+
 // Tree interface {
-//   Set(key, value []byte) bool
-//   Remove(key []byte) ([]byte, bool)
 //   SaveVersion() ([]byte, int64, error)
 //   DeleteVersion(version int64) error
 //   Version() int64
