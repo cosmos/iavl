@@ -60,6 +60,20 @@ service IAVLService {
       body: "*"
     };
   }
+
+  // Version returns the IAVL tree version based on the current state.
+  rpc Version(google.protobuf.Empty) returns (VersionResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/version"
+    };
+  }
+
+    // Hash returns the IAVL tree root hash based on the current state.
+    rpc Hash(google.protobuf.Empty) returns (HashResponse) {
+      option (google.api.http) = {
+        get: "/v1/tree/hash"
+      };
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -121,8 +135,15 @@ message DeleteVersionResponse{
   int64 version = 2;
 }
 
+message VersionResponse {
+  int64 version = 1;
+}
+
+message HashResponse {
+  bytes root_hash = 1;
+}
+
 // Tree interface {
-//   Version() int64
 //   Hash() []byte
 //   VersionExists(version int64) bool
 //   GetVersioned(key []byte, version int64) (int64, []byte)
