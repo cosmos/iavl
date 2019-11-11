@@ -25,96 +25,305 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type PingRequest struct {
+type HasRequest struct {
+	Version              int64    `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Key                  []byte   `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PingRequest) Reset()         { *m = PingRequest{} }
-func (m *PingRequest) String() string { return proto.CompactTextString(m) }
-func (*PingRequest) ProtoMessage()    {}
-func (*PingRequest) Descriptor() ([]byte, []int) {
+func (m *HasRequest) Reset()         { *m = HasRequest{} }
+func (m *HasRequest) String() string { return proto.CompactTextString(m) }
+func (*HasRequest) ProtoMessage()    {}
+func (*HasRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_92d8372b52373ba9, []int{0}
 }
 
-func (m *PingRequest) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PingRequest.Unmarshal(m, b)
+func (m *HasRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HasRequest.Unmarshal(m, b)
 }
-func (m *PingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PingRequest.Marshal(b, m, deterministic)
+func (m *HasRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HasRequest.Marshal(b, m, deterministic)
 }
-func (m *PingRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PingRequest.Merge(m, src)
+func (m *HasRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HasRequest.Merge(m, src)
 }
-func (m *PingRequest) XXX_Size() int {
-	return xxx_messageInfo_PingRequest.Size(m)
+func (m *HasRequest) XXX_Size() int {
+	return xxx_messageInfo_HasRequest.Size(m)
 }
-func (m *PingRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_PingRequest.DiscardUnknown(m)
+func (m *HasRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HasRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PingRequest proto.InternalMessageInfo
+var xxx_messageInfo_HasRequest proto.InternalMessageInfo
 
-type PongResponse struct {
-	Reply                string   `protobuf:"bytes,1,opt,name=reply,proto3" json:"reply,omitempty"`
+func (m *HasRequest) GetVersion() int64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+func (m *HasRequest) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+type GetRequest struct {
+	Version              int64    `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	Key                  []byte   `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
 }
 
-func (m *PongResponse) Reset()         { *m = PongResponse{} }
-func (m *PongResponse) String() string { return proto.CompactTextString(m) }
-func (*PongResponse) ProtoMessage()    {}
-func (*PongResponse) Descriptor() ([]byte, []int) {
+func (m *GetRequest) Reset()         { *m = GetRequest{} }
+func (m *GetRequest) String() string { return proto.CompactTextString(m) }
+func (*GetRequest) ProtoMessage()    {}
+func (*GetRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_92d8372b52373ba9, []int{1}
 }
 
-func (m *PongResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_PongResponse.Unmarshal(m, b)
+func (m *GetRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetRequest.Unmarshal(m, b)
 }
-func (m *PongResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_PongResponse.Marshal(b, m, deterministic)
+func (m *GetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetRequest.Marshal(b, m, deterministic)
 }
-func (m *PongResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_PongResponse.Merge(m, src)
+func (m *GetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetRequest.Merge(m, src)
 }
-func (m *PongResponse) XXX_Size() int {
-	return xxx_messageInfo_PongResponse.Size(m)
+func (m *GetRequest) XXX_Size() int {
+	return xxx_messageInfo_GetRequest.Size(m)
 }
-func (m *PongResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_PongResponse.DiscardUnknown(m)
+func (m *GetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_PongResponse proto.InternalMessageInfo
+var xxx_messageInfo_GetRequest proto.InternalMessageInfo
 
-func (m *PongResponse) GetReply() string {
+func (m *GetRequest) GetVersion() int64 {
 	if m != nil {
-		return m.Reply
+		return m.Version
 	}
-	return ""
+	return 0
+}
+
+func (m *GetRequest) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+type SetRequest struct {
+	Key                  []byte   `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetRequest) Reset()         { *m = SetRequest{} }
+func (m *SetRequest) String() string { return proto.CompactTextString(m) }
+func (*SetRequest) ProtoMessage()    {}
+func (*SetRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{2}
+}
+
+func (m *SetRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetRequest.Unmarshal(m, b)
+}
+func (m *SetRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetRequest.Marshal(b, m, deterministic)
+}
+func (m *SetRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetRequest.Merge(m, src)
+}
+func (m *SetRequest) XXX_Size() int {
+	return xxx_messageInfo_SetRequest.Size(m)
+}
+func (m *SetRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetRequest proto.InternalMessageInfo
+
+func (m *SetRequest) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *SetRequest) GetValue() []byte {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+type HasResponse struct {
+	Result               bool     `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *HasResponse) Reset()         { *m = HasResponse{} }
+func (m *HasResponse) String() string { return proto.CompactTextString(m) }
+func (*HasResponse) ProtoMessage()    {}
+func (*HasResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{3}
+}
+
+func (m *HasResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_HasResponse.Unmarshal(m, b)
+}
+func (m *HasResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_HasResponse.Marshal(b, m, deterministic)
+}
+func (m *HasResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HasResponse.Merge(m, src)
+}
+func (m *HasResponse) XXX_Size() int {
+	return xxx_messageInfo_HasResponse.Size(m)
+}
+func (m *HasResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HasResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HasResponse proto.InternalMessageInfo
+
+func (m *HasResponse) GetResult() bool {
+	if m != nil {
+		return m.Result
+	}
+	return false
+}
+
+type GetResponse struct {
+	Index                int64    `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Value                []byte   `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetResponse) Reset()         { *m = GetResponse{} }
+func (m *GetResponse) String() string { return proto.CompactTextString(m) }
+func (*GetResponse) ProtoMessage()    {}
+func (*GetResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{4}
+}
+
+func (m *GetResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetResponse.Unmarshal(m, b)
+}
+func (m *GetResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetResponse.Marshal(b, m, deterministic)
+}
+func (m *GetResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetResponse.Merge(m, src)
+}
+func (m *GetResponse) XXX_Size() int {
+	return xxx_messageInfo_GetResponse.Size(m)
+}
+func (m *GetResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetResponse proto.InternalMessageInfo
+
+func (m *GetResponse) GetIndex() int64 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
+func (m *GetResponse) GetValue() []byte {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+type SetResponse struct {
+	Result               bool     `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *SetResponse) Reset()         { *m = SetResponse{} }
+func (m *SetResponse) String() string { return proto.CompactTextString(m) }
+func (*SetResponse) ProtoMessage()    {}
+func (*SetResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{5}
+}
+
+func (m *SetResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_SetResponse.Unmarshal(m, b)
+}
+func (m *SetResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_SetResponse.Marshal(b, m, deterministic)
+}
+func (m *SetResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_SetResponse.Merge(m, src)
+}
+func (m *SetResponse) XXX_Size() int {
+	return xxx_messageInfo_SetResponse.Size(m)
+}
+func (m *SetResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_SetResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_SetResponse proto.InternalMessageInfo
+
+func (m *SetResponse) GetResult() bool {
+	if m != nil {
+		return m.Result
+	}
+	return false
 }
 
 func init() {
-	proto.RegisterType((*PingRequest)(nil), "proto.PingRequest")
-	proto.RegisterType((*PongResponse)(nil), "proto.PongResponse")
+	proto.RegisterType((*HasRequest)(nil), "proto.HasRequest")
+	proto.RegisterType((*GetRequest)(nil), "proto.GetRequest")
+	proto.RegisterType((*SetRequest)(nil), "proto.SetRequest")
+	proto.RegisterType((*HasResponse)(nil), "proto.HasResponse")
+	proto.RegisterType((*GetResponse)(nil), "proto.GetResponse")
+	proto.RegisterType((*SetResponse)(nil), "proto.SetResponse")
 }
 
 func init() { proto.RegisterFile("proto/iavl_api.proto", fileDescriptor_92d8372b52373ba9) }
 
 var fileDescriptor_92d8372b52373ba9 = []byte{
-	// 177 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0x12, 0x29, 0x28, 0xca, 0x2f,
-	0xc9, 0xd7, 0xcf, 0x4c, 0x2c, 0xcb, 0x89, 0x4f, 0x2c, 0xc8, 0xd4, 0x03, 0x73, 0x85, 0x58, 0xc1,
-	0x94, 0x94, 0x4c, 0x7a, 0x7e, 0x7e, 0x7a, 0x4e, 0xaa, 0x7e, 0x62, 0x41, 0xa6, 0x7e, 0x62, 0x5e,
-	0x5e, 0x7e, 0x49, 0x62, 0x49, 0x66, 0x7e, 0x5e, 0x31, 0x44, 0x91, 0x12, 0x2f, 0x17, 0x77, 0x40,
-	0x66, 0x5e, 0x7a, 0x50, 0x6a, 0x61, 0x69, 0x6a, 0x71, 0x89, 0x92, 0x0a, 0x17, 0x4f, 0x40, 0x3e,
-	0x88, 0x5b, 0x5c, 0x90, 0x9f, 0x57, 0x9c, 0x2a, 0x24, 0xc2, 0xc5, 0x5a, 0x94, 0x5a, 0x90, 0x53,
-	0x29, 0xc1, 0xa8, 0xc0, 0xa8, 0xc1, 0x19, 0x04, 0xe1, 0x18, 0x05, 0x70, 0x71, 0x7b, 0x3a, 0x86,
-	0xf9, 0x04, 0xa7, 0x16, 0x95, 0x65, 0x26, 0xa7, 0x0a, 0x39, 0x72, 0xb1, 0x80, 0xcc, 0x10, 0x12,
-	0x82, 0x98, 0xa9, 0x87, 0x64, 0xa0, 0x94, 0x30, 0x4c, 0x0c, 0xc9, 0x54, 0x25, 0x81, 0xa6, 0xcb,
-	0x4f, 0x26, 0x33, 0x71, 0x09, 0x71, 0xe8, 0x97, 0x19, 0xea, 0x17, 0x64, 0xe6, 0xa5, 0x27, 0xb1,
-	0x81, 0x55, 0x19, 0x03, 0x02, 0x00, 0x00, 0xff, 0xff, 0x8f, 0x4a, 0x93, 0x36, 0xca, 0x00, 0x00,
+	// 321 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x9c, 0x90, 0xcf, 0x4a, 0xc3, 0x40,
+	0x10, 0xc6, 0xd9, 0x86, 0x56, 0x99, 0xf6, 0x60, 0x97, 0x52, 0x43, 0x11, 0x29, 0x0b, 0x42, 0xf1,
+	0xd0, 0xc5, 0x3f, 0x07, 0xf5, 0xe6, 0x41, 0x5a, 0xa1, 0xa7, 0x04, 0xbc, 0xca, 0xaa, 0x43, 0x5d,
+	0x0c, 0xbb, 0x31, 0xbb, 0x0d, 0x8a, 0x78, 0xf1, 0x15, 0x7c, 0x34, 0x5f, 0xc1, 0x07, 0xf0, 0x11,
+	0x24, 0x9b, 0x35, 0x09, 0x48, 0x3d, 0x78, 0x4a, 0xbe, 0x9d, 0xf9, 0x7e, 0x33, 0xf3, 0xc1, 0x20,
+	0xcd, 0xb4, 0xd5, 0x5c, 0x8a, 0x3c, 0xb9, 0x16, 0xa9, 0x9c, 0x3a, 0x49, 0xdb, 0xee, 0x33, 0xda,
+	0x59, 0x6a, 0xbd, 0x4c, 0x90, 0x8b, 0x54, 0x72, 0xa1, 0x94, 0xb6, 0xc2, 0x4a, 0xad, 0x4c, 0xd9,
+	0xc4, 0x4e, 0x00, 0xe6, 0xc2, 0x44, 0xf8, 0xb8, 0x42, 0x63, 0x69, 0x08, 0x1b, 0x39, 0x66, 0x46,
+	0x6a, 0x15, 0x92, 0x31, 0x99, 0x04, 0xd1, 0x8f, 0xa4, 0x5b, 0x10, 0x3c, 0xe0, 0x73, 0xd8, 0x1a,
+	0x93, 0x49, 0x2f, 0x2a, 0x7e, 0x0b, 0xe7, 0x0c, 0xed, 0x7f, 0x9c, 0xc7, 0x00, 0x71, 0xed, 0xf4,
+	0x75, 0x52, 0xd5, 0xe9, 0x00, 0xda, 0xb9, 0x48, 0x56, 0xe8, 0x3d, 0xa5, 0x60, 0x7b, 0xd0, 0x75,
+	0x9b, 0x9a, 0x54, 0x2b, 0x83, 0x74, 0x08, 0x9d, 0x0c, 0xcd, 0x2a, 0xb1, 0xce, 0xb9, 0x19, 0x79,
+	0xc5, 0x4e, 0xa1, 0xeb, 0xd6, 0xf2, 0x6d, 0x03, 0x68, 0x4b, 0x75, 0x87, 0x4f, 0x7e, 0xab, 0x52,
+	0xac, 0x9f, 0x10, 0x37, 0xac, 0x6b, 0x26, 0x1c, 0x7e, 0x11, 0xe8, 0x5e, 0x9e, 0x5f, 0x2d, 0x62,
+	0xcc, 0x72, 0x79, 0x8b, 0x74, 0x01, 0xc1, 0x5c, 0x18, 0xda, 0x2f, 0x13, 0x9d, 0xd6, 0x71, 0x8e,
+	0x68, 0xf3, 0xa9, 0xa4, 0xb2, 0xdd, 0xb7, 0x8f, 0xcf, 0xf7, 0x56, 0x48, 0x87, 0x3c, 0x3f, 0xe0,
+	0x36, 0x43, 0xe4, 0x2f, 0x3e, 0xa9, 0x57, 0x7e, 0x2f, 0x4c, 0x41, 0x9b, 0xa1, 0xad, 0x68, 0x75,
+	0xc4, 0x15, 0xad, 0x71, 0xde, 0x9f, 0xb4, 0x25, 0x5a, 0x7a, 0x01, 0x41, 0xdc, 0xa0, 0xc5, 0xbf,
+	0x69, 0x8d, 0x8b, 0xd9, 0xb6, 0xa3, 0xf5, 0x59, 0xaf, 0xa2, 0x19, 0xb4, 0x67, 0x64, 0xff, 0xa6,
+	0xe3, 0x7a, 0x8f, 0xbe, 0x03, 0x00, 0x00, 0xff, 0xff, 0xd2, 0xa1, 0x7f, 0x19, 0x69, 0x02, 0x00,
 	0x00,
 }
 
@@ -130,7 +339,13 @@ const _ = grpc.SupportPackageIsVersion4
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type IAVLServiceClient interface {
-	Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PongResponse, error)
+	// Has returns a boolean result for a given key query in a versioned IAVL tree.
+	Has(ctx context.Context, in *HasRequest, opts ...grpc.CallOption) (*HasResponse, error)
+	// Get returns a result containing the IAVL tree version and value for a given key
+	// query in a versioned IAVL tree.
+	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	// Set returns a result after inserting a key/value pair into the IAVL tree.
+	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
 }
 
 type iAVLServiceClient struct {
@@ -141,9 +356,27 @@ func NewIAVLServiceClient(cc *grpc.ClientConn) IAVLServiceClient {
 	return &iAVLServiceClient{cc}
 }
 
-func (c *iAVLServiceClient) Ping(ctx context.Context, in *PingRequest, opts ...grpc.CallOption) (*PongResponse, error) {
-	out := new(PongResponse)
-	err := c.cc.Invoke(ctx, "/proto.IAVLService/Ping", in, out, opts...)
+func (c *iAVLServiceClient) Has(ctx context.Context, in *HasRequest, opts ...grpc.CallOption) (*HasResponse, error) {
+	out := new(HasResponse)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/Has", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error) {
+	out := new(GetResponse)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/Get", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error) {
+	out := new(SetResponse)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/Set", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -152,35 +385,83 @@ func (c *iAVLServiceClient) Ping(ctx context.Context, in *PingRequest, opts ...g
 
 // IAVLServiceServer is the server API for IAVLService service.
 type IAVLServiceServer interface {
-	Ping(context.Context, *PingRequest) (*PongResponse, error)
+	// Has returns a boolean result for a given key query in a versioned IAVL tree.
+	Has(context.Context, *HasRequest) (*HasResponse, error)
+	// Get returns a result containing the IAVL tree version and value for a given key
+	// query in a versioned IAVL tree.
+	Get(context.Context, *GetRequest) (*GetResponse, error)
+	// Set returns a result after inserting a key/value pair into the IAVL tree.
+	Set(context.Context, *SetRequest) (*SetResponse, error)
 }
 
 // UnimplementedIAVLServiceServer can be embedded to have forward compatible implementations.
 type UnimplementedIAVLServiceServer struct {
 }
 
-func (*UnimplementedIAVLServiceServer) Ping(ctx context.Context, req *PingRequest) (*PongResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+func (*UnimplementedIAVLServiceServer) Has(ctx context.Context, req *HasRequest) (*HasResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Has not implemented")
+}
+func (*UnimplementedIAVLServiceServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
+}
+func (*UnimplementedIAVLServiceServer) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Set not implemented")
 }
 
 func RegisterIAVLServiceServer(s *grpc.Server, srv IAVLServiceServer) {
 	s.RegisterService(&_IAVLService_serviceDesc, srv)
 }
 
-func _IAVLService_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(PingRequest)
+func _IAVLService_Has_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HasRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(IAVLServiceServer).Ping(ctx, in)
+		return srv.(IAVLServiceServer).Has(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/proto.IAVLService/Ping",
+		FullMethod: "/proto.IAVLService/Has",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(IAVLServiceServer).Ping(ctx, req.(*PingRequest))
+		return srv.(IAVLServiceServer).Has(ctx, req.(*HasRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_Get_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).Get(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.IAVLService/Get",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).Get(ctx, req.(*GetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_Set_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).Set(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.IAVLService/Set",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).Set(ctx, req.(*SetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -190,8 +471,16 @@ var _IAVLService_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*IAVLServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "Ping",
-			Handler:    _IAVLService_Ping_Handler,
+			MethodName: "Has",
+			Handler:    _IAVLService_Has_Handler,
+		},
+		{
+			MethodName: "Get",
+			Handler:    _IAVLService_Get_Handler,
+		},
+		{
+			MethodName: "Set",
+			Handler:    _IAVLService_Set_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
