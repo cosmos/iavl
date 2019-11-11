@@ -68,12 +68,12 @@ service IAVLService {
     };
   }
 
-    // Hash returns the IAVL tree root hash based on the current state.
-    rpc Hash(google.protobuf.Empty) returns (HashResponse) {
-      option (google.api.http) = {
-        get: "/v1/tree/hash"
-      };
-    }
+  // Hash returns the IAVL tree root hash based on the current state.
+  rpc Hash(google.protobuf.Empty) returns (HashResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/hash"
+    };
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -144,7 +144,6 @@ message HashResponse {
 }
 
 // Tree interface {
-//   Hash() []byte
 //   VersionExists(version int64) bool
 //   GetVersioned(key []byte, version int64) (int64, []byte)
 //   GetVersionedWithProof(key []byte, version int64) ([]byte, *iavl.RangeProof, error)
