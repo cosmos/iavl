@@ -7,10 +7,28 @@ import "google/api/annotations.proto";
 // gRPC service
 // ----------------------------------------------------------------------------
 
+// IAVLService defines the gRPC service API contract for the IAVL tree.
 service IAVLService {
-  rpc Ping(PingRequest) returns (PongResponse){
+  // Has returns a boolean result for a given key query in a versioned IAVL tree.
+  rpc Has(HasRequest) returns (HasResponse) {
     option (google.api.http) = {
-      get: "/v1/ping",
+      get: "/v1/tree/{version}/has"
+    };
+  }
+
+  // Get returns a result containing the IAVL tree version and value for a given key
+  // query in a versioned IAVL tree.
+  rpc Get(GetRequest) returns (GetResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/{version}/get"
+    };
+  }
+
+  // Set returns a result after inserting a key/value pair into the IAVL tree.
+  rpc Set(SetRequest) returns (SetResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/set"
+      body: "*"
     };
   }
 }
@@ -19,19 +37,39 @@ service IAVLService {
 // Request types
 // ----------------------------------------------------------------------------
 
-message PingRequest {}
+message HasRequest {
+  int64 version = 1;
+  bytes key = 2;
+}
+
+message GetRequest {
+  int64 version = 1;
+  bytes key = 2;
+}
+
+message SetRequest {
+  bytes key = 1;
+  bytes value = 2;
+}
 
 // ----------------------------------------------------------------------------
 // Response types
 // ----------------------------------------------------------------------------
 
-message PongResponse {
-  string reply = 1;
+message HasResponse {
+  bool result = 1;
+}
+
+message GetResponse {
+  int64 index = 1;
+  bytes value = 2;
+}
+
+message SetResponse {
+  bool result = 1;
 }
 
 // Tree interface {
-//   Has(key []byte) bool
-//   Get(key []byte) (index int64, value []byte)
 //   Set(key, value []byte) bool
 //   Remove(key []byte) ([]byte, bool)
 //   SaveVersion() ([]byte, int64, error)
