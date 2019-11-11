@@ -2,6 +2,7 @@ syntax = "proto3";
 package proto;
 
 import "google/api/annotations.proto";
+import "google/protobuf/empty.proto";
 
 // ----------------------------------------------------------------------------
 // gRPC service
@@ -24,7 +25,8 @@ service IAVLService {
     };
   }
 
-  // Set returns a result after inserting a key/value pair into the IAVL tree.
+  // Set returns a result after inserting a key/value pair into the IAVL tree
+  // based on the current state of the tree.
   rpc Set(SetRequest) returns (SetResponse) {
     option (google.api.http) = {
       post: "/v1/tree/set"
@@ -32,10 +34,29 @@ service IAVLService {
     };
   }
 
-  // Remove returns a result after removing a key/value pair from the IAVL tree.
+  // Remove returns a result after removing a key/value pair from the IAVL tree
+  // based on the current state of the tree.
   rpc Remove(RemoveRequest) returns (RemoveResponse) {
     option (google.api.http) = {
       post: "/v1/tree/remove"
+      body: "*"
+    };
+  }
+
+  // SaveVersion saves a new IAVL tree version to disk based on the current state of
+  // the tree. It returns the hash and new version number.
+  rpc SaveVersion(google.protobuf.Empty) returns (SaveVersionResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/save_version"
+      body: "*"
+    };
+  }
+
+  // DeleteVersion deletes an IAVL tree version from disk. The version can then no
+  // longer be accessed.
+  rpc DeleteVersion(DeleteVersionRequest) returns (DeleteVersionResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/delete_version"
       body: "*"
     };
   }
@@ -64,6 +85,10 @@ message RemoveRequest {
   bytes key = 1;
 }
 
+message DeleteVersionRequest {
+  int64 version = 1;
+}
+
 // ----------------------------------------------------------------------------
 // Response types
 // ----------------------------------------------------------------------------
@@ -86,9 +111,17 @@ message RemoveResponse {
   bool removed = 2;
 }
 
+message SaveVersionResponse {
+  bytes root_hash = 1;
+  int64 version = 2;
+}
+
+message DeleteVersionResponse{
+  bytes root_hash = 1;
+  int64 version = 2;
+}
+
 // Tree interface {
-//   SaveVersion() ([]byte, int64, error)
-//   DeleteVersion(version int64) error
 //   Version() int64
 //   Hash() []byte
 //   VersionExists(version int64) bool
