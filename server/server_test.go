@@ -233,6 +233,23 @@ func (suite *ServerTestSuite) TestGetVersioned() {
 	}
 }
 
+func (suite *ServerTestSuite) TestSet() {
+	res, err := suite.server.Set(context.TODO(), &pb.SetRequest{Key: nil, Value: nil})
+	suite.Error(err)
+	suite.Nil(res)
+
+	res, err = suite.server.Set(context.TODO(), &pb.SetRequest{Key: []byte("key"), Value: nil})
+	suite.Error(err)
+	suite.Nil(res)
+
+	res, err = suite.server.Set(context.TODO(), &pb.SetRequest{Key: nil, Value: []byte("value")})
+	suite.Error(err)
+	suite.Nil(res)
+
+	_, err = suite.server.Set(context.TODO(), &pb.SetRequest{Key: []byte("key"), Value: []byte("value")})
+	suite.NoError(err)
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }
