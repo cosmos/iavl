@@ -91,6 +91,65 @@ func (suite *ServerTestSuite) TestHas() {
 	}
 }
 
+func (suite *ServerTestSuite) TestGet() {
+	testCases := []struct {
+		name      string
+		preRun    func()
+		key       []byte
+		expectErr bool
+		result    []byte
+	}{
+		{
+			"existing key",
+			nil,
+			[]byte("key-0"),
+			false,
+			[]byte("value-0"),
+		},
+		{
+			"existing modified key",
+			func() {
+				req := &pb.SetRequest{
+					Key:   []byte("key-0"),
+					Value: []byte("NEW_VALUE"),
+				}
+
+				_, err := suite.server.Set(context.TODO(), req)
+				suite.NoError(err)
+
+				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				suite.NoError(err)
+			},
+			[]byte("key-0"),
+			false,
+			[]byte("NEW_VALUE"),
+		},
+		{
+			"non-existent key",
+			nil,
+			[]byte("key-1000"),
+			false,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			res, err := suite.server.Get(context.TODO(), &pb.GetRequest{Key: tc.key})
+			suite.Equal(tc.expectErr, err != nil)
+
+			if !tc.expectErr {
+				suite.Equal(tc.result, res.Value)
+			}
+		})
+	}
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }
