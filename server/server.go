@@ -53,8 +53,19 @@ func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse
 
 // GetVersioned returns a result containing the IAVL tree version and value
 // for a given key at a specific tree version.
-func (s *IAVLServer) GetVersioned(context.Context, *pb.GetVersionedRequest) (*pb.GetResponse, error) {
-	panic("not implemented!")
+func (s *IAVLServer) GetVersioned(_ context.Context, req *pb.GetVersionedRequest) (*pb.GetResponse, error) {
+	if !s.tree.VersionExists(req.Version) {
+		return nil, iavl.ErrVersionDoesNotExist
+	}
+
+	iTree, err := s.tree.GetImmutable(req.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	idx, value := iTree.Get(req.Key)
+
+	return &pb.GetResponse{Index: idx, Value: value}, nil
 }
 
 func (s *IAVLServer) GetVersionedWithProof(context.Context, *pb.GetVersionedRequest) (*pb.GetVersionedWithProofResponse, error) {
