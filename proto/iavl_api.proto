@@ -10,23 +10,38 @@ import "google/protobuf/empty.proto";
 
 // IAVLService defines the gRPC service API contract for the IAVL tree.
 service IAVLService {
-  // Has returns a boolean result for a given key query in a versioned IAVL tree.
+  // Has returns a result containing a boolean on whether or not the IAVL tree
+  // has a given key at a specific tree version.
   rpc Has(HasRequest) returns (HasResponse) {
     option (google.api.http) = {
       get: "/v1/tree/{version}/has"
     };
   }
 
-  // Get returns a result containing the IAVL tree version and value for a given key
-  // query in a versioned IAVL tree.
+  // Get returns a result containing the IAVL tree version and value for a given
+  // key based on the current state (version) of the tree.
   rpc Get(GetRequest) returns (GetResponse) {
     option (google.api.http) = {
-      get: "/v1/tree/{version}/get"
+      get: "/v1/tree/get"
+    };
+  }
+  
+  // GetVersioned returns a result containing the IAVL tree version and value
+  // for a given key at a specific tree version.
+  rpc GetVersioned(GetVersionedRequest) returns (GetResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/{version}/get_versioned"
+    };
+  }
+
+  rpc GetVersionedWithProof(GetVersionedRequest) returns (GetVersionedWithProofResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/get_versioned_with_proof"
     };
   }
 
   // Set returns a result after inserting a key/value pair into the IAVL tree
-  // based on the current state of the tree.
+  // based on the current state (version) of the tree.
   rpc Set(SetRequest) returns (SetResponse) {
     option (google.api.http) = {
       post: "/v1/tree/set"
@@ -35,7 +50,7 @@ service IAVLService {
   }
 
   // Remove returns a result after removing a key/value pair from the IAVL tree
-  // based on the current state of the tree.
+  // based on the current state (version) of the tree.
   rpc Remove(RemoveRequest) returns (RemoveResponse) {
     option (google.api.http) = {
       post: "/v1/tree/remove"
@@ -43,8 +58,9 @@ service IAVLService {
     };
   }
 
-  // SaveVersion saves a new IAVL tree version to disk based on the current state of
-  // the tree. It returns the hash and new version number.
+  // SaveVersion saves a new IAVL tree version to the DB based on the current
+  // state (version) of the tree. It returns a result containing the hash and
+  // new version number.
   rpc SaveVersion(google.protobuf.Empty) returns (SaveVersionResponse) {
     option (google.api.http) = {
       post: "/v1/tree/save_version"
@@ -52,8 +68,9 @@ service IAVLService {
     };
   }
 
-  // DeleteVersion deletes an IAVL tree version from disk. The version can then no
-  // longer be accessed.
+  // DeleteVersion deletes an IAVL tree version from the DB. The version can then
+  // no longer be accessed. It returns a result containing the version and root
+  // hash of the versioned tree that was deleted.
   rpc DeleteVersion(DeleteVersionRequest) returns (DeleteVersionResponse) {
     option (google.api.http) = {
       post: "/v1/tree/delete_version"
@@ -74,6 +91,14 @@ service IAVLService {
       get: "/v1/tree/hash"
     };
   }
+  
+  // VersionExists returns a result containing a boolean on whether or not a given
+  // version exists in the IAVL tree.
+  rpc VersionExists(VersionExistsRequest) returns (VersionExistsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/version_exists"
+    };
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -86,6 +111,10 @@ message HasRequest {
 }
 
 message GetRequest {
+  bytes key = 1;
+}
+
+message GetVersionedRequest {
   int64 version = 1;
   bytes key = 2;
 }
@@ -100,6 +129,10 @@ message RemoveRequest {
 }
 
 message DeleteVersionRequest {
+  int64 version = 1;
+}
+
+message VersionExistsRequest {
   int64 version = 1;
 }
 
@@ -143,9 +176,36 @@ message HashResponse {
   bytes root_hash = 1;
 }
 
-// Tree interface {
-//   VersionExists(version int64) bool
-//   GetVersioned(key []byte, version int64) (int64, []byte)
-//   GetVersionedWithProof(key []byte, version int64) ([]byte, *iavl.RangeProof, error)
-//   GetImmutable(version int64) (*iavl.ImmutableTree, error)
-// }
+message VersionExistsResponse {
+  bool result = 1;
+}
+
+message GetVersionedWithProofResponse {
+  bytes value = 1;
+  Proof proof = 2;
+}
+
+message ProofInnerNode {
+  int32 height = 1;
+  int64 size = 2;
+  int64 version = 3;
+  bytes left = 4;
+  bytes right = 5;
+}
+
+message ProofLeafNode {
+  bytes key = 1;
+  bytes value_hash = 2;
+  int64 version = 3;
+}
+
+message PathToLeaf {
+  repeated ProofInnerNode nodes = 1;
+}
+
+message Proof {
+  bytes key = 1;
+  PathToLeaf left_path = 2;
+  repeated PathToLeaf inner_nodes = 3;
+  repeated ProofLeafNode leaves = 4;
+}
