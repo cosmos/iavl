@@ -46,8 +46,9 @@ func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse
 
 // Get returns a result containing the IAVL tree version and value for a given
 // key based on the current state (version) of the tree.
-func (s *IAVLServer) Get(context.Context, *pb.GetRequest) (*pb.GetResponse, error) {
-	panic("not implemented!")
+func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
+	idx, value := s.tree.Get(req.Key)
+	return &pb.GetResponse{Index: idx, Value: value}, nil
 }
 
 // GetVersioned returns a result containing the IAVL tree version and value
