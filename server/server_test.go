@@ -327,6 +327,16 @@ func (suite *ServerTestSuite) TestHash() {
 	suite.Equal("B708C71EA143DF334BB7DC9FBD7C47DA3A3B16C2E15F2990E5BEB3FABC8AE8CA", fmt.Sprintf("%X", res.RootHash))
 }
 
+func (suite *ServerTestSuite) TestVersionExists() {
+	res, err := suite.server.VersionExists(context.TODO(), &pb.VersionExistsRequest{Version: 1})
+	suite.NoError(err)
+	suite.True(res.Result)
+
+	res, err = suite.server.VersionExists(context.TODO(), &pb.VersionExistsRequest{Version: 2})
+	suite.NoError(err)
+	suite.False(res.Result)
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }

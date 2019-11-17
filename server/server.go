@@ -133,6 +133,6 @@ func (s *IAVLServer) Hash(_ context.Context, _ *empty.Empty) (*pb.HashResponse, 
 
 // VersionExists returns a result containing a boolean on whether or not a given
 // version exists in the IAVL tree.
-func (s *IAVLServer) VersionExists(context.Context, *pb.VersionExistsRequest) (*pb.VersionExistsResponse, error) {
-	panic("not implemented!")
+func (s *IAVLServer) VersionExists(_ context.Context, req *pb.VersionExistsRequest) (*pb.VersionExistsResponse, error) {
+	return &pb.VersionExistsResponse{Result: s.tree.VersionExists(req.Version)}, nil
 }
