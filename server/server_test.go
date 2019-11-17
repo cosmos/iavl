@@ -306,6 +306,27 @@ func (suite *ServerTestSuite) TestDeleteVersion() {
 	suite.Equal("B01CCD167F03233BC51C44116D0420935826A533473AE39829556D0665BACDA9", fmt.Sprintf("%X", res.RootHash))
 }
 
+func (suite *ServerTestSuite) TestHash() {
+	res, err := suite.server.Hash(context.TODO(), nil)
+	suite.NoError(err)
+	suite.Equal("B01CCD167F03233BC51C44116D0420935826A533473AE39829556D0665BACDA9", fmt.Sprintf("%X", res.RootHash))
+
+	req := &pb.SetRequest{
+		Key:   []byte("key-0"),
+		Value: []byte("NEW_VALUE"),
+	}
+
+	_, err = suite.server.Set(context.TODO(), req)
+	suite.NoError(err)
+
+	_, err = suite.server.SaveVersion(context.TODO(), nil)
+	suite.NoError(err)
+
+	res, err = suite.server.Hash(context.TODO(), nil)
+	suite.NoError(err)
+	suite.Equal("B708C71EA143DF334BB7DC9FBD7C47DA3A3B16C2E15F2990E5BEB3FABC8AE8CA", fmt.Sprintf("%X", res.RootHash))
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }

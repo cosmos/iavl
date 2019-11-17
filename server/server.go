@@ -127,8 +127,8 @@ func (s *IAVLServer) Version(_ context.Context, _ *empty.Empty) (*pb.VersionResp
 }
 
 // Hash returns the IAVL tree root hash based on the current state.
-func (s *IAVLServer) Hash(context.Context, *empty.Empty) (*pb.HashResponse, error) {
-	panic("not implemented!")
+func (s *IAVLServer) Hash(_ context.Context, _ *empty.Empty) (*pb.HashResponse, error) {
+	return &pb.HashResponse{RootHash: s.tree.Hash()}, nil
 }
 
 // VersionExists returns a result containing a boolean on whether or not a given
