@@ -288,6 +288,24 @@ func (suite *ServerTestSuite) TestRemove() {
 	}
 }
 
+func (suite *ServerTestSuite) TestDeleteVersion() {
+	res, err := suite.server.DeleteVersion(context.TODO(), &pb.DeleteVersionRequest{Version: 0})
+	suite.Error(err)
+	suite.Nil(res)
+
+	res, err = suite.server.DeleteVersion(context.TODO(), &pb.DeleteVersionRequest{Version: 1})
+	suite.Error(err)
+	suite.Nil(res)
+
+	_, err = suite.server.SaveVersion(context.TODO(), nil)
+	suite.NoError(err)
+
+	res, err = suite.server.DeleteVersion(context.TODO(), &pb.DeleteVersionRequest{Version: 1})
+	suite.NoError(err)
+	suite.Equal(int64(1), res.Version)
+	suite.Equal("B01CCD167F03233BC51C44116D0420935826A533473AE39829556D0665BACDA9", fmt.Sprintf("%X", res.RootHash))
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }

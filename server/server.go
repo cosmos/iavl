@@ -108,8 +108,17 @@ func (s *IAVLServer) SaveVersion(_ context.Context, _ *empty.Empty) (*pb.SaveVer
 // DeleteVersion deletes an IAVL tree version from the DB. The version can then
 // no longer be accessed. It returns a result containing the version and root
 // hash of the versioned tree that was deleted.
-func (s *IAVLServer) DeleteVersion(context.Context, *pb.DeleteVersionRequest) (*pb.DeleteVersionResponse, error) {
-	panic("not implemented!")
+func (s *IAVLServer) DeleteVersion(_ context.Context, req *pb.DeleteVersionRequest) (*pb.DeleteVersionResponse, error) {
+	iTree, err := s.tree.GetImmutable(req.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.tree.DeleteVersion(req.Version); err != nil {
+		return nil, err
+	}
+
+	return &pb.DeleteVersionResponse{RootHash: iTree.Hash(), Version: req.Version}, nil
 }
 
 // Version returns the IAVL tree version based on the current state.
