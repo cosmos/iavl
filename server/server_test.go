@@ -250,6 +250,44 @@ func (suite *ServerTestSuite) TestSet() {
 	suite.NoError(err)
 }
 
+func (suite *ServerTestSuite) TestRemove() {
+	testCases := []struct {
+		name      string
+		key       []byte
+		value     []byte
+		removed   bool
+		expectErr bool
+	}{
+		{
+			"successfully remove existing key",
+			[]byte("key-0"),
+			[]byte("value-0"),
+			true,
+			false,
+		},
+		{
+			"fail to remove non-existent key",
+			[]byte("key-100"),
+			nil,
+			false,
+			false,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			res, err := suite.server.Remove(context.TODO(), &pb.RemoveRequest{Key: tc.key})
+			suite.Equal(tc.expectErr, err != nil)
+
+			if !tc.expectErr {
+				suite.Equal(tc.value, res.Value)
+				suite.Equal(tc.removed, res.Removed)
+			}
+		})
+	}
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }

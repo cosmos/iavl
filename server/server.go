@@ -88,8 +88,9 @@ func (s *IAVLServer) Set(_ context.Context, req *pb.SetRequest) (*pb.SetResponse
 
 // Remove returns a result after removing a key/value pair from the IAVL tree
 // based on the current state (version) of the tree.
-func (s *IAVLServer) Remove(context.Context, *pb.RemoveRequest) (*pb.RemoveResponse, error) {
-	panic("not implemented!")
+func (s *IAVLServer) Remove(_ context.Context, req *pb.RemoveRequest) (*pb.RemoveResponse, error) {
+	value, removed := s.tree.Remove(req.Key)
+	return &pb.RemoveResponse{Value: value, Removed: removed}, nil
 }
 
 // SaveVersion saves a new IAVL tree version to the DB based on the current
