@@ -68,8 +68,65 @@ func (s *IAVLServer) GetVersioned(_ context.Context, req *pb.GetVersionedRequest
 	return &pb.GetResponse{Index: idx, Value: value}, nil
 }
 
-func (s *IAVLServer) GetVersionedWithProof(context.Context, *pb.GetVersionedRequest) (*pb.GetVersionedWithProofResponse, error) {
-	panic("not implemented!")
+// GetVersionedWithProof returns a result containing the IAVL tree version and
+// value for a given key at a specific tree version including a verifiable Merkle
+// proof.
+func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersionedRequest) (*pb.GetVersionedWithProofResponse, error) {
+	value, proof, err := s.tree.GetVersionedWithProof(req.Key, req.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	proofPb := &pb.Proof{
+		Key:        req.Key,
+		InnerNodes: make([]*pb.PathToLeaf, len(proof.InnerNodes)),
+		Leaves:     make([]*pb.ProofLeafNode, len(proof.Leaves)),
+	}
+
+	// left path
+	nodes := make([]*pb.ProofInnerNode, len(proof.LeftPath))
+	for i, n := range proof.LeftPath {
+		nodes[i] = &pb.ProofInnerNode{
+			Height:  int32(n.Height),
+			Size:    n.Size,
+			Version: n.Version,
+			Left:    n.Left,
+			Right:   n.Right,
+		}
+	}
+
+	proofPb.LeftPath = &pb.PathToLeaf{
+		Nodes: nodes,
+	}
+
+	// inner nodes
+	for i, pl := range proof.InnerNodes {
+		nodes := make([]*pb.ProofInnerNode, len(pl))
+		for j, n := range pl {
+			nodes[j] = &pb.ProofInnerNode{
+				Height:  int32(n.Height),
+				Size:    n.Size,
+				Version: n.Version,
+				Left:    n.Left,
+				Right:   n.Right,
+			}
+		}
+
+		proofPb.InnerNodes[i] = &pb.PathToLeaf{
+			Nodes: nodes,
+		}
+	}
+
+	// leaves
+	for i, l := range proof.Leaves {
+		proofPb.Leaves[i] = &pb.ProofLeafNode{
+			Key:       l.Key,
+			ValueHash: l.ValueHash,
+			Version:   l.Version,
+		}
+	}
+
+	return &pb.GetVersionedWithProofResponse{Value: value, Proof: proofPb}, nil
 }
 
 // Set returns a result after inserting a key/value pair into the IAVL tree

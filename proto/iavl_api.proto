@@ -34,6 +34,9 @@ service IAVLService {
     };
   }
 
+  // GetVersionedWithProof returns a result containing the IAVL tree version and
+  // value for a given key at a specific tree version including a verifiable Merkle
+  // proof.
   rpc GetVersionedWithProof(GetVersionedRequest) returns (GetVersionedWithProofResponse) {
     option (google.api.http) = {
       get: "/v1/tree/get_versioned_with_proof"
