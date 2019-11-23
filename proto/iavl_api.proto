@@ -185,7 +185,7 @@ message VersionExistsResponse {
 
 message GetVersionedWithProofResponse {
   bytes value = 1;
-  Proof proof = 2;
+  RangeProof proof = 2;
 }
 
 message ProofInnerNode {
@@ -206,7 +206,7 @@ message PathToLeaf {
   repeated ProofInnerNode nodes = 1;
 }
 
-message Proof {
+message RangeProof {
   bytes key = 1;
   PathToLeaf left_path = 2;
   repeated PathToLeaf inner_nodes = 3;

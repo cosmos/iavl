@@ -6,6 +6,8 @@ import (
 	"os"
 	"sort"
 	"strings"
+
+	pb "github.com/tendermint/iavl/proto"
 )
 
 // PrintTree prints the whole tree in an indented form.
@@ -103,6 +105,52 @@ func sortByteSlices(src [][]byte) [][]byte {
 	bzz := byteslices(src)
 	sort.Sort(bzz)
 	return bzz
+}
+
+// ConvertProtoRangeProof converts a protobuf RangeProof to a RangeProof and
+// returns the reference.
+func ConvertProtoRangeProof(proofPb *pb.RangeProof) *RangeProof {
+	leftPath := make(PathToLeaf, len(proofPb.LeftPath.Nodes))
+	for i, n := range proofPb.LeftPath.Nodes {
+		leftPath[i] = proofInnerNode{
+			Height:  int8(n.Height),
+			Size:    n.Size,
+			Version: n.Version,
+			Left:    n.Left,
+			Right:   n.Right,
+		}
+	}
+
+	innerNodes := make([]PathToLeaf, len(proofPb.InnerNodes))
+	for i, pl := range proofPb.InnerNodes {
+		nodes := make([]proofInnerNode, len(pl.Nodes))
+		for j, n := range pl.Nodes {
+			nodes[j] = proofInnerNode{
+				Height:  int8(n.Height),
+				Size:    n.Size,
+				Version: n.Version,
+				Left:    n.Left,
+				Right:   n.Right,
+			}
+		}
+
+		innerNodes[i] = nodes
+	}
+
+	leaves := make([]proofLeafNode, len(proofPb.Leaves))
+	for i, l := range proofPb.Leaves {
+		leaves[i] = proofLeafNode{
+			Key:       l.Key,
+			ValueHash: l.ValueHash,
+			Version:   l.Version,
+		}
+	}
+
+	return &RangeProof{
+		LeftPath:   leftPath,
+		InnerNodes: innerNodes,
+		Leaves:     leaves,
+	}
 }
 
 // Colors: ------------------------------------------------
