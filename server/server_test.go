@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/suite"
+	"github.com/tendermint/iavl"
 	dbm "github.com/tendermint/tm-db"
 
 	pb "github.com/tendermint/iavl/proto"
@@ -228,6 +229,79 @@ func (suite *ServerTestSuite) TestGetVersioned() {
 
 			if !tc.expectErr {
 				suite.Equal(tc.result, res.Value)
+			}
+		})
+	}
+}
+
+// nolint:funlen
+func (suite *ServerTestSuite) TestGetVersionedWithProof() {
+	testCases := []struct {
+		name      string
+		preRun    func()
+		key       []byte
+		version   int64
+		expectErr bool
+		result    []byte
+	}{
+		{
+			"existing key",
+			nil,
+			[]byte("key-0"),
+			1,
+			false,
+			[]byte("value-0"),
+		},
+		{
+			"existing modified key (new version)",
+			func() {
+				req := &pb.SetRequest{
+					Key:   []byte("key-0"),
+					Value: []byte("NEW_VALUE"),
+				}
+
+				_, err := suite.server.Set(context.TODO(), req)
+				suite.NoError(err)
+
+				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				suite.NoError(err)
+			},
+			[]byte("key-0"),
+			2,
+			false,
+			[]byte("NEW_VALUE"),
+		},
+		{
+			"non-existent key",
+			nil,
+			[]byte("key-1000"),
+			1,
+			false,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			suite.Equal(tc.expectErr, err != nil)
+
+			if !tc.expectErr {
+				suite.Equal(tc.result, res.Value)
+
+				if tc.result != nil {
+					proof := iavl.ConvertProtoRangeProof(res.Proof)
+
+					hashResp, err := suite.server.Hash(context.TODO(), nil)
+					suite.NoError(err)
+
+					suite.NoError(proof.Verify(hashResp.RootHash), fmt.Sprintf("root: %X\nproof: %s", hashResp.GetRootHash(), proof))
+				}
 			}
 		})
 	}

@@ -77,7 +77,7 @@ func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersion
 		return nil, err
 	}
 
-	proofPb := &pb.Proof{
+	proofPb := &pb.RangeProof{
 		Key:        req.Key,
 		InnerNodes: make([]*pb.PathToLeaf, len(proof.InnerNodes)),
 		Leaves:     make([]*pb.ProofLeafNode, len(proof.Leaves)),
