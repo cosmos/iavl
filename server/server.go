@@ -205,7 +205,7 @@ func (s *IAVLServer) VersionExists(_ context.Context, req *pb.VersionExistsReque
 }
 
 // Verify verifies an IAVL range proof returning an error if the proof is invalid.
-func (s *IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Empty, error) {
+func (*IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Empty, error) {
 	proof := iavl.ConvertProtoRangeProof(req.Proof)
 	if err := proof.Verify(req.RootHash); err != nil {
 		return nil, err
@@ -216,7 +216,7 @@ func (s *IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.
 
 // VerifyItem verifies if a given key/value pair in an IAVL range proof returning
 // an error if the proof or key is invalid.
-func (s *IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*empty.Empty, error) {
+func (*IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*empty.Empty, error) {
 	proof := iavl.ConvertProtoRangeProof(req.Proof)
 	if err := proof.Verify(req.RootHash); err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (s *IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) 
 
 // VerifyAbsence verifies the absence of a given key in an IAVL range proof
 // returning an error if the proof or key is invalid.
-func (s *IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceRequest) (*empty.Empty, error) {
+func (*IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceRequest) (*empty.Empty, error) {
 	proof := iavl.ConvertProtoRangeProof(req.Proof)
 	if err := proof.Verify(req.RootHash); err != nil {
 		return nil, err
@@ -241,5 +241,12 @@ func (s *IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceReq
 		return nil, err
 	}
 
+	return &empty.Empty{}, nil
+}
+
+// Rollback resets the working tree to the latest saved version, discarding
+// any unsaved modifications.
+func (s *IAVLServer) Rollback(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
+	s.tree.Rollback()
 	return &empty.Empty{}, nil
 }

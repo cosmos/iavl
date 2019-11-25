@@ -1306,6 +1306,8 @@ type IAVLServiceClient interface {
 	// VerifyAbsence verifies the absence of a given key in an IAVL range proof
 	// returning an error if the proof or key is invalid.
 	VerifyAbsence(ctx context.Context, in *VerifyAbsenceRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// Rollback resets the working tree to the latest saved version, discarding
+	// any unsaved modifications.
 	Rollback(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
@@ -1510,6 +1512,8 @@ type IAVLServiceServer interface {
 	// VerifyAbsence verifies the absence of a given key in an IAVL range proof
 	// returning an error if the proof or key is invalid.
 	VerifyAbsence(context.Context, *VerifyAbsenceRequest) (*empty.Empty, error)
+	// Rollback resets the working tree to the latest saved version, discarding
+	// any unsaved modifications.
 	Rollback(context.Context, *empty.Empty) (*empty.Empty, error)
 }
 

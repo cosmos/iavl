@@ -136,6 +136,8 @@ service IAVLService {
     };
   }
 
+  // Rollback resets the working tree to the latest saved version, discarding
+  // any unsaved modifications.
   rpc Rollback(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/v1/tree/rollback"
