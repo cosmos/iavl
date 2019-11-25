@@ -323,6 +323,171 @@ func (m *VersionExistsRequest) GetVersion() int64 {
 	return 0
 }
 
+type VerifyRequest struct {
+	RootHash             []byte      `protobuf:"bytes,1,opt,name=root_hash,json=rootHash,proto3" json:"root_hash,omitempty"`
+	Proof                *RangeProof `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *VerifyRequest) Reset()         { *m = VerifyRequest{} }
+func (m *VerifyRequest) String() string { return proto.CompactTextString(m) }
+func (*VerifyRequest) ProtoMessage()    {}
+func (*VerifyRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{7}
+}
+
+func (m *VerifyRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_VerifyRequest.Unmarshal(m, b)
+}
+func (m *VerifyRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_VerifyRequest.Marshal(b, m, deterministic)
+}
+func (m *VerifyRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VerifyRequest.Merge(m, src)
+}
+func (m *VerifyRequest) XXX_Size() int {
+	return xxx_messageInfo_VerifyRequest.Size(m)
+}
+func (m *VerifyRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_VerifyRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_VerifyRequest proto.InternalMessageInfo
+
+func (m *VerifyRequest) GetRootHash() []byte {
+	if m != nil {
+		return m.RootHash
+	}
+	return nil
+}
+
+func (m *VerifyRequest) GetProof() *RangeProof {
+	if m != nil {
+		return m.Proof
+	}
+	return nil
+}
+
+type VerifyItemRequest struct {
+	RootHash             []byte      `protobuf:"bytes,1,opt,name=root_hash,json=rootHash,proto3" json:"root_hash,omitempty"`
+	Proof                *RangeProof `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
+	Key                  []byte      `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	Value                []byte      `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *VerifyItemRequest) Reset()         { *m = VerifyItemRequest{} }
+func (m *VerifyItemRequest) String() string { return proto.CompactTextString(m) }
+func (*VerifyItemRequest) ProtoMessage()    {}
+func (*VerifyItemRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{8}
+}
+
+func (m *VerifyItemRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_VerifyItemRequest.Unmarshal(m, b)
+}
+func (m *VerifyItemRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_VerifyItemRequest.Marshal(b, m, deterministic)
+}
+func (m *VerifyItemRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VerifyItemRequest.Merge(m, src)
+}
+func (m *VerifyItemRequest) XXX_Size() int {
+	return xxx_messageInfo_VerifyItemRequest.Size(m)
+}
+func (m *VerifyItemRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_VerifyItemRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_VerifyItemRequest proto.InternalMessageInfo
+
+func (m *VerifyItemRequest) GetRootHash() []byte {
+	if m != nil {
+		return m.RootHash
+	}
+	return nil
+}
+
+func (m *VerifyItemRequest) GetProof() *RangeProof {
+	if m != nil {
+		return m.Proof
+	}
+	return nil
+}
+
+func (m *VerifyItemRequest) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
+func (m *VerifyItemRequest) GetValue() []byte {
+	if m != nil {
+		return m.Value
+	}
+	return nil
+}
+
+type VerifyAbsenceRequest struct {
+	RootHash             []byte      `protobuf:"bytes,1,opt,name=root_hash,json=rootHash,proto3" json:"root_hash,omitempty"`
+	Proof                *RangeProof `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
+	Key                  []byte      `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
+	XXX_unrecognized     []byte      `json:"-"`
+	XXX_sizecache        int32       `json:"-"`
+}
+
+func (m *VerifyAbsenceRequest) Reset()         { *m = VerifyAbsenceRequest{} }
+func (m *VerifyAbsenceRequest) String() string { return proto.CompactTextString(m) }
+func (*VerifyAbsenceRequest) ProtoMessage()    {}
+func (*VerifyAbsenceRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{9}
+}
+
+func (m *VerifyAbsenceRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_VerifyAbsenceRequest.Unmarshal(m, b)
+}
+func (m *VerifyAbsenceRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_VerifyAbsenceRequest.Marshal(b, m, deterministic)
+}
+func (m *VerifyAbsenceRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_VerifyAbsenceRequest.Merge(m, src)
+}
+func (m *VerifyAbsenceRequest) XXX_Size() int {
+	return xxx_messageInfo_VerifyAbsenceRequest.Size(m)
+}
+func (m *VerifyAbsenceRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_VerifyAbsenceRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_VerifyAbsenceRequest proto.InternalMessageInfo
+
+func (m *VerifyAbsenceRequest) GetRootHash() []byte {
+	if m != nil {
+		return m.RootHash
+	}
+	return nil
+}
+
+func (m *VerifyAbsenceRequest) GetProof() *RangeProof {
+	if m != nil {
+		return m.Proof
+	}
+	return nil
+}
+
+func (m *VerifyAbsenceRequest) GetKey() []byte {
+	if m != nil {
+		return m.Key
+	}
+	return nil
+}
+
 type HasResponse struct {
 	Result               bool     `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -334,7 +499,7 @@ func (m *HasResponse) Reset()         { *m = HasResponse{} }
 func (m *HasResponse) String() string { return proto.CompactTextString(m) }
 func (*HasResponse) ProtoMessage()    {}
 func (*HasResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{7}
+	return fileDescriptor_92d8372b52373ba9, []int{10}
 }
 
 func (m *HasResponse) XXX_Unmarshal(b []byte) error {
@@ -374,7 +539,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{8}
+	return fileDescriptor_92d8372b52373ba9, []int{11}
 }
 
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
@@ -420,7 +585,7 @@ func (m *SetResponse) Reset()         { *m = SetResponse{} }
 func (m *SetResponse) String() string { return proto.CompactTextString(m) }
 func (*SetResponse) ProtoMessage()    {}
 func (*SetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{9}
+	return fileDescriptor_92d8372b52373ba9, []int{12}
 }
 
 func (m *SetResponse) XXX_Unmarshal(b []byte) error {
@@ -460,7 +625,7 @@ func (m *RemoveResponse) Reset()         { *m = RemoveResponse{} }
 func (m *RemoveResponse) String() string { return proto.CompactTextString(m) }
 func (*RemoveResponse) ProtoMessage()    {}
 func (*RemoveResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{10}
+	return fileDescriptor_92d8372b52373ba9, []int{13}
 }
 
 func (m *RemoveResponse) XXX_Unmarshal(b []byte) error {
@@ -507,7 +672,7 @@ func (m *SaveVersionResponse) Reset()         { *m = SaveVersionResponse{} }
 func (m *SaveVersionResponse) String() string { return proto.CompactTextString(m) }
 func (*SaveVersionResponse) ProtoMessage()    {}
 func (*SaveVersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{11}
+	return fileDescriptor_92d8372b52373ba9, []int{14}
 }
 
 func (m *SaveVersionResponse) XXX_Unmarshal(b []byte) error {
@@ -554,7 +719,7 @@ func (m *DeleteVersionResponse) Reset()         { *m = DeleteVersionResponse{} }
 func (m *DeleteVersionResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteVersionResponse) ProtoMessage()    {}
 func (*DeleteVersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{12}
+	return fileDescriptor_92d8372b52373ba9, []int{15}
 }
 
 func (m *DeleteVersionResponse) XXX_Unmarshal(b []byte) error {
@@ -600,7 +765,7 @@ func (m *VersionResponse) Reset()         { *m = VersionResponse{} }
 func (m *VersionResponse) String() string { return proto.CompactTextString(m) }
 func (*VersionResponse) ProtoMessage()    {}
 func (*VersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{13}
+	return fileDescriptor_92d8372b52373ba9, []int{16}
 }
 
 func (m *VersionResponse) XXX_Unmarshal(b []byte) error {
@@ -639,7 +804,7 @@ func (m *HashResponse) Reset()         { *m = HashResponse{} }
 func (m *HashResponse) String() string { return proto.CompactTextString(m) }
 func (*HashResponse) ProtoMessage()    {}
 func (*HashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{14}
+	return fileDescriptor_92d8372b52373ba9, []int{17}
 }
 
 func (m *HashResponse) XXX_Unmarshal(b []byte) error {
@@ -678,7 +843,7 @@ func (m *VersionExistsResponse) Reset()         { *m = VersionExistsResponse{} }
 func (m *VersionExistsResponse) String() string { return proto.CompactTextString(m) }
 func (*VersionExistsResponse) ProtoMessage()    {}
 func (*VersionExistsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{15}
+	return fileDescriptor_92d8372b52373ba9, []int{18}
 }
 
 func (m *VersionExistsResponse) XXX_Unmarshal(b []byte) error {
@@ -706,7 +871,7 @@ func (m *VersionExistsResponse) GetResult() bool {
 	return false
 }
 
-type GetVersionedWithProofResponse struct {
+type GetWithProofResponse struct {
 	Value                []byte      `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
 	Proof                *RangeProof `protobuf:"bytes,2,opt,name=proof,proto3" json:"proof,omitempty"`
 	XXX_NoUnkeyedLiteral struct{}    `json:"-"`
@@ -714,39 +879,39 @@ type GetVersionedWithProofResponse struct {
 	XXX_sizecache        int32       `json:"-"`
 }
 
-func (m *GetVersionedWithProofResponse) Reset()         { *m = GetVersionedWithProofResponse{} }
-func (m *GetVersionedWithProofResponse) String() string { return proto.CompactTextString(m) }
-func (*GetVersionedWithProofResponse) ProtoMessage()    {}
-func (*GetVersionedWithProofResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{16}
+func (m *GetWithProofResponse) Reset()         { *m = GetWithProofResponse{} }
+func (m *GetWithProofResponse) String() string { return proto.CompactTextString(m) }
+func (*GetWithProofResponse) ProtoMessage()    {}
+func (*GetWithProofResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{19}
 }
 
-func (m *GetVersionedWithProofResponse) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetVersionedWithProofResponse.Unmarshal(m, b)
+func (m *GetWithProofResponse) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetWithProofResponse.Unmarshal(m, b)
 }
-func (m *GetVersionedWithProofResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetVersionedWithProofResponse.Marshal(b, m, deterministic)
+func (m *GetWithProofResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetWithProofResponse.Marshal(b, m, deterministic)
 }
-func (m *GetVersionedWithProofResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetVersionedWithProofResponse.Merge(m, src)
+func (m *GetWithProofResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetWithProofResponse.Merge(m, src)
 }
-func (m *GetVersionedWithProofResponse) XXX_Size() int {
-	return xxx_messageInfo_GetVersionedWithProofResponse.Size(m)
+func (m *GetWithProofResponse) XXX_Size() int {
+	return xxx_messageInfo_GetWithProofResponse.Size(m)
 }
-func (m *GetVersionedWithProofResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetVersionedWithProofResponse.DiscardUnknown(m)
+func (m *GetWithProofResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetWithProofResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_GetVersionedWithProofResponse proto.InternalMessageInfo
+var xxx_messageInfo_GetWithProofResponse proto.InternalMessageInfo
 
-func (m *GetVersionedWithProofResponse) GetValue() []byte {
+func (m *GetWithProofResponse) GetValue() []byte {
 	if m != nil {
 		return m.Value
 	}
 	return nil
 }
 
-func (m *GetVersionedWithProofResponse) GetProof() *RangeProof {
+func (m *GetWithProofResponse) GetProof() *RangeProof {
 	if m != nil {
 		return m.Proof
 	}
@@ -768,7 +933,7 @@ func (m *ProofInnerNode) Reset()         { *m = ProofInnerNode{} }
 func (m *ProofInnerNode) String() string { return proto.CompactTextString(m) }
 func (*ProofInnerNode) ProtoMessage()    {}
 func (*ProofInnerNode) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{17}
+	return fileDescriptor_92d8372b52373ba9, []int{20}
 }
 
 func (m *ProofInnerNode) XXX_Unmarshal(b []byte) error {
@@ -837,7 +1002,7 @@ func (m *ProofLeafNode) Reset()         { *m = ProofLeafNode{} }
 func (m *ProofLeafNode) String() string { return proto.CompactTextString(m) }
 func (*ProofLeafNode) ProtoMessage()    {}
 func (*ProofLeafNode) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{18}
+	return fileDescriptor_92d8372b52373ba9, []int{21}
 }
 
 func (m *ProofLeafNode) XXX_Unmarshal(b []byte) error {
@@ -890,7 +1055,7 @@ func (m *PathToLeaf) Reset()         { *m = PathToLeaf{} }
 func (m *PathToLeaf) String() string { return proto.CompactTextString(m) }
 func (*PathToLeaf) ProtoMessage()    {}
 func (*PathToLeaf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{19}
+	return fileDescriptor_92d8372b52373ba9, []int{22}
 }
 
 func (m *PathToLeaf) XXX_Unmarshal(b []byte) error {
@@ -932,7 +1097,7 @@ func (m *RangeProof) Reset()         { *m = RangeProof{} }
 func (m *RangeProof) String() string { return proto.CompactTextString(m) }
 func (*RangeProof) ProtoMessage()    {}
 func (*RangeProof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{20}
+	return fileDescriptor_92d8372b52373ba9, []int{23}
 }
 
 func (m *RangeProof) XXX_Unmarshal(b []byte) error {
@@ -989,6 +1154,9 @@ func init() {
 	proto.RegisterType((*RemoveRequest)(nil), "proto.RemoveRequest")
 	proto.RegisterType((*DeleteVersionRequest)(nil), "proto.DeleteVersionRequest")
 	proto.RegisterType((*VersionExistsRequest)(nil), "proto.VersionExistsRequest")
+	proto.RegisterType((*VerifyRequest)(nil), "proto.VerifyRequest")
+	proto.RegisterType((*VerifyItemRequest)(nil), "proto.VerifyItemRequest")
+	proto.RegisterType((*VerifyAbsenceRequest)(nil), "proto.VerifyAbsenceRequest")
 	proto.RegisterType((*HasResponse)(nil), "proto.HasResponse")
 	proto.RegisterType((*GetResponse)(nil), "proto.GetResponse")
 	proto.RegisterType((*SetResponse)(nil), "proto.SetResponse")
@@ -998,7 +1166,7 @@ func init() {
 	proto.RegisterType((*VersionResponse)(nil), "proto.VersionResponse")
 	proto.RegisterType((*HashResponse)(nil), "proto.HashResponse")
 	proto.RegisterType((*VersionExistsResponse)(nil), "proto.VersionExistsResponse")
-	proto.RegisterType((*GetVersionedWithProofResponse)(nil), "proto.GetVersionedWithProofResponse")
+	proto.RegisterType((*GetWithProofResponse)(nil), "proto.GetWithProofResponse")
 	proto.RegisterType((*ProofInnerNode)(nil), "proto.ProofInnerNode")
 	proto.RegisterType((*ProofLeafNode)(nil), "proto.ProofLeafNode")
 	proto.RegisterType((*PathToLeaf)(nil), "proto.PathToLeaf")
@@ -1008,65 +1176,74 @@ func init() {
 func init() { proto.RegisterFile("proto/iavl_api.proto", fileDescriptor_92d8372b52373ba9) }
 
 var fileDescriptor_92d8372b52373ba9 = []byte{
-	// 917 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x56, 0xdd, 0x6e, 0x1b, 0x45,
-	0x14, 0xd6, 0xc6, 0x76, 0xea, 0x1c, 0xc7, 0x49, 0x3b, 0xb1, 0x13, 0xe3, 0xa4, 0xc5, 0x8c, 0xa8,
-	0x88, 0x08, 0x78, 0x21, 0xe5, 0x82, 0x72, 0x45, 0x11, 0x51, 0x52, 0x14, 0x55, 0x65, 0x8d, 0x8a,
-	0xc4, 0x05, 0xd6, 0xb4, 0x3e, 0xf6, 0xae, 0xea, 0xee, 0x98, 0x9d, 0xc9, 0xd2, 0x82, 0x90, 0x10,
-	0x0f, 0xc0, 0x0d, 0x17, 0xbc, 0x06, 0xef, 0xc2, 0x2b, 0xf0, 0x20, 0x68, 0xcf, 0xcc, 0xfe, 0x78,
-	0xb3, 0xae, 0x11, 0xbd, 0x8a, 0xcf, 0xcc, 0x39, 0xdf, 0xf7, 0xcd, 0xb7, 0x33, 0xe7, 0x04, 0x3a,
-	0x8b, 0x48, 0x6a, 0xe9, 0x06, 0x22, 0x9e, 0x8f, 0xc5, 0x22, 0x18, 0x52, 0xc8, 0x1a, 0xf4, 0xa7,
-	0x7f, 0x34, 0x93, 0x72, 0x36, 0x47, 0x57, 0x2c, 0x02, 0x57, 0x84, 0xa1, 0xd4, 0x42, 0x07, 0x32,
-	0x54, 0x26, 0xa9, 0x7f, 0x68, 0x77, 0x29, 0x7a, 0x7a, 0x35, 0x75, 0xf1, 0xc5, 0x42, 0xbf, 0x32,
-	0x9b, 0xfc, 0x53, 0x80, 0x0b, 0xa1, 0x3c, 0xfc, 0xe1, 0x0a, 0x95, 0x66, 0x3d, 0xb8, 0x11, 0x63,
-	0xa4, 0x02, 0x19, 0xf6, 0x9c, 0x81, 0x73, 0x5c, 0xf3, 0xd2, 0x90, 0xdd, 0x84, 0xda, 0x73, 0x7c,
-	0xd5, 0xdb, 0x18, 0x38, 0xc7, 0xdb, 0x5e, 0xf2, 0x93, 0xdf, 0x01, 0x38, 0x47, 0x9d, 0x56, 0xda,
-	0x7d, 0x27, 0xdf, 0x7f, 0x00, 0x7b, 0xe7, 0xa8, 0x9f, 0x98, 0x7a, 0x9c, 0xfc, 0x1f, 0x8a, 0x4f,
-	0x00, 0x46, 0xaf, 0xa1, 0x60, 0x1d, 0x68, 0xc4, 0x62, 0x7e, 0x85, 0xb6, 0xc6, 0x04, 0xfc, 0x1d,
-	0x68, 0x7b, 0xf8, 0x42, 0xc6, 0xb8, 0x5a, 0xdb, 0x47, 0xd0, 0xf9, 0x12, 0xe7, 0xa8, 0xd1, 0xca,
-	0x5b, 0x2b, 0x2e, 0xa9, 0xb0, 0xb9, 0x67, 0x2f, 0x03, 0xa5, 0xd7, 0x3b, 0xc6, 0xef, 0x42, 0x8b,
-	0x9c, 0x55, 0x0b, 0x19, 0x2a, 0x64, 0xfb, 0xb0, 0x19, 0xa1, 0xba, 0x9a, 0x6b, 0xca, 0x6b, 0x7a,
-	0x36, 0xe2, 0xf7, 0xa1, 0x45, 0x36, 0xda, 0xb4, 0x0e, 0x34, 0x82, 0x70, 0x82, 0x2f, 0x2d, 0x9a,
-	0x09, 0x56, 0x1c, 0xf4, 0x2e, 0xb4, 0x46, 0x85, 0xd2, 0x55, 0x0c, 0x9f, 0xc3, 0x4e, 0xea, 0x47,
-	0x4e, 0x62, 0xe0, 0x9c, 0x02, 0x5c, 0x72, 0x94, 0x88, 0xf2, 0x26, 0x44, 0xd3, 0xf4, 0xd2, 0x90,
-	0x5f, 0xc2, 0xde, 0x48, 0xc4, 0xb9, 0x59, 0x16, 0xe6, 0x10, 0xb6, 0x22, 0x29, 0xf5, 0xd8, 0x17,
-	0xca, 0xb7, 0x50, 0xcd, 0x64, 0xe1, 0x42, 0x28, 0xbf, 0x68, 0xcc, 0xc6, 0xb2, 0x31, 0x8f, 0xa0,
-	0x5b, 0x32, 0xff, 0xcd, 0xf0, 0x4e, 0x60, 0xb7, 0x8c, 0xb4, 0xfa, 0xab, 0x9c, 0xc0, 0x76, 0x02,
-	0xf7, 0x9f, 0x38, 0xb9, 0x0b, 0xdd, 0xd2, 0x47, 0x5f, 0x63, 0xf5, 0xf7, 0x70, 0xbb, 0x78, 0xe7,
-	0xbf, 0x0d, 0xb4, 0xff, 0x38, 0x92, 0x72, 0xba, 0xc6, 0xf9, 0xf7, 0x20, 0x79, 0xc8, 0x72, 0x4a,
-	0x27, 0x6b, 0x9d, 0xde, 0x32, 0x6f, 0x73, 0xe8, 0x89, 0x70, 0x86, 0xa6, 0xde, 0xec, 0xf3, 0x5f,
-	0x1d, 0xd8, 0xa1, 0x85, 0x87, 0x61, 0x88, 0xd1, 0x23, 0x39, 0x21, 0x29, 0x3e, 0x06, 0x33, 0xdf,
-	0x48, 0x69, 0x78, 0x36, 0x62, 0x0c, 0xea, 0x2a, 0xf8, 0x09, 0xad, 0x59, 0xf4, 0xbb, 0x68, 0x4b,
-	0x6d, 0xf9, 0xed, 0x31, 0xa8, 0xcf, 0x71, 0xaa, 0x7b, 0x75, 0x92, 0x45, 0xbf, 0x13, 0xad, 0x11,
-	0x01, 0x37, 0x8c, 0x56, 0x0a, 0xf8, 0x77, 0xd0, 0x26, 0x05, 0x97, 0x28, 0xa6, 0x24, 0xe0, 0xfa,
-	0xb3, 0xbc, 0x0d, 0x40, 0xe7, 0x32, 0xa6, 0x9a, 0x2b, 0xbb, 0x45, 0x2b, 0xe5, 0x2f, 0xb9, 0xac,
-	0x82, 0xdf, 0x07, 0x78, 0x2c, 0xb4, 0xff, 0x8d, 0x4c, 0xc0, 0xd9, 0x09, 0x34, 0x42, 0x39, 0x41,
-	0xd5, 0x73, 0x06, 0xb5, 0xe3, 0xd6, 0x69, 0xd7, 0xba, 0xb2, 0x7c, 0x7e, 0xcf, 0xe4, 0xf0, 0xbf,
-	0x1c, 0x80, 0xdc, 0xaf, 0x0a, 0x51, 0x43, 0xd8, 0x4a, 0x4e, 0x35, 0x5e, 0x08, 0xed, 0x97, 0x7c,
-	0xce, 0x39, 0xbd, 0x66, 0x92, 0x93, 0xc4, 0xec, 0x14, 0x5a, 0x41, 0x42, 0x32, 0x36, 0x1a, 0x6a,
-	0xa4, 0xa1, 0xa2, 0x02, 0x82, 0x54, 0x8a, 0x62, 0x1f, 0xc0, 0xe6, 0x1c, 0x45, 0x8c, 0xaa, 0x57,
-	0xa7, 0xf4, 0x4e, 0x51, 0x72, 0x6a, 0x98, 0x67, 0x73, 0x4e, 0xff, 0x6c, 0x42, 0xeb, 0xe1, 0x83,
-	0x27, 0x97, 0x23, 0x8c, 0xe2, 0xe0, 0x19, 0xb2, 0x4b, 0xa8, 0x5d, 0x08, 0xc5, 0x52, 0x8e, 0xbc,
-	0x2d, 0xf7, 0x59, 0x71, 0xc9, 0xdc, 0x24, 0x7e, 0xe7, 0xb7, 0xbf, 0xff, 0xf9, 0x63, 0xa3, 0xc7,
-	0xf6, 0xdd, 0xf8, 0x63, 0x57, 0x47, 0x88, 0xee, 0xcf, 0xd6, 0xc6, 0x5f, 0x5c, 0x5f, 0x28, 0xf6,
-	0x05, 0xd4, 0xce, 0x51, 0x67, 0x68, 0x79, 0xab, 0xce, 0xd0, 0x0a, 0x6d, 0x87, 0x77, 0x08, 0x6d,
-	0x87, 0x6d, 0x67, 0x68, 0x33, 0xd4, 0xcc, 0x87, 0xed, 0xe2, 0x75, 0x66, 0xfd, 0xbc, 0xb2, 0xdc,
-	0xd7, 0x2b, 0x51, 0x8f, 0x09, 0x95, 0xb3, 0x41, 0x85, 0xc6, 0x19, 0xea, 0x71, 0x9c, 0x21, 0xff,
-	0xee, 0x40, 0xb7, 0xf2, 0xe5, 0xbc, 0x96, 0xf3, 0xdd, 0x8a, 0xbd, 0x6b, 0x6f, 0x8e, 0xdf, 0x23,
-	0x15, 0x1f, 0xb2, 0x93, 0x75, 0x2a, 0xc6, 0x3f, 0x06, 0xda, 0x1f, 0xd3, 0x4b, 0x63, 0x67, 0x50,
-	0x1b, 0x15, 0xec, 0x1b, 0x5d, 0xb7, 0xaf, 0xd0, 0x7a, 0xf9, 0x01, 0x51, 0xdc, 0xe2, 0xb9, 0x7d,
-	0x0a, 0xf5, 0x67, 0xce, 0xfb, 0xec, 0x6b, 0xd8, 0x34, 0xbd, 0x97, 0xa5, 0x77, 0x61, 0x69, 0x34,
-	0xf5, 0xbb, 0xa5, 0x55, 0x8b, 0xd7, 0x27, 0xbc, 0x0e, 0xdf, 0xcd, 0xf0, 0x4c, 0x2b, 0x4e, 0x20,
-	0x9f, 0x41, 0xab, 0xd0, 0x8c, 0xd9, 0xfe, 0xd0, 0x8c, 0xf7, 0x61, 0x3a, 0xde, 0x87, 0x67, 0xc9,
-	0x78, 0xef, 0xa7, 0xbe, 0x55, 0x34, 0x6e, 0x3e, 0x20, 0xf8, 0x3e, 0xef, 0xe6, 0x72, 0x45, 0x8c,
-	0xa9, 0x11, 0x09, 0x49, 0x08, 0xed, 0xa5, 0x1e, 0xcd, 0x0e, 0x2d, 0x5c, 0xd5, 0xd8, 0xec, 0x1f,
-	0x55, 0x6f, 0x5a, 0x36, 0x4e, 0x6c, 0x47, 0xfc, 0x20, 0x63, 0x9b, 0x50, 0x5e, 0x91, 0x6f, 0x04,
-	0x37, 0xd6, 0x1d, 0x68, 0xdf, 0x92, 0x94, 0xe1, 0x7b, 0x04, 0xcf, 0xd8, 0xcd, 0x0c, 0x3e, 0x6d,
-	0x6a, 0x5f, 0x41, 0x9d, 0x1a, 0xce, 0x2a, 0xc4, 0xbd, 0xfc, 0x59, 0x65, 0x03, 0x81, 0x77, 0x09,
-	0x6e, 0x97, 0xb5, 0x33, 0xb8, 0xa4, 0x8b, 0xb1, 0xe7, 0xd0, 0x5e, 0x1a, 0x05, 0x99, 0x21, 0x55,
-	0xff, 0x15, 0x64, 0x86, 0x54, 0x4e, 0x0f, 0xfe, 0x36, 0x51, 0xbc, 0xc5, 0x0e, 0xca, 0x8a, 0xc7,
-	0x48, 0x89, 0x4f, 0x37, 0xa9, 0xfa, 0xde, 0xbf, 0x01, 0x00, 0x00, 0xff, 0xff, 0x2c, 0xa8, 0x2c,
-	0xbc, 0xf5, 0x09, 0x00, 0x00,
+	// 1057 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0xdd, 0x6e, 0x1b, 0x45,
+	0x14, 0xd6, 0xc6, 0x3f, 0x4d, 0x8e, 0xe3, 0xa4, 0x99, 0xd8, 0xa9, 0xd9, 0xa4, 0xc5, 0x4c, 0x15,
+	0x11, 0x61, 0xb0, 0x21, 0xe5, 0x82, 0x72, 0x45, 0x10, 0x51, 0x12, 0x14, 0x55, 0x65, 0x4d, 0x83,
+	0x04, 0x17, 0xd6, 0x26, 0x3e, 0xf6, 0xae, 0xea, 0xec, 0xba, 0xbb, 0x93, 0xa5, 0x01, 0x21, 0x01,
+	0x12, 0x4f, 0xc0, 0x53, 0x70, 0xc7, 0xbb, 0xf0, 0x0a, 0x3c, 0x08, 0x9a, 0x33, 0xb3, 0x3f, 0xb6,
+	0xd7, 0x76, 0x04, 0xf4, 0xca, 0x9e, 0x9d, 0x33, 0xdf, 0x77, 0xe6, 0x9b, 0x6f, 0xce, 0x1c, 0xa8,
+	0x8d, 0x03, 0x5f, 0xf8, 0x1d, 0xd7, 0x8e, 0x46, 0x3d, 0x7b, 0xec, 0xb6, 0x69, 0xc8, 0x4a, 0xf4,
+	0x63, 0xee, 0x0d, 0x7d, 0x7f, 0x38, 0xc2, 0x8e, 0x3d, 0x76, 0x3b, 0xb6, 0xe7, 0xf9, 0xc2, 0x16,
+	0xae, 0xef, 0x85, 0x2a, 0xc8, 0xdc, 0xd5, 0xb3, 0x34, 0xba, 0xbc, 0x19, 0x74, 0xf0, 0x7a, 0x2c,
+	0x6e, 0xd5, 0x24, 0xff, 0x04, 0xe0, 0xd4, 0x0e, 0x2d, 0x7c, 0x75, 0x83, 0xa1, 0x60, 0x0d, 0xb8,
+	0x17, 0x61, 0x10, 0xba, 0xbe, 0xd7, 0x30, 0x9a, 0xc6, 0x41, 0xc1, 0x8a, 0x87, 0xec, 0x3e, 0x14,
+	0x5e, 0xe2, 0x6d, 0x63, 0xa5, 0x69, 0x1c, 0xac, 0x5b, 0xf2, 0x2f, 0x7f, 0x04, 0x70, 0x82, 0x22,
+	0x5e, 0xa9, 0xe7, 0x8d, 0x74, 0xfe, 0x08, 0xb6, 0x4f, 0x50, 0x5c, 0xa8, 0xf5, 0xd8, 0xff, 0x37,
+	0x14, 0x1f, 0x03, 0x74, 0x17, 0x50, 0xb0, 0x1a, 0x94, 0x22, 0x7b, 0x74, 0x83, 0x7a, 0x8d, 0x1a,
+	0xf0, 0x77, 0xa0, 0x6a, 0xe1, 0xb5, 0x1f, 0xe1, 0xfc, 0xdc, 0x3e, 0x84, 0xda, 0x17, 0x38, 0x42,
+	0x81, 0x3a, 0xbd, 0xa5, 0xc9, 0xc9, 0x15, 0x3a, 0xf6, 0xf8, 0xb5, 0x1b, 0x8a, 0xe5, 0x8a, 0xf1,
+	0x17, 0x50, 0xbd, 0xc0, 0xc0, 0x1d, 0xdc, 0xc6, 0xa1, 0xbb, 0xb0, 0x16, 0xf8, 0xbe, 0xe8, 0x39,
+	0x76, 0xe8, 0xe8, 0x64, 0x56, 0xe5, 0x87, 0x53, 0x3b, 0x74, 0xd8, 0xbb, 0x20, 0xcf, 0xd2, 0x1f,
+	0xd0, 0x56, 0x2a, 0x87, 0x5b, 0xea, 0x78, 0xda, 0x96, 0xed, 0x0d, 0xf1, 0xb9, 0x9c, 0xb0, 0xd4,
+	0x3c, 0xff, 0xc5, 0x80, 0x2d, 0x85, 0x7b, 0x26, 0xf0, 0xfa, 0x7f, 0xc5, 0x8e, 0x85, 0x2a, 0xe4,
+	0x28, 0x5c, 0xcc, 0x2a, 0xec, 0x91, 0x18, 0xee, 0xe0, 0xf6, 0xe8, 0x32, 0x44, 0xef, 0x0a, 0xdf,
+	0x70, 0x16, 0x7c, 0x1f, 0x2a, 0x64, 0xd2, 0x70, 0xec, 0x7b, 0x21, 0xb2, 0x1d, 0x28, 0x07, 0x18,
+	0xde, 0x8c, 0x04, 0x71, 0xac, 0x5a, 0x7a, 0xc4, 0x9f, 0x42, 0x85, 0x1c, 0xa9, 0xc3, 0x6a, 0x50,
+	0x72, 0xbd, 0x3e, 0xbe, 0xd6, 0x07, 0xa3, 0x06, 0x73, 0x3c, 0xb3, 0x0f, 0x95, 0x6e, 0x66, 0xe9,
+	0x3c, 0x86, 0xcf, 0x60, 0x23, 0xb6, 0x56, 0x4a, 0xa2, 0xe0, 0x8c, 0x0c, 0x9c, 0x74, 0x45, 0x40,
+	0x71, 0x7d, 0xa2, 0x59, 0xb5, 0xe2, 0x21, 0x3f, 0x87, 0xed, 0xae, 0x1d, 0xa5, 0xbe, 0xd3, 0x30,
+	0x0b, 0x95, 0xcb, 0x78, 0x6c, 0x65, 0xd2, 0x63, 0xcf, 0xa0, 0x3e, 0xe5, 0xe3, 0xff, 0x86, 0xd7,
+	0x82, 0xcd, 0x69, 0xa4, 0xf9, 0x06, 0x6f, 0xc1, 0xba, 0x84, 0xbb, 0x13, 0x27, 0xef, 0x40, 0x7d,
+	0xea, 0xfe, 0x2c, 0x91, 0xfa, 0x05, 0xd4, 0x4e, 0x50, 0x7c, 0xe3, 0x0a, 0x47, 0x99, 0x63, 0xb1,
+	0xe0, 0x77, 0xbe, 0x3e, 0x3f, 0x1b, 0xb0, 0x41, 0x1f, 0xce, 0x3c, 0x0f, 0x83, 0x67, 0x7e, 0x9f,
+	0x32, 0x70, 0xd0, 0x1d, 0x3a, 0x2a, 0x83, 0x92, 0xa5, 0x47, 0x8c, 0x41, 0x31, 0x74, 0x7f, 0x40,
+	0xad, 0x11, 0xfd, 0xcf, 0xaa, 0x51, 0x98, 0xac, 0x5e, 0x0c, 0x8a, 0x23, 0x1c, 0x08, 0x7d, 0x51,
+	0xe8, 0xbf, 0xcc, 0x35, 0x20, 0xe0, 0x92, 0xca, 0x95, 0x06, 0xfc, 0x5b, 0xa8, 0x52, 0x06, 0xe7,
+	0x68, 0x0f, 0x28, 0x81, 0xd9, 0xc2, 0xf6, 0x10, 0x80, 0xf6, 0xa5, 0xb4, 0x54, 0x4e, 0x5d, 0xa3,
+	0x2f, 0xd3, 0x07, 0x38, 0x99, 0x05, 0x7f, 0x0a, 0xf0, 0xdc, 0x16, 0xce, 0xd7, 0xbe, 0x04, 0x67,
+	0x2d, 0x28, 0x79, 0x7e, 0x1f, 0xc3, 0x86, 0xd1, 0x2c, 0x1c, 0x54, 0x0e, 0xeb, 0x5a, 0x95, 0xc9,
+	0xfd, 0x5b, 0x2a, 0x86, 0xff, 0x69, 0x00, 0xa4, 0x7a, 0xe5, 0x24, 0xd5, 0x86, 0x35, 0xb9, 0xab,
+	0xde, 0xd8, 0x16, 0xce, 0x94, 0xce, 0x29, 0xa7, 0xb5, 0x2a, 0x63, 0xe4, 0x98, 0x1d, 0x42, 0xc5,
+	0x95, 0x24, 0x3d, 0x95, 0x43, 0x81, 0x72, 0xc8, 0x59, 0x01, 0x6e, 0x9c, 0x4a, 0xc8, 0xde, 0x87,
+	0xf2, 0x08, 0xed, 0x08, 0xc3, 0x46, 0x91, 0xc2, 0x6b, 0xd9, 0x94, 0x63, 0xc1, 0x2c, 0x1d, 0x73,
+	0xf8, 0x47, 0x05, 0x2a, 0x67, 0x47, 0x17, 0xe7, 0x5d, 0x0c, 0x22, 0xf7, 0x0a, 0xd9, 0x39, 0x14,
+	0x4e, 0xed, 0x90, 0xc5, 0x1c, 0xe9, 0xc3, 0x66, 0xb2, 0xec, 0x27, 0xe5, 0x24, 0xfe, 0xe8, 0xd7,
+	0xbf, 0xfe, 0xfe, 0x7d, 0xa5, 0xc1, 0x76, 0x3a, 0xd1, 0x47, 0x1d, 0x11, 0x20, 0x76, 0x7e, 0xd4,
+	0x32, 0xfe, 0xd4, 0x71, 0xec, 0x90, 0x7d, 0x0e, 0x85, 0x13, 0x14, 0x09, 0x5a, 0xfa, 0xd8, 0x25,
+	0x68, 0x99, 0x6a, 0xc3, 0x6b, 0x84, 0xb6, 0xc1, 0xd6, 0x13, 0xb4, 0x21, 0x0a, 0xd6, 0x83, 0xf5,
+	0xac, 0x8b, 0xf3, 0xc0, 0x76, 0xd3, 0x4f, 0x33, 0x6e, 0xe7, 0x6f, 0x13, 0xea, 0x5b, 0xec, 0x41,
+	0x16, 0xb5, 0xf7, 0xbd, 0x2b, 0x9c, 0x9e, 0x2a, 0x96, 0x0e, 0x11, 0x24, 0xaf, 0x2c, 0x33, 0x53,
+	0xb4, 0xe9, 0xa7, 0x37, 0x37, 0xed, 0x03, 0x22, 0xe0, 0xac, 0x99, 0x23, 0x82, 0xa4, 0x8a, 0x12,
+	0xe4, 0xdf, 0x0c, 0xa8, 0x67, 0x51, 0xd3, 0x4d, 0x2d, 0xe2, 0x5c, 0xb8, 0xbb, 0x27, 0x44, 0xfe,
+	0x01, 0x6b, 0x2d, 0x23, 0xcf, 0xee, 0xf8, 0x18, 0x0a, 0xdd, 0xcc, 0xb1, 0x74, 0x67, 0x8f, 0x25,
+	0x53, 0xc9, 0xf9, 0x03, 0xa2, 0xd8, 0xe2, 0xe9, 0xb1, 0x84, 0x28, 0x3e, 0x35, 0xde, 0x63, 0x5f,
+	0x41, 0x59, 0x95, 0x72, 0x16, 0x7b, 0x6c, 0xa2, 0x69, 0x30, 0xeb, 0x53, 0x5f, 0x35, 0x9e, 0x49,
+	0x78, 0x35, 0xbe, 0x99, 0xe0, 0xa9, 0xca, 0x2e, 0x21, 0xaf, 0xa0, 0x92, 0xa9, 0xed, 0x6c, 0xa7,
+	0xad, 0x1a, 0xaf, 0x76, 0xdc, 0x78, 0xb5, 0x8f, 0x65, 0xe3, 0x65, 0xc6, 0x72, 0xe5, 0xbc, 0x03,
+	0xbc, 0x49, 0xf0, 0x26, 0xaf, 0xa7, 0xe9, 0xda, 0x11, 0xc6, 0x42, 0x48, 0x12, 0x0f, 0xaa, 0x13,
+	0x25, 0x9f, 0xc5, 0x0a, 0xe7, 0x35, 0x34, 0xe6, 0x5e, 0xfe, 0xa4, 0x66, 0xe3, 0xc4, 0xb6, 0xc7,
+	0x53, 0x77, 0xf5, 0x29, 0x2e, 0xcb, 0xd7, 0x85, 0x7b, 0xcb, 0x36, 0xb4, 0xa3, 0x49, 0xa6, 0xe1,
+	0x1b, 0x04, 0xcf, 0xd8, 0xfd, 0x04, 0x3e, 0x2e, 0x96, 0x5f, 0x42, 0x91, 0x0a, 0xd9, 0x3c, 0xc4,
+	0xed, 0xf4, 0xba, 0x26, 0xef, 0x0b, 0xaf, 0x13, 0xdc, 0x26, 0xab, 0x26, 0x70, 0xb2, 0x3a, 0xb2,
+	0x97, 0xd4, 0x67, 0xa5, 0x2f, 0x4b, 0x22, 0x48, 0x5e, 0xbf, 0x96, 0x08, 0x92, 0xfb, 0x18, 0xe5,
+	0x5c, 0x37, 0x9d, 0x71, 0x0f, 0x15, 0xf6, 0x77, 0x50, 0x56, 0x9d, 0x4f, 0xe2, 0x9a, 0x89, 0x1e,
+	0xcf, 0x9c, 0xb3, 0x21, 0xfe, 0x98, 0x80, 0x1f, 0xb2, 0xdd, 0xd4, 0x36, 0xb2, 0xd4, 0x2a, 0x4b,
+	0x4b, 0x12, 0x09, 0xe9, 0x00, 0xa4, 0x9d, 0x1d, 0x6b, 0x4c, 0x10, 0x64, 0x9a, 0xbd, 0xb9, 0x24,
+	0xb3, 0x77, 0x79, 0x96, 0xa4, 0xe7, 0x4a, 0xec, 0x57, 0x71, 0x6f, 0xaa, 0x1b, 0xb8, 0xac, 0x66,
+	0x33, 0x6d, 0xdd, 0x5c, 0xbe, 0x16, 0xf1, 0xed, 0xb3, 0xc7, 0x8b, 0xf8, 0x6c, 0x85, 0x75, 0x59,
+	0xa6, 0xc5, 0x4f, 0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0xd8, 0x2f, 0x38, 0xc1, 0xc9, 0x0c, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1087,13 +1264,17 @@ type IAVLServiceClient interface {
 	// Get returns a result containing the IAVL tree version and value for a given
 	// key based on the current state (version) of the tree.
 	Get(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetResponse, error)
+	// GetWithProof returns a result containing the IAVL tree version and value for
+	// a given key based on the current state (version) of the tree including a
+	// verifiable Merkle proof.
+	GetWithProof(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetWithProofResponse, error)
 	// GetVersioned returns a result containing the IAVL tree version and value
 	// for a given key at a specific tree version.
 	GetVersioned(ctx context.Context, in *GetVersionedRequest, opts ...grpc.CallOption) (*GetResponse, error)
 	// GetVersionedWithProof returns a result containing the IAVL tree version and
 	// value for a given key at a specific tree version including a verifiable Merkle
 	// proof.
-	GetVersionedWithProof(ctx context.Context, in *GetVersionedRequest, opts ...grpc.CallOption) (*GetVersionedWithProofResponse, error)
+	GetVersionedWithProof(ctx context.Context, in *GetVersionedRequest, opts ...grpc.CallOption) (*GetWithProofResponse, error)
 	// Set returns a result after inserting a key/value pair into the IAVL tree
 	// based on the current state (version) of the tree.
 	Set(ctx context.Context, in *SetRequest, opts ...grpc.CallOption) (*SetResponse, error)
@@ -1115,6 +1296,15 @@ type IAVLServiceClient interface {
 	// VersionExists returns a result containing a boolean on whether or not a given
 	// version exists in the IAVL tree.
 	VersionExists(ctx context.Context, in *VersionExistsRequest, opts ...grpc.CallOption) (*VersionExistsResponse, error)
+	// Verify verifies an IAVL range proof returning an error if the proof is
+	// invalid.
+	Verify(ctx context.Context, in *VerifyRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// VerifyItem verifies if a given key/value pair in an IAVL range proof returning
+	// an error if the proof or key is invalid.
+	VerifyItem(ctx context.Context, in *VerifyItemRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// VerifyAbsence verifies the absence of a given key in an IAVL range proof
+	// returning an error if the proof or key is invalid.
+	VerifyAbsence(ctx context.Context, in *VerifyAbsenceRequest, opts ...grpc.CallOption) (*empty.Empty, error)
 }
 
 type iAVLServiceClient struct {
@@ -1143,6 +1333,15 @@ func (c *iAVLServiceClient) Get(ctx context.Context, in *GetRequest, opts ...grp
 	return out, nil
 }
 
+func (c *iAVLServiceClient) GetWithProof(ctx context.Context, in *GetRequest, opts ...grpc.CallOption) (*GetWithProofResponse, error) {
+	out := new(GetWithProofResponse)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/GetWithProof", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *iAVLServiceClient) GetVersioned(ctx context.Context, in *GetVersionedRequest, opts ...grpc.CallOption) (*GetResponse, error) {
 	out := new(GetResponse)
 	err := c.cc.Invoke(ctx, "/proto.IAVLService/GetVersioned", in, out, opts...)
@@ -1152,8 +1351,8 @@ func (c *iAVLServiceClient) GetVersioned(ctx context.Context, in *GetVersionedRe
 	return out, nil
 }
 
-func (c *iAVLServiceClient) GetVersionedWithProof(ctx context.Context, in *GetVersionedRequest, opts ...grpc.CallOption) (*GetVersionedWithProofResponse, error) {
-	out := new(GetVersionedWithProofResponse)
+func (c *iAVLServiceClient) GetVersionedWithProof(ctx context.Context, in *GetVersionedRequest, opts ...grpc.CallOption) (*GetWithProofResponse, error) {
+	out := new(GetWithProofResponse)
 	err := c.cc.Invoke(ctx, "/proto.IAVLService/GetVersionedWithProof", in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1224,6 +1423,33 @@ func (c *iAVLServiceClient) VersionExists(ctx context.Context, in *VersionExists
 	return out, nil
 }
 
+func (c *iAVLServiceClient) Verify(ctx context.Context, in *VerifyRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/Verify", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) VerifyItem(ctx context.Context, in *VerifyItemRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/VerifyItem", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) VerifyAbsence(ctx context.Context, in *VerifyAbsenceRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/proto.IAVLService/VerifyAbsence", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IAVLServiceServer is the server API for IAVLService service.
 type IAVLServiceServer interface {
 	// Has returns a result containing a boolean on whether or not the IAVL tree
@@ -1232,13 +1458,17 @@ type IAVLServiceServer interface {
 	// Get returns a result containing the IAVL tree version and value for a given
 	// key based on the current state (version) of the tree.
 	Get(context.Context, *GetRequest) (*GetResponse, error)
+	// GetWithProof returns a result containing the IAVL tree version and value for
+	// a given key based on the current state (version) of the tree including a
+	// verifiable Merkle proof.
+	GetWithProof(context.Context, *GetRequest) (*GetWithProofResponse, error)
 	// GetVersioned returns a result containing the IAVL tree version and value
 	// for a given key at a specific tree version.
 	GetVersioned(context.Context, *GetVersionedRequest) (*GetResponse, error)
 	// GetVersionedWithProof returns a result containing the IAVL tree version and
 	// value for a given key at a specific tree version including a verifiable Merkle
 	// proof.
-	GetVersionedWithProof(context.Context, *GetVersionedRequest) (*GetVersionedWithProofResponse, error)
+	GetVersionedWithProof(context.Context, *GetVersionedRequest) (*GetWithProofResponse, error)
 	// Set returns a result after inserting a key/value pair into the IAVL tree
 	// based on the current state (version) of the tree.
 	Set(context.Context, *SetRequest) (*SetResponse, error)
@@ -1260,6 +1490,15 @@ type IAVLServiceServer interface {
 	// VersionExists returns a result containing a boolean on whether or not a given
 	// version exists in the IAVL tree.
 	VersionExists(context.Context, *VersionExistsRequest) (*VersionExistsResponse, error)
+	// Verify verifies an IAVL range proof returning an error if the proof is
+	// invalid.
+	Verify(context.Context, *VerifyRequest) (*empty.Empty, error)
+	// VerifyItem verifies if a given key/value pair in an IAVL range proof returning
+	// an error if the proof or key is invalid.
+	VerifyItem(context.Context, *VerifyItemRequest) (*empty.Empty, error)
+	// VerifyAbsence verifies the absence of a given key in an IAVL range proof
+	// returning an error if the proof or key is invalid.
+	VerifyAbsence(context.Context, *VerifyAbsenceRequest) (*empty.Empty, error)
 }
 
 // UnimplementedIAVLServiceServer can be embedded to have forward compatible implementations.
@@ -1272,10 +1511,13 @@ func (*UnimplementedIAVLServiceServer) Has(ctx context.Context, req *HasRequest)
 func (*UnimplementedIAVLServiceServer) Get(ctx context.Context, req *GetRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Get not implemented")
 }
+func (*UnimplementedIAVLServiceServer) GetWithProof(ctx context.Context, req *GetRequest) (*GetWithProofResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetWithProof not implemented")
+}
 func (*UnimplementedIAVLServiceServer) GetVersioned(ctx context.Context, req *GetVersionedRequest) (*GetResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersioned not implemented")
 }
-func (*UnimplementedIAVLServiceServer) GetVersionedWithProof(ctx context.Context, req *GetVersionedRequest) (*GetVersionedWithProofResponse, error) {
+func (*UnimplementedIAVLServiceServer) GetVersionedWithProof(ctx context.Context, req *GetVersionedRequest) (*GetWithProofResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetVersionedWithProof not implemented")
 }
 func (*UnimplementedIAVLServiceServer) Set(ctx context.Context, req *SetRequest) (*SetResponse, error) {
@@ -1298,6 +1540,15 @@ func (*UnimplementedIAVLServiceServer) Hash(ctx context.Context, req *empty.Empt
 }
 func (*UnimplementedIAVLServiceServer) VersionExists(ctx context.Context, req *VersionExistsRequest) (*VersionExistsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method VersionExists not implemented")
+}
+func (*UnimplementedIAVLServiceServer) Verify(ctx context.Context, req *VerifyRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Verify not implemented")
+}
+func (*UnimplementedIAVLServiceServer) VerifyItem(ctx context.Context, req *VerifyItemRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyItem not implemented")
+}
+func (*UnimplementedIAVLServiceServer) VerifyAbsence(ctx context.Context, req *VerifyAbsenceRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method VerifyAbsence not implemented")
 }
 
 func RegisterIAVLServiceServer(s *grpc.Server, srv IAVLServiceServer) {
@@ -1336,6 +1587,24 @@ func _IAVLService_Get_Handler(srv interface{}, ctx context.Context, dec func(int
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(IAVLServiceServer).Get(ctx, req.(*GetRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_GetWithProof_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).GetWithProof(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.IAVLService/GetWithProof",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).GetWithProof(ctx, req.(*GetRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1502,6 +1771,60 @@ func _IAVLService_VersionExists_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IAVLService_Verify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).Verify(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.IAVLService/Verify",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).Verify(ctx, req.(*VerifyRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_VerifyItem_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyItemRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).VerifyItem(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.IAVLService/VerifyItem",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).VerifyItem(ctx, req.(*VerifyItemRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_VerifyAbsence_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyAbsenceRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).VerifyAbsence(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/proto.IAVLService/VerifyAbsence",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).VerifyAbsence(ctx, req.(*VerifyAbsenceRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _IAVLService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "proto.IAVLService",
 	HandlerType: (*IAVLServiceServer)(nil),
@@ -1513,6 +1836,10 @@ var _IAVLService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Get",
 			Handler:    _IAVLService_Get_Handler,
+		},
+		{
+			MethodName: "GetWithProof",
+			Handler:    _IAVLService_GetWithProof_Handler,
 		},
 		{
 			MethodName: "GetVersioned",
@@ -1549,6 +1876,18 @@ var _IAVLService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VersionExists",
 			Handler:    _IAVLService_VersionExists_Handler,
+		},
+		{
+			MethodName: "Verify",
+			Handler:    _IAVLService_Verify_Handler,
+		},
+		{
+			MethodName: "VerifyItem",
+			Handler:    _IAVLService_VerifyItem_Handler,
+		},
+		{
+			MethodName: "VerifyAbsence",
+			Handler:    _IAVLService_VerifyAbsence_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
