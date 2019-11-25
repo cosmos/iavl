@@ -39,7 +39,7 @@ service IAVLService {
   // proof.
   rpc GetVersionedWithProof(GetVersionedRequest) returns (GetVersionedWithProofResponse) {
     option (google.api.http) = {
-      get: "/v1/tree/get_versioned_with_proof"
+      get: "/v1/tree/{version}/get_versioned_with_proof"
     };
   }
 
