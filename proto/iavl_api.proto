@@ -135,6 +135,13 @@ service IAVLService {
       get: "/v1/tree/range_proof/verify_absence"
     };
   }
+
+  rpc Rollback(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/tree/rollback"
+      body: "*"
+    };
+  }
 }
 
 // ----------------------------------------------------------------------------
