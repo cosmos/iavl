@@ -54,6 +54,13 @@ func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse
 	return &pb.GetResponse{Index: idx, Value: value}, nil
 }
 
+// GetWithProof returns a result containing the IAVL tree version and value for
+// a given key based on the current state (version) of the tree including a
+// verifiable Merkle proof.
+func (s *IAVLServer) GetWithProof(ctx context.Context, req *pb.GetRequest) (*pb.GetWithProofResponse, error) {
+	panic("not implemented")
+}
+
 // GetVersioned returns a result containing the IAVL tree version and value
 // for a given key at a specific tree version.
 func (s *IAVLServer) GetVersioned(_ context.Context, req *pb.GetVersionedRequest) (*pb.GetResponse, error) {
@@ -74,7 +81,7 @@ func (s *IAVLServer) GetVersioned(_ context.Context, req *pb.GetVersionedRequest
 // GetVersionedWithProof returns a result containing the IAVL tree version and
 // value for a given key at a specific tree version including a verifiable Merkle
 // proof.
-func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersionedRequest) (*pb.GetVersionedWithProofResponse, error) {
+func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersionedRequest) (*pb.GetWithProofResponse, error) {
 	value, proof, err := s.tree.GetVersionedWithProof(req.Key, req.Version)
 	if err != nil {
 		return nil, err
@@ -129,7 +136,7 @@ func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersion
 		}
 	}
 
-	return &pb.GetVersionedWithProofResponse{Value: value, Proof: proofPb}, nil
+	return &pb.GetWithProofResponse{Value: value, Proof: proofPb}, nil
 }
 
 // Set returns a result after inserting a key/value pair into the IAVL tree
@@ -195,4 +202,21 @@ func (s *IAVLServer) Hash(_ context.Context, _ *empty.Empty) (*pb.HashResponse, 
 // version exists in the IAVL tree.
 func (s *IAVLServer) VersionExists(_ context.Context, req *pb.VersionExistsRequest) (*pb.VersionExistsResponse, error) {
 	return &pb.VersionExistsResponse{Result: s.tree.VersionExists(req.Version)}, nil
+}
+
+// Verify verifies an IAVL range proof returning an error if the proof is invalid.
+func (s *IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Empty, error) {
+	panic("not implemented")
+}
+
+// VerifyItem verifies if a given key/value pair in an IAVL range proof returning
+// an error if the proof or key is invalid.
+func (s *IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*empty.Empty, error) {
+	panic("not implemented")
+}
+
+// VerifyAbsence verifies the absence of a given key in an IAVL range proof
+// returning an error if the proof or key is invalid.
+func (s *IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceRequest) (*empty.Empty, error) {
+	panic("not implemented")
 }
