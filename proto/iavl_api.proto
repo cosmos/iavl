@@ -25,6 +25,15 @@ service IAVLService {
       get: "/v1/tree/get"
     };
   }
+
+  // GetWithProof returns a result containing the IAVL tree version and value for
+  // a given key based on the current state (version) of the tree including a
+  // verifiable Merkle proof.
+  rpc GetWithProof(GetRequest) returns (GetWithProofResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/get_with_proof"
+    };
+  }
   
   // GetVersioned returns a result containing the IAVL tree version and value
   // for a given key at a specific tree version.
@@ -37,7 +46,7 @@ service IAVLService {
   // GetVersionedWithProof returns a result containing the IAVL tree version and
   // value for a given key at a specific tree version including a verifiable Merkle
   // proof.
-  rpc GetVersionedWithProof(GetVersionedRequest) returns (GetVersionedWithProofResponse) {
+  rpc GetVersionedWithProof(GetVersionedRequest) returns (GetWithProofResponse) {
     option (google.api.http) = {
       get: "/v1/tree/{version}/get_versioned_with_proof"
     };
@@ -102,6 +111,30 @@ service IAVLService {
       get: "/v1/tree/version_exists"
     };
   }
+
+  // Verify verifies an IAVL range proof returning an error if the proof is
+  // invalid.
+  rpc Verify(VerifyRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/tree/range_proof/verify"
+    };
+  }
+
+  // VerifyItem verifies if a given key/value pair in an IAVL range proof returning
+  // an error if the proof or key is invalid.
+  rpc VerifyItem(VerifyItemRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/tree/range_proof/verify_item"
+    };
+  }
+
+  // VerifyAbsence verifies the absence of a given key in an IAVL range proof
+  // returning an error if the proof or key is invalid.
+  rpc VerifyAbsence(VerifyAbsenceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/tree/range_proof/verify_absence"
+    };
+  }
 }
 
 // ----------------------------------------------------------------------------
@@ -137,6 +170,24 @@ message DeleteVersionRequest {
 
 message VersionExistsRequest {
   int64 version = 1;
+}
+
+message VerifyRequest {
+  bytes root_hash = 1;
+  RangeProof proof = 2;
+}
+
+message VerifyItemRequest {
+  bytes root_hash = 1;
+  RangeProof proof = 2;
+  bytes key = 3;
+  bytes value = 4;
+}
+
+message VerifyAbsenceRequest {
+  bytes root_hash = 1;
+  RangeProof proof = 2;
+  bytes key = 3;
 }
 
 // ----------------------------------------------------------------------------
@@ -183,7 +234,7 @@ message VersionExistsResponse {
   bool result = 1;
 }
 
-message GetVersionedWithProofResponse {
+message GetWithProofResponse {
   bytes value = 1;
   RangeProof proof = 2;
 }
