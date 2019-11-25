@@ -22,7 +22,7 @@ type IAVLServer struct {
 func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
 	tree := iavl.NewMutableTree(db, int(cacheSize))
 
-	// TODO: Consider storing and load latest height (per version save) when the
+	// TODO: Consider storing (per version save) and load latest height when the
 	// provided version is zero.
 
 	if _, err := tree.LoadVersion(version); err != nil {
