@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -14,6 +15,7 @@ import (
 	"github.com/gogo/gateway"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkg/errors"
+	dbm "github.com/tendermint/tm-db"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
@@ -22,6 +24,11 @@ import (
 )
 
 var (
+	dbDataDir       = flag.String("datadir", "", "The database data directory")
+	dbName          = flag.String("db-name", "", "The database name")
+	dbBackend       = flag.String("db-backend", string(dbm.GoLevelDBBackend), "The database backend")
+	version         = flag.Int64("version", 0, "The IAVL version to load")
+	cacheSize       = flag.Int64("cache-size", 10000, "Tree cache size")
 	gRPCEndpoint    = flag.String("grpc-endpoint", "localhost:8090", "The gRPC server endpoint (host:port)")
 	gatewayEndpoint = flag.String("gateway-endpoint", "localhost:8091", "The gRPC-Gateway server endpoint (host:port)")
 	cpuProfile      = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
@@ -49,20 +56,30 @@ func main() {
 	// start gRPC-gateway process
 	go func() {
 		if err := startRPCGateway(); err != nil {
-			log.Error(err)
+			log.Fatal(err)
 		}
 	}()
 
 	// start gRPC (blocking) process
 	listener, err := net.Listen("tcp", *gRPCEndpoint)
 	if err != nil {
-		log.Errorf("failed to listen on %s: %s", *gRPCEndpoint, err)
+		log.Fatalf("failed to listen on %s: %s", *gRPCEndpoint, err)
 	}
 
 	var svrOpts []grpc.ServerOption
 	grpcServer := grpc.NewServer(svrOpts...)
 
-	pb.RegisterIAVLServiceServer(grpcServer, server.New())
+	db, err := openDB()
+	if err != nil {
+		log.Fatalf("failed to open DB: %s", err)
+	}
+
+	svr, err := server.New(db, *cacheSize, *version)
+	if err != nil {
+		log.Fatalf("failed to create IAVL server: %s", err)
+	}
+
+	pb.RegisterIAVLServiceServer(grpcServer, svr)
 
 	trapSignal(func() {
 		log.Info("performing cleanup...")
@@ -72,7 +89,7 @@ func main() {
 	log.Infof("gRPC server starting on %s", *gRPCEndpoint)
 
 	if err := grpcServer.Serve(listener); err != nil {
-		log.Errorf("gRPC server terminated: %s", err)
+		log.Fatalf("gRPC server terminated: %s", err)
 	}
 
 	// write memory profile if requested
@@ -114,6 +131,29 @@ func startRPCGateway() error {
 	}
 
 	return nil
+}
+
+func openDB() (dbm.DB, error) {
+	var err error
+
+	switch {
+	case *dbName == "":
+		return nil, errors.New("database name cannot be empty")
+
+	case *dbBackend == "":
+		return nil, errors.New("database backend cannot be empty")
+
+	case *dbDataDir == "":
+		return nil, errors.New("database datadir cannot be empty")
+	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to create db: %v", r)
+		}
+	}()
+
+	return dbm.NewDB(*dbName, dbm.DBBackendType(*dbBackend), *dbDataDir), err
 }
 
 // trapSignal will listen for any OS signal and invokes a callback function to
