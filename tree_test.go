@@ -1,3 +1,4 @@
+// nolint:errcheck
 package iavl
 
 import (
@@ -19,7 +20,7 @@ var testLevelDB bool
 var testFuzzIterations int
 var random *cmn.Rand
 
-func init() {
+func SetupTest() {
 	random = cmn.NewRand()
 	random.Seed(0) // for determinism
 	flag.BoolVar(&testLevelDB, "test.leveldb", false, "test leveldb backend")
@@ -43,7 +44,7 @@ func getTestDB() (db.DB, func()) {
 
 func TestVersionedRandomTree(t *testing.T) {
 	require := require.New(t)
-
+	SetupTest()
 	d, closeDB := getTestDB()
 	defer closeDB()
 

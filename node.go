@@ -206,7 +206,10 @@ func (node *Node) _hash() []byte {
 	if err := node.writeHashBytes(buf); err != nil {
 		panic(err)
 	}
-	h.Write(buf.Bytes())
+	_, err := h.Write(buf.Bytes())
+	if err != nil {
+		panic(err)
+	}
 	node.hash = h.Sum(nil)
 
 	return node.hash
@@ -225,7 +228,10 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 	if err != nil {
 		panic(err)
 	}
-	h.Write(buf.Bytes())
+	_, err = h.Write(buf.Bytes())
+	if err != nil {
+		panic(err)
+	}
 	node.hash = h.Sum(nil)
 
 	return node.hash, hashCount + 1
@@ -296,10 +302,23 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 	return
 }
 
+func (node *Node) aminoSize() int {
+	n := 1 +
+		amino.VarintSize(node.size) +
+		amino.VarintSize(node.version) +
+		amino.ByteSliceSize(node.key)
+	if node.isLeaf() {
+		n += amino.ByteSliceSize(node.value)
+	} else {
+		n += amino.ByteSliceSize(node.leftHash) +
+			amino.ByteSliceSize(node.rightHash)
+	}
+	return n
+}
+
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) error {
-	var cause error
-	cause = amino.EncodeInt8(w, node.height)
+	cause := amino.EncodeInt8(w, node.height)
 	if cause != nil {
 		return errors.Wrap(cause, "writing height")
 	}

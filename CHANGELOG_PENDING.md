@@ -3,6 +3,7 @@
 \*\*
 
 Special thanks to external contributors on this release:
+@rickyyangz
 
 ### BREAKING CHANGES
 
@@ -10,6 +11,6 @@ Special thanks to external contributors on this release:
 
 ### IMPROVEMENTS
 
-- [/#46](https://github.com/tendermint/iavl/issues/46) Removal of all instances of cmn from tendermint in Ival repo
+### Bug Fix
 
-- [/#158] Add constructor to IAVL that can define a pruning strategy. Only persist to disk snapshot versions and keep a specified number of versions in memDB. This greatly reduces IO load of IAVL.
+- [#177](https://github.com/tendermint/iavl/pull/177) Collect all orphans after remove (@rickyyangz)

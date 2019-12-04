@@ -1,3 +1,4 @@
+// nolint: errcheck scopelint
 package benchmarks
 
 import (
@@ -153,7 +154,7 @@ func BenchmarkRandomBytes(b *testing.B) {
 }
 
 type benchmark struct {
-	dbType              db.DBBackendType
+	dbType              db.BackendType
 	initSize, blockSize int
 	keyLen, dataLen     int
 }
@@ -269,15 +270,19 @@ func runSuite(b *testing.B, d db.DB, keepEvery int64, keepRecent int64, initSize
 	b.ResetTimer()
 
 	b.Run("query-miss", func(sub *testing.B) {
+		sub.ReportAllocs()
 		runQueries(sub, t, keyLen)
 	})
 	b.Run("query-hits", func(sub *testing.B) {
+		sub.ReportAllocs()
 		runKnownQueries(sub, t, keys)
 	})
 	b.Run("update", func(sub *testing.B) {
+		sub.ReportAllocs()
 		t = runUpdate(sub, t, dataLen, blockSize, keys)
 	})
 	b.Run("block", func(sub *testing.B) {
+		sub.ReportAllocs()
 		t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
 	})
 

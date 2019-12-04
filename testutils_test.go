@@ -1,3 +1,4 @@
+// nolint:errcheck
 package iavl
 
 import (
@@ -8,7 +9,7 @@ import (
 
 	mrand "math/rand"
 
-	"github.com/tendermint/go-amino"
+	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/iavl/common"
 	db "github.com/tendermint/tm-db"
 )
