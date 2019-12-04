@@ -117,15 +117,15 @@ func PrintKeys(tree *iavl.MutableTree) {
 func parseWeaveKey(key []byte) string {
 	cut := bytes.IndexRune(key, ':')
 	if cut == -1 {
-		return encodeId(key)
+		return encodeID(key)
 	}
 	prefix := key[:cut]
 	id := key[cut+1:]
-	return fmt.Sprintf("%s:%s", encodeId(prefix), encodeId(id))
+	return fmt.Sprintf("%s:%s", encodeID(prefix), encodeID(id))
 }
 
 // casts to a string if it is printable ascii, hex-encodes otherwise
-func encodeId(id []byte) string {
+func encodeID(id []byte) string {
 	for _, b := range id {
 		if b < 0x20 || b >= 0x80 {
 			return strings.ToUpper(hex.EncodeToString(id))

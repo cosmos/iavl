@@ -21,3 +21,9 @@ linters:
     - gochecknoglobals
     - gocritic
     - gochecknoinits
+    - godox
+    - wsl
+    - whitespace
+    - funlen
+    - gocognit
+    - errcheck

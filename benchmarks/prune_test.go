@@ -89,6 +89,7 @@ func BenchmarkPruningStrategies(b *testing.B) {
 		// {10000, 100}, // SDK pruning
 	}
 	for _, ps := range ps {
+		ps := ps
 		prefix := fmt.Sprintf("PruningStrategy{%d-%d}-KeyLen:%d-DataLen:%d", ps.keepEvery, ps.keepRecent, 16, 40)
 
 		b.Run(prefix, func(sub *testing.B) {
