@@ -31,7 +31,7 @@ func (p *program) Execute(tree *MutableTree) (err error) {
 				}
 				str += prefix + instr.String() + "\n"
 			}
-			err = fmt.Errorf("Program panicked with: %s\n%s", r, str)
+			err = fmt.Errorf("program panicked with: %s\n%s", r, str)
 		}
 	}()
 

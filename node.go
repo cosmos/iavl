@@ -18,14 +18,14 @@ import (
 type Node struct {
 	key       []byte
 	value     []byte
-	version   int64
-	height    int8
-	size      int64
 	hash      []byte
 	leftHash  []byte
-	leftNode  *Node
 	rightHash []byte
+	version   int64
+	size      int64
+	leftNode  *Node
 	rightNode *Node
+	height    int8
 	saved     bool // saved to memory or disk
 	persisted bool // persisted to disk
 }
@@ -393,6 +393,7 @@ func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool
 	})
 }
 
+// nolint:unused,deadcode
 func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*Node, uint8) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, 0, cb)
 }

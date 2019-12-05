@@ -41,23 +41,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	if args[0] == "data" {
+	switch args[0] {
+	case "data":
 		PrintKeys(tree)
 		fmt.Printf("Hash: %X\n", tree.Hash())
 		fmt.Printf("Size: %X\n", tree.Size())
-	} else if args[0] == "shape" {
+	case "shape":
 		PrintShape(tree)
-	} else if args[0] == "versions" {
+	case "versions":
 		PrintVersions(tree)
 	}
 }
 
 func OpenDb(dir string) (dbm.DB, error) {
-	if strings.HasSuffix(dir, ".db") {
+	switch {
+	case strings.HasSuffix(dir, ".db"):
 		dir = dir[:len(dir)-3]
-	} else if strings.HasSuffix(dir, ".db/") {
+	case strings.HasSuffix(dir, ".db/"):
 		dir = dir[:len(dir)-4]
-	} else {
+	default:
 		return nil, fmt.Errorf("database directory must end with .db")
 	}
 	// TODO: doesn't work on windows!
@@ -73,13 +75,14 @@ func OpenDb(dir string) (dbm.DB, error) {
 	return db, nil
 }
 
+// nolint: unused,deadcode
 func PrintDbStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
 	iter := db.Iterator(nil, nil)
 	for ; iter.Valid(); iter.Next() {
 		key := string(iter.Key()[:1])
-		prefix[key] = prefix[key] + 1
+		prefix[key]++
 		count++
 	}
 	iter.Close()

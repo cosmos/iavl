@@ -1160,7 +1160,7 @@ func TestLazyLoadVersion(t *testing.T) {
 	for i := 0; i < maxVersions; i++ {
 		tree.Set([]byte(fmt.Sprintf("key_%d", i+1)), []byte(fmt.Sprintf("value_%d", i+1)))
 
-		_, _, err := tree.SaveVersion()
+		_, _, err = tree.SaveVersion()
 		require.NoError(t, err, "SaveVersion should not fail")
 	}
 
