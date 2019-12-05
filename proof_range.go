@@ -19,9 +19,9 @@ type RangeProof struct {
 	Leaves     []proofLeafNode `json:"leaves"`
 
 	// memoize
-	rootVerified bool
 	rootHash     []byte // valid iff rootVerified is true
-	treeEnd      bool   // valid iff rootVerified is true
+	rootVerified bool
+	treeEnd      bool // valid iff rootVerified is true
 
 }
 
@@ -127,9 +127,9 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	if cmp < 0 {
 		if proof.LeftPath.isLeftmost() {
 			return nil
-		} else {
-			return errors.New("absence not proved by left path")
 		}
+		return errors.New("absence not proved by left path")
+
 	} else if cmp == 0 {
 		return errors.New("absence disproved via first item #0")
 	}
@@ -144,11 +144,12 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	for i := 1; i < len(proof.Leaves); i++ {
 		leaf := proof.Leaves[i]
 		cmp := bytes.Compare(key, leaf.Key)
-		if cmp < 0 {
+		switch {
+		case cmp < 0:
 			return nil // proof ok
-		} else if cmp == 0 {
+		case cmp == 0:
 			return errors.New(fmt.Sprintf("absence disproved via item #%v", i))
-		} else {
+		default:
 			// if i == len(proof.Leaves)-1 {
 			// If last item, check whether
 			// it's the last item in the tree.
@@ -166,9 +167,9 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	// It's not a valid absence proof.
 	if len(proof.Leaves) < 2 {
 		return errors.New("absence not proved by right leaf (need another leaf?)")
-	} else {
-		return errors.New("absence not proved by right leaf")
 	}
+	return errors.New("absence not proved by right leaf")
+
 }
 
 // Verify that proof is valid.
@@ -191,9 +192,8 @@ func (proof *RangeProof) verify(root []byte) (err error) {
 	}
 	if !bytes.Equal(rootHash, root) {
 		return errors.Wrap(ErrInvalidRoot, "root hash doesn't match")
-	} else {
-		proof.rootVerified = true
 	}
+	proof.rootVerified = true
 	return nil
 }
 

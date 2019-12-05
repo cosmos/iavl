@@ -129,7 +129,7 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 	// nolint
 	nil______ := []byte(nil)
 
-	cases := []struct {
+	cases := []struct { // nolint:maligned
 		start byte
 		end   byte
 		pkeys []byte // proof keys, one byte per key.

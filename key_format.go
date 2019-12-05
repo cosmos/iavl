@@ -31,7 +31,7 @@ func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 	// For prefix byte
 	length := 1
 	for _, l := range layout {
-		length += int(l)
+		length += l
 	}
 	return &KeyFormat{
 		prefix: prefix,
@@ -63,7 +63,7 @@ func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
 // element of the entire keys space when sorted lexicographically).
 func (kf *KeyFormat) Key(args ...interface{}) []byte {
 	if len(args) > len(kf.layout) {
-		panic(fmt.Errorf("KeyFormat.Key() is provided with %d args but format only has %d segments",
+		panic(fmt.Errorf("keyFormat.Key() is provided with %d args but format only has %d segments",
 			len(args), len(kf.layout)))
 	}
 	segments := make([][]byte, len(args))
@@ -92,7 +92,7 @@ func (kf *KeyFormat) ScanBytes(key []byte) [][]byte {
 func (kf *KeyFormat) Scan(key []byte, args ...interface{}) {
 	segments := kf.ScanBytes(key)
 	if len(args) > len(segments) {
-		panic(fmt.Errorf("KeyFormat.Scan() is provided with %d args but format only has %d segments in key %X",
+		panic(fmt.Errorf("keyFormat.Scan() is provided with %d args but format only has %d segments in key %X",
 			len(args), len(segments), key))
 	}
 	for i, a := range args {
@@ -115,7 +115,7 @@ func scan(a interface{}, value []byte) {
 	case *[]byte:
 		*v = value
 	default:
-		panic(fmt.Errorf("KeyFormat scan() does not support scanning value of type %T: %v", a, a))
+		panic(fmt.Errorf("keyFormat scan() does not support scanning value of type %T: %v", a, a))
 	}
 }
 
@@ -133,7 +133,7 @@ func format(a interface{}) []byte {
 	case []byte:
 		return v
 	default:
-		panic(fmt.Errorf("KeyFormat format() does not support formatting value of type %T: %v", a, a))
+		panic(fmt.Errorf("keyFormat format() does not support formatting value of type %T: %v", a, a))
 	}
 }
 

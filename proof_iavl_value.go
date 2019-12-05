@@ -15,7 +15,7 @@ const ProofOpIAVLValue = "iavl:v"
 //
 // If the produced root hash matches the expected hash, the proof
 // is good.
-type IAVLValueOp struct {
+type ValueOp struct {
 	// Encoded in ProofOp.Key.
 	key []byte
 
@@ -25,28 +25,28 @@ type IAVLValueOp struct {
 	Proof *RangeProof `json:"proof"`
 }
 
-var _ merkle.ProofOperator = IAVLValueOp{}
+var _ merkle.ProofOperator = ValueOp{}
 
-func NewIAVLValueOp(key []byte, proof *RangeProof) IAVLValueOp {
-	return IAVLValueOp{
+func NewValueOp(key []byte, proof *RangeProof) ValueOp {
+	return ValueOp{
 		key:   key,
 		Proof: proof,
 	}
 }
 
-func IAVLValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
-	var op IAVLValueOp // a bit strange as we'll discard this, but it works.
+	var op ValueOp // a bit strange as we'll discard this, but it works.
 	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
 	if err != nil {
 		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLValueOp")
 	}
-	return NewIAVLValueOp(pop.Key, op.Proof), nil
+	return NewValueOp(pop.Key, op.Proof), nil
 }
 
-func (op IAVLValueOp) ProofOp() merkle.ProofOp {
+func (op ValueOp) ProofOp() merkle.ProofOp {
 	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
 	return merkle.ProofOp{
 		Type: ProofOpIAVLValue,
@@ -55,13 +55,13 @@ func (op IAVLValueOp) ProofOp() merkle.ProofOp {
 	}
 }
 
-func (op IAVLValueOp) String() string {
+func (op ValueOp) String() string {
 	return fmt.Sprintf("IAVLValueOp{%v}", op.GetKey())
 }
 
-func (op IAVLValueOp) Run(args [][]byte) ([][]byte, error) {
+func (op ValueOp) Run(args [][]byte) ([][]byte, error) {
 	if len(args) != 1 {
-		return nil, errors.New("Value size is not 1")
+		return nil, errors.New("value size is not 1")
 	}
 	value := args[0]
 
@@ -75,13 +75,13 @@ func (op IAVLValueOp) Run(args [][]byte) ([][]byte, error) {
 	// XXX What is the encoding for keys?
 	// We should decode the key depending on whether it's a string or hex,
 	// maybe based on quotes and 0x prefix?
-	err = op.Proof.VerifyItem([]byte(op.key), value)
+	err = op.Proof.VerifyItem(op.key, value)
 	if err != nil {
 		return nil, errors.Wrap(err, "verifying value")
 	}
 	return [][]byte{root}, nil
 }
 
-func (op IAVLValueOp) GetKey() []byte {
+func (op ValueOp) GetKey() []byte {
 	return op.key
 }
