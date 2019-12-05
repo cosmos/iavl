@@ -68,8 +68,8 @@ $(GOLANGCI_LINT):
 tools-clean:
 	rm -f $(PROTOBUF)  $(GOLANGCI_LINT)
 	rm -f tools-stamp
-	rm -rf /usr/local/include/google/protobuf
-	rm -f /usr/local/bin/protoc
+	sudo rm -rf /usr/local/include/google/protobuf
+	sudo rm -f /usr/local/bin/protoc
 
 ###
 # Non Go tools
@@ -92,8 +92,10 @@ protoc:
 	@echo "Get Protobuf"
 	@echo "In case of any errors, please install directly from https://github.com/protocolbuffers/protobuf/releases"
 	@curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.10.1/$(PROTOC_ZIP)
-	@unzip -o $(PROTOC_ZIP) -d /usr/local bin/protoc
-	@unzip -o $(PROTOC_ZIP) -d /usr/local 'include/*'
+	@sudo unzip -o $(PROTOC_ZIP) -d /usr/local bin/protoc
+	@sudo unzip -o $(PROTOC_ZIP) -d /usr/local 'include/*'
+	@sudo chmod 755 /usr/local/bin/protoc
+	@sudo chmod 755 /usr/local/includ
 	@rm -f $(PROTOC_ZIP)
 
 .PHONY: all tools tools-clean protoc golangci-lint
