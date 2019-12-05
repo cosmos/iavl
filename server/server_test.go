@@ -272,6 +272,14 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 			[]byte("NEW_VALUE"),
 		},
 		{
+			"existing key (old version)",
+			nil,
+			[]byte("key-0"),
+			1,
+			false,
+			[]byte("value-0"),
+		},
+		{
 			"non-existent key",
 			nil,
 			[]byte("key-1000"),
