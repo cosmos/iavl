@@ -46,7 +46,7 @@ GOLANGCI_LINT     	= $(TOOLS_DESTDIR)/golangci-lint
 
 all: tools
 
-tools: protobuf golangci-lint
+tools: protobuf golangci-lint protoc
 
 check: check_tools
 
