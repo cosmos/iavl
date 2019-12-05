@@ -15,6 +15,9 @@ jobs:
           command: |
             make test
       - run:
+          name: tools
+          command: make tools
+      - run:
           name: protolint
           command: |
             make protolint
