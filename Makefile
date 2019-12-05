@@ -1,4 +1,6 @@
-GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
+GOTOOLS := \
+		github.com/golangci/golangci-lint/cmd/golangci-lint \
+		github.com/gogo/protobuf/protoc-gen-gogo
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
