@@ -1,3 +1,4 @@
+// nolint:unused,deadcode
 package iavl
 
 import (
@@ -125,7 +126,7 @@ func (pl PathToLeaf) dropRoot() PathToLeaf {
 	if pl.isEmpty() {
 		return pl
 	}
-	return PathToLeaf(pl[:len(pl)-1])
+	return pl[:len(pl)-1]
 }
 
 func (pl PathToLeaf) hasCommonRoot(pl2 PathToLeaf) bool {
@@ -151,15 +152,16 @@ func (pl PathToLeaf) isLeftAdjacentTo(pl2 PathToLeaf) bool {
 // returns -1 if invalid.
 func (pl PathToLeaf) Index() (idx int64) {
 	for i, node := range pl {
-		if node.Left == nil {
+		switch {
+		case node.Left == nil:
 			continue
-		} else if node.Right == nil {
+		case node.Right == nil:
 			if i < len(pl)-1 {
 				idx += node.Size - pl[i+1].Size
 			} else {
 				idx += node.Size - 1
 			}
-		} else {
+		default:
 			return -1
 		}
 	}

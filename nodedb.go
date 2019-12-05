@@ -462,14 +462,15 @@ func (ndb *nodeDB) String() string {
 	str += "\n"
 
 	ndb.traverseNodes(func(hash []byte, node *Node) {
-		if len(hash) == 0 {
+		switch {
+		case len(hash) == 0:
 			str += fmt.Sprintf("<nil>\n")
-		} else if node == nil {
+		case node == nil:
 			str += fmt.Sprintf("%s%40x: <nil>\n", nodeKeyFormat.Prefix(), hash)
-		} else if node.value == nil && node.height > 0 {
+		case node.value == nil && node.height > 0:
 			str += fmt.Sprintf("%s%40x: %s   %-16s h=%d version=%d\n",
 				nodeKeyFormat.Prefix(), hash, node.key, "", node.height, node.version)
-		} else {
+		default:
 			str += fmt.Sprintf("%s%40x: %s = %-16s h=%d version=%d\n",
 				nodeKeyFormat.Prefix(), hash, node.key, node.value, node.height, node.version)
 		}
