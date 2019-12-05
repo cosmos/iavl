@@ -305,10 +305,10 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 				if tc.result != nil {
 					proof := iavl.ConvertProtoRangeProof(res.Proof)
 
-					hashResp, err := suite.server.Hash(context.TODO(), nil)
-					suite.NoError(err)
+					rootHash := proof.ComputeRootHash()
+					suite.Equal(tc.expectErr, rootHash == nil)
 
-					suite.NoError(proof.Verify(hashResp.RootHash), fmt.Sprintf("root: %X\nproof: %s", hashResp.GetRootHash(), proof))
+					suite.NoError(proof.Verify(rootHash), fmt.Sprintf("root: %X\nproof: %s", rootHash, proof))
 				}
 			}
 		})
@@ -365,6 +365,76 @@ func (suite *ServerTestSuite) TestRemove() {
 			if !tc.expectErr {
 				suite.Equal(tc.value, res.Value)
 				suite.Equal(tc.removed, res.Removed)
+			}
+		})
+	}
+}
+
+func (suite *ServerTestSuite) TestVerify() {
+	testCases := []struct {
+		name      string
+		preRun    func()
+		key       []byte
+		version   int64
+		expectErr bool
+		result    []byte
+	}{
+		{
+			"verify with existing key",
+			nil,
+			[]byte("key-0"),
+			1,
+			false,
+			[]byte("value-0"),
+		},
+		{
+			"verify with existing modified key",
+			func() {
+				req := &pb.SetRequest{
+					Key:   []byte("key-0"),
+					Value: []byte("NEW_VALUE"),
+				}
+
+				_, err := suite.server.Set(context.TODO(), req)
+				suite.NoError(err)
+
+				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				suite.NoError(err)
+			},
+			[]byte("key-0"),
+			2,
+			false,
+			[]byte("NEW_VALUE"),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			suite.Equal(tc.expectErr, err != nil)
+
+			if !tc.expectErr {
+				suite.Equal(tc.result, res.Value)
+
+				if tc.result != nil {
+					proof := iavl.ConvertProtoRangeProof(res.Proof)
+					rootHash := proof.ComputeRootHash()
+					suite.Equal(tc.expectErr, rootHash == nil)
+
+					verifyReq := &pb.VerifyRequest{
+						RootHash: rootHash,
+						Proof:    res.Proof,
+					}
+
+					_, err := suite.server.Verify(context.TODO(), verifyReq)
+					suite.NoError(err)
+
+				}
 			}
 		})
 	}
