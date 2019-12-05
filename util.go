@@ -204,6 +204,7 @@ func ConvertRangeProofToProto(key []byte, proof *RangeProof) *pb.RangeProof {
 			Version:   l.Version,
 		}
 	}
+
 	return proofPb
 }
 

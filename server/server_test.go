@@ -370,6 +370,7 @@ func (suite *ServerTestSuite) TestRemove() {
 	}
 }
 
+// nolint:funlen
 func (suite *ServerTestSuite) TestVerify() {
 	testCases := []struct {
 		name      string
@@ -433,7 +434,6 @@ func (suite *ServerTestSuite) TestVerify() {
 
 					_, err := suite.server.Verify(context.TODO(), verifyReq)
 					suite.NoError(err)
-
 				}
 			}
 		})
