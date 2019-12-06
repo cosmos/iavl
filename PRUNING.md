@@ -2,7 +2,7 @@
 
 Setting Pruning fields in the IAVL tree can optimize performance by only writing versions to disk if they are meant to be persisted indefinitely. Versions that are known to be deleted eventually are temporarily held in memory until they are ready to be pruned. This greatly reduces the I/O load of IAVL.
 
-We can set custom pruning fields in IAVL using: `NewMutableTreePruningOpts`
+We can set custom pruning fields in IAVL using: `NewMutableTreeWithOpts`
 
 
 ## Current design
