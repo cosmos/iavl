@@ -411,15 +411,15 @@ func traverseOrphansFromDB(db dbm.DB, fn func(k, v []byte)) {
 // Traverse orphans ending at a certain version.
 // NOTE: If orphan is in recentDB and levelDB (version > latestVersion-keepRecent && version%keepEvery == 0)
 // traverse will return the node twice.
-func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
-	prefix := orphanKeyFormat.Key(version)
-	if ndb.isRecentVersion(version) {
-		traversePrefixFromDB(ndb.recentDB, prefix, fn)
-	}
-	if ndb.isSnapshotVersion(version) {
-		traversePrefixFromDB(ndb.snapshotDB, prefix, fn)
-	}
-}
+// func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
+// 	prefix := orphanKeyFormat.Key(version)
+// 	if ndb.isRecentVersion(version) {
+// 		traversePrefixFromDB(ndb.recentDB, prefix, fn)
+// 	}
+// 	if ndb.isSnapshotVersion(version) {
+// 		traversePrefixFromDB(ndb.snapshotDB, prefix, fn)
+// 	}
+// }
 
 func traverseOrphansVersionFromDB(db dbm.DB, version int64, fn func(k, v []byte)) {
 	prefix := orphanKeyFormat.Key(version)

@@ -60,10 +60,10 @@ func TestSave(t *testing.T) {
 
 	// check all expected versions are available.
 	for j := keepEvery; j <= mt.Version(); j += keepEvery {
-		require.True(t, mt.VersionExists(int64(j)), "Expected snapshot version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", j, PruningOptions(keepEvery, keepRecent))
+		require.True(t, mt.VersionExists(j), "Expected snapshot version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", j, PruningOptions(keepEvery, keepRecent))
 	}
 	for k := mt.Version() - keepRecent + 1; k <= mt.Version(); k++ {
-		require.True(t, mt.VersionExists(int64(k)), "Expected recent version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", k, PruningOptions(keepEvery, keepRecent))
+		require.True(t, mt.VersionExists(k), "Expected recent version: %d to be available in nodeDB. KeepEvery: %d, KeepRecent: %d", k, PruningOptions(keepEvery, keepRecent))
 	}
 
 	// check that there only exists correct number of roots in nodeDB
@@ -201,7 +201,8 @@ func TestRemoveKeys(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			mt.Set([]byte(fmt.Sprintf("v%d:%d", v, i)), []byte(fmt.Sprintf("Val:v:%d:%d", v, i)))
 		}
-		mt.SaveVersion()
+		_, _, err := mt.SaveVersion()
+		require.NoError(t, err)
 	}
 
 	numNodes := mt.nodeSize()
@@ -212,13 +213,15 @@ func TestRemoveKeys(t *testing.T) {
 			_, removed := mt.Remove([]byte(key))
 			require.True(t, removed, "Key %s could not be removed", key)
 		}
-		mt.SaveVersion()
+		_, _, err := mt.SaveVersion()
+		require.NoError(t, err)
 	}
 
 	require.Equal(t, numNodes, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "Number of Nodes in snapshotDB are unexpected")
 
 	// Delete only non-empty tree in snapshotDB
-	mt.DeleteVersion(10)
+	err := mt.DeleteVersion(10)
+	require.NoError(t, err)
 	require.Equal(t, 0, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "Still have nodes in snapshotDB")
 }
 
@@ -335,7 +338,8 @@ func TestSanity2(t *testing.T) {
 	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
 
 	for i := 1; i < 5; i++ {
-		mt.DeleteVersion(int64(i))
+		err := mt.DeleteVersion(int64(i))
+		require.NoError(t, err)
 	}
 
 	require.Equal(t, mt.nodeSize()+size, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
@@ -377,7 +381,8 @@ func TestSanity3(t *testing.T) {
 
 	require.Equal(t, numSnapNodes, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
 
-	mt.DeleteVersion(100)
+	err := mt.DeleteVersion(100)
+	require.NoError(t, err)
 
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
 }
