@@ -339,7 +339,7 @@ func TestSanity2(t *testing.T) {
 
 	for i := 1; i < 5; i++ {
 		err := mt.DeleteVersion(int64(i))
-		require.NoError(t, err)
+		require.NotNil(t, err)
 	}
 
 	require.Equal(t, mt.nodeSize()+size, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
