@@ -27,6 +27,7 @@ tools:
 lint:
 	@echo "--> Running linter"
 	@golangci-lint run
+	@go mod verify
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:

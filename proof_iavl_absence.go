@@ -14,7 +14,7 @@ const ProofOpIAVLAbsence = "iavl:a"
 //
 // If the produced root hash matches the expected hash, the proof
 // is good.
-type IAVLAbsenceOp struct {
+type AbsenceOp struct {
 	// Encoded in ProofOp.Key.
 	key []byte
 
@@ -24,28 +24,28 @@ type IAVLAbsenceOp struct {
 	Proof *RangeProof `json:"proof"`
 }
 
-var _ merkle.ProofOperator = IAVLAbsenceOp{}
+var _ merkle.ProofOperator = AbsenceOp{}
 
-func NewIAVLAbsenceOp(key []byte, proof *RangeProof) IAVLAbsenceOp {
-	return IAVLAbsenceOp{
+func NewAbsenceOp(key []byte, proof *RangeProof) AbsenceOp {
+	return AbsenceOp{
 		key:   key,
 		Proof: proof,
 	}
 }
 
-func IAVLAbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
-	var op IAVLAbsenceOp // a bit strange as we'll discard this, but it works.
+	var op AbsenceOp // a bit strange as we'll discard this, but it works.
 	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
 	if err != nil {
 		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLAbsenceOp")
 	}
-	return NewIAVLAbsenceOp(pop.Key, op.Proof), nil
+	return NewAbsenceOp(pop.Key, op.Proof), nil
 }
 
-func (op IAVLAbsenceOp) ProofOp() merkle.ProofOp {
+func (op AbsenceOp) ProofOp() merkle.ProofOp {
 	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
 	return merkle.ProofOp{
 		Type: ProofOpIAVLAbsence,
@@ -54,11 +54,11 @@ func (op IAVLAbsenceOp) ProofOp() merkle.ProofOp {
 	}
 }
 
-func (op IAVLAbsenceOp) String() string {
+func (op AbsenceOp) String() string {
 	return fmt.Sprintf("IAVLAbsenceOp{%v}", op.GetKey())
 }
 
-func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
+func (op AbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	if len(args) != 0 {
 		return nil, errors.Errorf("expected 0 args, got %v", len(args))
 	}
@@ -76,13 +76,13 @@ func (op IAVLAbsenceOp) Run(args [][]byte) ([][]byte, error) {
 	// XXX What is the encoding for keys?
 	// We should decode the key depending on whether it's a string or hex,
 	// maybe based on quotes and 0x prefix?
-	err = op.Proof.VerifyAbsence([]byte(op.key))
+	err = op.Proof.VerifyAbsence(op.key)
 	if err != nil {
 		return nil, errors.Wrap(err, "verifying absence")
 	}
 	return [][]byte{root}, nil
 }
 
-func (op IAVLAbsenceOp) GetKey() []byte {
+func (op AbsenceOp) GetKey() []byte {
 	return op.key
 }
