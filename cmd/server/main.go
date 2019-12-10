@@ -153,7 +153,7 @@ func openDB() (dbm.DB, error) {
 		}
 	}()
 
-	return dbm.NewDB(*dbName, dbm.DBBackendType(*dbBackend), *dbDataDir), err
+	return dbm.NewDB(*dbName, dbm.BackendType(*dbBackend), *dbDataDir), err
 }
 
 // trapSignal will listen for any OS signal and invokes a callback function to
