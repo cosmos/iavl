@@ -1,64 +1,26 @@
 ###
-# Find OS and Go environment
-# GO contains the Go binary
-# FS contains the OS file separator
-###
-ifeq ($(OS),Windows_NT)
-  GO := $(shell where go.exe 2> NUL)
-  FS := "\\"
-else
-  GO := $(shell command -v go 2> /dev/null)
-  FS := "/"
-endif
-
-ifeq ($(GO),)
-  $(error could not find go. Is it in PATH? $(GO))
-endif
-
-GOPATH ?= $(shell $(GO) env GOPATH)
-GITHUBDIR := $(GOPATH)$(FS)src$(FS)github.com
-
-###
-# Functions
-###
-
-go_get = $(if $(findstring Windows_NT,$(OS)),\
-IF NOT EXIST $(GITHUBDIR)$(FS)$(1)$(FS) ( mkdir $(GITHUBDIR)$(FS)$(1) ) else (cd .) &\
-IF NOT EXIST $(GITHUBDIR)$(FS)$(1)$(FS)$(2)$(FS) ( cd $(GITHUBDIR)$(FS)$(1) && git clone https://github.com/$(1)/$(2) ) else (cd .) &\
-,\
-mkdir -p $(GITHUBDIR)$(FS)$(1) &&\
-(test ! -d $(GITHUBDIR)$(FS)$(1)$(FS)$(2) && cd $(GITHUBDIR)$(FS)$(1) && git clone https://github.com/$(1)/$(2)) || true &&\
-)\
-cd $(GITHUBDIR)$(FS)$(1)$(FS)$(2) && git fetch origin && git checkout -q $(3)
-
-mkfile_path := $(abspath $(lastword $(MAKEFILE_LIST)))
-mkfile_dir := $(shell cd $(shell dirname $(mkfile_path)); pwd)
-
-###
 # Go tools
 ###
 
 TOOLS_DESTDIR  ?= $(GOPATH)/bin
 
-PROTOBUF     	= $(TOOLS_DESTDIR)/protoc
-
-GOLANGCI_LINT     	= $(TOOLS_DESTDIR)/golangci-lint
+GOLANGCI_LINT   = $(TOOLS_DESTDIR)/golangci-lint
 
 all: tools
 
-tools: protobuf golangci-lint protoc
+tools: protoc gogo-protobuf golangci-lint protoc-gen-grpc-gateway protoc-gen-lint
 
-check: check_tools
-
-check_tools:
-	@# https://stackoverflow.com/a/25668869
-	@echo "Found tools: $(foreach tool,$(notdir $(GOTOOLS)),\
-        $(if $(shell which $(tool)),$(tool),$(error "No $(tool) in PATH")))"
-
-protobuf: $(PROTOBUF)
-$(PROTOBUF):
-	@echo "Get GoGo Protobuf"
+gogo-protobuf: 
+	@echo "Get GoGo Protobuf codegen tools"
 	@go get github.com/gogo/protobuf/protoc-gen-gogo@v1.3.1
+
+protoc-gen-grpc-gateway: 
+	@echo "Get grpc-gateway gRPC codegen tools"
+	@go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+
+protoc-gen-lint:
+	@echo "Get protoc-gen-lint protobuf gen linter"
+	@go get -u github.com/ckaznocha/protoc-gen-lint
 
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT):
@@ -66,10 +28,10 @@ $(GOLANGCI_LINT):
 	@go get github.com/golangci/golangci-lint/cmd/golangci-lint
 
 tools-clean:
-	rm -f $(PROTOBUF)  $(GOLANGCI_LINT)
+	rm -f $(GOLANGCI_LINT)
 	rm -f tools-stamp
-	sudo rm -rf /usr/local/include/google/protobuf
-	sudo rm -f /usr/local/bin/protoc
+	rm -rf $(HOME)/.local/include/google/protobuf
+	rm -f $(HOME)/.local/bin/protoc
 
 ###
 # Non Go tools
@@ -92,10 +54,8 @@ protoc:
 	@echo "Get Protobuf"
 	@echo "In case of any errors, please install directly from https://github.com/protocolbuffers/protobuf/releases"
 	@curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.10.1/$(PROTOC_ZIP)
-	@sudo unzip -o $(PROTOC_ZIP) -d /usr/local bin/protoc
-	@sudo unzip -o $(PROTOC_ZIP) -d /usr/local 'include/*'
-	@sudo chmod 755 /usr/local/bin/protoc
-	@sudo chmod 755 /usr/local/includ
+	@unzip -o $(PROTOC_ZIP) -d $(HOME)/.local bin/protoc
+	@unzip -o $(PROTOC_ZIP) -d $(HOME)/.local 'include/*'
 	@rm -f $(PROTOC_ZIP)
 
-.PHONY: all tools tools-clean protoc golangci-lint
+.PHONY: all tools tools-clean protoc gogo-protobuf golangci-lint protoc-gen-grpc-gateway protoc-gen-lint
