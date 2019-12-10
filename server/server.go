@@ -13,7 +13,7 @@ import (
 
 var _ pb.IAVLServiceServer = (*IAVLServer)(nil)
 
-// iavlServer implements the gRPC IAVLServiceServer interface. It provides a gRPC
+// IAVLServer implements the gRPC IAVLServiceServer interface. It provides a gRPC
 // API over an IAVL tree.
 type IAVLServer struct {
 	tree *iavl.MutableTree

@@ -378,7 +378,6 @@ func (suite *ServerTestSuite) TestVerify() {
 		key       []byte
 		version   int64
 		expectErr bool
-		result    []byte
 	}{
 		{
 			"verify with existing key",
@@ -386,7 +385,6 @@ func (suite *ServerTestSuite) TestVerify() {
 			[]byte("key-0"),
 			1,
 			false,
-			[]byte("value-0"),
 		},
 		{
 			"verify with existing modified key",
@@ -405,7 +403,6 @@ func (suite *ServerTestSuite) TestVerify() {
 			[]byte("key-0"),
 			2,
 			false,
-			[]byte("NEW_VALUE"),
 		},
 	}
 
@@ -420,22 +417,130 @@ func (suite *ServerTestSuite) TestVerify() {
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
-				suite.Equal(tc.result, res.Value)
 
-				if tc.result != nil {
-					proof := iavl.ConvertProtoRangeProof(res.Proof)
-					rootHash := proof.ComputeRootHash()
-					suite.Equal(tc.expectErr, rootHash == nil)
+				proof := iavl.ConvertProtoRangeProof(res.Proof)
+				rootHash := proof.ComputeRootHash()
+				suite.Equal(tc.expectErr, rootHash == nil)
 
-					verifyReq := &pb.VerifyRequest{
-						RootHash: rootHash,
-						Proof:    res.Proof,
-					}
-
-					_, err := suite.server.Verify(context.TODO(), verifyReq)
-					suite.NoError(err)
+				verifyReq := &pb.VerifyRequest{
+					RootHash: rootHash,
+					Proof:    res.Proof,
 				}
+
+				_, err := suite.server.Verify(context.TODO(), verifyReq)
+				suite.NoError(err)
 			}
+		})
+	}
+}
+
+// nolint:funlen
+func (suite *ServerTestSuite) TestVerifyAbsense() {
+	testCases := []struct {
+		name            string
+		preRun          func()
+		existingKey     []byte
+		questionableKey []byte
+		version         int64
+		expectErr       bool
+	}{
+		{
+			"verify absence with non-existing key",
+			nil,
+			[]byte("key-0"),
+			[]byte("non-existing-key"),
+			1,
+			false,
+		},
+		{
+			"verify with existing key",
+			nil,
+			[]byte("key-0"),
+			[]byte("key-1"),
+			1,
+			true,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.existingKey})
+			if err != nil {
+				proof := iavl.ConvertProtoRangeProof(res.Proof)
+				rootHash := proof.ComputeRootHash()
+				suite.Equal(tc.expectErr, rootHash == nil)
+
+				verifyAbsReq := &pb.VerifyAbsenceRequest{
+					RootHash: rootHash,
+					Proof:    res.Proof,
+					Key:      tc.questionableKey,
+				}
+
+				_, err := suite.server.VerifyAbsence(context.TODO(), verifyAbsReq)
+				suite.Equal(tc.expectErr, err != nil)
+			}
+
+		})
+	}
+}
+
+// nolint:funlen
+func (suite *ServerTestSuite) TestVerifyItem() {
+	testCases := []struct {
+		name      string
+		preRun    func()
+		key       []byte
+		version   int64
+		expectErr bool
+		value     []byte
+	}{
+		{
+			"verify item with existing key and value",
+			nil,
+			[]byte("key-0"),
+			1,
+			false,
+			[]byte("value-0"),
+		},
+		{
+			"fail to verify with existing key and incorrect value",
+			nil,
+			[]byte("key-0"),
+			1,
+			true,
+			[]byte("invalid-value"),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			if err != nil {
+				proof := iavl.ConvertProtoRangeProof(res.Proof)
+				rootHash := proof.ComputeRootHash()
+				suite.Equal(tc.expectErr, rootHash == nil)
+
+				verifyItemReq := &pb.VerifyItemRequest{
+					RootHash: rootHash,
+					Proof:    res.Proof,
+					Key:      tc.key,
+					Value:    tc.value,
+				}
+
+				_, err := suite.server.VerifyItem(context.TODO(), verifyItemReq)
+				suite.Equal(tc.expectErr, err != nil)
+			}
+
 		})
 	}
 }
@@ -487,6 +592,69 @@ func (suite *ServerTestSuite) TestVersionExists() {
 	res, err = suite.server.VersionExists(context.TODO(), &pb.VersionExistsRequest{Version: 2})
 	suite.NoError(err)
 	suite.False(res.Result)
+}
+
+// nolint:funlen
+func (suite *ServerTestSuite) TestRollback() {
+	testCases := []struct {
+		name      string
+		preRun    func()
+		key       []byte
+		version   int64
+		expectErr bool
+		value     []byte
+	}{
+		{
+			"make changes and rollback",
+			func() {
+				req := &pb.SetRequest{
+					Key:   []byte("key-0"),
+					Value: []byte("NEW_VALUE"),
+				}
+				_, err := suite.server.Set(context.TODO(), req)
+				suite.NoError(err)
+			},
+			[]byte("key-0"),
+			2,
+			false,
+			[]byte("value-0"),
+		},
+		{
+			"make changes, save, and rollback keeping changes",
+			func() {
+				req := &pb.SetRequest{
+					Key:   []byte("key-0"),
+					Value: []byte("NEW_VALUE"),
+				}
+				_, err := suite.server.Set(context.TODO(), req)
+				suite.NoError(err)
+
+				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				suite.NoError(err)
+			},
+			[]byte("key-0"),
+			2,
+			false,
+			[]byte("NEW_VALUE"),
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			_, err := suite.server.Rollback(context.TODO(), nil)
+			suite.Equal(tc.expectErr, err != nil)
+
+			res, getErr := suite.server.Get(context.TODO(), &pb.GetRequest{Key: tc.key})
+			suite.Equal(tc.expectErr, getErr != nil)
+
+			suite.Equal(res.Value, tc.value)
+		})
+	}
 }
 
 func TestServerTestSuite(t *testing.T) {
