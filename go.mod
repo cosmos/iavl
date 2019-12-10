@@ -4,7 +4,9 @@ go 1.12
 
 require (
 	github.com/gogo/gateway v1.1.0
+	github.com/gogo/protobuf v1.3.1 // indirect
 	github.com/golang/protobuf v1.3.2
+	github.com/golangci/golangci-lint v1.21.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.1
 	github.com/pkg/errors v0.8.1
 	github.com/stretchr/testify v1.4.0
