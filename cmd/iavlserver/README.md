@@ -18,10 +18,10 @@ make install
 ## Using the tool
 
 Please make sure it is properly installed and you have `${GOPATH}/bin` in your `PATH`.
-Typing `iavlgrpc -h` should print out the following usage message:
+Typing `iavlserver -h` should print out the following usage message:
 
 ```
-$ iavlgrpc -h
+$ iavlserver -h
 Usage of server:
   -cache-size int
         Tree cache size (default 10000)
@@ -51,11 +51,20 @@ Run the following command to start the gRPC server and gateway:
 
 ```shell
 mkdir -p tmp/datadir
-iavlgrpc -db-name "example-db" -datadir ./tmp
+iavlserver -db-name "example-db" -datadir ./tmp
 ```
 
 Once it is up and running you can test it is working by running:
 
 ```shell
 curl http://localhost:8091/v1/tree/version
+```
+
+The result should be:
+
+```shell
+$ curl http://localhost:8091/v1/tree/version
+{
+  "version": "0"
+}
 ```

@@ -56,8 +56,10 @@ func main() {
 
 	// start gRPC-gateway process
 	go func() {
-		if err := startRPCGateway(); err != nil {
-			log.Fatal(err)
+		if !(*noGateway) {
+			if err := startRPCGateway(); err != nil {
+				log.Fatal(err)
+			}
 		}
 	}()
 
