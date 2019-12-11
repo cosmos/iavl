@@ -22,7 +22,7 @@ Typing `iavlserver -h` should print out the following usage message:
 
 ```
 $ iavlserver -h
-Usage of server:
+Usage of iavlserver:
   -cache-size int
         Tree cache size (default 10000)
   -cpuprofile string
@@ -39,6 +39,8 @@ Usage of server:
         The gRPC server endpoint (host:port) (default "localhost:8090")
   -memprofile string
         If set, write memory profile to this file
+  -no-gateway
+        Disables the gRPC-Gateway server
   -version int
         The IAVL version to load
 ```
