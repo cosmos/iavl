@@ -14,10 +14,10 @@ include tools.mk
 install:
 ifeq ($(COLORS_ON),)
 	go install ./cmd/iaviewer
-	go install ./cmd/server
+	go install ./cmd/iavlserver
 else
 	go install $(CMDFLAGS) ./cmd/iaviewer
-	go install $(CMDFLAGS) ./cmd/server
+	go install $(CMDFLAGS) ./cmd/iavlserver
 endif
 
 test:

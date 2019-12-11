@@ -33,6 +33,7 @@ var (
 	gatewayEndpoint = flag.String("gateway-endpoint", "localhost:8091", "The gRPC-Gateway server endpoint (host:port)")
 	cpuProfile      = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
 	memProfile      = flag.String("memprofile", "", "If set, write memory profile to this file")
+	noGateway       = flag.Bool("no-gateway", false, "Disables the gRPC-Gateway server")
 )
 
 var log grpclog.LoggerV2

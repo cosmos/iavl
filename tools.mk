@@ -16,7 +16,10 @@ gogo-protobuf:
 
 protoc-gen-grpc-gateway: 
 	@echo "Get grpc-gateway gRPC codegen tools"
-	@go get -u github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
+	# Work around to get required protobuf files for codegen and linting.
+	@mkdir -p $(GOPATH)/src/github.com/grpc-ecosystem
+	@[ -d "$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis" ] || ( cd $(GOPATH)/src/github.com/grpc-ecosystem && git clone https://github.com/grpc-ecosystem/grpc-gateway )
+	@go get github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway
 
 protoc-gen-lint:
 	@echo "Get protoc-gen-lint protobuf gen linter"
@@ -51,6 +54,9 @@ ifneq ($(OS),Windows_NT)
 endif
 
 protoc:
+	[ -f "$(which protoc)" ] || make protoc-no-check
+
+protoc-no-check:
 	@echo "Get Protobuf"
 	@echo "In case of any errors, please install directly from https://github.com/protocolbuffers/protobuf/releases"
 	@curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.10.1/$(PROTOC_ZIP)
@@ -58,4 +64,4 @@ protoc:
 	@unzip -o $(PROTOC_ZIP) -d $(HOME)/.local 'include/*'
 	@rm -f $(PROTOC_ZIP)
 
-.PHONY: all tools tools-clean protoc gogo-protobuf golangci-lint protoc-gen-grpc-gateway protoc-gen-lint
+.PHONY: all tools tools-clean protoc gogo-protobuf golangci-lint protoc-gen-grpc-gateway protoc-gen-lint protoc-no-check
