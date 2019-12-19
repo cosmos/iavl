@@ -4,6 +4,7 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"runtime"
 	"testing"
 
@@ -30,7 +31,7 @@ func b2i(bz []byte) int {
 }
 
 // Construct a MutableTree with random pruning parameters
-func getTestTree(cacheSize int) *MutableTree {
+func getTestTree(cacheSize int) (*MutableTree, error) {
 	keepRecent := mrand.Int63n(8) + 2        //keep at least 2 versions in memDB
 	keepEvery := (mrand.Int63n(3) + 1) * 100 // snapshot every {100,200,300} versions
 
@@ -66,7 +67,7 @@ func N(l, r interface{}) *Node {
 
 // Setup a deep node
 func T(n *Node) *MutableTree {
-	t := getTestTree(0)
+	t, _ := getTestTree(0)
 
 	n.hashWithCount()
 	t.root = n
@@ -127,7 +128,9 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t := NewMutableTree(db, 100000)
+	t, err := NewMutableTree(db, 100000)
+	require.NoError(b, err)
+
 	value := []byte{}
 	for i := 0; i < 1000000; i++ {
 		t.Set(i2b(int(cmn.RandInt31())), value)

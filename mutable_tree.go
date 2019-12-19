@@ -24,14 +24,34 @@ type MutableTree struct {
 
 // NewMutableTree returns a new tree with the specified cache size and datastore
 // To maintain backwards compatibility, this function will initialize PruningStrategy{keepEvery: 1, keepRecent: 0}
-func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
+func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
 	// memDB is initialized but should never be written to
 	memDB := dbm.NewMemDB()
 	return NewMutableTreeWithOpts(db, memDB, cacheSize, nil)
 }
 
+func validateOptions(opts *Options) error {
+	switch {
+		case opts == nil:
+			return nil
+		case opts.KeepEvery < 0:
+			return errors.New("keep every cannot be negative")
+		case opts.KeepRecent < 0:
+			return errors.New("keep recent cannot be negative")
+		case opts.KeepRecent == 0 && opts.KeepEvery > 1:
+			// We cannot snapshot more than every one version when we don't keep any versions in memory.
+			return errors.New("keep recent cannot be zero when keep every is set larger than one")
+	}
+
+	return nil
+}
+
 // NewMutableTreeWithOpts returns a new tree with the specified cache size, datastores and options
-func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *MutableTree {
+func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) (*MutableTree, error) {
+	if err := validateOptions(opts); err != nil {
+		return nil, err
+	}
+
 	ndb := newNodeDB(snapDB, recentDB, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}
 
@@ -41,7 +61,7 @@ func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts 
 		orphans:       map[string]int64{},
 		versions:      map[int64]bool{},
 		ndb:           ndb,
-	}
+	}, nil
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are

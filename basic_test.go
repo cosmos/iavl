@@ -13,7 +13,8 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	tree := getTestTree(0)
+	tree, err := getTestTree(0)
+	require.NoError(t, err)
 	up := tree.Set([]byte("1"), []byte("one"))
 	if up {
 		t.Error("Did not expect an update (should have been create)")
@@ -189,7 +190,8 @@ func TestRemove(t *testing.T) {
 	keyLen, dataLen := 16, 40
 
 	size := 10000
-	t1 := getTestTree(size)
+	t1, err := getTestTree(size)
+	require.NoError(t, err)
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
@@ -219,7 +221,8 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	tree := getTestTree(0)
+	tree, err := getTestTree(0)
+	require.NoError(t, err)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -301,7 +304,8 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	tree := getTestTree(0)
+	tree, err := getTestTree(0)
+	require.NoError(t, err)
 
 	// insert all the data
 	for _, r := range records {
@@ -371,14 +375,16 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1 := NewMutableTree(db, 0)
+	t1, err := NewMutableTree(db, 0)
+	require.NoError(t, err)
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
 	t1.SaveVersion()
 
 	// Load a tree
-	t2 := NewMutableTree(db, 0)
+	t2, err := NewMutableTree(db, 0)
+	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
 		_, t2value := t2.Get([]byte(key))
@@ -391,7 +397,8 @@ func TestPersistence(t *testing.T) {
 func TestProof(t *testing.T) {
 
 	// Construct some random tree
-	tree := getTestTree(100)
+	tree, err := getTestTree(100)
+	require.NoError(t, err)
 	for i := 0; i < 10; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
@@ -420,7 +427,8 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	tree := NewMutableTree(db, 100)
+	tree, err := NewMutableTree(db, 100)
+	require.NoError(t, err)
 	assert.Equal(t, tree.Hash(), []byte(nil))
 
 	// should get false for proof with nil root

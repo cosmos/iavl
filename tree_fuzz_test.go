@@ -3,6 +3,7 @@ package iavl
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 
@@ -111,9 +112,10 @@ func TestMutableTreeFuzz(t *testing.T) {
 
 	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
-			tree := getTestTree(0)
+			tree, err := getTestTree(0)
+			require.NoError(t, err)
 			program := genRandomProgram(size)
-			err := program.Execute(tree)
+			err = program.Execute(tree)
 			if err != nil {
 				t.Fatalf("Error after %d iterations (size %d): %s\n%s", iterations, size, err.Error(), tree.String())
 			}

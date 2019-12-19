@@ -12,7 +12,8 @@ import (
 
 func TestDelete(t *testing.T) {
 	memDb := db.NewMemDB()
-	tree := NewMutableTree(memDb, 0)
+	tree, err := NewMutableTree(memDb, 0)
+	require.NoError(t, err)
 
 	tree.set([]byte("k1"), []byte("Fred"))
 	hash, version, err := tree.SaveVersion()
@@ -36,7 +37,8 @@ func TestDelete(t *testing.T) {
 
 func TestTraverse(t *testing.T) {
 	memDb := db.NewMemDB()
-	tree := NewMutableTree(memDb, 0)
+	tree, err := NewMutableTree(memDb, 0)
+	require.NoError(t, err)
 
 	for i := 0; i < 6; i++ {
 		tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
@@ -52,7 +54,8 @@ func TestEmptyRecents(t *testing.T) {
 		KeepEvery:  10000,
 	}
 
-	tree := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, &opts)
+	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, &opts)
+	require.NoError(t, err)
 	hash, version, err := tree.SaveVersion()
 
 	require.Nil(t, err)
@@ -66,7 +69,8 @@ func TestEmptyRecents(t *testing.T) {
 
 func BenchmarkMutableTree_Set(b *testing.B) {
 	db := db.NewDB("test", db.MemDBBackend, "")
-	t := NewMutableTree(db, 100000)
+	t, err := NewMutableTree(db, 100000)
+	require.NoError(b, err)
 	for i := 0; i < 1000000; i++ {
 		t.Set(randBytes(10), []byte{})
 	}
