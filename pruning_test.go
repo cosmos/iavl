@@ -41,7 +41,7 @@ func TestSave(t *testing.T) {
 			binary.BigEndian.PutUint64(val, uint64(rand.Int63()))
 			mt.Set(key, val)
 		}
-		_, _, err := mt.SaveVersion()
+		_, _, err = mt.SaveVersion()
 		require.Nil(t, err, "SaveVersion failed")
 	}
 
@@ -54,9 +54,9 @@ func TestSave(t *testing.T) {
 			"Version: %d should not exist. KeepEvery: %d, KeepRecent: %d", v, PruningOptions(keepEvery, keepRecent))
 
 		// check that root exists in nodeDB
-		lv, err := mt.LazyLoadVersion(ver)
+		lv, lverr := mt.LazyLoadVersion(ver)
 		require.Equal(t, ver, lv, "Version returned by LazyLoadVersion is wrong")
-		require.Nil(t, err, "Version should exist in nodeDB")
+		require.Nil(t, lverr, "Version should exist in nodeDB")
 	}
 
 	// check all expected versions are available.
@@ -205,7 +205,7 @@ func TestRemoveKeys(t *testing.T) {
 		for i := 0; i < 10; i++ {
 			mt.Set([]byte(fmt.Sprintf("v%d:%d", v, i)), []byte(fmt.Sprintf("Val:v:%d:%d", v, i)))
 		}
-		_, _, err := mt.SaveVersion()
+		_, _, err = mt.SaveVersion()
 		require.NoError(t, err)
 	}
 
@@ -217,7 +217,7 @@ func TestRemoveKeys(t *testing.T) {
 			_, removed := mt.Remove([]byte(key))
 			require.True(t, removed, "Key %s could not be removed", key)
 		}
-		_, _, err := mt.SaveVersion()
+		_, _, err = mt.SaveVersion()
 		require.NoError(t, err)
 	}
 
@@ -372,7 +372,7 @@ func TestSanity3(t *testing.T) {
 			val = []byte(fmt.Sprintf("Val:v%d:i%d", i, j))
 		}
 		mt.Set(key, val)
-		_, _, err := mt.SaveVersion()
+		_, _, err = mt.SaveVersion()
 		if int64(i+1)%keepEvery == 0 {
 			numSnapNodes += mt.nodeSize()
 		}
@@ -400,7 +400,7 @@ func TestNoSnapshots(t *testing.T) {
 	db, mdb, close := getTestDBs()
 	defer close()
 
-	keepRecent := rand.Int63n(8) + 2                                        //keep at least 2 versions in memDB
+	keepRecent := rand.Int63n(8) + 2                                             //keep at least 2 versions in memDB
 	mt, err := NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(0, keepRecent)) // test no snapshots
 	require.NoError(t, err)
 
@@ -485,7 +485,6 @@ func TestValidationOptions(t *testing.T) {
 	require.Error(t, err)
 	_, err = NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(-1, 0))
 	require.Error(t, err)
-	_, err = NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(0, -1))
+	_, err = NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(-1, -1))
 	require.Error(t, err)
 }
-

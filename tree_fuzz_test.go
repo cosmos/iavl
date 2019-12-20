@@ -3,10 +3,10 @@ package iavl
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	cmn "github.com/tendermint/iavl/common"
 )
 

@@ -1270,7 +1270,7 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 		countStr := strconv.Itoa(count)
 		// Set one kv pair and save version
 		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
-		_, _, err := tree.SaveVersion()
+		_, _, err = tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not fail")
 	}
 

@@ -32,15 +32,15 @@ func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
 
 func validateOptions(opts *Options) error {
 	switch {
-		case opts == nil:
-			return nil
-		case opts.KeepEvery < 0:
-			return errors.New("keep every cannot be negative")
-		case opts.KeepRecent < 0:
-			return errors.New("keep recent cannot be negative")
-		case opts.KeepRecent == 0 && opts.KeepEvery > 1:
-			// We cannot snapshot more than every one version when we don't keep any versions in memory.
-			return errors.New("keep recent cannot be zero when keep every is set larger than one")
+	case opts == nil:
+		return nil
+	case opts.KeepEvery < 0:
+		return errors.New("keep every cannot be negative")
+	case opts.KeepRecent < 0:
+		return errors.New("keep recent cannot be negative")
+	case opts.KeepRecent == 0 && opts.KeepEvery > 1:
+		// We cannot snapshot more than every one version when we don't keep any versions in memory.
+		return errors.New("keep recent cannot be zero when keep every is set larger than one")
 	}
 
 	return nil

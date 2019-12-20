@@ -4,12 +4,12 @@ package iavl
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"runtime"
 	"testing"
 
 	mrand "math/rand"
 
+	"github.com/stretchr/testify/require"
 	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/iavl/common"
 	db "github.com/tendermint/tm-db"
