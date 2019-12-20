@@ -3,6 +3,7 @@ package benchmarks
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"runtime"
@@ -22,7 +23,8 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, snapdb db.DB, memdb db.DB, keepEvery int64, keepRecent int64, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t := iavl.NewMutableTreeWithOpts(snapdb, memdb, size, iavl.PruningOptions(keepEvery, keepRecent))
+	t, err := iavl.NewMutableTreeWithOpts(snapdb, memdb, size, iavl.PruningOptions(keepEvery, keepRecent))
+	require.NoError(b, err)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {

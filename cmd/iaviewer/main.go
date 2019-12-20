@@ -99,7 +99,10 @@ func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
 	if err != nil {
 		return nil, err
 	}
-	tree := iavl.NewMutableTree(db, DefaultCacheSize)
+	tree, err := iavl.NewMutableTree(db, DefaultCacheSize)
+	if err != nil {
+		return nil, err
+	}
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err
