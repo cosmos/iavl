@@ -1,4 +1,3 @@
-GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
@@ -7,21 +6,23 @@ PDFFLAGS := -pdf --nodefraction=0.1
 CMDFLAGS := -ldflags -X TENDERMINT_IAVL_COLORS_ON=on 
 LDFLAGS  := -ldflags "-X github.com/tendermint/iavl.Version=$(VERSION) -X github.com/tendermint/iavl.Commit=$(COMMIT) -X github.com/tendermint/iavl.Branch=$(BRANCH)"
 
+
 all: lint test install
+
+include tools.mk
 
 install:
 ifeq ($(COLORS_ON),)
 	go install ./cmd/iaviewer
+	go install ./cmd/iavlserver
 else
 	go install $(CMDFLAGS) ./cmd/iaviewer
+	go install $(CMDFLAGS) ./cmd/iavlserver
 endif
 
 test:
 	@echo "--> Running go test"
 	@go test ./... $(LDFLAGS) -v --race
-
-tools:
-	go get -v $(GOTOOLS)
 
 # look into .golangci.yml for enabling / disabling linters
 lint:
