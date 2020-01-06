@@ -39,7 +39,7 @@ func (suite *ServerTestSuite) populateItems(n int) {
 			Value: []byte(fmt.Sprintf("value-%d", i)),
 		}
 
-		_, err := suite.server.Set(context.TODO(), req)
+		_, err = suite.server.Set(context.TODO(), req)
 		suite.NoError(err)
 	}
 
