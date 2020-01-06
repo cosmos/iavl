@@ -13,17 +13,15 @@ import (
 
 var _ pb.IAVLServiceServer = (*IAVLServer)(nil)
 
-// iavlServer implements the gRPC IAVLServiceServer interface. It provides a gRPC
+// IAVLServer implements the gRPC IAVLServiceServer interface. It provides a gRPC
 // API over an IAVL tree.
 type IAVLServer struct {
 	tree *iavl.MutableTree
 }
 
+// New creates an IAVLServer.
 func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
 	tree := iavl.NewMutableTree(db, int(cacheSize))
-
-	// TODO: Consider storing (per version save) and load latest height when the
-	// provided version is zero.
 
 	if _, err := tree.LoadVersion(version); err != nil {
 		return nil, err
@@ -58,7 +56,14 @@ func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse
 // a given key based on the current state (version) of the tree including a
 // verifiable Merkle proof.
 func (s *IAVLServer) GetWithProof(ctx context.Context, req *pb.GetRequest) (*pb.GetWithProofResponse, error) {
-	panic("not implemented")
+	value, proof, err := s.tree.GetWithProof(req.Key)
+	if err != nil {
+		return nil, err
+	}
+
+	proofPb := iavl.ConvertRangeProofToProto(req.Key, proof)
+
+	return &pb.GetWithProofResponse{Value: value, Proof: proofPb}, nil
 }
 
 // GetVersioned returns a result containing the IAVL tree version and value
@@ -87,54 +92,7 @@ func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersion
 		return nil, err
 	}
 
-	proofPb := &pb.RangeProof{
-		Key:        req.Key,
-		InnerNodes: make([]*pb.PathToLeaf, len(proof.InnerNodes)),
-		Leaves:     make([]*pb.ProofLeafNode, len(proof.Leaves)),
-	}
-
-	// left path
-	nodes := make([]*pb.ProofInnerNode, len(proof.LeftPath))
-	for i, n := range proof.LeftPath {
-		nodes[i] = &pb.ProofInnerNode{
-			Height:  int32(n.Height),
-			Size:    n.Size,
-			Version: n.Version,
-			Left:    n.Left,
-			Right:   n.Right,
-		}
-	}
-
-	proofPb.LeftPath = &pb.PathToLeaf{
-		Nodes: nodes,
-	}
-
-	// inner nodes
-	for i, pl := range proof.InnerNodes {
-		nodes := make([]*pb.ProofInnerNode, len(pl))
-		for j, n := range pl {
-			nodes[j] = &pb.ProofInnerNode{
-				Height:  int32(n.Height),
-				Size:    n.Size,
-				Version: n.Version,
-				Left:    n.Left,
-				Right:   n.Right,
-			}
-		}
-
-		proofPb.InnerNodes[i] = &pb.PathToLeaf{
-			Nodes: nodes,
-		}
-	}
-
-	// leaves
-	for i, l := range proof.Leaves {
-		proofPb.Leaves[i] = &pb.ProofLeafNode{
-			Key:       l.Key,
-			ValueHash: l.ValueHash,
-			Version:   l.Version,
-		}
-	}
+	proofPb := iavl.ConvertRangeProofToProto(req.Key, proof)
 
 	return &pb.GetWithProofResponse{Value: value, Proof: proofPb}, nil
 }
