@@ -113,7 +113,7 @@ func startRPCGateway() error {
 	}
 	gatewayMux := runtime.NewServeMux(
 		runtime.WithMarshalerOption(runtime.MIMEWildcard, jsonPb),
-		// This is necessary to get error details properly marshalled in unary requests.
+		// This is necessary to get error details properly marshaled in unary requests.
 		runtime.WithProtoErrorHandler(runtime.DefaultHTTPProtoErrorHandler),
 	)
 
