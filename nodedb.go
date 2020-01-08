@@ -73,8 +73,8 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	}
 
 	// Doesn't exist, load.
-	buf := ndb.db.Get(ndb.nodeKey(hash))
-	if buf == nil {
+	buf, err := ndb.db.Get(ndb.nodeKey(hash))
+	if err != nil {
 		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 	}
 
@@ -116,17 +116,22 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 }
 
 // Has checks if a hash exists in the database.
-func (ndb *nodeDB) Has(hash []byte) bool {
+func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	key := ndb.nodeKey(hash)
 
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
-			panic("Got error from leveldb: " + err.Error())
+			return false, err
 		}
-		return exists
+		return exists, err
 	}
-	return ndb.db.Get(key) != nil
+
+	value, err := ndb.db.Get(key)
+	if err != nil {
+		return false, err
+	}
+	return value != nil, nil
 }
 
 // SaveBranch saves the given node and all of its descendants.
@@ -250,10 +255,13 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 }
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
-	itr := ndb.db.ReverseIterator(
+	itr, err := ndb.db.ReverseIterator(
 		rootKeyFormat.Key(1),
 		rootKeyFormat.Key(version),
 	)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	pversion := int64(-1)
@@ -287,7 +295,10 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 
 // Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	itr := ndb.db.Iterator(nil, nil)
+	itr, err := ndb.db.Iterator(nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
@@ -297,7 +308,10 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 
 // Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	itr := dbm.IteratePrefix(ndb.db, prefix)
+	itr, err := dbm.IteratePrefix(ndb.db, prefix)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
@@ -335,7 +349,7 @@ func (ndb *nodeDB) Commit() {
 	ndb.batch = ndb.db.NewBatch()
 }
 
-func (ndb *nodeDB) getRoot(version int64) []byte {
+func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
