@@ -4,7 +4,6 @@ Setting Pruning fields in the IAVL tree can optimize performance by only writing
 
 We can set custom pruning fields in IAVL using: `NewMutableTreeWithOpts`
 
-
 ## Current design
 
 ### NodeDB
@@ -21,6 +20,10 @@ keepRecent int64  // Saves recent versions in memory
 
 If version is not going to be persisted to disk, the version is simply saved in `recentDB` (typically a `memDB`)
 If version is persisted to disk, the version is written to `recentDB` **and** `snapshotDB` (typically `levelDB`)
+
+For example, setting keepEvery to 1 and keepRecent to 0 (which is the default setting) will persist every version to snapshot and skip storing
+anything in memDB. Setting keepEvery to 10000 and keepRecent to 100 (default Cosmos SDK pruning strategy) is snapshotting every 10000th version and will keep the last 100 versions
+in memDB.
 
 #### Orphans:
 

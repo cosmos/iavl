@@ -32,10 +32,10 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	snapDB := db.NewDB("test", "goleveldb", dirName)
 	defer snapDB.Close()
 
-	// var mem runtime.MemStats
-	// runtime.ReadMemStats(&mem)
-	// memSize := mem.Alloc
-	// maxVersion := 0
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+	memSize := mem.Alloc
+	//maxVersion := 0
 	var keys [][]byte
 	for i := 0; i < 100; i++ {
 		keys = append(keys, randBytes(keyLen))
@@ -56,20 +56,19 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 		if err != nil {
 			b.Errorf("Can't save version %d: %v", i, err)
 		}
-		// // Pause timer to garbage-collect and remeasure memory usage
-		// b.StopTimer()
-		// runtime.GC()
-		// runtime.ReadMemStats(&mem)
-		// // update memSize if it has increased after saveVersion
-		// if memSize < mem.Alloc {
-		// 	memSize = mem.Alloc
-		// 	maxVersion = i
-		// }
-		// b.StartTimer()
+
+		// Pause timer to garbage-collect and remeasure memory usage
 		b.StopTimer()
 		runtime.GC()
+		runtime.ReadMemStats(&mem)
+		// update memSize if it has increased after saveVersion
+		if memSize < mem.Alloc {
+			memSize = mem.Alloc
+			maxVersion = i
+		}
 		b.StartTimer()
 	}
+
 	//fmt.Printf("Maxmimum Memory usage was %0.2f MB at height %d\n", float64(memSize)/1000000, maxVersion)
 	b.StopTimer()
 }
@@ -77,16 +76,16 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 func BenchmarkPruningStrategies(b *testing.B) {
 	ps := []pruningstrat{
 		{1, 0}, // default pruning strategy
-		//{1, 1},
+		{1, 1},
 		{0, 1}, // keep single recent version
 		{100, 1},
 		{100, 5}, // simple pruning
 		{5, 1},
 		{5, 2},
 		{10, 2},
-		// {1000, 10},   // average pruning
-		// {1000, 1},    // extreme pruning
-		// {10000, 100}, // SDK pruning
+		{1000, 10},   // average pruning
+		{1000, 1},    // extreme pruning
+		{10000, 100}, // SDK pruning
 	}
 	for _, ps := range ps {
 		ps := ps
