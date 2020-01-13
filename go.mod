@@ -6,7 +6,7 @@ require (
 	github.com/pkg/errors v0.9.0
 	github.com/stretchr/testify v1.4.0
 	github.com/tendermint/go-amino v0.14.1
-	github.com/tendermint/tendermint v0.32.8
+	github.com/tendermint/tendermint v0.32.9
 	github.com/tendermint/tm-db v0.3.0
 	golang.org/x/crypto v0.0.0-20190313024323-a1f597ede03a
 )
