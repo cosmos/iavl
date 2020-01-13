@@ -74,10 +74,10 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(ndb.nodeKey(hash))
+	if err != nil {
+		panic(fmt.Sprintf("can't get node %X: %v", hash, err))
+	}
 	if buf == nil {
-		if err != nil {
-			panic(fmt.Sprintf("can't get node %X: %v", hash, err))
-		}
 		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 	}
 
@@ -127,7 +127,7 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		return exists, err
+		return exists, nil
 	}
 
 	value, err := ndb.db.Get(key)
