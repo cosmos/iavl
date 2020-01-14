@@ -64,7 +64,7 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 		// update memSize if it has increased after saveVersion
 		if memSize < mem.Alloc {
 			memSize = mem.Alloc
-			maxVersion = i
+			//maxVersion = i
 		}
 		b.StartTimer()
 	}
