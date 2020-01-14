@@ -296,7 +296,10 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 		targetVersion = latestVersion
 	}
 
-	rootHash := tree.ndb.getRoot(targetVersion)
+	rootHash, err := tree.ndb.getRoot(targetVersion)
+	if err != nil {
+		return 0, err
+	}
 	if rootHash == nil {
 		return latestVersion, ErrVersionDoesNotExist
 	}
@@ -372,7 +375,10 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 
 // GetImmutable loads an ImmutableTree at a given version for querying
 func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
-	rootHash := tree.ndb.getRoot(version)
+	rootHash, err := tree.ndb.getRoot(version)
+	if err != nil {
+		return nil, err
+	}
 	if rootHash == nil {
 		return nil, ErrVersionDoesNotExist
 	} else if len(rootHash) == 0 {
@@ -422,7 +428,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	if tree.versions[version] {
 		//version already exists, throw an error if attempting to overwrite
 		// Same hash means idempotent.  Return success.
-		existingHash := tree.ndb.getRoot(version)
+		existingHash, err := tree.ndb.getRoot(version)
+		if err != nil {
+			return nil, version, err
+		}
 		var newHash = tree.WorkingHash()
 		if bytes.Equal(existingHash, newHash) {
 			tree.version = version

@@ -89,12 +89,18 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		return elem.Value.(*Node)
 	}
 
-	//Try reading from recent memDB
-	buf := ndb.recentDB.Get(ndb.nodeKey(hash))
+	// Doesn't exist, load.
+	buf, err := ndb.recentDB.Get(ndb.nodeKey(hash))
+	if err != nil {
+		panic(fmt.Sprintf("can't get node %X: %v", hash, err))
+	}
 	persisted := false
 	if buf == nil {
 		// Doesn't exist, load from disk
-		buf = ndb.snapshotDB.Get(ndb.nodeKey(hash))
+		buf, err = ndb.snapshotDB.Get(ndb.nodeKey(hash))
+		if err != nil {
+			panic(err)
+		}
 		if buf == nil {
 			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
 		}
@@ -148,22 +154,29 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 }
 
 // Has checks if a hash exists in the database.
-func (ndb *nodeDB) Has(hash []byte) bool {
+func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	key := ndb.nodeKey(hash)
 
-	val := ndb.recentDB.Get(key)
+	val, err := ndb.recentDB.Get(key)
+	if err != nil {
+		return false, err
+	}
 	if val != nil {
-		return true
+		return true, nil
 	}
 
 	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
-			panic("Got error from leveldb: " + err.Error())
+			return false, err
 		}
-		return exists
+		return exists, nil
 	}
-	return ndb.snapshotDB.Get(key) != nil
+	value, err := ndb.snapshotDB.Get(key)
+	if err != nil {
+		return false, err
+	}
+	return value != nil, nil
 }
 
 // SaveTree takes a rootNode and version. Saves all nodes in tree using SaveBranch
@@ -371,10 +384,13 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 }
 
 func getPreviousVersionFromDB(version int64, db dbm.DB) int64 {
-	itr := db.ReverseIterator(
+	itr, err := db.ReverseIterator(
 		rootKeyFormat.Key(1),
 		rootKeyFormat.Key(version),
 	)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	pversion := int64(-1)
@@ -428,14 +444,20 @@ func traverseOrphansVersionFromDB(db dbm.DB, version int64, fn func(k, v []byte)
 
 // Traverse all keys from recentDB and disk DB
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	memItr := ndb.recentDB.Iterator(nil, nil)
+	memItr, err := ndb.recentDB.Iterator(nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	defer memItr.Close()
 
 	for ; memItr.Valid(); memItr.Next() {
 		fn(memItr.Key(), memItr.Value())
 	}
 
-	itr := ndb.snapshotDB.Iterator(nil, nil)
+	itr, err := ndb.snapshotDB.Iterator(nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
@@ -445,7 +467,10 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 
 // Traverse all keys from provided DB
 func traverseFromDB(db dbm.DB, fn func(key, value []byte)) {
-	itr := db.Iterator(nil, nil)
+	itr, err := db.Iterator(nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
@@ -455,14 +480,20 @@ func traverseFromDB(db dbm.DB, fn func(key, value []byte)) {
 
 // Traverse all keys with a certain prefix from recentDB and disk DB
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	memItr := dbm.IteratePrefix(ndb.recentDB, prefix)
+	memItr, err := dbm.IteratePrefix(ndb.recentDB, prefix)
+	if err != nil {
+		panic(err)
+	}
 	defer memItr.Close()
 
 	for ; memItr.Valid(); memItr.Next() {
 		fn(memItr.Key(), memItr.Value())
 	}
 
-	itr := dbm.IteratePrefix(ndb.snapshotDB, prefix)
+	itr, err := dbm.IteratePrefix(ndb.snapshotDB, prefix)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
@@ -472,7 +503,10 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 
 // Traverse all keys with a certain prefix from given DB
 func traversePrefixFromDB(db dbm.DB, prefix []byte, fn func(k, v []byte)) {
-	itr := dbm.IteratePrefix(db, prefix)
+	itr, err := dbm.IteratePrefix(db, prefix)
+	if err != nil {
+		panic(err)
+	}
 	defer itr.Close()
 
 	for ; itr.Valid(); itr.Next() {
@@ -525,12 +559,15 @@ func (ndb *nodeDB) Commit() {
 	ndb.recentBatch = ndb.recentDB.NewBatch()
 }
 
-func (ndb *nodeDB) getRoot(version int64) []byte {
+func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 	if ndb.isRecentVersion(version) {
-		memroot := ndb.recentDB.Get(ndb.rootKey(version))
+		memroot, err := ndb.recentDB.Get(ndb.rootKey(version))
+		if err != nil {
+			return nil, err
+		}
 		// TODO: maybe I shouldn't check in snapshot if it isn't here
 		if memroot != nil {
-			return memroot
+			return memroot, nil
 		}
 	}
 

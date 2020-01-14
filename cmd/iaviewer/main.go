@@ -79,7 +79,10 @@ func OpenDb(dir string) (dbm.DB, error) {
 func PrintDbStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
-	iter := db.Iterator(nil, nil)
+	iter, err := db.Iterator(nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	for ; iter.Valid(); iter.Next() {
 		key := string(iter.Key()[:1])
 		prefix[key]++
