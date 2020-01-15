@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -159,22 +161,22 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 
 	val, err := ndb.recentDB.Get(key)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "recentDB")
 	}
 	if val != nil {
 		return true, nil
 	}
 
 	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
-		exists, err2 := ldb.DB().Has(key, nil)
-		if err2 != nil {
-			return false, err2
+		exists, err := ldb.DB().Has(key, nil)
+		if err != nil {
+			return false, errors.Wrap(err, "snapshotDB")
 		}
 		return exists, nil
 	}
 	value, err := ndb.snapshotDB.Get(key)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "snapshotDB")
 	}
 	return value != nil, nil
 }
@@ -290,7 +292,7 @@ func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) error {
 		})
 	}
 	if err != nil {
-		return err
+		return errors.Wrap(err, "snapshotDB err in delete")
 	}
 	return nil
 }
@@ -557,12 +559,12 @@ func (ndb *nodeDB) Commit() error {
 		if ndb.opts.Sync {
 			err = ndb.snapshotBatch.WriteSync()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "error in snapShotBatch writesync")
 			}
 		} else {
 			err = ndb.snapshotBatch.Write()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "error in snapShotBatch write")
 			}
 		}
 		ndb.snapshotBatch.Close()
@@ -571,12 +573,12 @@ func (ndb *nodeDB) Commit() error {
 		if ndb.opts.Sync {
 			err = ndb.recentBatch.WriteSync()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "error in recentBatch writesync")
 			}
 		} else {
 			err = ndb.recentBatch.Write()
 			if err != nil {
-				return err
+				return errors.Wrap(err, "error in recentBatch write")
 			}
 		}
 		ndb.recentBatch.Close()
