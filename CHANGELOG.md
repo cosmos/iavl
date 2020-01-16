@@ -13,7 +13,7 @@ Special thanks to external contributors on this release:
 ## 0.13.0 (January 16, 2019)
 
 Special thanks to external contributors on this release:
-@rickyyangz
+@rickyyangz, @mattkanwisher
 
 ### BREAKING CHANGES
 
