@@ -91,7 +91,9 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
 	left := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder)
 	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
-	result := append(left, here)
+	result := make([]string, 0, len(left)+len(right)+1)
+	result = append(result, left...)
+	result = append(result, here)
 	result = append(result, right...)
 	return result
 }
