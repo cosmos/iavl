@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+Special thanks to external contributors on this release:
+
+### BREAKING CHANGES
+
+### IMPROVEMENTS
+
+### Bug Fix
+
+## 0.13.0 (January 16, 2019)
+
+Special thanks to external contributors on this release:
+@rickyyangz, @mattkanwisher
+
+### BREAKING CHANGES
+
+- [pruning] [/#158](https://github.com/tendermint/iavl/pull/158) NodeDB constructor must provide `keepRecent` and `keepEvery` fields to define PruningStrategy. All Save functionality must specify whether they should flushToDisk as well using `flushToDisk` boolean argument. All Delete functionality must specify whether object should be deleted from memory only using the `memOnly` boolean argument.
+- [dep] [\#194](https://github.com/tendermint/iavl/pull/194) Update tm-db to 0.4.0 this includes interface breaking to return errors.
+
+### IMPROVEMENTS
+
+### Bug Fix
+
+- [orphans] [#177](https://github.com/tendermint/iavl/pull/177) Collect all orphans after remove (@rickyyangz)
+
 ## 0.12.4 (July 31, 2019)
 
 ### IMPROVEMENTS
