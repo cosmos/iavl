@@ -18,13 +18,41 @@ type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
-	versions       map[int64]bool   // The previous, saved versions of the tree.
+	versions       map[int64]bool   // The previous versions of the tree saved in disk or memory.
 	ndb            *nodeDB
 }
 
-// NewMutableTree returns a new tree with the specified cache size and datastore.
-func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
-	ndb := newNodeDB(db, cacheSize)
+// NewMutableTree returns a new tree with the specified cache size and datastore
+// To maintain backwards compatibility, this function will initialize PruningStrategy{keepEvery: 1, keepRecent: 0}
+func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
+	// memDB is initialized but should never be written to
+	memDB := dbm.NewMemDB()
+	return NewMutableTreeWithOpts(db, memDB, cacheSize, nil)
+}
+
+func validateOptions(opts *Options) error {
+	switch {
+	case opts == nil:
+		return nil
+	case opts.KeepEvery < 0:
+		return errors.New("keep every cannot be negative")
+	case opts.KeepRecent < 0:
+		return errors.New("keep recent cannot be negative")
+	case opts.KeepRecent == 0 && opts.KeepEvery > 1:
+		// We cannot snapshot more than every one version when we don't keep any versions in memory.
+		return errors.New("keep recent cannot be zero when keep every is set larger than one")
+	}
+
+	return nil
+}
+
+// NewMutableTreeWithOpts returns a new tree with the specified cache size, datastores and options
+func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) (*MutableTree, error) {
+	if err := validateOptions(opts); err != nil {
+		return nil, err
+	}
+
+	ndb := newNodeDB(snapDB, recentDB, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
@@ -33,7 +61,7 @@ func NewMutableTree(db dbm.DB, cacheSize int) *MutableTree {
 		orphans:       map[string]int64{},
 		versions:      map[int64]bool{},
 		ndb:           ndb,
-	}
+	}, nil
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
@@ -391,8 +419,9 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
-// SaveVersion saves a new tree version to disk, based on the current state of
-// the tree. Returns the hash and new version number.
+// SaveVersion saves a new tree version to memDB and removes old version,
+// based on the current state of the tree. Returns the hash and new version number.
+// If version is snapshot version, persist version to disk as well
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
 
@@ -414,6 +443,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
 			version, newHash, existingHash)
 	}
+	tree.versions[version] = true
 
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
@@ -427,14 +457,32 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
-		tree.ndb.SaveBranch(tree.root)
+		tree.ndb.SaveTree(tree.root, version)
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		err := tree.ndb.SaveRoot(tree.root, version)
 		if err != nil {
 			panic(err)
 		}
 	}
-	tree.ndb.Commit()
+	err := tree.ndb.Commit()
+	if err != nil {
+		return nil, version, err
+	}
+
+	// Prune nodeDB and delete any pruned versions from tree.versions
+	prunedVersions, err := tree.ndb.PruneRecentVersions()
+	if err != nil {
+		return nil, version, err
+	}
+	for _, pVer := range prunedVersions {
+		delete(tree.versions, pVer)
+	}
+
+	err = tree.ndb.Commit()
+	if err != nil {
+		return nil, version, err
+	}
+
 	tree.version = version
 	tree.versions[version] = true
 
@@ -449,6 +497,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
+	debug("DELETE VERSION: %d\n", version)
 	if version == 0 {
 		return errors.New("version must be greater than 0")
 	}
@@ -459,8 +508,15 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return errors.Wrap(ErrVersionDoesNotExist, "")
 	}
 
-	tree.ndb.DeleteVersion(version, true)
-	tree.ndb.Commit()
+	err := tree.ndb.DeleteVersion(version, true)
+	if err != nil {
+		return err
+	}
+
+	err = tree.ndb.Commit()
+	if err != nil {
+		return err
+	}
 
 	delete(tree.versions, version)
 
@@ -479,13 +535,16 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 		if version == tree.version {
 			return errors.Errorf("cannot delete latest saved version (%d)", version)
 		}
-		if _, ok := tree.versions[version]; !ok {
-			return errors.Wrap(ErrVersionDoesNotExist, "")
+		err := tree.ndb.DeleteVersion(version, false)
+		if err != nil {
+			return err
 		}
-		tree.ndb.DeleteVersion(version, false)
 		delete(tree.versions, version)
 	}
-	tree.ndb.Commit()
+	err := tree.ndb.Commit()
+	if err != nil {
+		return err
+	}
 	tree.ndb.resetLatestVersion(newLatestVersion)
 	return nil
 }
@@ -577,8 +636,8 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node) {
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
 	for _, node := range orphans {
-		if !node.persisted {
-			// We don't need to orphan nodes that were never persisted.
+		if !node.saved {
+			// We don't need to orphan nodes that were never saved.
 			continue
 		}
 		if len(node.hash) == 0 {

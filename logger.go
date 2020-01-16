@@ -4,8 +4,12 @@ import (
 	"fmt"
 )
 
+var (
+	debugging = false
+)
+
 func debug(format string, args ...interface{}) {
-	if false {
+	if debugging {
 		fmt.Printf(format, args...)
 	}
 }

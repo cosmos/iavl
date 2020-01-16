@@ -1,0 +1,9 @@
+goos: darwin
+goarch: amd64
+pkg: github.com/tendermint/iavl/benchmarks
+BenchmarkPruningStrategies/PruningStrategy{1-0}-KeyLen:16-DataLen:40-8         	       1	2837806322 ns/op
+BenchmarkPruningStrategies/PruningStrategy{0-1}-KeyLen:16-DataLen:40-8         	       1	1124373981 ns/op
+BenchmarkPruningStrategies/PruningStrategy{100-1}-KeyLen:16-DataLen:40-8       	       1	1255040658 ns/op
+BenchmarkPruningStrategies/PruningStrategy{100-5}-KeyLen:16-DataLen:40-8       	       1	1459752743 ns/op
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	12.375s

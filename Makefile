@@ -51,6 +51,9 @@ fullbench:
 		go test $(LDFLAGS) -bench=Mem . && \
 		go test $(LDFLAGS) -timeout=60m -bench=LevelDB .
 
+benchprune:
+	cd benchmarks && \
+		go test -bench=PruningStrategies -timeout=24h
 
 # note that this just profiles the in-memory version, not persistence
 profile:

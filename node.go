@@ -26,7 +26,8 @@ type Node struct {
 	leftNode  *Node
 	rightNode *Node
 	height    int8
-	persisted bool
+	saved     bool // saved to memory or disk
+	persisted bool // persisted to disk
 }
 
 // NewNode returns a new node from a key, value and version.
