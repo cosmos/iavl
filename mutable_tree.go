@@ -464,15 +464,25 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			panic(err)
 		}
 	}
-	tree.ndb.Commit()
+	err := tree.ndb.Commit()
+	if err != nil {
+		return nil, version, err
+	}
 
 	// Prune nodeDB and delete any pruned versions from tree.versions
-	prunedVersions := tree.ndb.PruneRecentVersions()
+	prunedVersions, err := tree.ndb.PruneRecentVersions()
+	if err != nil {
+		return nil, version, err
+	}
 	for _, pVer := range prunedVersions {
 		delete(tree.versions, pVer)
 	}
 
-	tree.ndb.Commit()
+	err = tree.ndb.Commit()
+	if err != nil {
+		return nil, version, err
+	}
+
 	tree.version = version
 	tree.versions[version] = true
 
@@ -498,8 +508,15 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return errors.Wrap(ErrVersionDoesNotExist, "")
 	}
 
-	tree.ndb.DeleteVersion(version, true)
-	tree.ndb.Commit()
+	err := tree.ndb.DeleteVersion(version, true)
+	if err != nil {
+		return err
+	}
+
+	err = tree.ndb.Commit()
+	if err != nil {
+		return err
+	}
 
 	delete(tree.versions, version)
 
@@ -518,10 +535,16 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 		if version == tree.version {
 			return errors.Errorf("cannot delete latest saved version (%d)", version)
 		}
-		tree.ndb.DeleteVersion(version, false)
+		err := tree.ndb.DeleteVersion(version, false)
+		if err != nil {
+			return err
+		}
 		delete(tree.versions, version)
 	}
-	tree.ndb.Commit()
+	err := tree.ndb.Commit()
+	if err != nil {
+		return err
+	}
 	tree.ndb.resetLatestVersion(newLatestVersion)
 	return nil
 }

@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/pkg/errors"
+
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -159,7 +161,7 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 
 	val, err := ndb.recentDB.Get(key)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "recentDB")
 	}
 	if val != nil {
 		return true, nil
@@ -168,13 +170,13 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err, "snapshotDB")
 		}
 		return exists, nil
 	}
 	value, err := ndb.snapshotDB.Get(key)
 	if err != nil {
-		return false, err
+		return false, errors.Wrap(err, "snapshotDB")
 	}
 	return value != nil, nil
 }
@@ -218,20 +220,24 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 }
 
 // DeleteVersion deletes a tree version from disk.
-func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) {
-	ndb.deleteVersion(version, checkLatestVersion, false)
+func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
+	return ndb.deleteVersion(version, checkLatestVersion, false)
 }
 
-func (ndb *nodeDB) DeleteVersionFromRecent(version int64, checkLatestVersion bool) {
-	ndb.deleteVersion(version, checkLatestVersion, true)
+func (ndb *nodeDB) DeleteVersionFromRecent(version int64, checkLatestVersion bool) error {
+	return ndb.deleteVersion(version, checkLatestVersion, true)
 }
 
-func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool) {
+func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	ndb.deleteOrphans(version, memOnly)
+	err := ndb.deleteOrphans(version, memOnly)
+	if err != nil {
+		return err
+	}
 	ndb.deleteRoot(version, checkLatestVersion, memOnly)
+	return nil
 }
 
 // Saves orphaned nodes to disk under a special prefix.
@@ -273,17 +279,22 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
-func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) {
+func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) error {
 	if ndb.opts.KeepRecent != 0 {
 		ndb.deleteOrphansMem(version)
 	}
+	var err error
 	if ndb.isSnapshotVersion(version) && !memOnly {
 		predecessor := getPreviousVersionFromDB(version, ndb.snapshotDB)
 		traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
-			ndb.snapshotDB.Delete(key)
+			err = ndb.snapshotDB.Delete(key)
 			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, predecessor, key, hash)
 		})
 	}
+	if err != nil {
+		return errors.Wrap(err, "snapshotDB err in delete")
+	}
+	return nil
 }
 
 func (ndb *nodeDB) deleteOrphansMem(version int64) {
@@ -331,16 +342,20 @@ func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk b
 	}
 }
 
-func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64) {
+func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64, err error) {
 	if ndb.opts.KeepRecent == 0 || ndb.latestVersion-ndb.opts.KeepRecent <= 0 {
-		return nil
+		return nil, nil
 	}
 	pruneVer := ndb.latestVersion - ndb.opts.KeepRecent
-	ndb.DeleteVersionFromRecent(pruneVer, true)
-	if ndb.isSnapshotVersion(pruneVer) {
-		return nil
+	err = ndb.DeleteVersionFromRecent(pruneVer, true)
+	if err != nil {
+		return nil, err
 	}
-	return append(prunedVersions, pruneVer)
+
+	if ndb.isSnapshotVersion(pruneVer) {
+		return nil, nil
+	}
+	return append(prunedVersions, pruneVer), nil
 }
 
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
@@ -535,28 +550,42 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 }
 
 // Write to disk and memDB
-func (ndb *nodeDB) Commit() {
+func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	var err error
 	if ndb.opts.KeepEvery != 0 {
 		if ndb.opts.Sync {
-			ndb.snapshotBatch.WriteSync()
+			err = ndb.snapshotBatch.WriteSync()
+			if err != nil {
+				return errors.Wrap(err, "error in snapShotBatch writesync")
+			}
 		} else {
-			ndb.snapshotBatch.Write()
+			err = ndb.snapshotBatch.Write()
+			if err != nil {
+				return errors.Wrap(err, "error in snapShotBatch write")
+			}
 		}
 		ndb.snapshotBatch.Close()
 	}
 	if ndb.opts.KeepRecent != 0 {
 		if ndb.opts.Sync {
-			ndb.recentBatch.WriteSync()
+			err = ndb.recentBatch.WriteSync()
+			if err != nil {
+				return errors.Wrap(err, "error in recentBatch writesync")
+			}
 		} else {
-			ndb.recentBatch.Write()
+			err = ndb.recentBatch.Write()
+			if err != nil {
+				return errors.Wrap(err, "error in recentBatch write")
+			}
 		}
 		ndb.recentBatch.Close()
 	}
 	ndb.snapshotBatch = ndb.snapshotDB.NewBatch()
 	ndb.recentBatch = ndb.recentDB.NewBatch()
+	return nil
 }
 
 func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {

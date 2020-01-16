@@ -289,8 +289,10 @@ func TestSanity1(t *testing.T) {
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "SnapshotDB did not save correctly")
 
 	for i := 1; i < 5; i++ {
-		mt.ndb.DeleteVersionFromRecent(int64(i), true)
-		mt.ndb.Commit()
+		err := mt.ndb.DeleteVersionFromRecent(int64(i), true)
+		require.NoError(t, err)
+		err = mt.ndb.Commit()
+		require.NoError(t, err)
 	}
 
 	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
