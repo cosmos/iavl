@@ -261,7 +261,7 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 			return errors.Wrap(err, "writing key")
 		}
 		// Indirection needed to provide proofs without values.
-		// (e.g. proofLeafNode.ValueHash)
+		// (e.g. ProofLeafNode.ValueHash)
 		valueHash := tmhash.Sum(node.value)
 		err = amino.EncodeByteSlice(w, valueHash)
 		if err != nil {

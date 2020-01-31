@@ -16,7 +16,7 @@ type RangeProof struct {
 	// it can be derived from what we have.
 	LeftPath   PathToLeaf      `json:"left_path"`
 	InnerNodes []PathToLeaf    `json:"inner_nodes"`
-	Leaves     []proofLeafNode `json:"leaves"`
+	Leaves     []ProofLeafNode `json:"leaves"`
 
 	// memoize
 	rootHash     []byte // valid iff rootVerified is true
@@ -267,7 +267,7 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 				continue
 			}
 
-			// Pop next inners, a PathToLeaf (e.g. []proofInnerNode).
+			// Pop next inners, a PathToLeaf (e.g. []ProofInnerNode).
 			inners, rinnersq := innersq[0], innersq[1:]
 			innersq = rinnersq
 
@@ -338,7 +338,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 		values = append(values, left.value)
 	}
 	// Either way, add to proof leaves.
-	var leaves = []proofLeafNode{
+	var leaves = []ProofLeafNode{
 		{
 			Key:       left.key,
 			ValueHash: tmhash.Sum(left.value),
@@ -401,7 +401,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 				innersq = append(innersq, inners)
 				inners = PathToLeaf(nil)
 				// Append leaf to leaves.
-				leaves = append(leaves, proofLeafNode{
+				leaves = append(leaves, ProofLeafNode{
 					Key:       node.key,
 					ValueHash: tmhash.Sum(node.value),
 					Version:   node.version,
@@ -428,7 +428,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 				if pathCount >= 0 {
 					// Skip redundant path items.
 				} else {
-					inners = append(inners, proofInnerNode{
+					inners = append(inners, ProofInnerNode{
 						Height:  node.height,
 						Size:    node.size,
 						Version: node.version,
