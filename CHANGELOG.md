@@ -10,7 +10,7 @@ Special thanks to external contributors on this release:
 
 ### Bug Fix
 
-## 0.13.0 (January 16, 2019)
+## 0.13.0 (January 16, 2020)
 
 Special thanks to external contributors on this release:
 @rickyyangz, @mattkanwisher
