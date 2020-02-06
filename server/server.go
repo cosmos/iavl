@@ -21,7 +21,10 @@ type IAVLServer struct {
 
 // New creates an IAVLServer.
 func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
-	tree := iavl.NewMutableTree(db, int(cacheSize))
+	tree, err := iavl.NewMutableTree(db, int(cacheSize))
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := tree.LoadVersion(version); err != nil {
 		return nil, err

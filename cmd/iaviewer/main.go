@@ -79,7 +79,10 @@ func OpenDb(dir string) (dbm.DB, error) {
 func PrintDbStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
-	iter := db.Iterator(nil, nil)
+	iter, err := db.Iterator(nil, nil)
+	if err != nil {
+		panic(err)
+	}
 	for ; iter.Valid(); iter.Next() {
 		key := string(iter.Key()[:1])
 		prefix[key]++
@@ -99,7 +102,10 @@ func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
 	if err != nil {
 		return nil, err
 	}
-	tree := iavl.NewMutableTree(db, DefaultCacheSize)
+	tree, err := iavl.NewMutableTree(db, DefaultCacheSize)
+	if err != nil {
+		return nil, err
+	}
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err

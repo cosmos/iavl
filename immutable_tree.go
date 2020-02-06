@@ -16,7 +16,7 @@ type ImmutableTree struct {
 	version int64
 }
 
-// NewImmutableTree creates both in-memory and persistent instances
+// NewImmutableTree creates both in-memory and persistent instances. Default behavior snapshots every version
 func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	if db == nil {
 		// In-memory Tree.
@@ -24,7 +24,18 @@ func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize),
+		// memDB created but should never be written to
+		ndb: newNodeDB(db, dbm.NewMemDB(), cacheSize, nil),
+	}
+}
+
+// NewImmutableTreeWithOpts creates ImmutableTree with specified pruning/writing strategy.
+// Persists every `keepEvery` version to snapDB and saves last `keepRecent` versions to recentDB
+// If sync is true, writes on nodeDB.Commit are blocking
+func NewImmutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *ImmutableTree {
+	return &ImmutableTree{
+		// NodeDB-backed Tree.
+		ndb: newNodeDB(snapDB, recentDB, cacheSize, opts),
 	}
 }
 

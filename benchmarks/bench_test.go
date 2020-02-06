@@ -3,6 +3,7 @@ package benchmarks
 
 import (
 	"fmt"
+	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"runtime"
@@ -11,8 +12,6 @@ import (
 	"github.com/tendermint/iavl"
 	db "github.com/tendermint/tm-db"
 )
-
-const historySize = 20
 
 func randBytes(length int) []byte {
 	key := make([]byte, length)
@@ -23,8 +22,9 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t := iavl.NewMutableTree(db, size)
+func prepareTree(b *testing.B, snapdb db.DB, memdb db.DB, keepEvery int64, keepRecent int64, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
+	t, err := iavl.NewMutableTreeWithOpts(snapdb, memdb, size, iavl.PruningOptions(keepEvery, keepRecent))
+	require.NoError(b, err)
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
@@ -37,18 +37,14 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 	return t, keys
 }
 
-// commit tree saves a new version and deletes and old one...
+// commit tree saves a new version according to pruning strategy passed into IAVL
 func commitTree(b *testing.B, t *iavl.MutableTree) {
 	t.Hash()
-	_, version, err := t.SaveVersion()
+
+	_, _, err := t.SaveVersion() //this will flush for us every so often
+
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
-	}
-	if version > historySize {
-		err = t.DeleteVersion(version - historySize)
-		if err != nil {
-			b.Errorf("Can't delete: %v", err)
-		}
 	}
 }
 
@@ -220,28 +216,38 @@ func BenchmarkLevelDBLargeData(b *testing.B) {
 
 func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 	fmt.Printf("%s\n", iavl.GetVersionInfo())
-	for _, bb := range benchmarks {
-		prefix := fmt.Sprintf("%s-%d-%d-%d-%d", bb.dbType, bb.initSize,
-			bb.blockSize, bb.keyLen, bb.dataLen)
+	pruningStrategies := []pruningstrat{
+		{1, 0},       // default pruning strategy
+		{0, 1},       // keep single recent version
+		{100, 5},     // simple pruning
+		{1000, 10},   // average pruning
+		{1000, 1},    // extreme pruning
+		{10000, 100}, // SDK pruning
+	}
+	for _, ps := range pruningStrategies {
+		for _, bb := range benchmarks {
+			prefix := fmt.Sprintf("%s-%d-%d-%d-%d-%d-%d", bb.dbType, ps.keepEvery, ps.keepRecent,
+				bb.initSize, bb.blockSize, bb.keyLen, bb.dataLen)
 
-		// prepare a dir for the db and cleanup afterwards
-		dirName := fmt.Sprintf("./%s-db", prefix)
-		defer func() {
-			err := os.RemoveAll(dirName)
-			if err != nil {
-				b.Errorf("%+v\n", err)
+			// prepare a dir for the db and cleanup afterwards
+			dirName := fmt.Sprintf("./%s-db", prefix)
+			defer func() {
+				err := os.RemoveAll(dirName)
+				if err != nil {
+					b.Errorf("%+v\n", err)
+				}
+			}()
+
+			// note that "" leads to nil backing db!
+			var d db.DB
+			if bb.dbType != "nodb" {
+				d = db.NewDB("test", bb.dbType, dirName)
+				defer d.Close()
 			}
-		}()
-
-		// note that "" leads to nil backing db!
-		var d db.DB
-		if bb.dbType != "nodb" {
-			d = db.NewDB("test", bb.dbType, dirName)
-			defer d.Close()
+			b.Run(prefix, func(sub *testing.B) {
+				runSuite(sub, d, ps.keepEvery, ps.keepRecent, bb.initSize, bb.blockSize, bb.keyLen, bb.dataLen)
+			})
 		}
-		b.Run(prefix, func(sub *testing.B) {
-			runSuite(sub, d, bb.initSize, bb.blockSize, bb.keyLen, bb.dataLen)
-		})
 	}
 }
 
@@ -254,12 +260,12 @@ func memUseMB() float64 {
 	return mb
 }
 
-func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
+func runSuite(b *testing.B, d db.DB, keepEvery int64, keepRecent int64, initSize, blockSize, keyLen, dataLen int) {
 	// measure mem usage
 	runtime.GC()
 	init := memUseMB()
 
-	t, keys := prepareTree(b, d, initSize, keyLen, dataLen)
+	t, keys := prepareTree(b, d, db.NewMemDB(), keepEvery, keepRecent, initSize, keyLen, dataLen)
 	used := memUseMB() - init
 	fmt.Printf("Init Tree took %0.2f MB\n", used)
 

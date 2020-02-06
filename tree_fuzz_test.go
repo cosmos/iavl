@@ -6,8 +6,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	cmn "github.com/tendermint/iavl/common"
-	db "github.com/tendermint/tm-db"
 )
 
 // This file implement fuzz testing by generating programs and then running
@@ -112,9 +112,10 @@ func TestMutableTreeFuzz(t *testing.T) {
 
 	for size := 5; iterations < maxIterations; size++ {
 		for i := 0; i < progsPerIteration/size; i++ {
-			tree := NewMutableTree(db.NewMemDB(), 0)
+			tree, err := getTestTree(0)
+			require.NoError(t, err)
 			program := genRandomProgram(size)
-			err := program.Execute(tree)
+			err = program.Execute(tree)
 			if err != nil {
 				t.Fatalf("Error after %d iterations (size %d): %s\n%s", iterations, size, err.Error(), tree.String())
 			}

@@ -1,0 +1,147 @@
+cd benchmarks && \
+		go test -bench=RandomBytes . && \
+		go test -bench=Small . && \
+		go test -bench=Medium . && \
+		go test -bench=BenchmarkMemKeySizes .
+goos: darwin
+goarch: amd64
+pkg: github.com/tendermint/iavl/benchmarks
+BenchmarkRandomBytes/random-4-8         	30000000	        50.1 ns/op
+BenchmarkRandomBytes/random-16-8        	20000000	        77.4 ns/op
+BenchmarkRandomBytes/random-32-8        	20000000	       110 ns/op
+BenchmarkRandomBytes/random-100-8       	 5000000	       261 ns/op
+BenchmarkRandomBytes/random-1000-8      	 1000000	      2125 ns/op
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	9.239s
+Init Tree took 0.55 MB
+goos: darwin
+goarch: amd64
+pkg: github.com/tendermint/iavl/benchmarks
+BenchmarkSmall/memdb-1-0-1000-100-4-10/query-miss-8         	 1000000	      2531 ns/op
+BenchmarkSmall/memdb-1-0-1000-100-4-10/query-hits-8         	  500000	      3429 ns/op
+BenchmarkSmall/memdb-1-0-1000-100-4-10/update-8             	   10000	    116557 ns/op
+BenchmarkSmall/memdb-1-0-1000-100-4-10/block-8              	     100	  33767094 ns/op
+Init Tree took 0.14 MB
+BenchmarkSmall/goleveldb-1-0-1000-100-4-10/query-miss-8     	  500000	      3982 ns/op
+BenchmarkSmall/goleveldb-1-0-1000-100-4-10/query-hits-8     	  300000	      5113 ns/op
+BenchmarkSmall/goleveldb-1-0-1000-100-4-10/update-8         	   20000	     83604 ns/op
+BenchmarkSmall/goleveldb-1-0-1000-100-4-10/block-8          	     100	  14777165 ns/op
+Init Tree took 0.58 MB
+BenchmarkSmall/memdb-0-1-1000-100-4-10/query-miss-8         	  500000	      2367 ns/op
+BenchmarkSmall/memdb-0-1-1000-100-4-10/query-hits-8         	  500000	      2808 ns/op
+BenchmarkSmall/memdb-0-1-1000-100-4-10/update-8             	   50000	     33475 ns/op
+BenchmarkSmall/memdb-0-1-1000-100-4-10/block-8              	     300	  15409232 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/goleveldb-0-1-1000-100-4-10/query-miss-8     	  500000	      2608 ns/op
+BenchmarkSmall/goleveldb-0-1-1000-100-4-10/query-hits-8     	  500000	      3063 ns/op
+BenchmarkSmall/goleveldb-0-1-1000-100-4-10/update-8         	   50000	     37384 ns/op
+BenchmarkSmall/goleveldb-0-1-1000-100-4-10/block-8          	     200	  13892236 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/memdb-100-5-1000-100-4-10/query-miss-8       	  500000	      2794 ns/op
+BenchmarkSmall/memdb-100-5-1000-100-4-10/query-hits-8       	  500000	      3108 ns/op
+BenchmarkSmall/memdb-100-5-1000-100-4-10/update-8           	   30000	     46381 ns/op
+BenchmarkSmall/memdb-100-5-1000-100-4-10/block-8            	     200	  15793077 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/goleveldb-100-5-1000-100-4-10/query-miss-8   	 1000000	      2581 ns/op
+BenchmarkSmall/goleveldb-100-5-1000-100-4-10/query-hits-8   	  500000	      2971 ns/op
+BenchmarkSmall/goleveldb-100-5-1000-100-4-10/update-8       	   30000	     54246 ns/op
+BenchmarkSmall/goleveldb-100-5-1000-100-4-10/block-8        	     200	  17805252 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/memdb-1000-10-1000-100-4-10/query-miss-8     	  500000	      2515 ns/op
+BenchmarkSmall/memdb-1000-10-1000-100-4-10/query-hits-8     	  500000	      2713 ns/op
+BenchmarkSmall/memdb-1000-10-1000-100-4-10/update-8         	   30000	     56000 ns/op
+BenchmarkSmall/memdb-1000-10-1000-100-4-10/block-8          	     200	  18247795 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/goleveldb-1000-10-1000-100-4-10/query-miss-8 	  500000	      2406 ns/op
+BenchmarkSmall/goleveldb-1000-10-1000-100-4-10/query-hits-8 	  500000	      2716 ns/op
+BenchmarkSmall/goleveldb-1000-10-1000-100-4-10/update-8     	   30000	     54957 ns/op
+BenchmarkSmall/goleveldb-1000-10-1000-100-4-10/block-8      	     100	  10522437 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/memdb-1000-1-1000-100-4-10/query-miss-8      	  500000	      2560 ns/op
+BenchmarkSmall/memdb-1000-1-1000-100-4-10/query-hits-8      	  500000	      3053 ns/op
+BenchmarkSmall/memdb-1000-1-1000-100-4-10/update-8          	   50000	     36769 ns/op
+BenchmarkSmall/memdb-1000-1-1000-100-4-10/block-8           	     200	  14357739 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/goleveldb-1000-1-1000-100-4-10/query-miss-8  	  500000	      3290 ns/op
+BenchmarkSmall/goleveldb-1000-1-1000-100-4-10/query-hits-8  	  500000	      3437 ns/op
+BenchmarkSmall/goleveldb-1000-1-1000-100-4-10/update-8      	   50000	     56914 ns/op
+BenchmarkSmall/goleveldb-1000-1-1000-100-4-10/block-8       	     100	  15012439 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/memdb-10000-100-1000-100-4-10/query-miss-8   	  500000	      2850 ns/op
+BenchmarkSmall/memdb-10000-100-1000-100-4-10/query-hits-8   	  500000	      2730 ns/op
+BenchmarkSmall/memdb-10000-100-1000-100-4-10/update-8       	   10000	    103250 ns/op
+BenchmarkSmall/memdb-10000-100-1000-100-4-10/block-8        	      50	  39550503 ns/op
+Init Tree took 0.55 MB
+BenchmarkSmall/goleveldb-10000-100-1000-100-4-10/query-miss-8         	  500000	      2684 ns/op
+BenchmarkSmall/goleveldb-10000-100-1000-100-4-10/query-hits-8         	  500000	      3280 ns/op
+BenchmarkSmall/goleveldb-10000-100-1000-100-4-10/update-8             	   10000	    107483 ns/op
+BenchmarkSmall/goleveldb-10000-100-1000-100-4-10/block-8              	      50	  40069720 ns/op
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	100.688s
+Init Tree took 48.86 MB
+goos: darwin
+goarch: amd64
+pkg: github.com/tendermint/iavl/benchmarks
+BenchmarkMedium/memdb-1-0-100000-100-16-40/query-miss-8         	  200000	      6281 ns/op
+BenchmarkMedium/memdb-1-0-100000-100-16-40/query-hits-8         	  200000	      7490 ns/op
+BenchmarkMedium/memdb-1-0-100000-100-16-40/update-8             	    5000	    589147 ns/op
+BenchmarkMedium/memdb-1-0-100000-100-16-40/block-8              	      20	  69479350 ns/op
+Init Tree took 10.91 MB
+BenchmarkMedium/goleveldb-1-0-100000-100-16-40/query-miss-8     	   50000	     22021 ns/op
+BenchmarkMedium/goleveldb-1-0-100000-100-16-40/query-hits-8     	   50000	     27466 ns/op
+BenchmarkMedium/goleveldb-1-0-100000-100-16-40/update-8         	   10000	    374747 ns/op
+BenchmarkMedium/goleveldb-1-0-100000-100-16-40/block-8          	      50	  47548357 ns/op
+Init Tree took 48.81 MB
+BenchmarkMedium/memdb-0-1-100000-100-16-40/query-miss-8         	  200000	      6472 ns/op
+BenchmarkMedium/memdb-0-1-100000-100-16-40/query-hits-8         	  200000	      8117 ns/op
+BenchmarkMedium/memdb-0-1-100000-100-16-40/update-8             	    1000	   1413643 ns/op
+BenchmarkMedium/memdb-0-1-100000-100-16-40/block-8              	      20	 119165460 ns/op
+Init Tree took 48.87 MB
+BenchmarkMedium/goleveldb-0-1-100000-100-16-40/query-miss-8     	  200000	      6465 ns/op
+BenchmarkMedium/goleveldb-0-1-100000-100-16-40/query-hits-8     	  200000	      7681 ns/op
+BenchmarkMedium/goleveldb-0-1-100000-100-16-40/update-8         	    2000	    853301 ns/op
+BenchmarkMedium/goleveldb-0-1-100000-100-16-40/block-8          	      20	 100658873 ns/op
+Init Tree took 48.85 MB
+BenchmarkMedium/memdb-100-5-100000-100-16-40/query-miss-8       	  200000	      6710 ns/op
+BenchmarkMedium/memdb-100-5-100000-100-16-40/query-hits-8       	  200000	      7424 ns/op
+BenchmarkMedium/memdb-100-5-100000-100-16-40/update-8           	    5000	    878736 ns/op
+BenchmarkMedium/memdb-100-5-100000-100-16-40/block-8            	      20	 105546937 ns/op
+Init Tree took 48.84 MB
+BenchmarkMedium/goleveldb-100-5-100000-100-16-40/query-miss-8   	  200000	      6818 ns/op
+BenchmarkMedium/goleveldb-100-5-100000-100-16-40/query-hits-8   	  200000	      7820 ns/op
+BenchmarkMedium/goleveldb-100-5-100000-100-16-40/update-8       	    5000	    855615 ns/op
+BenchmarkMedium/goleveldb-100-5-100000-100-16-40/block-8        	      20	  90191776 ns/op
+Init Tree took 48.86 MB
+BenchmarkMedium/memdb-1000-10-100000-100-16-40/query-miss-8     	  200000	      6628 ns/op
+BenchmarkMedium/memdb-1000-10-100000-100-16-40/query-hits-8     	  200000	      8083 ns/op
+BenchmarkMedium/memdb-1000-10-100000-100-16-40/update-8         	    3000	    900956 ns/op
+BenchmarkMedium/memdb-1000-10-100000-100-16-40/block-8          	      20	  93776159 ns/op
+Init Tree took 48.87 MB
+BenchmarkMedium/goleveldb-1000-10-100000-100-16-40/query-miss-8 	  200000	      6316 ns/op
+BenchmarkMedium/goleveldb-1000-10-100000-100-16-40/query-hits-8 	  200000	      7373 ns/op
+BenchmarkMedium/goleveldb-1000-10-100000-100-16-40/update-8     	    3000	    810655 ns/op
+BenchmarkMedium/goleveldb-1000-10-100000-100-16-40/block-8      	      20	  89698234 ns/op
+Init Tree took 48.83 MB
+BenchmarkMedium/memdb-1000-1-100000-100-16-40/query-miss-8      	  200000	      6414 ns/op
+BenchmarkMedium/memdb-1000-1-100000-100-16-40/query-hits-8      	  200000	      7273 ns/op
+BenchmarkMedium/memdb-1000-1-100000-100-16-40/update-8          	    2000	    793667 ns/op
+BenchmarkMedium/memdb-1000-1-100000-100-16-40/block-8           	      20	  83505306 ns/op
+Init Tree took 48.88 MB
+BenchmarkMedium/goleveldb-1000-1-100000-100-16-40/query-miss-8  	  200000	      6258 ns/op
+BenchmarkMedium/goleveldb-1000-1-100000-100-16-40/query-hits-8  	  200000	      7083 ns/op
+BenchmarkMedium/goleveldb-1000-1-100000-100-16-40/update-8      	    2000	    799026 ns/op
+BenchmarkMedium/goleveldb-1000-1-100000-100-16-40/block-8       	      20	  82225915 ns/op
+Init Tree took 48.88 MB
+BenchmarkMedium/memdb-10000-100-100000-100-16-40/query-miss-8   	  200000	      6420 ns/op
+BenchmarkMedium/memdb-10000-100-100000-100-16-40/query-hits-8   	  200000	      7216 ns/op
+BenchmarkMedium/memdb-10000-100-100000-100-16-40/update-8       	    5000	    595187 ns/op
+BenchmarkMedium/memdb-10000-100-100000-100-16-40/block-8        	      20	  76132336 ns/op
+Init Tree took 48.86 MB
+BenchmarkMedium/goleveldb-10000-100-100000-100-16-40/query-miss-8         	  200000	     10622 ns/op
+BenchmarkMedium/goleveldb-10000-100-100000-100-16-40/query-hits-8         	  100000	     16061 ns/op
+BenchmarkMedium/goleveldb-10000-100-100000-100-16-40/update-8             	    2000	    734238 ns/op
+BenchmarkMedium/goleveldb-10000-100-100000-100-16-40/block-8              	      20	  72135954 ns/op
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	124.410s
+PASS
+ok  	github.com/tendermint/iavl/benchmarks	0.015s
