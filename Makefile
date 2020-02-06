@@ -71,19 +71,14 @@ exploremem:
 delve:
 	dlv test ./benchmarks -- -test.bench=.
 
-protogen:
-	protoc -I/usr/local/include -I. \
-	-I$(GOPATH)/src \
-	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	--go_out=plugins=grpc:. \
-	--grpc-gateway_out=logtostderr=true:. \
-	proto/iavl_api.proto
+proto-gen:
+	@sh protocgen.sh
 
-protolint:
-	protoc -I/usr/local/include -I. \
-	-I$(GOPATH)/src \
-	-I$(GOPATH)/src/github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis \
-	--lint_out=. \
-	proto/iavl_api.proto
+proto-lint:
+	@buf check lint --error-format=json
+
+
+proto-check-breaking:
+	@buf check breaking --against-input '.git#branch=master'
 
 .PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench protogen protolint
