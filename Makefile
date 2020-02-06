@@ -72,7 +72,7 @@ delve:
 	dlv test ./benchmarks -- -test.bench=.
 
 proto-gen:
-	@sh protocgen.sh
+	@sh scripts/protocgen.sh
 
 proto-lint:
 	@buf check lint --error-format=json

@@ -7,6 +7,6 @@ for dir in $proto_dirs; do
   protoc \
   -I. \
   --go_out=plugins=grpc,paths=source_relative:. \
-  --grpc-gateway_out=logtostderr=true:. \
+  --grpc-gateway_out=logtostderr=true,paths=source_relative:. \
   $(find "${dir}" -name '*.proto')
 done 
