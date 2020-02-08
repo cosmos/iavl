@@ -62,3 +62,7 @@ linters-settings:
 #       - performance
 #       - style
 #       - experimental
+
+run:
+  skip-dirs:
+  - proto

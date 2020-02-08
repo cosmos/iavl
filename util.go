@@ -112,7 +112,7 @@ func sortByteSlices(src [][]byte) [][]byte {
 func ConvertProtoRangeProof(proofPb *pb.RangeProof) *RangeProof {
 	leftPath := make(PathToLeaf, len(proofPb.LeftPath.Nodes))
 	for i, n := range proofPb.LeftPath.Nodes {
-		leftPath[i] = proofInnerNode{
+		leftPath[i] = ProofInnerNode{
 			Height:  int8(n.Height),
 			Size:    n.Size,
 			Version: n.Version,
@@ -123,9 +123,9 @@ func ConvertProtoRangeProof(proofPb *pb.RangeProof) *RangeProof {
 
 	innerNodes := make([]PathToLeaf, len(proofPb.InnerNodes))
 	for i, pl := range proofPb.InnerNodes {
-		nodes := make([]proofInnerNode, len(pl.Nodes))
+		nodes := make([]ProofInnerNode, len(pl.Nodes))
 		for j, n := range pl.Nodes {
-			nodes[j] = proofInnerNode{
+			nodes[j] = ProofInnerNode{
 				Height:  int8(n.Height),
 				Size:    n.Size,
 				Version: n.Version,
@@ -137,9 +137,9 @@ func ConvertProtoRangeProof(proofPb *pb.RangeProof) *RangeProof {
 		innerNodes[i] = nodes
 	}
 
-	leaves := make([]proofLeafNode, len(proofPb.Leaves))
+	leaves := make([]ProofLeafNode, len(proofPb.Leaves))
 	for i, l := range proofPb.Leaves {
-		leaves[i] = proofLeafNode{
+		leaves[i] = ProofLeafNode{
 			Key:       l.Key,
 			ValueHash: l.ValueHash,
 			Version:   l.Version,

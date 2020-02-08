@@ -3,6 +3,7 @@ module github.com/tendermint/iavl
 go 1.12
 
 require (
+	github.com/ckaznocha/protoc-gen-lint v0.2.1 // indirect
 	github.com/gogo/gateway v1.1.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.3.3
