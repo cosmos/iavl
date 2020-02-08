@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	dbm "github.com/tendermint/tm-db"
@@ -52,6 +54,11 @@ func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse
 // key based on the current state (version) of the tree.
 func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 	idx, value := s.tree.Get(req.Key)
+	if value == nil {
+		s := status.New(codes.NotFound, "the key requested does not exist")
+		return nil, s.Err()
+	}
+
 	return &pb.GetResponse{Index: idx, Value: value}, nil
 }
 
@@ -62,6 +69,11 @@ func (s *IAVLServer) GetWithProof(ctx context.Context, req *pb.GetRequest) (*pb.
 	value, proof, err := s.tree.GetWithProof(req.Key)
 	if err != nil {
 		return nil, err
+	}
+
+	if value == nil {
+		s := status.New(codes.NotFound, "the key requested does not exist")
+		return nil, s.Err()
 	}
 
 	proofPb := iavl.ConvertRangeProofToProto(req.Key, proof)
@@ -93,6 +105,11 @@ func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersion
 	value, proof, err := s.tree.GetVersionedWithProof(req.Key, req.Version)
 	if err != nil {
 		return nil, err
+	}
+
+	if value == nil {
+		s := status.New(codes.NotFound, "the key requested does not exist")
+		return nil, s.Err()
 	}
 
 	proofPb := iavl.ConvertRangeProofToProto(req.Key, proof)

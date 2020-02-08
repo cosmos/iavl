@@ -129,7 +129,7 @@ func (suite *ServerTestSuite) TestGet() {
 			"non-existent key",
 			nil,
 			[]byte("key-1000"),
-			false,
+			true,
 			nil,
 		},
 	}
@@ -284,7 +284,7 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 			nil,
 			[]byte("key-1000"),
 			1,
-			false,
+			true,
 			nil,
 		},
 	}
