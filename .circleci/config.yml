@@ -20,7 +20,7 @@ jobs:
       - run:
           name: protolint
           command: |
-            make protolint
+            make proto-lint
       - save_cache:
           key: go-mod-v1-{{ checksum "go.sum" }}
           paths:
