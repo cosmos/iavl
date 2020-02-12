@@ -40,8 +40,8 @@ jobs:
 
 workflows:
   version: 2
-    test-suite:
-      jobs: 
-        - build
-        - proto-lint
-        - proto-breakage
+  test-suite:
+    jobs:
+      - build
+      - proto-lint
+      - proto-breakage
