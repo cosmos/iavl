@@ -1,13 +1,14 @@
-// nolint: errcheck scopelint
+// nolint: errcheck,scopelint
 package benchmarks
 
 import (
 	"fmt"
-	"github.com/stretchr/testify/require"
 	"math/rand"
 	"os"
 	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/tendermint/iavl"
 	db "github.com/tendermint/tm-db"
@@ -63,16 +64,16 @@ func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	}
 }
 
-func runInsert(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int) *iavl.MutableTree {
-	for i := 1; i <= b.N; i++ {
-		t.Set(randBytes(keyLen), randBytes(dataLen))
-		if i%blockSize == 0 {
-			t.Hash()
-			t.SaveVersion()
-		}
-	}
-	return t
-}
+// func runInsert(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int) *iavl.MutableTree {
+// 	for i := 1; i <= b.N; i++ {
+// 		t.Set(randBytes(keyLen), randBytes(dataLen))
+// 		if i%blockSize == 0 {
+// 			t.Hash()
+// 			t.SaveVersion()
+// 		}
+// 	}
+// 	return t
+// }
 
 func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
 	l := int32(len(keys))
@@ -86,20 +87,20 @@ func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [
 	return t
 }
 
-func runDelete(b *testing.B, t *iavl.MutableTree, blockSize int, keys [][]byte) *iavl.MutableTree {
-	var key []byte
-	l := int32(len(keys))
-	for i := 1; i <= b.N; i++ {
-		key = keys[rand.Int31n(l)]
-		// key = randBytes(16)
-		// TODO: test if removed, use more keys (from insert)
-		t.Remove(key)
-		if i%blockSize == 0 {
-			commitTree(b, t)
-		}
-	}
-	return t
-}
+// func runDelete(b *testing.B, t *iavl.MutableTree, blockSize int, keys [][]byte) *iavl.MutableTree {
+// 	var key []byte
+// 	l := int32(len(keys))
+// 	for i := 1; i <= b.N; i++ {
+// 		key = keys[rand.Int31n(l)]
+// 		// key = randBytes(16)
+// 		// TODO: test if removed, use more keys (from insert)
+// 		t.Remove(key)
+// 		if i%blockSize == 0 {
+// 			commitTree(b, t)
+// 		}
+// 	}
+// 	return t
+// }
 
 // runBlock measures time for an entire block, not just one tx
 func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
