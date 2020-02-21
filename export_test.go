@@ -1,17 +1,15 @@
 package iavl
 
 import (
-	"context"
 	"io"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/tendermint/tm-db"
 )
 
-func TestExporter(t *testing.T) {
+func TestExportImport(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
 
@@ -20,43 +18,52 @@ func TestExporter(t *testing.T) {
 	tree.Set([]byte("a"), []byte{1})
 	tree.Set([]byte("b"), []byte{2})
 	tree.Set([]byte("c"), []byte{3})
-	_, version, err := tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
 	tree.Remove([]byte("x"))
 	tree.Remove([]byte("b"))
 	tree.Set([]byte("c"), []byte{255})
 	tree.Set([]byte("d"), []byte{4})
-	_, version, err = tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
 	tree.Set([]byte("b"), []byte{2})
 	tree.Set([]byte("c"), []byte{3})
 	tree.Set([]byte("e"), []byte{5})
 	tree.Remove([]byte("z"))
-	_, version, err = tree.SaveVersion()
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
 
 	itree, err := tree.GetImmutable(version)
 	require.NoError(t, err)
-	exporter := NewExporter(context.Background(), itree)
+	exporter := NewExporter(itree)
 
-	expect := [][]byte{
-		[]byte("d"),
-		[]byte("c"),
-		[]byte("b"),
-		[]byte("a"),
-		[]byte("b"),
-		[]byte("c"),
-		[]byte("e"),
-		[]byte("d"),
-		[]byte("e"),
-	}
-	for _, e := range expect {
-		n, err := exporter.Next()
+	newTree, err := NewMutableTree(db.NewMemDB(), 0)
+	require.NoError(t, err)
+	importer, err := NewImporter(newTree, version)
+	require.NoError(t, err)
+
+	for {
+		item, err := exporter.Next()
+		if err == io.EOF {
+			err = importer.Done()
+			require.NoError(t, err)
+			break
+		}
 		require.NoError(t, err)
-		assert.Equal(t, ExportedNode{Key: e}, n)
+		err = importer.Import(item)
+		require.NoError(t, err)
 	}
-	n, err := exporter.Next()
-	assert.Equal(t, io.EOF, err)
-	assert.Empty(t, n)
+
+	require.Equal(t, tree.Hash(), newTree.Hash())
+	require.Equal(t, tree.Size(), newTree.Size())
+
+	itree.Iterate(func(key, value []byte) bool {
+		index, _ := tree.Get(key)
+		newIndex, newValue := newTree.Get(key)
+		require.Equal(t, index, newIndex)
+		require.Equal(t, value, newValue)
+		return false
+	})
 }

@@ -1,13 +1,14 @@
 package iavl
 
 import (
+	"bytes"
 	"context"
 	"io"
 )
 
 // ExportedNode represents an exported node
 type ExportedNode struct {
-	Key []byte
+	Node []byte
 }
 
 // Exporter exports data from an ImmutableTree
@@ -18,8 +19,8 @@ type Exporter struct {
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func NewExporter(ctx context.Context, tree *ImmutableTree) Exporter {
-	ctx, cancel := context.WithCancel(ctx)
+func NewExporter(tree *ImmutableTree) Exporter {
+	ctx, cancel := context.WithCancel(context.Background())
 	e := Exporter{
 		tree:   tree,
 		ch:     make(chan ExportedNode), // Should we use a buffered channel?
@@ -39,8 +40,15 @@ func (e *Exporter) traverse(ctx context.Context) {
 			return true
 		default:
 		}
+
+		var buf bytes.Buffer
+		err := node.writeBytes(&buf)
+		if err != nil {
+			panic(err) // FIXME
+		}
+
 		e.ch <- ExportedNode{
-			Key: node.key,
+			Node: buf.Bytes(),
 		}
 		return false
 	})
@@ -49,11 +57,11 @@ func (e *Exporter) traverse(ctx context.Context) {
 
 // Next fetches the next exported node, or returns io.EOF when done
 func (e *Exporter) Next() (ExportedNode, error) {
-	if item, ok := <-e.ch; ok {
-		return item, nil
-	} else {
+	item, ok := <-e.ch
+	if !ok {
 		return ExportedNode{}, io.EOF
 	}
+	return item, nil
 }
 
 // Close closes the exporter

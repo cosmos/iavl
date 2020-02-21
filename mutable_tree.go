@@ -388,7 +388,7 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 		}, nil
 	}
 	return &ImmutableTree{
-		root:    tree.ndb.GetNode(rootHash),
+		root:    tree.ndb.getNode(rootHash),
 		ndb:     tree.ndb,
 		version: version,
 	}, nil
