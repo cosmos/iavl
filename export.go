@@ -6,34 +6,10 @@ import (
 	"io"
 )
 
-type ExportNode interface {
-	FromNode(*Node) error
-	ToNode() (*Node, error)
-}
+type ExportNode ExportNodeNDB
 
-// ExportNodeNDB
-type ExportNodeNDB struct {
-	bytes []byte
-}
-
-func (e *ExportNodeNDB) FromNode(node *Node) error {
-	var buf bytes.Buffer
-	err := node.writeBytes(&buf)
-	if err != nil {
-		return err
-	}
-	e.bytes = buf.Bytes()
-	return nil
-}
-
-func (e *ExportNodeNDB) ToNode() (*Node, error) {
-	node, err := MakeNode(e.bytes)
-	if err != nil {
-		return nil, err
-	}
-	node._hash()
-	return node, nil
-}
+// ExportNodeNDB stores data in the same format as the internal NodeDB database
+type ExportNodeNDB []byte
 
 // Exporter exports data from an ImmutableTree
 type Exporter struct {
@@ -51,13 +27,13 @@ func NewExporter(tree *ImmutableTree) Exporter {
 		cancel: cancel,
 	}
 
-	go e.traverse(ctx)
+	go e.exportNDB(ctx)
 
 	return e
 }
 
-// traverse traverses the tree and puts nodes in the queue
-func (e *Exporter) traverse(ctx context.Context) {
+// exportNDB exports nodes as NDB byte buffers
+func (e *Exporter) exportNDB(ctx context.Context) {
 	e.tree.root.traverse(e.tree, true, func(node *Node) bool {
 		select {
 		case <-ctx.Done():
@@ -65,13 +41,13 @@ func (e *Exporter) traverse(ctx context.Context) {
 		default:
 		}
 
-		item := &ExportNodeNDB{}
-		err := item.FromNode(node)
+		var buf bytes.Buffer
+		err := node.writeBytes(&buf)
 		if err != nil {
 			panic(err) // FIXME
 		}
 
-		e.ch <- item
+		e.ch <- ExportNode(buf.Bytes())
 		return false
 	})
 	close(e.ch)

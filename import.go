@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -73,27 +72,23 @@ func (i *Importer) Import(item ExportNode) error {
 	if i.tree == nil {
 		return ErrNoImport
 	}
+	return i.importNDB(item)
+}
 
-	node, err := item.ToNode()
+// importNDB imports nodes from NDB byte slices
+func (i *Importer) importNDB(item ExportNode) error {
+	node, err := MakeNode(item)
 	if err != nil {
 		return i.error(err)
 	}
+	node._hash()
 
 	if node.version > i.version {
 		return i.error("Node version %v can't be greater than import version %v",
 			node.version, i.version)
 	}
 
-	if ens, ok := item.(*ExportNodeNDB); ok {
-		i.batch.Set(i.tree.ndb.nodeKey(node.hash), ens.bytes)
-	} else {
-		var buf bytes.Buffer
-		err := node.writeBytes(&buf)
-		if err != nil {
-			panic(err)
-		}
-		i.batch.Set(i.tree.ndb.nodeKey(node.hash), buf.Bytes())
-	}
+	i.batch.Set(i.tree.ndb.nodeKey(node.hash), item)
 
 	if !i.rootSeen {
 		i.batch.Set(i.tree.ndb.rootKey(i.version), node.hash)
