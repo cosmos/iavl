@@ -388,17 +388,27 @@ func (node *Node) calcBalance(t *ImmutableTree) int {
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
 func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, func(node *Node, depth uint8) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, true, func(node *Node, depth uint8) bool {
+		return cb(node)
+	})
+}
+
+// traverse is a wrapper over traverseInRange when we want the whole tree with callbacks after traversal
+func (node *Node) traverseAfter(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, false, func(node *Node, depth uint8) bool {
 		return cb(node)
 	})
 }
 
 // nolint:unused,deadcode
 func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*Node, uint8) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, cb)
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, true, cb)
 }
 
-func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, cb func(*Node, uint8) bool) bool {
+func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, before bool, cb func(*Node, uint8) bool) bool {
+	if node == nil {
+		return false
+	}
 	afterStart := start == nil || bytes.Compare(start, node.key) < 0
 	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
 	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
@@ -408,37 +418,46 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 
 	// Run callback per inner/leaf node.
 	stop := false
-	if !node.isLeaf() || (startOrAfter && beforeEnd) {
+	if before && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		stop = cb(node, depth)
 		if stop {
 			return stop
 		}
 	}
-	if node.isLeaf() {
+
+	if !node.isLeaf() {
+		if ascending {
+			// check lower nodes, then higher
+			if afterStart {
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+			}
+			if stop {
+				return stop
+			}
+			if beforeEnd {
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+			}
+		} else {
+			// check the higher nodes first
+			if beforeEnd {
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+			}
+			if stop {
+				return stop
+			}
+			if afterStart {
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+			}
+		}
+	}
+	if stop {
 		return stop
 	}
 
-	if ascending {
-		// check lower nodes, then higher
-		if afterStart {
-			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
-		}
+	if !before && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+		stop = cb(node, depth)
 		if stop {
 			return stop
-		}
-		if beforeEnd {
-			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
-		}
-	} else {
-		// check the higher nodes first
-		if beforeEnd {
-			stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
-		}
-		if stop {
-			return stop
-		}
-		if afterStart {
-			stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, cb)
 		}
 	}
 
