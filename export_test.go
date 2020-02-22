@@ -9,7 +9,7 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
-func setupExportTree(t *testing.T) *ImmutableTree {
+func setupExportTree(t require.TestingT) *ImmutableTree {
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
 
@@ -71,4 +71,47 @@ func TestExportImport(t *testing.T) {
 		require.Equal(t, value, newValue)
 		return false
 	})
+}
+
+func BenchmarkExport(b *testing.B) {
+	tree := setupExportTree(b)
+	for n := 0; n < b.N; n++ {
+		exporter := NewExporter(tree)
+		for {
+			_, err := exporter.Next()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(b, err)
+		}
+		exporter.Close()
+	}
+}
+
+func BenchmarkImport(b *testing.B) {
+	tree := setupExportTree(b)
+	exported := make([]ExportNode, 0, 1024)
+	exporter := NewExporter(tree)
+	for {
+		item, err := exporter.Next()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(b, err)
+		exported = append(exported, item)
+	}
+	exporter.Close()
+
+	for n := 0; n < b.N; n++ {
+		newTree, err := NewMutableTree(db.NewMemDB(), 0)
+		require.NoError(b, err)
+		importer, err := NewImporter(newTree, tree.Version())
+		require.NoError(b, err)
+		for _, item := range exported {
+			err = importer.Import(item)
+			require.NoError(b, err)
+		}
+		err = importer.Done()
+		require.NoError(b, err)
+	}
 }
