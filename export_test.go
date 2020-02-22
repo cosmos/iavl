@@ -97,14 +97,14 @@ func TestExportImport(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.Equal(t, tree.Hash(), newTree.Hash())
-	require.Equal(t, tree.Size(), newTree.Size())
+	require.Equal(t, tree.Hash(), newTree.Hash(), "Tree hash mismatch")
+	require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
 
 	tree.Iterate(func(key, value []byte) bool {
 		index, _ := tree.Get(key)
 		newIndex, newValue := newTree.Get(key)
-		require.Equal(t, index, newIndex)
-		require.Equal(t, value, newValue)
+		require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
+		require.Equal(t, value, newValue, "Value mismatch for key %v", key)
 		return false
 	})
 }

@@ -6,7 +6,15 @@ import (
 	"io"
 )
 
-type ExportNode ExportNodeNDB
+type ExportNode *ExportNodeMinimal
+
+// ExportNodeMinimal stores the minimum amount of data
+type ExportNodeMinimal struct {
+	Key     []byte
+	Value   []byte
+	Version int64
+	Height  int8
+}
 
 // ExportNodeNDB stores data in the same format as the internal NodeDB database
 type ExportNodeNDB []byte
@@ -27,9 +35,30 @@ func NewExporter(tree *ImmutableTree) Exporter {
 		cancel: cancel,
 	}
 
-	go e.exportNDB(ctx)
+	go e.exportMinimal(ctx)
+	//go e.exportNDB(ctx)
 
 	return e
+}
+
+// exportMinimal exports minimal nodes
+func (e *Exporter) exportMinimal(ctx context.Context) {
+	e.tree.root.traverseAfter(e.tree, true, func(node *Node) bool {
+		select {
+		case <-ctx.Done():
+			return true
+		default:
+		}
+
+		e.ch <- &ExportNodeMinimal{
+			Key:     node.key,
+			Value:   node.value,
+			Version: node.version,
+			Height:  node.height,
+		}
+		return false
+	})
+	close(e.ch)
 }
 
 // exportNDB exports nodes as NDB byte buffers
@@ -47,7 +76,7 @@ func (e *Exporter) exportNDB(ctx context.Context) {
 			panic(err) // FIXME
 		}
 
-		e.ch <- ExportNode(buf.Bytes())
+		//e.ch <- ExportNode(buf.Bytes())
 		return false
 	})
 	close(e.ch)
