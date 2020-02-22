@@ -126,7 +126,7 @@ func BenchmarkExport(b *testing.B) {
 
 func BenchmarkImport(b *testing.B) {
 	tree := setupExportTreeSized(b, 4096)
-	exported := make([]ExportNode, 0, 4096)
+	exported := make([]*ExportNode, 0, 4096)
 	exporter := NewExporter(tree)
 	for {
 		item, err := exporter.Next()

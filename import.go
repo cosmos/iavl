@@ -70,16 +70,10 @@ func (i *Importer) Cancel() {
 }
 
 // Import imports an item into the database.
-func (i *Importer) Import(item ExportNode) error {
+func (i *Importer) Import(item *ExportNode) error {
 	if i.tree == nil {
 		return ErrNoImport
 	}
-	return i.importMinimal(item)
-	//return i.importNDB(item)
-}
-
-// importMinimal imports minimal nodes
-func (i *Importer) importMinimal(item ExportNode) error {
 	if item.Version > i.version {
 		return i.error("Node version %v can't be greater than import version %v",
 			item.Version, i.version)
@@ -129,29 +123,6 @@ func (i *Importer) importMinimal(item ExportNode) error {
 
 	return nil
 }
-
-// importNDB imports nodes from NDB byte slices
-/*func (i *Importer) importNDB(item ExportNode) error {
-	node, err := MakeNode(item)
-	if err != nil {
-		return i.error(err)
-	}
-	node._hash()
-
-	if node.version > i.version {
-		return i.error("Node version %v can't be greater than import version %v",
-			node.version, i.version)
-	}
-
-	i.batch.Set(i.tree.ndb.nodeKey(node.hash), item)
-
-	if !i.rootSeen {
-		i.batch.Set(i.tree.ndb.rootKey(i.version), node.hash)
-		i.rootSeen = true
-	}
-
-	return nil
-}*/
 
 // Done finishes the import.
 func (i *Importer) Done() error {
