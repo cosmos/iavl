@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// ExportNode contains exported node data
+// ExportNode contains exported node data. Nodes must be exported in depth-first post-order.
 type ExportNode struct {
 	Key     []byte
 	Value   []byte
@@ -13,7 +13,7 @@ type ExportNode struct {
 	Height  int8
 }
 
-// Exporter exports data from an ImmutableTree
+// Exporter exports data from an ImmutableTree.
 type Exporter struct {
 	tree   *ImmutableTree
 	ch     chan *ExportNode
@@ -36,7 +36,7 @@ func NewExporter(tree *ImmutableTree) Exporter {
 
 // export exports nodes
 func (e *Exporter) export(ctx context.Context) {
-	e.tree.root.traverseAfter(e.tree, true, func(node *Node) bool {
+	e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
 		select {
 		case <-ctx.Done():
 			return true

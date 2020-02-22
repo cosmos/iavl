@@ -388,24 +388,24 @@ func (node *Node) calcBalance(t *ImmutableTree) int {
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
 func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, true, func(node *Node, depth uint8) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, false, func(node *Node, depth uint8) bool {
 		return cb(node)
 	})
 }
 
-// traverse is a wrapper over traverseInRange when we want the whole tree with callbacks after traversal
-func (node *Node) traverseAfter(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, false, func(node *Node, depth uint8) bool {
+// traversePost is a wrapper over traverseInRange when we want the whole tree post-order
+func (node *Node) traversePost(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, true, func(node *Node, depth uint8) bool {
 		return cb(node)
 	})
 }
 
 // nolint:unused,deadcode
 func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*Node, uint8) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, true, cb)
+	return node.traverseInRange(t, nil, nil, ascending, false, 0, false, cb)
 }
 
-func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, before bool, cb func(*Node, uint8) bool) bool {
+func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, cb func(*Node, uint8) bool) bool {
 	if node == nil {
 		return false
 	}
@@ -418,7 +418,7 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 
 	// Run callback per inner/leaf node.
 	stop := false
-	if before && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+	if !post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		stop = cb(node, depth)
 		if stop {
 			return stop
@@ -429,24 +429,24 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 		if ascending {
 			// check lower nodes, then higher
 			if afterStart {
-				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, post, cb)
 			}
 			if stop {
 				return stop
 			}
 			if beforeEnd {
-				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, post, cb)
 			}
 		} else {
 			// check the higher nodes first
 			if beforeEnd {
-				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+				stop = node.getRightNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, post, cb)
 			}
 			if stop {
 				return stop
 			}
 			if afterStart {
-				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, before, cb)
+				stop = node.getLeftNode(t).traverseInRange(t, start, end, ascending, inclusive, depth+1, post, cb)
 			}
 		}
 	}
@@ -454,7 +454,7 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 		return stop
 	}
 
-	if !before && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+	if post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		stop = cb(node, depth)
 		if stop {
 			return stop

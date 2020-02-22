@@ -178,7 +178,7 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, false, 0, true, func(node *Node, _ uint8) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, 0, false, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		}
@@ -192,7 +192,7 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, true, 0, true, func(node *Node, _ uint8) bool {
+	return t.root.traverseInRange(t, start, end, ascending, true, 0, false, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value, node.version)
 		}
