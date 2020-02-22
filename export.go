@@ -6,15 +6,39 @@ import (
 	"io"
 )
 
-// ExportedNode represents an exported node
-type ExportedNode struct {
-	Node []byte
+type ExportNode interface {
+	FromNode(*Node) error
+	ToNode() (*Node, error)
+}
+
+// ExportNodeNDB
+type ExportNodeNDB struct {
+	bytes []byte
+}
+
+func (e *ExportNodeNDB) FromNode(node *Node) error {
+	var buf bytes.Buffer
+	err := node.writeBytes(&buf)
+	if err != nil {
+		return err
+	}
+	e.bytes = buf.Bytes()
+	return nil
+}
+
+func (e *ExportNodeNDB) ToNode() (*Node, error) {
+	node, err := MakeNode(e.bytes)
+	if err != nil {
+		return nil, err
+	}
+	node._hash()
+	return node, nil
 }
 
 // Exporter exports data from an ImmutableTree
 type Exporter struct {
 	tree   *ImmutableTree
-	ch     chan ExportedNode
+	ch     chan ExportNode
 	cancel context.CancelFunc
 }
 
@@ -23,7 +47,7 @@ func NewExporter(tree *ImmutableTree) Exporter {
 	ctx, cancel := context.WithCancel(context.Background())
 	e := Exporter{
 		tree:   tree,
-		ch:     make(chan ExportedNode), // Should we use a buffered channel?
+		ch:     make(chan ExportNode), // Should we use a buffered channel?
 		cancel: cancel,
 	}
 
@@ -41,25 +65,23 @@ func (e *Exporter) traverse(ctx context.Context) {
 		default:
 		}
 
-		var buf bytes.Buffer
-		err := node.writeBytes(&buf)
+		item := &ExportNodeNDB{}
+		err := item.FromNode(node)
 		if err != nil {
 			panic(err) // FIXME
 		}
 
-		e.ch <- ExportedNode{
-			Node: buf.Bytes(),
-		}
+		e.ch <- item
 		return false
 	})
 	close(e.ch)
 }
 
 // Next fetches the next exported node, or returns io.EOF when done
-func (e *Exporter) Next() (ExportedNode, error) {
+func (e *Exporter) Next() (ExportNode, error) {
 	item, ok := <-e.ch
 	if !ok {
-		return ExportedNode{}, io.EOF
+		return nil, io.EOF
 	}
 	return item, nil
 }
