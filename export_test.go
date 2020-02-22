@@ -9,7 +9,7 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
-func TestExportImport(t *testing.T) {
+func setupExportTree(t *testing.T) *ImmutableTree {
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
 
@@ -37,11 +37,16 @@ func TestExportImport(t *testing.T) {
 
 	itree, err := tree.GetImmutable(version)
 	require.NoError(t, err)
-	exporter := NewExporter(itree)
+	return itree
+}
+
+func TestExportImport(t *testing.T) {
+	tree := setupExportTree(t)
+	exporter := NewExporter(tree)
 
 	newTree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
-	importer, err := NewImporter(newTree, version)
+	importer, err := NewImporter(newTree, tree.Version())
 	require.NoError(t, err)
 
 	for {
@@ -59,7 +64,7 @@ func TestExportImport(t *testing.T) {
 	require.Equal(t, tree.Hash(), newTree.Hash())
 	require.Equal(t, tree.Size(), newTree.Size())
 
-	itree.Iterate(func(key, value []byte) bool {
+	tree.Iterate(func(key, value []byte) bool {
 		index, _ := tree.Get(key)
 		newIndex, newValue := newTree.Get(key)
 		require.Equal(t, index, newIndex)
