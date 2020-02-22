@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"io"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -9,7 +10,9 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
-func setupExportTree(t require.TestingT) *ImmutableTree {
+// setupExportTreeBasic sets up a basic tree with a handful of
+// create/update/delete operations over a few versions
+func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
 
@@ -40,8 +43,41 @@ func setupExportTree(t require.TestingT) *ImmutableTree {
 	return itree
 }
 
+// setupExportTreeSized sets up a single-version tree with a given number
+// of randomly generated key/value pairs
+func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
+	const (
+		randSeed  = 49872768940 // For deterministic tests
+		keySize   = 16
+		valueSize = 16
+	)
+
+	r := rand.New(rand.NewSource(randSeed))
+	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	require.NoError(t, err)
+
+	for i := 0; i < treeSize; i++ {
+		key := make([]byte, keySize)
+		value := make([]byte, valueSize)
+		r.Read(key)
+		r.Read(value)
+		updated := tree.Set(key, value)
+		if updated {
+			i--
+		}
+	}
+
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	itree, err := tree.GetImmutable(version)
+	require.NoError(t, err)
+
+	return itree
+}
+
 func TestExportImport(t *testing.T) {
-	tree := setupExportTree(t)
+	tree := setupExportTreeBasic(t)
 	exporter := NewExporter(tree)
 
 	newTree, err := NewMutableTree(db.NewMemDB(), 0)
@@ -74,7 +110,7 @@ func TestExportImport(t *testing.T) {
 }
 
 func BenchmarkExport(b *testing.B) {
-	tree := setupExportTree(b)
+	tree := setupExportTreeSized(b, 4096)
 	for n := 0; n < b.N; n++ {
 		exporter := NewExporter(tree)
 		for {
@@ -89,8 +125,8 @@ func BenchmarkExport(b *testing.B) {
 }
 
 func BenchmarkImport(b *testing.B) {
-	tree := setupExportTree(b)
-	exported := make([]ExportNode, 0, 1024)
+	tree := setupExportTreeSized(b, 4096)
+	exported := make([]ExportNode, 0, 4096)
 	exporter := NewExporter(tree)
 	for {
 		item, err := exporter.Next()
