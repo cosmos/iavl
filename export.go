@@ -3,9 +3,14 @@ package iavl
 import (
 	"context"
 	"io"
+
+	"github.com/pkg/errors"
 )
 
-// ExportNode contains exported node data. Nodes must be exported in depth-first post-order.
+// ExportDone is returned by Exporter.Next() when all items have been exported.
+var ExportDone = errors.New("export is complete") // nolint:golint
+
+// ExportNode contains exported node data.
 type ExportNode struct {
 	Key     []byte
 	Value   []byte
@@ -13,7 +18,9 @@ type ExportNode struct {
 	Height  int8
 }
 
-// Exporter exports data from an ImmutableTree.
+// Exporter exports nodes from an ImmutableTree. These nodes can be imported into an empty
+// tree with MutableTree.Import(). Nodes are exported depth-first post-order (LRN), this order
+// must be preserved when importing in order to recreate the same tree structure.
 type Exporter struct {
 	tree   *ImmutableTree
 	ch     chan *ExportNode
@@ -21,17 +28,17 @@ type Exporter struct {
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func NewExporter(tree *ImmutableTree) Exporter {
+func NewExporter(tree *ImmutableTree) *Exporter {
 	ctx, cancel := context.WithCancel(context.Background())
-	e := Exporter{
+	exporter := &Exporter{
 		tree:   tree,
-		ch:     make(chan *ExportNode), // Should we use a buffered channel?
+		ch:     make(chan *ExportNode, 64),
 		cancel: cancel,
 	}
 
-	go e.export(ctx)
+	go exporter.export(ctx)
 
-	return e
+	return exporter
 }
 
 // export exports nodes
@@ -54,18 +61,18 @@ func (e *Exporter) export(ctx context.Context) {
 	close(e.ch)
 }
 
-// Next fetches the next exported node, or returns io.EOF when done
+// Next fetches the next exported node, or returns ExportDone when done.
 func (e *Exporter) Next() (*ExportNode, error) {
-	item, ok := <-e.ch
+	exportNode, ok := <-e.ch
 	if !ok {
 		return nil, io.EOF
 	}
-	return item, nil
+	return exportNode, nil
 }
 
-// Close closes the exporter
+// Close closes the exporter.
 func (e *Exporter) Close() {
 	e.cancel()
-	for range e.ch {
+	for range e.ch { // drain channel
 	}
 }

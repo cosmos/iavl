@@ -142,6 +142,12 @@ func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
 	return t.root.hashWithCount()
 }
 
+// Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
+// imported into an empty MutableTree via Import() to recreate an identical tree.
+func (t *ImmutableTree) Export() *Exporter {
+	return NewExporter(t)
+}
+
 // Get returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
 func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {

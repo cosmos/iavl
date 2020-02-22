@@ -2,17 +2,14 @@ package iavl
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/pkg/errors"
 	db "github.com/tendermint/tm-db"
 )
 
-var (
-	ErrNoImport = errors.New("no import in progress")
-)
+var ErrNoImport = errors.New("no import in progress")
 
-// Importer imports data into an empty database
+// Importer imports data into an empty MutableTree.
 type Importer struct {
 	tree    *MutableTree
 	version int64
@@ -20,7 +17,10 @@ type Importer struct {
 	stack   []*Node
 }
 
-// NewImporter creates a new Importer. Callers must call Done() when done.
+// NewImporter creates a new Importer for an empty MutableTree. Callers must call Close() when done.
+//
+// version should correspond to the version that was initially exported. It must be greater than
+// or equal to the highest ExportNode version number given.
 func NewImporter(tree *MutableTree, version int64) (*Importer, error) {
 	if version <= 0 {
 		return nil, errors.New("imported version must be greater than 0")
@@ -39,53 +39,46 @@ func NewImporter(tree *MutableTree, version int64) (*Importer, error) {
 	}, nil
 }
 
-// close closes all resources, i.e. releases the mutex and frees the batch.
-func (i *Importer) close() {
-	if i.tree == nil {
-		return
-	}
+// Close frees all resources, discarding any uncommitted nodes. It is safe to call multiple times.
+func (i *Importer) Close() {
 	i.batch.Close()
-	i.tree.ndb.mtx.Unlock()
+	if i.tree != nil {
+		i.tree.ndb.mtx.Unlock()
+	}
 	i.tree = nil
 }
 
-// error is a convenience function which cancels the import and returns an error.
-func (i *Importer) error(msg interface{}, args ...interface{}) error {
-	i.close()
-	switch e := msg.(type) {
-	case error:
-		return e
-	case string:
-		return errors.Errorf(e, args)
-	case fmt.Stringer:
-		return errors.New(e.String())
-	default:
-		return errors.New("unknown error")
-	}
-}
-
-// Cancel cancels the import, rolling back writes and releasing the mutex.
-func (i *Importer) Cancel() {
-	i.close()
-}
-
-// Import imports an item into the database.
-func (i *Importer) Import(item *ExportNode) error {
+// Add adds an ExportNode to the import. ExportNodes must be added in the order returned by
+// Exporter, i.e. depth-first post-order (LRN).
+func (i *Importer) Add(exportNode *ExportNode) error {
 	if i.tree == nil {
 		return ErrNoImport
 	}
-	if item.Version > i.version {
-		return i.error("Node version %v can't be greater than import version %v",
-			item.Version, i.version)
+	if exportNode == nil {
+		return errors.New("node cannot be nil")
+	}
+	if exportNode.Version > i.version {
+		return errors.Errorf("node version %v can't be greater than import version %v",
+			exportNode.Version, i.version)
+	}
+	if exportNode.Version <= 0 {
+		return errors.New("node versions must be greater than 0")
+	}
+	if exportNode.Height < 0 {
+		return errors.Errorf("node height cannot be negative, found height %v", exportNode.Height)
 	}
 
 	node := &Node{
-		key:     item.Key,
-		value:   item.Value,
-		version: item.Version,
-		height:  item.Height,
+		key:     exportNode.Key,
+		value:   exportNode.Value,
+		version: exportNode.Version,
+		height:  exportNode.Height,
 	}
 
+	// We build the tree from the bottom-left up. The stack is used to store unresolved left
+	// children while constructing right children. When all children are built, the parent can
+	// be constructed and the resolved children can be discarded from the stack. Using a stack
+	// ensures that we can handle additional unresolved left children while building a right branch.
 	stackSize := len(i.stack)
 	switch {
 	case stackSize >= 2 && i.stack[stackSize-1].height < node.height && i.stack[stackSize-2].height < node.height:
@@ -116,16 +109,18 @@ func (i *Importer) Import(item *ExportNode) error {
 	var buf bytes.Buffer
 	err := node.writeBytes(&buf)
 	if err != nil {
-		return i.error(err)
+		return err
 	}
 
+	// FIXME Can we build one giant batch per import, or do we have to flush it regularly?
 	i.batch.Set(i.tree.ndb.nodeKey(node.hash), buf.Bytes())
 
 	return nil
 }
 
-// Done finishes the import.
-func (i *Importer) Done() error {
+// Commit commits the import, writing it to the database. It can only be called once, and calls
+// Close() internally.
+func (i *Importer) Commit() error {
 	if i.tree == nil {
 		return ErrNoImport
 	}
@@ -134,18 +129,19 @@ func (i *Importer) Done() error {
 	case len(i.stack) == 1:
 		i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash)
 	case len(i.stack) > 2:
-		return errors.Errorf("invalid node structure, found stack size %v when finalizing", len(i.stack))
+		return errors.Errorf("invalid node structure, found stack size %v when finalizing",
+			len(i.stack))
 	}
 
 	err := i.batch.WriteSync()
 	if err != nil {
-		return i.error(err)
+		return err
 	}
 	i.tree.ndb.updateLatestVersion(i.version)
 
 	root, err := i.tree.ndb.getRoot(i.version)
 	if err != nil {
-		return i.error(err)
+		return err
 	}
 	if len(root) > 0 {
 		i.tree.ImmutableTree.root = i.tree.ndb.getNode(root)
@@ -157,11 +153,11 @@ func (i *Importer) Done() error {
 	if len(root) > 0 {
 		last, err := i.tree.GetImmutable(i.version)
 		if err != nil {
-			return i.error(err)
+			return err
 		}
 		i.tree.lastSaved = last
 	}
 
-	i.close()
+	i.Close()
 	return nil
 }

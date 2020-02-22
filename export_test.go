@@ -88,12 +88,12 @@ func TestExportImport(t *testing.T) {
 	for {
 		item, err := exporter.Next()
 		if err == io.EOF {
-			err = importer.Done()
+			err = importer.Commit()
 			require.NoError(t, err)
 			break
 		}
 		require.NoError(t, err)
-		err = importer.Import(item)
+		err = importer.Add(item)
 		require.NoError(t, err)
 	}
 
@@ -144,10 +144,10 @@ func BenchmarkImport(b *testing.B) {
 		importer, err := NewImporter(newTree, tree.Version())
 		require.NoError(b, err)
 		for _, item := range exported {
-			err = importer.Import(item)
+			err = importer.Add(item)
 			require.NoError(b, err)
 		}
-		err = importer.Done()
+		err = importer.Commit()
 		require.NoError(b, err)
 	}
 }
