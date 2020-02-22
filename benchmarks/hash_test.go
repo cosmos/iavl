@@ -1,4 +1,4 @@
-// nolint: errcheck scopelint
+// nolint: errcheck,scopelint
 package benchmarks
 
 import (
@@ -11,7 +11,7 @@ import (
 
 	_ "crypto/sha256"
 
-	_ "golang.org/x/crypto/ripemd160"
+	_ "golang.org/x/crypto/ripemd160" // nolint: staticcheck // need to test ripemd160
 	_ "golang.org/x/crypto/sha3"
 )
 

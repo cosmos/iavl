@@ -10,9 +10,9 @@ require (
 	github.com/golangci/golangci-lint v1.21.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.12.2
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	github.com/tendermint/go-amino v0.14.1
-	github.com/tendermint/tendermint v0.33.0
+	github.com/tendermint/tendermint v0.33.1
 	github.com/tendermint/tm-db v0.4.0
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
 	google.golang.org/genproto v0.0.0-20200205142000-a86caf926a67

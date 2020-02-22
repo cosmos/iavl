@@ -168,9 +168,10 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	}
 
 	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
-		exists, existsErr := ldb.DB().Has(key, nil)
+		var exists bool
+		exists, err = ldb.DB().Has(key, nil)
 		if err != nil {
-			return false, errors.Wrap(existsErr, "snapshotDB")
+			return false, errors.Wrap(err, "snapshotDB")
 		}
 		return exists, nil
 	}
