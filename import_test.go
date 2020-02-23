@@ -12,7 +12,7 @@ import (
 func BenchmarkImport(b *testing.B) {
 	tree := setupExportTreeSized(b, 4096)
 	exported := make([]*ExportNode, 0, 4096)
-	exporter := NewExporter(tree)
+	exporter := tree.Export()
 	for {
 		item, err := exporter.Next()
 		if err == io.EOF {

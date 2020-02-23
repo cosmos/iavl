@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/tendermint/tm-db"
@@ -138,7 +139,36 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 	return itree
 }
 
-func TestExportImport(t *testing.T) {
+func TestExport(t *testing.T) {
+	tree := setupExportTreeBasic(t)
+
+	expect := []*ExportNode{
+		{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
+		{Key: []byte("b"), Value: []byte{2}, Version: 3, Height: 0},
+		{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
+		{Key: []byte("c"), Value: []byte{3}, Version: 3, Height: 0},
+		{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
+		{Key: []byte("d"), Value: []byte{4}, Version: 2, Height: 0},
+		{Key: []byte("e"), Value: []byte{5}, Version: 3, Height: 0},
+		{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
+		{Key: []byte("d"), Value: nil, Version: 3, Height: 3},
+	}
+
+	actual := make([]*ExportNode, 0, len(expect))
+	exporter := tree.Export()
+	for {
+		node, err := exporter.Next()
+		if err == ExportDone {
+			break
+		}
+		require.NoError(t, err)
+		actual = append(actual, node)
+	}
+
+	assert.Equal(t, expect, actual)
+}
+
+func TestExport_Import(t *testing.T) {
 	testcases := map[string]struct {
 		tree *ImmutableTree
 	}{
@@ -150,7 +180,7 @@ func TestExportImport(t *testing.T) {
 	for desc, tc := range testcases {
 		tc := tc // appease scopelint
 		t.Run(desc, func(t *testing.T) {
-			exporter := NewExporter(tc.tree)
+			exporter := tc.tree.Export()
 
 			newTree, err := NewMutableTree(db.NewMemDB(), 0)
 			require.NoError(t, err)
@@ -185,10 +215,33 @@ func TestExportImport(t *testing.T) {
 	}
 }
 
+func TestExport_Close(t *testing.T) {
+	tree := setupExportTreeSized(t, 4096)
+	exporter := tree.Export()
+
+	node, err := exporter.Next()
+	require.NoError(t, err)
+	require.NotNil(t, node)
+
+	exporter.Close()
+	node, err = exporter.Next()
+	require.Error(t, err)
+	require.Equal(t, ExportDone, err)
+	require.Nil(t, node)
+
+	node, err = exporter.Next()
+	require.Error(t, err)
+	require.Equal(t, ExportDone, err)
+	require.Nil(t, node)
+
+	exporter.Close()
+	exporter.Close()
+}
+
 func BenchmarkExport(b *testing.B) {
 	tree := setupExportTreeSized(b, 4096)
 	for n := 0; n < b.N; n++ {
-		exporter := NewExporter(tree)
+		exporter := tree.Export()
 		for {
 			_, err := exporter.Next()
 			if err == io.EOF {

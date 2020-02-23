@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"context"
-	"io"
 
 	"github.com/pkg/errors"
 )
@@ -18,9 +17,11 @@ type ExportNode struct {
 	Height  int8
 }
 
-// Exporter exports nodes from an ImmutableTree. These nodes can be imported into an empty
-// tree with MutableTree.Import(). Nodes are exported depth-first post-order (LRN), this order
-// must be preserved when importing in order to recreate the same tree structure.
+// Exporter exports nodes from an ImmutableTree. It is created by ImmutableTree.Export().
+//
+// Exported nodes can be imported into an empty tree with MutableTree.Import(). Nodes are exported
+// depth-first post-order (LRN), this order must be preserved when importing in order to recreate
+// the same tree structure.
 type Exporter struct {
 	tree   *ImmutableTree
 	ch     chan *ExportNode
@@ -28,7 +29,7 @@ type Exporter struct {
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func NewExporter(tree *ImmutableTree) *Exporter {
+func newExporter(tree *ImmutableTree) *Exporter {
 	ctx, cancel := context.WithCancel(context.Background())
 	exporter := &Exporter{
 		tree:   tree,
@@ -65,7 +66,7 @@ func (e *Exporter) export(ctx context.Context) {
 func (e *Exporter) Next() (*ExportNode, error) {
 	exportNode, ok := <-e.ch
 	if !ok {
-		return nil, io.EOF
+		return nil, ExportDone
 	}
 	return exportNode, nil
 }
