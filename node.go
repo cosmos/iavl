@@ -237,6 +237,47 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 	return node.hash, hashCount + 1
 }
 
+// validate validates the node contents
+func (node *Node) validate() error {
+	if node == nil {
+		return errors.New("node cannot be nil")
+	}
+	if node.key == nil {
+		return errors.New("key cannot be nil")
+	}
+	if node.version <= 0 {
+		return errors.New("version must be greater than 0")
+	}
+	if node.height < 0 {
+		return errors.New("height cannot be less than 0")
+	}
+	if node.size < 1 {
+		return errors.New("size must be at least 1")
+	}
+
+	if node.height == 0 {
+		// Leaf nodes
+		if node.value == nil {
+			return errors.New("value cannot be nil for leaf node")
+		}
+		if node.leftHash != nil || node.leftNode != nil || node.rightHash != nil || node.rightNode != nil {
+			return errors.New("leaf node cannot have children")
+		}
+		if node.size != 1 {
+			return errors.New("leaf nodes must have size 1")
+		}
+	} else {
+		// Inner nodes
+		if node.value != nil {
+			return errors.New("value must be nil for non-leaf node")
+		}
+		if node.leftHash == nil && node.rightHash == nil {
+			return errors.New("inner node must have children")
+		}
+	}
+	return nil
+}
+
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) error {
