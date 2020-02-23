@@ -8,6 +8,8 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
+const maxBatchSize = 10000
+
 var ErrNoImport = errors.New("no import in progress")
 
 // Importer imports data into an empty MutableTree. It is created by MutableTree.Import(). Users
@@ -18,10 +20,11 @@ var ErrNoImport = errors.New("no import in progress")
 // Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
 // modified while performing an import.
 type Importer struct {
-	tree    *MutableTree
-	version int64
-	batch   db.Batch
-	stack   []*Node
+	tree      *MutableTree
+	version   int64
+	batch     db.Batch
+	batchSize uint32
+	stack     []*Node
 }
 
 // newImporter creates a new Importer for an empty MutableTree.
@@ -49,7 +52,10 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 
 // Close frees all resources, discarding any uncommitted nodes. It is safe to call multiple times.
 func (i *Importer) Close() {
-	i.batch.Close()
+	if i.batch != nil {
+		i.batch.Close()
+	}
+	i.batch = nil
 	i.tree = nil
 }
 
@@ -115,8 +121,17 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return err
 	}
 
-	// FIXME Can we build one giant batch per import, or do we have to flush it regularly?
 	i.batch.Set(i.tree.ndb.nodeKey(node.hash), buf.Bytes())
+	i.batchSize++
+	if i.batchSize >= maxBatchSize {
+		err = i.batch.Write()
+		if err != nil {
+			return err
+		}
+		i.batch.Close()
+		i.batch = i.tree.ndb.snapshotDB.NewBatch()
+		i.batchSize = 0
+	}
 
 	// Update the stack now that we know there were no errors
 	switch {
