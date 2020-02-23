@@ -8,6 +8,8 @@ Special thanks to external contributors on this release:
 
 ### IMPROVEMENTS
 
+- Added `ImmutableTree.Export()` and `MutableTree.Import()` to export and import tree contents at a specific version.
+
 ### Bug Fix
 
 ## 0.13.0 (January 16, 2020)
