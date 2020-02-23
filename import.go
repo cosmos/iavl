@@ -4,12 +4,16 @@ import (
 	"bytes"
 
 	"github.com/pkg/errors"
+
 	db "github.com/tendermint/tm-db"
 )
 
 var ErrNoImport = errors.New("no import in progress")
 
-// Importer imports data into an empty MutableTree.
+// Importer imports data into an empty MutableTree. It is created by MutableTree.Import().
+//
+// Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
+// modified while performing an import.
 type Importer struct {
 	tree    *MutableTree
 	version int64
@@ -17,18 +21,19 @@ type Importer struct {
 	stack   []*Node
 }
 
-// NewImporter creates a new Importer for an empty MutableTree. Callers must call Close() when done.
+// newImporter creates a new Importer for an empty MutableTree. Callers must call Close() when done.
 //
 // version should correspond to the version that was initially exported. It must be greater than
 // or equal to the highest ExportNode version number given.
-func NewImporter(tree *MutableTree, version int64) (*Importer, error) {
+func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	if version < 0 {
 		return nil, errors.New("imported version cannot be negative")
 	}
-	tree.ndb.mtx.Lock()
 	if tree.ndb.latestVersion > 0 {
-		tree.ndb.mtx.Unlock()
 		return nil, errors.Errorf("found database at version %d, must be 0", tree.ndb.latestVersion)
+	}
+	if !tree.IsEmpty() {
+		return nil, errors.New("tree must be empty")
 	}
 
 	return &Importer{
@@ -42,9 +47,6 @@ func NewImporter(tree *MutableTree, version int64) (*Importer, error) {
 // Close frees all resources, discarding any uncommitted nodes. It is safe to call multiple times.
 func (i *Importer) Close() {
 	i.batch.Close()
-	if i.tree != nil {
-		i.tree.ndb.mtx.Unlock()
-	}
 	i.tree = nil
 }
 

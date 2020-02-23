@@ -120,10 +120,12 @@ func (tree *MutableTree) Set(key, value []byte) bool {
 }
 
 // Import returns an importer that can import tree nodes previously exported by
-// ImmutableTree.Export(). Import can only be called on an empty tree, and the tree will be
-// locked for writes.
+// ImmutableTree.Export(). The caller must call Close() on the importer when done.
+//
+// Import can only be called on an empty tree, and it is the callers responsibility that no
+// modifications are made to the tree while importing. .
 func (tree *MutableTree) Import(version int64) (*Importer, error) {
-	return NewImporter(tree, version)
+	return newImporter(tree, version)
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
