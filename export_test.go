@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"io"
 	"math"
 	"math/rand"
 	"testing"
@@ -139,7 +138,7 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 	return itree
 }
 
-func TestExport(t *testing.T) {
+func TestExporter(t *testing.T) {
 	tree := setupExportTreeBasic(t)
 
 	expect := []*ExportNode{
@@ -156,6 +155,7 @@ func TestExport(t *testing.T) {
 
 	actual := make([]*ExportNode, 0, len(expect))
 	exporter := tree.Export()
+	defer exporter.Close()
 	for {
 		node, err := exporter.Next()
 		if err == ExportDone {
@@ -168,7 +168,7 @@ func TestExport(t *testing.T) {
 	assert.Equal(t, expect, actual)
 }
 
-func TestExport_Import(t *testing.T) {
+func TestExporter_Import(t *testing.T) {
 	testcases := map[string]struct {
 		tree *ImmutableTree
 	}{
@@ -181,15 +181,17 @@ func TestExport_Import(t *testing.T) {
 		tc := tc // appease scopelint
 		t.Run(desc, func(t *testing.T) {
 			exporter := tc.tree.Export()
+			defer exporter.Close()
 
 			newTree, err := NewMutableTree(db.NewMemDB(), 0)
 			require.NoError(t, err)
-			importer, err := NewImporter(newTree, tc.tree.Version())
+			importer, err := newTree.Import(tc.tree.Version())
 			require.NoError(t, err)
+			defer importer.Close()
 
 			for {
 				item, err := exporter.Next()
-				if err == io.EOF {
+				if err == ExportDone {
 					err = importer.Commit()
 					require.NoError(t, err)
 					break
@@ -210,12 +212,11 @@ func TestExport_Import(t *testing.T) {
 				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
 				return false
 			})
-
 		})
 	}
 }
 
-func TestExport_Close(t *testing.T) {
+func TestExporter_Close(t *testing.T) {
 	tree := setupExportTreeSized(t, 4096)
 	exporter := tree.Export()
 
@@ -244,7 +245,7 @@ func BenchmarkExport(b *testing.B) {
 		exporter := tree.Export()
 		for {
 			_, err := exporter.Next()
-			if err == io.EOF {
+			if err == ExportDone {
 				break
 			}
 			require.NoError(b, err)
