@@ -120,10 +120,11 @@ func (tree *MutableTree) Set(key, value []byte) bool {
 }
 
 // Import returns an importer that can import tree nodes previously exported by
-// ImmutableTree.Export(). The caller must call Close() on the importer when done.
+// ImmutableTree.Export(), producing an identical IAVL tree. The caller must call Close() on the
+// importer when done.
 //
-// Import can only be called on an empty tree, and it is the callers responsibility that no
-// modifications are made to the tree while importing. .
+// Import can only be called on an empty tree. It is the callers responsibility that no other
+// modifications are made to the tree while importing.
 //
 // version should correspond to the version that was initially exported. It must be greater than
 // or equal to the highest ExportNode version number given.
@@ -400,7 +401,7 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 		}, nil
 	}
 	return &ImmutableTree{
-		root:    tree.ndb.getNode(rootHash),
+		root:    tree.ndb.GetNode(rootHash),
 		ndb:     tree.ndb,
 		version: version,
 	}, nil

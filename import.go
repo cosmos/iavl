@@ -154,7 +154,7 @@ func (i *Importer) Commit() error {
 		return err
 	}
 	if len(root) > 0 {
-		i.tree.ImmutableTree.root = i.tree.ndb.getNode(root)
+		i.tree.ImmutableTree.root = i.tree.ndb.GetNode(root)
 	}
 
 	i.tree.versions[i.version] = true
