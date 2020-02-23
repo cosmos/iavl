@@ -149,25 +149,11 @@ func (i *Importer) Commit() error {
 	if err != nil {
 		return err
 	}
-	i.tree.ndb.updateLatestVersion(i.version)
+	i.tree.ndb.resetLatestVersion(i.version)
 
-	root, err := i.tree.ndb.getRoot(i.version)
+	_, err = i.tree.LoadVersion(i.version)
 	if err != nil {
 		return err
-	}
-	if len(root) > 0 {
-		i.tree.ImmutableTree.root = i.tree.ndb.GetNode(root)
-	}
-
-	i.tree.versions[i.version] = true
-	i.tree.version = i.version
-
-	if len(root) > 0 {
-		last, err := i.tree.GetImmutable(i.version)
-		if err != nil {
-			return err
-		}
-		i.tree.lastSaved = last
 	}
 
 	i.Close()
