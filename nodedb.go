@@ -79,6 +79,7 @@ func (ndb *nodeDB) isRecentVersion(version int64) bool {
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+
 	if len(hash) == 0 {
 		panic("nodeDB.GetNode() requires hash")
 	}
