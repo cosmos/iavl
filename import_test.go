@@ -9,6 +9,59 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
+func ExampleImporter() {
+	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	if err != nil {
+		// handle err
+	}
+
+	tree.Set([]byte("a"), []byte{1})
+	tree.Set([]byte("b"), []byte{2})
+	tree.Set([]byte("c"), []byte{3})
+	_, version, err := tree.SaveVersion()
+	if err != nil {
+		// handle err
+	}
+
+	itree, err := tree.GetImmutable(version)
+	if err != nil {
+		// handle err
+	}
+	exporter := itree.Export()
+	defer exporter.Close()
+	exported := []*ExportNode{}
+	for {
+		var node *ExportNode
+		node, err = exporter.Next()
+		if err == ExportDone {
+			break
+		} else if err != nil {
+			// handle err
+		}
+		exported = append(exported, node)
+	}
+
+	newTree, err := NewMutableTree(db.NewMemDB(), 0)
+	if err != nil {
+		// handle err
+	}
+	importer, err := newTree.Import(version)
+	if err != nil {
+		// handle err
+	}
+	defer importer.Close()
+	for _, node := range exported {
+		err = importer.Add(node)
+		if err != nil {
+			// handle err
+		}
+	}
+	err = importer.Commit()
+	if err != nil {
+		// handle err
+	}
+}
+
 func TestImporter_NegativeVersion(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)

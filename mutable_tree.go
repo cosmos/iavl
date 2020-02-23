@@ -124,6 +124,9 @@ func (tree *MutableTree) Set(key, value []byte) bool {
 //
 // Import can only be called on an empty tree, and it is the callers responsibility that no
 // modifications are made to the tree while importing. .
+//
+// version should correspond to the version that was initially exported. It must be greater than
+// or equal to the highest ExportNode version number given.
 func (tree *MutableTree) Import(version int64) (*Importer, error) {
 	return newImporter(tree, version)
 }

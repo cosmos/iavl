@@ -10,7 +10,8 @@ import (
 
 var ErrNoImport = errors.New("no import in progress")
 
-// Importer imports data into an empty MutableTree. It is created by MutableTree.Import().
+// Importer imports data into an empty MutableTree. It is created by MutableTree.Import(). Users
+// must call Close() when done.
 //
 // Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
 // modified while performing an import.
@@ -21,7 +22,7 @@ type Importer struct {
 	stack   []*Node
 }
 
-// newImporter creates a new Importer for an empty MutableTree. Callers must call Close() when done.
+// newImporter creates a new Importer for an empty MutableTree.
 //
 // version should correspond to the version that was initially exported. It must be greater than
 // or equal to the highest ExportNode version number given.
