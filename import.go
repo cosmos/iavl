@@ -22,8 +22,8 @@ type Importer struct {
 // version should correspond to the version that was initially exported. It must be greater than
 // or equal to the highest ExportNode version number given.
 func NewImporter(tree *MutableTree, version int64) (*Importer, error) {
-	if version <= 0 {
-		return nil, errors.New("imported version must be greater than 0")
+	if version < 0 {
+		return nil, errors.New("imported version cannot be negative")
 	}
 	tree.ndb.mtx.Lock()
 	if tree.ndb.latestVersion > 0 {
