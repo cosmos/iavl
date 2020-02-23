@@ -61,12 +61,6 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return errors.Errorf("node version %v can't be greater than import version %v",
 			exportNode.Version, i.version)
 	}
-	if exportNode.Version <= 0 {
-		return errors.New("node versions must be greater than 0")
-	}
-	if exportNode.Height < 0 {
-		return errors.Errorf("node height cannot be negative, found height %v", exportNode.Height)
-	}
 
 	node := &Node{
 		key:     exportNode.Key,
@@ -79,6 +73,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// children while constructing right children. When all children are built, the parent can
 	// be constructed and the resolved children can be discarded from the stack. Using a stack
 	// ensures that we can handle additional unresolved left children while building a right branch.
+	//
+	// We don't modify the stack until we've verified the built node, to avoid leaving the
+	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
 	switch {
 	case stackSize >= 2 && i.stack[stackSize-1].height < node.height && i.stack[stackSize-2].height < node.height:
@@ -86,11 +83,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
 		node.rightHash = node.rightNode.hash
-		i.stack = i.stack[:stackSize-2]
 	case stackSize >= 1 && i.stack[stackSize-1].height < node.height:
 		node.leftNode = i.stack[stackSize-1]
 		node.leftHash = node.leftNode.hash
-		i.stack = i.stack[:stackSize-1]
 	}
 
 	if node.height == 0 {
@@ -104,16 +99,28 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	}
 
 	node._hash()
-	i.stack = append(i.stack, node)
+	err := node.validate()
+	if err != nil {
+		return err
+	}
 
 	var buf bytes.Buffer
-	err := node.writeBytes(&buf)
+	err = node.writeBytes(&buf)
 	if err != nil {
 		return err
 	}
 
 	// FIXME Can we build one giant batch per import, or do we have to flush it regularly?
 	i.batch.Set(i.tree.ndb.nodeKey(node.hash), buf.Bytes())
+
+	// Update the stack now that we know there were no errors
+	switch {
+	case node.leftHash != nil && node.rightHash != nil:
+		i.stack = i.stack[:stackSize-2]
+	case node.leftHash != nil || node.rightHash != nil:
+		i.stack = i.stack[:stackSize-1]
+	}
+	i.stack = append(i.stack, node)
 
 	return nil
 }
