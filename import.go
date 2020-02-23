@@ -13,6 +13,8 @@ var ErrNoImport = errors.New("no import in progress")
 // Importer imports data into an empty MutableTree. It is created by MutableTree.Import(). Users
 // must call Close() when done.
 //
+// ExportNodes must be imported in the order returned by Exporter, i.e. depth-first post-order (LRN).
+//
 // Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
 // modified while performing an import.
 type Importer struct {
@@ -139,7 +141,7 @@ func (i *Importer) Commit() error {
 	case len(i.stack) == 1:
 		i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash)
 	case len(i.stack) > 2:
-		return errors.Errorf("invalid node structure, found stack size %v when finalizing",
+		return errors.Errorf("invalid node structure, found stack size %v when committing",
 			len(i.stack))
 	}
 

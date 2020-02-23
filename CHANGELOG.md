@@ -8,7 +8,7 @@ Special thanks to external contributors on this release:
 
 ### IMPROVEMENTS
 
-- Added `ImmutableTree.Export()` and `MutableTree.Import()` to export and import tree contents at a specific version.
+- Added `ImmutableTree.Export()` and `MutableTree.Import()` to export tree contents at a specific version and import it to recreate an identical tree.
 
 ### Bug Fix
 

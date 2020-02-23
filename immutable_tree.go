@@ -143,7 +143,7 @@ func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
 }
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
-// imported into an empty MutableTree via Import() to recreate an identical tree.
+// imported with MutableTree.Import() to recreate an identical tree.
 func (t *ImmutableTree) Export() *Exporter {
 	return newExporter(t)
 }
