@@ -8,8 +8,10 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
+// maxBatchSize is the maximum size of the import batch before flushing it to the database
 const maxBatchSize = 10000
 
+// ErrNoImport is returned when calling methods on a closed importer
 var ErrNoImport = errors.New("no import in progress")
 
 // Importer imports data into an empty MutableTree. It is created by MutableTree.Import(). Users
@@ -50,7 +52,8 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	}, nil
 }
 
-// Close frees all resources, discarding any uncommitted nodes. It is safe to call multiple times.
+// Close frees all resources. It is safe to call multiple times. Uncommitted nodes may already have
+// been flushed to the database, but will not be visible.
 func (i *Importer) Close() {
 	if i.batch != nil {
 		i.batch.Close()
@@ -60,7 +63,8 @@ func (i *Importer) Close() {
 }
 
 // Add adds an ExportNode to the import. ExportNodes must be added in the order returned by
-// Exporter, i.e. depth-first post-order (LRN).
+// Exporter, i.e. depth-first post-order (LRN). Nodes are periodically flushed to the database,
+// but the imported version is not visible until Commit() is called.
 func (i *Importer) Add(exportNode *ExportNode) error {
 	if i.tree == nil {
 		return ErrNoImport
@@ -145,8 +149,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	return nil
 }
 
-// Commit commits the import, writing it to the database. It can only be called once, and calls
-// Close() internally.
+// Commit finalizes the import by flushing any outstanding nodes to the database, making the
+// version visible, and updating the tree metadata. It can only be called once, and calls Close()
+// internally.
 func (i *Importer) Commit() error {
 	if i.tree == nil {
 		return ErrNoImport
