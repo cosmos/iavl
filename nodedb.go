@@ -35,12 +35,13 @@ var (
 )
 
 type nodeDB struct {
-	mtx           sync.Mutex // Read/write lock.
-	snapshotDB    dbm.DB     // Persistent node storage.
-	recentDB      dbm.DB     // Memory node storage.
-	snapshotBatch dbm.Batch  // Batched writing buffer.
-	recentBatch   dbm.Batch  // Batched writing buffer for recentDB.
-	opts          *Options   // Options to customize for pruning/writing
+	mtx            sync.Mutex       // Read/write lock.
+	snapshotDB     dbm.DB           // Persistent node storage.
+	recentDB       dbm.DB           // Memory node storage.
+	snapshotBatch  dbm.Batch        // Batched writing buffer.
+	recentBatch    dbm.Batch        // Batched writing buffer for recentDB.
+	opts           *Options         // Options to customize for pruning/writing
+	versionReaders map[int64]uint32 // Number of active version readers (prevents pruning)
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -62,6 +63,7 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
+		versionReaders: make(map[int64]uint32, 8),
 	}
 	return ndb
 }
@@ -222,16 +224,22 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 
 // DeleteVersion deletes a tree version from disk.
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.deleteVersion(version, checkLatestVersion, false)
 }
 
 func (ndb *nodeDB) DeleteVersionFromRecent(version int64, checkLatestVersion bool) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.deleteVersion(version, checkLatestVersion, true)
 }
 
 func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	if ndb.versionReaders[version] > 0 {
+		return errors.Errorf("unable to delete version %v, it has %v active readers",
+			version, ndb.versionReaders[version])
+	}
 
 	err := ndb.deleteOrphans(version, memOnly)
 	if err != nil {
@@ -347,8 +355,14 @@ func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64, err error) {
 	if ndb.opts.KeepRecent == 0 || ndb.latestVersion-ndb.opts.KeepRecent <= 0 {
 		return nil, nil
 	}
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
 	pruneVer := ndb.latestVersion - ndb.opts.KeepRecent
-	err = ndb.DeleteVersionFromRecent(pruneVer, true)
+	if ndb.versionReaders[pruneVer] > 0 {
+		return nil, nil
+	}
+	err = ndb.deleteVersion(pruneVer, true, true)
 	if err != nil {
 		return nil, err
 	}
@@ -645,6 +659,20 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error 
 	}
 
 	return nil
+}
+
+func (ndb *nodeDB) incrVersionReaders(version int64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	ndb.versionReaders[version]++
+}
+
+func (ndb *nodeDB) decrVersionReaders(version int64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	if ndb.versionReaders[version] > 0 {
+		ndb.versionReaders[version]--
+	}
 }
 
 ////////////////// Utility and test functions /////////////////////////////////

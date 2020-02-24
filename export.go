@@ -37,6 +37,7 @@ func newExporter(tree *ImmutableTree) *Exporter {
 		cancel: cancel,
 	}
 
+	tree.ndb.incrVersionReaders(tree.version)
 	go exporter.export(ctx)
 
 	return exporter
@@ -71,9 +72,13 @@ func (e *Exporter) Next() (*ExportNode, error) {
 	return exportNode, nil
 }
 
-// Close closes the exporter.
+// Close closes the exporter. It is safe to call multiple times.
 func (e *Exporter) Close() {
 	e.cancel()
 	for range e.ch { // drain channel
 	}
+	if e.tree != nil {
+		e.tree.ndb.decrVersionReaders(e.tree.version)
+	}
+	e.tree = nil
 }
