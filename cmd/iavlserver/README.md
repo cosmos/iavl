@@ -43,6 +43,10 @@ Usage of iavlserver:
         Disables the gRPC-Gateway server
   -version int
         The IAVL version to load
+  -keep-every int
+        The version interval to persist to disk
+  -keep-recent int
+        The number of recent versions to keep in memory
 ```
 
 ### Example 

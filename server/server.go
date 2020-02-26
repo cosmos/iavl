@@ -2,16 +2,15 @@ package server
 
 import (
 	"context"
-	"errors"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/golang/protobuf/ptypes/empty"
-	dbm "github.com/tendermint/tm-db"
-
+	"github.com/pkg/errors"
 	"github.com/tendermint/iavl"
 	pb "github.com/tendermint/iavl/proto"
+	dbm "github.com/tendermint/tm-db"
 )
 
 var _ pb.IAVLServiceServer = (*IAVLServer)(nil)
@@ -23,14 +22,18 @@ type IAVLServer struct {
 }
 
 // New creates an IAVLServer.
-func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
-	tree, err := iavl.NewMutableTree(db, int(cacheSize))
+func New(db dbm.DB, cacheSize, version int64, keepEvery int64, keepRecent int64) (*IAVLServer, error) {
+	opts := &iavl.Options{
+		KeepEvery:  keepEvery,
+		KeepRecent: keepRecent,
+	}
+	tree, err := iavl.NewMutableTreeWithOpts(db, dbm.NewMemDB(), int(cacheSize), opts)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "unable to create iavl tree")
 	}
 
 	if _, err := tree.LoadVersion(version); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "unable to load version %d", version)
 	}
 
 	return &IAVLServer{tree: tree}, nil

@@ -22,7 +22,7 @@ type ServerTestSuite struct {
 func (suite *ServerTestSuite) SetupTest() {
 	db := dbm.NewDB("test", dbm.MemDBBackend, "")
 
-	server, err := server.New(db, 1000, 0)
+	server, err := server.New(db, 1000, 0, 1, 0)
 	suite.NoError(err)
 
 	suite.server = server
