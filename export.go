@@ -46,30 +46,29 @@ func newExporter(tree *ImmutableTree) *Exporter {
 // export exports nodes
 func (e *Exporter) export(ctx context.Context) {
 	e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
-		select {
-		case <-ctx.Done():
-			return true
-		default:
-		}
-
-		e.ch <- &ExportNode{
+		exportNode := &ExportNode{
 			Key:     node.key,
 			Value:   node.value,
 			Version: node.version,
 			Height:  node.height,
 		}
-		return false
+
+		select {
+		case e.ch <- exportNode:
+			return false
+		case <-ctx.Done():
+			return true
+		}
 	})
 	close(e.ch)
 }
 
 // Next fetches the next exported node, or returns ExportDone when done.
 func (e *Exporter) Next() (*ExportNode, error) {
-	exportNode, ok := <-e.ch
-	if !ok {
-		return nil, ExportDone
+	if exportNode, ok := <-e.ch; ok {
+		return exportNode, nil
 	}
-	return exportNode, nil
+	return nil, ExportDone
 }
 
 // Close closes the exporter. It is safe to call multiple times.
