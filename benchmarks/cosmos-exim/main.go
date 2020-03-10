@@ -98,7 +98,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 	}
 	fmt.Printf("Exporting cosmoshub database at version %v\n\n", version)
 
-	exports := make(map[string][]*iavl.ExportNode, 16)
+	exports := make(map[string][]*iavl.ExportNode, len(stores))
 
 	totalStats := Stats{}
 	for _, name := range stores {
