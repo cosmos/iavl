@@ -312,15 +312,18 @@ func TestExporter_PruneVersionIgnores(t *testing.T) {
 }
 
 func BenchmarkExport(b *testing.B) {
+	b.StopTimer()
 	tree := setupExportTreeSized(b, 4096)
+	b.StartTimer()
 	for n := 0; n < b.N; n++ {
 		exporter := tree.Export()
 		for {
 			_, err := exporter.Next()
 			if err == ExportDone {
 				break
+			} else if err != nil {
+				b.Error(err)
 			}
-			require.NoError(b, err)
 		}
 		exporter.Close()
 	}

@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"io"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -201,18 +200,21 @@ func TestImporter_Commit_Closed(t *testing.T) {
 }
 
 func BenchmarkImport(b *testing.B) {
+	b.StopTimer()
 	tree := setupExportTreeSized(b, 4096)
 	exported := make([]*ExportNode, 0, 4096)
 	exporter := tree.Export()
 	for {
 		item, err := exporter.Next()
-		if err == io.EOF {
+		if err == ExportDone {
 			break
+		} else if err != nil {
+			b.Error(err)
 		}
-		require.NoError(b, err)
 		exported = append(exported, item)
 	}
 	exporter.Close()
+	b.StartTimer()
 
 	for n := 0; n < b.N; n++ {
 		newTree, err := NewMutableTree(db.NewMemDB(), 0)
@@ -221,7 +223,9 @@ func BenchmarkImport(b *testing.B) {
 		require.NoError(b, err)
 		for _, item := range exported {
 			err = importer.Add(item)
-			require.NoError(b, err)
+			if err != nil {
+				b.Error(err)
+			}
 		}
 		err = importer.Commit()
 		require.NoError(b, err)
