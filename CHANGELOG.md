@@ -10,6 +10,8 @@ Special thanks to external contributors on this release:
 
 ### Bug Fix
 
+- [nodedb] Fix a concurrency issue while deleting orphans
+
 ## 0.13.0 (January 16, 2020)
 
 Special thanks to external contributors on this release:
