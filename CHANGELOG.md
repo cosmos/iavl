@@ -1,7 +1,6 @@
 # Changelog
 
 ## Unreleased
-
 Special thanks to external contributors on this release:
 
 ### BREAKING CHANGES
@@ -10,7 +9,15 @@ Special thanks to external contributors on this release:
 
 ### Bug Fix
 
-- [nodedb] [\#219](https://github.com/tendermint/iavl/pull/219) Fix a concurrent database access issue when deleting orphans
+## 0.13.1 (March 13, 2020)
+
+### Improvements
+
+- [dep] [\#220](https://github.com/tendermint/iavl/pull/220) Update tm-db to 0.5.0, which includes a new B-tree based MemDB used by IAVL for non-persisted versions.
+
+### Bug Fixes
+
+- [nodedb] [\#219](https://github.com/tendermint/iavl/pull/219) Fix a concurrent database access issue when deleting orphans.
 
 ## 0.13.0 (January 16, 2020)
 
