@@ -1,6 +1,13 @@
 # Changelog
 
 ## Unreleased
+Special thanks to external contributors on this release:
+
+### BREAKING CHANGES
+
+### IMPROVEMENTS
+
+### Bug Fix
 
 ## 0.13.1 (March 13, 2020)
 
