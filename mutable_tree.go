@@ -119,6 +119,18 @@ func (tree *MutableTree) Set(key, value []byte) bool {
 	return updated
 }
 
+// Import returns an importer for tree nodes previously exported by ImmutableTree.Export(),
+// producing an identical IAVL tree. The caller must call Close() on the importer when done.
+//
+// version should correspond to the version that was initially exported. It must be greater than
+// or equal to the highest ExportNode version number given.
+//
+// Import can only be called on an empty tree. It is the callers responsibility that no other
+// modifications are made to the tree while importing.
+func (tree *MutableTree) Import(version int64) (*Importer, error) {
+	return newImporter(tree, version)
+}
+
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
 	if value == nil {
 		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))

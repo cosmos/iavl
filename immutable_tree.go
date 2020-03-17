@@ -142,6 +142,12 @@ func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
 	return t.root.hashWithCount()
 }
 
+// Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
+// imported with MutableTree.Import() to recreate an identical tree.
+func (t *ImmutableTree) Export() *Exporter {
+	return newExporter(t)
+}
+
 // Get returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
 func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
@@ -178,7 +184,7 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, false, 0, func(node *Node, _ uint8) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, 0, false, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		}
@@ -192,7 +198,7 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, true, 0, func(node *Node, _ uint8) bool {
+	return t.root.traverseInRange(t, start, end, ascending, true, 0, false, func(node *Node, _ uint8) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value, node.version)
 		}
