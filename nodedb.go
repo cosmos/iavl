@@ -292,16 +292,12 @@ func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) error {
 	if ndb.opts.KeepRecent != 0 {
 		ndb.deleteOrphansMem(version)
 	}
-	var err error
 	if ndb.isSnapshotVersion(version) && !memOnly {
 		predecessor := getPreviousVersionFromDB(version, ndb.snapshotDB)
 		traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
-			err = ndb.snapshotDB.Delete(key)
+			ndb.snapshotBatch.Delete(key)
 			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, predecessor, key, hash)
 		})
-	}
-	if err != nil {
-		return errors.Wrap(err, "snapshotDB err in delete")
 	}
 	return nil
 }

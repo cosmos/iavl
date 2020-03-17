@@ -1,0 +1,11 @@
+name: Test
+on: [pull_request]
+jobs:
+  Test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: test
+        run: |
+          make test
+        shell: bash
