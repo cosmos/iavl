@@ -1,15 +1,20 @@
 # Changelog
 
 ## Unreleased
+
 Special thanks to external contributors on this release:
 
-### BREAKING CHANGES
+### Breaking Changes
 
-### IMPROVEMENTS
+### Improvements
 
-- Added `ImmutableTree.Export()` and `MutableTree.Import()` to export tree contents at a specific version and import it to recreate an identical tree.
+### Bug Fixes
 
-### Bug Fix
+## 0.13.2 (March 18, 2020)
+
+### Improvements
+
+- [\#213] Added `ImmutableTree.Export()` and `MutableTree.Import()` to export tree contents at a specific version and import it to recreate an identical tree.
 
 ## 0.13.1 (March 13, 2020)
 
