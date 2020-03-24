@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	cmn "github.com/tendermint/iavl/common"
 )
 

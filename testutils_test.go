@@ -11,8 +11,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 	amino "github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/iavl/common"
 	db "github.com/tendermint/tm-db"
+
+	cmn "github.com/tendermint/iavl/common"
 )
 
 func randstr(length int) string {

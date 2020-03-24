@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	amino "github.com/tendermint/go-amino"
+
 	cmn "github.com/tendermint/iavl/common"
 )
 

@@ -19,19 +19,28 @@ ifeq ($(COLORS_ON),)
 else
 	go install $(CMDFLAGS) ./cmd/iaviewer
 endif
+.PHONY: install
 
 test:
 	@echo "--> Running go test"
 	@go test ./... $(LDFLAGS) -v --race
+.PHONY: test
 
 tools:
 	go get -v $(GOTOOLS)
+.PHONY: tools
+
+format:
+	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
+	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -w -local github.com/tendermint/iavl
+.PHONY: format
 
 # look into .golangci.yml for enabling / disabling linters
 lint:
 	@echo "--> Running linter"
 	@golangci-lint run
 	@go mod verify
+.PHONY: lint
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
@@ -40,6 +49,7 @@ bench:
 		go test $(LDFLAGS) -bench=Small . && \
 		go test $(LDFLAGS) -bench=Medium . && \
 		go test $(LDFLAGS) -bench=BenchmarkMemKeySizes .
+.PHONY: bench
 
 # fullbench is extra tests needing lots of memory and to run locally
 fullbench:
@@ -50,10 +60,12 @@ fullbench:
 		go test $(LDFLAGS) -timeout=30m -bench=Large . && \
 		go test $(LDFLAGS) -bench=Mem . && \
 		go test $(LDFLAGS) -timeout=60m -bench=LevelDB .
+.PHONY: fullbench
 
 benchprune:
 	cd benchmarks && \
 		go test -bench=PruningStrategies -timeout=24h
+.PHONY: benchprune
 
 # note that this just profiles the in-memory version, not persistence
 profile:
@@ -62,16 +74,18 @@ profile:
 		go tool pprof ${PDFFLAGS} benchmarks.test cpu.out > cpu.pdf && \
 		go tool pprof --alloc_space ${PDFFLAGS} benchmarks.test mem.out > mem_space.pdf && \
 		go tool pprof --alloc_objects ${PDFFLAGS} benchmarks.test mem.out > mem_obj.pdf
+.PHONY: profile
 
 explorecpu:
 	cd benchmarks && \
 		go tool pprof benchmarks.test cpu.out
+.PHONY: explorecpu
 
 exploremem:
 	cd benchmarks && \
 		go tool pprof --alloc_objects benchmarks.test mem.out
+.PHONY: exploremem
 
 delve:
 	dlv test ./benchmarks -- -test.bench=.
-
-.PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench
+.PHONY: delve
