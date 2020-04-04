@@ -158,6 +158,8 @@ func (i *Importer) Commit() error {
 	}
 
 	switch {
+	case len(i.stack) == 0:
+		i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{})
 	case len(i.stack) == 1:
 		i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash)
 	case len(i.stack) > 2:
