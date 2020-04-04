@@ -162,7 +162,7 @@ func (i *Importer) Commit() error {
 		i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{})
 	case len(i.stack) == 1:
 		i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash)
-	case len(i.stack) > 2:
+	default:
 		return errors.Errorf("invalid node structure, found stack size %v when committing",
 			len(i.stack))
 	}
