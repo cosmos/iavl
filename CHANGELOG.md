@@ -10,6 +10,8 @@ Special thanks to external contributors on this release:
 
 ### Bug Fixes
 
+- [import] [\#230](https://github.com/tendermint/iavl/pull/230) Set correct version when committing an empty import.
+
 ## 0.13.2 (March 18, 2020)
 
 ### Improvements

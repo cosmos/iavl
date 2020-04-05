@@ -3,6 +3,7 @@ package iavl
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/tendermint/tm-db"
@@ -197,6 +198,18 @@ func TestImporter_Commit_Closed(t *testing.T) {
 	err = importer.Commit()
 	require.Error(t, err)
 	require.Equal(t, ErrNoImport, err)
+}
+
+func TestImporter_Commit_Empty(t *testing.T) {
+	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	require.NoError(t, err)
+	importer, err := tree.Import(3)
+	require.NoError(t, err)
+	defer importer.Close()
+
+	err = importer.Commit()
+	require.NoError(t, err)
+	assert.EqualValues(t, 3, tree.Version())
 }
 
 func BenchmarkImport(b *testing.B) {
