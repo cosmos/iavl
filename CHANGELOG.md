@@ -10,7 +10,7 @@ Special thanks to external contributors on this release:
 
 ### Bug Fixes
 
-## 0.13.2 (April 5, 2020)
+## 0.13.3 (April 5, 2020)
 
 ### Bug Fixes
 
