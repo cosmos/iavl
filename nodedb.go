@@ -175,7 +175,6 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 // HasSnapshot returns true if a given hash exists in the snapshotDB.
 func (ndb *nodeDB) HasSnapshot(hash []byte) (bool, error) {
 	key := ndb.nodeKey(hash)
-
 	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
 		var exists bool
 
@@ -589,8 +588,10 @@ func (ndb *nodeDB) Commit() error {
 				return errors.Wrap(err, "error in snapShotBatch write")
 			}
 		}
+
 		ndb.snapshotBatch.Close()
 	}
+
 	if ndb.opts.KeepRecent != 0 {
 		if ndb.opts.Sync {
 			err = ndb.recentBatch.WriteSync()
@@ -603,10 +604,13 @@ func (ndb *nodeDB) Commit() error {
 				return errors.Wrap(err, "error in recentBatch write")
 			}
 		}
+
 		ndb.recentBatch.Close()
 	}
+
 	ndb.snapshotBatch = ndb.snapshotDB.NewBatch()
 	ndb.recentBatch = ndb.recentDB.NewBatch()
+
 	return nil
 }
 
@@ -655,7 +659,7 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error 
 	defer ndb.mtx.Unlock()
 
 	if version != ndb.getLatestVersion()+1 {
-		return fmt.Errorf("must save consecutive versions. Expected %d, got %d", ndb.getLatestVersion()+1, version)
+		return fmt.Errorf("must save consecutive versions; expected %d, got %d", ndb.getLatestVersion()+1, version)
 	}
 
 	key := ndb.rootKey(version)

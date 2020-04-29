@@ -455,7 +455,46 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 		return ErrVersionAlreadyFlushed
 	}
 
-	debug("SAVE TREE %v\n", version)
+	debug("FLUSHING VERSION: %d\n", version)
+
+	currRecentBatch := tree.ndb.recentBatch
+	currSnapshotBatch := tree.ndb.snapshotBatch
+
+	defer func() {
+		// close batch objects that were used to flush the version
+		tree.ndb.snapshotBatch.Close()
+		tree.ndb.recentBatch.Close()
+
+		// reset batch objects to the existing objects before the flush started
+		tree.ndb.recentBatch = currRecentBatch
+		tree.ndb.snapshotBatch = currSnapshotBatch
+	}()
+
+	// Override the recentDB and snapshotDB batch objects.
+	//
+	// NOTE: We ignore any write that happen to recentBatch.
+	tree.ndb.recentBatch = tree.ndb.recentDB.NewBatch()
+	tree.ndb.snapshotBatch = tree.ndb.snapshotDB.NewBatch()
+
+	// save branch, the root, and the necessary orphans
+	node := tree.ndb.GetNode(rootHash)
+	tree.ndb.SaveBranch(node, true)
+
+	// TODO: save orphans
+
+	tree.ndb.snapshotBatch.Set(tree.ndb.rootKey(version), node.hash)
+
+	if tree.ndb.opts.Sync {
+		err = tree.ndb.snapshotBatch.WriteSync()
+		if err != nil {
+			return errors.Wrap(err, "error in snapShotBatch writesync")
+		}
+	} else {
+		err = tree.ndb.snapshotBatch.Write()
+		if err != nil {
+			return errors.Wrap(err, "error in snapShotBatch write")
+		}
+	}
 
 	return nil
 }

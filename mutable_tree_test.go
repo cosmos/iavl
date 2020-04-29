@@ -23,7 +23,7 @@ func TestFlushVersion(t *testing.T) {
 	for i := int64(0); i < opts.KeepEvery; i++ {
 		tree.set([]byte(fmt.Sprintf("key-%d", i)), []byte(fmt.Sprintf("value-%d", i)))
 
-		rh, v, err := tree.SaveVersion()
+		rh, v, err := tree.SaveVersion() // nolint: govet
 		require.NoError(t, err)
 		require.Equal(t, i+1, v)
 
@@ -37,7 +37,7 @@ func TestFlushVersion(t *testing.T) {
 	for i, rh := range rootHashes {
 		version := int64(i + 1)
 
-		ok, err := tree.ndb.HasSnapshot(rh)
+		ok, err := tree.ndb.HasSnapshot(rh) // nolint: govet
 		require.NoError(t, err)
 
 		if version == 1 || version%opts.KeepEvery == 0 {
@@ -51,7 +51,7 @@ func TestFlushVersion(t *testing.T) {
 	for i := opts.KeepEvery; i < opts.KeepEvery+2; i++ {
 		tree.set([]byte(fmt.Sprintf("key-%d", i)), []byte(fmt.Sprintf("value-%d", i)))
 
-		rh, v, err := tree.SaveVersion()
+		rh, v, err := tree.SaveVersion() // nolint: govet
 		require.NoError(t, err)
 		require.Equal(t, i+1, v)
 
