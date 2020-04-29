@@ -10,8 +10,14 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-// ErrVersionDoesNotExist is returned if a requested version does not exist.
-var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
+var (
+	// ErrVersionDoesNotExist is returned if a requested version does not exist.
+	ErrVersionDoesNotExist = errors.New("version does not exist")
+
+	// ErrVersionAlreadyFlushed defines an error for when attempting to flush a
+	// version that has already been flushed.
+	ErrVersionAlreadyFlushed = errors.New("version already flushed")
+)
 
 // MutableTree is a persistent tree which keeps track of versions.
 type MutableTree struct {
@@ -431,6 +437,29 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
+func (tree *MutableTree) FlushVersion(version int64) error {
+	rootHash, err := tree.ndb.getRoot(version)
+	if err != nil {
+		return err
+	}
+
+	if rootHash == nil {
+		return ErrVersionDoesNotExist
+	}
+
+	ok, err := tree.ndb.HasSnapshot(rootHash)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return ErrVersionAlreadyFlushed
+	}
+
+	debug("SAVE TREE %v\n", version)
+
+	return nil
+}
+
 // SaveVersion saves a new tree version to memDB and removes old version,
 // based on the current state of the tree. Returns the hash and new version number.
 // If version is snapshot version, persist version to disk as well
@@ -438,12 +467,13 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
 
 	if tree.versions[version] {
-		//version already exists, throw an error if attempting to overwrite
-		// Same hash means idempotent.  Return success.
+		// The version already exists, throw an error if attempting to overwrite.
+		// The same hash means idempotent; return success.
 		existingHash, err := tree.ndb.getRoot(version)
 		if err != nil {
 			return nil, version, err
 		}
+
 		var newHash = tree.WorkingHash()
 		if bytes.Equal(existingHash, newHash) {
 			tree.version = version
@@ -452,9 +482,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.orphans = map[string]int64{}
 			return existingHash, version, nil
 		}
-		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
-			version, newHash, existingHash)
+
+		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
+
 	tree.versions[version] = true
 
 	if tree.root == nil {
@@ -462,30 +493,33 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
 		tree.ndb.SaveOrphans(version, tree.orphans)
+
 		err := tree.ndb.SaveEmptyRoot(version)
 		if err != nil {
 			panic(err)
 		}
 	} else {
 		debug("SAVE TREE %v\n", version)
-		// Save the current tree.
+		// save the current tree
 		tree.ndb.SaveTree(tree.root, version)
 		tree.ndb.SaveOrphans(version, tree.orphans)
+
 		err := tree.ndb.SaveRoot(tree.root, version)
 		if err != nil {
 			panic(err)
 		}
 	}
-	err := tree.ndb.Commit()
-	if err != nil {
+
+	if err := tree.ndb.Commit(); err != nil {
 		return nil, version, err
 	}
 
-	// Prune nodeDB and delete any pruned versions from tree.versions
+	// prune nodeDB and delete any pruned versions from tree.versions
 	prunedVersions, err := tree.ndb.PruneRecentVersions()
 	if err != nil {
 		return nil, version, err
 	}
+
 	for _, pVer := range prunedVersions {
 		delete(tree.versions, pVer)
 	}
@@ -498,7 +532,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.version = version
 	tree.versions[version] = true
 
-	// Set new working tree.
+	// set new working tree
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}

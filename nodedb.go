@@ -157,7 +157,7 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	}
 }
 
-// Has checks if a hash exists in the database.
+// Has checks if a hash exists in the recentDB or the snapshotDB.
 func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	key := ndb.nodeKey(hash)
 
@@ -169,18 +169,29 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 		return true, nil
 	}
 
+	return ndb.HasSnapshot(hash)
+}
+
+// HasSnapshot returns true if a given hash exists in the snapshotDB.
+func (ndb *nodeDB) HasSnapshot(hash []byte) (bool, error) {
+	key := ndb.nodeKey(hash)
+
 	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
 		var exists bool
-		exists, err = ldb.DB().Has(key, nil)
+
+		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
 			return false, errors.Wrap(err, "snapshotDB")
 		}
+
 		return exists, nil
 	}
+
 	value, err := ndb.snapshotDB.Get(key)
 	if err != nil {
 		return false, errors.Wrap(err, "snapshotDB")
 	}
+
 	return value != nil, nil
 }
 
