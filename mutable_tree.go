@@ -437,6 +437,9 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
+// FlushVersion will attempt to manually flush a previously committed version to
+// disk. It will return an error if the version is already flushed, the version
+// does not exist or if the underlying flush fails.
 func (tree *MutableTree) FlushVersion(version int64) error {
 	rootHash, err := tree.ndb.getRoot(version)
 	if err != nil {
