@@ -126,6 +126,10 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 // SaveNode saves a node to disk.
 func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
+	ndb.saveNodeBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
+}
+
+func (ndb *nodeDB) saveNodeBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -142,16 +146,18 @@ func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
 	// Save node bytes to db.
 	var buf bytes.Buffer
 	buf.Grow(node.aminoSize())
+
 	if err := node.writeBytes(&buf); err != nil {
 		panic(err)
 	}
 
 	if !node.saved {
 		node.saved = true
-		ndb.recentBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+		rb.Set(ndb.nodeKey(node.hash), buf.Bytes())
 	}
+
 	if flushToDisk {
-		ndb.snapshotBatch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+		sb.Set(ndb.nodeKey(node.hash), buf.Bytes())
 		node.persisted = true
 		node.saved = true
 	}
@@ -205,6 +211,10 @@ func (ndb *nodeDB) SaveTree(root *Node, version int64) []byte {
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
 func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
+	return ndb.savebranchBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
+}
+
+func (ndb *nodeDB) savebranchBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) []byte {
 	if node.saved && !flushToDisk {
 		return node.hash
 	}
@@ -224,7 +234,7 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	}
 
 	node._hash()
-	ndb.SaveNode(node, flushToDisk)
+	ndb.saveNodeBatch(node, flushToDisk, rb, sb)
 
 	node.leftNode = nil
 	node.rightNode = nil
@@ -284,10 +294,12 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 	if fromVersion > toVersion {
 		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
 	}
+
 	if ndb.isRecentVersion(toVersion) {
 		key := ndb.orphanKey(fromVersion, toVersion, hash)
 		ndb.recentBatch.Set(key, hash)
 	}
+
 	if flushToDisk {
 		// save to disk with toVersion equal to snapshotVersion closest to original toVersion
 		snapVersion := toVersion - (toVersion % ndb.opts.KeepEvery)
@@ -684,6 +696,41 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	if ndb.versionReaders[version] > 0 {
 		ndb.versionReaders[version]--
 	}
+}
+
+func (ndb *nodeDB) flushVersion(version int64, rootHash []byte) error {
+	// Create new recentDB and snapshotDB batch objects. We don't use the current
+	// batch objects of the nodeDB as we don't want to write state prematurely or
+	// have conflicting state.
+	//
+	// NOTE: We ignore any write that happen to recentBatch.
+	rb := ndb.recentDB.NewBatch()
+	sb := ndb.snapshotDB.NewBatch()
+
+	// save branch, the root, and the necessary orphans
+	node := ndb.GetNode(rootHash)
+	ndb.savebranchBatch(node, true, rb, sb)
+
+	traverseOrphansVersionFromDB(ndb.recentDB, version, func(k, v []byte) {
+		var fromVersion, toVersion int64
+		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
+
+		ndb.saveOrphan(v, fromVersion, toVersion, true)
+	})
+
+	sb.Set(ndb.rootKey(version), node.hash)
+
+	if ndb.opts.Sync {
+		if err := sb.WriteSync(); err != nil {
+			return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
+		}
+	} else {
+		if err := sb.Write(); err != nil {
+			return fmt.Errorf("failed to write the snapshot batch: %w", err)
+		}
+	}
+
+	return nil
 }
 
 ////////////////// Utility and test functions /////////////////////////////////
