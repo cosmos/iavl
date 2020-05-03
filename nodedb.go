@@ -214,6 +214,10 @@ func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
 	return ndb.savebranchBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
 }
 
+// TODO: Reconsider design to not have batch objects be fields of a nodeDB type.
+// Instead, batch objects should be created when needed as passed as arguments
+// where needed. This allows the IO flow to be easier to reason about and impproves
+// testability.
 func (ndb *nodeDB) savebranchBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) []byte {
 	if node.saved && !flushToDisk {
 		return node.hash
