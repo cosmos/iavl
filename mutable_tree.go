@@ -447,8 +447,8 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 		return err
 	}
 
-	if rootHash == nil {
-		return nil
+	if len(rootHash) == 0 {
+		return ErrVersionDoesNotExist
 	}
 
 	ok, err := tree.ndb.HasSnapshot(rootHash)
@@ -456,7 +456,7 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 		return err
 	}
 	if ok {
-		return ErrVersionAlreadyFlushed
+		return nil
 	}
 
 	debug("FLUSHING VERSION: %d\n", version)
