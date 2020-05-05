@@ -724,14 +724,8 @@ func (ndb *nodeDB) flushVersion(version int64, rootHash []byte) error {
 
 	sb.Set(ndb.rootKey(version), node.hash)
 
-	if ndb.opts.Sync {
-		if err := sb.WriteSync(); err != nil {
-			return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
-		}
-	} else {
-		if err := sb.Write(); err != nil {
-			return fmt.Errorf("failed to write the snapshot batch: %w", err)
-		}
+	if err := sb.WriteSync(); err != nil {
+		return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
 	}
 
 	return nil
