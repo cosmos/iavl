@@ -441,11 +441,6 @@ func (node *Node) traversePost(t *ImmutableTree, ascending bool, cb func(*Node) 
 	})
 }
 
-// nolint:unused,deadcode
-func (node *Node) traverseWithDepth(t *ImmutableTree, ascending bool, cb func(*Node, uint8) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, false, cb)
-}
-
 func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, cb func(*Node, uint8) bool) bool {
 	if node == nil {
 		return false
