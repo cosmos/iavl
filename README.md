@@ -2,6 +2,7 @@
 
 ![Test](https://github.com/tendermint/iavl/workflows/Test/badge.svg?branch=master)
 ![Lint](https://github.com/tendermint/iavl/workflows/Lint/badge.svg?branch=master)
+[![](https://godoc.org/github.com/tendermint/iavl?status.svg)](http://godoc.org/github.com/tendermint/iavl)
 
 **Note: Requires Go 1.13+**
 
