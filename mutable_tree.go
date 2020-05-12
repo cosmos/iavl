@@ -574,6 +574,7 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	tree.ndb.resetLatestVersion(newLatestVersion)
 	return nil
 }
+
 // deleteNodes deletes all nodes which have greater version than current, because they are not useful anymore
 func (tree *MutableTree) deleteNodes(version int64, hash []byte) {
 	if len(hash) == 0 {
@@ -597,7 +598,6 @@ func (tree *MutableTree) deleteNodes(version int64, hash []byte) {
 		}
 	}
 }
-
 
 // Rotate right and return the new node and orphan.
 func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node) {
