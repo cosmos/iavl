@@ -106,7 +106,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 			panic(err)
 		}
 		if buf == nil {
-			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %s", hash, ndb.nodeKey(hash)))
+			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %x", hash, ndb.nodeKey(hash)))
 		}
 		persisted = true
 	}
@@ -728,7 +728,7 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 		return err
 	}
 
-	if rootHash == nil {
+	if len(rootHash) == 0 {
 		ndb.saveRootBatch([]byte{}, version, rb, sb)
 	} else {
 		// save branch, the root, and the necessary orphans

@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	db "github.com/tendermint/tm-db"
 )
@@ -21,7 +22,7 @@ func TestFlushVersion(t *testing.T) {
 	// set key/value pairs and commit up to KeepEvery
 	rootHashes := make([][]byte, 0)
 	for i := int64(0); i < opts.KeepEvery; i++ {
-		tree.set([]byte(fmt.Sprintf("key-%d", i)), []byte(fmt.Sprintf("value-%d", i)))
+		tree.Set([]byte(fmt.Sprintf("key-%d", i)), []byte(fmt.Sprintf("value-%d", i)))
 
 		rh, v, err := tree.SaveVersion() // nolint: govet
 		require.NoError(t, err)
@@ -82,9 +83,70 @@ func TestFlushVersion(t *testing.T) {
 	require.NotNil(t, tree2)
 
 	// verify we can load the previously manually flushed version on a new tree
+	// and fetch all keys and values
 	v, err := tree2.LoadVersion(tree.Version())
 	require.NoError(t, err)
 	require.Equal(t, tree.Version(), v)
+	fmt.Printf("version: %v\n", v)
+
+	for i := int64(0); i < v; i++ {
+		fmt.Printf("%v\n", i)
+		_, value := tree2.Get([]byte(fmt.Sprintf("key-%d", i)))
+		assert.Equal(t, []byte(fmt.Sprintf("value-%d", i)), value)
+	}
+
+	// also verify that we can load the automatically flushed version and fetch
+	// all keys and values, and that no subsequent keys are present.
+	v, err = tree2.LoadVersion(5)
+	require.NoError(t, err)
+	require.EqualValues(t, 5, v)
+
+	for i := int64(0); i < v+10; i++ {
+		_, value := tree2.Get([]byte(fmt.Sprintf("key-%d", i)))
+		if i < v {
+			assert.Equal(t, []byte(fmt.Sprintf("value-%d", i)), value)
+		} else {
+			assert.Nil(t, value)
+		}
+	}
+}
+
+func TestFlushVersion_Empty(t *testing.T) {
+	memDB := db.NewMemDB()
+	opts := PruningOptions(5, 1)
+	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	require.NoError(t, err)
+	require.NotNil(t, tree)
+
+	// save a couple of versions
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, version)
+
+	_, version, err = tree.SaveVersion()
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, version)
+
+	// flush the latest version
+	err = tree.FlushVersion(2)
+	require.NoError(t, err)
+
+	// try to load the tree in a new memDB
+	tree, err = NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	require.NoError(t, err)
+	require.NotNil(t, tree)
+
+	version, err = tree.LoadVersion(2)
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, version)
+
+	// loading the first version should fail
+	tree, err = NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	require.NoError(t, err)
+	require.NotNil(t, tree)
+
+	_, err = tree.LoadVersion(1)
+	require.Error(t, err)
 }
 
 func TestDelete(t *testing.T) {
