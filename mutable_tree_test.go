@@ -87,10 +87,8 @@ func TestFlushVersion(t *testing.T) {
 	v, err := tree2.LoadVersion(tree.Version())
 	require.NoError(t, err)
 	require.Equal(t, tree.Version(), v)
-	fmt.Printf("version: %v\n", v)
 
 	for i := int64(0); i < v; i++ {
-		fmt.Printf("%v\n", i)
 		_, value := tree2.Get([]byte(fmt.Sprintf("key-%d", i)))
 		assert.Equal(t, []byte(fmt.Sprintf("value-%d", i)), value)
 	}
@@ -109,6 +107,31 @@ func TestFlushVersion(t *testing.T) {
 			assert.Nil(t, value)
 		}
 	}
+}
+
+func TestFlushVersion_SetGet(t *testing.T) {
+	memDB := db.NewMemDB()
+	opts := PruningOptions(5, 1)
+
+	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	require.NoError(t, err)
+	require.NotNil(t, tree)
+
+	tree.Set([]byte("a"), []byte{1})
+	tree.Set([]byte("b"), []byte{2})
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	err = tree.FlushVersion(version)
+	require.NoError(t, err)
+
+	tree, err = NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	require.NoError(t, err)
+	_, err = tree.LoadVersion(version)
+	require.NoError(t, err)
+
+	_, value := tree.Get([]byte("a"))
+	assert.Equal(t, []byte{1}, value)
 }
 
 func TestFlushVersion_Empty(t *testing.T) {

@@ -233,8 +233,8 @@ func (ndb *nodeDB) saveBranchBatch(node *Node, flushToDisk bool, rb, sb dbm.Batc
 		if node.rightNode == nil {
 			node.rightNode = ndb.GetNode(node.rightHash)
 		}
-		node.leftHash = ndb.SaveBranch(node.leftNode, flushToDisk)
-		node.rightHash = ndb.SaveBranch(node.rightNode, flushToDisk)
+		node.leftHash = ndb.saveBranchBatch(node.leftNode, flushToDisk, rb, sb)
+		node.rightHash = ndb.saveBranchBatch(node.rightNode, flushToDisk, rb, sb)
 	}
 
 	node._hash()
