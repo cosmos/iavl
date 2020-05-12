@@ -66,8 +66,8 @@ func TestFlushVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, ok)
 
-	// verify flushing already flushed version fails
-	require.Error(t, tree.FlushVersion(5))
+	// verify flushing already flushed version is fine
+	require.NoError(t, tree.FlushVersion(5))
 
 	// verify we can flush the latest version
 	require.NoError(t, tree.FlushVersion(tree.Version()))
@@ -142,7 +142,7 @@ func TestEmptyRecents(t *testing.T) {
 	require.True(t, tree.VersionExists(int64(1)))
 
 	_, err = tree.GetImmutable(int64(1))
-	require.Nil(t, err)
+	require.NoError(t, err)
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {

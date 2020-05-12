@@ -211,14 +211,14 @@ func (ndb *nodeDB) SaveTree(root *Node, version int64) []byte {
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
 func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
-	return ndb.savebranchBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
+	return ndb.saveBranchBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
 }
 
 // TODO: Reconsider design to not have batch objects be fields of a nodeDB type.
 // Instead, batch objects should be created when needed as passed as arguments
 // where needed. This allows the IO flow to be easier to reason about and impproves
 // testability.
-func (ndb *nodeDB) savebranchBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) []byte {
+func (ndb *nodeDB) saveBranchBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) []byte {
 	if node.saved && !flushToDisk {
 		return node.hash
 	}
@@ -638,7 +638,7 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 			return nil, err
 		}
 		// TODO: maybe I shouldn't check in snapshot if it isn't here
-		if len(memroot) != 0 {
+		if memroot != nil {
 			return memroot, nil
 		}
 	}
@@ -719,19 +719,21 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 	//
 	// NOTE: We ignore any write that happen to recentBatch.
 	rb := ndb.recentDB.NewBatch()
+	defer rb.Close()
 	sb := ndb.snapshotDB.NewBatch()
+	defer sb.Close()
 
 	rootHash, err := ndb.getRoot(version)
 	if err != nil {
 		return err
 	}
 
-	if len(rootHash) == 0 {
+	if rootHash == nil {
 		ndb.saveRootBatch([]byte{}, version, rb, sb)
 	} else {
 		// save branch, the root, and the necessary orphans
 		node := ndb.GetNode(rootHash)
-		ndb.savebranchBatch(node, true, rb, sb)
+		ndb.saveBranchBatch(node, true, rb, sb)
 		ndb.saveRootBatch(node.hash, version, rb, sb)
 	}
 

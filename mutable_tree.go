@@ -10,14 +10,8 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-var (
-	// ErrVersionDoesNotExist is returned if a requested version does not exist.
-	ErrVersionDoesNotExist = errors.New("version does not exist")
-
-	// ErrVersionAlreadyFlushed defines an error for when attempting to flush a
-	// version that has already been flushed.
-	ErrVersionAlreadyFlushed = errors.New("version already flushed")
-)
+// ErrVersionDoesNotExist is returned if a requested version does not exist.
+var ErrVersionDoesNotExist = errors.New("version does not exist")
 
 // MutableTree is a persistent tree which keeps track of versions.
 type MutableTree struct {
