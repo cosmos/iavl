@@ -557,8 +557,16 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 		if err != nil {
 			return err
 		}
+		if version == lastestVersion {
+			root, err := tree.ndb.getRoot(version)
+			if err != nil {
+				return err
+			}
+			tree.deleteNodes(newLatestVersion, root)
+		}
 		delete(tree.versions, version)
 	}
+	tree.ndb.restoreNodes(newLatestVersion)
 	err := tree.ndb.Commit()
 	if err != nil {
 		return err
@@ -566,6 +574,30 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	tree.ndb.resetLatestVersion(newLatestVersion)
 	return nil
 }
+// deleteNodes deletes all nodes which have greater version than current, because they are not useful anymore
+func (tree *MutableTree) deleteNodes(version int64, hash []byte) {
+	if len(hash) == 0 {
+		return
+	}
+
+	node := tree.ndb.GetNode(hash)
+	if node.leftHash != nil {
+		tree.deleteNodes(version, node.leftHash)
+	}
+	if node.rightHash != nil {
+		tree.deleteNodes(version, node.rightHash)
+	}
+
+	if node.version > version {
+		if tree.ndb.isRecentVersion(node.version) {
+			tree.ndb.recentBatch.Delete(tree.ndb.nodeKey(hash))
+		}
+		if tree.ndb.isSnapshotVersion(node.version) {
+			tree.ndb.snapshotBatch.Delete(tree.ndb.nodeKey(hash))
+		}
+	}
+}
+
 
 // Rotate right and return the new node and orphan.
 func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node) {
