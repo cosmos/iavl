@@ -689,6 +689,15 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error 
 	return nil
 }
 
+func (ndb *nodeDB) saveRootBatch(hash []byte, version int64, rb, sb dbm.Batch) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	key := ndb.rootKey(version)
+	rb.Set(key, hash)
+	sb.Set(key, hash)
+}
+
 func (ndb *nodeDB) incrVersionReaders(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
