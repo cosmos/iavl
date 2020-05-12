@@ -13,7 +13,11 @@ import (
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
 
-// MutableTree is a persistent tree which keeps track of versions.
+// MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
+// use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
+// version can be returned via GetImmutable, which is safe for concurrent access.
+//
+// The inner ImmutableTree should not be used directly by callers.
 type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
 	lastSaved      *ImmutableTree   // The most recently saved tree.
@@ -22,8 +26,8 @@ type MutableTree struct {
 	ndb            *nodeDB
 }
 
-// NewMutableTree returns a new tree with the specified cache size and datastore
-// To maintain backwards compatibility, this function will initialize PruningStrategy{keepEvery: 1, keepRecent: 0}
+// NewMutableTree returns a new tree with the specified cache size and datastore, persisting all
+// versions to disk.
 func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
 	// memDB is initialized but should never be written to
 	memDB := dbm.NewMemDB()
@@ -46,7 +50,7 @@ func validateOptions(opts *Options) error {
 	return nil
 }
 
-// NewMutableTreeWithOpts returns a new tree with the specified cache size, datastores and options
+// NewMutableTreeWithOpts returns a new tree with the specified cache size, datastores and options.
 func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) (*MutableTree, error) {
 	if err := validateOptions(opts); err != nil {
 		return nil, err
@@ -385,7 +389,9 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	return targetVersion, nil
 }
 
-// GetImmutable loads an ImmutableTree at a given version for querying
+// GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is
+// safe for concurrent access, provided the version is not deleted via `DeleteVersion()` or
+// pruning settings.
 func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 	rootHash, err := tree.ndb.getRoot(version)
 	if err != nil {
