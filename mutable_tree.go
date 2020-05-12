@@ -447,10 +447,6 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 		return err
 	}
 
-	if len(rootHash) == 0 {
-		return ErrVersionDoesNotExist
-	}
-
 	ok, err := tree.ndb.HasSnapshot(rootHash)
 	if err != nil {
 		return err
@@ -460,7 +456,12 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 	}
 
 	debug("FLUSHING VERSION: %d\n", version)
-	return tree.ndb.flushVersion(version, rootHash)
+	if err := tree.ndb.flushVersion(version); err != nil {
+		return err
+	}
+
+	tree.versions[version] = true
+	return nil
 }
 
 // SaveVersion saves a new tree version to memDB and removes old version,

@@ -392,6 +392,7 @@ func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64, err error) {
 	if ndb.isSnapshotVersion(pruneVer) {
 		return nil, nil
 	}
+
 	return append(prunedVersions, pruneVer), nil
 }
 
@@ -637,7 +638,7 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 			return nil, err
 		}
 		// TODO: maybe I shouldn't check in snapshot if it isn't here
-		if memroot != nil {
+		if len(memroot) != 0 {
 			return memroot, nil
 		}
 	}
@@ -702,7 +703,7 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	}
 }
 
-func (ndb *nodeDB) flushVersion(version int64, rootHash []byte) error {
+func (ndb *nodeDB) flushVersion(version int64) error {
 	// Create new recentDB and snapshotDB batch objects. We don't use the current
 	// batch objects of the nodeDB as we don't want to write state prematurely or
 	// have conflicting state.
@@ -711,9 +712,19 @@ func (ndb *nodeDB) flushVersion(version int64, rootHash []byte) error {
 	rb := ndb.recentDB.NewBatch()
 	sb := ndb.snapshotDB.NewBatch()
 
-	// save branch, the root, and the necessary orphans
-	node := ndb.GetNode(rootHash)
-	ndb.savebranchBatch(node, true, rb, sb)
+	rootHash, err := ndb.getRoot(version)
+	if err != nil {
+		return err
+	}
+
+	if len(rootHash) == 0 {
+		ndb.saveRootBatch([]byte{}, version, rb, sb)
+	} else {
+		// save branch, the root, and the necessary orphans
+		node := ndb.GetNode(rootHash)
+		ndb.savebranchBatch(node, true, rb, sb)
+		ndb.saveRootBatch(node.hash, version, rb, sb)
+	}
 
 	traverseOrphansVersionFromDB(ndb.recentDB, version, func(k, v []byte) {
 		var fromVersion, toVersion int64
@@ -722,10 +733,12 @@ func (ndb *nodeDB) flushVersion(version int64, rootHash []byte) error {
 		ndb.saveOrphan(v, fromVersion, toVersion, true)
 	})
 
-	sb.Set(ndb.rootKey(version), node.hash)
-
 	if err := sb.WriteSync(); err != nil {
 		return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
+	}
+
+	if err := rb.WriteSync(); err != nil {
+		return fmt.Errorf("failed to write (sync) the recent batch: %w", err)
 	}
 
 	return nil
