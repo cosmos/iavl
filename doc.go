@@ -1,8 +1,13 @@
 // Package iavl implements a versioned, snapshottable (immutable) AVL+ tree
 // for persisting key-value pairs.
 //
+// The tree is not safe for concurrent use, and must be guarded by a Mutex
+// or RWLock as appropriate - the exception is immutable trees returned by
+// MutableTree.GetImmutable() which are safe for concurrent use as long as
+// the version is not deleted via DeleteVersion() or pruning settings.
 //
-// Basic usage of MutableTree.
+//
+// Basic usage of MutableTree:
 //
 //  import "github.com/tendermint/iavl"
 //  import "github.com/tendermint/tm-db"

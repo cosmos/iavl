@@ -7,16 +7,16 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
-// ImmutableTree is a container for an immutable AVL+ ImmutableTree. Changes are performed by
-// swapping the internal root with a new one, while the container is mutable.
-// Note that this tree is not thread-safe.
+// ImmutableTree contains the immutable tree at a given version. It is typically created by calling
+// MutableTree.GetImmutable(), in which case the returned tree is safe for concurrent access as
+// long as the version is not deleted via DeleteVersion() or the tree's pruning settings.
 type ImmutableTree struct {
 	root    *Node
 	ndb     *nodeDB
 	version int64
 }
 
-// NewImmutableTree creates both in-memory and persistent instances. Default behavior snapshots every version
+// NewImmutableTree creates both in-memory and persistent instances.
 func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	if db == nil {
 		// In-memory Tree.
