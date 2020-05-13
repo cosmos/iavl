@@ -728,13 +728,14 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 		return err
 	}
 
-	if rootHash == nil {
+	switch {
+	case rootHash == nil:
 		return fmt.Errorf("version %v does not exist in recentDB", version)
 
-	} else if len(rootHash) == 0 {
+	case len(rootHash) == 0:
 		ndb.saveRootBatch([]byte{}, version, rb, sb)
 
-	} else {
+	default:
 		// save branch, the root, and the necessary orphans
 		node := ndb.GetNode(rootHash)
 		ndb.saveBranchBatch(node, true, rb, sb)
