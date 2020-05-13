@@ -132,6 +132,22 @@ func TestFlushVersion_SetGet(t *testing.T) {
 
 	_, value := tree.Get([]byte("a"))
 	assert.Equal(t, []byte{1}, value)
+	_, value = tree.Get([]byte("b"))
+	assert.Equal(t, []byte{2}, value)
+}
+
+func TestFlushVersion_Missing(t *testing.T) {
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, PruningOptions(5, 1))
+	require.NoError(t, err)
+	require.NotNil(t, tree)
+
+	tree.Set([]byte("a"), []byte{1})
+	tree.Set([]byte("b"), []byte{2})
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	err = tree.FlushVersion(2)
+	require.Error(t, err)
 }
 
 func TestFlushVersion_Empty(t *testing.T) {
