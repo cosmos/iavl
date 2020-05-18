@@ -720,6 +720,7 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 	// NOTE: We ignore any write that happen to recentBatch.
 	rb := ndb.recentDB.NewBatch()
 	defer rb.Close()
+
 	sb := ndb.snapshotDB.NewBatch()
 	defer sb.Close()
 
