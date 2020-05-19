@@ -24,9 +24,9 @@ In reality, IAVL nodes contain more data than shown here - for details please re
 [node documentation](../node/node.md). However, this simplified version is sufficient for a
 high-level understanding.
 
-A cryptographically secure hash is generated for each node in the tree by hashing the key and
-value (if leaf node), version, and height of the node as well as the hashes of each direct child
-(if any). This implies that the hash of any given node is also a hash of all descendants of the
+A cryptographically secure hash is generated for each node in the tree by hashing the node's key
+and value (if leaf node), version, and height, as well as the hashes of each direct child (if
+any). This implies that the hash of any given node is also a hash of all descendants of the
 node. In turn, this implies that the hash of the root node is a hash of all nodes (and therefore
 all data) in the tree.
 
@@ -43,14 +43,15 @@ need the following information:
 a,hash(1)  hash=92fd030
 ```
 
-Note that we take the hash of the value `a=1` instead of simply using the value; both would work,
-but the value can be arbitrarily large while the hash has a constant size.
+Note that we take the hash of the value `a=1` instead of simply using the value `1`; both would
+work, but the value can be arbitrarily large while the hash has a constant size.
 
 With this data, we are able to compute the hashes for all nodes up to and including the root,
 and can compare this root hash with the root hash of the IAVL tree - if they match, we can be
 reasonably certain that the value is correct. This data is therefore considered a _proof_ for the
 value. Notice how we don't need to include any data from e.g. the `e`-branch of the tree at all,
-only the hash - as the tree grows in size, these savings become very significant.
+only the hash - as the tree grows in size, these savings become very significant, requiring only
+`log₂(n)` hashes for a tree of `n` keys.
 
 However, this still introduces quite a bit of overhead. Since we usually want to fetch several
 values from the tree and verify them, it is often useful to fetch a _range proof_, which contains
@@ -70,13 +71,16 @@ a,hash(1)  b,hash(2)
 Range proofs can also be used to prove the _absence_ of a key. This is done by producing a range
 proof of the keys directly before and after the absent key - if the proof root matches the tree
 root, and the proof does not include the leaf node for the key, then the key cannot be in the tree.
+For example, the above proof can prove that the key `ab` is not in the tree, because if it was it 
+would have to be ordered between `a` and `b` - it is clear from the tree that there is no such
+node, and if there was it would cause the parent hashes to be different from what we see.
 
 ## API Overview
 
 The following is a general overview of the API - for details, see the
 [API reference](https://pkg.go.dev/github.com/tendermint/iavl).
 
-As an example, we will be using the same IAVL tree as outlined in the introduction:
+As an example, we will be using the same IAVL tree as described in the introduction:
 
 ```
             d
@@ -120,11 +124,11 @@ func main() {
 	_, _ = rootHash, version // ignore variables
 
     // Output tree structure, including all node hashes (prefixed with 'n')
-	fmt.Printf("%x\n", tree.Hash())
+    fmt.Printf("%x\n", tree.Hash())
 }
 ```
 
-### The Tree Root Hash
+### Tree Root Hash
 
 Proofs are verified against the root hash of an IAVL tree. This root hash is retrived via
 `MutableTree.Hash()` or `ImmutableTree.Hash()`, returning a `[]byte` hash. It is also returned by 
@@ -143,7 +147,7 @@ The following methods are used to generate proofs, all of which are of type `Ran
   proof of existence or proof of absence.
 
 * `ImmutableTree.GetRangeWithProof(start, end []byte, limit int)`: fetches the keys, values, and 
-  proofs for the given key range.
+  proofs for the given key range, optionally with a limit.
 
 * `MutableTree.GetVersionedWithProof(key []byte, version int64)`: like `GetWithProof()`, but for a
   specific version of the tree.
@@ -254,7 +258,7 @@ Recall our example tree:
 a=1   b=2
 ```
 
-A `RangeProof` contains the following data, as well as JSON tags for easy serialization:
+A `RangeProof` contains the following data, as well as JSON tags for serialization:
 
 ```go
 type RangeProof struct {
@@ -265,7 +269,8 @@ type RangeProof struct {
 ```
 
 * `LeftPath` contains the path to the leftmost node in the proof. For a proof of the range `a` to 
-  `e` (excluding `e=5`), it contains information about the nodes `d`, `c`, and `b` in that order.
+  `e` (excluding `e=5`), it contains information about the inner nodes `d`, `c`, and `b` in that 
+  order.
 
 * `InnerNodes` contains paths with any additional inner nodes not already in `LeftPath`, with `nil` 
   paths for nodes already traversed. For a proof of the range `a` to `e` (excluding `e=5`), this 
