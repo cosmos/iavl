@@ -165,6 +165,10 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		return node, errors.New("key does not exist")
 	}
 
+	// Note that we do not store the left child in the ProofInnerNode when we're going to add the
+	// left node as part of the path, similarly we don't store the right child info when going down
+	// the right child node. This is done as an optimization since the child info is going to be
+	// already stored in the next ProofInnerNode in PathToLeaf.
 	if bytes.Compare(key, node.key) < 0 {
 		// left side
 		pin := ProofInnerNode{
