@@ -24,11 +24,11 @@ In reality, IAVL nodes contain more data than shown here - for details please re
 [node documentation](../node/node.md). However, this simplified version is sufficient for a
 high-level understanding.
 
-A cryptographically secure hash is generated for each node in the tree by hashing the key, value
-(if any), version, and height of the node as well as the hashes of each direct child (if any).
-This implies that the hash of any given node is also a hash of all descendants of the node. In
-turn, this implies that the hash of the root node is a hash of all nodes (and therefore all
-data) in the tree.
+A cryptographically secure hash is generated for each node in the tree by hashing the key and
+value (if leaf node), version, and height of the node as well as the hashes of each direct child
+(if any). This implies that the hash of any given node is also a hash of all descendants of the
+node. In turn, this implies that the hash of the root node is a hash of all nodes (and therefore
+all data) in the tree.
 
 If we fetch the value `a=1` from the tree and want to verify that this is the correct value, we
 need the following information:
@@ -169,9 +169,8 @@ if err != nil {
 }
 ```
 
-The proof must _always_ be verified against the root hash with `Verify()` - other operations
-will assume the proof is valid. The verification can also be done manually with
-`RangeProof.ComputeRootHash()`:
+The proof must always be verified against the root hash with `Verify()` before attempting other 
+operations. The proof can also be verified manually with `RangeProof.ComputeRootHash()`:
 
 ```go
 if !bytes.Equal(proof.ComputeRootHash(), tree.Hash()) {
@@ -203,7 +202,7 @@ if err != nil {
 ```
 
 If we generate a proof for a range of keys, we can use this both to prove any of the keys in the
-range, as well as the absence of any keys that would be within it:
+range, as well as the absence of any keys that would have been within it:
 
 ```go
 // Note that the end key is not inclusive, so c is not in the proof
@@ -217,16 +216,20 @@ if err != nil {
     log.Fatal(err)
 }
 
+// Prove that a=1 is in the range
 err = proof.VerifyItem([]byte("a"), []byte{1})
 if err != nil {
     log.Printf("Failed to prove a=1 with range: %v", err)
 }
 
-err = proof.VerifyItem([]byte("c"), []byte{3})
+// Prove that b=2 is also in the range
+err = proof.VerifyItem([]byte("b"), []byte{2})
 if err != nil {
-    log.Printf("Failed to prove c=3 with range: %v", err)
+    log.Printf("Failed to prove b=2 with range: %v", err)
 }
 
+// Since "ab" is ordered after "a" but before "b", we can prove that it
+// is not in the range and therefore not in the tree at all
 err = proof.VerifyAbsence([]byte("ab"))
 if err != nil {
     log.Printf("Failed to verify absence of ab: %v", err)
@@ -235,8 +238,21 @@ if err != nil {
 
 ### Proof Structure
 
-The overall proof structure was described in the introduction, here we will have a look at the
-actual data structure. Knowledge of this is not necessary to use proofs.
+The overall proof structure was described in the introduction. Here, we will have a look at the
+actual data structure. Knowledge of this is not necessary to use proofs. It may also be useful
+to have a look at the [`Node` data structure](../node/node.md).
+
+Recall our example tree:
+
+```
+            d
+          /   \
+        c       e
+      /   \    /  \
+    b     c=3 d=4 e=5
+  /   \
+a=1   b=2
+```
 
 A `RangeProof` contains the following data, as well as JSON tags for easy serialization:
 
@@ -248,16 +264,31 @@ type RangeProof struct {
 }
 ```
 
-`LeftPath` 
+* `LeftPath` contains the path to the leftmost node in the proof. For a proof of the range `a` to 
+  `e` (excluding `e=5`), it contains information about the nodes `d`, `c`, and `b` in that order.
 
-To fully understand this, we will first understand what `PathToLeaf` and `ProofInnerNode` are.
+* `InnerNodes` contains paths with any additional inner nodes not already in `LeftPath`, with `nil` 
+  paths for nodes already traversed. For a proof of the range `a` to `e` (excluding `e=5`), this 
+  contains the paths `nil`, `nil`, `[e]` where the `nil` paths refer to the paths to `b=2` and
+  `c=3` already traversed in `LeftPath`, and `[e]` contains data about the `e` inner node needed
+  to prove `d=4`.
 
-### ProofInnerNode
+* `Leaves` contains data about the leaf nodes in the range. For the range `a` to `e` (exluding 
+  `e=5`) this contains info about `a=1`, `b=2`, `c=3`, and `d=4` in left-to-right order.
 
-`ProofInnerNode` is a struct that simply holds information about a node in the IAVL tree.
-It records the following information:
+Note that `Leaves` may contain additional leaf nodes outside the requested range, for example to
+satisfy absence proofs if a given key does not exist. This may require additional inner nodes
+to be included as well.
 
-```golang
+`PathToLeaf` is simply a slice of `ProofInnerNode`:
+
+```go
+type PathToLeaf []ProofInnerNode
+```
+
+Where `ProofInnerNode` contains the following data (a subset of the [node data](../node/node.md)):
+
+```go
 type ProofInnerNode struct {
 	Height  int8   `json:"height"`
 	Size    int64  `json:"size"`
@@ -267,30 +298,13 @@ type ProofInnerNode struct {
 }
 ```
 
-This holds a subset of the `Node` struct. For information about what each field means, please
-refer to the [`Node` documentation](../node/node.md).
+Unlike in our diagrams, the key of the inner nodes are not actually part of the proof. This is
+because they are only used to guide binary searches and do no necessarily correspond to actual keys
+in the data set, and are thus not included in any hashes.
 
-### PathToLeaf
+Similarly, `ProofLeafNode` contains a subset of leaf node data:
 
-`PathToLeaf` is a list of `ProofInnerNode`, where the list is ordered from furthest to closet to
-the root node. For example, for the following path in the tree:
-
-    Root
-       \
-        A
-         \
-          B
-           \
-            C
-           
-PathToLeaf will be storing nodes in the order of [C, B, A]
-
-### ProofLeafNode
-
-`ProofLeafNode` is similiar to `ProofInnerNode` where it holds some information about the leaf
-node without the extra path information.
-
-```golang
+```go
 type ProofLeafNode struct {
 	Key       cmn.HexBytes `json:"key"`
 	ValueHash cmn.HexBytes `json:"value"`
@@ -298,58 +312,11 @@ type ProofLeafNode struct {
 }
 ```
 
-### RangeProof
+Notice how the proof contains a hash of the node's `Value` rather than the value itself. This is
+because values can be arbitrarily large while the hash has a constant size. The Merkle hashes
+of the tree are computed in the same way, by hashing the value before including it in the node hash.
 
-Now that we understand what each field type in a `RangeProof` means, we can understand what a 
-`RangeProof` is:
-
-```golang
-type RangeProof struct {
-	LeftPath   PathToLeaf      `json:"left_path"`
-	InnerNodes []PathToLeaf    `json:"inner_nodes"`
-	Leaves     []ProofLeafNode `json:"leaves"`
-}
-```
-
-Essentially a `RangeProof` represents a proof that a range of keys between either exists or is
-absent from the IAVL tree. This is important as `RangeProof` needs to support both verifying a
-single key (`GetWithProof`) and list of keys (`GetRangeWithProof`).
-
-`LeftPath` stores the path in the IAVL tree from root to the leaf node with the first key
-(keyStart), with a list of `ProofInnerNode`s. `InnerNodes` stores all the remaining paths (list
-of `PathToLeafs`) in the tree to get to all the remaining `Leaves`. `Leaves` keeps all the leaf
-nodes that is part of the key range, which each leaf node represents a particular key in the
-IAVL tree.
-
-### Verifying RangeProof
-
-With a `RangeProof`, we can both verify that it's a valid proof by traversing the list of
-`PathToLeaf` and verifying each hash that is stored with the rest of the nodes, and in the end
-compare if this root hash matches what's being stored in the IAVL tree.
-
-## Proof Operations
-
-Now that we understand the fields that are part of the `Range` proof, we can start to understand
-which operations are supported.
-
-The three operations a range proof provides are 1) Verify 2) VerifyItem 3) VerifyAbsence.
-
-### Verify
-
-One can verify a root hash and compares with the root hash that is computed from the `RangeProof`
-is equal. As long as the tree content and the hashing mechanism remains the same, the root hash
-over a merkle tree should always be the same. This is used to verify that a `RangeProof` is
-valid, since the root hash computed from the proof and tree should be identical.
-  
-## VerifyItem
-
-Once a `RangeProof` is verified it can be used to prove that a key/value within the range exists
-in this `RangeProof`. Since all the keys as part of the `RangeProof` are stored in `Leaves`,
-verifying a particular key and value is simply verifying one of the leaf node's key matches the
-key and its value's hash matches the value hash stored.
-
-## VerifyAbsence
-
-Similarly to VerifiyItem, once a `RangeProof` is verified it can be used to prove that a
-key/value within the range doesn't exist. Proving that a key doesn't exist from a `RangeProof`
-is accomplished by verifying that the key doesn't exist in the Leaves.
+The information in these proofs is sufficient to reasonably prove that a given value exists (or 
+does not exist) in a given version of an IAVL dataset without fetching the entire dataset, requiring
+only `log₂(n)` hashes for a dataset of `n` items. For more information, please see the
+[API reference](https://pkg.go.dev/github.com/tendermint/iavl).
