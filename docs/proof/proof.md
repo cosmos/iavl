@@ -33,13 +33,13 @@ If we fetch the value `a=1` from the tree and want to verify that this is the co
 need the following information:
 
 ```
-               d
-             /   \
-           c     hash=d6f56d
-         /   \
-       b     hash=ec6088
-     /   \
-a,hash(1)   hash=92fd030
+                 d
+               /   \
+             c     hash=d6f56d
+           /   \
+         b     hash=ec6088
+       /   \
+a,hash(1)  hash=92fd030
 ```
 
 Note that we take the hash of the value `a=1` instead of simply using the value; both would work,
@@ -63,7 +63,7 @@ verify both `a=1`, `b=2`, and `c=3`:
            /   \
          b     c,hash(3)
        /   \
-a,hash(1)   b,hash(2)
+a,hash(1)  b,hash(2)
 ```
 
 Range proofs can also be used to prove the absence of a key. This is done by producing a range
