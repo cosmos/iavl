@@ -43,8 +43,8 @@ need the following information:
 a,hash(1)  hash=92fd030
 ```
 
-Note that we take the hash of the value `a=1` instead of simply using the value `1`; both would
-work, but the value can be arbitrarily large while the hash has a constant size.
+Note that we take the hash of the value of `a=1` instead of simply using the value `1` itself;
+both would work, but the value can be arbitrarily large while the hash has a constant size.
 
 With this data, we are able to compute the hashes for all nodes up to and including the root,
 and can compare this root hash with the root hash of the IAVL tree - if they match, we can be
@@ -72,7 +72,7 @@ Range proofs can also be used to prove the _absence_ of a key. This is done by p
 proof of the keys directly before and after the absent key - if the proof root matches the tree
 root, and the proof does not include the leaf node for the key, then the key cannot be in the tree.
 For example, the above proof can prove that the key `ab` is not in the tree, because if it was it 
-would have to be ordered between `a` and `b` - it is clear from the tree that there is no such
+would have to be ordered between `a` and `b` - it is clear from the proof that there is no such
 node, and if there was it would cause the parent hashes to be different from what we see.
 
 ## API Overview
@@ -304,7 +304,7 @@ type ProofInnerNode struct {
 ```
 
 Unlike in our diagrams, the key of the inner nodes are not actually part of the proof. This is
-because they are only used to guide binary searches and do no necessarily correspond to actual keys
+because they are only used to guide binary searches and do not necessarily correspond to actual keys
 in the data set, and are thus not included in any hashes.
 
 Similarly, `ProofLeafNode` contains a subset of leaf node data:
