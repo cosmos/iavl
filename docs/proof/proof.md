@@ -1,7 +1,76 @@
-# Proof
+# Proofs
 
-Part of the purpose of an IAVL tree is to provide the ability to return proofs along with values,
-which can be later used to verify if the provided proof is indeed valid from the IAVL merkle tree.
+What sets IAVL apart from most other key/value stores is the ability to return
+[Merkle proofs](https://en.wikipedia.org/wiki/Merkle_tree) along with values. These proofs can
+be used to verify that a returned value is, in fact, the value contained within a given IAVL tree.
+This verification is done by comparing the proof's root hash with the tree's root hash.
+
+Somewhat simplified, an IAVL tree is a variant of a
+[binary search tree](https://en.wikipedia.org/wiki/Binary_search_tree) where inner nodes contain 
+keys used for binary search, and leaf nodes contain the actual key/value pairs. Consider the 
+following example, containing five key/value pairs:
+
+```
+            d
+          /   \
+        c       e
+      /   \    /  \
+    b     c=3 d=4 e=5
+  /   \
+a=1   b=2
+```
+
+In reality, IAVL nodes contain more data than shown here - for details please refer to the
+[node documentation](../node/node.md). However, this simplified version is sufficient for now.
+
+A cryptographically secure hash is generated for each node in the tree by considering the key,
+value (if any), version, and height of the node as well as the hashes of each direct child (if any).
+This implies that the hash of any given node is also a hash of all children and descendants of the
+node. In turn, this implies that the hash of the root node is a hash of all nodes (and therefore
+all data) in the tree.
+
+If we fetch the value `a=1` from the tree and want to verify that this is the correct value, we
+need the following information:
+
+```
+               d
+             /   \
+           c     hash=d6f56d
+         /   \
+       b     hash=ec6088
+     /   \
+a,hash(1)   hash=92fd030
+```
+
+Note that we take the hash of the value `a=1` instead of simply using the value; both would work,
+but the value can be arbitrarily large while the hash has a constant size.
+
+With this data, we are able to compute the hashes for all nodes up to and including the root,
+and can compare this root hash with the root hash of the IAVL tree - if they match, we can be
+reasonably certain that the value is correct. This data is therefore considered a proof for the
+value. Notice how we don't need to include any data from e.g. the `e`-branch of the tree at all,
+only the hash - as the tree grows in size, these savings become very significant.
+
+However, this still introduces quite a bit of overhead. Since we usually want to fetch several
+values from the tree and verify them, it is often useful to fetch a range proof, which contains
+a proof for a contiguous set of key/value leaf nodes. For example, the following proof can
+verify both `a=1`, `b=2`, and `c=3`:
+
+```
+                 d
+               /   \
+             c     hash=d6f56d
+           /   \
+         b     c,hash(3)
+       /   \
+a,hash(1)   b,hash(2)
+```
+
+Range proofs can also be used to prove the absence of a key. This is done by producing a range
+proof of the keys directly before and after the absent key - if the proof root matches the tree
+root, and the proof does not include the leaf node for the key, then the key cannot be in the tree.
+
+## API
 
 Users can call `GetWithProof()`, `GetVersionedWithProof()`, `GetRangeWithProof()`, or 
 `GetRangeVersionedWithProof()` for a given key, which will return the corresponding value along 
