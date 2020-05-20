@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	db "github.com/tendermint/tm-db"
 )
 
 func TestDelete(t *testing.T) {
-	memDb := db.NewMemDB()
-	tree, err := NewMutableTree(memDb, 0)
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 
 	tree.set([]byte("k1"), []byte("Fred"))
@@ -27,7 +28,7 @@ func TestDelete(t *testing.T) {
 	require.Nil(t, k1Value)
 
 	key := tree.ndb.rootKey(version)
-	err = memDb.Set(key, hash)
+	err = memDB.Set(key, hash)
 	require.NoError(t, err)
 	tree.versions[version] = true
 
@@ -37,8 +38,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestTraverse(t *testing.T) {
-	memDb := db.NewMemDB()
-	tree, err := NewMutableTree(memDb, 0)
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 
 	for i := 0; i < 6; i++ {
