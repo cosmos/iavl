@@ -120,11 +120,11 @@ func main() {
 	rootHash, version, err := tree.SaveVersion()
 	if err != nil {
 		log.Fatal(err)
-	}
-	_, _ = rootHash, version // ignore variables
+    }
+    fmt.Printf("Saved version %v with root hash %x\n", version, rootHash)
 
     // Output tree structure, including all node hashes (prefixed with 'n')
-    fmt.Printf("%x\n", tree.Hash())
+    fmt.Println(tree.String())
 }
 ```
 
@@ -147,7 +147,7 @@ The following methods are used to generate proofs, all of which are of type `Ran
   proof of existence or proof of absence.
 
 * `ImmutableTree.GetRangeWithProof(start, end []byte, limit int)`: fetches the keys, values, and 
-  proofs for the given key range, optionally with a limit.
+  proofs for the given key range, optionally with a limit (end key is excluded).
 
 * `MutableTree.GetVersionedWithProof(key []byte, version int64)`: like `GetWithProof()`, but for a
   specific version of the tree.
@@ -156,6 +156,15 @@ The following methods are used to generate proofs, all of which are of type `Ran
   but for a specific version of the tree.
 
 ### Verifying Proofs
+
+The following `RangeProof` methods are used to verify proofs:
+
+* `Verify(rootHash []byte)`: verify that the proof root hash matches the given tree root hash.
+
+* `VerifyItem(key, value []byte)`: verify that the given key exists with the given value, according
+  to the proof.
+
+* `VerifyAbsent(key []byte)`: verify that the given key is absent, according to the proof.
 
 To verify that a `RangeProof` is valid for a given IAVL tree (i.e. that the proof root hash matches
 the tree root hash), run `RangeProof.Verify()` with the tree's root hash:
@@ -167,6 +176,7 @@ if err != nil {
     log.Fatal(err)
 }
 
+// Verify that the proof's root hash matches the tree's
 err = proof.Verify(tree.Hash())
 if err != nil {
     log.Fatalf("Invalid proof: %v", err)
@@ -182,8 +192,8 @@ if !bytes.Equal(proof.ComputeRootHash(), tree.Hash()) {
 }
 ```
 
-To verify that a key has a given value according to the proof, use `RangeProof.VerifyItem()`
-on a proof generated for this key (or key range):
+To verify that a key has a given value according to the proof, use `VerifyItem()` on a proof
+generated for this key (or key range):
 
 ```go
 // The proof was generated for the item a=1, so this is successful
@@ -198,15 +208,15 @@ if err != nil {
     log.Printf("Failed to prove a=2: %v", err)
 }
 
-// Also, verifying b=2 errors even though correct, since the proof is for a=1
+// Also, verifying b=2 errors even though it is correct, since the proof is for a=1
 err = proof.VerifyItem([]byte("b"), []byte{2})
 if err != nil {
     log.Printf("Failed to prove b=2: %v", err)
 }
 ```
 
-If we generate a proof for a range of keys, we can use this both to prove any of the keys in the
-range, as well as the absence of any keys that would have been within it:
+If we generate a proof for a range of keys, we can use this both to prove the value of any of the 
+keys in the range as well as the absence of any keys that would have been within it:
 
 ```go
 // Note that the end key is not inclusive, so c is not in the proof
@@ -236,7 +246,7 @@ if err != nil {
 // is not in the range and therefore not in the tree at all
 err = proof.VerifyAbsence([]byte("ab"))
 if err != nil {
-    log.Printf("Failed to verify absence of ab: %v", err)
+    log.Printf("Failed to prove absence of ab: %v", err)
 }
 ```
 
@@ -317,9 +327,10 @@ type ProofLeafNode struct {
 }
 ```
 
-Notice how the proof contains a hash of the node's `Value` rather than the value itself. This is
-because values can be arbitrarily large while the hash has a constant size. The Merkle hashes
-of the tree are computed in the same way, by hashing the value before including it in the node hash.
+Notice how the proof contains a hash of the node's value rather than the value itself. This is
+because values can be arbitrarily large while the hash has a constant size. The Merkle hashes of
+the tree are computed in the same way, by hashing the value before including it in the node
+hash.
 
 The information in these proofs is sufficient to reasonably prove that a given value exists (or 
 does not exist) in a given version of an IAVL dataset without fetching the entire dataset, requiring
