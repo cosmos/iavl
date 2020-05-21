@@ -1378,18 +1378,45 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 
 	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, PruningOptions(1, 0))
 
-	tree.Set([]byte{0x1}, []byte{0x1})
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i})
+	}
 
 	_, _, err := tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail")
 
-	tree.Set([]byte{0x1}, []byte{0x2})
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i + 1})
+	}
 
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail with the same key")
 
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i + 2})
+	}
+	tree.SaveVersion()
+
+	removedNodes := []*Node{}
+
+	for _, n := range tree.ndb.nodes() {
+		if n.version > 1 {
+			removedNodes = append(removedNodes, n)
+		}
+	}
+
 	_, err = tree.LoadVersionForOverwriting(1)
 	require.NoError(err, "LoadVersionForOverwriting should not fail")
+
+	for i := byte(0); i < 20; i++ {
+		_, v := tree.Get([]byte{i})
+		require.Equal([]byte{i}, v)
+	}
+
+	for _, n := range removedNodes {
+		has, _ := tree.ndb.Has(n.hash)
+		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
+	}
 
 	tree.Set([]byte{0x2}, []byte{0x3})
 
@@ -1403,4 +1430,45 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail")
+}
+
+func TestLoadVersionForOverwritingCase3(t *testing.T) {
+	require := require.New(t)
+
+	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, PruningOptions(1, 0))
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i})
+	}
+	tree.SaveVersion()
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i + 1})
+	}
+	tree.SaveVersion()
+
+	removedNodes := []*Node{}
+
+	for _, n := range tree.ndb.nodes() {
+		if n.version > 1 {
+			removedNodes = append(removedNodes, n)
+		}
+	}
+
+	for i := byte(0); i < 20; i++ {
+		tree.Remove([]byte{i})
+	}
+	tree.SaveVersion()
+
+	_, err := tree.LoadVersionForOverwriting(1)
+	require.NoError(err)
+	for _, n := range removedNodes {
+		has, _ := tree.ndb.Has(n.hash)
+		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
+	}
+
+	for i := byte(0); i < 20; i++ {
+		_, v := tree.Get([]byte{i})
+		require.Equal([]byte{i}, v)
+	}
 }
