@@ -34,26 +34,76 @@ a later point in time.
 
 ## Decision
 
-> This section describes our response to these forces. It is stated in full sentences, with active
-> voice. "We will ...".
-> {decision body}
+We propose to introduce a new API, `FlushVersion(version int64)`. This new API will attempt to manually
+flush a previously committed version to disk. It will return an error if the version does not exist
+or if the underlying flush fails. If the version is already flushed, the method performs a no-op
+and no error is returned. After the version is flushed to disk and the version is not the latest
+version, we will also remove the version from the recent (in-memory) database via `DeleteVersionFromRecent`.
+
+In order to not have a manually flushed version pruned at a later point in time
+(e.g. after an application restarts), we also introduce a new type, `CommitMetadata`, that will be
+flushed to disk for every version saved, regardless if it's flushed to disk.
+
+```go
+type PruneStrategy string
+
+const (
+  PruneStrategyNever PruneStrategy = "never"
+  PruneStrategyAuto  PruneStrategy = "auto"
+)
+
+type CommitMetadata struct {
+  Version   uint64
+  Timestamp int64
+  RootHash  []byte
+  Prune     PruneStrategy
+}
+```
+
+Currently, during `SaveVersion` we evaluate which versions to prune via `PruneRecentVersions` using
+the `Options` provided to the tree's `nodeDB`. The change we propose is now to use `CommitMetadata.Prune`
+to determine if we should actually prune a previously committed version. Under strategy `"auto"`, the
+current logic will be executed. However, if a given version is to be pruned but it's strategy is `"never"`,
+the version will not be pruned. During `FlushVersion`, we automatically set the strategy to `"never"`,
+otherwise, during `SaveVersion` it's set to `"auto"`.
+
+```go
+func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64, err error) {
+  // ...
+
+  err = ndb.deleteVersion(pruneVer, true, true)
+  if err != nil {
+    return nil, err
+  }
+
+  metadata, err := ndb.getMetadata(pruneVer)
+  if err != nil {
+    return nil, err
+  }
+
+  if ndb.isSnapshotVersion(pruneVer) || metadata.Prune == PruneStrategyNever {
+    return nil, nil
+  }
+
+  // ...
+}
+```
+
+Note, regardless of the prune strategy in a version's `CommitMetadata`, we still remove the version
+from the recent (in-memory) database via `deleteVersion`.
 
 ## Consequences
 
-> This section describes the resulting context, after applying the decision. All consequences should
-> be listed here, not just the "positive" ones. A particular decision may have positive, negative,
-> and neutral consequences, but all of them affect the team and project in the future.
-
 ### Positive
 
-{positive consequences}
+- Allows use to flush manually committed versions to disk at will
+- Control over pruning of manually flushed committed versions
 
 ### Negative
 
-{negative consequences}
+- Additional storage per committed version
+- One additional DB lookup during `PruneRecentVersions`
 
 ### Neutral
-
-{neutral consequences}
 
 ## References
