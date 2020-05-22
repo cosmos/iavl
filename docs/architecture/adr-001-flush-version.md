@@ -103,6 +103,8 @@ from the recent (in-memory) database via `deleteVersion`.
 
 - Additional storage per committed version
 - One additional DB lookup during `PruneRecentVersions`
+  - We can use a fixed-size LRU cache for `CommitMetadata` to nullify most of the
+  IO impact here.
 
 ### Neutral
 
