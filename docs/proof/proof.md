@@ -7,8 +7,7 @@ This verification is done by comparing the proof's root hash with the tree's roo
 
 Somewhat simplified, an IAVL tree is a variant of a
 [binary search tree](https://en.wikipedia.org/wiki/Binary_search_tree) where inner nodes contain 
-keys used for binary search, and leaf nodes contain the actual key/value pairs. Consider the 
-following example, containing five key/value pairs (e.g. key `a` with value `1`):
+keys used for binary search, and leaf nodes contain the actual key/value pairs ordered by key. Consider the following example, containing five key/value pairs (such as key `a` with value `1`):
 
 ```
             d
@@ -26,9 +25,9 @@ high-level understanding.
 
 A cryptographically secure hash is generated for each node in the tree by hashing the node's key
 and value (if leaf node), version, and height, as well as the hashes of each direct child (if
-any). This implies that the hash of any given node is also a hash of all descendants of the
-node. In turn, this implies that the hash of the root node is a hash of all nodes (and therefore
-all data) in the tree.
+any). This implies that the hash of any given node also depends on the hashes of all descendants
+of the node. In turn, this implies that the hash of the root node depends on the hashes of all
+nodes (and therefore all data) in the tree.
 
 If we fetch the value `a=1` from the tree and want to verify that this is the correct value, we
 need the following information:
@@ -48,15 +47,15 @@ both would work, but the value can be arbitrarily large while the hash has a con
 
 With this data, we are able to compute the hashes for all nodes up to and including the root,
 and can compare this root hash with the root hash of the IAVL tree - if they match, we can be
-reasonably certain that the value is correct. This data is therefore considered a _proof_ for the
-value. Notice how we don't need to include any data from e.g. the `e`-branch of the tree at all,
-only the hash - as the tree grows in size, these savings become very significant, requiring only
-`log₂(n)` hashes for a tree of `n` keys.
+reasonably certain that the provided value is the same as the value in the tree. This data is
+therefore considered a _proof_ for the value. Notice how we don't need to include any data from
+e.g. the `e`-branch of the tree at all, only the hash - as the tree grows in size, these savings
+become very significant, requiring only `log₂(n)` hashes for a tree of `n` keys.
 
 However, this still introduces quite a bit of overhead. Since we usually want to fetch several
-values from the tree and verify them, it is often useful to fetch a _range proof_, which contains
-a proof for a contiguous set of key/value leaf nodes. For example, the following proof can
-verify both `a=1`, `b=2`, and `c=3`:
+values from the tree and verify them, it is often useful to generate a _range proof_, which can
+prove any and all key/value pairs within a contiguous, ordered key range. For example, the
+following proof can verify both `a=1`, `b=2`, and `c=3`:
 
 ```
                  d
@@ -68,12 +67,16 @@ verify both `a=1`, `b=2`, and `c=3`:
 a,hash(1)  b,hash(2)
 ```
 
-Range proofs can also be used to prove the _absence_ of a key. This is done by producing a range
-proof of the keys directly before and after the absent key - if the proof root matches the tree
-root, and the proof does not include the leaf node for the key, then the key cannot be in the tree.
-For example, the above proof can prove that the key `ab` is not in the tree, because if it was it 
-would have to be ordered between `a` and `b` - it is clear from the proof that there is no such
-node, and if there was it would cause the parent hashes to be different from what we see.
+Range proofs can also prove the _absence_ of any keys within the range. For example, the above
+proof can prove that the key `ab` is not in the tree, because if it was it would have to be
+ordered between `a` and `b` - it is clear from the proof that there is no such node, and if
+there was it would cause the parent hashes to be different from what we see.
+
+Range proofs can be generated for non-existant endpoints by including the nearest neighboring
+keys, which allows them to cover any arbitrary key range. This can also be used to generate an
+absence proof for a _single_ non-existant key, by returning a range proof between the two nearest
+neighbors. The range proof is therefore a complete proof for all existing and all absent key/value
+pairs ordered between two arbitrary endpoints.
 
 ## API Overview
 
@@ -198,29 +201,27 @@ generated for this key (or key range):
 ```go
 // The proof was generated for the item a=1, so this is successful
 err = proof.VerifyItem([]byte("a"), []byte{1})
-if err != nil {
-    log.Printf("Failed to prove a=1: %v", err)
-}
+fmt.Printf("prove a=1: %v\n", err)
+// outputs nil
 
 // If we instead claim that a=2, the proof will error
 err = proof.VerifyItem([]byte("a"), []byte{2})
-if err != nil {
-    log.Printf("Failed to prove a=2: %v", err)
-}
+fmt.Printf("prove a=2: %v\n", err)
+// outputs "leaf value hash not same: invalid proof"
 
 // Also, verifying b=2 errors even though it is correct, since the proof is for a=1
 err = proof.VerifyItem([]byte("b"), []byte{2})
-if err != nil {
-    log.Printf("Failed to prove b=2: %v", err)
-}
+fmt.Printf("prove b=2: %v\n", err)
+// outputs "leaf key not found in proof: invalid proof""
 ```
 
 If we generate a proof for a range of keys, we can use this both to prove the value of any of the 
 keys in the range as well as the absence of any keys that would have been within it:
 
 ```go
-// Note that the end key is not inclusive, so c is not in the proof
-keys, values, proof, err := tree.GetRangeWithProof([]byte("a"), []byte("c"))
+// Note that the end key is not inclusive, so c is not in the proof. 0 means
+// no key limit (all keys).
+keys, values, proof, err := tree.GetRangeWithProof([]byte("a"), []byte("c"), 0)
 if err != nil {
     log.Fatal(err)
 }
@@ -232,22 +233,24 @@ if err != nil {
 
 // Prove that a=1 is in the range
 err = proof.VerifyItem([]byte("a"), []byte{1})
-if err != nil {
-    log.Printf("Failed to prove a=1 with range: %v", err)
-}
+fmt.Printf("prove a=1: %v\n", err)
+// outputs nil
 
 // Prove that b=2 is also in the range
 err = proof.VerifyItem([]byte("b"), []byte{2})
-if err != nil {
-    log.Printf("Failed to prove b=2 with range: %v", err)
-}
+fmt.Printf("prove b=2: %v\n", err)
+// outputs nil
 
 // Since "ab" is ordered after "a" but before "b", we can prove that it
 // is not in the range and therefore not in the tree at all
 err = proof.VerifyAbsence([]byte("ab"))
-if err != nil {
-    log.Printf("Failed to prove absence of ab: %v", err)
-}
+fmt.Printf("prove no ab: %v\n", err)
+// outputs nil
+
+// If we try to prove ab, we get an error:
+err = proof.VerifyItem([]byte("ab"), []byte{0})
+fmt.Printf("prove ab=0: %v\n", err)
+// outputs "leaf key not found in proof: invalid proof"
 ```
 
 ### Proof Structure
