@@ -101,12 +101,12 @@ during all of the following phases:
 - During `MutableTree#FlushVersion`
   - The fields `Updated`, `Status`, and `Snapshot` will be set here.
 
-Note, at no point do we delete `VersionMetadata` for any given version. We will expose an API that
-allows clients to fetch `VersionMetadata` for a given version so that any upstream business logic
-may rely on this new type (e.g. deleting snapshots).
+Note, at no point do we delete `VersionMetadata` for any given version. We will expose an API through
+`MutableTree` that allows clients to fetch `VersionMetadata` for a given version so that any upstream
+business logic may rely on this new type (e.g. deleting snapshots).
 
 Finally, we will serialize the `VersionMetadata` type using Protocol Buffers and we will also utilize
-a write-through LRU cache within `nodeDB`.
+a write-through LRU cache within `nodeDB` for getting and setting `VersionMetadata` objects.
 
 ## Consequences
 
