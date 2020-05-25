@@ -87,7 +87,8 @@ instead. Furthermore, whenever a version is pruned or explicitly deleted, the `V
 will set to `Pruned` or `Deleted` respectively. Anytime existing `VersionMetadata` is updated
 (e.g. when pruned or deleted), the `VersionMetadata.Updated` will reflect the timestamp of this event.
 
-Finally, `VersionMetadata` will be saved to disk during all of the following phases:
+`VersionMetadata` will be managed by the `MutableTree` and will be saved to disk via `nodeDB.SnapshotDB`
+during all of the following phases:
 
 - At the start of `MutableTree#SaveVersion`
   - The fields `Version`, `Status`, and `Snapshot` will be set here.
@@ -103,6 +104,9 @@ Finally, `VersionMetadata` will be saved to disk during all of the following pha
 Note, at no point do we delete `VersionMetadata` for any given version. We will expose an API that
 allows clients to fetch `VersionMetadata` for a given version so that any upstream business logic
 may rely on this new type (e.g. deleting snapshots).
+
+Finally, we will serialize the `VersionMetadata` type using Protocol Buffers and we will also utilize
+a write-through LRU cache within `nodeDB`.
 
 ## Consequences
 
