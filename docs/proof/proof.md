@@ -7,7 +7,8 @@ This verification is done by comparing the proof's root hash with the tree's roo
 
 Somewhat simplified, an IAVL tree is a variant of a
 [binary search tree](https://en.wikipedia.org/wiki/Binary_search_tree) where inner nodes contain 
-keys used for binary search, and leaf nodes contain the actual key/value pairs ordered by key. Consider the following example, containing five key/value pairs (such as key `a` with value `1`):
+keys used for binary search, and leaf nodes contain the actual key/value pairs ordered by key. 
+Consider the following example, containing five key/value pairs (such as key `a` with value `1`):
 
 ```
             d
@@ -212,7 +213,7 @@ fmt.Printf("prove a=2: %v\n", err)
 // Also, verifying b=2 errors even though it is correct, since the proof is for a=1
 err = proof.VerifyItem([]byte("b"), []byte{2})
 fmt.Printf("prove b=2: %v\n", err)
-// outputs "leaf key not found in proof: invalid proof""
+// outputs "leaf key not found in proof: invalid proof"
 ```
 
 If we generate a proof for a range of keys, we can use this both to prove the value of any of the 
