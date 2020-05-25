@@ -19,7 +19,7 @@ the client supplied pruning strategy parameters. For more detailed information, 
 These changes, while drastically improving performance under certain circumstances, introduces certain
 tradeoffs. Specifically, an application with a deterministic state-machine that commits and merkle-izes
 state via IAVL tree(s), can no longer guarantee that a state is written to disk when it is committed
-and must rely on some sort of state replay mechanism (e.g. Tendermint p2p gossip). While this inherently
+and must rely on some sort of state replay mechanism (e.g. Tendermint peer-to-peer gossip & state machine execution). While this inherently
 is not necessarily a problem, it becomes a problem under certain contexts that depend on a specific
 version existing on disk.
 
