@@ -28,7 +28,7 @@ a new binary will be started in place of the old binary and some set of business
 be executed in order to migrate and handle old and/or invalid state to make it compatible with the
 new version. Being that these operations must occur on the latest canonical state, we must ensure the
 latest version is committed and flushed to disk so all operators and clients see the same view when
-doing this upgrade. Hence, we need a means to manually signal to the IAVL tree, that a specific
+doing this upgrade. Hence, we need a means to manually signal to the IAVL tree that a specific
 version should be flushed to disk. In addition, we also need to ensure this version is not pruned at
 a later point in time.
 
