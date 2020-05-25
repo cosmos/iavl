@@ -63,7 +63,7 @@ type CommitMetadata struct {
 Currently, during `SaveVersion` we evaluate which versions to prune via `PruneRecentVersions` using
 the `Options` provided to the tree's `nodeDB`. The change we propose is now to use `CommitMetadata.Prune`
 to determine if we should actually prune a previously committed version. Under strategy `"auto"`, the
-current logic will be executed. However, if a given version is to be pruned but it's strategy is `"never"`,
+current logic will be executed. However, if a given version is to be pruned but its strategy is `"never"`,
 the version will not be pruned. During `FlushVersion`, we automatically set the strategy to `"never"`,
 otherwise, during `SaveVersion` it's set to `"auto"`.
 
