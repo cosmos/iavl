@@ -114,6 +114,8 @@ a write-through LRU cache within `nodeDB` for getting and setting `VersionMetada
 
 - Allows use to flush manually committed versions to disk at will
 - Control over pruning of manually flushed committed versions
+- Removal of error-prone `isSnapshotVersion`
+- Allowing clients to utilize `VersionMetadata` to make decisions on committed state
 
 ### Negative
 
