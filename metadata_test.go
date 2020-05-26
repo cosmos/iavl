@@ -13,7 +13,7 @@ func TestVersionMetadata_Serialize(t *testing.T) {
 		Version:   14,
 		Committed: time.Now().UTC().Unix(),
 		Updated:   time.Now().UTC().Unix(),
-		RootHash:  []byte{0x04, 0x05, 0x00, 0xff},
+		RootHash:  []byte{0x04, 0x05, 0x00, 0xff, 0x04, 0x05, 0x00, 0xff},
 		Snapshot:  true,
 	}
 

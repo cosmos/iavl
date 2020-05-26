@@ -56,7 +56,7 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 		opts = DefaultOptions()
 	}
 
-	vmCache, err := lru.New(1024)
+	vmCache, err := lru.New(20000)
 	if err != nil {
 		panic(fmt.Errorf("failed to create metadata cache: %w", err))
 	}
@@ -72,7 +72,7 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
 		versionReaders: make(map[int64]uint32, 8),
-		vmCache:        vmCache, // TODO: Pick specific value (1MB)
+		vmCache:        vmCache,
 	}
 }
 
