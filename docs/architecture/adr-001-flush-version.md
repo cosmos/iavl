@@ -46,22 +46,11 @@ flushed to disk for every version saved, regardless if the version is flushed to
 type will also provide us with added benefits around pruning model and how clients treat snapshots.
 
 ```go
-type VersionStatus string
-
-const (
-  Saving   VersionStatus = "saving"   // set when a version is about to be saved
-  Buffered VersionStatus = "buffered" // set when a version has been saved to volatile storage
-  Saved    VersionStatus = "saved"    // set when a version has been saved to disk
-  Pruned   VersionStatus = "pruned"   // set when a version has been pruned
-  Deleted  VersionStatus = "deleted"  // set when a version has been explicitly deleted
-)
-
 type VersionMetadata struct {
   Version   int64         // tree version for the corresponding metadata
   Committed int64         // the UNIX timestamp of when the metadata was committed to disk
-  Updated   int64         // the UNIX timestamp of when the metadata was updated (see VersionStatus)
+  Updated   int64         // the UNIX timestamp of when the metadata was updated
   RootHash  []byte        // the root hash of the tree for the corresponding metadata
-  Status    VersionStatus // the status of the version
   Snapshot  bool          // if this version corresponds to a version that is flushed to disk
 }
 
@@ -78,35 +67,59 @@ problematic when the underlying pruning strategy changes
 (i.e. a previous call that returned `true` for a version may now return `false`). As a result, the
 internal IAVL pruning model can be hard to follow and may break invariants under certain circumstances.
 
-The `VersionMetadata` can drastically simplify a lot of this logic. First, we propose to remove
-`isSnapshotVersion` and instead set `VersionMetadata.Snapshot` and `VersionMetadata.Status = Saving`
-when it's created during `MutableTree#SaveVersion`.
+The `VersionMetadata` can drastically simplify a lot of this logic. Namely, we propose to remove
+`isSnapshotVersion` and instead set `VersionMetadata.Snapshot` when creating the initial `VersionMetadata`
+during `MutableTree#SaveVersion`.
 
 Now everywhere `isSnapshotVersion` is called, we can now simply refer to `VersionMetadata.Snapshot`
-instead. Furthermore, whenever a version is pruned or explicitly deleted, the `VersionMetadata.Status`
-will set to `Pruned` or `Deleted` respectively. Anytime existing `VersionMetadata` is updated
-(e.g. when pruned or deleted), the `VersionMetadata.Updated` will reflect the timestamp of this event.
-
-`VersionMetadata` will be managed by the `MutableTree` and will be saved to disk via `nodeDB.SnapshotDB`
-during all of the following phases:
+instead. `VersionMetadata` will be managed by the `MutableTree` and will be saved to disk via
+`nodeDB.SnapshotDB` during all of the following phases:
 
 - At the start of `MutableTree#SaveVersion`
-  - The fields `Version`, `Status`, and `Snapshot` will be set here.
+  - The fields `Version` and `Snapshot` will be set here.
 - At the end of `MutableTree#SaveVersion`
-  - The fields `Committed`, `Status`, `Updated`, and `RootHash` will be set here.
+  - The fields `Committed`, `Updated`, and `RootHash` will be set here.
 - During `MutableTree#PruneRecentVersion`
-  - The fields `Updated` and `Status` will be set here.
+  - The field `Updated` will be set here.
 - During `MutableTree#DeleteVersion`
-  - The fields `Updated`, and `Status` will be set here.
+  - The fields `Updated` and `Snapshot` will be set here.
 - During `MutableTree#FlushVersion`
-  - The fields `Updated`, `Status`, and `Snapshot` will be set here.
+  - The fields `Updated` and `Snapshot` will be set here.
 
 Note, at no point do we delete `VersionMetadata` for any given version. We will expose an API through
 `MutableTree` that allows clients to fetch `VersionMetadata` for a given version so that any upstream
-business logic may rely on this new type (e.g. deleting snapshots).
+business logic may rely on this new type (e.g. deleting snapshots). Anytime existing `VersionMetadata`
+is updated (e.g. when pruned or deleted), the `VersionMetadata.Updated` will reflect the timestamp of
+this event.
 
 Finally, we will serialize the `VersionMetadata` type using Protocol Buffers and we will also utilize
 a write-through LRU cache within `nodeDB` for getting and setting `VersionMetadata` objects.
+
+## Future Improvements
+
+Upstream clients and applications may further expand on IAVL pruning and related functionality. In
+addition, these clients may wish to query `VersionMetadata` to know more information about any given
+committed version. In the future, we may consider introducing a `Status` into the `VersionMetadata`:
+
+```go
+type VersionStatus string
+
+const (
+  Saving   VersionStatus = "saving"   // set when a version is about to be saved
+  Buffered VersionStatus = "buffered" // set when a version has been saved to volatile storage
+  Saved    VersionStatus = "saved"    // set when a version has been saved to disk
+  Pruned   VersionStatus = "pruned"   // set when a version has been pruned
+  Deleted  VersionStatus = "deleted"  // set when a version has been explicitly deleted
+)
+
+type VersionMetadata struct {
+  // ...
+  Status  VersionStatus // the status of the version
+}
+```
+
+Now, whenever a version is pruned or explicitly deleted, the `VersionMetadata.Status` will set to
+`Pruned` or `Deleted` respectively.
 
 ## Consequences
 
