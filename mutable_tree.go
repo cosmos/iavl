@@ -444,13 +444,15 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
 
 	if tree.versions[version] {
-		//version already exists, throw an error if attempting to overwrite
-		// Same hash means idempotent.  Return success.
+		// If the version already exists, return an error as we're attempting to overwrite.
+		// However, the same hash means idempotent (i.e. no-op).
 		existingHash, err := tree.ndb.getRoot(version)
 		if err != nil {
 			return nil, version, err
 		}
+
 		var newHash = tree.WorkingHash()
+
 		if bytes.Equal(existingHash, newHash) {
 			tree.version = version
 			tree.ImmutableTree = tree.ImmutableTree.clone()
@@ -458,9 +460,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.orphans = map[string]int64{}
 			return existingHash, version, nil
 		}
-		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
-			version, newHash, existingHash)
+
+		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
+
 	tree.versions[version] = true
 
 	if tree.root == nil {
@@ -482,29 +485,26 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			panic(err)
 		}
 	}
-	err := tree.ndb.Commit()
-	if err != nil {
+
+	if err := tree.ndb.Commit(); err != nil {
 		return nil, version, err
 	}
 
-	// Prune nodeDB and delete any pruned versions from tree.versions
-	prunedVersions, err := tree.ndb.PruneRecentVersions()
+	prunedVersion, err := tree.ndb.PruneRecentVersion()
 	if err != nil {
 		return nil, version, err
-	}
-	for _, pVer := range prunedVersions {
-		delete(tree.versions, pVer)
-	}
+	} else if prunedVersion != 0 {
+		delete(tree.versions, prunedVersion)
 
-	err = tree.ndb.Commit()
-	if err != nil {
-		return nil, version, err
+		if err := tree.ndb.Commit(); err != nil {
+			return nil, version, err
+		}
 	}
 
 	tree.version = version
 	tree.versions[version] = true
 
-	// Set new working tree.
+	// set new working tree
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}

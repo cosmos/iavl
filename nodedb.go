@@ -347,26 +347,28 @@ func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk b
 	}
 }
 
-func (ndb *nodeDB) PruneRecentVersions() (prunedVersions []int64, err error) {
+func (ndb *nodeDB) PruneRecentVersion() (int64, error) {
 	if ndb.opts.KeepRecent == 0 || ndb.latestVersion-ndb.opts.KeepRecent <= 0 {
-		return nil, nil
+		return 0, nil
 	}
+
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	pruneVer := ndb.latestVersion - ndb.opts.KeepRecent
 	if ndb.versionReaders[pruneVer] > 0 {
-		return nil, nil
+		return 0, nil
 	}
-	err = ndb.deleteVersion(pruneVer, true, true)
-	if err != nil {
-		return nil, err
+
+	if err := ndb.deleteVersion(pruneVer, true, true); err != nil {
+		return 0, err
 	}
 
 	if ndb.isSnapshotVersion(pruneVer) {
-		return nil, nil
+		return 0, nil
 	}
-	return append(prunedVersions, pruneVer), nil
+
+	return pruneVer, nil
 }
 
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
