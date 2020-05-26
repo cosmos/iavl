@@ -7,8 +7,8 @@ import (
 	"sort"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-
 	"github.com/tendermint/tendermint/crypto/tmhash"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -47,13 +47,21 @@ type nodeDB struct {
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+
+	vmCache *lru.Cache // LRU cache of version metadata
 }
 
 func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *nodeDB {
 	if opts == nil {
 		opts = DefaultOptions()
 	}
-	ndb := &nodeDB{
+
+	vmCache, err := lru.New(1024)
+	if err != nil {
+		panic(fmt.Errorf("failed to create metadata cache: %w", err))
+	}
+
+	return &nodeDB{
 		snapshotDB:     snapshotDB,
 		recentDB:       recentDB,
 		snapshotBatch:  snapshotDB.NewBatch(),
@@ -64,12 +72,55 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
 		versionReaders: make(map[int64]uint32, 8),
+		vmCache:        vmCache, // TODO: Pick specific value (1MB)
 	}
-	return ndb
 }
 
-func (ndb *nodeDB) isSnapshotVersion(version int64) bool {
-	return ndb.opts.KeepEvery != 0 && version%ndb.opts.KeepEvery == 0
+// GetVersionMetadata returns a reference to VersionMetadata for a given version.
+// The object is first checked against the internal VersionMetadata LRU cache. If
+// it does not exist, it will be queried for via the snapshotDB and added to the
+// LRU cache. An error is returned if the VersionMetadata cannot be decoded or
+// queried for in the snapshotDB.
+// TODO: Handle the case when it doesn't exist on a live tree.
+func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
+	key := VersionMetadataKey(version)
+
+	v, ok := ndb.vmCache.Get(string(key))
+	if ok {
+		return v.(*VersionMetadata), nil
+	}
+
+	bz, err := ndb.snapshotDB.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	vm := new(VersionMetadata)
+	if err := vm.Unmarshal(bz); err != nil {
+		return nil, err
+	}
+
+	_ = ndb.vmCache.Add(string(key), vm)
+	return vm, nil
+}
+
+// SetVersionMetadata saves a VersionMetadata in the snapshotDB and performs a
+// write-through to the VersionMetadata LRU cache. It returns an error if encoding
+// or saving to the snapshotDB fails.
+func (ndb *nodeDB) SetVersionMetadata(vm *VersionMetadata) error {
+	key := VersionMetadataKey(vm.Version)
+
+	bz, err := vm.Marshal()
+	if err != nil {
+		return err
+	}
+
+	if err := ndb.snapshotDB.Set(key, bz); err != nil {
+		return err
+	}
+
+	_ = ndb.vmCache.Add(string(key), vm)
+	return nil
 }
 
 func (ndb *nodeDB) isRecentVersion(version int64) bool {
@@ -185,9 +236,13 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 }
 
 // SaveTree takes a rootNode and version. Saves all nodes in tree using SaveBranch
-func (ndb *nodeDB) SaveTree(root *Node, version int64) []byte {
-	flushToDisk := ndb.isSnapshotVersion(version)
-	return ndb.SaveBranch(root, flushToDisk)
+func (ndb *nodeDB) SaveTree(root *Node, version int64) ([]byte, error) {
+	vm, err := ndb.GetVersionMetadata(version)
+	if err != nil {
+		return nil, err
+	}
+
+	return ndb.SaveBranch(root, vm.Snapshot), nil
 }
 
 // SaveBranch saves the given node and all of its descendants.
@@ -237,36 +292,49 @@ func (ndb *nodeDB) DeleteVersionFromRecent(version int64, checkLatestVersion boo
 
 func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool) error {
 	if ndb.versionReaders[version] > 0 {
-		return errors.Errorf("unable to delete version %v, it has %v active readers",
-			version, ndb.versionReaders[version])
+		return errors.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
 	}
 
-	err := ndb.deleteOrphans(version, memOnly)
+	vm, err := ndb.GetVersionMetadata(version)
 	if err != nil {
 		return err
 	}
-	ndb.deleteRoot(version, checkLatestVersion, memOnly)
+
+	if err := ndb.deleteOrphans(version, memOnly, vm.Snapshot); err != nil {
+		return err
+	}
+
+	ndb.deleteRoot(version, checkLatestVersion, memOnly, vm.Snapshot)
 	return nil
 }
 
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
 
 	for hash, fromVersion := range orphans {
-		flushToDisk := false
+		var flushToDisk bool
+
+		vm, err := ndb.GetVersionMetadata(fromVersion)
+		if err != nil {
+			return err
+		}
+
 		if ndb.opts.KeepEvery != 0 {
 			// if snapshot version in between fromVersion and toVersion INCLUSIVE, then flush to disk.
-			flushToDisk = fromVersion/ndb.opts.KeepEvery != toVersion/ndb.opts.KeepEvery || ndb.isSnapshotVersion(fromVersion)
+			flushToDisk = fromVersion/ndb.opts.KeepEvery != toVersion/ndb.opts.KeepEvery || vm.Snapshot
 		}
+
 		debug("SAVEORPHAN %v-%v %X flushToDisk: %t\n", fromVersion, toVersion, hash, flushToDisk)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
 	}
+
+	return nil
 }
 
 // Saves a single orphan to recentDB. If flushToDisk, persist to disk as well.
@@ -288,17 +356,19 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
-func (ndb *nodeDB) deleteOrphans(version int64, memOnly bool) error {
+func (ndb *nodeDB) deleteOrphans(version int64, memOnly, isSnapshot bool) error {
 	if ndb.opts.KeepRecent != 0 {
 		ndb.deleteOrphansMem(version)
 	}
-	if ndb.isSnapshotVersion(version) && !memOnly {
+
+	if isSnapshot && !memOnly {
 		predecessor := getPreviousVersionFromDB(version, ndb.snapshotDB)
 		traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
 			ndb.snapshotBatch.Delete(key)
 			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, predecessor, key, hash)
 		})
 	}
+
 	return nil
 }
 
@@ -364,7 +434,12 @@ func (ndb *nodeDB) PruneRecentVersion() (int64, error) {
 		return 0, err
 	}
 
-	if ndb.isSnapshotVersion(pruneVer) {
+	vm, err := ndb.GetVersionMetadata(pruneVer)
+	if err != nil {
+		return 0, err
+	}
+
+	if vm.Snapshot {
 		return 0, nil
 	}
 
@@ -432,14 +507,15 @@ func getPreviousVersionFromDB(version int64, db dbm.DB) int64 {
 }
 
 // deleteRoot deletes the root entry from disk, but not the node it points to.
-func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion, memOnly bool) {
+func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion, memOnly, isSnapshot bool) {
 	if checkLatestVersion && version == ndb.getLatestVersion() {
 		panic("Tried to delete latest version")
 	}
 
 	key := ndb.rootKey(version)
 	ndb.recentBatch.Delete(key)
-	if ndb.isSnapshotVersion(version) && !memOnly {
+
+	if isSnapshot && !memOnly {
 		ndb.snapshotBatch.Delete(key)
 	}
 }
@@ -631,14 +707,25 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 // loaded later.
 func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
-		panic("Hash should not be empty")
+		panic("SaveRoot: root hash should not be empty")
 	}
-	return ndb.saveRoot(root.hash, version, ndb.isSnapshotVersion(version))
+
+	vm, err := ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
+	return ndb.saveRoot(root.hash, version, vm.Snapshot)
 }
 
 // SaveEmptyRoot creates an entry on disk for an empty root.
 func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
-	return ndb.saveRoot([]byte{}, version, ndb.isSnapshotVersion(version))
+	vm, err := ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
+	return ndb.saveRoot([]byte{}, version, vm.Snapshot)
 }
 
 func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error {
