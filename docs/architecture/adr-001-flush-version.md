@@ -75,10 +75,8 @@ Now everywhere `isSnapshotVersion` is called, we can now simply refer to `Versio
 instead. `VersionMetadata` will be managed by the `MutableTree` and will be saved to disk via
 `nodeDB.SnapshotDB` during all of the following phases:
 
-- At the start of `MutableTree#SaveVersion`
-  - The fields `Version` and `Snapshot` will be set here.
 - At the end of `MutableTree#SaveVersion`
-  - The fields `Committed`, `Updated`, and `RootHash` will be set here.
+  - The fields `Version`, `Snapshot`, `Committed`, `Updated`, and `RootHash` will be set here.
 - During `MutableTree#PruneRecentVersion`
   - The field `Updated` will be set here.
 - During `MutableTree#DeleteVersion`
