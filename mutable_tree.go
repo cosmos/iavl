@@ -616,7 +616,9 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 			}
 		}
 
-		// TODO: Delete metadata
+		if err := tree.ndb.DeleteVersionMetadata(version); err != nil {
+			return err
+		}
 
 		delete(tree.versions, version)
 	}

@@ -81,7 +81,6 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 // it does not exist, it will be queried for via the snapshotDB and added to the
 // LRU cache. An error is returned if the VersionMetadata cannot be decoded or
 // queried for in the snapshotDB.
-// TODO: Handle the case when it doesn't exist on a live tree.
 func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 	key := VersionMetadataKey(version)
 
@@ -96,7 +95,13 @@ func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 	}
 
 	vm := new(VersionMetadata)
-	if err := vm.Unmarshal(bz); err != nil {
+
+	if len(bz) == 0 {
+		// In cases where version metadata does not exist, say for a non-empty tree,
+		// we construct metadata on the fly and cache it.
+		vm.Version = version
+		vm.Snapshot = ndb.opts.KeepEvery != 0 && version%ndb.opts.KeepEvery == 0
+	} else if err := vm.Unmarshal(bz); err != nil {
 		return nil, err
 	}
 
@@ -120,6 +125,24 @@ func (ndb *nodeDB) SetVersionMetadata(vm *VersionMetadata) error {
 	}
 
 	_ = ndb.vmCache.Add(string(key), vm)
+	return nil
+}
+
+// DeleteVersionMetadata removes a VersionMetadata object from the snapshotDB
+// and the LRU cache.
+func (ndb *nodeDB) DeleteVersionMetadata(version int64) error {
+	vm, err := ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
+	key := VersionMetadataKey(vm.Version)
+
+	if err := ndb.snapshotDB.Delete(key); err != nil {
+		return err
+	}
+
+	ndb.vmCache.Remove(string(key))
 	return nil
 }
 
