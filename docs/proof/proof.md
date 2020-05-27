@@ -21,8 +21,8 @@ a=1   b=2
 ```
 
 In reality, IAVL nodes contain more data than shown here - for details please refer to the
-[node documentation](../node/node.md). However, this simplified version is sufficient for a
-high-level understanding.
+[node documentation](../node/node.md). However, this simplified version is sufficient for an
+overview.
 
 A cryptographically secure hash is generated for each node in the tree by hashing the node's key
 and value (if leaf node), version, and height, as well as the hashes of each direct child (if
@@ -78,6 +78,11 @@ keys, which allows them to cover any arbitrary key range. This can also be used 
 absence proof for a _single_ non-existant key, by returning a range proof between the two nearest
 neighbors. The range proof is therefore a complete proof for all existing and all absent key/value
 pairs ordered between two arbitrary endpoints.
+
+Note that the IAVL terminology for range proofs may differ from that used in other systems, where
+it refers to proofs that a value lies within some interval without revealing the exact value. IAVL 
+range proofs are used to prove which key/value pairs exist (or not) in some key range, and may be
+known as range queries elsewhere.
 
 ## API Overview
 
