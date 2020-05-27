@@ -94,14 +94,18 @@ func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 		return nil, err
 	}
 
-	vm := new(VersionMetadata)
-
+	// In cases where version metadata does not exist, say for a non-empty tree,
+	// we construct metadata on the fly. This is for backwards compatibility WRT
+	// to snapshotting.
 	if len(bz) == 0 {
-		// In cases where version metadata does not exist, say for a non-empty tree,
-		// we construct metadata on the fly and cache it.
-		vm.Version = version
-		vm.Snapshot = ndb.opts.KeepEvery != 0 && version%ndb.opts.KeepEvery == 0
-	} else if err := vm.Unmarshal(bz); err != nil {
+		return &VersionMetadata{
+			Version:  version,
+			Snapshot: ndb.opts.KeepEvery != 0 && version%ndb.opts.KeepEvery == 0,
+		}, nil
+	}
+
+	vm := new(VersionMetadata)
+	if err := vm.Unmarshal(bz); err != nil {
 		return nil, err
 	}
 
