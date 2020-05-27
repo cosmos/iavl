@@ -748,6 +748,19 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	}
 }
 
+// restoreNodes restores nodes, which was orphaned, but after overwriting should not be orphans anymore
+func (ndb *nodeDB) restoreNodes(version int64) {
+	traverseOrphansVersionFromDB(ndb.recentDB, version, func(key, hash []byte) {
+		// Delete orphan key and reverse-lookup key.
+		ndb.recentBatch.Delete(key)
+	})
+
+	traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
+		// Delete orphan key and reverse-lookup key.
+		ndb.snapshotBatch.Delete(key)
+	})
+}
+
 func (ndb *nodeDB) traverseNodesFromDB(db dbm.DB, fn func(hash []byte, node *Node)) {
 	nodes := []*Node{}
 
@@ -786,7 +799,7 @@ func (ndb *nodeDB) String() string {
 	ndb.traverseNodes(func(hash []byte, node *Node) {
 		switch {
 		case len(hash) == 0:
-			str += fmt.Sprintf("<nil>\n")
+			str += "<nil>\n"
 		case node == nil:
 			str += fmt.Sprintf("%s%40x: <nil>\n", nodeKeyFormat.Prefix(), hash)
 		case node.value == nil && node.height > 0:

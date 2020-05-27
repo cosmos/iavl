@@ -53,7 +53,7 @@ func main() {
 	}
 }
 
-func OpenDb(dir string) (dbm.DB, error) {
+func OpenDB(dir string) (dbm.DB, error) {
 	switch {
 	case strings.HasSuffix(dir, ".db"):
 		dir = dir[:len(dir)-3]
@@ -76,7 +76,7 @@ func OpenDb(dir string) (dbm.DB, error) {
 }
 
 // nolint: unused,deadcode
-func PrintDbStats(db dbm.DB) {
+func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
 	iter, err := db.Iterator(nil, nil)
@@ -98,7 +98,7 @@ func PrintDbStats(db dbm.DB) {
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
 func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
-	db, err := OpenDb(dir)
+	db, err := OpenDB(dir)
 	if err != nil {
 		return nil, err
 	}
