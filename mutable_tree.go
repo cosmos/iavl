@@ -508,7 +508,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, err
 	}
 
-	if err := tree.PruneRecentVersion(); err != nil {
+	if err := tree.pruneRecentVersion(); err != nil {
 		return nil, version, err
 	}
 
@@ -531,9 +531,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	return tree.Hash(), version, nil
 }
 
-// PruneRecentVersion looks for a recent version to remove from the recentDB. If
+// pruneRecentVersion looks for a recent version to remove from the recentDB. If
 // such a version exists, the corresponding metadata will be updated as well.
-func (tree *MutableTree) PruneRecentVersion() error {
+func (tree *MutableTree) pruneRecentVersion() error {
 	prunedVersion, err := tree.ndb.PruneRecentVersion()
 	if err != nil {
 		return err
