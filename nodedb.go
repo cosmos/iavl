@@ -32,6 +32,8 @@ var (
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
+
+	metadataKeyFormat = NewKeyFormat('m', int64Size) // m<version>
 )
 
 type nodeDB struct {
@@ -82,7 +84,7 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 // LRU cache. An error is returned if the VersionMetadata cannot be decoded or
 // queried for in the snapshotDB.
 func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
-	key := VersionMetadataKey(version)
+	key := metadataKeyFormat.Key(version)
 
 	v, ok := ndb.vmCache.Get(string(key))
 	if ok {
@@ -117,7 +119,7 @@ func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 // write-through to the VersionMetadata LRU cache. It returns an error if encoding
 // or saving to the snapshotDB fails.
 func (ndb *nodeDB) SetVersionMetadata(vm *VersionMetadata) error {
-	key := VersionMetadataKey(vm.Version)
+	key := metadataKeyFormat.Key(vm.Version)
 
 	bz, err := vm.Marshal()
 	if err != nil {
@@ -140,7 +142,7 @@ func (ndb *nodeDB) DeleteVersionMetadata(version int64) error {
 		return err
 	}
 
-	key := VersionMetadataKey(vm.Version)
+	key := metadataKeyFormat.Key(vm.Version)
 
 	if err := ndb.snapshotDB.Delete(key); err != nil {
 		return err

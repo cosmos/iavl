@@ -54,7 +54,7 @@ func TestNodeDBVersionMetadata(t *testing.T) {
 	require.Equal(t, int64(1), vm.Version)
 	require.True(t, vm.Snapshot)
 
-	x, ok := ndb.vmCache.Get(string(VersionMetadataKey(1)))
+	x, ok := ndb.vmCache.Get(string(metadataKeyFormat.Key(1)))
 	require.False(t, ok)
 	require.Nil(t, x)
 
@@ -66,7 +66,7 @@ func TestNodeDBVersionMetadata(t *testing.T) {
 		}
 		require.NoError(t, ndb.SetVersionMetadata(vm))
 
-		x, ok := ndb.vmCache.Get(string(VersionMetadataKey(vm.Version)))
+		x, ok := ndb.vmCache.Get(string(metadataKeyFormat.Key(vm.Version)))
 		require.True(t, ok)
 		require.NotNil(t, x)
 
@@ -76,7 +76,7 @@ func TestNodeDBVersionMetadata(t *testing.T) {
 
 		require.NoError(t, ndb.DeleteVersionMetadata(vm.Version))
 
-		x, ok = ndb.vmCache.Get(string(VersionMetadataKey(vm.Version)))
+		x, ok = ndb.vmCache.Get(string(metadataKeyFormat.Key(vm.Version)))
 		require.False(t, ok)
 		require.Nil(t, x)
 	}
