@@ -21,7 +21,7 @@ func TestVersionMetadata_Serialize(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bz)
 
-	vm2 := &iavl.VersionMetadata{}
-	require.NoError(t, vm2.Unmarshal(bz))
+	vm2, err := iavl.UnmarshalVersionMetadata(bz)
+	require.NoError(t, err)
 	require.Equal(t, vm.String(), vm2.String())
 }

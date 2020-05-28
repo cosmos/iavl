@@ -9,8 +9,10 @@ func (vm *VersionMetadata) Marshal() ([]byte, error) {
 	return proto.Marshal(vm)
 }
 
-// Unmarshal attempts to decode a VersionMetadata object from Protobuf marshaled
-// bytes.
-func (vm *VersionMetadata) Unmarshal(bz []byte) error {
-	return proto.Unmarshal(bz, vm)
+// VersionMetadata attempts to decode a VersionMetadata object from Protobuf
+// marshaled bytes.
+func UnmarshalVersionMetadata(bz []byte) (*VersionMetadata, error) {
+	vm := &VersionMetadata{}
+	err := proto.Unmarshal(bz, vm)
+	return vm, err
 }

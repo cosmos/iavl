@@ -106,8 +106,8 @@ func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 		}, nil
 	}
 
-	vm := new(VersionMetadata)
-	if err := vm.Unmarshal(bz); err != nil {
+	vm, err := UnmarshalVersionMetadata(bz)
+	if err != nil {
 		return nil, err
 	}
 
