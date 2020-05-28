@@ -106,7 +106,7 @@ func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 		}, nil
 	}
 
-	vm, err := UnmarshalVersionMetadata(bz)
+	vm, err := unmarshalVersionMetadata(bz)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +121,7 @@ func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
 func (ndb *nodeDB) SetVersionMetadata(vm *VersionMetadata) error {
 	key := metadataKeyFormat.Key(vm.Version)
 
-	bz, err := vm.Marshal()
+	bz, err := vm.marshal()
 	if err != nil {
 		return err
 	}

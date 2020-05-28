@@ -1,15 +1,14 @@
-package iavl_test
+package iavl
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/iavl"
 )
 
 func TestVersionMetadata_Serialize(t *testing.T) {
-	vm := &iavl.VersionMetadata{
+	vm := &VersionMetadata{
 		Version:   14,
 		Committed: time.Now().UTC().Unix(),
 		Updated:   time.Now().UTC().Unix(),
@@ -17,11 +16,11 @@ func TestVersionMetadata_Serialize(t *testing.T) {
 		Snapshot:  true,
 	}
 
-	bz, err := vm.Marshal()
+	bz, err := vm.marshal()
 	require.NoError(t, err)
 	require.NotNil(t, bz)
 
-	vm2, err := iavl.UnmarshalVersionMetadata(bz)
+	vm2, err := unmarshalVersionMetadata(bz)
 	require.NoError(t, err)
 	require.Equal(t, vm.String(), vm2.String())
 }
