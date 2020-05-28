@@ -392,16 +392,6 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
-	vm, err := tree.ndb.GetVersionMetadata(targetVersion)
-	if err != nil {
-		return latestVersion, err
-	}
-
-	vm.Updated = time.Now().UTC().Unix()
-	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
-		return latestVersion, err
-	}
-
 	return targetVersion, nil
 }
 
@@ -547,7 +537,9 @@ func (tree *MutableTree) PruneRecentVersion() error {
 	prunedVersion, err := tree.ndb.PruneRecentVersion()
 	if err != nil {
 		return err
-	} else if prunedVersion > 0 {
+	}
+
+	if prunedVersion > 0 {
 		vm, err := tree.ndb.GetVersionMetadata(prunedVersion)
 		if err != nil {
 			return err
