@@ -388,7 +388,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
-	if err := tree.deleteVersionsFrom(targetVersion + 1); err != nil { // nolint
+	if err := tree.deleteVersionsFrom(targetVersion + 1); err != nil {
 		return latestVersion, err
 	}
 
