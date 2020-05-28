@@ -558,7 +558,8 @@ func (tree *MutableTree) pruneRecentVersion() error {
 }
 
 // DeleteVersion deletes a tree version from disk. The version can then no
-// longer be accessed.
+// longer be accessed. Note, the version's metadata will still be retained. In
+// addition, it will contain the time at which the version was deleted.
 func (tree *MutableTree) DeleteVersion(version int64) error {
 	debug("DELETE VERSION: %d\n", version)
 
