@@ -598,7 +598,8 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 }
 
 // deleteVersionsFrom deletes tree version from disk specified version to latest
-// version. The version can then no longer be accessed.
+// version along with each version's metadata. The version can then no longer be
+// accessed.
 func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	if version <= 0 {
 		return errors.New("version must be greater than 0")
