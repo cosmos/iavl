@@ -1,8 +1,34 @@
-## IAVL+ Tree
+## 
 
-![Test](https://github.com/tendermint/iavl/workflows/Test/badge.svg?branch=master)
-![Lint](https://github.com/tendermint/iavl/workflows/Lint/badge.svg?branch=master)
-[![](https://godoc.org/github.com/tendermint/iavl?status.svg)](http://godoc.org/github.com/tendermint/iavl)
+<div align="center">
+  <h1> IAVL+ Tree </h1>
+</div>
+
+
+<div align="center">
+  <a href="https://github.com/tendermint/iavl/releases/latest">
+    <img alt="Version" src="https://img.shields.io/github/tag/tendermint/iavl.svg" />
+  </a>
+  <a href="https://github.com/tendermint/iavl/blob/master/LICENSE">
+    <img alt="License: Apache-2.0" src="https://img.shields.io/github/license/tendermint/iavl.svg" />
+  </a>
+  <a href="https://pkg.go.dev/github.com/tendermint/iavl?tab=doc">
+    <img alt="go doc" src="https://godoc.org/github.com/tendermint/iavl?status.svg" />
+  </a>
+  <a href="https://goreportcard.com/report/github.com/tendermint/iavl">
+    <img alt="go report card" src="https://goreportcard.com/badge/github.com/tendermint/iavl" />
+  </a>
+  <a href="https://codecov.io/gh/tendermint/iavl">
+    <img alt="Code Coverage" src="https://codecov.io/gh/tendermint/iavl/branch/master/graph/badge.svg" />
+  </a>
+</div>
+<div align="center">
+  <a href="https://discord.gg/AzefAFd">
+    <img alt="Discord" src="https://img.shields.io/discord/669268347736686612.svg" />
+  </a>
+    <img alt="Test" src="https://github.com/tendermint/iavl/workflows/Test/badge.svg?branch=master" />
+    <img alt="Lint Satus" src="https://github.com/tendermint/iavl/workflows/Lint/badge.svg?branch=master" />
+</div>
 
 **Note: Requires Go 1.13+**
 
