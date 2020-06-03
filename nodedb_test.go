@@ -2,8 +2,12 @@ package iavl
 
 import (
 	"encoding/binary"
+	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func BenchmarkNodeKey(b *testing.B) {
@@ -36,4 +40,44 @@ func makeHashes(b *testing.B, seed int64) [][]byte {
 	}
 	b.StartTimer()
 	return hashes
+}
+
+func TestNodeDBVersionMetadata(t *testing.T) {
+	memDB := dbm.NewMemDB()
+	snapDB := dbm.NewMemDB()
+	ndb := newNodeDB(snapDB, memDB, 0, nil)
+
+	// Ensure metadata returns successfully when it was never saved to begin with
+	// i.e. for backwards compatibility.
+	vm, err := ndb.GetVersionMetadata(1)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), vm.Version)
+	require.True(t, vm.Snapshot)
+
+	x, ok := ndb.vmCache.Get(string(metadataKeyFormat.Key(1)))
+	require.False(t, ok)
+	require.Nil(t, x)
+
+	for i := 2; i < 50000; i++ {
+		vm = &VersionMetadata{
+			Version:  int64(i),
+			Snapshot: i%2 == 0,
+			RootHash: []byte(fmt.Sprintf("%d", i)),
+		}
+		require.NoError(t, ndb.SetVersionMetadata(vm))
+
+		x, ok := ndb.vmCache.Get(string(metadataKeyFormat.Key(vm.Version)))
+		require.True(t, ok)
+		require.NotNil(t, x)
+
+		vm2, err := ndb.GetVersionMetadata(vm.Version)
+		require.NoError(t, err)
+		require.Equal(t, vm, vm2)
+
+		require.NoError(t, ndb.DeleteVersionMetadata(vm.Version))
+
+		x, ok = ndb.vmCache.Get(string(metadataKeyFormat.Key(vm.Version)))
+		require.False(t, ok)
+		require.Nil(t, x)
+	}
 }

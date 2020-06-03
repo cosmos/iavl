@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -378,14 +379,19 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	return latestVersion, nil
 }
 
-// LoadVersionOverwrite returns the version number of targetVersion.
-// Higher versions' data will be deleted.
+// LoadVersionForOverwriting attempts to load a tree at a previously committed
+// version. Any versions greater than targetVersion will be deleted along with
+// their respective metadata.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
 	latestVersion, err := tree.LoadVersion(targetVersion)
 	if err != nil {
 		return latestVersion, err
 	}
-	tree.deleteVersionsFrom(targetVersion + 1) // nolint:errcheck
+
+	if err := tree.deleteVersionsFrom(targetVersion + 1); err != nil {
+		return latestVersion, err
+	}
+
 	return targetVersion, nil
 }
 
@@ -442,15 +448,21 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // If version is snapshot version, persist version to disk as well
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
+	vm := &VersionMetadata{
+		Version:  version,
+		Snapshot: tree.ndb.opts.KeepEvery != 0 && version%tree.ndb.opts.KeepEvery == 0,
+	}
 
 	if tree.versions[version] {
-		//version already exists, throw an error if attempting to overwrite
-		// Same hash means idempotent.  Return success.
+		// If the version already exists, return an error as we're attempting to overwrite.
+		// However, the same hash means idempotent (i.e. no-op).
 		existingHash, err := tree.ndb.getRoot(version)
 		if err != nil {
 			return nil, version, err
 		}
+
 		var newHash = tree.WorkingHash()
+
 		if bytes.Equal(existingHash, newHash) {
 			tree.version = version
 			tree.ImmutableTree = tree.ImmutableTree.clone()
@@ -458,64 +470,104 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.orphans = map[string]int64{}
 			return existingHash, version, nil
 		}
-		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)",
-			version, newHash, existingHash)
+
+		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
+
 	tree.versions[version] = true
 
 	if tree.root == nil {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
-		tree.ndb.SaveOrphans(version, tree.orphans)
-		err := tree.ndb.SaveEmptyRoot(version)
-		if err != nil {
+		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
+			panic(err)
+		}
+
+		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
 			panic(err)
 		}
 	} else {
 		debug("SAVE TREE %v\n", version)
 		// Save the current tree.
-		tree.ndb.SaveTree(tree.root, version)
-		tree.ndb.SaveOrphans(version, tree.orphans)
-		err := tree.ndb.SaveRoot(tree.root, version)
-		if err != nil {
+
+		if _, err := tree.ndb.SaveTree(tree.root, version); err != nil {
+			panic(err)
+		}
+
+		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
+			panic(err)
+		}
+
+		if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
 			panic(err)
 		}
 	}
-	err := tree.ndb.Commit()
-	if err != nil {
+
+	if err := tree.ndb.Commit(); err != nil {
 		return nil, version, err
 	}
 
-	// Prune nodeDB and delete any pruned versions from tree.versions
-	prunedVersions, err := tree.ndb.PruneRecentVersions()
-	if err != nil {
-		return nil, version, err
-	}
-	for _, pVer := range prunedVersions {
-		delete(tree.versions, pVer)
-	}
-
-	err = tree.ndb.Commit()
-	if err != nil {
+	if err := tree.pruneRecentVersion(); err != nil {
 		return nil, version, err
 	}
 
 	tree.version = version
 	tree.versions[version] = true
 
-	// Set new working tree.
+	// set new working tree
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
 
+	// save version metadata
+	vm.Committed = time.Now().UTC().Unix()
+	vm.Updated = vm.Committed
+	vm.RootHash = tree.Hash()
+	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
+		return nil, version, err
+	}
+
 	return tree.Hash(), version, nil
 }
 
+// pruneRecentVersion looks for a recent version to remove from the recentDB. If
+// such a version exists, the corresponding metadata will be updated as well.
+func (tree *MutableTree) pruneRecentVersion() error {
+	prunedVersion, err := tree.ndb.PruneRecentVersion()
+	if err != nil {
+		return err
+	}
+
+	if prunedVersion > 0 {
+		vm, err := tree.ndb.GetVersionMetadata(prunedVersion)
+		if err != nil {
+			return err
+		}
+
+		vm.Updated = time.Now().UTC().Unix()
+		if err := tree.ndb.SetVersionMetadata(vm); err != nil {
+			return err
+		}
+
+		delete(tree.versions, prunedVersion)
+		return tree.ndb.Commit()
+	}
+
+	return nil
+}
+
 // DeleteVersion deletes a tree version from disk. The version can then no
-// longer be accessed.
+// longer be accessed. Note, the version's metadata will still be retained. In
+// addition, it will contain the time at which the version was deleted.
 func (tree *MutableTree) DeleteVersion(version int64) error {
 	debug("DELETE VERSION: %d\n", version)
+
+	vm, err := tree.ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
 	if version == 0 {
 		return errors.New("version must be greater than 0")
 	}
@@ -526,77 +578,106 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return errors.Wrap(ErrVersionDoesNotExist, "")
 	}
 
-	err := tree.ndb.DeleteVersion(version, true)
-	if err != nil {
+	if err := tree.ndb.DeleteVersion(version, true); err != nil {
 		return err
 	}
 
-	err = tree.ndb.Commit()
-	if err != nil {
+	if err := tree.ndb.Commit(); err != nil {
+		return err
+	}
+
+	// update metadata; snapshot is now false as the version is no longer flushed to disk
+	vm.Snapshot = false
+	vm.Updated = time.Now().UTC().Unix()
+	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
 		return err
 	}
 
 	delete(tree.versions, version)
-
 	return nil
 }
 
-// deleteVersionsFrom deletes tree version from disk specified version to latest version. The version can then no
-// longer be accessed.
+// deleteVersionsFrom deletes tree version from disk specified version to latest
+// version along with each version's metadata. The version can then no longer be
+// accessed.
 func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	if version <= 0 {
 		return errors.New("version must be greater than 0")
 	}
+
 	newLatestVersion := version - 1
 	lastestVersion := tree.ndb.getLatestVersion()
+
 	for ; version <= lastestVersion; version++ {
 		if version == tree.version {
 			return errors.Errorf("cannot delete latest saved version (%d)", version)
 		}
-		err := tree.ndb.DeleteVersion(version, false)
-		if err != nil {
+
+		if err := tree.ndb.DeleteVersion(version, false); err != nil {
 			return err
 		}
+
 		if version == lastestVersion {
 			root, err := tree.ndb.getRoot(version)
 			if err != nil {
 				return err
 			}
-			tree.deleteNodes(newLatestVersion, root)
+
+			if err := tree.deleteNodes(newLatestVersion, root); err != nil {
+				return err
+			}
 		}
+
+		if err := tree.ndb.DeleteVersionMetadata(version); err != nil {
+			return err
+		}
+
 		delete(tree.versions, version)
 	}
+
 	tree.ndb.restoreNodes(newLatestVersion)
-	err := tree.ndb.Commit()
-	if err != nil {
+
+	if err := tree.ndb.Commit(); err != nil {
 		return err
 	}
+
 	tree.ndb.resetLatestVersion(newLatestVersion)
 	return nil
 }
 
 // deleteNodes deletes all nodes which have greater version than current, because they are not useful anymore
-func (tree *MutableTree) deleteNodes(version int64, hash []byte) {
+func (tree *MutableTree) deleteNodes(version int64, hash []byte) error {
 	if len(hash) == 0 {
-		return
+		return nil
 	}
 
 	node := tree.ndb.GetNode(hash)
 	if node.leftHash != nil {
-		tree.deleteNodes(version, node.leftHash)
+		if err := tree.deleteNodes(version, node.leftHash); err != nil {
+			return err
+		}
 	}
 	if node.rightHash != nil {
-		tree.deleteNodes(version, node.rightHash)
+		if err := tree.deleteNodes(version, node.rightHash); err != nil {
+			return err
+		}
 	}
 
 	if node.version > version {
+		vm, err := tree.ndb.GetVersionMetadata(node.version)
+		if err != nil {
+			return err
+		}
+
 		if tree.ndb.isRecentVersion(node.version) {
 			tree.ndb.recentBatch.Delete(tree.ndb.nodeKey(hash))
 		}
-		if tree.ndb.isSnapshotVersion(node.version) {
+		if vm.Snapshot {
 			tree.ndb.snapshotBatch.Delete(tree.ndb.nodeKey(hash))
 		}
 	}
+
+	return nil
 }
 
 // Rotate right and return the new node and orphan.

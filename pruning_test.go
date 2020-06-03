@@ -432,9 +432,12 @@ func TestNoSnapshots(t *testing.T) {
 	}
 
 	size := 0
-	traverseFromDB(mt.ndb.snapshotDB, func(k, v []byte) {
-		size++
+	traverseFromDB(mt.ndb.snapshotDB, func(k, _ []byte) {
+		if metadataKeyFormat.Prefix() != string(k[0]) {
+			size++
+		}
 	})
+
 	// check that nothing persisted to snapshotDB
 	require.Equal(t, 0, size, "SnapshotDB should be empty")
 }
