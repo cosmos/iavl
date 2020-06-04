@@ -11,5 +11,5 @@ require (
 	github.com/tendermint/tendermint v0.33.5
 	github.com/tendermint/tm-db v0.5.1
 	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
-	google.golang.org/protobuf v1.23.0
+	google.golang.org/protobuf v1.24.0
 )
