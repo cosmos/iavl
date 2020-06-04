@@ -231,15 +231,14 @@ func (ndb *nodeDB) saveNodeBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch)
 		panic(err)
 	}
 
-	if !node.saved {
-		node.saved = true
-		rb.Set(ndb.nodeKey(node.hash), buf.Bytes())
-	}
-
 	if flushToDisk {
 		sb.Set(ndb.nodeKey(node.hash), buf.Bytes())
+		rb.Delete(ndb.nodeKey(node.hash))
 		node.persisted = true
 		node.saved = true
+	} else if !node.saved {
+		node.saved = true
+		rb.Set(ndb.nodeKey(node.hash), buf.Bytes())
 	}
 }
 
