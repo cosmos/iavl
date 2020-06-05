@@ -1,4 +1,3 @@
-// nolint: errcheck,scopelint
 package benchmarks
 
 import (
@@ -146,6 +145,7 @@ func BenchmarkRandomBytes(b *testing.B) {
 		{4}, {16}, {32}, {100}, {1000},
 	}
 	for _, bench := range benchmarks {
+		bench := bench
 		name := fmt.Sprintf("random-%d", bench.length)
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
@@ -226,7 +226,9 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 		{10000, 100}, // SDK pruning
 	}
 	for _, ps := range pruningStrategies {
+		ps := ps
 		for _, bb := range benchmarks {
+			bb := bb
 			prefix := fmt.Sprintf("%s-%d-%d-%d-%d-%d-%d", bb.dbType, ps.keepEvery, ps.keepRecent,
 				bb.initSize, bb.blockSize, bb.keyLen, bb.dataLen)
 

@@ -10,6 +10,8 @@ Special thanks to external contributors on this release:
 
 ### Bug Fixes
 
+- [orphans] [\#145](https://github.com/tendermint/iavl/pull/145) LoadVersionForOverwriting transits orphans to non-orphans for overwriting version and removes nodes, which become useless  
+
 ## 0.13.3 (April 5, 2020)
 
 ### Bug Fixes
