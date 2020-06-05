@@ -871,10 +871,7 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 		return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
 	}
 
-	if err := rb.WriteSync(); err != nil {
-		return fmt.Errorf("failed to write (sync) the recent batch: %w", err)
-	}
-
+	// NOTE: We do not need to write/flush the recent batch.
 	return nil
 }
 

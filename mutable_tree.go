@@ -557,6 +557,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	vm.Committed = time.Now().UTC().Unix()
 	vm.Updated = vm.Committed
 	vm.RootHash = tree.Hash()
+
 	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
 		return nil, version, err
 	}
