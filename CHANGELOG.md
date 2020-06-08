@@ -8,8 +8,11 @@ Special thanks to external contributors on this release:
 
 ### Improvements
 
+- [\#239](https://github.com/tendermint/iavl/pull/239) Implement `MutableTree#FlushVersion` which allows a version to be manually flushed to disk.
+
 ### Bug Fixes
 
+- [\#239](https://github.com/tendermint/iavl/pull/239) Fix `MutableTree#VersionExists` by also checking if a version exists in the snapshotDB.
 - [orphans] [\#145](https://github.com/tendermint/iavl/pull/145) LoadVersionForOverwriting transits orphans to non-orphans for overwriting version and removes nodes, which become useless  
 
 ## 0.13.3 (April 5, 2020)

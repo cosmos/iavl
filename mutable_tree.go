@@ -12,7 +12,7 @@ import (
 )
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
-var ErrVersionDoesNotExist = fmt.Errorf("version does not exist")
+var ErrVersionDoesNotExist = errors.New("version does not exist")
 
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
@@ -75,9 +75,26 @@ func (tree *MutableTree) IsEmpty() bool {
 	return tree.ImmutableTree.Size() == 0
 }
 
-// VersionExists returns whether or not a version exists.
+// VersionExists returns whether or not a version exists. A version exists if it
+// is found in the recentDB or if it exists on disk.
 func (tree *MutableTree) VersionExists(version int64) bool {
-	return tree.versions[version]
+	// First, check if the version exists in memory.
+	if tree.versions[version] {
+		return true
+	}
+
+	// Otherwise, verify we have the version flushed to disk.
+	rootHash, err := tree.ndb.getRoot(version)
+	if err != nil {
+		return false
+	}
+
+	ok, err := tree.ndb.HasSnapshot(rootHash)
+	if err != nil {
+		return false
+	}
+
+	return ok
 }
 
 // AvailableVersions returns all available versions in ascending order
@@ -443,6 +460,52 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	return -1, nil
 }
 
+// FlushVersion will attempt to manually flush a previously committed version to
+// disk. It will return an error if the version does not exist or if the underlying
+// flush fails. If the version is already flushed, the method performs a no-op
+// and no error is returned.
+func (tree *MutableTree) FlushVersion(version int64) error {
+	rootHash, err := tree.ndb.getRoot(version)
+	if err != nil {
+		return err
+	}
+
+	ok, err := tree.ndb.HasSnapshot(rootHash)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+
+	debug("FLUSHING VERSION: %d\n", version)
+	err = tree.ndb.flushVersion(version)
+	if err != nil {
+		return err
+	}
+
+	vm, err := tree.ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
+	vm.Snapshot = true
+	vm.Updated = time.Now().UTC().Unix()
+	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
+		return err
+	}
+
+	// remove flushed version from the recentDB if it's not the latest
+	if version != tree.version {
+		if err := tree.ndb.DeleteVersionFromRecent(version, true); err != nil {
+			return err
+		}
+	}
+
+	tree.versions[version] = true
+	return nil
+}
+
 // SaveVersion saves a new tree version to memDB and removes old version,
 // based on the current state of the tree. Returns the hash and new version number.
 // If version is snapshot version, persist version to disk as well
@@ -489,7 +552,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	} else {
 		debug("SAVE TREE %v\n", version)
-		// Save the current tree.
 
 		if _, err := tree.ndb.SaveTree(tree.root, version); err != nil {
 			panic(err)
@@ -524,6 +586,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	vm.Committed = time.Now().UTC().Unix()
 	vm.Updated = vm.Committed
 	vm.RootHash = tree.Hash()
+
 	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
 		return nil, version, err
 	}
