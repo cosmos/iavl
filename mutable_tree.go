@@ -479,7 +479,8 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 	}
 
 	debug("FLUSHING VERSION: %d\n", version)
-	if err := tree.ndb.flushVersion(version); err != nil {
+	err = tree.ndb.flushVersion(version)
+	if err != nil {
 		return err
 	}
 
