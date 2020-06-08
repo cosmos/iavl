@@ -797,9 +797,11 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error 
 
 	key := ndb.rootKey(version)
 	ndb.updateLatestVersion(version)
-	ndb.recentBatch.Set(key, hash)
 	if flushToDisk {
 		ndb.snapshotBatch.Set(key, hash)
+		ndb.recentBatch.Delete(key)
+	} else {
+		ndb.recentBatch.Set(key, hash)
 	}
 
 	return nil
