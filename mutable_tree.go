@@ -75,9 +75,26 @@ func (tree *MutableTree) IsEmpty() bool {
 	return tree.ImmutableTree.Size() == 0
 }
 
-// VersionExists returns whether or not a version exists.
+// VersionExists returns whether or not a version exists. A version exists if it
+// is found in the recentDB or if it exists on disk.
 func (tree *MutableTree) VersionExists(version int64) bool {
-	return tree.versions[version]
+	// First, check if the version exists in memory.
+	if tree.versions[version] {
+		return true
+	}
+
+	// Otherwise, verify we have the version flushed to disk.
+	rootHash, err := tree.ndb.getRoot(version)
+	if err != nil {
+		return false
+	}
+
+	ok, err := tree.ndb.HasSnapshot(rootHash)
+	if err != nil {
+		return false
+	}
+
+	return ok
 }
 
 // AvailableVersions returns all available versions in ascending order
@@ -471,6 +488,17 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 		if err := tree.ndb.DeleteVersionFromRecent(version, true); err != nil {
 			return err
 		}
+	}
+
+	vm, err := tree.ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
+	vm.Snapshot = true
+	vm.Updated = time.Now().UTC().Unix()
+	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
+		return err
 	}
 
 	tree.versions[version] = true
