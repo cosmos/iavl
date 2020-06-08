@@ -483,13 +483,6 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 		return err
 	}
 
-	// remove flushed version from the recentDB if it's not the latest
-	if version != tree.version {
-		if err := tree.ndb.DeleteVersionFromRecent(version, true); err != nil {
-			return err
-		}
-	}
-
 	vm, err := tree.ndb.GetVersionMetadata(version)
 	if err != nil {
 		return err
@@ -499,6 +492,13 @@ func (tree *MutableTree) FlushVersion(version int64) error {
 	vm.Updated = time.Now().UTC().Unix()
 	if err := tree.ndb.SetVersionMetadata(vm); err != nil {
 		return err
+	}
+
+	// remove flushed version from the recentDB if it's not the latest
+	if version != tree.version {
+		if err := tree.ndb.DeleteVersionFromRecent(version, true); err != nil {
+			return err
+		}
 	}
 
 	tree.versions[version] = true
