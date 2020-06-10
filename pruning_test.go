@@ -151,7 +151,8 @@ func TestDeleteOrphans(t *testing.T) {
 	traverseOrphansFromDB(mt.ndb.recentDB, lastfn)
 	require.Equal(t, 0, size, "Orphans still exist in recentDB")
 
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
+	// recentDB should have been cleared on snapshot version
+	require.Equal(t, 0, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "More nodes in snapshotDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
 }
 
@@ -252,15 +253,14 @@ func TestDBState(t *testing.T) {
 		require.Nil(t, err, "SaveVersion failed")
 	}
 
-	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
-
 	for i := 1; i < 5; i++ {
 		err := mt.DeleteVersion(int64(i))
 		require.Nil(t, err, "Could not delete version: %d", i)
 	}
 
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	// recentDB should have been cleared on snapshot version
+	require.Equal(t, 0, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
 }
 
 func TestSanity1(t *testing.T) {
@@ -295,8 +295,6 @@ func TestSanity1(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
-
 	size := 0
 	fn := func(k, v []byte) {
 		size++
@@ -308,7 +306,8 @@ func TestSanity1(t *testing.T) {
 	traverseOrphansFromDB(mt.ndb.snapshotDB, fn)
 	require.Equal(t, 0, size, "Not all orphans in snapshotDBdeleted")
 
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	// recentDB should have been cleared on snapshot version
+	require.Equal(t, 0, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
 }
 
@@ -344,14 +343,13 @@ func TestSanity2(t *testing.T) {
 	traverseOrphansFromDB(mt.ndb.recentDB, fn)
 	require.Equal(t, 0, size, "Not all orphans deleted from RecentDB")
 
-	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
-
 	for i := 1; i < 5; i++ {
 		err := mt.DeleteVersion(int64(i))
 		require.NotNil(t, err)
 	}
 
-	require.Equal(t, mt.nodeSize()+size, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
+	// recentDB should have been cleared on snapshot version
+	require.Equal(t, 0, len(mt.ndb.nodesFromDB(mt.ndb.recentDB)))
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)))
 }
 
