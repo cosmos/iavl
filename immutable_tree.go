@@ -10,6 +10,9 @@ import (
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
 // MutableTree.GetImmutable(), in which case the returned tree is safe for concurrent access as
 // long as the version is not deleted via DeleteVersion() or the tree's pruning settings.
+//
+// Returned key/value byte slices must not be modified, since they may point to data located inside
+// IAVL which would also be modified.
 type ImmutableTree struct {
 	root    *Node
 	ndb     *nodeDB
@@ -148,8 +151,9 @@ func (t *ImmutableTree) Export() *Exporter {
 	return newExporter(t)
 }
 
-// Get returns the index and value of the specified key if it exists, or nil
-// and the next index, if it doesn't.
+// Get returns the index and value of the specified key if it exists, or nil and the next index
+// otherwise. The returned value must not be modified, since it may point to data stored within
+// IAVL.
 func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 	if t.root == nil {
 		return 0, nil
@@ -165,7 +169,8 @@ func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-// Iterate iterates over all keys of the tree, in order.
+// Iterate iterates over all keys of the tree, in order. The keys and values must not be modified,
+// since they may point to data stored within IAVL.
 func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
@@ -179,7 +184,8 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
-// If either are nil, then it is open on that side (nil, nil is the same as Iterate)
+// If either are nil, then it is open on that side (nil, nil is the same as Iterate). The keys and
+// values must not be modified, since they may point to data stored within IAVL.
 func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
@@ -193,7 +199,8 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 }
 
 // IterateRangeInclusive makes a callback for all nodes with key between start and end inclusive.
-// If either are nil, then it is open on that side (nil, nil is the same as Iterate)
+// If either are nil, then it is open on that side (nil, nil is the same as Iterate). The keys and
+// values must not be modified, since they may point to data stored within IAVL.
 func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool, fn func(key, value []byte, version int64) bool) (stopped bool) {
 	if t.root == nil {
 		return false
