@@ -3,6 +3,9 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
+	"math/rand"
+	"os"
 	"runtime"
 	"testing"
 
@@ -262,4 +265,136 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		t.Set(randBytes(10), []byte{})
 	}
+}
+
+func TestDeleteVersion_issue261(t *testing.T) {
+	makeVersions := func(t *testing.T, mainDB db.DB, versions int, keepEvery int64) {
+		// We set the same RNG for every run, which of course means we'll be regenerating the
+		// same keys and values.
+		r := rand.New(rand.NewSource(49872768940))
+
+		// This follows SDK behavior.
+		keepRecent := int64(1)
+		if keepEvery == 1 {
+			keepRecent = 0
+		}
+
+		// Create a new tree from the given database, with a fresh RecentDB for in-memory versions.
+		tree, err := NewMutableTreeWithOpts(mainDB, db.NewMemDB(), 0, &Options{
+			KeepEvery:  keepEvery,
+			KeepRecent: keepRecent,
+		})
+		require.NoError(t, err)
+
+		// Load the latest persisted version.
+		version, err := tree.LoadVersion(0)
+		require.NoError(t, err)
+		t.Logf("Loaded version %v\n", version)
+
+		// Create new versions.
+		for v := 0; v < versions; v++ {
+			for i := 0; i < 4; i++ {
+				key := []byte(fmt.Sprintf("%v", r.Intn(65536)))
+				value := []byte(fmt.Sprintf("%v", r.Intn(1<<20)))
+				t.Logf("Set: %v = %v", string(key), string(value))
+				tree.Set(key, value)
+			}
+
+			_, version, err = tree.SaveVersion()
+			require.NoError(t, err)
+			t.Logf("Saved version %v\n", version)
+
+			// Delete the previous keepEvery version if it's a multiple of KeepEvery. This follows
+			// SDK pruning behavior.
+			if version%keepEvery == 0 && version > keepEvery {
+				err = tree.DeleteVersion(version - keepEvery)
+				require.NoError(t, err)
+				t.Logf("Deleted version %v\n", version-keepEvery)
+			}
+		}
+	}
+
+	// Use the same on-disk database for all runs.
+	tempdir, err := ioutil.TempDir("", "iavl")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempdir)
+
+	levelDB, err := db.NewGoLevelDB("leveldb", tempdir)
+	require.NoError(t, err)
+
+	// First, create 9 versions and persist every 4 versions to disk, deleting the previous
+	// persisted version.
+	makeVersions(t, levelDB, 9, 4)
+
+	// Now, create another 9 versions and persist every 4 versions to disk, deleting the previous
+	// persisted one. This will load version 8 (the last persisted one) and generate new versions
+	// from that. In the original issue, this panics after version 8 has been deleted, when version
+	// 9 is about to be created.
+	makeVersions(t, levelDB, 9, 4)
+}
+
+func TestDeleteVersion_issue261_minimal(t *testing.T) {
+	// Use the same on-disk database for all runs.
+	tempdir, err := ioutil.TempDir("", "iavl")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempdir)
+
+	levelDB, err := db.NewGoLevelDB("leveldb", tempdir)
+	require.NoError(t, err)
+
+	// Create a new tree that persists data to disk every 2 versions. KeepRecent: 1 mirrors
+	// SDK behavior.
+	tree, err := NewMutableTreeWithOpts(levelDB, db.NewMemDB(), 0, &Options{
+		KeepEvery:  2,
+		KeepRecent: 1,
+	})
+	require.NoError(t, err)
+	version, err := tree.Load()
+	require.NoError(t, err)
+	require.EqualValues(t, 0, version)
+
+	// Write two versions, where the second is persisted to disk.
+	tree.Set([]byte{1}, []byte{1})
+	tree.Set([]byte{2}, []byte{2})
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	tree.Set([]byte{3}, []byte{3})
+	tree.Set([]byte{4}, []byte{4})
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Now, make a single version that is only persisted in memory. This will cause the previous
+	// node to become orphaned, and the orphaning incorrectly persisted to disk.
+	tree.Set([]byte{4}, []byte{0})
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Close the tree, and set up a new one which loads the persisted version 2.
+	tree, err = NewMutableTreeWithOpts(levelDB, db.NewMemDB(), 0, &Options{
+		KeepEvery:  2,
+		KeepRecent: 1,
+	})
+	require.NoError(t, err)
+	version, err = tree.Load()
+	require.NoError(t, err)
+	require.EqualValues(t, 2, version)
+
+	// If we now write two other versions, which do not touch the branch of key 4, and then
+	// delete version 2 (following SDK behavior), this will cause key 4 to go missing because the
+	// incorrect orphan written during in-memory version 3 has scheduled it for deletion, even
+	// though the change that caused it to be orphaned now hasn't happened.
+	tree.Set([]byte{1}, []byte{0})
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	tree.Set([]byte{2}, []byte{0})
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	err = tree.DeleteVersion(2)
+	require.NoError(t, err)
+
+	_, v := tree.Get([]byte{4})
+	assert.Equal(t, []byte{4}, v)
 }
