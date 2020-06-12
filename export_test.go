@@ -86,8 +86,9 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 			default:
 				r.Read(key)
 				r.Read(value)
-				// if we get an update, set again
+				// If we get an update, set again
 				for tree.Set(key, value) {
+					key = make([]byte, keySize)
 					r.Read(key)
 				}
 				keys = append(keys, key)
