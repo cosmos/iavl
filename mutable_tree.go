@@ -18,6 +18,9 @@ var ErrVersionDoesNotExist = errors.New("version does not exist")
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
 // version can be returned via GetImmutable, which is safe for concurrent access.
 //
+// Given and returned key/value byte slices must not be modified, since they may point to data
+// located inside IAVL which would also be modified.
+//
 // The inner ImmutableTree should not be used directly by callers.
 type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
@@ -134,7 +137,8 @@ func (tree *MutableTree) prepareOrphansSlice() []*Node {
 	return make([]*Node, 0, tree.Height()+3)
 }
 
-// Set sets a key in the working tree. Nil values are not supported.
+// Set sets a key in the working tree. Nil values are invalid. The given key/value byte slices must
+// not be modified after this call, since they point to slices stored within IAVL.
 func (tree *MutableTree) Set(key, value []byte) bool {
 	orphaned, updated := tree.set(key, value)
 	tree.addOrphans(orphaned)
@@ -218,7 +222,8 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	}
 }
 
-// Remove removes a key from the working tree.
+// Remove removes a key from the working tree. The given key byte slice should not be modified
+// after this call, since it may point to data stored inside IAVL.
 func (tree *MutableTree) Remove(key []byte) ([]byte, bool) {
 	val, orphaned, removed := tree.remove(key)
 	tree.addOrphans(orphaned)
@@ -446,7 +451,8 @@ func (tree *MutableTree) Rollback() {
 	tree.orphans = map[string]int64{}
 }
 
-// GetVersioned gets the value at the specified key and version.
+// GetVersioned gets the value at the specified key and version. The returned value must not be
+// modified, since it may point to data stored within IAVL.
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
