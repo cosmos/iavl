@@ -550,25 +550,25 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
 		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
-			panic(err)
+			return nil, version, err
 		}
 
 		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
-			panic(err)
+			return nil, version, err
 		}
 	} else {
 		debug("SAVE TREE %v\n", version)
 
 		if _, err := tree.ndb.SaveTree(tree.root, version); err != nil {
-			panic(err)
+			return nil, version, err
 		}
 
 		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
-			panic(err)
+			return nil, version, err
 		}
 
 		if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
-			panic(err)
+			return nil, version, err
 		}
 	}
 
@@ -704,7 +704,9 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 		delete(tree.versions, version)
 	}
 
-	tree.ndb.restoreNodes(newLatestVersion)
+	if err := tree.ndb.restoreNodes(newLatestVersion); err != nil {
+		return err
+	}
 
 	if err := tree.ndb.Commit(); err != nil {
 		return err
@@ -739,10 +741,14 @@ func (tree *MutableTree) deleteNodes(version int64, hash []byte) error {
 		}
 
 		if tree.ndb.isRecentVersion(node.version) {
-			tree.ndb.recentBatch.Delete(tree.ndb.nodeKey(hash))
+			if err := tree.ndb.recentBatch.Delete(tree.ndb.nodeKey(hash)); err != nil {
+				return err
+			}
 		}
 		if vm.Snapshot {
-			tree.ndb.snapshotBatch.Delete(tree.ndb.nodeKey(hash))
+			if err := tree.ndb.snapshotBatch.Delete(tree.ndb.nodeKey(hash)); err != nil {
+				return err
+			}
 		}
 	}
 

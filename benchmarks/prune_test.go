@@ -29,7 +29,8 @@ func runBlockChain(b *testing.B, prefix string, keepEvery int64, keepRecent int6
 	runtime.GC()
 
 	// always initialize tree with goleveldb as snapshotDB and memDB as recentDB
-	snapDB := db.NewDB("test", "goleveldb", dirName)
+	snapDB, err := db.NewDB("test", "goleveldb", dirName)
+	b.Fatal(err)
 	defer snapDB.Close()
 
 	var mem runtime.MemStats

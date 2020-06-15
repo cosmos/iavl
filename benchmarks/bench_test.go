@@ -244,7 +244,8 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 			// note that "" leads to nil backing db!
 			var d db.DB
 			if bb.dbType != "nodb" {
-				d = db.NewDB("test", bb.dbType, dirName)
+				d, err := db.NewDB("test", bb.dbType, dirName)
+				b.Fatal(err)
 				defer d.Close()
 			}
 			b.Run(prefix, func(sub *testing.B) {

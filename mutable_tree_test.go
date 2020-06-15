@@ -248,7 +248,8 @@ func TestEmptyRecents(t *testing.T) {
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackend, "")
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	b.Fatal(err)
 	t, err := NewMutableTree(db, 100000)
 	require.NoError(b, err)
 	for i := 0; i < 1000000; i++ {
