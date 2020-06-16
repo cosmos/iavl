@@ -48,13 +48,13 @@ func (node *Node) writeBytes(w io.Writer) error {
 	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
-	cause = amino.EncodeByteSlice(w, node.key)
+	cause = encodeBytes(w, node.key)
 	if cause != nil {
 		return errors.Wrap(cause, "writing key")
 	}
 
 	if node.isLeaf() {
-		cause = amino.EncodeByteSlice(w, node.value)
+		cause = encodeBytes(w, node.value)
 		if cause != nil {
 			return errors.Wrap(cause, "writing value")
 		}
@@ -62,7 +62,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.leftHash == nil {
 			panic("node.leftHash was nil in writeBytes")
 		}
-		cause = amino.EncodeByteSlice(w, node.leftHash)
+		cause = encodeBytes(w, node.leftHash)
 		if cause != nil {
 			return errors.Wrap(cause, "writing left hash")
 		}
@@ -70,7 +70,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.rightHash == nil {
 			panic("node.rightHash was nil in writeBytes")
 		}
-		cause = amino.EncodeByteSlice(w, node.rightHash)
+		cause = encodeBytes(w, node.rightHash)
 		if cause != nil {
 			return errors.Wrap(cause, "writing right hash")
 		}
@@ -103,14 +103,14 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		err = amino.EncodeByteSlice(w, node.key)
+		err = encodeBytes(w, node.key)
 		if err != nil {
 			return errors.Wrap(err, "writing key")
 		}
 		// Indirection needed to provide proofs without values.
 		// (e.g. proofLeafNode.ValueHash)
 		valueHash := tmhash.Sum(node.value)
-		err = amino.EncodeByteSlice(w, valueHash)
+		err = encodeBytes(w, valueHash)
 		if err != nil {
 			return errors.Wrap(err, "writing value")
 		}
@@ -118,11 +118,11 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 		if node.leftHash == nil || node.rightHash == nil {
 			panic("Found an empty child hash")
 		}
-		err = amino.EncodeByteSlice(w, node.leftHash)
+		err = encodeBytes(w, node.leftHash)
 		if err != nil {
 			return errors.Wrap(err, "writing left hash")
 		}
-		err = amino.EncodeByteSlice(w, node.rightHash)
+		err = encodeBytes(w, node.rightHash)
 		if err != nil {
 			return errors.Wrap(err, "writing right hash")
 		}

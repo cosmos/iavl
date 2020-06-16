@@ -68,7 +68,7 @@ func MakeNode(buf []byte) (*Node, error) {
 	}
 	buf = buf[n:]
 
-	key, n, cause := amino.DecodeByteSlice(buf)
+	key, n, cause := decodeBytes(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.key")
 	}
@@ -84,19 +84,19 @@ func MakeNode(buf []byte) (*Node, error) {
 	// Read node body.
 
 	if node.isLeaf() {
-		val, _, cause := amino.DecodeByteSlice(buf)
+		val, _, cause := decodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "decoding node.value")
 		}
 		node.value = val
 	} else { // Read children.
-		leftHash, n, cause := amino.DecodeByteSlice(buf)
+		leftHash, n, cause := decodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "deocding node.leftHash")
 		}
 		buf = buf[n:]
 
-		rightHash, _, cause := amino.DecodeByteSlice(buf)
+		rightHash, _, cause := decodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "decoding node.rightHash")
 		}
@@ -299,17 +299,16 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		err = amino.EncodeByteSlice(w, node.key)
+		err = encodeBytes(w, node.key)
 		if err != nil {
 			return errors.Wrap(err, "writing key")
 		}
 
 		// Indirection needed to provide proofs without values.
 		// (e.g. ProofLeafNode.ValueHash)
-		h := sha256.Sum256(node.value)
-		valueHash := h[:]
+		valueHash := sha256.Sum256(node.value)
 
-		err = amino.EncodeByteSlice(w, valueHash)
+		err = encodeBytes(w, valueHash[:])
 		if err != nil {
 			return errors.Wrap(err, "writing value")
 		}
@@ -317,11 +316,11 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 		if node.leftHash == nil || node.rightHash == nil {
 			panic("Found an empty child hash")
 		}
-		err = amino.EncodeByteSlice(w, node.leftHash)
+		err = encodeBytes(w, node.leftHash)
 		if err != nil {
 			return errors.Wrap(err, "writing left hash")
 		}
-		err = amino.EncodeByteSlice(w, node.rightHash)
+		err = encodeBytes(w, node.rightHash)
 		if err != nil {
 			return errors.Wrap(err, "writing right hash")
 		}
@@ -378,13 +377,13 @@ func (node *Node) writeBytes(w io.Writer) error {
 	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
-	cause = amino.EncodeByteSlice(w, node.key)
+	cause = encodeBytes(w, node.key)
 	if cause != nil {
 		return errors.Wrap(cause, "writing key")
 	}
 
 	if node.isLeaf() {
-		cause = amino.EncodeByteSlice(w, node.value)
+		cause = encodeBytes(w, node.value)
 		if cause != nil {
 			return errors.Wrap(cause, "writing value")
 		}
@@ -392,7 +391,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.leftHash == nil {
 			panic("node.leftHash was nil in writeBytes")
 		}
-		cause = amino.EncodeByteSlice(w, node.leftHash)
+		cause = encodeBytes(w, node.leftHash)
 		if cause != nil {
 			return errors.Wrap(cause, "writing left hash")
 		}
@@ -400,7 +399,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.rightHash == nil {
 			panic("node.rightHash was nil in writeBytes")
 		}
-		cause = amino.EncodeByteSlice(w, node.rightHash)
+		cause = encodeBytes(w, node.rightHash)
 		if cause != nil {
 			return errors.Wrap(cause, "writing right hash")
 		}

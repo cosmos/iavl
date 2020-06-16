@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 
 	cmn "github.com/cosmos/iavl/common"
-	amino "github.com/tendermint/go-amino"
 )
 
 var (
@@ -66,17 +65,17 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 
 	if len(pin.Left) == 0 {
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, childHash)
+			err = encodeBytes(buf, childHash)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, pin.Right)
+			err = encodeBytes(buf, pin.Right)
 		}
 	} else {
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, pin.Left)
+			err = encodeBytes(buf, pin.Left)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, childHash)
+			err = encodeBytes(buf, childHash)
 		}
 	}
 	if err != nil {
@@ -126,10 +125,10 @@ func (pln ProofLeafNode) Hash() []byte {
 		err = encodeVarint(buf, pln.Version)
 	}
 	if err == nil {
-		err = amino.EncodeByteSlice(buf, pln.Key)
+		err = encodeBytes(buf, pln.Key)
 	}
 	if err == nil {
-		err = amino.EncodeByteSlice(buf, pln.ValueHash)
+		err = encodeBytes(buf, pln.ValueHash)
 	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash ProofLeafNode: %v", err))
