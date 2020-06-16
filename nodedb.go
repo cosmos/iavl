@@ -115,7 +115,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 
 	// Save node bytes to db.
 	var buf bytes.Buffer
-	buf.Grow(node.aminoSize())
+	buf.Grow(node.encodedSize())
 
 	if err := node.writeBytes(&buf); err != nil {
 		panic(err)

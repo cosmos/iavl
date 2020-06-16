@@ -87,7 +87,7 @@ A node's hash is calculated by hashing the height, size, and version of the node
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) error {
-	err := amino.encodeVarint(w, node.height)
+	err := encodeVarint(w, node.height)
 	if err != nil {
 		return errors.Wrap(err, "writing height")
 	}

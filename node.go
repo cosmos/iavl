@@ -11,7 +11,6 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
-	amino "github.com/tendermint/go-amino"
 )
 
 // Node represents a node in a Tree.
@@ -347,16 +346,16 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 	return
 }
 
-func (node *Node) aminoSize() int {
+func (node *Node) encodedSize() int {
 	n := 1 +
-		amino.VarintSize(node.size) +
-		amino.VarintSize(node.version) +
-		amino.ByteSliceSize(node.key)
+		encodeVarintSize(node.size) +
+		encodeVarintSize(node.version) +
+		encodeBytesSize(node.key)
 	if node.isLeaf() {
-		n += amino.ByteSliceSize(node.value)
+		n += encodeBytesSize(node.value)
 	} else {
-		n += amino.ByteSliceSize(node.leftHash) +
-			amino.ByteSliceSize(node.rightHash)
+		n += encodeBytesSize(node.leftHash) +
+			encodeBytesSize(node.rightHash)
 	}
 	return n
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/bits"
 )
 
 // decodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
@@ -67,6 +68,11 @@ func encodeBytes(w io.Writer, bz []byte) error {
 	return err
 }
 
+// encodeBytesSize returns the byte size of the given slice including length-prefixing.
+func encodeBytesSize(bz []byte) int {
+	return encodeUvarintSize(uint64(len(bz))) + len(bz)
+}
+
 // encodeUvarint writes a varint-encoded unsigned integer to an io.Writer.
 func encodeUvarint(w io.Writer, u uint64) error {
 	var buf [binary.MaxVarintLen64]byte
@@ -75,10 +81,24 @@ func encodeUvarint(w io.Writer, u uint64) error {
 	return err
 }
 
+// encodeUvarintSize returns the byte size of the given integer as a varint.
+func encodeUvarintSize(u uint64) int {
+	if u == 0 {
+		return 1
+	}
+	return (bits.Len64(u) + 6) / 7
+}
+
 // encodeVarint writes a varint-encoded integer to an io.Writer.
 func encodeVarint(w io.Writer, i int64) error {
 	var buf [binary.MaxVarintLen64]byte
 	n := binary.PutVarint(buf[:], i)
 	_, err := w.Write(buf[0:n])
 	return err
+}
+
+// encodeVarintSize returns the byte size of the given integer as a varint.
+func encodeVarintSize(i int64) int {
+	var buf [binary.MaxVarintLen64]byte
+	return binary.PutVarint(buf[:], i)
 }
