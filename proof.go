@@ -56,12 +56,12 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
-	err := amino.EncodeInt8(buf, pin.Height)
+	err := encodeVarint(buf, int64(pin.Height))
 	if err == nil {
-		err = amino.EncodeVarint(buf, pin.Size)
+		err = encodeVarint(buf, pin.Size)
 	}
 	if err == nil {
-		err = amino.EncodeVarint(buf, pin.Version)
+		err = encodeVarint(buf, pin.Version)
 	}
 
 	if len(pin.Left) == 0 {
@@ -118,12 +118,12 @@ func (pln ProofLeafNode) Hash() []byte {
 	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
-	err := amino.EncodeInt8(buf, 0)
+	err := encodeVarint(buf, 0)
 	if err == nil {
-		err = amino.EncodeVarint(buf, 1)
+		err = encodeVarint(buf, 1)
 	}
 	if err == nil {
-		err = amino.EncodeVarint(buf, pln.Version)
+		err = encodeVarint(buf, pln.Version)
 	}
 	if err == nil {
 		err = amino.EncodeByteSlice(buf, pln.Key)

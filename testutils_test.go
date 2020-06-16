@@ -11,7 +11,6 @@ import (
 
 	cmn "github.com/cosmos/iavl/common"
 	"github.com/stretchr/testify/require"
-	amino "github.com/tendermint/go-amino"
 	db "github.com/tendermint/tm-db"
 )
 
@@ -21,12 +20,15 @@ func randstr(length int) string {
 
 func i2b(i int) []byte {
 	buf := new(bytes.Buffer)
-	amino.EncodeInt32(buf, int32(i))
+	encodeVarint(buf, int64(i))
 	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i, _, _ := amino.DecodeInt32(bz)
+	i, _, err := decodeVarint(bz)
+	if err != nil {
+		panic(err)
+	}
 	return int(i)
 }
 

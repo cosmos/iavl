@@ -34,15 +34,15 @@ Every node is persisted by encoding the key, version, height, size and hash. If 
 ```golang
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) error {
-	cause := amino.EncodeInt8(w, node.height)
+	cause := encodeVarint(w, node.height)
 	if cause != nil {
 		return errors.Wrap(cause, "writing height")
 	}
-	cause = amino.EncodeVarint(w, node.size)
+	cause = encodeVarint(w, node.size)
 	if cause != nil {
 		return errors.Wrap(cause, "writing size")
 	}
-	cause = amino.EncodeVarint(w, node.version)
+	cause = encodeVarint(w, node.version)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version")
 	}
@@ -87,15 +87,15 @@ A node's hash is calculated by hashing the height, size, and version of the node
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) error {
-	err := amino.EncodeInt8(w, node.height)
+	err := amino.encodeVarint(w, node.height)
 	if err != nil {
 		return errors.Wrap(err, "writing height")
 	}
-	err = amino.EncodeVarint(w, node.size)
+	err = encodeVarint(w, node.size)
 	if err != nil {
 		return errors.Wrap(err, "writing size")
 	}
-	err = amino.EncodeVarint(w, node.version)
+	err = encodeVarint(w, node.version)
 	if err != nil {
 		return errors.Wrap(err, "writing version")
 	}

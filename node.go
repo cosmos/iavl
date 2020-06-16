@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/pkg/errors"
 	amino "github.com/tendermint/go-amino"
@@ -46,19 +47,22 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 func MakeNode(buf []byte) (*Node, error) {
 
 	// Read node header (height, size, version, key).
-	height, n, cause := amino.DecodeInt8(buf)
+	height, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.height")
 	}
 	buf = buf[n:]
+	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
+		return nil, errors.New("Invalid height, must be int8")
+	}
 
-	size, n, cause := amino.DecodeVarint(buf)
+	size, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.size")
 	}
 	buf = buf[n:]
 
-	ver, n, cause := amino.DecodeVarint(buf)
+	ver, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.version")
 	}
@@ -71,7 +75,7 @@ func MakeNode(buf []byte) (*Node, error) {
 	buf = buf[n:]
 
 	node := &Node{
-		height:  height,
+		height:  int8(height),
 		size:    size,
 		version: ver,
 		key:     key,
@@ -279,15 +283,15 @@ func (node *Node) validate() error {
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) error {
-	err := amino.EncodeInt8(w, node.height)
+	err := encodeVarint(w, int64(node.height))
 	if err != nil {
 		return errors.Wrap(err, "writing height")
 	}
-	err = amino.EncodeVarint(w, node.size)
+	err = encodeVarint(w, node.size)
 	if err != nil {
 		return errors.Wrap(err, "writing size")
 	}
-	err = amino.EncodeVarint(w, node.version)
+	err = encodeVarint(w, node.version)
 	if err != nil {
 		return errors.Wrap(err, "writing version")
 	}
@@ -360,15 +364,15 @@ func (node *Node) aminoSize() int {
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) error {
-	cause := amino.EncodeInt8(w, node.height)
+	cause := encodeVarint(w, int64(node.height))
 	if cause != nil {
 		return errors.Wrap(cause, "writing height")
 	}
-	cause = amino.EncodeVarint(w, node.size)
+	cause = encodeVarint(w, node.size)
 	if cause != nil {
 		return errors.Wrap(cause, "writing size")
 	}
-	cause = amino.EncodeVarint(w, node.version)
+	cause = encodeVarint(w, node.version)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version")
 	}
