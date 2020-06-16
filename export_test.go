@@ -45,6 +45,7 @@ func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
 }
 
 // setupExportTreeRandom sets up a randomly generated tree.
+// nolint: go-lint
 func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 	const (
 		randSeed  = 49872768940 // For deterministic tests

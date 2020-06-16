@@ -52,7 +52,7 @@ func MakeNode(buf []byte) (*Node, error) {
 	}
 	buf = buf[n:]
 	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
-		return nil, errors.New("Invalid height, must be int8")
+		return nil, errors.New("invalid height, must be int8")
 	}
 
 	size, n, cause := decodeVarint(buf)
