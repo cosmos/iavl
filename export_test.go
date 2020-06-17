@@ -170,10 +170,12 @@ func TestExporter(t *testing.T) {
 }
 
 func TestExporter_Import(t *testing.T) {
+	it, err := NewImmutableTree(db.NewMemDB(), 0)
+	require.NoError(t, err)
 	testcases := map[string]struct {
 		tree *ImmutableTree
 	}{
-		"empty tree":  {tree: NewImmutableTree(db.NewMemDB(), 0)},
+		"empty tree":  {tree: it},
 		"basic tree":  {tree: setupExportTreeBasic(t)},
 		"sized tree":  {tree: setupExportTreeSized(t, 4096)},
 		"random tree": {tree: setupExportTreeRandom(t)},

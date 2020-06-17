@@ -45,7 +45,8 @@ func makeHashes(b *testing.B, seed int64) [][]byte {
 func TestNodeDBVersionMetadata(t *testing.T) {
 	memDB := dbm.NewMemDB()
 	snapDB := dbm.NewMemDB()
-	ndb := newNodeDB(snapDB, memDB, 0, nil)
+	ndb, err := newNodeDB(snapDB, memDB, 0, nil)
+	require.NoError(t, err)
 
 	// Ensure metadata returns successfully when it was never saved to begin with
 	// i.e. for backwards compatibility.

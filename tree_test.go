@@ -348,9 +348,11 @@ func TestVersionedTree(t *testing.T) {
 	// key3 = val1
 	// -----------
 
+	or2, err := tree.ndb.orphans()
+	require.NoError(err)
 	nodes2 := tree.ndb.leafNodes()
 	require.Len(nodes2, 5, "db should have grown in size")
-	require.Len(tree.ndb.orphans(), 3, "db should have three orphans")
+	require.Len(or2, 3, "db should have three orphans")
 
 	// Create three more orphans.
 	tree.Remove([]byte("key1")) // orphans both leaf node and inner node containing "key1" and "key2"
@@ -370,9 +372,11 @@ func TestVersionedTree(t *testing.T) {
 	// key2 = val2
 	// -----------
 
+	or3, err := tree.ndb.orphans()
+	require.NoError(err)
 	nodes3 := tree.ndb.leafNodes()
 	require.Len(nodes3, 6, "wrong number of nodes")
-	require.Len(tree.ndb.orphans(), 7, "wrong number of orphans")
+	require.Len(or3, 7, "wrong number of orphans")
 
 	hash4, _, _ := tree.SaveVersion()
 	require.EqualValues(hash3, hash4)
@@ -1088,22 +1092,24 @@ func TestOrphans(t *testing.T) {
 		for j := 1; j < NUMUPDATES; j++ {
 			tree.Set(randBytes(2), randBytes(2))
 		}
-		_, _, err := tree.SaveVersion()
+		_, _, err = tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not error")
 	}
 
 	idx := cmn.RandPerm(NUMVERSIONS - 2)
 	for _, v := range idx {
-		err := tree.DeleteVersion(int64(v + 1))
+		err = tree.DeleteVersion(int64(v + 1))
 		require.NoError(err, "DeleteVersion should not error")
 	}
 
-	tree.ndb.traverseOrphans(func(k, v []byte) {
+	err = tree.ndb.traverseOrphans(func(k, v []byte) error {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
 		require.True(fromVersion == int64(1) || toVersion == int64(99), fmt.Sprintf(`Unexpected orphan key exists: %v with fromVersion = %d and toVersion = %d.\n 
 			Any orphan remaining in db should have either fromVersion == 1 or toVersion == 99. Since Version 1 and 99 are only versions in db`, k, fromVersion, toVersion))
+		return nil
 	})
+	require.NoError(err)
 }
 
 func TestVersionedTreeHash(t *testing.T) {

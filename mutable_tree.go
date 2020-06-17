@@ -60,7 +60,11 @@ func NewMutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts 
 		return nil, err
 	}
 
-	ndb := newNodeDB(snapDB, recentDB, cacheSize, opts)
+	ndb, err := newNodeDB(snapDB, recentDB, cacheSize, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
@@ -127,7 +131,7 @@ func (tree *MutableTree) WorkingHash() []byte {
 }
 
 // String returns a string representation of the tree.
-func (tree *MutableTree) String() string {
+func (tree *MutableTree) String() (string, error) {
 	return tree.ndb.String()
 }
 

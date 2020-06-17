@@ -101,7 +101,7 @@ func TestDeleteOrphans(t *testing.T) {
 		require.Nil(t, err, "SaveVersion failed")
 	}
 
-	snapfn := func(key, v []byte) {
+	snapfn := func(key, v []byte) error {
 		var fromVersion, toVersion int64
 
 		// See comment on `orphanKeyFmt`. Note that here, `version` and
@@ -110,12 +110,14 @@ func TestDeleteOrphans(t *testing.T) {
 
 		// toVersion must be snapshotVersion
 		require.True(t, toVersion%keepEvery == 0, "Orphan in snapshotDB has unexpected toVersion: %d. Should never have been persisted", toVersion)
+
+		return nil
 	}
 
 	// check orphans in snapshotDB are expected
 	traverseOrphansFromDB(mt.ndb.snapshotDB, snapfn)
 
-	recentFn := func(key, v []byte) {
+	recentFn := func(key, v []byte) error {
 		var fromVersion, toVersion int64
 
 		// See comment on `orphanKeyFmt`. Note that here, `version` and
@@ -124,6 +126,8 @@ func TestDeleteOrphans(t *testing.T) {
 
 		// toVersion must exist in recentDB
 		require.True(t, toVersion > mt.Version()-keepRecent, "Orphan in recentDB has unexpected fromVersion: %d. Should have been deleted", fromVersion)
+
+		return nil
 	}
 
 	// check orphans in recentDB are expected
@@ -136,8 +140,10 @@ func TestDeleteOrphans(t *testing.T) {
 	}
 
 	size := 0
-	lastfn := func(key, v []byte) {
+	lastfn := func(key, v []byte) error {
 		size++
+
+		return nil
 	}
 	traverseOrphansFromDB(mt.ndb.snapshotDB, lastfn)
 	require.Equal(t, 0, size, "Orphans still exist in SnapshotDB")
@@ -298,8 +304,10 @@ func TestSanity1(t *testing.T) {
 	require.Equal(t, len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "DB sizes should be the same")
 
 	size := 0
-	fn := func(k, v []byte) {
+	fn := func(k, v []byte) error {
 		size++
+
+		return nil
 	}
 	traverseOrphansFromDB(mt.ndb.recentDB, fn)
 	require.Equal(t, 0, size, "Not all orphans deleted")
@@ -334,8 +342,10 @@ func TestSanity2(t *testing.T) {
 	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "SnapshotDB did not save correctly")
 
 	size := 0
-	fn := func(k, v []byte) {
+	fn := func(k, v []byte) error {
 		size++
+
+		return nil
 	}
 	traverseOrphansFromDB(mt.ndb.snapshotDB, fn)
 	require.Equal(t, 0, size, "Not all orphans deleted")
@@ -432,11 +442,13 @@ func TestNoSnapshots(t *testing.T) {
 	}
 
 	size := 0
-	traverseFromDB(mt.ndb.snapshotDB, func(k, _ []byte) {
+	err = traverseFromDB(mt.ndb.snapshotDB, func(k, _ []byte) error {
 		if metadataKeyFormat.Prefix() != string(k[0]) {
 			size++
 		}
+		return nil
 	})
+	require.NoError(t, err)
 
 	// check that nothing persisted to snapshotDB
 	require.Equal(t, 0, size, "SnapshotDB should be empty")
@@ -463,9 +475,11 @@ func TestNoRecents(t *testing.T) {
 	}
 
 	size := 0
-	traverseFromDB(mt.ndb.recentDB, func(k, v []byte) {
+	err = traverseFromDB(mt.ndb.recentDB, func(k, v []byte) error {
 		size++
+		return nil
 	})
+	require.NoError(t, err)
 	// check that nothing persisted to recentDB
 	require.Equal(t, 0, size, "recentDB should be empty")
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 )
 
@@ -20,26 +21,37 @@ type ImmutableTree struct {
 }
 
 // NewImmutableTree creates both in-memory and persistent instances.
-func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
+func NewImmutableTree(db dbm.DB, cacheSize int) (*ImmutableTree, error) {
 	if db == nil {
 		// In-memory Tree.
-		return &ImmutableTree{}
+		return &ImmutableTree{}, errors.New("datadase cannot be nil")
+	}
+
+	ndb, err := newNodeDB(db, dbm.NewMemDB(), cacheSize, nil)
+	if err != nil {
+		return nil, err
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
 		// memDB created but should never be written to
-		ndb: newNodeDB(db, dbm.NewMemDB(), cacheSize, nil),
-	}
+		ndb: ndb,
+	}, nil
 }
 
 // NewImmutableTreeWithOpts creates ImmutableTree with specified pruning/writing strategy.
 // Persists every `keepEvery` version to snapDB and saves last `keepRecent` versions to recentDB
 // If sync is true, writes on nodeDB.Commit are blocking
-func NewImmutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *ImmutableTree {
+func NewImmutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) (*ImmutableTree, error) {
+
+	ndb, err := newNodeDB(snapDB, recentDB, cacheSize, opts)
+	if err != nil {
+		return nil, err
+	}
+
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(snapDB, recentDB, cacheSize, opts),
-	}
+		ndb: ndb,
+	}, nil
 }
 
 // String returns a string representation of Tree.
