@@ -572,7 +572,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err := tree.ndb.Commit(vm.Snapshot); err != nil {
 		return nil, version, err
 	}
 
@@ -620,7 +620,7 @@ func (tree *MutableTree) pruneRecentVersion() error {
 		}
 
 		delete(tree.versions, prunedVersion)
-		return tree.ndb.Commit()
+		return tree.ndb.Commit(false)
 	}
 
 	return nil
@@ -651,7 +651,7 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return err
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err := tree.ndb.Commit(vm.Snapshot); err != nil {
 		return err
 	}
 
@@ -706,7 +706,7 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 
 	tree.ndb.restoreNodes(newLatestVersion)
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err := tree.ndb.Commit(false); err != nil {
 		return err
 	}
 

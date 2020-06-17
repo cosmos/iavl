@@ -37,13 +37,14 @@ var (
 )
 
 type nodeDB struct {
-	mtx            sync.Mutex       // Read/write lock.
-	snapshotDB     dbm.DB           // Persistent node storage.
-	recentDB       dbm.DB           // Memory node storage.
-	snapshotBatch  dbm.Batch        // Batched writing buffer.
-	recentBatch    dbm.Batch        // Batched writing buffer for recentDB.
-	opts           *Options         // Options to customize for pruning/writing
-	versionReaders map[int64]uint32 // Number of active version readers (prevents pruning)
+	mtx                 sync.Mutex       // Read/write lock.
+	snapshotDB          dbm.DB           // Persistent node storage.
+	recentDB            dbm.DB           // Memory node storage.
+	snapshotBatch       dbm.Batch        // Batched writing buffer.
+	snapshotOrphanBatch dbm.Batch        // Batch for snapshots orphans queued for next save.
+	recentBatch         dbm.Batch        // Batched writing buffer for recentDB.
+	opts                *Options         // Options to customize for pruning/writing
+	versionReaders      map[int64]uint32 // Number of active version readers (prevents pruning)
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -64,17 +65,18 @@ func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options)
 	}
 
 	return &nodeDB{
-		snapshotDB:     snapshotDB,
-		recentDB:       recentDB,
-		snapshotBatch:  snapshotDB.NewBatch(),
-		recentBatch:    recentDB.NewBatch(),
-		opts:           opts,
-		latestVersion:  0, // initially invalid
-		nodeCache:      make(map[string]*list.Element),
-		nodeCacheSize:  cacheSize,
-		nodeCacheQueue: list.New(),
-		versionReaders: make(map[int64]uint32, 8),
-		vmCache:        vmCache,
+		snapshotDB:          snapshotDB,
+		recentDB:            recentDB,
+		snapshotBatch:       snapshotDB.NewBatch(),
+		snapshotOrphanBatch: snapshotDB.NewBatch(),
+		recentBatch:         recentDB.NewBatch(),
+		opts:                opts,
+		latestVersion:       0, // initially invalid
+		nodeCache:           make(map[string]*list.Element),
+		nodeCacheSize:       cacheSize,
+		nodeCacheQueue:      list.New(),
+		versionReaders:      make(map[int64]uint32, 8),
+		vmCache:             vmCache,
 	}
 }
 
@@ -361,7 +363,7 @@ func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool
 	return nil
 }
 
-// Saves orphaned nodes to disk under a special prefix.
+// Saves orphaned nodes under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
 func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) error {
@@ -405,7 +407,7 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 		// save to disk with toVersion equal to snapshotVersion closest to original toVersion
 		snapVersion := toVersion - (toVersion % ndb.opts.KeepEvery)
 		key := ndb.orphanKey(fromVersion, snapVersion, hash)
-		ndb.snapshotBatch.Set(key, hash)
+		ndb.snapshotOrphanBatch.Set(key, hash)
 	}
 }
 
@@ -694,7 +696,7 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 }
 
 // Write to disk and memDB
-func (ndb *nodeDB) Commit() error {
+func (ndb *nodeDB) Commit(flushOrphans bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -713,6 +715,19 @@ func (ndb *nodeDB) Commit() error {
 		}
 
 		ndb.snapshotBatch.Close()
+
+		if flushOrphans {
+			if ndb.opts.Sync {
+				err = ndb.snapshotOrphanBatch.WriteSync()
+			} else {
+				err = ndb.snapshotOrphanBatch.Write()
+			}
+			if err != nil {
+				return errors.Wrap(err, "failed to flush orphans")
+			}
+			ndb.snapshotOrphanBatch.Close()
+			ndb.snapshotOrphanBatch = ndb.snapshotDB.NewBatch()
+		}
 	}
 
 	if ndb.opts.KeepRecent != 0 {

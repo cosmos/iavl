@@ -291,7 +291,7 @@ func TestSanity1(t *testing.T) {
 	for i := 1; i < 5; i++ {
 		err := mt.ndb.DeleteVersionFromRecent(int64(i), true)
 		require.NoError(t, err)
-		err = mt.ndb.Commit()
+		err = mt.ndb.Commit(false)
 		require.NoError(t, err)
 	}
 
