@@ -207,7 +207,10 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		}
 	} else {
 		*orphans = append(*orphans, node)
-		node = node.clone(version)
+		node, err := node.clone(version)
+		if err != nil {
+			panic(err) //TODO: remove me
+		}
 
 		if bytes.Compare(key, node.key) < 0 {
 			node.leftNode, updated = tree.recursiveSet(node.getLeftNode(tree.ImmutableTree), key, value, orphans)
@@ -284,7 +287,10 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 			return node.rightHash, node.rightNode, node.key, value
 		}
 
-		newNode := node.clone(version)
+		newNode, err := node.clone(version)
+		if err != nil {
+			panic(err) //TODO
+		}
 		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
 		newNode.calcHeightAndSize(tree.ImmutableTree)
 		newNode = tree.balance(newNode, orphans)
@@ -301,7 +307,10 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 		return node.leftHash, node.leftNode, nil, value
 	}
 
-	newNode := node.clone(version)
+	newNode, err := node.clone(version)
+	if err != nil {
+		panic(err) //TODO
+	}
 	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
 	if newKey != nil {
 		newNode.key = newKey
@@ -764,9 +773,15 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node) {
 	version := tree.version + 1
 
 	// TODO: optimize balance & rotate.
-	node = node.clone(version)
+	node, err := node.clone(version)
+	if err != nil {
+		panic(err) //TODO
+	}
 	orphaned := node.getLeftNode(tree.ImmutableTree)
-	newNode := orphaned.clone(version)
+	newNode, err := orphaned.clone(version)
+	if err != nil {
+		panic(err) //TODO
+	}
 
 	newNoderHash, newNoderCached := newNode.rightHash, newNode.rightNode
 	newNode.rightHash, newNode.rightNode = node.hash, node
@@ -783,9 +798,15 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node) {
 	version := tree.version + 1
 
 	// TODO: optimize balance & rotate.
-	node = node.clone(version)
+	node, err := node.clone(version)
+	if err != nil {
+		panic(err) //TODO
+	}
 	orphaned := node.getRightNode(tree.ImmutableTree)
-	newNode := orphaned.clone(version)
+	newNode, err := orphaned.clone(version)
+	if err != nil {
+		panic(err) //TODO
+	}
 
 	newNodelHash, newNodelCached := newNode.leftHash, newNode.leftNode
 	newNode.leftHash, newNode.leftNode = node.hash, node

@@ -439,7 +439,9 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 // entries.
 func (ndb *nodeDB) deleteOrphans(version int64, memOnly, isSnapshot bool) error {
 	if ndb.opts.KeepRecent != 0 {
-		ndb.deleteOrphansMem(version)
+		if err := ndb.deleteOrphansMem(version); err != nil {
+			return err
+		}
 	}
 
 	if isSnapshot && !memOnly {
@@ -708,7 +710,9 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 	defer memItr.Close()
 
 	for ; memItr.Valid(); memItr.Next() {
-		fn(memItr.Key(), memItr.Value())
+		if err := fn(memItr.Key(), memItr.Value()); err != nil {
+			return err
+		}
 	}
 
 	itr, err := dbm.IteratePrefix(ndb.snapshotDB, prefix)
@@ -942,13 +946,16 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 	default:
 		// save branch, the root, and the necessary orphans
 		node := ndb.GetNode(rootHash)
-		ndb.saveBranchBatch(node, true, rb, sb)
+		_, err := ndb.saveBranchBatch(node, true, rb, sb)
+		if err != nil {
+			return err
+		}
 		if err := ndb.saveRootBatch(node.hash, version, rb, sb); err != nil {
 			return err
 		}
 	}
 
-	traverseOrphansVersionFromDB(ndb.recentDB, version, func(k, v []byte) error {
+	if err := traverseOrphansVersionFromDB(ndb.recentDB, version, func(k, v []byte) error {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
 
@@ -957,7 +964,9 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 		}
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	if err := sb.WriteSync(); err != nil {
 		return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
@@ -969,33 +978,42 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 
 ////////////////// Utility and test functions /////////////////////////////////
 
-func (ndb *nodeDB) leafNodes() []*Node {
+func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	leaves := []*Node{}
 
-	ndb.traverseNodes(func(hash []byte, node *Node) {
+	if err := ndb.traverseNodes(func(hash []byte, node *Node) {
 		if node.isLeaf() {
 			leaves = append(leaves, node)
 		}
-	})
-	return leaves
+	}); err != nil {
+		return nil, err
+	}
+
+	return leaves, nil
 }
 
-func (ndb *nodeDB) nodes() []*Node {
+func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
-	ndb.traverseNodes(func(hash []byte, node *Node) {
+	if err := ndb.traverseNodes(func(hash []byte, node *Node) {
 		nodes = append(nodes, node)
-	})
-	return nodes
+	}); err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }
 
-func (ndb *nodeDB) nodesFromDB(db dbm.DB) []*Node {
+func (ndb *nodeDB) nodesFromDB(db dbm.DB) ([]*Node, error) {
 	nodes := []*Node{}
 
-	ndb.traverseNodesFromDB(db, func(hash []byte, node *Node) {
+	if err := ndb.traverseNodesFromDB(db, func(hash []byte, node *Node) {
 		nodes = append(nodes, node)
-	})
-	return nodes
+	}); err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
 }
 
 func (ndb *nodeDB) orphans() ([][]byte, error) {
@@ -1031,56 +1049,10 @@ func (ndb *nodeDB) size() int {
 	return size
 }
 
-func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
+func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) error {
 	nodes := []*Node{}
 
-	ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
-		node, err := MakeNode(value)
-		if err != nil {
-			fmt.Errorf("couldn't decode node from database: %w", err)
-		}
-		nodeKeyFormat.Scan(key, &node.hash)
-		nodes = append(nodes, node)
-
-		return nil
-	})
-
-	sort.Slice(nodes, func(i, j int) bool {
-		return bytes.Compare(nodes[i].key, nodes[j].key) < 0
-	})
-
-	for _, n := range nodes {
-		fn(n.hash, n)
-	}
-}
-
-// restoreNodes restores nodes, which was orphaned, but after overwriting should not be orphans anymore
-func (ndb *nodeDB) restoreNodes(version int64) error {
-	traverseOrphansVersionFromDB(ndb.recentDB, version, func(key, hash []byte) error {
-		// Delete orphan key and reverse-lookup key.
-		if err := ndb.recentBatch.Delete(key); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) error {
-		// Delete orphan key and reverse-lookup key.
-		if err := ndb.snapshotBatch.Delete(key); err != nil {
-			return err
-		}
-
-		return nil
-	})
-
-	return nil
-}
-
-func (ndb *nodeDB) traverseNodesFromDB(db dbm.DB, fn func(hash []byte, node *Node)) {
-	nodes := []*Node{}
-
-	traversePrefixFromDB(db, nodeKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
 		node, err := MakeNode(value)
 		if err != nil {
 			return fmt.Errorf("couldn't decode node from database: %w", err)
@@ -1089,7 +1061,9 @@ func (ndb *nodeDB) traverseNodesFromDB(db dbm.DB, fn func(hash []byte, node *Nod
 		nodes = append(nodes, node)
 
 		return nil
-	})
+	}); err != nil {
+		return err
+	}
 
 	sort.Slice(nodes, func(i, j int) bool {
 		return bytes.Compare(nodes[i].key, nodes[j].key) < 0
@@ -1098,6 +1072,61 @@ func (ndb *nodeDB) traverseNodesFromDB(db dbm.DB, fn func(hash []byte, node *Nod
 	for _, n := range nodes {
 		fn(n.hash, n)
 	}
+
+	return nil
+}
+
+// restoreNodes restores nodes, which was orphaned, but after overwriting should not be orphans anymore
+func (ndb *nodeDB) restoreNodes(version int64) error {
+	if err := traverseOrphansVersionFromDB(ndb.recentDB, version, func(key, hash []byte) error {
+		// Delete orphan key and reverse-lookup key.
+		if err := ndb.recentBatch.Delete(key); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) error {
+		// Delete orphan key and reverse-lookup key.
+		if err := ndb.snapshotBatch.Delete(key); err != nil {
+			return err
+		}
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (ndb *nodeDB) traverseNodesFromDB(db dbm.DB, fn func(hash []byte, node *Node)) error {
+	nodes := []*Node{}
+
+	if err := traversePrefixFromDB(db, nodeKeyFormat.Key(), func(key, value []byte) error {
+		node, err := MakeNode(value)
+		if err != nil {
+			return fmt.Errorf("couldn't decode node from database: %w", err)
+		}
+		nodeKeyFormat.Scan(key, &node.hash)
+		nodes = append(nodes, node)
+
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	sort.Slice(nodes, func(i, j int) bool {
+		return bytes.Compare(nodes[i].key, nodes[j].key) < 0
+	})
+
+	for _, n := range nodes {
+		fn(n.hash, n)
+	}
+	return nil
 }
 
 func (ndb *nodeDB) String() (string, error) {
@@ -1123,7 +1152,7 @@ func (ndb *nodeDB) String() (string, error) {
 
 	str += "\n"
 
-	ndb.traverseNodes(func(hash []byte, node *Node) {
+	if err := ndb.traverseNodes(func(hash []byte, node *Node) {
 		switch {
 		case len(hash) == 0:
 			str += "<nil>\n"
@@ -1137,7 +1166,9 @@ func (ndb *nodeDB) String() (string, error) {
 				nodeKeyFormat.Prefix(), hash, node.key, node.value, node.height, node.version)
 		}
 		index++
-	})
+	}); err != nil {
+		return "", err
+	}
 
 	return "-" + "\n" + str + "-", nil
 }

@@ -119,9 +119,9 @@ func (node *Node) String() string {
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone(version int64) *Node {
+func (node *Node) clone(version int64) (*Node, error) {
 	if node.isLeaf() {
-		panic("Attempt to copy a leaf node")
+		return nil, errors.New("attempt to copy a leaf node")
 	}
 	return &Node{
 		key:       node.key,
@@ -134,7 +134,7 @@ func (node *Node) clone(version int64) *Node {
 		rightHash: node.rightHash,
 		rightNode: node.rightNode,
 		persisted: false,
-	}
+	}, nil
 }
 
 func (node *Node) isLeaf() bool {
@@ -196,45 +196,45 @@ func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value [
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
+func (node *Node) _hash() ([]byte, error) {
 	if node.hash != nil {
-		return node.hash
+		return node.hash, nil
 	}
 
 	h := tmhash.New()
 	buf := new(bytes.Buffer)
 	if err := node.writeHashBytes(buf); err != nil {
-		panic(err)
+		return nil, err
 	}
 	_, err := h.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	node.hash = h.Sum(nil)
 
-	return node.hash
+	return node.hash, nil
 }
 
 // Hash the node and its descendants recursively. This usually mutates all
 // descendant nodes. Returns the node hash and number of nodes hashed.
-func (node *Node) hashWithCount() ([]byte, int64) {
+func (node *Node) hashWithCount() ([]byte, int64, error) {
 	if node.hash != nil {
-		return node.hash, 0
+		return node.hash, 0, nil //TODO: see if returning error effects anything
 	}
 
 	h := tmhash.New()
 	buf := new(bytes.Buffer)
 	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
-		panic(err)
+		return nil, 0, err
 	}
 	_, err = h.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, 0, err
 	}
 	node.hash = h.Sum(nil)
 
-	return node.hash, hashCount + 1
+	return node.hash, hashCount + 1, nil
 }
 
 // validate validates the node contents
@@ -329,12 +329,18 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 // This function has the side-effect of calling hashWithCount.
 func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err error) {
 	if node.leftNode != nil {
-		leftHash, leftCount := node.leftNode.hashWithCount()
+		leftHash, leftCount, err := node.leftNode.hashWithCount()
+		if err != nil {
+			return 0, err
+		}
 		node.leftHash = leftHash
 		hashCount += leftCount
 	}
 	if node.rightNode != nil {
-		rightHash, rightCount := node.rightNode.hashWithCount()
+		rightHash, rightCount, err := node.rightNode.hashWithCount()
+		if err != nil {
+			return 0, err
+		}
 		node.rightHash = rightHash
 		hashCount += rightCount
 	}

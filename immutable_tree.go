@@ -145,14 +145,14 @@ func (t *ImmutableTree) Hash() []byte {
 	if t.root == nil {
 		return nil
 	}
-	hash, _ := t.root.hashWithCount()
+	hash, _, _ := t.root.hashWithCount()
 	return hash
 }
 
 // hashWithCount returns the root hash and hash count.
-func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
+func (t *ImmutableTree) hashWithCount() ([]byte, int64, error) {
 	if t.root == nil {
-		return nil, 0
+		return nil, 0, nil // TODO; see how error return here is effecting elsewehre
 	}
 	return t.root.hashWithCount()
 }

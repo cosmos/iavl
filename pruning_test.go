@@ -157,8 +157,12 @@ func TestDeleteOrphans(t *testing.T) {
 	traverseOrphansFromDB(mt.ndb.recentDB, lastfn)
 	require.Equal(t, 0, size, "Orphans still exist in recentDB")
 
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.recentDB)), "More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
-	require.Equal(t, mt.nodeSize(), len(mt.ndb.nodesFromDB(mt.ndb.snapshotDB)), "More nodes in snapshotDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
+	rdb, err := mt.ndb.nodesFromDB(mt.ndb.recentDB)
+	require.NoError(t, err)
+	sdb, err := mt.ndb.nodesFromDB(mt.ndb.snapshotDB)
+	require.NoError(t, err)
+	require.Equal(t, mt.nodeSize(), len(rdb), "More nodes in recentDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
+	require.Equal(t, mt.nodeSize(), len(sdb), "More nodes in snapshotDB than expected. KeepEvery: %d, KeepRecent: %d.", PruningOptions(keepEvery, keepRecent))
 }
 
 func TestReplaceKeys(t *testing.T) {
