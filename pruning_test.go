@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	db "github.com/tendermint/tm-db"
 )
@@ -492,4 +493,40 @@ func TestValidationOptions(t *testing.T) {
 	require.Error(t, err)
 	_, err = NewMutableTreeWithOpts(db, mdb, 5, PruningOptions(-1, -1))
 	require.Error(t, err)
+}
+
+// Tests that KeepRecent: 5 and KeepEvery: 5 keeps the correct versions at version 17.
+func TestRecentTail(t *testing.T) {
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 5, &Options{
+		KeepEvery:  5,
+		KeepRecent: 5,
+	})
+	require.NoError(t, err)
+
+	for v := uint8(1); v <= 17; v++ {
+		tree.Set([]byte("a"), []byte{v})
+		tree.Set([]byte("b"), []byte{v})
+		tree.Set([]byte("c"), []byte{v})
+		_, version, err := tree.SaveVersion()
+		require.NoError(t, err)
+		assert.EqualValues(t, v, version)
+	}
+
+	versions := tree.AvailableVersions()
+	assert.Equal(t, []int{5, 10, 13, 14, 15, 16, 17}, versions)
+	exists := make(map[int64]bool, len(versions))
+	for _, v := range versions {
+		exists[int64(v)] = true
+	}
+
+	for version := int64(1); version <= 17; version++ {
+		for _, key := range []string{"a", "b", "c"} {
+			_, value := tree.GetVersioned([]byte(key), version)
+			if exists[version] {
+				assert.EqualValues(t, []byte{uint8(version)}, value)
+			} else {
+				assert.Nil(t, value)
+			}
+		}
+	}
 }
