@@ -9,14 +9,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/tendermint/tm-db"
+	dbm "github.com/tendermint/tm-db"
 )
 
 func TestFlushVersion(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	opts := PruningOptions(5, 1)
 
-	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree, err := NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
@@ -79,7 +79,7 @@ func TestFlushVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, ok)
 
-	tree2, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree2, err := NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	require.NotNil(t, tree2)
 
@@ -111,10 +111,10 @@ func TestFlushVersion(t *testing.T) {
 }
 
 func TestFlushVersion_SetGet(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	opts := PruningOptions(5, 1)
 
-	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree, err := NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
@@ -126,7 +126,7 @@ func TestFlushVersion_SetGet(t *testing.T) {
 	err = tree.FlushVersion(version)
 	require.NoError(t, err)
 
-	tree, err = NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree, err = NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	_, err = tree.LoadVersion(version)
 	require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestFlushVersion_SetGet(t *testing.T) {
 }
 
 func TestFlushVersion_Missing(t *testing.T) {
-	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, PruningOptions(5, 1))
+	tree, err := NewMutableTreeWithOpts(dbm.NewMemDB(), dbm.NewMemDB(), 0, PruningOptions(5, 1))
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
@@ -152,9 +152,9 @@ func TestFlushVersion_Missing(t *testing.T) {
 }
 
 func TestFlushVersion_Empty(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	opts := PruningOptions(5, 1)
-	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree, err := NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
@@ -172,7 +172,7 @@ func TestFlushVersion_Empty(t *testing.T) {
 	require.NoError(t, err)
 
 	// try to load the tree in a new memDB
-	tree, err = NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree, err = NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
@@ -181,7 +181,7 @@ func TestFlushVersion_Empty(t *testing.T) {
 	assert.EqualValues(t, 2, version)
 
 	// loading the first version should fail
-	tree, err = NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, opts)
+	tree, err = NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, opts)
 	require.NoError(t, err)
 	require.NotNil(t, tree)
 
@@ -190,7 +190,7 @@ func TestFlushVersion_Empty(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 
@@ -216,7 +216,7 @@ func TestDelete(t *testing.T) {
 }
 
 func TestTraverse(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 
@@ -228,13 +228,13 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestEmptyRecents(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	opts := Options{
 		KeepRecent: 100,
 		KeepEvery:  10000,
 	}
 
-	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, &opts)
+	tree, err := NewMutableTreeWithOpts(memDB, dbm.NewMemDB(), 0, &opts)
 	require.NoError(t, err)
 	hash, version, err := tree.SaveVersion()
 
@@ -248,7 +248,7 @@ func TestEmptyRecents(t *testing.T) {
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
-	db, err := db.NewDB("test", db.MemDBBackend, "")
+	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
 	b.Fatal(err)
 	t, err := NewMutableTree(db, 100000)
 	require.NoError(b, err)
