@@ -3,6 +3,7 @@ VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 DOCKER_BUF := docker run -v $(shell pwd):/workspace --workdir /workspace bufbuild/buf
+HTTPS_GIT := https://github.com/cosmos/iavl.git
 
 PDFFLAGS := -pdf --nodefraction=0.1
 CMDFLAGS := -ldflags -X TENDERMINT_IAVL_COLORS_ON=on 
@@ -96,7 +97,7 @@ proto-lint:
 .PHONY: proto-lint
 
 proto-check-breaking:
-	@$(DOCKER_BUF) check breaking --against-input .git#branch=master
+	@$(DOCKER_BUF) check breaking --against-input $(HTTPS_GIT)#branch=master
 .PHONY: proto-check-breaking
 
 
