@@ -1010,7 +1010,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 	tree.Set([]byte("k1"), []byte("v1"))
 	tree.Set([]byte("k2"), []byte("v1"))
 	tree.Set([]byte("k3"), []byte("v1"))
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	// fmt.Println("TREE VERSION 1")
 	// printNode(tree.ndb, tree.root, 0)
@@ -1020,7 +1021,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 
 	tree.Set([]byte("k2"), []byte("v2"))
 	tree.Set([]byte("k4"), []byte("v2"))
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	// fmt.Println("TREE VERSION 2")
 	// printNode(tree.ndb, tree.root, 0)
@@ -1030,7 +1032,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NotEqual(root1, root2)
 
 	tree.Remove([]byte("k2"))
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	// fmt.Println("TREE VERSION 3")
 	// printNode(tree.ndb, tree.root, 0)
