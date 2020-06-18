@@ -3,10 +3,10 @@ package iavl
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // ProofOperator is a layer for calculating intermediate Merkle roots
@@ -41,12 +41,12 @@ func (poz ProofOperators) Verify(root []byte, keypath string, args [][]byte) (er
 		key := op.GetKey()
 		if len(key) != 0 {
 			if len(keys) == 0 {
-				return errors.Errorf("key path has insufficient # of parts: expected no more keys but got %+v", string(key))
+				return fmt.Errorf("key path has insufficient # of parts: expected no more keys but got %+v", string(key))
 			}
 
 			lastKey := keys[len(keys)-1]
 			if !bytes.Equal(lastKey, key) {
-				return errors.Errorf("key mismatch on operation #%d: expected %+v but got %+v", i, string(lastKey), string(key))
+				return fmt.Errorf("key mismatch on operation #%d: expected %+v but got %+v", i, string(lastKey), string(key))
 			}
 
 			keys = keys[:len(keys)-1]
@@ -59,7 +59,7 @@ func (poz ProofOperators) Verify(root []byte, keypath string, args [][]byte) (er
 	}
 
 	if !bytes.Equal(root, args[0]) {
-		return errors.Errorf("calculated root hash is invalid: expected %+v but got %+v", root, args[0])
+		return fmt.Errorf("calculated root hash is invalid: expected %+v but got %+v", root, args[0])
 	}
 
 	if len(keys) != 0 {
@@ -85,14 +85,14 @@ func KeyPathToKeys(path string) (keys [][]byte, err error) {
 
 			key, err := hex.DecodeString(hexPart)
 			if err != nil {
-				return nil, errors.Wrapf(err, "decoding hex-encoded part #%d: /%s", i, part)
+				return nil, fmt.Errorf("decoding hex-encoded part #%d: /%s: %w", i, part, err)
 			}
 
 			keys[i] = key
 		} else {
 			key, err := url.PathUnescape(part)
 			if err != nil {
-				return nil, errors.Wrapf(err, "decoding url-encoded part #%d: /%s", i, part)
+				return nil, fmt.Errorf("decoding url-encoded part #%d: /%s: %w", i, part, err)
 			}
 
 			keys[i] = []byte(key) // TODO Test this with random bytes, I'm not sure that it works for arbitrary bytes...
