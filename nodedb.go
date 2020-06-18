@@ -366,7 +366,9 @@ func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool
 // Saves orphaned nodes under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) error {
+// queue: if true, don't save snapshot orphans in the current version's snapshotBatch,
+// but instead queue them up in the snapshotOrphanBatch.
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, queue bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -386,14 +388,15 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) error {
 		}
 
 		debug("SAVEORPHAN %v-%v %X flushToDisk: %t\n", fromVersion, toVersion, hash, flushToDisk)
-		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
+		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk, queue)
 	}
 
 	return nil
 }
 
-// Saves a single orphan to recentDB. If flushToDisk, persist to disk as well.
-func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushToDisk bool) {
+// Saves a single orphan to recentDB. If flushToDisk, persist to disk as well, but if queue is true
+// queue the snapshot writes in snapshotOrphanBatch instead of using this version's snapshotBatch.
+func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushToDisk bool, queue bool) {
 	if fromVersion > toVersion {
 		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
 	}
@@ -407,7 +410,11 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 		// save to disk with toVersion equal to snapshotVersion closest to original toVersion
 		snapVersion := toVersion - (toVersion % ndb.opts.KeepEvery)
 		key := ndb.orphanKey(fromVersion, snapVersion, hash)
-		ndb.snapshotOrphanBatch.Set(key, hash)
+		if queue {
+			ndb.snapshotOrphanBatch.Set(key, hash)
+		} else {
+			ndb.snapshotBatch.Set(key, hash)
+		}
 	}
 }
 
@@ -470,7 +477,7 @@ func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk b
 		ndb.uncacheNode(hash)
 	} else {
 		debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X flushToDisk: %t\n", predecessor, fromVersion, toVersion, hash, flushToDisk)
-		ndb.saveOrphan(hash, fromVersion, predecessor, flushToDisk)
+		ndb.saveOrphan(hash, fromVersion, predecessor, flushToDisk, false)
 	}
 }
 
@@ -695,8 +702,9 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 	}
 }
 
-// Write to disk and memDB
-func (ndb *nodeDB) Commit(flushOrphans bool) error {
+// Write to disk and memDB. If flushQueuedOrphans is true, then any orphans queued in
+// snapshotOrphanBatch is flushed to disk as well.
+func (ndb *nodeDB) Commit(flushQueuedOrphans bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -716,7 +724,7 @@ func (ndb *nodeDB) Commit(flushOrphans bool) error {
 
 		ndb.snapshotBatch.Close()
 
-		if flushOrphans {
+		if flushQueuedOrphans {
 			if ndb.opts.Sync {
 				err = ndb.snapshotOrphanBatch.WriteSync()
 			} else {
@@ -879,7 +887,7 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
 
-		ndb.saveOrphan(v, fromVersion, toVersion, true)
+		ndb.saveOrphan(v, fromVersion, toVersion, true, false)
 	})
 
 	if err := sb.WriteSync(); err != nil {
