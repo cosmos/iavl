@@ -289,7 +289,7 @@ func TestDeleteVersion_issue261(t *testing.T) {
 		require.NoError(t, err)
 
 		// Load the latest persisted version.
-		version, err := tree.LoadVersion(0)
+		_, err = tree.LoadVersion(0)
 		require.NoError(t, err)
 
 		// Create new versions.
@@ -300,7 +300,7 @@ func TestDeleteVersion_issue261(t *testing.T) {
 				tree.Set(key, value)
 			}
 
-			_, version, err = tree.SaveVersion()
+			_, version, err := tree.SaveVersion()
 			require.NoError(t, err)
 
 			// Delete the previous keepEvery version if it's a multiple of KeepEvery. This follows
