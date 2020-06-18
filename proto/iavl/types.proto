@@ -3,13 +3,6 @@ package iavl;
 
 import "gogoproto/gogo.proto";
 
-option go_package                  = ".;iavl";
-option (gogoproto.marshaler_all)   = true;
-option (gogoproto.unmarshaler_all) = true;
-option (gogoproto.sizer_all)       = true;
-option (gogoproto.populate_all)    = true;
-option (gogoproto.equal_all)       = true;
-
 // VersionMetadata defines the metadata associated with a committed IAVL version.
 message VersionMetadata {
   // tree version for the corresponding metadata

@@ -1,0 +1,16 @@
+build:
+  roots:
+    - proto
+    - third_party/proto
+lint:
+  use:
+    - MINIMAL
+    - FILE_LOWER_SNAKE_CASE
+    - UNARY_RPC
+    - FILE_LAYOUT
+  except:
+  ignore:
+    - gogoproto
+breaking:
+  use:
+    - FILE

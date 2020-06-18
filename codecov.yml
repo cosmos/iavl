@@ -25,3 +25,4 @@ comment:
 ignore:
   - "docs"
   - "benchmarks/"
+  - "**.pb.go"
