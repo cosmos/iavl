@@ -1,7 +1,7 @@
 package iavl
 
 import (
-	"google.golang.org/protobuf/proto"
+	"github.com/gogo/protobuf/proto"
 )
 
 // marshal returns Protobuf marshaled bytes of a VersionMetadata object.

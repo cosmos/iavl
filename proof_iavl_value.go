@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-
-	"github.com/tendermint/tendermint/crypto/merkle"
 )
 
 const ProofOpIAVLValue = "iavl:v"
@@ -25,7 +23,7 @@ type ValueOp struct {
 	Proof *RangeProof `json:"proof"`
 }
 
-var _ merkle.ProofOperator = ValueOp{}
+var _ ProofOperator = ValueOp{}
 
 func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 	return ValueOp{
@@ -34,7 +32,7 @@ func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 	}
 }
 
-func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func ValueOpDecoder(pop ProofOp) (ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
@@ -46,9 +44,9 @@ func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	return NewValueOp(pop.Key, op.Proof), nil
 }
 
-func (op ValueOp) ProofOp() merkle.ProofOp {
+func (op ValueOp) ProofOp() ProofOp {
 	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
-	return merkle.ProofOp{
+	return ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,
 		Data: bz,

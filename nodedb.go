@@ -3,19 +3,19 @@ package iavl
 import (
 	"bytes"
 	"container/list"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
-	"github.com/tendermint/tendermint/crypto/tmhash"
 	dbm "github.com/tendermint/tm-db"
 )
 
 const (
 	int64Size = 8
-	hashSize  = tmhash.Size
+	hashSize  = sha256.Size
 )
 
 var (
