@@ -280,36 +280,34 @@ func TestDeleteVersion_issue261(t *testing.T) {
 		}
 
 		// Create a new tree from the given database, with a fresh RecentDB for in-memory versions.
+		// We'll enable sync, for good measure.
 		tree, err := NewMutableTreeWithOpts(mainDB, db.NewMemDB(), 0, &Options{
 			KeepEvery:  keepEvery,
 			KeepRecent: keepRecent,
+			Sync:       true,
 		})
 		require.NoError(t, err)
 
 		// Load the latest persisted version.
 		version, err := tree.LoadVersion(0)
 		require.NoError(t, err)
-		t.Logf("Loaded version %v\n", version)
 
 		// Create new versions.
 		for v := 0; v < versions; v++ {
 			for i := 0; i < 4; i++ {
 				key := []byte(fmt.Sprintf("%v", r.Intn(65536)))
 				value := []byte(fmt.Sprintf("%v", r.Intn(1<<20)))
-				t.Logf("Set: %v = %v", string(key), string(value))
 				tree.Set(key, value)
 			}
 
 			_, version, err = tree.SaveVersion()
 			require.NoError(t, err)
-			t.Logf("Saved version %v\n", version)
 
 			// Delete the previous keepEvery version if it's a multiple of KeepEvery. This follows
 			// SDK pruning behavior.
 			if version%keepEvery == 0 && version > keepEvery {
 				err = tree.DeleteVersion(version - keepEvery)
 				require.NoError(t, err)
-				t.Logf("Deleted version %v\n", version-keepEvery)
 			}
 		}
 	}
