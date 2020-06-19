@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-
-	"github.com/tendermint/tendermint/crypto/merkle"
 )
 
 const ProofOpIAVLAbsence = "iavl:a"
@@ -24,7 +22,7 @@ type AbsenceOp struct {
 	Proof *RangeProof `json:"proof"`
 }
 
-var _ merkle.ProofOperator = AbsenceOp{}
+var _ ProofOperator = AbsenceOp{}
 
 func NewAbsenceOp(key []byte, proof *RangeProof) AbsenceOp {
 	return AbsenceOp{
@@ -33,7 +31,7 @@ func NewAbsenceOp(key []byte, proof *RangeProof) AbsenceOp {
 	}
 }
 
-func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func AbsenceOpDecoder(pop ProofOp) (ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
@@ -45,9 +43,9 @@ func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	return NewAbsenceOp(pop.Key, op.Proof), nil
 }
 
-func (op AbsenceOp) ProofOp() merkle.ProofOp {
+func (op AbsenceOp) ProofOp() ProofOp {
 	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
-	return merkle.ProofOp{
+	return ProofOp{
 		Type: ProofOpIAVLAbsence,
 		Key:  op.key,
 		Data: bz,
