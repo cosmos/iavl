@@ -400,16 +400,13 @@ func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushTo
 	if fromVersion > toVersion {
 		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
 	}
+	key := ndb.orphanKey(fromVersion, toVersion, hash)
 
 	if ndb.isRecentVersion(toVersion) {
-		key := ndb.orphanKey(fromVersion, toVersion, hash)
 		ndb.recentBatch.Set(key, hash)
 	}
 
 	if flushToDisk {
-		// save to disk with toVersion equal to snapshotVersion closest to original toVersion
-		snapVersion := toVersion - (toVersion % ndb.opts.KeepEvery)
-		key := ndb.orphanKey(fromVersion, snapVersion, hash)
 		if queue {
 			ndb.snapshotOrphanBatch.Set(key, hash)
 		} else {
