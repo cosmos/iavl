@@ -549,25 +549,25 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		debug("SAVE EMPTY TREE %v\n", version)
-		if err := tree.ndb.SaveOrphans(version, tree.orphans, true); err != nil {
+		if err := tree.ndb.SaveOrphans(version, tree.orphans, vm.Snapshot, true); err != nil {
 			panic(err)
 		}
 
-		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
+		if err := tree.ndb.SaveEmptyRoot(version, vm.Snapshot); err != nil {
 			panic(err)
 		}
 	} else {
 		debug("SAVE TREE %v\n", version)
 
-		if _, err := tree.ndb.SaveTree(tree.root, version); err != nil {
+		if _, err := tree.ndb.SaveTree(tree.root, version, vm.Snapshot); err != nil {
 			panic(err)
 		}
 
-		if err := tree.ndb.SaveOrphans(version, tree.orphans, true); err != nil {
+		if err := tree.ndb.SaveOrphans(version, tree.orphans, vm.Snapshot, true); err != nil {
 			panic(err)
 		}
 
-		if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
+		if err := tree.ndb.SaveRoot(tree.root, version, vm.Snapshot); err != nil {
 			panic(err)
 		}
 	}

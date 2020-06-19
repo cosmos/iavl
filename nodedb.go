@@ -283,13 +283,8 @@ func (ndb *nodeDB) HasSnapshot(hash []byte) (bool, error) {
 }
 
 // SaveTree takes a rootNode and version. Saves all nodes in tree using SaveBranch
-func (ndb *nodeDB) SaveTree(root *Node, version int64) ([]byte, error) {
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return nil, err
-	}
-
-	return ndb.SaveBranch(root, vm.Snapshot), nil
+func (ndb *nodeDB) SaveTree(root *Node, version int64, flushToDisk bool) ([]byte, error) {
+	return ndb.SaveBranch(root, flushToDisk), nil
 }
 
 // SaveBranch saves the given node and all of its descendants.
@@ -368,25 +363,13 @@ func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool
 // orphans: the orphan nodes created since version-1
 // queue: if true, don't save snapshot orphans in the current version's snapshotBatch,
 // but instead queue them up in the snapshotOrphanBatch.
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, queue bool) error {
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64, flushToDisk bool, queue bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
 
 	for hash, fromVersion := range orphans {
-		var flushToDisk bool
-
-		vm, err := ndb.GetVersionMetadata(fromVersion)
-		if err != nil {
-			return err
-		}
-
-		if ndb.opts.KeepEvery != 0 {
-			// if snapshot version in between fromVersion and toVersion INCLUSIVE, then flush to disk.
-			flushToDisk = fromVersion/ndb.opts.KeepEvery != toVersion/ndb.opts.KeepEvery || vm.Snapshot
-		}
-
 		debug("SAVEORPHAN %v-%v %X flushToDisk: %t\n", fromVersion, toVersion, hash, flushToDisk)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk, queue)
 	}
@@ -785,27 +768,16 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 
 // SaveRoot creates an entry on disk for the given root, so that it can be
 // loaded later.
-func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
+func (ndb *nodeDB) SaveRoot(root *Node, version int64, flushToDisk bool) error {
 	if len(root.hash) == 0 {
 		panic("SaveRoot: root hash should not be empty")
 	}
-
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return err
-	}
-
-	return ndb.saveRoot(root.hash, version, vm.Snapshot)
+	return ndb.saveRoot(root.hash, version, flushToDisk)
 }
 
 // SaveEmptyRoot creates an entry on disk for an empty root.
-func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return err
-	}
-
-	return ndb.saveRoot([]byte{}, version, vm.Snapshot)
+func (ndb *nodeDB) SaveEmptyRoot(version int64, flushToDisk bool) error {
+	return ndb.saveRoot([]byte{}, version, flushToDisk)
 }
 
 func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error {
@@ -881,10 +853,7 @@ func (ndb *nodeDB) flushVersion(version int64) error {
 	}
 
 	traverseOrphansVersionFromDB(ndb.recentDB, version, func(k, v []byte) {
-		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
-
-		ndb.saveOrphan(v, fromVersion, toVersion, true, false)
+		sb.Set(k, v)
 	})
 
 	if err := sb.WriteSync(); err != nil {
