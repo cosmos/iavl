@@ -1,6 +1,8 @@
 syntax = "proto3";
 package iavl;
 
+option go_package = "iavl";
+
 // VersionMetadata defines the metadata associated with a committed IAVL version.
 message VersionMetadata {
   // tree version for the corresponding metadata
