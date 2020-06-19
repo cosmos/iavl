@@ -1,8 +1,6 @@
 syntax = "proto3";
 package iavl;
 
-import "gogoproto/gogo.proto";
-
 // VersionMetadata defines the metadata associated with a committed IAVL version.
 message VersionMetadata {
   // tree version for the corresponding metadata
@@ -32,5 +30,5 @@ message ProofOp {
 
 // Proof is Merkle proof defined by the list of ProofOps
 message Proof {
-  repeated ProofOp ops = 1 [(gogoproto.nullable) = false];
+  repeated ProofOp ops = 1;
 }

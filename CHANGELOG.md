@@ -9,6 +9,8 @@ Special thanks to external contributors on this release:
 ### Improvements
 
 - [\#239](https://github.com/tendermint/iavl/pull/239) Implement `MutableTree#FlushVersion` which allows a version to be manually flushed to disk.
+- \#270 Tendermint dependency has been removed. 
+  - If you are using the proof system from IAVL then you must use the proto proof types in this repo. You can not use the Tendermint proof types
 
 ### Bug Fixes
 
