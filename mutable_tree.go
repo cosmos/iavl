@@ -626,17 +626,7 @@ func (tree *MutableTree) pruneRecentVersion() error {
 	return nil
 }
 
-// DeleteVersion deletes a tree version from disk. The version can then no
-// longer be accessed. Note, the version's metadata will still be retained. In
-// addition, it will contain the time at which the version was deleted.
-func (tree *MutableTree) DeleteVersion(version int64) error {
-	debug("DELETE VERSION: %d\n", version)
-
-	vm, err := tree.ndb.GetVersionMetadata(version)
-	if err != nil {
-		return err
-	}
-
+func (tree *MutableTree) deleteVersion(version int64) error {
 	if version == 0 {
 		return errors.New("version must be greater than 0")
 	}
@@ -648,6 +638,47 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	}
 
 	if err := tree.ndb.DeleteVersion(version, true); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// DeleteVersions deletes a series of versions from the MutableTree. An error
+// is returned if any single version is invalid or the delete fails. All writes
+// happen in a single batch with a single commit.
+func (tree *MutableTree) DeleteVersions(versions ...int64) error {
+	debug("DELETING VERSIONS: %v\n", versions)
+
+	for _, version := range versions {
+		if err := tree.deleteVersion(version); err != nil {
+			return err
+		}
+	}
+
+	if err := tree.ndb.Commit(); err != nil {
+		return err
+	}
+
+	for _, version := range versions {
+		delete(tree.versions, version)
+	}
+
+	return nil
+}
+
+// DeleteVersion deletes a tree version from disk. The version can then no
+// longer be accessed. Note, the version's metadata will still be retained. In
+// addition, it will contain the time at which the version was deleted.
+func (tree *MutableTree) DeleteVersion(version int64) error {
+	debug("DELETE VERSION: %d\n", version)
+
+	vm, err := tree.ndb.GetVersionMetadata(version)
+	if err != nil {
+		return err
+	}
+
+	if err := tree.deleteVersion(version); err != nil {
 		return err
 	}
 
