@@ -227,6 +227,62 @@ func TestTraverse(t *testing.T) {
 	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
 }
 
+func TestMutableTree_DeleteVersions(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
+	require.NoError(t, err)
+
+	type entry struct {
+		key   []byte
+		value []byte
+	}
+
+	versionEntries := make(map[int64][]entry)
+
+	// create 10 tree versions, each with 1000 random key/value entries
+	for i := 0; i < 10; i++ {
+		entries := make([]entry, 1000)
+
+		for j := 0; j < 1000; j++ {
+			k := randBytes(10)
+			v := randBytes(10)
+
+			entries[j] = entry{k, v}
+			_ = tree.Set(k, v)
+		}
+
+		_, v, err := tree.SaveVersion()
+		require.NoError(t, err)
+
+		versionEntries[v] = entries
+	}
+
+	// delete even versions
+	versionsToDelete := []int64{2, 4, 6, 8}
+	require.NoError(t, tree.DeleteVersions(versionsToDelete...))
+
+	// ensure even versions have been deleted
+	for _, v := range versionsToDelete {
+		require.False(t, tree.versions[v])
+
+		_, err := tree.LazyLoadVersion(v)
+		require.Error(t, err)
+	}
+
+	// ensure odd number versions exist and we can query for all set entries
+	for _, v := range []int64{1, 3, 5, 7, 9, 10} {
+		require.True(t, tree.versions[v])
+
+		_, err := tree.LazyLoadVersion(v)
+		require.NoError(t, err)
+
+		for _, e := range versionEntries[v] {
+			_, val := tree.Get(e.key)
+			require.Equal(t, e.value, val)
+		}
+	}
+}
+
 func TestEmptyRecents(t *testing.T) {
 	memDB := db.NewMemDB()
 	opts := Options{
