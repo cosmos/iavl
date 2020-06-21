@@ -1,4 +1,4 @@
-module github.com/cosmos/iavl
+module github.com/tendermint/iavl
 
 go 1.13
 
@@ -11,7 +11,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tendermint/go-amino v0.14.1
-	github.com/tendermint/iavl v0.13.3
 	github.com/tendermint/tm-db v0.5.1
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
