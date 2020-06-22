@@ -131,22 +131,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 // Has checks if a hash exists in the recentDB or the snapshotDB.
 func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	key := ndb.nodeKey(hash)
-
-	val, err := ndb.recentDB.Get(key)
-	if err != nil {
-		return false, errors.Wrap(err, "recentDB")
-	}
-	if val != nil {
-		return true, nil
-	}
-
-	return ndb.HasSnapshot(hash)
-}
-
-// HasSnapshot returns true if a given hash exists in the snapshotDB.
-func (ndb *nodeDB) HasSnapshot(hash []byte) (bool, error) {
-	key := ndb.nodeKey(hash)
-	if ldb, ok := ndb.snapshotDB.(*dbm.GoLevelDB); ok {
+	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		var exists bool
 
 		exists, err := ldb.DB().Has(key, nil)
@@ -157,7 +142,7 @@ func (ndb *nodeDB) HasSnapshot(hash []byte) (bool, error) {
 		return exists, nil
 	}
 
-	value, err := ndb.snapshotDB.Get(key)
+	value, err := ndb.db.Get(key)
 	if err != nil {
 		return false, errors.Wrap(err, "snapshotDB")
 	}
@@ -194,30 +179,19 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	return ndb.deleteVersion(version, checkLatestVersion, false)
+	return ndb.deleteVersion(version, checkLatestVersion)
 }
 
-func (ndb *nodeDB) DeleteVersionFromRecent(version int64, checkLatestVersion bool) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-	return ndb.deleteVersion(version, checkLatestVersion, true)
-}
-
-func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion, memOnly bool) error {
+func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion bool) error {
 	if ndb.versionReaders[version] > 0 {
 		return errors.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
 	}
 
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
+	if err := ndb.deleteOrphans(version); err != nil {
 		return err
 	}
 
-	if err := ndb.deleteOrphans(version, memOnly, vm.Snapshot); err != nil {
-		return err
-	}
-
-	ndb.deleteRoot(version, checkLatestVersion, memOnly, vm.Snapshot)
+	ndb.deleteRoot(version, checkLatestVersion)
 	return nil
 }
 
@@ -332,35 +306,6 @@ func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk b
 	}
 }
 
-func (ndb *nodeDB) PruneRecentVersion() (int64, error) {
-	if ndb.opts.KeepRecent == 0 || ndb.latestVersion-ndb.opts.KeepRecent <= 0 {
-		return 0, nil
-	}
-
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	pruneVer := ndb.latestVersion - ndb.opts.KeepRecent
-	if ndb.versionReaders[pruneVer] > 0 {
-		return 0, nil
-	}
-
-	if err := ndb.deleteVersion(pruneVer, true, true); err != nil {
-		return 0, err
-	}
-
-	vm, err := ndb.GetVersionMetadata(pruneVer)
-	if err != nil {
-		return 0, err
-	}
-
-	if vm.Snapshot {
-		return 0, nil
-	}
-
-	return pruneVer, nil
-}
-
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
 	return nodeKeyFormat.KeyBytes(hash)
 }
@@ -391,18 +336,7 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 }
 
 func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
-	// If version exists in recentDB, check recentDB for any previous version
-	if ndb.isRecentVersion(version) {
-		prev := getPreviousVersionFromDB(version, ndb.recentDB)
-		if prev != 0 {
-			return prev
-		}
-	}
-	return getPreviousVersionFromDB(version, ndb.snapshotDB)
-}
-
-func getPreviousVersionFromDB(version int64, db dbm.DB) int64 {
-	itr, err := db.ReverseIterator(
+	itr, err := ndb.db.ReverseIterator(
 		rootKeyFormat.Key(1),
 		rootKeyFormat.Key(version),
 	)
@@ -422,17 +356,11 @@ func getPreviousVersionFromDB(version int64, db dbm.DB) int64 {
 }
 
 // deleteRoot deletes the root entry from disk, but not the node it points to.
-func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion, memOnly, isSnapshot bool) {
+func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) {
 	if checkLatestVersion && version == ndb.getLatestVersion() {
 		panic("Tried to delete latest version")
 	}
-
-	key := ndb.rootKey(version)
-	ndb.recentBatch.Delete(key)
-
-	if isSnapshot && !memOnly {
-		ndb.snapshotBatch.Delete(key)
-	}
+	ndb.batch.Delete(ndb.rootKey(version))
 }
 
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
@@ -442,19 +370,6 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 func traverseOrphansFromDB(db dbm.DB, fn func(k, v []byte)) {
 	traversePrefixFromDB(db, orphanKeyFormat.Key(), fn)
 }
-
-// Traverse orphans ending at a certain version.
-// NOTE: If orphan is in recentDB and levelDB (version > latestVersion-keepRecent && version%keepEvery == 0)
-// traverse will return the node twice.
-// func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
-// 	prefix := orphanKeyFormat.Key(version)
-// 	if ndb.isRecentVersion(version) {
-// 		traversePrefixFromDB(ndb.recentDB, prefix, fn)
-// 	}
-// 	if ndb.isSnapshotVersion(version) {
-// 		traversePrefixFromDB(ndb.snapshotDB, prefix, fn)
-// 	}
-// }
 
 func traverseOrphansVersionFromDB(db dbm.DB, version int64, fn func(k, v []byte)) {
 	prefix := orphanKeyFormat.Key(version)
@@ -598,18 +513,7 @@ func (ndb *nodeDB) Commit() error {
 }
 
 func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
-	if ndb.isRecentVersion(version) {
-		memroot, err := ndb.recentDB.Get(ndb.rootKey(version))
-		if err != nil {
-			return nil, err
-		}
-		// TODO: maybe I shouldn't check in snapshot if it isn't here
-		if memroot != nil {
-			return memroot, nil
-		}
-	}
-
-	return ndb.snapshotDB.Get(ndb.rootKey(version))
+	return ndb.db.Get(ndb.rootKey(version))
 }
 
 func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
@@ -629,26 +533,15 @@ func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
 		panic("SaveRoot: root hash should not be empty")
 	}
-
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return err
-	}
-
-	return ndb.saveRoot(root.hash, version, vm.Snapshot)
+	return ndb.saveRoot(root.hash, version)
 }
 
 // SaveEmptyRoot creates an entry on disk for an empty root.
 func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return err
-	}
-
-	return ndb.saveRoot([]byte{}, version, vm.Snapshot)
+	return ndb.saveRoot([]byte{}, version)
 }
 
-func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error {
+func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -656,23 +549,9 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64, flushToDisk bool) error 
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", ndb.getLatestVersion()+1, version)
 	}
 
-	key := ndb.rootKey(version)
 	ndb.updateLatestVersion(version)
-	ndb.recentBatch.Set(key, hash)
-	if flushToDisk {
-		ndb.snapshotBatch.Set(key, hash)
-	}
-
+	ndb.batch.Set(ndb.rootKey(version), hash)
 	return nil
-}
-
-func (ndb *nodeDB) saveRootBatch(hash []byte, version int64, rb, sb dbm.Batch) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	key := ndb.rootKey(version)
-	rb.Set(key, hash)
-	sb.Set(key, hash)
 }
 
 func (ndb *nodeDB) incrVersionReaders(version int64) {
