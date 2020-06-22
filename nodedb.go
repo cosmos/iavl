@@ -8,7 +8,6 @@ import (
 	"sort"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -38,10 +37,8 @@ var (
 
 type nodeDB struct {
 	mtx            sync.Mutex       // Read/write lock.
-	snapshotDB     dbm.DB           // Persistent node storage.
-	recentDB       dbm.DB           // Memory node storage.
-	snapshotBatch  dbm.Batch        // Batched writing buffer.
-	recentBatch    dbm.Batch        // Batched writing buffer for recentDB.
+	db             dbm.DB           // Persistent node storage.
+	batch          dbm.Batch        // Batched writing buffer.
 	opts           *Options         // Options to customize for pruning/writing
 	versionReaders map[int64]uint32 // Number of active version readers (prevents pruning)
 
@@ -49,111 +46,22 @@ type nodeDB struct {
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
-
-	vmCache *lru.Cache // LRU cache of version metadata
 }
 
-func newNodeDB(snapshotDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 	if opts == nil {
 		opts = DefaultOptions()
 	}
-
-	vmCache, err := lru.New(20000)
-	if err != nil {
-		panic(fmt.Errorf("failed to create metadata cache: %w", err))
-	}
-
 	return &nodeDB{
-		snapshotDB:     snapshotDB,
-		recentDB:       recentDB,
-		snapshotBatch:  snapshotDB.NewBatch(),
-		recentBatch:    recentDB.NewBatch(),
+		db:             db,
+		batch:          db.NewBatch(),
 		opts:           opts,
 		latestVersion:  0, // initially invalid
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
 		nodeCacheQueue: list.New(),
 		versionReaders: make(map[int64]uint32, 8),
-		vmCache:        vmCache,
 	}
-}
-
-// GetVersionMetadata returns a reference to VersionMetadata for a given version.
-// The object is first checked against the internal VersionMetadata LRU cache. If
-// it does not exist, it will be queried for via the snapshotDB and added to the
-// LRU cache. An error is returned if the VersionMetadata cannot be decoded or
-// queried for in the snapshotDB.
-func (ndb *nodeDB) GetVersionMetadata(version int64) (*VersionMetadata, error) {
-	key := metadataKeyFormat.Key(version)
-
-	v, ok := ndb.vmCache.Get(string(key))
-	if ok {
-		return v.(*VersionMetadata), nil
-	}
-
-	bz, err := ndb.snapshotDB.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	// In cases where version metadata does not exist, say for a non-empty tree,
-	// we construct metadata on the fly. This is for backwards compatibility WRT
-	// to snapshotting.
-	if len(bz) == 0 {
-		return &VersionMetadata{
-			Version:  version,
-			Snapshot: ndb.opts.KeepEvery != 0 && version%ndb.opts.KeepEvery == 0,
-		}, nil
-	}
-
-	vm, err := unmarshalVersionMetadata(bz)
-	if err != nil {
-		return nil, err
-	}
-
-	_ = ndb.vmCache.Add(string(key), vm)
-	return vm, nil
-}
-
-// SetVersionMetadata saves a VersionMetadata in the snapshotDB and performs a
-// write-through to the VersionMetadata LRU cache. It returns an error if encoding
-// or saving to the snapshotDB fails.
-func (ndb *nodeDB) SetVersionMetadata(vm *VersionMetadata) error {
-	key := metadataKeyFormat.Key(vm.Version)
-
-	bz, err := vm.marshal()
-	if err != nil {
-		return err
-	}
-
-	if err := ndb.snapshotDB.Set(key, bz); err != nil {
-		return err
-	}
-
-	_ = ndb.vmCache.Add(string(key), vm)
-	return nil
-}
-
-// DeleteVersionMetadata removes a VersionMetadata object from the snapshotDB
-// and the LRU cache.
-func (ndb *nodeDB) DeleteVersionMetadata(version int64) error {
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return err
-	}
-
-	key := metadataKeyFormat.Key(vm.Version)
-
-	if err := ndb.snapshotDB.Delete(key); err != nil {
-		return err
-	}
-
-	ndb.vmCache.Remove(string(key))
-	return nil
-}
-
-func (ndb *nodeDB) isRecentVersion(version int64) bool {
-	return ndb.opts.KeepRecent != 0 && version > ndb.latestVersion-ndb.opts.KeepRecent
 }
 
 // GetNode gets a node from memory or disk. If it is an inner node, it does not
@@ -174,50 +82,33 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	}
 
 	// Doesn't exist, load.
-	buf, err := ndb.recentDB.Get(ndb.nodeKey(hash))
+	buf, err := ndb.db.Get(ndb.nodeKey(hash))
 	if err != nil {
 		panic(fmt.Sprintf("can't get node %X: %v", hash, err))
 	}
-	persisted := false
 	if buf == nil {
-		// Doesn't exist, load from disk
-		buf, err = ndb.snapshotDB.Get(ndb.nodeKey(hash))
-		if err != nil {
-			panic(err)
-		}
-		if buf == nil {
-			panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %x", hash, ndb.nodeKey(hash)))
-		}
-		persisted = true
+		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %x", hash, ndb.nodeKey(hash)))
 	}
 
 	node, err := MakeNode(buf)
 	if err != nil {
 		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
 	}
-	node.saved = true
-	node.persisted = persisted
 
 	node.hash = hash
+	node.persisted = true
 	ndb.cacheNode(node)
 
 	return node
 }
 
 // SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *Node, flushToDisk bool) {
-	ndb.saveNodeBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
-}
-
-func (ndb *nodeDB) saveNodeBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) {
+func (ndb *nodeDB) SaveNode(node *Node) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	if node.hash == nil {
 		panic("Expected to find node.hash, but none found.")
-	}
-	if node.saved && !flushToDisk {
-		return
 	}
 	if node.persisted {
 		panic("Shouldn't be calling save on an already persisted node.")
@@ -231,16 +122,10 @@ func (ndb *nodeDB) saveNodeBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch)
 		panic(err)
 	}
 
-	if !node.saved {
-		node.saved = true
-		rb.Set(ndb.nodeKey(node.hash), buf.Bytes())
-	}
-
-	if flushToDisk {
-		sb.Set(ndb.nodeKey(node.hash), buf.Bytes())
-		node.persisted = true
-		node.saved = true
-	}
+	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	debug("BATCH SAVE %X %p\n", node.hash, node)
+	node.persisted = true
+	ndb.cacheNode(node)
 }
 
 // Has checks if a hash exists in the recentDB or the snapshotDB.
@@ -280,49 +165,24 @@ func (ndb *nodeDB) HasSnapshot(hash []byte) (bool, error) {
 	return value != nil, nil
 }
 
-// SaveTree takes a rootNode and version. Saves all nodes in tree using SaveBranch
-func (ndb *nodeDB) SaveTree(root *Node, version int64) ([]byte, error) {
-	vm, err := ndb.GetVersionMetadata(version)
-	if err != nil {
-		return nil, err
-	}
-
-	return ndb.SaveBranch(root, vm.Snapshot), nil
-}
-
 // SaveBranch saves the given node and all of its descendants.
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
-func (ndb *nodeDB) SaveBranch(node *Node, flushToDisk bool) []byte {
-	return ndb.saveBranchBatch(node, flushToDisk, ndb.recentBatch, ndb.snapshotBatch)
-}
-
-// TODO: Reconsider design to not have batch objects be fields of a nodeDB type.
-// Instead, batch objects should be created when needed as passed as arguments
-// where needed. This allows the IO flow to be easier to reason about and impproves
-// testability.
-func (ndb *nodeDB) saveBranchBatch(node *Node, flushToDisk bool, rb, sb dbm.Batch) []byte {
-	if node.saved && !flushToDisk {
-		return node.hash
-	}
+func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 	if node.persisted {
 		return node.hash
 	}
 
-	if node.size != 1 {
-		if node.leftNode == nil {
-			node.leftNode = ndb.GetNode(node.leftHash)
-		}
-		if node.rightNode == nil {
-			node.rightNode = ndb.GetNode(node.rightHash)
-		}
-		node.leftHash = ndb.saveBranchBatch(node.leftNode, flushToDisk, rb, sb)
-		node.rightHash = ndb.saveBranchBatch(node.rightNode, flushToDisk, rb, sb)
+	if node.leftNode != nil {
+		node.leftHash = ndb.SaveBranch(node.leftNode)
+	}
+	if node.rightNode != nil {
+		node.rightHash = ndb.SaveBranch(node.rightNode)
 	}
 
 	node._hash()
-	ndb.saveNodeBatch(node, flushToDisk, rb, sb)
+	ndb.SaveNode(node)
 
 	node.leftNode = nil
 	node.rightNode = nil
@@ -827,52 +687,6 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	if ndb.versionReaders[version] > 0 {
 		ndb.versionReaders[version]--
 	}
-}
-
-func (ndb *nodeDB) flushVersion(version int64) error {
-	// Create new recentDB and snapshotDB batch objects. We don't use the current
-	// batch objects of the nodeDB as we don't want to write state prematurely or
-	// have conflicting state.
-	//
-	// NOTE: We ignore any write that happen to recentBatch.
-	rb := ndb.recentDB.NewBatch()
-	defer rb.Close()
-
-	sb := ndb.snapshotDB.NewBatch()
-	defer sb.Close()
-
-	rootHash, err := ndb.getRoot(version)
-	if err != nil {
-		return err
-	}
-
-	switch {
-	case rootHash == nil:
-		return fmt.Errorf("version %v does not exist in recentDB", version)
-
-	case len(rootHash) == 0:
-		ndb.saveRootBatch([]byte{}, version, rb, sb)
-
-	default:
-		// save branch, the root, and the necessary orphans
-		node := ndb.GetNode(rootHash)
-		ndb.saveBranchBatch(node, true, rb, sb)
-		ndb.saveRootBatch(node.hash, version, rb, sb)
-	}
-
-	traverseOrphansVersionFromDB(ndb.recentDB, version, func(k, v []byte) {
-		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
-
-		ndb.saveOrphan(v, fromVersion, toVersion, true)
-	})
-
-	if err := sb.WriteSync(); err != nil {
-		return fmt.Errorf("failed to write (sync) the snapshot batch: %w", err)
-	}
-
-	// NOTE: We do not need to write/flush the recent batch.
-	return nil
 }
 
 ////////////////// Utility and test functions /////////////////////////////////
