@@ -554,49 +554,6 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	return nil
 }
 
-// deleteVersionsFrom deletes tree version from disk specified version to latest
-// version. The version can then no longer be accessed.
-func (tree *MutableTree) deleteVersionsFrom(version int64) error {
-	if version <= 0 {
-		return errors.New("version must be greater than 0")
-	}
-
-	newLatestVersion := version - 1
-	lastestVersion := tree.ndb.getLatestVersion()
-
-	for ; version <= lastestVersion; version++ {
-		if version == tree.version {
-			return errors.Errorf("cannot delete latest saved version (%d)", version)
-		}
-
-		if err := tree.ndb.DeleteVersion(version, false); err != nil {
-			return err
-		}
-
-		if version == lastestVersion {
-			root, err := tree.ndb.getRoot(version)
-			if err != nil {
-				return err
-			}
-
-			if err := tree.ndb.deleteNodesFrom(newLatestVersion+1, root); err != nil {
-				return err
-			}
-		}
-
-		delete(tree.versions, version)
-	}
-
-	tree.ndb.restoreNodes(newLatestVersion)
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	tree.ndb.resetLatestVersion(newLatestVersion)
-	return nil
-}
-
 // Rotate right and return the new node and orphan.
 func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node) {
 	version := tree.version + 1

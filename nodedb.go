@@ -214,23 +214,22 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 	// Next, delete orphans:
 	// - Delete orphan entries *and referred nodes* with fromVersion >= version
-	// - Delete orphan entries with toVersion >= version
-	ndb.traverseOrphans(func(k, v []byte) {
+	// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
+	ndb.traverseOrphans(func(key, hash []byte) {
 		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
+		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
 		if fromVersion >= version {
-			ndb.batch.Delete(k)
-			ndb.batch.Delete(v)
-			ndb.uncacheNode(v)
-		} else if toVersion >= version {
-			ndb.batch.Delete(k)
+			ndb.batch.Delete(key)
+			ndb.batch.Delete(ndb.nodeKey(hash))
+			ndb.uncacheNode(hash)
+		} else if toVersion >= version-1 {
+			ndb.batch.Delete(key)
 		}
 	})
 
 	// Finally, delete the version root entries
 	ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(math.MaxInt64), func(k, v []byte) {
-		fmt.Printf("Delete root %x %x\n", k, v)
 		ndb.batch.Delete(k)
 	})
 
@@ -581,15 +580,6 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 	for _, n := range nodes {
 		fn(n.hash, n)
 	}
-}
-
-// restoreNodes restores nodes, which was orphaned, but after overwriting should not be orphans anymore
-func (ndb *nodeDB) restoreNodes(version int64) {
-	// FIXME This fails to take into account future orphans, see:
-	// https://github.com/cosmos/iavl/issues/273
-	ndb.traverseOrphansVersion(version, func(key, hash []byte) {
-		ndb.batch.Delete(key)
-	})
 }
 
 func (ndb *nodeDB) String() string {
