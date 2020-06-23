@@ -3,6 +3,7 @@ module github.com/tendermint/iavl
 go 1.13
 
 require (
+	github.com/confio/ics23/go v0.0.0-20200610201322-18c7bd6b2dd3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/google/gofuzz v1.1.0 // indirect
@@ -11,6 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tendermint/go-amino v0.14.1
+	github.com/tendermint/tendermint v0.33.5
 	github.com/tendermint/tm-db v0.5.1
 	golang.org/x/crypto v0.0.0-20200604202706-70a84ac30bf9
 	golang.org/x/net v0.0.0-20200602114024-627f9648deb9 // indirect
