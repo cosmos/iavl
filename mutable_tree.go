@@ -361,22 +361,19 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 }
 
 // LoadVersionForOverwriting attempts to load a tree at a previously committed
-// version. Any versions greater than targetVersion will be deleted.
+// version, or the latest version below it. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
 	latestVersion, err := tree.LoadVersion(targetVersion)
 	if err != nil {
-		return 0, err
-	}
-	if latestVersion != targetVersion {
-		return 0, errors.Errorf("version %v does not exist, found %v", targetVersion, latestVersion)
+		return latestVersion, err
 	}
 
 	if err = tree.ndb.DeleteVersionsFrom(targetVersion + 1); err != nil {
-		return 0, err
+		return latestVersion, err
 	}
 
 	if err = tree.ndb.Commit(); err != nil {
-		return 0, err
+		return latestVersion, err
 	}
 
 	tree.ndb.resetLatestVersion(latestVersion)
@@ -387,7 +384,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		}
 	}
 
-	return targetVersion, nil
+	return latestVersion, nil
 }
 
 // GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is

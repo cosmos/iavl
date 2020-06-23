@@ -195,8 +195,8 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	if err != nil {
 		return err
 	}
-	if len(root) == 0 {
-		return errors.New("root for version %v not found")
+	if root == nil {
+		return errors.Errorf("root for version %v not found", latest)
 	}
 
 	for v, r := range ndb.versionReaders {
