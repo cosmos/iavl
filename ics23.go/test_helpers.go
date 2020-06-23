@@ -3,10 +3,10 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"sort"
 
 	"github.com/tendermint/iavl"
-	"github.com/tendermint/tendermint/libs/rand"
 	db "github.com/tendermint/tm-db"
 )
 
@@ -94,10 +94,11 @@ func BuildTree(size int) (itree *iavl.ImmutableTree, keys [][]byte, err error) {
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)
 	for i := 0; i < size; i++ {
-		key := rand.Str(20)
-		value := "value_for_" + key
-		tree.Set([]byte(key), []byte(value))
-		keys[i] = []byte(key)
+		// create random 4 byte key
+		key := []byte{byte(rand.Uint64()), byte(rand.Uint64()), byte(rand.Uint64()), byte(rand.Uint64())}
+		value := "value_for_key:" + string(key)
+		tree.Set(key, []byte(value))
+		keys[i] = key
 	}
 	sort.Slice(keys, func(i, j int) bool {
 		return bytes.Compare(keys[i], keys[j]) < 0
