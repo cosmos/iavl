@@ -424,40 +424,17 @@ func (ndb *nodeDB) Commit() error {
 	defer ndb.mtx.Unlock()
 
 	var err error
-	if ndb.opts.KeepEvery != 0 {
-		if ndb.opts.Sync {
-			err = ndb.snapshotBatch.WriteSync()
-			if err != nil {
-				return errors.Wrap(err, "error in snapShotBatch writesync")
-			}
-		} else {
-			err = ndb.snapshotBatch.Write()
-			if err != nil {
-				return errors.Wrap(err, "error in snapShotBatch write")
-			}
-		}
-
-		ndb.snapshotBatch.Close()
+	if ndb.opts.Sync {
+		err = ndb.batch.WriteSync()
+	} else {
+		err = ndb.batch.Write()
+	}
+	if err != nil {
+		return errors.Wrap(err, "failed to write batch")
 	}
 
-	if ndb.opts.KeepRecent != 0 {
-		if ndb.opts.Sync {
-			err = ndb.recentBatch.WriteSync()
-			if err != nil {
-				return errors.Wrap(err, "error in recentBatch writesync")
-			}
-		} else {
-			err = ndb.recentBatch.Write()
-			if err != nil {
-				return errors.Wrap(err, "error in recentBatch write")
-			}
-		}
-
-		ndb.recentBatch.Close()
-	}
-
-	ndb.snapshotBatch = ndb.snapshotDB.NewBatch()
-	ndb.recentBatch = ndb.recentDB.NewBatch()
+	ndb.batch.Close()
+	ndb.batch = ndb.db.NewBatch()
 
 	return nil
 }
