@@ -365,11 +365,26 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
 	latestVersion, err := tree.LoadVersion(targetVersion)
 	if err != nil {
-		return latestVersion, err
+		return 0, err
+	}
+	if latestVersion != targetVersion {
+		return 0, errors.Errorf("version %v does not exist, found %v", targetVersion, latestVersion)
 	}
 
-	if err := tree.deleteVersionsFrom(targetVersion + 1); err != nil {
-		return latestVersion, err
+	if err = tree.ndb.DeleteVersionsFrom(targetVersion + 1); err != nil {
+		return 0, err
+	}
+
+	if err = tree.ndb.Commit(); err != nil {
+		return 0, err
+	}
+
+	tree.ndb.resetLatestVersion(latestVersion)
+
+	for v := range tree.versions {
+		if v > targetVersion {
+			delete(tree.versions, v)
+		}
 	}
 
 	return targetVersion, nil
@@ -540,8 +555,7 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 }
 
 // deleteVersionsFrom deletes tree version from disk specified version to latest
-// version along with each version's metadata. The version can then no longer be
-// accessed.
+// version. The version can then no longer be accessed.
 func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	if version <= 0 {
 		return errors.New("version must be greater than 0")
@@ -565,7 +579,7 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 				return err
 			}
 
-			if err := tree.deleteNodes(newLatestVersion, root); err != nil {
+			if err := tree.ndb.deleteNodesFrom(newLatestVersion+1, root); err != nil {
 				return err
 			}
 		}
@@ -580,32 +594,6 @@ func (tree *MutableTree) deleteVersionsFrom(version int64) error {
 	}
 
 	tree.ndb.resetLatestVersion(newLatestVersion)
-	return nil
-}
-
-// deleteNodes deletes all nodes which have greater version than current, because they are not useful anymore
-// FIXME This should probably happen in NodeDB.
-func (tree *MutableTree) deleteNodes(version int64, hash []byte) error {
-	if len(hash) == 0 {
-		return nil
-	}
-
-	node := tree.ndb.GetNode(hash)
-	if node.leftHash != nil {
-		if err := tree.deleteNodes(version, node.leftHash); err != nil {
-			return err
-		}
-	}
-	if node.rightHash != nil {
-		if err := tree.deleteNodes(version, node.rightHash); err != nil {
-			return err
-		}
-	}
-
-	if node.version > version {
-		tree.ndb.batch.Delete(tree.ndb.nodeKey(hash))
-	}
-
 	return nil
 }
 

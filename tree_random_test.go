@@ -16,14 +16,14 @@ import (
 
 func TestRandomOperations(t *testing.T) {
 	seeds := []int64{
-		49872768940,
-		756509998,
+		49872768941,
+		/*756509998,
 		480459882,
 		32473644,
 		581827344,
 		470870060,
 		390970079,
-		846023066,
+		846023066,*/
 	}
 
 	for _, seed := range seeds {
@@ -44,7 +44,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		versions     = 32  // number of final versions to generate
 		reloadChance = 0.2 // chance of tree reload after save
 		deleteChance = 0.2 // chance of random version deletion after save
-		revertChance = 0.0 // chance to revert tree to random version with LoadVersionForOverwriting
+		revertChance = 0.1 // chance to revert tree to random version with LoadVersionForOverwriting
 		syncChance   = 0.3 // chance of enabling sync writes on tree load
 		cacheChance  = 0.4 // chance of enabling caching
 		cacheSizeMax = 256 // maximum size of cache (will be random from 1)
@@ -170,26 +170,28 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		// Revert tree to historical version if requested, deleting all subsequent versions.
 		if r.Float64() < revertChance {
 			versions := getMirrorVersions(diskMirrors, memMirrors)
-			target := int64(versions[r.Intn(len(versions)-1)])
-			t.Logf("Reverting to version %v", target)
-			_, err = tree.LoadVersionForOverwriting(target)
-			require.NoError(t, err, "Failed to revert to version %v", target)
-			if m, ok := diskMirrors[target]; ok {
-				mirror = copyMirror(m)
-			} else if m, ok := memMirrors[target]; ok {
-				mirror = copyMirror(m)
-			} else {
-				t.Fatalf("Mirror not found for revert target %v", target)
-			}
-			mirrorKeys = getMirrorKeys(mirror)
-			for v := range diskMirrors {
-				if v > target {
-					delete(diskMirrors, v)
+			if len(versions) > 1 {
+				target := int64(versions[r.Intn(len(versions)-1)])
+				t.Logf("Reverting to version %v", target)
+				_, err = tree.LoadVersionForOverwriting(target)
+				require.NoError(t, err, "Failed to revert to version %v", target)
+				if m, ok := diskMirrors[target]; ok {
+					mirror = copyMirror(m)
+				} else if m, ok := memMirrors[target]; ok {
+					mirror = copyMirror(m)
+				} else {
+					t.Fatalf("Mirror not found for revert target %v", target)
 				}
-			}
-			for v := range memMirrors {
-				if v > target {
-					delete(memMirrors, v)
+				mirrorKeys = getMirrorKeys(mirror)
+				for v := range diskMirrors {
+					if v > target {
+						delete(diskMirrors, v)
+					}
+				}
+				for v := range memMirrors {
+					if v > target {
+						delete(memMirrors, v)
+					}
 				}
 			}
 		}
