@@ -17,13 +17,13 @@ import (
 func TestRandomOperations(t *testing.T) {
 	seeds := []int64{
 		49872768941,
-		/*756509998,
+		756509998,
 		480459882,
 		32473644,
 		581827344,
 		470870060,
 		390970079,
-		846023066,*/
+		846023066,
 	}
 
 	for _, seed := range seeds {
@@ -41,13 +41,13 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		keySize   = 16 // before base64-encoding
 		valueSize = 16 // before base64-encoding
 
-		versions     = 32  // number of final versions to generate
-		reloadChance = 0.2 // chance of tree reload after save
-		deleteChance = 0.2 // chance of random version deletion after save
-		revertChance = 0.1 // chance to revert tree to random version with LoadVersionForOverwriting
-		syncChance   = 0.3 // chance of enabling sync writes on tree load
-		cacheChance  = 0.4 // chance of enabling caching
-		cacheSizeMax = 256 // maximum size of cache (will be random from 1)
+		versions     = 32   // number of final versions to generate
+		reloadChance = 0.1  // chance of tree reload after save
+		deleteChance = 0.2  // chance of random version deletion after save
+		revertChance = 0.05 // chance to revert tree to random version with LoadVersionForOverwriting
+		syncChance   = 0.2  // chance of enabling sync writes on tree load
+		cacheChance  = 0.4  // chance of enabling caching
+		cacheSizeMax = 256  // maximum size of cache (will be random from 1)
 
 		versionOps  = 64  // number of operations (create/update/delete) per version
 		updateRatio = 0.4 // ratio of updates out of all operations
@@ -171,25 +171,25 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if r.Float64() < revertChance {
 			versions := getMirrorVersions(diskMirrors, memMirrors)
 			if len(versions) > 1 {
-				target := int64(versions[r.Intn(len(versions)-1)])
-				t.Logf("Reverting to version %v", target)
-				_, err = tree.LoadVersionForOverwriting(target)
-				require.NoError(t, err, "Failed to revert to version %v", target)
-				if m, ok := diskMirrors[target]; ok {
+				version = int64(versions[r.Intn(len(versions)-1)])
+				t.Logf("Reverting to version %v", version)
+				_, err = tree.LoadVersionForOverwriting(version)
+				require.NoError(t, err, "Failed to revert to version %v", version)
+				if m, ok := diskMirrors[version]; ok {
 					mirror = copyMirror(m)
-				} else if m, ok := memMirrors[target]; ok {
+				} else if m, ok := memMirrors[version]; ok {
 					mirror = copyMirror(m)
 				} else {
-					t.Fatalf("Mirror not found for revert target %v", target)
+					t.Fatalf("Mirror not found for revert target %v", version)
 				}
 				mirrorKeys = getMirrorKeys(mirror)
 				for v := range diskMirrors {
-					if v > target {
+					if v > version {
 						delete(diskMirrors, v)
 					}
 				}
 				for v := range memMirrors {
-					if v > target {
+					if v > version {
 						delete(memMirrors, v)
 					}
 				}
