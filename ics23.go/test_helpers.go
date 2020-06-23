@@ -33,10 +33,10 @@ func GenerateResult(size int, loc Where) (*Result, error) {
 		return nil, err
 	}
 	if value == nil {
-		return nil, fmt.Errorf("GetWithProof returned nil value")
+		return nil, fmt.Errorf("tree.GetWithProof returned nil value")
 	}
 	if len(proof.Leaves) != 1 {
-		return nil, fmt.Errorf("GetWithProof returned %d leaves", len(proof.Leaves))
+		return nil, fmt.Errorf("tree.GetWithProof returned %d leaves", len(proof.Leaves))
 	}
 	root := tree.Hash()
 

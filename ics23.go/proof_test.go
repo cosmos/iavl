@@ -34,6 +34,7 @@ func TestCreateMembership(t *testing.T) {
 	}
 
 	for name, tc := range cases {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tree, allkeys, err := BuildTree(tc.size)
 			require.NoError(t, err, "Creating tree: %+v", err)
@@ -66,6 +67,7 @@ func TestCreateNonMembership(t *testing.T) {
 	}
 
 	for name, tc := range cases {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
 			tree, allkeys, err := BuildTree(tc.size)
 			require.NoError(t, err, "Creating tree: %+v", err)
