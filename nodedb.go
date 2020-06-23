@@ -367,10 +367,6 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traversePrefix(orphanKeyFormat.Key(), fn)
 }
 
-func traverseOrphansFromDB(db dbm.DB, fn func(k, v []byte)) {
-	traversePrefixFromDB(db, orphanKeyFormat.Key(), fn)
-}
-
 func traverseOrphansVersionFromDB(db dbm.DB, version int64, fn func(k, v []byte)) {
 	prefix := orphanKeyFormat.Key(version)
 	traversePrefixFromDB(db, prefix, fn)
@@ -378,30 +374,7 @@ func traverseOrphansVersionFromDB(db dbm.DB, version int64, fn func(k, v []byte)
 
 // Traverse all keys from recentDB and disk DB
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
-	memItr, err := ndb.recentDB.Iterator(nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	defer memItr.Close()
-
-	for ; memItr.Valid(); memItr.Next() {
-		fn(memItr.Key(), memItr.Value())
-	}
-
-	itr, err := ndb.snapshotDB.Iterator(nil, nil)
-	if err != nil {
-		panic(err)
-	}
-	defer itr.Close()
-
-	for ; itr.Valid(); itr.Next() {
-		fn(itr.Key(), itr.Value())
-	}
-}
-
-// Traverse all keys from provided DB
-func traverseFromDB(db dbm.DB, fn func(key, value []byte)) {
-	itr, err := db.Iterator(nil, nil)
+	itr, err := ndb.db.Iterator(nil, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -414,30 +387,7 @@ func traverseFromDB(db dbm.DB, fn func(key, value []byte)) {
 
 // Traverse all keys with a certain prefix from recentDB and disk DB
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
-	memItr, err := dbm.IteratePrefix(ndb.recentDB, prefix)
-	if err != nil {
-		panic(err)
-	}
-	defer memItr.Close()
-
-	for ; memItr.Valid(); memItr.Next() {
-		fn(memItr.Key(), memItr.Value())
-	}
-
-	itr, err := dbm.IteratePrefix(ndb.snapshotDB, prefix)
-	if err != nil {
-		panic(err)
-	}
-	defer itr.Close()
-
-	for ; itr.Valid(); itr.Next() {
-		fn(itr.Key(), itr.Value())
-	}
-}
-
-// Traverse all keys with a certain prefix from given DB
-func traversePrefixFromDB(db dbm.DB, prefix []byte, fn func(k, v []byte)) {
-	itr, err := dbm.IteratePrefix(db, prefix)
+	itr, err := dbm.IteratePrefix(ndb.db, prefix)
 	if err != nil {
 		panic(err)
 	}
@@ -590,15 +540,6 @@ func (ndb *nodeDB) nodes() []*Node {
 	return nodes
 }
 
-func (ndb *nodeDB) nodesFromDB(db dbm.DB) []*Node {
-	nodes := []*Node{}
-
-	ndb.traverseNodesFromDB(db, func(hash []byte, node *Node) {
-		nodes = append(nodes, node)
-	})
-	return nodes
-}
-
 func (ndb *nodeDB) orphans() [][]byte {
 	orphans := [][]byte{}
 
@@ -656,27 +597,6 @@ func (ndb *nodeDB) restoreNodes(version int64) {
 		// Delete orphan key and reverse-lookup key.
 		ndb.snapshotBatch.Delete(key)
 	})
-}
-
-func (ndb *nodeDB) traverseNodesFromDB(db dbm.DB, fn func(hash []byte, node *Node)) {
-	nodes := []*Node{}
-
-	traversePrefixFromDB(db, nodeKeyFormat.Key(), func(key, value []byte) {
-		node, err := MakeNode(value)
-		if err != nil {
-			panic(fmt.Sprintf("Couldn't decode node from database: %v", err))
-		}
-		nodeKeyFormat.Scan(key, &node.hash)
-		nodes = append(nodes, node)
-	})
-
-	sort.Slice(nodes, func(i, j int) bool {
-		return bytes.Compare(nodes[i].key, nodes[j].key) < 0
-	})
-
-	for _, n := range nodes {
-		fn(n.hash, n)
-	}
 }
 
 func (ndb *nodeDB) String() string {
