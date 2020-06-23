@@ -30,15 +30,9 @@ func b2i(bz []byte) int {
 	return int(i)
 }
 
-// Construct a MutableTree with random pruning parameters
+// Construct a MutableTree
 func getTestTree(cacheSize int) (*MutableTree, error) {
-	keepRecent := mrand.Int63n(8) + 3        //keep at least 3 versions in memDB
-	keepEvery := (mrand.Int63n(3) + 1) * 100 // snapshot every {100,200,300} versions
-
-	opts := PruningOptions(keepEvery, keepRecent)
-
-	// Use MemDB for recentDB and snapshotDB
-	return NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), cacheSize, opts)
+	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil)
 }
 
 // Convenience for a new node

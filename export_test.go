@@ -272,10 +272,7 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 }
 
 func TestExporter_PruneVersionIgnores(t *testing.T) {
-	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, &Options{
-		KeepEvery:  10,
-		KeepRecent: 2,
-	})
+	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
 
 	tree.Set([]byte("a"), []byte{1})

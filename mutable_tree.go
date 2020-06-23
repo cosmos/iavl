@@ -25,17 +25,16 @@ type MutableTree struct {
 	*ImmutableTree                  // The current, working tree.
 	lastSaved      *ImmutableTree   // The most recently saved tree.
 	orphans        map[string]int64 // Nodes removed by changes to working tree.
-	versions       map[int64]bool   // The previous versions of the tree saved in disk or memory.
+	versions       map[int64]bool   // The previous, saved versions of the tree.
 	ndb            *nodeDB
 }
 
-// NewMutableTree returns a new tree with the specified cache size and datastore, persisting all
-// versions to disk.
+// NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
 	return NewMutableTreeWithOpts(db, cacheSize, nil)
 }
 
-// NewMutableTreeWithOpts returns a new tree with the specified cache size, datastores and options.
+// NewMutableTreeWithOpts returns a new tree with the specified options.
 func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTree, error) {
 	ndb := newNodeDB(db, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}

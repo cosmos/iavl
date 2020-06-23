@@ -31,8 +31,6 @@ var (
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
-
-	metadataKeyFormat = NewKeyFormat('m', int64Size) // m<version>
 )
 
 type nodeDB struct {
@@ -242,6 +240,7 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		if predecessor < fromVersion || fromVersion == toVersion {
 			debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.batch.Delete(ndb.nodeKey(hash))
+			ndb.uncacheNode(hash)
 		} else {
 			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.saveOrphan(hash, fromVersion, predecessor)

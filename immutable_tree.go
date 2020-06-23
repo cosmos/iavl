@@ -27,18 +27,15 @@ func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		// memDB created but should never be written to
-		ndb: newNodeDB(db, dbm.NewMemDB(), cacheSize, nil),
+		ndb: newNodeDB(db, cacheSize, nil),
 	}
 }
 
-// NewImmutableTreeWithOpts creates ImmutableTree with specified pruning/writing strategy.
-// Persists every `keepEvery` version to snapDB and saves last `keepRecent` versions to recentDB
-// If sync is true, writes on nodeDB.Commit are blocking
-func NewImmutableTreeWithOpts(snapDB dbm.DB, recentDB dbm.DB, cacheSize int, opts *Options) *ImmutableTree {
+// NewImmutableTreeWithOpts creates an ImmutableTree with the given options.
+func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) *ImmutableTree {
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(snapDB, recentDB, cacheSize, opts),
+		ndb: newNodeDB(db, cacheSize, opts),
 	}
 }
 
