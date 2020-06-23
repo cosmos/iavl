@@ -187,10 +187,7 @@ func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion bool) error {
 		return errors.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
 	}
 
-	if err := ndb.deleteOrphans(version); err != nil {
-		return err
-	}
-
+	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version, checkLatestVersion)
 	return nil
 }
@@ -198,112 +195,58 @@ func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion bool) error {
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) error {
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
 
 	for hash, fromVersion := range orphans {
-		var flushToDisk bool
-
-		vm, err := ndb.GetVersionMetadata(fromVersion)
-		if err != nil {
-			return err
-		}
-
-		if ndb.opts.KeepEvery != 0 {
-			// if snapshot version in between fromVersion and toVersion INCLUSIVE, then flush to disk.
-			flushToDisk = fromVersion/ndb.opts.KeepEvery != toVersion/ndb.opts.KeepEvery || vm.Snapshot
-		}
-
-		debug("SAVEORPHAN %v-%v %X flushToDisk: %t\n", fromVersion, toVersion, hash, flushToDisk)
-		ndb.saveOrphan([]byte(hash), fromVersion, toVersion, flushToDisk)
+		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
+		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
 	}
-
-	return nil
 }
 
-// Saves a single orphan to recentDB. If flushToDisk, persist to disk as well.
-func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64, flushToDisk bool) {
+// Saves a single orphan to disk.
+func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) {
 	if fromVersion > toVersion {
 		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
 	}
-
-	if ndb.isRecentVersion(toVersion) {
-		key := ndb.orphanKey(fromVersion, toVersion, hash)
-		ndb.recentBatch.Set(key, hash)
-	}
-
-	if flushToDisk {
-		// save to disk with toVersion equal to snapshotVersion closest to original toVersion
-		snapVersion := toVersion - (toVersion % ndb.opts.KeepEvery)
-		key := ndb.orphanKey(fromVersion, snapVersion, hash)
-		ndb.snapshotBatch.Set(key, hash)
-	}
+	key := ndb.orphanKey(fromVersion, toVersion, hash)
+	ndb.batch.Set(key, hash)
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
 // entries.
-func (ndb *nodeDB) deleteOrphans(version int64, memOnly, isSnapshot bool) error {
-	if ndb.opts.KeepRecent != 0 {
-		ndb.deleteOrphansMem(version)
-	}
+func (ndb *nodeDB) deleteOrphans(version int64) {
+	// Will be zero if there is no previous version.
+	predecessor := ndb.getPreviousVersion(version)
 
-	if isSnapshot && !memOnly {
-		predecessor := getPreviousVersionFromDB(version, ndb.snapshotDB)
-		traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
-			ndb.snapshotBatch.Delete(key)
-			ndb.deleteOrphansHelper(ndb.snapshotDB, ndb.snapshotBatch, true, predecessor, key, hash)
-		})
-	}
+	// Traverse orphans with a lifetime ending at the version specified.
+	// TODO optimize.
+	ndb.traverseOrphansVersion(version, func(key, hash []byte) {
+		var fromVersion, toVersion int64
 
-	return nil
-}
+		// See comment on `orphanKeyFmt`. Note that here, `version` and
+		// `toVersion` are always equal.
+		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
-func (ndb *nodeDB) deleteOrphansMem(version int64) {
-	traverseOrphansVersionFromDB(ndb.recentDB, version, func(key, hash []byte) {
-		if ndb.opts.KeepRecent == 0 {
-			return
+		// Delete orphan key and reverse-lookup key.
+		ndb.batch.Delete(key)
+
+		// If there is no predecessor, or the predecessor is earlier than the
+		// beginning of the lifetime (ie: negative lifetime), or the lifetime
+		// spans a single version and that version is the one being deleted, we
+		// can delete the orphan.  Otherwise, we shorten its lifetime, by
+		// moving its endpoint to the previous version.
+		if predecessor < fromVersion || fromVersion == toVersion {
+			debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
+			ndb.batch.Delete(ndb.nodeKey(hash))
+		} else {
+			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
+			ndb.saveOrphan(hash, fromVersion, predecessor)
 		}
-		ndb.recentBatch.Delete(key)
-		// common case, we are deleting orphans from least recent version that is getting pruned from memDB
-		if version == ndb.latestVersion-ndb.opts.KeepRecent {
-			// delete orphan look-up, delete and uncache node
-			ndb.recentBatch.Delete(ndb.nodeKey(hash))
-			ndb.uncacheNode(hash)
-			return
-		}
-
-		predecessor := getPreviousVersionFromDB(version, ndb.recentDB)
-
-		// user is manually deleting version from memDB
-		// thus predecessor may exist in memDB
-		// Will be zero if there is no previous version.
-		ndb.deleteOrphansHelper(ndb.recentDB, ndb.recentBatch, false, predecessor, key, hash)
 	})
-}
-
-func (ndb *nodeDB) deleteOrphansHelper(db dbm.DB, batch dbm.Batch, flushToDisk bool, predecessor int64, key, hash []byte) {
-	var fromVersion, toVersion int64
-
-	// See comment on `orphanKeyFmt`. Note that here, `version` and
-	// `toVersion` are always equal.
-	orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-
-	// If there is no predecessor, or the predecessor is earlier than the
-	// beginning of the lifetime (ie: negative lifetime), or the lifetime
-	// spans a single version and that version is the one being deleted, we
-	// can delete the orphan.  Otherwise, we shorten its lifetime, by
-	// moving its endpoint to the previous version.
-	if predecessor < fromVersion || fromVersion == toVersion {
-		debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X flushToDisk: %t\n", predecessor, fromVersion, toVersion, hash, flushToDisk)
-		batch.Delete(ndb.nodeKey(hash))
-		ndb.uncacheNode(hash)
-	} else {
-		debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X flushToDisk: %t\n", predecessor, fromVersion, toVersion, hash, flushToDisk)
-		ndb.saveOrphan(hash, fromVersion, predecessor, flushToDisk)
-	}
 }
 
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
@@ -367,12 +310,12 @@ func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traversePrefix(orphanKeyFormat.Key(), fn)
 }
 
-func traverseOrphansVersionFromDB(db dbm.DB, version int64, fn func(k, v []byte)) {
-	prefix := orphanKeyFormat.Key(version)
-	traversePrefixFromDB(db, prefix, fn)
+// Traverse orphans ending at a certain version.
+func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
+	ndb.traversePrefix(orphanKeyFormat.Key(version), fn)
 }
 
-// Traverse all keys from recentDB and disk DB
+// Traverse all keys.
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	itr, err := ndb.db.Iterator(nil, nil)
 	if err != nil {
@@ -565,14 +508,10 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 
 // restoreNodes restores nodes, which was orphaned, but after overwriting should not be orphans anymore
 func (ndb *nodeDB) restoreNodes(version int64) {
-	traverseOrphansVersionFromDB(ndb.recentDB, version, func(key, hash []byte) {
-		// Delete orphan key and reverse-lookup key.
-		ndb.recentBatch.Delete(key)
-	})
-
-	traverseOrphansVersionFromDB(ndb.snapshotDB, version, func(key, hash []byte) {
-		// Delete orphan key and reverse-lookup key.
-		ndb.snapshotBatch.Delete(key)
+	// FIXME This fails to take into account future orphans, see:
+	// https://github.com/cosmos/iavl/issues/273
+	ndb.traverseOrphansVersion(version, func(key, hash []byte) {
+		ndb.batch.Delete(key)
 	})
 }
 
