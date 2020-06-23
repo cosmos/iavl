@@ -375,9 +375,6 @@ Lastly, it returns the tree's hash, the latest version, and nil for error.
 
 SaveVersion will error if a tree at the version trying to be saved already exists.
 
-If the IAVL has a custom pruning strategy (`pruningStrategy.keepRecent != 0`), then the nodeDB's `recentDB` must be pruned to ensure that there only exist `keepRecent` versions of the IAVL in the nodeDB. To ensure this, `SaveVersion` will call `PruneRecentVersions` which will return the version numbers which no longer exist in the nodeDB after `recentDB` has been pruned.
-`SaveVersion` will then have to update the versions map to set all pruned versions to `false` so that users are aware that the versions are no longer available.
-
 ### DeleteVersion
 
 DeleteVersion will simply call nodeDB's `DeleteVersion` function which is documented in the [nodeDB docs](./nodedb.md) and then call `nodeDB.Commit` to flush all batched updates.

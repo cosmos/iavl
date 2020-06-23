@@ -361,8 +361,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 }
 
 // LoadVersionForOverwriting attempts to load a tree at a previously committed
-// version. Any versions greater than targetVersion will be deleted along with
-// their respective metadata.
+// version. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
 	latestVersion, err := tree.LoadVersion(targetVersion)
 	if err != nil {
@@ -377,8 +376,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 }
 
 // GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is
-// safe for concurrent access, provided the version is not deleted via `DeleteVersion()` or
-// pruning settings.
+// safe for concurrent access, provided the version is not deleted, e.g. via `DeleteVersion()`.
 func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 	rootHash, err := tree.ndb.getRoot(version)
 	if err != nil {
@@ -457,14 +455,14 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		debug("SAVE EMPTY TREE %v\n", version)
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
-			panic(err)
+			return nil, 0, err
 		}
 	} else {
 		debug("SAVE TREE %v\n", version)
 		tree.ndb.SaveBranch(tree.root)
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
-			panic(err)
+			return nil, 0, err
 		}
 	}
 
@@ -525,8 +523,7 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 }
 
 // DeleteVersion deletes a tree version from disk. The version can then no
-// longer be accessed. Note, the version's metadata will still be retained. In
-// addition, it will contain the time at which the version was deleted.
+// longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
 	debug("DELETE VERSION: %d\n", version)
 

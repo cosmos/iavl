@@ -38,7 +38,7 @@ type nodeDB struct {
 	db             dbm.DB           // Persistent node storage.
 	batch          dbm.Batch        // Batched writing buffer.
 	opts           *Options         // Options to customize for pruning/writing
-	versionReaders map[int64]uint32 // Number of active version readers (prevents pruning)
+	versionReaders map[int64]uint32 // Number of active version readers
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -126,23 +126,20 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	ndb.cacheNode(node)
 }
 
-// Has checks if a hash exists in the recentDB or the snapshotDB.
+// Has checks if a hash exists in the database.
 func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	key := ndb.nodeKey(hash)
-	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		var exists bool
 
+	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(key, nil)
 		if err != nil {
-			return false, errors.Wrap(err, "snapshotDB")
+			return false, err
 		}
-
 		return exists, nil
 	}
-
 	value, err := ndb.db.Get(key)
 	if err != nil {
-		return false, errors.Wrap(err, "snapshotDB")
+		return false, err
 	}
 
 	return value != nil, nil
@@ -177,10 +174,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	return ndb.deleteVersion(version, checkLatestVersion)
-}
 
-func (ndb *nodeDB) deleteVersion(version int64, checkLatestVersion bool) error {
 	if ndb.versionReaders[version] > 0 {
 		return errors.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
 	}
@@ -198,7 +192,6 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	defer ndb.mtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
-
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
@@ -327,7 +320,7 @@ func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	}
 }
 
-// Traverse all keys with a certain prefix from recentDB and disk DB
+// Traverse all keys with a certain prefix.
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte)) {
 	itr, err := dbm.IteratePrefix(ndb.db, prefix)
 	if err != nil {
@@ -360,7 +353,7 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 	}
 }
 
-// Write to disk and memDB
+// Write to disk.
 func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -418,8 +411,8 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", ndb.getLatestVersion()+1, version)
 	}
 
-	ndb.updateLatestVersion(version)
 	ndb.batch.Set(ndb.rootKey(version), hash)
+	ndb.updateLatestVersion(version)
 	return nil
 }
 

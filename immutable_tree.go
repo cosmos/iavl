@@ -19,7 +19,7 @@ type ImmutableTree struct {
 	version int64
 }
 
-// NewImmutableTree creates both in-memory and persistent instances.
+// NewImmutableTree creates both in-memory and persistent instances
 func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
 	if db == nil {
 		// In-memory Tree.
