@@ -34,9 +34,6 @@ Special thanks to external contributors on this release: @ridenaio
 
 ### Improvements
 
-- \#270 Tendermint dependency has been removed. 
-  - If you are using the proof system from IAVL then you must use the proto proof types in this repo. You can not use the Tendermint proof types
-
 - \#271 Add `MutableTree.DeleteVersions()` for deleting multiple versions
 
 - \#235 Reduce `ImmutableTree.Export()` buffer size from 64 to 32 nodes
