@@ -5,7 +5,8 @@
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
 `KeepEvery` and `KeepRecent` has multiple problems with data corruption, performance, and
 memory usage. For these reasons, this functionality has now been removed. All 0.13 users are
-urged to upgrade, and to not change their pruning settings while on 0.13.
+urged to upgrade once the final 0.14.0 release is out, and to not change their pruning settings
+while on 0.13.
 
 If you are using 0.13 with a `KeepEvery` value other than `1` (the default), then when upgrading
 to 0.14 (or newer) it is important to follow these instructions:
