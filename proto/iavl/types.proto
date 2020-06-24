@@ -3,24 +3,6 @@ package iavl;
 
 option go_package = "iavl";
 
-// VersionMetadata defines the metadata associated with a committed IAVL version.
-message VersionMetadata {
-  // tree version for the corresponding metadata
-  int64 version = 1;
-
-  // the UNIX timestamp of when the metadata was committed to disk
-  int64 committed = 2;
-
-  // the UNIX timestamp of when the metadata was updated
-  int64 updated = 3;
-
-  // the root hash of the tree for the corresponding metadata
-  bytes root_hash = 4;
-
-  // if this version corresponds to a version that is flushed to disk
-  bool snapshot = 5;
-}
-
 // ProofOp defines an operation used for calculating Merkle root
 // The data could be arbitrary format, providing nessecary data
 // for example neighbouring node hash

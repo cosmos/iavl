@@ -60,11 +60,6 @@ fullbench:
 		go test $(LDFLAGS) -timeout=60m -bench=LevelDB .
 .PHONY: fullbench
 
-benchprune:
-	cd benchmarks && \
-		go test -bench=PruningStrategies -timeout=24h
-.PHONY: benchprune
-
 # note that this just profiles the in-memory version, not persistence
 profile:
 	cd benchmarks && \

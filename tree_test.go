@@ -1379,7 +1379,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	require := require.New(t)
 
-	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, PruningOptions(1, 0))
+	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil)
 
 	for i := byte(0); i < 20; i++ {
 		tree.Set([]byte{i}, []byte{i})
@@ -1438,17 +1438,20 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	require := require.New(t)
 
-	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, PruningOptions(1, 0))
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil)
+	require.NoError(err)
 
 	for i := byte(0); i < 20; i++ {
 		tree.Set([]byte{i}, []byte{i})
 	}
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	for i := byte(0); i < 20; i++ {
 		tree.Set([]byte{i}, []byte{i + 1})
 	}
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	removedNodes := []*Node{}
 
@@ -1461,12 +1464,14 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	for i := byte(0); i < 20; i++ {
 		tree.Remove([]byte{i})
 	}
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
-	_, err := tree.LoadVersionForOverwriting(1)
+	_, err = tree.LoadVersionForOverwriting(1)
 	require.NoError(err)
 	for _, n := range removedNodes {
-		has, _ := tree.ndb.Has(n.hash)
+		has, err := tree.ndb.Has(n.hash)
+		require.NoError(err)
 		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
 	}
 
