@@ -361,18 +361,30 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 }
 
 // LoadVersionForOverwriting attempts to load a tree at a previously committed
-// version. Any versions greater than targetVersion will be deleted.
+// version, or the latest version below it. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
 	latestVersion, err := tree.LoadVersion(targetVersion)
 	if err != nil {
 		return latestVersion, err
 	}
 
-	if err := tree.deleteVersionsFrom(targetVersion + 1); err != nil {
+	if err = tree.ndb.DeleteVersionsFrom(targetVersion + 1); err != nil {
 		return latestVersion, err
 	}
 
-	return targetVersion, nil
+	if err = tree.ndb.Commit(); err != nil {
+		return latestVersion, err
+	}
+
+	tree.ndb.resetLatestVersion(latestVersion)
+
+	for v := range tree.versions {
+		if v > targetVersion {
+			delete(tree.versions, v)
+		}
+	}
+
+	return latestVersion, nil
 }
 
 // GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is
@@ -536,76 +548,6 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	}
 
 	delete(tree.versions, version)
-	return nil
-}
-
-// deleteVersionsFrom deletes tree version from disk specified version to latest
-// version along with each version's metadata. The version can then no longer be
-// accessed.
-func (tree *MutableTree) deleteVersionsFrom(version int64) error {
-	if version <= 0 {
-		return errors.New("version must be greater than 0")
-	}
-
-	newLatestVersion := version - 1
-	lastestVersion := tree.ndb.getLatestVersion()
-
-	for ; version <= lastestVersion; version++ {
-		if version == tree.version {
-			return errors.Errorf("cannot delete latest saved version (%d)", version)
-		}
-
-		if err := tree.ndb.DeleteVersion(version, false); err != nil {
-			return err
-		}
-
-		if version == lastestVersion {
-			root, err := tree.ndb.getRoot(version)
-			if err != nil {
-				return err
-			}
-
-			if err := tree.deleteNodes(newLatestVersion, root); err != nil {
-				return err
-			}
-		}
-
-		delete(tree.versions, version)
-	}
-
-	tree.ndb.restoreNodes(newLatestVersion)
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	tree.ndb.resetLatestVersion(newLatestVersion)
-	return nil
-}
-
-// deleteNodes deletes all nodes which have greater version than current, because they are not useful anymore
-// FIXME This should probably happen in NodeDB.
-func (tree *MutableTree) deleteNodes(version int64, hash []byte) error {
-	if len(hash) == 0 {
-		return nil
-	}
-
-	node := tree.ndb.GetNode(hash)
-	if node.leftHash != nil {
-		if err := tree.deleteNodes(version, node.leftHash); err != nil {
-			return err
-		}
-	}
-	if node.rightHash != nil {
-		if err := tree.deleteNodes(version, node.rightHash); err != nil {
-			return err
-		}
-	}
-
-	if node.version > version {
-		tree.ndb.batch.Delete(tree.ndb.nodeKey(hash))
-	}
-
 	return nil
 }
 
