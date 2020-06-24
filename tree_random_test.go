@@ -60,9 +60,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, options *Options) {
 		var err error
 		options = &Options{
-			KeepRecent: 0,
-			KeepEvery:  1,
-			Sync:       r.Float64() < syncChance,
+			Sync: r.Float64() < syncChance,
 		}
 		// set the cache size regardless of whether caching is enabled. This ensures we always
 		// call the RNG the same number of times, such that changing settings does not affect
@@ -71,7 +69,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree, err = NewMutableTreeWithOpts(levelDB, db.NewMemDB(), cacheSize, options)
+		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options)
 		require.NoError(t, err)
 		version, err = tree.Load()
 		require.NoError(t, err)

@@ -24,7 +24,6 @@ In Ethereum, the analog is [Patricia tries](http://en.wikipedia.org/wiki/Radix_t
 3. [NodeDB docs](./node/nodedb.md): 
     - Explains how nodes, orphans, roots get saved in database
     - Explains saving and deleting tree logic.
-    - Explains how pruning IAVL tree works
 4. [ImmutableTree docs](./tree/immutable_tree.md)
     - Explains ImmutableTree structure
     - Explains ImmutableTree Iteration functions

@@ -17,7 +17,6 @@ type Node struct {
 	leftNode  *Node  // pointer to left child
         rightHash []byte // hash of right child
 	rightNode *Node  // pointer to right child
-	saved     bool   // saved to memory or disk
 	persisted bool   // persisted to disk
 }
 ```
@@ -132,9 +131,3 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 	return nil
 }
 ```
-
-### Saving vs Persisting
-
-Nodes may be saved in memory or in persistent storage. If the node has been written to memory *or* storage, `node.saved = true`.
-
-`node.persisted = true` only if the node gets written to persistent storage.
