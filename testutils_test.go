@@ -113,7 +113,8 @@ func expectTraverse(t *testing.T, trav traverser, start, end string, count int) 
 }
 
 func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackend, "")
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(b, err)
 	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 

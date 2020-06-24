@@ -106,7 +106,8 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackend, "")
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(b, err)
 	t, err := NewMutableTree(db, 100000)
 	require.NoError(b, err)
 	for i := 0; i < 1000000; i++ {
