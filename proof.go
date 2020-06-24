@@ -2,13 +2,13 @@ package iavl
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 
 	"github.com/pkg/errors"
 
 	amino "github.com/tendermint/go-amino"
 	cmn "github.com/tendermint/iavl/common"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 
 var (
@@ -53,7 +53,7 @@ func (pin ProofInnerNode) stringIndented(indent string) string {
 }
 
 func (pin ProofInnerNode) Hash(childHash []byte) []byte {
-	hasher := sha256.New()
+	hasher := tmhash.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, pin.Height)
@@ -115,7 +115,7 @@ func (pln ProofLeafNode) stringIndented(indent string) string {
 }
 
 func (pln ProofLeafNode) Hash() []byte {
-	hasher := sha256.New()
+	hasher := tmhash.New()
 	buf := new(bytes.Buffer)
 
 	err := amino.EncodeInt8(buf, 0)

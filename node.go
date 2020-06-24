@@ -5,12 +5,13 @@ package iavl
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
 
 	"github.com/pkg/errors"
+
 	amino "github.com/tendermint/go-amino"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 
 // Node represents a node in a Tree.
@@ -199,7 +200,7 @@ func (node *Node) _hash() []byte {
 		return node.hash
 	}
 
-	h := sha256.New()
+	h := tmhash.New()
 	buf := new(bytes.Buffer)
 	if err := node.writeHashBytes(buf); err != nil {
 		panic(err)
@@ -220,7 +221,7 @@ func (node *Node) hashWithCount() ([]byte, int64) {
 		return node.hash, 0
 	}
 
-	h := sha256.New()
+	h := tmhash.New()
 	buf := new(bytes.Buffer)
 	hashCount, err := node.writeHashBytesRecursively(buf)
 	if err != nil {
@@ -299,12 +300,9 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 		if err != nil {
 			return errors.Wrap(err, "writing key")
 		}
-
 		// Indirection needed to provide proofs without values.
 		// (e.g. ProofLeafNode.ValueHash)
-		h := sha256.Sum256(node.value)
-		valueHash := h[:]
-
+		valueHash := tmhash.Sum(node.value)
 		err = amino.EncodeByteSlice(w, valueHash)
 		if err != nil {
 			return errors.Wrap(err, "writing value")

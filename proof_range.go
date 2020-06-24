@@ -2,12 +2,13 @@ package iavl
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
+
+	"github.com/tendermint/tendermint/crypto/tmhash"
 )
 
 type RangeProof struct {
@@ -105,13 +106,10 @@ func (proof *RangeProof) VerifyItem(key, value []byte) error {
 	if i >= len(leaves) || !bytes.Equal(leaves[i].Key, key) {
 		return errors.Wrap(ErrInvalidProof, "leaf key not found in proof")
 	}
-
-	h := sha256.Sum256(value)
-	valueHash := h[:]
+	valueHash := tmhash.Sum(value)
 	if !bytes.Equal(leaves[i].ValueHash, valueHash) {
 		return errors.Wrap(ErrInvalidProof, "leaf value hash not same")
 	}
-
 	return nil
 }
 
@@ -339,12 +337,11 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 		keys = append(keys, left.key) // == keyStart
 		values = append(values, left.value)
 	}
-
-	h := sha256.Sum256(left.value)
+	// Either way, add to proof leaves.
 	var leaves = []ProofLeafNode{
 		{
 			Key:       left.key,
-			ValueHash: h[:],
+			ValueHash: tmhash.Sum(left.value),
 			Version:   left.version,
 		},
 	}
@@ -402,30 +399,24 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 				allPathToLeafs = append(allPathToLeafs, currentPathToLeaf)
 				// Start a new one to track as we traverse the tree.
 				currentPathToLeaf = PathToLeaf(nil)
-
-				h := sha256.Sum256(node.value)
+				// Append leaf to leaves.
 				leaves = append(leaves, ProofLeafNode{
 					Key:       node.key,
-					ValueHash: h[:],
+					ValueHash: tmhash.Sum(node.value),
 					Version:   node.version,
 				})
-
 				leafCount++
-
 				// Maybe terminate because we found enough leaves.
 				if limit > 0 && limit <= leafCount {
 					return true
 				}
-
 				// Terminate if we've found keyEnd or after.
 				if keyEnd != nil && bytes.Compare(node.key, keyEnd) >= 0 {
 					return true
 				}
-
 				// Value is in range, append to keys and values.
 				keys = append(keys, node.key)
 				values = append(values, node.value)
-
 				// Terminate if we've found keyEnd-1 or after.
 				// We don't want to fetch any leaves for it.
 				if keyEnd != nil && bytes.Compare(cpIncr(node.key), keyEnd) >= 0 {

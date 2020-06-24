@@ -3,19 +3,19 @@ package iavl
 import (
 	"bytes"
 	"container/list"
-	"crypto/sha256"
 	"fmt"
 	"math"
 	"sort"
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/tendermint/tendermint/crypto/tmhash"
 	dbm "github.com/tendermint/tm-db"
 )
 
 const (
 	int64Size = 8
-	hashSize  = sha256.Size
+	hashSize  = tmhash.Size
 )
 
 var (
