@@ -20,7 +20,7 @@ func TestRepair013Orphans(t *testing.T) {
 
 	// There is also 0.13-orphans-v6.db containing a database closed immediately after writing
 	// version 6, which should not contain any broken orphans.
-	err = copyDB("testdata/0.13-orphans-v6.db", filepath.Join(dir, "0.13-orphans.db"))
+	err = copyDB("testdata/0.13-orphans.db", filepath.Join(dir, "0.13-orphans.db"))
 	require.NoError(t, err)
 
 	db, err := dbm.NewGoLevelDB("0.13-orphans", dir)
@@ -82,7 +82,6 @@ func TestRepair013Orphans(t *testing.T) {
 
 // assertVersion checks the given version (or current if 0) against the expected values.
 func assertVersion(t *testing.T, tree *MutableTree, version int64) {
-	t.Logf("Checking version %v", version)
 	var err error
 	itree := tree.ImmutableTree
 	if version > 0 {
