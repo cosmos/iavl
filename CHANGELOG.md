@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- Remove unnecessary Protobuf dependencies
+
 ## 0.14.0-rc1 (June 24, 2020)
 
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
