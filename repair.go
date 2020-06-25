@@ -48,6 +48,7 @@ func Repair013Orphans(db dbm.DB) (uint64, error) {
 		if toVersion < version {
 			err = errors.Errorf("Found unexpected orphan with toVersion=%v, lesser than latest version %v",
 				toVersion, version)
+			return
 		}
 		repaired++
 		batch.Delete(k)
