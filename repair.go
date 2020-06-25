@@ -1,6 +1,8 @@
 package iavl
 
 import (
+	"math"
+
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -33,17 +35,27 @@ func Repair013Orphans(db dbm.DB) (uint64, error) {
 		return 0, errors.New("no versions found")
 	}
 
+	var (
+		repaired uint64
+		err      error
+	)
 	batch := db.NewBatch()
-	repaired := uint64(0)
-	ndb.traverseOrphans(func(key, hash []byte) {
+	defer batch.Close()
+	ndb.traverseRange(orphanKeyFormat.Key(version), orphanKeyFormat.Key(math.MaxInt64), func(k, v []byte) {
+		// Sanity check so we don't remove stuff we shouldn't
 		var toVersion int64
-		orphanKeyFormat.Scan(key, &toVersion)
-		if toVersion >= version {
-			repaired++
-			batch.Delete(key)
+		orphanKeyFormat.Scan(k, &toVersion)
+		if toVersion < version {
+			err = errors.Errorf("Found unexpected orphan with toVersion=%v, lesser than latest version %v",
+				toVersion, version)
 		}
+		repaired++
+		batch.Delete(k)
 	})
-	err := batch.WriteSync()
+	if err != nil {
+		return 0, err
+	}
+	err = batch.WriteSync()
 	if err != nil {
 		return 0, err
 	}
