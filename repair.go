@@ -15,8 +15,8 @@ import (
 // The pruning functionality enabled with Options.KeepEvery > 1 would write orphans entries to disk
 // for versions that should only have been saved in memory, and these orphan entries were clamped
 // to the last version persisted to disk instead of the version that generated them. If the
-// database was reopened at the last persisted version and this version was later deleted, the
-// orphaned nodes could be deleted prematurely or incorrectly, causing data loss and database
+// database is reopened at the last persisted version and this version is later deleted, the
+// orphaned nodes can be deleted prematurely or incorrectly, causing data loss and database
 // corruption.
 //
 // This function removes these incorrect orphan entries by deleting all orphan entries that have a
