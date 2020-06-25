@@ -385,6 +385,10 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 		return pversion
 	}
 
+	if err := itr.Error(); err != nil {
+		panic(err)
+	}
+
 	return 0
 }
 
@@ -422,6 +426,10 @@ func (ndb *nodeDB) traverseRange(start []byte, end []byte, fn func(k, v []byte))
 
 	for ; itr.Valid(); itr.Next() {
 		fn(itr.Key(), itr.Value())
+	}
+
+	if err := itr.Error(); err != nil {
+		panic(err)
 	}
 }
 
