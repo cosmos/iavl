@@ -17,7 +17,10 @@ func TestRepair013Orphans(t *testing.T) {
 	dir, err := ioutil.TempDir("", "test-iavl-repair")
 	require.NoError(t, err)
 	defer os.RemoveAll(dir)
-	err = copyDB("testdata/0.13-orphans.db", filepath.Join(dir, "0.13-orphans.db"))
+
+	// There is also 0.13-orphans-v6.db containing a database closed immediately after writing
+	// version 6, which should not contain any broken orphans.
+	err = copyDB("testdata/0.13-orphans-v6.db", filepath.Join(dir, "0.13-orphans.db"))
 	require.NoError(t, err)
 
 	db, err := dbm.NewGoLevelDB("0.13-orphans", dir)
