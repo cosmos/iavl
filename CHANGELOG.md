@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improvements
+
+- Add `Repair013Orphans()` to repair faulty orphans in a database last written to by IAVL 0.13.x
+
 ### Bug Fixes
 
 - Remove unnecessary Protobuf dependencies
