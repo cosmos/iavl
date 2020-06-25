@@ -23,6 +23,9 @@ import (
 // to-version equal to or greater than the latest persisted version. Correct orphans will never
 // have this, since they must have been deleted in the next (non-existent) version for that to be
 // the case.
+//
+// If 0.13 is running with KeepEvery:1 (the default), or if the latest version _ever_ saved to the
+// IAVL tree is persisted to disk (i.e. a multiple of KeepEvery), then this repair is not necessary.
 func Repair013Orphans(db dbm.DB) (uint64, error) {
 	ndb := newNodeDB(db, 0, &Options{Sync: true})
 	version := ndb.getLatestVersion()
