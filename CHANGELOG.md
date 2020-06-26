@@ -55,7 +55,7 @@ Special thanks to external contributors on this release: @ridenaio
 - [\#271](https://github.com/cosmos/iavl/pull/271) Add `MutableTree.DeleteVersions()` for deleting 
   multiple versions
 
-- [\#235](https://github.com/cosmos/iavl/pull/271) Reduce `ImmutableTree.Export()` buffer size from 
+- [\#235](https://github.com/cosmos/iavl/pull/235) Reduce `ImmutableTree.Export()` buffer size from 
   64 to 32 nodes
 
 ### Bug Fixes
