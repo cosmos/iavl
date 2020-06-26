@@ -1,6 +1,34 @@
 # Changelog
 
-## Unreleased
+## 0.14.0-rc2 (June 26, 2020)
+
+**Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
+`KeepEvery` and `KeepRecent` has multiple problems with data corruption, performance, and
+memory usage. For these reasons, this functionality has now been removed. All 0.13 users are
+urged to upgrade once the final 0.14.0 release is out, and to not change their pruning settings
+while on 0.13.
+
+If you are using 0.13 with `KeepEvery` other than `1` (the default), then when upgrading to 0.14
+(or newer) it is important to follow these instructions:
+
+* If possible, upgrade after saving a multiple of `KeepEvery` - for example, with `KeepEvery: 1000`
+  then stop 0.13 immediately after saving e.g. version `7000` to disk. Upgrading to 0.14 is then 
+  safe.
+
+* Otherwise, consider using the `Repair013Orphans()` function to repair faulty data in databases
+  last written to by 0.13. This must be done before opening the database with IAVL 0.14, and a
+  database backup should be taken first.
+
+* Otherwise, after upgrading to 0.14, do not delete the last version saved to disk by 0.13 - this
+  contains incorrect data that may cause data corruption, making the database unusable. For 
+  example, with `KeepEvery: 1000` then stopping 0.13 at version `7364` (saving `7000` to disk) and 
+  upgrading to 0.14 means version `7000` must never be deleted.
+  
+  It may be possible to delete it if the _same sequence_ of changes have been written to the newer 
+  versions as before the upgrade, and all versions between `7000` and `7364` are deleted, but
+  thorough testing and backups are recommended if attempting this.
+
+Users wishing to prune historical versions can do so via `MutableTree.DeleteVersion()`.
 
 ### Improvements
 
@@ -12,29 +40,7 @@
 
 ## 0.14.0-rc1 (June 24, 2020)
 
-**Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
-`KeepEvery` and `KeepRecent` has multiple problems with data corruption, performance, and
-memory usage. For these reasons, this functionality has now been removed. All 0.13 users are
-urged to upgrade once the final 0.14.0 release is out, and to not change their pruning settings
-while on 0.13.
-
-If you are using 0.13 with a `KeepEvery` value other than `1` (the default), then when upgrading
-to 0.14 (or newer) it is important to follow these instructions:
-
-* If possible, upgrade after saving a multiple of `KeepEvery` - for example, with `KeepEvery: 1000`
-  then stop 1.13 immediately after saving e.g. version `7000` to disk. Upgrading to 1.14 is then 
-  safe.
-
-* Otherwise, after upgrading to 0.14, do not delete the last version saved to disk - this
-  contains incorrect data that may cause data corruption, making the database unusable. For 
-  example, with `KeepEvery: 1000` then stopping 1.13 at version `7364` (saving `7000` to disk) and 
-  upgrading to 1.14 means version `7000` must never be deleted.
-  
-  It may be possible to delete it if the _same sequence_ of changes have been written to the newer 
-  versions as before the upgrade, and all versions between `7000` and `7364` are deleted, but
-  thorough testing and backups are recommended if attempting this.
-
-Users wishing to prune historical versions can do so via `MutableTree.DeleteVersion()`.
+See important upgrade information for 0.14.0-rc2 above.
 
 Special thanks to external contributors on this release: @ridenaio
 
