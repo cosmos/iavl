@@ -32,11 +32,12 @@ Users wishing to prune historical versions can do so via `MutableTree.DeleteVers
 
 ### Improvements
 
-- Add `Repair013Orphans()` to repair faulty orphans in a database last written to by IAVL 0.13.x
+- [\#282](https://github.com/cosmos/iavl/pull/282) Add `Repair013Orphans()` to repair faulty 
+  orphans in a database last written to by IAVL 0.13.x
 
 ### Bug Fixes
 
-- Remove unnecessary Protobuf dependencies
+- [\#281](https://github.com/cosmos/iavl/pull/281) Remove unnecessary Protobuf dependencies
 
 ## 0.14.0-rc1 (June 24, 2020)
 
@@ -46,18 +47,21 @@ Special thanks to external contributors on this release: @ridenaio
 
 ### Breaking Changes
 
-- \#274 Remove pruning options `KeepEvery` and `KeepRecent` (see warning above) and the `recentDB`
-  parameter to `NewMutableTreeWithOpts()`.
+- [\#274](https://github.com/cosmos/iavl/pull/274) Remove pruning options `KeepEvery` and 
+  `KeepRecent` (see warning above) and the `recentDB` parameter to `NewMutableTreeWithOpts()`.
 
 ### Improvements
 
-- \#271 Add `MutableTree.DeleteVersions()` for deleting multiple versions
+- [\#271](https://github.com/cosmos/iavl/pull/271) Add `MutableTree.DeleteVersions()` for deleting 
+  multiple versions
 
-- \#235 Reduce `ImmutableTree.Export()` buffer size from 64 to 32 nodes
+- [\#235](https://github.com/cosmos/iavl/pull/271) Reduce `ImmutableTree.Export()` buffer size from 
+  64 to 32 nodes
 
 ### Bug Fixes
 
-- \#275 Fix data corruption with `LoadVersionForOverwriting`
+- [\#275](https://github.com/cosmos/iavl/pull/275) Fix data corruption with 
+  `LoadVersionForOverwriting`
 
 ## 0.13.3 (April 5, 2020)
 
