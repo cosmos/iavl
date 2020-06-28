@@ -362,6 +362,9 @@ func (node *Node) encodedSize() int {
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) error {
+	if node == nil {
+		return errors.New("cannot write nil node")
+	}
 	cause := encodeVarint(w, int64(node.height))
 	if cause != nil {
 		return errors.Wrap(cause, "writing height")
