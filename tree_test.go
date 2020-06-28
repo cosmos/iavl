@@ -99,7 +99,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	require.Equal(tree.nodeSize(), len(tree.ndb.nodes()))
 }
 
-// nolint: go-lint
+// nolint: dupl
 func TestTreeHash(t *testing.T) {
 	const (
 		randSeed  = 49872768940 // For deterministic tests

@@ -58,6 +58,7 @@ func TestNode_encode_decode(t *testing.T) {
 		}, "000206036b65790576616c7565", false},
 	}
 	for name, tc := range testcases {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
 			err := tc.node.writeBytes(&buf)
