@@ -9,9 +9,9 @@ import (
 
 	mrand "math/rand"
 
+	cmn "github.com/cosmos/iavl/common"
 	"github.com/stretchr/testify/require"
 	amino "github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/iavl/common"
 	db "github.com/tendermint/tm-db"
 )
 

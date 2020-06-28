@@ -7,8 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	cmn "github.com/cosmos/iavl/common"
 	amino "github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/iavl/common"
 )
 
 var (

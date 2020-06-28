@@ -7,7 +7,7 @@ HTTPS_GIT := https://github.com/cosmos/iavl.git
 
 PDFFLAGS := -pdf --nodefraction=0.1
 CMDFLAGS := -ldflags -X TENDERMINT_IAVL_COLORS_ON=on 
-LDFLAGS := -ldflags "-X github.com/tendermint/iavl.Version=$(VERSION) -X github.com/tendermint/iavl.Commit=$(COMMIT) -X github.com/tendermint/iavl.Branch=$(BRANCH)"
+LDFLAGS := -ldflags "-X github.com/cosmos/iavl.Version=$(VERSION) -X github.com/cosmos/iavl.Commit=$(COMMIT) -X github.com/cosmos/iavl.Branch=$(BRANCH)"
 
 all: lint test install
 
