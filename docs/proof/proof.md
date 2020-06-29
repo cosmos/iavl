@@ -87,7 +87,7 @@ known as range queries elsewhere.
 ## API Overview
 
 The following is a general overview of the API - for details, see the
-[API reference](https://pkg.go.dev/github.com/tendermint/iavl).
+[API reference](https://pkg.go.dev/github.com/cosmos/iavl).
 
 As an example, we will be using the same IAVL tree as described in the introduction:
 
@@ -110,7 +110,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tendermint/iavl"
+	"github.com/cosmos/iavl"
 	db "github.com/tendermint/tm-db"
 )
 
@@ -344,4 +344,4 @@ hash.
 The information in these proofs is sufficient to reasonably prove that a given value exists (or 
 does not exist) in a given version of an IAVL dataset without fetching the entire dataset, requiring
 only `log₂(n)` hashes for a dataset of `n` items. For more information, please see the
-[API reference](https://pkg.go.dev/github.com/tendermint/iavl).
+[API reference](https://pkg.go.dev/github.com/cosmos/iavl).

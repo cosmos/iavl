@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+The IAVL project has moved from https://github.com/tendermint/iavl to
+https://github.com/cosmos/iavl. This also affects the module import path, which is now
+`github.com/cosmos/iavl`.
+
+### Breaking Changes
+
+- The module path has changed from `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
+
+## 0.14.0-rc1 (FIXME merge from 0.14.x branch)
+
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
 `KeepEvery` and `KeepRecent` has multiple problems with data corruption, performance, and
 memory usage. For these reasons, this functionality has now been removed. All 0.13 users are
