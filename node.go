@@ -8,9 +8,9 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/pkg/errors"
-	amino "github.com/tendermint/go-amino"
 )
 
 // Node represents a node in a Tree.
@@ -46,32 +46,35 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 func MakeNode(buf []byte) (*Node, error) {
 
 	// Read node header (height, size, version, key).
-	height, n, cause := amino.DecodeInt8(buf)
+	height, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.height")
 	}
 	buf = buf[n:]
+	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
+		return nil, errors.New("invalid height, must be int8")
+	}
 
-	size, n, cause := amino.DecodeVarint(buf)
+	size, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.size")
 	}
 	buf = buf[n:]
 
-	ver, n, cause := amino.DecodeVarint(buf)
+	ver, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.version")
 	}
 	buf = buf[n:]
 
-	key, n, cause := amino.DecodeByteSlice(buf)
+	key, n, cause := decodeBytes(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding node.key")
 	}
 	buf = buf[n:]
 
 	node := &Node{
-		height:  height,
+		height:  int8(height),
 		size:    size,
 		version: ver,
 		key:     key,
@@ -80,19 +83,19 @@ func MakeNode(buf []byte) (*Node, error) {
 	// Read node body.
 
 	if node.isLeaf() {
-		val, _, cause := amino.DecodeByteSlice(buf)
+		val, _, cause := decodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "decoding node.value")
 		}
 		node.value = val
 	} else { // Read children.
-		leftHash, n, cause := amino.DecodeByteSlice(buf)
+		leftHash, n, cause := decodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "deocding node.leftHash")
 		}
 		buf = buf[n:]
 
-		rightHash, _, cause := amino.DecodeByteSlice(buf)
+		rightHash, _, cause := decodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "decoding node.rightHash")
 		}
@@ -279,15 +282,15 @@ func (node *Node) validate() error {
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
 func (node *Node) writeHashBytes(w io.Writer) error {
-	err := amino.EncodeInt8(w, node.height)
+	err := encodeVarint(w, int64(node.height))
 	if err != nil {
 		return errors.Wrap(err, "writing height")
 	}
-	err = amino.EncodeVarint(w, node.size)
+	err = encodeVarint(w, node.size)
 	if err != nil {
 		return errors.Wrap(err, "writing size")
 	}
-	err = amino.EncodeVarint(w, node.version)
+	err = encodeVarint(w, node.version)
 	if err != nil {
 		return errors.Wrap(err, "writing version")
 	}
@@ -295,17 +298,16 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 	// Key is not written for inner nodes, unlike writeBytes.
 
 	if node.isLeaf() {
-		err = amino.EncodeByteSlice(w, node.key)
+		err = encodeBytes(w, node.key)
 		if err != nil {
 			return errors.Wrap(err, "writing key")
 		}
 
 		// Indirection needed to provide proofs without values.
 		// (e.g. ProofLeafNode.ValueHash)
-		h := sha256.Sum256(node.value)
-		valueHash := h[:]
+		valueHash := sha256.Sum256(node.value)
 
-		err = amino.EncodeByteSlice(w, valueHash)
+		err = encodeBytes(w, valueHash[:])
 		if err != nil {
 			return errors.Wrap(err, "writing value")
 		}
@@ -313,11 +315,11 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 		if node.leftHash == nil || node.rightHash == nil {
 			panic("Found an empty child hash")
 		}
-		err = amino.EncodeByteSlice(w, node.leftHash)
+		err = encodeBytes(w, node.leftHash)
 		if err != nil {
 			return errors.Wrap(err, "writing left hash")
 		}
-		err = amino.EncodeByteSlice(w, node.rightHash)
+		err = encodeBytes(w, node.rightHash)
 		if err != nil {
 			return errors.Wrap(err, "writing right hash")
 		}
@@ -344,43 +346,46 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 	return
 }
 
-func (node *Node) aminoSize() int {
+func (node *Node) encodedSize() int {
 	n := 1 +
-		amino.VarintSize(node.size) +
-		amino.VarintSize(node.version) +
-		amino.ByteSliceSize(node.key)
+		encodeVarintSize(node.size) +
+		encodeVarintSize(node.version) +
+		encodeBytesSize(node.key)
 	if node.isLeaf() {
-		n += amino.ByteSliceSize(node.value)
+		n += encodeBytesSize(node.value)
 	} else {
-		n += amino.ByteSliceSize(node.leftHash) +
-			amino.ByteSliceSize(node.rightHash)
+		n += encodeBytesSize(node.leftHash) +
+			encodeBytesSize(node.rightHash)
 	}
 	return n
 }
 
 // Writes the node as a serialized byte slice to the supplied io.Writer.
 func (node *Node) writeBytes(w io.Writer) error {
-	cause := amino.EncodeInt8(w, node.height)
+	if node == nil {
+		return errors.New("cannot write nil node")
+	}
+	cause := encodeVarint(w, int64(node.height))
 	if cause != nil {
 		return errors.Wrap(cause, "writing height")
 	}
-	cause = amino.EncodeVarint(w, node.size)
+	cause = encodeVarint(w, node.size)
 	if cause != nil {
 		return errors.Wrap(cause, "writing size")
 	}
-	cause = amino.EncodeVarint(w, node.version)
+	cause = encodeVarint(w, node.version)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version")
 	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
-	cause = amino.EncodeByteSlice(w, node.key)
+	cause = encodeBytes(w, node.key)
 	if cause != nil {
 		return errors.Wrap(cause, "writing key")
 	}
 
 	if node.isLeaf() {
-		cause = amino.EncodeByteSlice(w, node.value)
+		cause = encodeBytes(w, node.value)
 		if cause != nil {
 			return errors.Wrap(cause, "writing value")
 		}
@@ -388,7 +393,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.leftHash == nil {
 			panic("node.leftHash was nil in writeBytes")
 		}
-		cause = amino.EncodeByteSlice(w, node.leftHash)
+		cause = encodeBytes(w, node.leftHash)
 		if cause != nil {
 			return errors.Wrap(cause, "writing left hash")
 		}
@@ -396,7 +401,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.rightHash == nil {
 			panic("node.rightHash was nil in writeBytes")
 		}
-		cause = amino.EncodeByteSlice(w, node.rightHash)
+		cause = encodeBytes(w, node.rightHash)
 		if cause != nil {
 			return errors.Wrap(cause, "writing right hash")
 		}
