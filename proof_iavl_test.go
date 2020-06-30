@@ -67,6 +67,9 @@ func TestProofOp(t *testing.T) {
 					Data: expectBytes,
 				}, proofOp)
 
+				//t.Logf("Expect: %x", expectBytes)
+				//t.Logf("Actual: %x", proofOp.Data)
+
 				d, e := ValueOpDecoder(proofOp)
 				require.NoError(t, e)
 				decoded := d.(ValueOp)

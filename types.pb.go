@@ -130,19 +130,64 @@ func (m *Proof) GetOps() []*ProofOp {
 	return nil
 }
 
+// ProofOpValue is a value proof, used internall to encode and decode ValueOp.
+type ProofOpValue struct {
+	Proof *ProofOpRange `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
+}
+
+func (m *ProofOpValue) Reset()         { *m = ProofOpValue{} }
+func (m *ProofOpValue) String() string { return proto.CompactTextString(m) }
+func (*ProofOpValue) ProtoMessage()    {}
+func (*ProofOpValue) Descriptor() ([]byte, []int) {
+	return fileDescriptor_7ef37c124502d49e, []int{2}
+}
+func (m *ProofOpValue) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ProofOpValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ProofOpValue.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ProofOpValue) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProofOpValue.Merge(m, src)
+}
+func (m *ProofOpValue) XXX_Size() int {
+	return m.Size()
+}
+func (m *ProofOpValue) XXX_DiscardUnknown() {
+	xxx_messageInfo_ProofOpValue.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ProofOpValue proto.InternalMessageInfo
+
+func (m *ProofOpValue) GetProof() *ProofOpRange {
+	if m != nil {
+		return m.Proof
+	}
+	return nil
+}
+
 // ProofOpRange is used internally to encode and decode ValueOp and
 // AbsenceOp proof operations.
 type ProofOpRange struct {
-	LeftPath   *ProofOpPath   `protobuf:"bytes,1,opt,name=left_path,json=leftPath,proto3" json:"left_path,omitempty"`
-	InnerNodes []*ProofOpPath `protobuf:"bytes,2,rep,name=inner_nodes,json=innerNodes,proto3" json:"inner_nodes,omitempty"`
-	Leaves     []*ProofOpLeaf `protobuf:"bytes,3,rep,name=leaves,proto3" json:"leaves,omitempty"`
+	LeftPath   []*ProofOpInner `protobuf:"bytes,1,rep,name=left_path,json=leftPath,proto3" json:"left_path,omitempty"`
+	InnerNodes []*ProofOpPath  `protobuf:"bytes,2,rep,name=inner_nodes,json=innerNodes,proto3" json:"inner_nodes,omitempty"`
+	Leaves     []*ProofOpLeaf  `protobuf:"bytes,3,rep,name=leaves,proto3" json:"leaves,omitempty"`
 }
 
 func (m *ProofOpRange) Reset()         { *m = ProofOpRange{} }
 func (m *ProofOpRange) String() string { return proto.CompactTextString(m) }
 func (*ProofOpRange) ProtoMessage()    {}
 func (*ProofOpRange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{2}
+	return fileDescriptor_7ef37c124502d49e, []int{3}
 }
 func (m *ProofOpRange) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -171,7 +216,7 @@ func (m *ProofOpRange) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ProofOpRange proto.InternalMessageInfo
 
-func (m *ProofOpRange) GetLeftPath() *ProofOpPath {
+func (m *ProofOpRange) GetLeftPath() []*ProofOpInner {
 	if m != nil {
 		return m.LeftPath
 	}
@@ -202,7 +247,7 @@ func (m *ProofOpPath) Reset()         { *m = ProofOpPath{} }
 func (m *ProofOpPath) String() string { return proto.CompactTextString(m) }
 func (*ProofOpPath) ProtoMessage()    {}
 func (*ProofOpPath) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{3}
+	return fileDescriptor_7ef37c124502d49e, []int{4}
 }
 func (m *ProofOpPath) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -241,7 +286,7 @@ func (m *ProofOpPath) GetInners() []*ProofOpInner {
 // ProofOpInner is used internally to encode and decode inner nodes
 // for ProofOpRange.
 type ProofOpInner struct {
-	Height  int32  `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Height  int64  `protobuf:"zigzag64,1,opt,name=height,proto3" json:"height,omitempty"`
 	Size_   int64  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
 	Version int64  `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
 	Left    []byte `protobuf:"bytes,4,opt,name=left,proto3" json:"left,omitempty"`
@@ -252,7 +297,7 @@ func (m *ProofOpInner) Reset()         { *m = ProofOpInner{} }
 func (m *ProofOpInner) String() string { return proto.CompactTextString(m) }
 func (*ProofOpInner) ProtoMessage()    {}
 func (*ProofOpInner) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{4}
+	return fileDescriptor_7ef37c124502d49e, []int{5}
 }
 func (m *ProofOpInner) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -281,7 +326,7 @@ func (m *ProofOpInner) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ProofOpInner proto.InternalMessageInfo
 
-func (m *ProofOpInner) GetHeight() int32 {
+func (m *ProofOpInner) GetHeight() int64 {
 	if m != nil {
 		return m.Height
 	}
@@ -328,7 +373,7 @@ func (m *ProofOpLeaf) Reset()         { *m = ProofOpLeaf{} }
 func (m *ProofOpLeaf) String() string { return proto.CompactTextString(m) }
 func (*ProofOpLeaf) ProtoMessage()    {}
 func (*ProofOpLeaf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{5}
+	return fileDescriptor_7ef37c124502d49e, []int{6}
 }
 func (m *ProofOpLeaf) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -381,6 +426,7 @@ func (m *ProofOpLeaf) GetVersion() int64 {
 func init() {
 	proto.RegisterType((*ProofOp)(nil), "iavl.ProofOp")
 	proto.RegisterType((*Proof)(nil), "iavl.Proof")
+	proto.RegisterType((*ProofOpValue)(nil), "iavl.ProofOpValue")
 	proto.RegisterType((*ProofOpRange)(nil), "iavl.ProofOpRange")
 	proto.RegisterType((*ProofOpPath)(nil), "iavl.ProofOpPath")
 	proto.RegisterType((*ProofOpInner)(nil), "iavl.ProofOpInner")
@@ -390,31 +436,32 @@ func init() {
 func init() { proto.RegisterFile("iavl/types.proto", fileDescriptor_7ef37c124502d49e) }
 
 var fileDescriptor_7ef37c124502d49e = []byte{
-	// 373 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x74, 0x52, 0xb1, 0x4e, 0xe3, 0x40,
-	0x10, 0xcd, 0xc6, 0xb1, 0x73, 0x19, 0xe7, 0xa4, 0xdc, 0xea, 0x74, 0xda, 0xe6, 0x4c, 0xe4, 0xca,
-	0x50, 0x18, 0x29, 0x54, 0xb4, 0xd0, 0x80, 0x84, 0x20, 0xda, 0x0a, 0xd1, 0x44, 0x8b, 0xb2, 0x89,
-	0x2d, 0x2c, 0xdb, 0xf2, 0x1a, 0x4b, 0xa1, 0xe0, 0x1b, 0xf8, 0x01, 0xfe, 0x87, 0x32, 0x25, 0x25,
-	0x4a, 0x7e, 0x04, 0xcd, 0xc4, 0x0e, 0x44, 0x0a, 0xdd, 0x9b, 0x37, 0x6f, 0x66, 0xf6, 0xcd, 0x2c,
-	0x0c, 0x62, 0x55, 0x25, 0xc7, 0xe5, 0x22, 0xd7, 0x26, 0xcc, 0x8b, 0xac, 0xcc, 0x78, 0x07, 0x19,
-	0xff, 0x1c, 0xba, 0xe3, 0x22, 0xcb, 0x66, 0x37, 0x39, 0xe7, 0xd0, 0xc1, 0xbc, 0x60, 0x43, 0x16,
-	0xf4, 0x24, 0x61, 0x3e, 0x00, 0xeb, 0x41, 0x2f, 0x44, 0x7b, 0xc8, 0x82, 0xbe, 0x44, 0x88, 0xaa,
-	0xa9, 0x2a, 0x95, 0xb0, 0x88, 0x22, 0xec, 0x07, 0x60, 0x53, 0x13, 0x7e, 0x00, 0x56, 0x96, 0x1b,
-	0xc1, 0x86, 0x56, 0xe0, 0x8e, 0x7e, 0x87, 0x38, 0x21, 0xac, 0xdb, 0x4b, 0xcc, 0xf8, 0xaf, 0x0c,
-	0xfa, 0x0d, 0xa1, 0xd2, 0xb9, 0xe6, 0x21, 0xf4, 0x12, 0x3d, 0x2b, 0x27, 0xb9, 0x2a, 0x23, 0x9a,
-	0xec, 0x8e, 0xfe, 0xec, 0xd4, 0x8d, 0x55, 0x19, 0xc9, 0x5f, 0xa8, 0x41, 0xc4, 0x47, 0xe0, 0xc6,
-	0x69, 0xaa, 0x8b, 0x49, 0x9a, 0x4d, 0xb5, 0x11, 0x6d, 0x9a, 0xb4, 0xa7, 0x02, 0x48, 0x75, 0x8d,
-	0x22, 0x7e, 0x08, 0x4e, 0xa2, 0x55, 0xa5, 0x8d, 0xb0, 0xf6, 0xc8, 0xaf, 0xb4, 0x9a, 0xc9, 0x5a,
-	0xe0, 0x9f, 0x82, 0xfb, 0xad, 0x0b, 0x3f, 0x02, 0x87, 0xfa, 0x34, 0x96, 0xf8, 0x4e, 0xe5, 0x25,
-	0xa6, 0x64, 0xad, 0xf0, 0x9f, 0xb7, 0xce, 0x88, 0xe7, 0xff, 0xc0, 0x89, 0x74, 0x3c, 0x8f, 0x4a,
-	0xb2, 0x65, 0xcb, 0x3a, 0xc2, 0x05, 0x9a, 0xf8, 0x49, 0xd3, 0x4e, 0x2d, 0x49, 0x98, 0x0b, 0xe8,
-	0x56, 0xba, 0x30, 0x71, 0x96, 0xd2, 0x5e, 0x2d, 0xd9, 0x84, 0xa8, 0x46, 0xef, 0xa2, 0xb3, 0x59,
-	0x37, 0x62, 0xfe, 0x17, 0xec, 0x82, 0x1a, 0xdb, 0x44, 0x6e, 0x02, 0xff, 0x76, 0xfb, 0x74, 0x74,
-	0xd4, 0x5c, 0x8e, 0x7d, 0x5d, 0xee, 0x3f, 0x40, 0xa5, 0x92, 0x47, 0x3d, 0x89, 0x94, 0x89, 0xea,
-	0x93, 0xf6, 0x88, 0xb9, 0x50, 0x26, 0xfa, 0xf9, 0x0d, 0x67, 0xde, 0xdb, 0xca, 0x63, 0xcb, 0x95,
-	0xc7, 0x3e, 0x56, 0x1e, 0x7b, 0x59, 0x7b, 0xad, 0xe5, 0xda, 0x6b, 0xbd, 0xaf, 0xbd, 0xd6, 0x1d,
-	0xfd, 0xa1, 0x7b, 0x87, 0x3e, 0xd4, 0xc9, 0x67, 0x00, 0x00, 0x00, 0xff, 0xff, 0x29, 0xd6, 0xe9,
-	0x1d, 0x64, 0x02, 0x00, 0x00,
+	// 391 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x52, 0xc1, 0x4a, 0xf3, 0x40,
+	0x10, 0xee, 0x36, 0x4d, 0xfa, 0x77, 0xd2, 0x1f, 0xfa, 0x2f, 0x3f, 0xb2, 0x17, 0x63, 0xc9, 0x29,
+	0x7a, 0x68, 0xa1, 0x5e, 0xf4, 0xaa, 0x17, 0x05, 0xd1, 0xb2, 0x07, 0x11, 0x2f, 0x65, 0xa5, 0xdb,
+	0x26, 0x18, 0x92, 0x90, 0x8d, 0x81, 0x7a, 0xf0, 0x19, 0x7c, 0x02, 0x9f, 0xc7, 0x63, 0x8f, 0x1e,
+	0xa5, 0x7d, 0x11, 0x99, 0x69, 0x5a, 0x2d, 0xa8, 0xb7, 0x99, 0x6f, 0xbf, 0xf9, 0x66, 0x66, 0xbf,
+	0x81, 0x4e, 0xa4, 0xca, 0xb8, 0x5f, 0xcc, 0x32, 0x6d, 0x7a, 0x59, 0x9e, 0x16, 0x29, 0x6f, 0x20,
+	0xe2, 0x9f, 0x42, 0x73, 0x98, 0xa7, 0xe9, 0xe4, 0x2a, 0xe3, 0x1c, 0x1a, 0xf8, 0x2e, 0x58, 0x97,
+	0x05, 0x2d, 0x49, 0x31, 0xef, 0x80, 0x75, 0xaf, 0x67, 0xa2, 0xde, 0x65, 0x41, 0x5b, 0x62, 0x88,
+	0xac, 0xb1, 0x2a, 0x94, 0xb0, 0x08, 0xa2, 0xd8, 0x0f, 0xc0, 0x26, 0x11, 0xbe, 0x07, 0x56, 0x9a,
+	0x19, 0xc1, 0xba, 0x56, 0xe0, 0x0e, 0xfe, 0xf6, 0xb0, 0x43, 0xaf, 0x92, 0x97, 0xf8, 0xe2, 0x1f,
+	0x41, 0xbb, 0xca, 0xaf, 0x55, 0xfc, 0xa0, 0x79, 0x00, 0x76, 0x86, 0x39, 0x35, 0x75, 0x07, 0x7c,
+	0xbb, 0x44, 0x25, 0x53, 0x2d, 0x57, 0x04, 0xff, 0x85, 0x6d, 0x4a, 0x09, 0xe7, 0x7d, 0x68, 0xc5,
+	0x7a, 0x52, 0x8c, 0x32, 0x55, 0x84, 0x55, 0xc7, 0xed, 0xf2, 0xf3, 0x24, 0xd1, 0xb9, 0xfc, 0x83,
+	0xa4, 0xa1, 0x2a, 0x42, 0x3e, 0x00, 0x37, 0x42, 0x68, 0x94, 0xa4, 0x63, 0x6d, 0x44, 0x9d, 0x4a,
+	0xfe, 0x6d, 0x95, 0x20, 0x4f, 0x02, 0xb1, 0x2e, 0x91, 0xc4, 0xf7, 0xc1, 0x89, 0xb5, 0x2a, 0xb5,
+	0x11, 0xd6, 0x37, 0xf4, 0x0b, 0xad, 0x26, 0xb2, 0x22, 0xf8, 0xc7, 0xe0, 0x7e, 0x51, 0xe1, 0x07,
+	0xe0, 0x90, 0x8e, 0xf9, 0x65, 0xb6, 0x8a, 0xe1, 0x3f, 0x6d, 0x56, 0x23, 0x9c, 0xef, 0x80, 0x13,
+	0xea, 0x68, 0x1a, 0x16, 0xf4, 0x2d, 0x5c, 0x56, 0x19, 0xfe, 0xbd, 0x89, 0x1e, 0x35, 0xd9, 0x61,
+	0x49, 0x8a, 0xb9, 0x80, 0x66, 0xa9, 0x73, 0x13, 0xa5, 0x09, 0x59, 0x62, 0xc9, 0x75, 0x8a, 0x6c,
+	0xdc, 0x5d, 0x34, 0x56, 0x4e, 0x61, 0xcc, 0xff, 0x83, 0x9d, 0x93, 0xb0, 0x4d, 0xe0, 0x2a, 0xf1,
+	0x6f, 0x36, 0xa3, 0xe3, 0x46, 0x6b, 0xd3, 0xd9, 0xa7, 0xe9, 0xbb, 0x00, 0x25, 0xfa, 0x35, 0x0a,
+	0x95, 0x09, 0xab, 0x6b, 0x68, 0x11, 0x72, 0xa6, 0x4c, 0xf8, 0xf3, 0x0c, 0x27, 0xde, 0xeb, 0xc2,
+	0x63, 0xf3, 0x85, 0xc7, 0xde, 0x17, 0x1e, 0x7b, 0x5e, 0x7a, 0xb5, 0xf9, 0xd2, 0xab, 0xbd, 0x2d,
+	0xbd, 0xda, 0x2d, 0x9d, 0xdf, 0x9d, 0x43, 0xb7, 0x78, 0xf8, 0x11, 0x00, 0x00, 0xff, 0xff, 0x3d,
+	0x74, 0xf8, 0x9c, 0x9f, 0x02, 0x00, 0x00,
 }
 
 func (m *ProofOp) Marshal() (dAtA []byte, err error) {
@@ -498,6 +545,41 @@ func (m *Proof) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ProofOpValue) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ProofOpValue) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ProofOpValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Proof != nil {
+		{
+			size, err := m.Proof.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintTypes(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *ProofOpRange) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -546,17 +628,19 @@ func (m *ProofOpRange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			dAtA[i] = 0x12
 		}
 	}
-	if m.LeftPath != nil {
-		{
-			size, err := m.LeftPath.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
+	if len(m.LeftPath) > 0 {
+		for iNdEx := len(m.LeftPath) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.LeftPath[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintTypes(dAtA, i, uint64(size))
 			}
-			i -= size
-			i = encodeVarintTypes(dAtA, i, uint64(size))
+			i--
+			dAtA[i] = 0xa
 		}
-		i--
-		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -643,7 +727,7 @@ func (m *ProofOpInner) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		dAtA[i] = 0x10
 	}
 	if m.Height != 0 {
-		i = encodeVarintTypes(dAtA, i, uint64(m.Height))
+		i = encodeVarintTypes(dAtA, i, uint64((uint64(m.Height)<<1)^uint64((m.Height>>63))))
 		i--
 		dAtA[i] = 0x8
 	}
@@ -739,15 +823,30 @@ func (m *Proof) Size() (n int) {
 	return n
 }
 
+func (m *ProofOpValue) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Proof != nil {
+		l = m.Proof.Size()
+		n += 1 + l + sovTypes(uint64(l))
+	}
+	return n
+}
+
 func (m *ProofOpRange) Size() (n int) {
 	if m == nil {
 		return 0
 	}
 	var l int
 	_ = l
-	if m.LeftPath != nil {
-		l = m.LeftPath.Size()
-		n += 1 + l + sovTypes(uint64(l))
+	if len(m.LeftPath) > 0 {
+		for _, e := range m.LeftPath {
+			l = e.Size()
+			n += 1 + l + sovTypes(uint64(l))
+		}
 	}
 	if len(m.InnerNodes) > 0 {
 		for _, e := range m.InnerNodes {
@@ -786,7 +885,7 @@ func (m *ProofOpInner) Size() (n int) {
 	var l int
 	_ = l
 	if m.Height != 0 {
-		n += 1 + sovTypes(uint64(m.Height))
+		n += 1 + sozTypes(uint64(m.Height))
 	}
 	if m.Size_ != 0 {
 		n += 1 + sovTypes(uint64(m.Size_))
@@ -1071,6 +1170,95 @@ func (m *Proof) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ProofOpValue) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTypes
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ProofOpValue: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ProofOpValue: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Proof", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTypes
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthTypes
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Proof == nil {
+				m.Proof = &ProofOpRange{}
+			}
+			if err := m.Proof.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTypes(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthTypes
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1129,10 +1317,8 @@ func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.LeftPath == nil {
-				m.LeftPath = &ProofOpPath{}
-			}
-			if err := m.LeftPath.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			m.LeftPath = append(m.LeftPath, &ProofOpInner{})
+			if err := m.LeftPath[len(m.LeftPath)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -1348,7 +1534,7 @@ func (m *ProofOpInner) Unmarshal(dAtA []byte) error {
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Height", wireType)
 			}
-			m.Height = 0
+			var v uint64
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowTypes
@@ -1358,11 +1544,13 @@ func (m *ProofOpInner) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.Height |= int32(b&0x7F) << shift
+				v |= uint64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
+			v = (v >> 1) ^ uint64((int64(v&1)<<63)>>63)
+			m.Height = int64(v)
 		case 2:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Size_", wireType)

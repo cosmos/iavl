@@ -306,14 +306,14 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 }
 
 // toProto converts the proof to a Protobuf representation, for use in ValueOp and AbsenceOp.
-func (proof *RangeProof) toProto() ProofOpRange {
-	pb := ProofOpRange{
-		LeftPath:   &ProofOpPath{Inners: make([]*ProofOpInner, 0, len(proof.LeftPath))},
+func (proof *RangeProof) toProto() *ProofOpRange {
+	pb := &ProofOpRange{
+		LeftPath:   make([]*ProofOpInner, 0, len(proof.LeftPath)),
 		InnerNodes: make([]*ProofOpPath, 0, len(proof.InnerNodes)),
 		Leaves:     make([]*ProofOpLeaf, 0, len(proof.Leaves)),
 	}
 	for _, inner := range proof.LeftPath {
-		pb.LeftPath.Inners = append(pb.LeftPath.Inners, inner.toProto())
+		pb.LeftPath = append(pb.LeftPath, inner.toProto())
 	}
 	for _, path := range proof.InnerNodes {
 		pbPath := make([]*ProofOpInner, 0, len(path))

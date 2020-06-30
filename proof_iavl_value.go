@@ -45,7 +45,7 @@ func ValueOpDecoder(pop ProofOp) (ProofOperator, error) {
 }
 
 func (op ValueOp) ProofOp() ProofOp {
-	pbProof := op.Proof.toProto()
+	pbProof := ProofOpValue{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
 		panic(err)

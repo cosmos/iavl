@@ -92,7 +92,7 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 // toProto converts the inner node proof to Protobuf, for use in ProofOps.
 func (pin ProofInnerNode) toProto() *ProofOpInner {
 	return &ProofOpInner{
-		Height:  int32(pin.Height),
+		Height:  int64(pin.Height),
 		Size_:   pin.Size,
 		Version: pin.Version,
 		Left:    pin.Left,
