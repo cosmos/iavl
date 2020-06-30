@@ -28,7 +28,7 @@ message ProofOpRange {
 // ProofOpPath is used internally to encode and decode leaf
 // node paths for ProofOpRange.
 message ProofOpPath {
-  repeated ProofOpInner inners = 2;
+  repeated ProofOpInner inners = 1;
 }
 
 // ProofOpInner is used internally to encode and decode inner nodes
