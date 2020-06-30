@@ -89,6 +89,17 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 	return hasher.Sum(nil)
 }
 
+// toProto converts the inner node proof to Protobuf, for use in ProofOps.
+func (pin ProofInnerNode) toProto() *ProofOpInner {
+	return &ProofOpInner{
+		Height:  int32(pin.Height),
+		Size_:   pin.Size,
+		Version: pin.Version,
+		Left:    pin.Left,
+		Right:   pin.Right,
+	}
+}
+
 //----------------------------------------
 
 type ProofLeafNode struct {
@@ -140,6 +151,15 @@ func (pln ProofLeafNode) Hash() []byte {
 	}
 
 	return hasher.Sum(nil)
+}
+
+// toProto converts the leaf node proof to Protobuf, for use in ProofOps.
+func (pln ProofLeafNode) toProto() *ProofOpLeaf {
+	return &ProofOpLeaf{
+		Key:       pln.Key,
+		ValueHash: pln.ValueHash,
+		Version:   pln.Version,
+	}
 }
 
 //----------------------------------------

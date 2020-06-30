@@ -45,7 +45,15 @@ func ValueOpDecoder(pop ProofOp) (ProofOperator, error) {
 }
 
 func (op ValueOp) ProofOp() ProofOp {
-	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
+	pbProof := op.Proof.toProto()
+	bz, err := pbProof.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	bz, err = encodeLengthPrefix(bz)
+	if err != nil {
+		panic(err)
+	}
 	return ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,
