@@ -44,7 +44,15 @@ func AbsenceOpDecoder(pop ProofOp) (ProofOperator, error) {
 }
 
 func (op AbsenceOp) ProofOp() ProofOp {
-	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
+	pbProof := ProofOpAbsence{Proof: op.Proof.toProto()}
+	bz, err := pbProof.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	bz, err = encodeLengthPrefix(bz)
+	if err != nil {
+		panic(err)
+	}
 	return ProofOp{
 		Type: ProofOpIAVLAbsence,
 		Key:  op.key,

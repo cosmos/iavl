@@ -17,10 +17,16 @@ message Proof {
   repeated ProofOp ops = 1;
 }
 
-// ProofOpValue is a value proof, used internall to encode and decode ValueOp.
+// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
 message ProofOpValue {
   ProofOpRange proof = 1;
 }
+
+// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
+message ProofOpAbsence {
+  ProofOpRange proof = 1;
+}
+
 
 // ProofOpRange is used internally to encode and decode ValueOp and
 // AbsenceOp proof operations.
@@ -39,7 +45,7 @@ message ProofOpPath {
 // ProofOpInner is used internally to encode and decode inner nodes
 // for ProofOpRange.
 message ProofOpInner {
-  sint64 height  = 1;
+  sint32 height  = 1;
   int64  size    = 2;
   int64  version = 3;
   bytes  left    = 4;
