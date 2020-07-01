@@ -1,16 +1,15 @@
-package ics23
+package iavl
 
 import (
-	"testing"
 	"bytes"
 	"fmt"
 	"math/rand"
 	"sort"
+	"testing"
 
 	ics23 "github.com/confio/ics23/go"
 	"github.com/stretchr/testify/require"
-	
-	"github.com/tendermint/iavl"
+
 	db "github.com/tendermint/tm-db"
 )
 
@@ -95,12 +94,11 @@ func TestCreateNonMembership(t *testing.T) {
 
 // Test Helpers
 
-
 // Result is the result of one match
 type Result struct {
 	Key      []byte
 	Value    []byte
-	Proof    *iavl.RangeProof
+	Proof    *RangeProof
 	RootHash []byte
 }
 
@@ -174,8 +172,8 @@ func GetNonKey(allkeys [][]byte, loc Where) []byte {
 
 // BuildTree creates random key/values and stores in tree
 // returns a list of all keys in sorted order
-func BuildTree(size int) (itree *iavl.ImmutableTree, keys [][]byte, err error) {
-	tree, _ := iavl.NewMutableTree(db.NewMemDB(), 0)
+func BuildTree(size int) (itree *ImmutableTree, keys [][]byte, err error) {
+	tree, _ := NewMutableTree(db.NewMemDB(), 0)
 
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)
@@ -192,4 +190,3 @@ func BuildTree(size int) (itree *iavl.ImmutableTree, keys [][]byte, err error) {
 
 	return tree.ImmutableTree, keys, nil
 }
-

@@ -1,17 +1,16 @@
-package ics23
+package iavl
 
 import (
 	"fmt"
 
 	ics23 "github.com/confio/ics23/go"
-	"github.com/tendermint/iavl"
 )
 
 /*
 CreateMembershipProof will produce a CommitmentProof that the given key (and queries value) exists in the iavl tree.
 If the key doesn't exist in the tree, this will return an error.
 */
-func CreateMembershipProof(tree *iavl.ImmutableTree, key []byte) (*ics23.CommitmentProof, error) {
+func CreateMembershipProof(tree *ImmutableTree, key []byte) (*ics23.CommitmentProof, error) {
 	exist, err := createExistenceProof(tree, key)
 	if err != nil {
 		return nil, err
@@ -28,7 +27,7 @@ func CreateMembershipProof(tree *iavl.ImmutableTree, key []byte) (*ics23.Commitm
 CreateNonMembershipProof will produce a CommitmentProof that the given key doesn't exist in the iavl tree.
 If the key exists in the tree, this will return an error.
 */
-func CreateNonMembershipProof(tree *iavl.ImmutableTree, key []byte) (*ics23.CommitmentProof, error) {
+func CreateNonMembershipProof(tree *ImmutableTree, key []byte) (*ics23.CommitmentProof, error) {
 	// idx is one node right of what we want....
 	idx, val := tree.Get(key)
 	if val != nil {
@@ -65,7 +64,7 @@ func CreateNonMembershipProof(tree *iavl.ImmutableTree, key []byte) (*ics23.Comm
 	return proof, nil
 }
 
-func createExistenceProof(tree *iavl.ImmutableTree, key []byte) (*ics23.ExistenceProof, error) {
+func createExistenceProof(tree *ImmutableTree, key []byte) (*ics23.ExistenceProof, error) {
 	value, proof, err := tree.GetWithProof(key)
 	if err != nil {
 		return nil, err
@@ -81,7 +80,7 @@ func createExistenceProof(tree *iavl.ImmutableTree, key []byte) (*ics23.Existenc
 //
 // This is the simplest case of the range proof and we will focus on
 // demoing compatibility here
-func convertExistenceProof(p *iavl.RangeProof, key, value []byte) (*ics23.ExistenceProof, error) {
+func convertExistenceProof(p *RangeProof, key, value []byte) (*ics23.ExistenceProof, error) {
 	if len(p.Leaves) != 1 {
 		return nil, fmt.Errorf("existence proof requires RangeProof to have exactly one leaf")
 	}
@@ -108,7 +107,7 @@ func convertLeafOp(version int64) *ics23.LeafOp {
 }
 
 // we cannot get the proofInnerNode type, so we need to do the whole path in one function
-func convertInnerOps(path iavl.PathToLeaf) []*ics23.InnerOp {
+func convertInnerOps(path PathToLeaf) []*ics23.InnerOp {
 	steps := make([]*ics23.InnerOp, 0, len(path))
 
 	// lengthByte is the length prefix prepended to each of the sha256 sub-hashes
