@@ -151,6 +151,7 @@ func GetKey(allkeys [][]byte, loc Where) []byte {
 		return allkeys[len(allkeys)-1]
 	}
 	// select a random index between 1 and allkeys-2
+	// nolint:gosec
 	idx := rand.Int()%(len(allkeys)-2) + 1
 	return allkeys[idx]
 }
@@ -179,6 +180,7 @@ func BuildTree(size int) (itree *ImmutableTree, keys [][]byte, err error) {
 	keys = make([][]byte, size)
 	for i := 0; i < size; i++ {
 		// create random 4 byte key
+		// nolint:gosec
 		key := []byte{byte(rand.Uint64()), byte(rand.Uint64()), byte(rand.Uint64()), byte(rand.Uint64())}
 		value := "value_for_key:" + string(key)
 		tree.Set(key, []byte(value))
