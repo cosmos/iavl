@@ -1,9 +1,0 @@
-goos: linux
-goarch: amd64
-pkg: github.com/tendermint/iavl/benchmarks
-BenchmarkPruningStrategies/PruningStrategy{1-0}-KeyLen:16-DataLen:40-4         	       1	3476623971 ns/op
-BenchmarkPruningStrategies/PruningStrategy{0-1}-KeyLen:16-DataLen:40-4         	       1	2103728119 ns/op
-BenchmarkPruningStrategies/PruningStrategy{100-1}-KeyLen:16-DataLen:40-4       	       1	2289531671 ns/op
-BenchmarkPruningStrategies/PruningStrategy{100-5}-KeyLen:16-DataLen:40-4       	       1	2772934060 ns/op
-PASS
-ok  	github.com/tendermint/iavl/benchmarks	21.531s

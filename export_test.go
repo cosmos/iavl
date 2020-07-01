@@ -45,6 +45,7 @@ func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
 }
 
 // setupExportTreeRandom sets up a randomly generated tree.
+// nolint: dupl
 func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 	const (
 		randSeed  = 49872768940 // For deterministic tests
@@ -269,47 +270,6 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 	exporter.Close()
 	err = tree.DeleteVersion(2)
 	require.NoError(t, err)
-}
-
-func TestExporter_PruneVersionIgnores(t *testing.T) {
-	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), 0, &Options{
-		KeepEvery:  10,
-		KeepRecent: 2,
-	})
-	require.NoError(t, err)
-
-	tree.Set([]byte("a"), []byte{1})
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
-
-	tree.Set([]byte("b"), []byte{2})
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
-
-	tree.Set([]byte("c"), []byte{3})
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
-
-	require.Equal(t, []int{2, 3}, tree.AvailableVersions())
-
-	itree, err := tree.GetImmutable(2)
-	require.NoError(t, err)
-	exporter := itree.Export()
-	defer exporter.Close()
-
-	tree.Set([]byte("d"), []byte{4})
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
-
-	require.Equal(t, []int{2, 3, 4}, tree.AvailableVersions())
-
-	exporter.Close()
-	tree.Set([]byte("e"), []byte{5})
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
-
-	// FIXME This seems like a bug in the version pruner; version 2 should have been pruned here
-	require.Equal(t, []int{2, 4, 5}, tree.AvailableVersions())
 }
 
 func BenchmarkExport(b *testing.B) {

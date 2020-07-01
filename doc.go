@@ -4,12 +4,12 @@
 // The tree is not safe for concurrent use, and must be guarded by a Mutex
 // or RWLock as appropriate - the exception is immutable trees returned by
 // MutableTree.GetImmutable() which are safe for concurrent use as long as
-// the version is not deleted via DeleteVersion() or pruning settings.
+// the version is not deleted via DeleteVersion().
 //
 //
 // Basic usage of MutableTree:
 //
-//  import "github.com/tendermint/iavl"
+//  import "github.com/cosmos/iavl"
 //  import "github.com/tendermint/tm-db"
 //  ...
 //

@@ -9,9 +9,8 @@ import (
 
 	mrand "math/rand"
 
+	cmn "github.com/cosmos/iavl/common"
 	"github.com/stretchr/testify/require"
-	amino "github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/iavl/common"
 	db "github.com/tendermint/tm-db"
 )
 
@@ -21,24 +20,21 @@ func randstr(length int) string {
 
 func i2b(i int) []byte {
 	buf := new(bytes.Buffer)
-	amino.EncodeInt32(buf, int32(i))
+	encodeVarint(buf, int64(i))
 	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i, _, _ := amino.DecodeInt32(bz)
+	i, _, err := decodeVarint(bz)
+	if err != nil {
+		panic(err)
+	}
 	return int(i)
 }
 
-// Construct a MutableTree with random pruning parameters
+// Construct a MutableTree
 func getTestTree(cacheSize int) (*MutableTree, error) {
-	keepRecent := mrand.Int63n(8) + 3        //keep at least 3 versions in memDB
-	keepEvery := (mrand.Int63n(3) + 1) * 100 // snapshot every {100,200,300} versions
-
-	opts := PruningOptions(keepEvery, keepRecent)
-
-	// Use MemDB for recentDB and snapshotDB
-	return NewMutableTreeWithOpts(db.NewMemDB(), db.NewMemDB(), cacheSize, opts)
+	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil)
 }
 
 // Convenience for a new node
@@ -119,7 +115,8 @@ func expectTraverse(t *testing.T, trav traverser, start, end string, count int) 
 }
 
 func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackend, "")
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(b, err)
 	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 

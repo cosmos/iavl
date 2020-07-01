@@ -2,20 +2,58 @@
 
 ## Unreleased
 
-Special thanks to external contributors on this release:
+The IAVL project has moved from https://github.com/tendermint/iavl to
+https://github.com/cosmos/iavl. This also affects the module import path, which is now
+`github.com/cosmos/iavl`.
 
 ### Breaking Changes
 
+- The module path has changed from `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
+
+## 0.14.0-rc1 (FIXME merge from 0.14.x branch)
+
+**Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
+`KeepEvery` and `KeepRecent` has multiple problems with data corruption, performance, and
+memory usage. For these reasons, this functionality has now been removed. All 0.13 users are
+urged to upgrade, and to not change their pruning settings while on 0.13.
+
+If you are using 0.13 with a `KeepEvery` value other than `1` (the default), then when upgrading
+to 0.14 (or newer) it is important to follow these instructions:
+
+* If possible, upgrade after saving a multiple of `KeepEvery` - for example, with `KeepEvery: 1000`
+  then stop 1.13 immediately after saving e.g. version `7000` to disk. Upgrading to 1.14 is then 
+  safe.
+
+* Otherwise, after upgrading to 0.14, do not delete the last version saved to disk - this
+  contains incorrect data that may cause data corruption, making the database unusable. For 
+  example, with `KeepEvery: 1000` then stopping 1.13 at version `7364` (saving `7000` to disk) and 
+  upgrading to 1.14 means version `7000` must never be deleted.
+  
+  It may be possible to delete it if the _same sequence_ of changes have been written to the newer 
+  versions as before the upgrade, and all versions between `7000` and `7364` are deleted, but
+  thorough testing and backups are recommended if attempting this.
+
+Users wishing to prune historical versions can do so via `MutableTree.DeleteVersion()`.
+
+Special thanks to external contributors on this release: @ridenaio
+
+### Breaking Changes
+
+- \#274 Remove pruning options `KeepEvery` and `KeepRecent` (see warning above) and the `recentDB`
+  parameter to `NewMutableTreeWithOpts()`.
+
 ### Improvements
 
-- [\#239](https://github.com/tendermint/iavl/pull/239) Implement `MutableTree#FlushVersion` which allows a version to be manually flushed to disk.
 - \#270 Tendermint dependency has been removed. 
   - If you are using the proof system from IAVL then you must use the proto proof types in this repo. You can not use the Tendermint proof types
 
+- \#271 Add `MutableTree.DeleteVersions()` for deleting multiple versions
+
+- \#235 Reduce `ImmutableTree.Export()` buffer size from 64 to 32 nodes
+
 ### Bug Fixes
 
-- [\#239](https://github.com/tendermint/iavl/pull/239) Fix `MutableTree#VersionExists` by also checking if a version exists in the snapshotDB.
-- [orphans] [\#145](https://github.com/tendermint/iavl/pull/145) LoadVersionForOverwriting transits orphans to non-orphans for overwriting version and removes nodes, which become useless  
+- \#275 Fix data corruption with `LoadVersionForOverwriting`
 
 ## 0.13.3 (April 5, 2020)
 

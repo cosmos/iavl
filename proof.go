@@ -7,8 +7,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	amino "github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/iavl/common"
+	cmn "github.com/cosmos/iavl/common"
 )
 
 var (
@@ -56,27 +55,27 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
-	err := amino.EncodeInt8(buf, pin.Height)
+	err := encodeVarint(buf, int64(pin.Height))
 	if err == nil {
-		err = amino.EncodeVarint(buf, pin.Size)
+		err = encodeVarint(buf, pin.Size)
 	}
 	if err == nil {
-		err = amino.EncodeVarint(buf, pin.Version)
+		err = encodeVarint(buf, pin.Version)
 	}
 
 	if len(pin.Left) == 0 {
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, childHash)
+			err = encodeBytes(buf, childHash)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, pin.Right)
+			err = encodeBytes(buf, pin.Right)
 		}
 	} else {
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, pin.Left)
+			err = encodeBytes(buf, pin.Left)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, childHash)
+			err = encodeBytes(buf, childHash)
 		}
 	}
 	if err != nil {
@@ -118,18 +117,18 @@ func (pln ProofLeafNode) Hash() []byte {
 	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
-	err := amino.EncodeInt8(buf, 0)
+	err := encodeVarint(buf, 0)
 	if err == nil {
-		err = amino.EncodeVarint(buf, 1)
+		err = encodeVarint(buf, 1)
 	}
 	if err == nil {
-		err = amino.EncodeVarint(buf, pln.Version)
+		err = encodeVarint(buf, pln.Version)
 	}
 	if err == nil {
-		err = amino.EncodeByteSlice(buf, pln.Key)
+		err = encodeBytes(buf, pln.Key)
 	}
 	if err == nil {
-		err = amino.EncodeByteSlice(buf, pln.ValueHash)
+		err = encodeBytes(buf, pln.ValueHash)
 	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash ProofLeafNode: %v", err))
