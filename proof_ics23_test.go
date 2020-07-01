@@ -26,7 +26,7 @@ func TestConvertExistence(t *testing.T) {
 	require.Equal(t, []byte(calc), proof.RootHash, "Calculated: %X\nExpected:   %X", calc, proof.RootHash)
 }
 
-func TestCreateMembership(t *testing.T) {
+func TestGetMembership(t *testing.T) {
 	cases := map[string]struct {
 		size int
 		loc  Where
@@ -47,7 +47,7 @@ func TestCreateMembership(t *testing.T) {
 
 			key := GetKey(allkeys, tc.loc)
 			_, val := tree.Get(key)
-			proof, err := CreateMembershipProof(tree, key)
+			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
 			root := tree.Hash()
@@ -59,7 +59,7 @@ func TestCreateMembership(t *testing.T) {
 	}
 }
 
-func TestCreateNonMembership(t *testing.T) {
+func TestGetNonMembership(t *testing.T) {
 	cases := map[string]struct {
 		size int
 		loc  Where
@@ -80,7 +80,7 @@ func TestCreateNonMembership(t *testing.T) {
 
 			key := GetNonKey(allkeys, tc.loc)
 
-			proof, err := CreateNonMembershipProof(tree, key)
+			proof, err := tree.GetNonMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
 			root := tree.Hash()

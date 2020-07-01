@@ -7,10 +7,10 @@ import (
 )
 
 /*
-CreateMembershipProof will produce a CommitmentProof that the given key (and queries value) exists in the iavl tree.
+GetMembershipProof will produce a CommitmentProof that the given key (and queries value) exists in the iavl tree.
 If the key doesn't exist in the tree, this will return an error.
 */
-func CreateMembershipProof(tree *ImmutableTree, key []byte) (*ics23.CommitmentProof, error) {
+func (tree *ImmutableTree) GetMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
 	exist, err := createExistenceProof(tree, key)
 	if err != nil {
 		return nil, err
@@ -24,10 +24,10 @@ func CreateMembershipProof(tree *ImmutableTree, key []byte) (*ics23.CommitmentPr
 }
 
 /*
-CreateNonMembershipProof will produce a CommitmentProof that the given key doesn't exist in the iavl tree.
+GetNonMembershipProof will produce a CommitmentProof that the given key doesn't exist in the iavl tree.
 If the key exists in the tree, this will return an error.
 */
-func CreateNonMembershipProof(tree *ImmutableTree, key []byte) (*ics23.CommitmentProof, error) {
+func (tree *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
 	// idx is one node right of what we want....
 	idx, val := tree.Get(key)
 	if val != nil {
