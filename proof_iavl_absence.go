@@ -3,6 +3,7 @@ package iavl
 import (
 	"fmt"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -35,12 +36,24 @@ func AbsenceOpDecoder(pop ProofOp) (ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
-	var op AbsenceOp // a bit strange as we'll discard this, but it works.
-	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
+	// Strip the varint length prefix, used for backwards compatibility with Amino.
+	bz, n, err := decodeBytes(pop.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLAbsenceOp")
+		return nil, err
 	}
-	return NewAbsenceOp(pop.Key, op.Proof), nil
+	if n != len(pop.Data) {
+		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
+	}
+	pbProofOp := &ProofOpAbsence{}
+	err = proto.Unmarshal(bz, pbProofOp)
+	if err != nil {
+		return nil, err
+	}
+	proof, err := rangeProofFromProto(pbProofOp.Proof)
+	if err != nil {
+		return nil, err
+	}
+	return NewAbsenceOp(pop.Key, &proof), nil
 }
 
 func (op AbsenceOp) ProofOp() ProofOp {
@@ -49,7 +62,8 @@ func (op AbsenceOp) ProofOp() ProofOp {
 	if err != nil {
 		panic(err)
 	}
-	bz, err = encodeLengthPrefix(bz)
+	// We length-prefix the byte slice to retain backwards compatibility with the Amino proofs.
+	bz, err = encodeBytesSlice(bz)
 	if err != nil {
 		panic(err)
 	}

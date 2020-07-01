@@ -69,6 +69,13 @@ func encodeBytes(w io.Writer, bz []byte) error {
 	return err
 }
 
+// encodeBytesSlice length-prefixes the byte slice and returns it.
+func encodeBytesSlice(bz []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	err := encodeBytes(&buf, bz)
+	return buf.Bytes(), err
+}
+
 // encodeBytesSize returns the byte size of the given slice including length-prefixing.
 func encodeBytesSize(bz []byte) int {
 	return encodeUvarintSize(uint64(len(bz))) + len(bz)
@@ -102,18 +109,4 @@ func encodeVarint(w io.Writer, i int64) error {
 func encodeVarintSize(i int64) int {
 	var buf [binary.MaxVarintLen64]byte
 	return binary.PutVarint(buf[:], i)
-}
-
-// encodeLengthPrefix length-prefixes the given byte slice with a varint.
-func encodeLengthPrefix(bz []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	err := encodeUvarint(&buf, uint64(len(bz)))
-	if err != nil {
-		return nil, err
-	}
-	_, err = buf.Write(bz)
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }

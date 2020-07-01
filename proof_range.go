@@ -329,6 +329,42 @@ func (proof *RangeProof) toProto() *ProofOpRange {
 	return pb
 }
 
+// rangeProofFromProto generates a RangeProof from a Protobuf ProofOpRange.
+func rangeProofFromProto(pbProof *ProofOpRange) (RangeProof, error) {
+	proof := RangeProof{}
+
+	for _, pbInner := range pbProof.LeftPath {
+		inner, err := proofInnerNodeFromProto(pbInner)
+		if err != nil {
+			return proof, err
+		}
+		proof.LeftPath = append(proof.LeftPath, inner)
+	}
+
+	for _, pbPath := range pbProof.InnerNodes {
+		var path PathToLeaf // leave as nil unless populated, for Amino compatibility
+		if pbPath != nil {
+			for _, pbInner := range pbPath.Inners {
+				inner, err := proofInnerNodeFromProto(pbInner)
+				if err != nil {
+					return proof, err
+				}
+				path = append(path, inner)
+			}
+		}
+		proof.InnerNodes = append(proof.InnerNodes, path)
+	}
+
+	for _, pbLeaf := range pbProof.Leaves {
+		leaf, err := proofLeafNodeFromProto(pbLeaf)
+		if err != nil {
+			return proof, err
+		}
+		proof.Leaves = append(proof.Leaves, leaf)
+	}
+	return proof, nil
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 
 // keyStart is inclusive and keyEnd is exclusive.
