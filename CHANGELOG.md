@@ -10,6 +10,10 @@ https://github.com/cosmos/iavl. This also affects the module import path, which 
 
 - The module path has changed from `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
 
+### Improvements
+
+- Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
+
 ## 0.14.0-rc1 (FIXME merge from 0.14.x branch)
 
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
