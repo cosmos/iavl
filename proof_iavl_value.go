@@ -5,6 +5,7 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/tendermint/tendermint/crypto/merkle"
 )
 
 const ProofOpIAVLValue = "iavl:v"
@@ -24,7 +25,7 @@ type ValueOp struct {
 	Proof *RangeProof `json:"proof"`
 }
 
-var _ ProofOperator = ValueOp{}
+var _ merkle.ProofOperator = ValueOp{}
 
 func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 	return ValueOp{
@@ -33,7 +34,7 @@ func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 	}
 }
 
-func ValueOpDecoder(pop ProofOp) (ProofOperator, error) {
+func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
@@ -57,7 +58,7 @@ func ValueOpDecoder(pop ProofOp) (ProofOperator, error) {
 	return NewValueOp(pop.Key, &proof), nil
 }
 
-func (op ValueOp) ProofOp() ProofOp {
+func (op ValueOp) ProofOp() merkle.ProofOp {
 	pbProof := ProofOpValue{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
@@ -68,7 +69,7 @@ func (op ValueOp) ProofOp() ProofOp {
 	if err != nil {
 		panic(err)
 	}
-	return ProofOp{
+	return merkle.ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,
 		Data: bz,
