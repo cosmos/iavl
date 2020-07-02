@@ -3,6 +3,7 @@ package iavl
 import (
 	"fmt"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -36,16 +37,37 @@ func ValueOpDecoder(pop ProofOp) (ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
-	var op ValueOp // a bit strange as we'll discard this, but it works.
-	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
+	// Strip the varint length prefix, used for backwards compatibility with Amino.
+	bz, n, err := decodeBytes(pop.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLValueOp")
+		return nil, err
 	}
-	return NewValueOp(pop.Key, op.Proof), nil
+	if n != len(pop.Data) {
+		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
+	}
+	pbProofOp := &ProofOpValue{}
+	err = proto.Unmarshal(bz, pbProofOp)
+	if err != nil {
+		return nil, err
+	}
+	proof, err := rangeProofFromProto(pbProofOp.Proof)
+	if err != nil {
+		return nil, err
+	}
+	return NewValueOp(pop.Key, &proof), nil
 }
 
 func (op ValueOp) ProofOp() ProofOp {
-	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
+	pbProof := ProofOpValue{Proof: op.Proof.toProto()}
+	bz, err := pbProof.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	// We length-prefix the byte slice to retain backwards compatibility with the Amino proofs.
+	bz, err = encodeBytesSlice(bz)
+	if err != nil {
+		panic(err)
+	}
 	return ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,

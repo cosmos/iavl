@@ -16,3 +16,46 @@ message ProofOp {
 message Proof {
   repeated ProofOp ops = 1;
 }
+
+// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
+message ProofOpValue {
+  ProofOpRange proof = 1;
+}
+
+// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
+message ProofOpAbsence {
+  ProofOpRange proof = 1;
+}
+
+
+// ProofOpRange is used internally to encode and decode ValueOp and
+// AbsenceOp proof operations.
+message ProofOpRange {
+  repeated ProofOpInner left_path   = 1;
+  repeated ProofOpPath  inner_nodes = 2;
+  repeated ProofOpLeaf  leaves      = 3;
+}
+
+// ProofOpPath is used internally to encode and decode leaf
+// node paths for ProofOpRange.
+message ProofOpPath {
+  repeated ProofOpInner inners = 1;
+}
+
+// ProofOpInner is used internally to encode and decode inner nodes
+// for ProofOpRange.
+message ProofOpInner {
+  sint32 height  = 1;
+  int64  size    = 2;
+  int64  version = 3;
+  bytes  left    = 4;
+  bytes  right   = 5;
+}
+
+// ProofOpLeaf is used internally to encode and decode leaf nodes
+// for ProofOpRange.
+message ProofOpLeaf {
+  bytes key        = 1;
+  bytes value_hash = 2;
+  int64 version    = 3;
+}
