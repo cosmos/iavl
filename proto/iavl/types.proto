@@ -3,20 +3,6 @@ package iavl;
 
 option go_package = "iavl";
 
-// ProofOp defines an operation used for calculating Merkle root
-// The data could be arbitrary format, providing nessecary data
-// for example neighbouring node hash
-message ProofOp {
-  string type = 1;
-  bytes  key  = 2;
-  bytes  data = 3;
-}
-
-// Proof is Merkle proof defined by the list of ProofOps
-message Proof {
-  repeated ProofOp ops = 1;
-}
-
 // ProofOpValue is a value proof, used internally to encode and decode ValueOp.
 message ProofOpValue {
   ProofOpRange proof = 1;

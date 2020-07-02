@@ -22,114 +22,6 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// ProofOp defines an operation used for calculating Merkle root
-// The data could be arbitrary format, providing nessecary data
-// for example neighbouring node hash
-type ProofOp struct {
-	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	Key  []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
-	Data []byte `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-}
-
-func (m *ProofOp) Reset()         { *m = ProofOp{} }
-func (m *ProofOp) String() string { return proto.CompactTextString(m) }
-func (*ProofOp) ProtoMessage()    {}
-func (*ProofOp) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{0}
-}
-func (m *ProofOp) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ProofOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ProofOp.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *ProofOp) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOp.Merge(m, src)
-}
-func (m *ProofOp) XXX_Size() int {
-	return m.Size()
-}
-func (m *ProofOp) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOp.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ProofOp proto.InternalMessageInfo
-
-func (m *ProofOp) GetType() string {
-	if m != nil {
-		return m.Type
-	}
-	return ""
-}
-
-func (m *ProofOp) GetKey() []byte {
-	if m != nil {
-		return m.Key
-	}
-	return nil
-}
-
-func (m *ProofOp) GetData() []byte {
-	if m != nil {
-		return m.Data
-	}
-	return nil
-}
-
-// Proof is Merkle proof defined by the list of ProofOps
-type Proof struct {
-	Ops []*ProofOp `protobuf:"bytes,1,rep,name=ops,proto3" json:"ops,omitempty"`
-}
-
-func (m *Proof) Reset()         { *m = Proof{} }
-func (m *Proof) String() string { return proto.CompactTextString(m) }
-func (*Proof) ProtoMessage()    {}
-func (*Proof) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{1}
-}
-func (m *Proof) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *Proof) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_Proof.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *Proof) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Proof.Merge(m, src)
-}
-func (m *Proof) XXX_Size() int {
-	return m.Size()
-}
-func (m *Proof) XXX_DiscardUnknown() {
-	xxx_messageInfo_Proof.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Proof proto.InternalMessageInfo
-
-func (m *Proof) GetOps() []*ProofOp {
-	if m != nil {
-		return m.Ops
-	}
-	return nil
-}
-
 // ProofOpValue is a value proof, used internally to encode and decode ValueOp.
 type ProofOpValue struct {
 	Proof *ProofOpRange `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
@@ -139,7 +31,7 @@ func (m *ProofOpValue) Reset()         { *m = ProofOpValue{} }
 func (m *ProofOpValue) String() string { return proto.CompactTextString(m) }
 func (*ProofOpValue) ProtoMessage()    {}
 func (*ProofOpValue) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{2}
+	return fileDescriptor_7ef37c124502d49e, []int{0}
 }
 func (m *ProofOpValue) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -184,7 +76,7 @@ func (m *ProofOpAbsence) Reset()         { *m = ProofOpAbsence{} }
 func (m *ProofOpAbsence) String() string { return proto.CompactTextString(m) }
 func (*ProofOpAbsence) ProtoMessage()    {}
 func (*ProofOpAbsence) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{3}
+	return fileDescriptor_7ef37c124502d49e, []int{1}
 }
 func (m *ProofOpAbsence) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -232,7 +124,7 @@ func (m *ProofOpRange) Reset()         { *m = ProofOpRange{} }
 func (m *ProofOpRange) String() string { return proto.CompactTextString(m) }
 func (*ProofOpRange) ProtoMessage()    {}
 func (*ProofOpRange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{4}
+	return fileDescriptor_7ef37c124502d49e, []int{2}
 }
 func (m *ProofOpRange) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -292,7 +184,7 @@ func (m *ProofOpPath) Reset()         { *m = ProofOpPath{} }
 func (m *ProofOpPath) String() string { return proto.CompactTextString(m) }
 func (*ProofOpPath) ProtoMessage()    {}
 func (*ProofOpPath) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{5}
+	return fileDescriptor_7ef37c124502d49e, []int{3}
 }
 func (m *ProofOpPath) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -342,7 +234,7 @@ func (m *ProofOpInner) Reset()         { *m = ProofOpInner{} }
 func (m *ProofOpInner) String() string { return proto.CompactTextString(m) }
 func (*ProofOpInner) ProtoMessage()    {}
 func (*ProofOpInner) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{6}
+	return fileDescriptor_7ef37c124502d49e, []int{4}
 }
 func (m *ProofOpInner) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -418,7 +310,7 @@ func (m *ProofOpLeaf) Reset()         { *m = ProofOpLeaf{} }
 func (m *ProofOpLeaf) String() string { return proto.CompactTextString(m) }
 func (*ProofOpLeaf) ProtoMessage()    {}
 func (*ProofOpLeaf) Descriptor() ([]byte, []int) {
-	return fileDescriptor_7ef37c124502d49e, []int{7}
+	return fileDescriptor_7ef37c124502d49e, []int{5}
 }
 func (m *ProofOpLeaf) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -469,8 +361,6 @@ func (m *ProofOpLeaf) GetVersion() int64 {
 }
 
 func init() {
-	proto.RegisterType((*ProofOp)(nil), "iavl.ProofOp")
-	proto.RegisterType((*Proof)(nil), "iavl.Proof")
 	proto.RegisterType((*ProofOpValue)(nil), "iavl.ProofOpValue")
 	proto.RegisterType((*ProofOpAbsence)(nil), "iavl.ProofOpAbsence")
 	proto.RegisterType((*ProofOpRange)(nil), "iavl.ProofOpRange")
@@ -482,114 +372,30 @@ func init() {
 func init() { proto.RegisterFile("iavl/types.proto", fileDescriptor_7ef37c124502d49e) }
 
 var fileDescriptor_7ef37c124502d49e = []byte{
-	// 409 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0xc7, 0xb3, 0x71, 0xec, 0x90, 0x71, 0x40, 0xc9, 0x0a, 0xa1, 0xbd, 0x60, 0x22, 0x9f, 0x0c,
-	0x87, 0x44, 0x0a, 0x17, 0xe0, 0x06, 0x5c, 0x40, 0x42, 0x10, 0xed, 0x01, 0x21, 0x2e, 0xd1, 0x86,
-	0x6c, 0x62, 0x0b, 0xcb, 0xb6, 0xbc, 0xae, 0xa5, 0xf4, 0xd0, 0x67, 0xe8, 0x13, 0xf4, 0x79, 0x7a,
-	0xcc, 0xb1, 0xc7, 0x2a, 0x79, 0x91, 0x6a, 0x26, 0x9b, 0xb4, 0x91, 0xda, 0x4a, 0xbd, 0xcd, 0xfc,
-	0xf7, 0x37, 0x5f, 0x3b, 0x03, 0xbd, 0x44, 0xd5, 0xe9, 0xa8, 0x5a, 0x15, 0xda, 0x0c, 0x8b, 0x32,
-	0xaf, 0x72, 0xde, 0x42, 0x25, 0xfc, 0x0a, 0xed, 0x49, 0x99, 0xe7, 0x8b, 0x5f, 0x05, 0xe7, 0xd0,
-	0xc2, 0x77, 0xc1, 0x06, 0x2c, 0xea, 0x48, 0xb2, 0x79, 0x0f, 0x9c, 0xff, 0x7a, 0x25, 0x9a, 0x03,
-	0x16, 0x75, 0x25, 0x9a, 0x48, 0xcd, 0x55, 0xa5, 0x84, 0x43, 0x12, 0xd9, 0x61, 0x04, 0x2e, 0x25,
-	0xe1, 0x6f, 0xc0, 0xc9, 0x0b, 0x23, 0xd8, 0xc0, 0x89, 0xfc, 0xf1, 0xf3, 0x21, 0x56, 0x18, 0xda,
-	0xf4, 0x12, 0x5f, 0xc2, 0x0f, 0xd0, 0xb5, 0xfe, 0x6f, 0x95, 0x9e, 0x68, 0x1e, 0x81, 0x5b, 0xa0,
-	0x4f, 0x45, 0xfd, 0x31, 0x3f, 0x0e, 0x51, 0xd9, 0x52, 0xcb, 0x1d, 0x10, 0x7e, 0x82, 0x17, 0x56,
-	0xfe, 0x3c, 0x33, 0x3a, 0xfb, 0xf7, 0x94, 0xd8, 0x0b, 0x76, 0x28, 0x4b, 0x3a, 0x1f, 0x41, 0x27,
-	0xd5, 0x8b, 0x6a, 0x5a, 0xa8, 0x2a, 0xb6, 0xdd, 0x1e, 0x87, 0x7f, 0xcf, 0x32, 0x5d, 0xca, 0x67,
-	0x08, 0x4d, 0x54, 0x15, 0xf3, 0x31, 0xf8, 0x09, 0x4a, 0xd3, 0x2c, 0x9f, 0x6b, 0x23, 0x9a, 0x14,
-	0xd2, 0x3f, 0x0a, 0x41, 0x4e, 0x02, 0x51, 0x3f, 0x11, 0xe2, 0x6f, 0xc1, 0x4b, 0xb5, 0xaa, 0xb5,
-	0x11, 0xce, 0x3d, 0xf8, 0x0f, 0xad, 0x16, 0xd2, 0x02, 0xe1, 0x47, 0xf0, 0xef, 0x64, 0xe1, 0xef,
-	0xc0, 0xa3, 0x3c, 0xe6, 0x91, 0xde, 0x2c, 0x11, 0x9e, 0x1d, 0x46, 0x23, 0x9d, 0xbf, 0x02, 0x2f,
-	0xd6, 0xc9, 0x32, 0xae, 0xe8, 0x5b, 0xfa, 0xd2, 0x7a, 0xb8, 0x37, 0x93, 0x9c, 0x6a, 0x5a, 0xa5,
-	0x23, 0xc9, 0xe6, 0x02, 0xda, 0xb5, 0x2e, 0x4d, 0x92, 0x67, 0xb4, 0x4e, 0x47, 0xee, 0x5d, 0xa4,
-	0x71, 0x76, 0xd1, 0xda, 0x6d, 0x19, 0x6d, 0xfe, 0x12, 0xdc, 0x92, 0x12, 0xbb, 0x24, 0xee, 0x9c,
-	0xf0, 0xcf, 0xa1, 0x75, 0x9c, 0x68, 0x7f, 0x30, 0xec, 0xf6, 0x60, 0x5e, 0x03, 0xd4, 0xb8, 0xeb,
-	0x69, 0xac, 0x4c, 0x6c, 0x2f, 0xa9, 0x43, 0xca, 0x37, 0x65, 0xe2, 0x87, 0x7b, 0xf8, 0x12, 0x5c,
-	0x6e, 0x02, 0xb6, 0xde, 0x04, 0xec, 0x7a, 0x13, 0xb0, 0xf3, 0x6d, 0xd0, 0x58, 0x6f, 0x83, 0xc6,
-	0xd5, 0x36, 0x68, 0xfc, 0xa5, 0xd3, 0x9d, 0x79, 0x74, 0xc7, 0xef, 0x6f, 0x02, 0x00, 0x00, 0xff,
-	0xff, 0x42, 0xff, 0x1b, 0xf3, 0xdb, 0x02, 0x00, 0x00,
-}
-
-func (m *ProofOp) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ProofOp) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *ProofOp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Data) > 0 {
-		i -= len(m.Data)
-		copy(dAtA[i:], m.Data)
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Data)))
-		i--
-		dAtA[i] = 0x1a
-	}
-	if len(m.Key) > 0 {
-		i -= len(m.Key)
-		copy(dAtA[i:], m.Key)
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Key)))
-		i--
-		dAtA[i] = 0x12
-	}
-	if len(m.Type) > 0 {
-		i -= len(m.Type)
-		copy(dAtA[i:], m.Type)
-		i = encodeVarintTypes(dAtA, i, uint64(len(m.Type)))
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *Proof) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *Proof) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *Proof) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Ops) > 0 {
-		for iNdEx := len(m.Ops) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Ops[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintTypes(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0xa
-		}
-	}
-	return len(dAtA) - i, nil
+	// 360 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xcd, 0x4a, 0xeb, 0x40,
+	0x14, 0x80, 0x3b, 0x4d, 0x9b, 0x7b, 0x7b, 0x1a, 0x2e, 0xed, 0x70, 0x91, 0xd9, 0x18, 0x42, 0x56,
+	0xd1, 0x45, 0x0b, 0x75, 0xa3, 0xee, 0x74, 0xa5, 0x20, 0x5a, 0x66, 0x21, 0xe2, 0xa6, 0x4c, 0xf5,
+	0xb4, 0x09, 0x86, 0x24, 0x64, 0x62, 0xa0, 0x2e, 0x7c, 0x06, 0x9f, 0xc0, 0xe7, 0x71, 0xd9, 0xa5,
+	0x4b, 0x69, 0x5f, 0x44, 0xe6, 0x34, 0x16, 0xc5, 0x1f, 0x70, 0x77, 0xce, 0xc7, 0x77, 0xfe, 0x92,
+	0x81, 0x4e, 0xa4, 0xca, 0xb8, 0x5f, 0xcc, 0x32, 0xd4, 0xbd, 0x2c, 0x4f, 0x8b, 0x94, 0x37, 0x0c,
+	0xf1, 0x77, 0xc1, 0x19, 0xe6, 0x69, 0x3a, 0x39, 0xcb, 0xce, 0x55, 0x7c, 0x8b, 0x3c, 0x80, 0x66,
+	0x66, 0x72, 0xc1, 0x3c, 0x16, 0xb4, 0x07, 0xbc, 0x67, 0xac, 0x5e, 0xa5, 0x48, 0x95, 0x4c, 0x51,
+	0xae, 0x04, 0x7f, 0x1f, 0xfe, 0x55, 0xf8, 0x60, 0xac, 0x31, 0xb9, 0xfa, 0x4d, 0xed, 0x23, 0x5b,
+	0x8f, 0x25, 0xce, 0xfb, 0xd0, 0x8a, 0x71, 0x52, 0x8c, 0x32, 0x55, 0x84, 0x82, 0x79, 0xd6, 0xa7,
+	0xf2, 0xe3, 0x24, 0xc1, 0x5c, 0xfe, 0x35, 0xd2, 0x50, 0x15, 0x21, 0x1f, 0x40, 0x3b, 0x32, 0x68,
+	0x94, 0xa4, 0xd7, 0xa8, 0x45, 0x9d, 0x4a, 0xba, 0x1f, 0x4a, 0x8c, 0x27, 0x81, 0xac, 0x53, 0x23,
+	0xf1, 0x2d, 0xb0, 0x63, 0x54, 0x25, 0x6a, 0x61, 0x7d, 0xa1, 0x9f, 0xa0, 0x9a, 0xc8, 0x4a, 0xf0,
+	0xf7, 0xa0, 0xfd, 0xae, 0x0b, 0xdf, 0x06, 0x9b, 0xfa, 0xe8, 0x1f, 0x76, 0xab, 0x0c, 0xff, 0x7e,
+	0x7d, 0x1a, 0x71, 0xbe, 0x01, 0x76, 0x88, 0xd1, 0x34, 0x2c, 0xe8, 0xb3, 0x74, 0x65, 0x95, 0x71,
+	0x0e, 0x0d, 0x1d, 0xdd, 0xa1, 0xa8, 0x7b, 0x2c, 0xb0, 0x24, 0xc5, 0x5c, 0xc0, 0x9f, 0x12, 0x73,
+	0x1d, 0xa5, 0x89, 0xb0, 0x08, 0xbf, 0xa5, 0xc6, 0x36, 0xb7, 0x8b, 0x86, 0xc7, 0x02, 0x47, 0x52,
+	0xcc, 0xff, 0x43, 0x33, 0xa7, 0xc6, 0x4d, 0x82, 0xab, 0xc4, 0xbf, 0x58, 0xaf, 0x6e, 0x2e, 0xe2,
+	0x1d, 0xb0, 0x6e, 0x70, 0x46, 0xb3, 0x1d, 0x69, 0x42, 0xbe, 0x09, 0x50, 0x9a, 0x7f, 0x3d, 0x0a,
+	0x95, 0x0e, 0x69, 0xbc, 0x23, 0x5b, 0x44, 0x8e, 0x94, 0x0e, 0xbf, 0xdf, 0xe1, 0xd0, 0x7d, 0x5a,
+	0xb8, 0x6c, 0xbe, 0x70, 0xd9, 0xcb, 0xc2, 0x65, 0x0f, 0x4b, 0xb7, 0x36, 0x5f, 0xba, 0xb5, 0xe7,
+	0xa5, 0x5b, 0xbb, 0xa4, 0xb7, 0x34, 0xb6, 0xe9, 0x61, 0xed, 0xbc, 0x06, 0x00, 0x00, 0xff, 0xff,
+	0xaa, 0x8c, 0x73, 0x53, 0x6c, 0x02, 0x00, 0x00,
 }
 
 func (m *ProofOpValue) Marshal() (dAtA []byte, err error) {
@@ -869,42 +675,6 @@ func encodeVarintTypes(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *ProofOp) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	l = len(m.Type)
-	if l > 0 {
-		n += 1 + l + sovTypes(uint64(l))
-	}
-	l = len(m.Key)
-	if l > 0 {
-		n += 1 + l + sovTypes(uint64(l))
-	}
-	l = len(m.Data)
-	if l > 0 {
-		n += 1 + l + sovTypes(uint64(l))
-	}
-	return n
-}
-
-func (m *Proof) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if len(m.Ops) > 0 {
-		for _, e := range m.Ops {
-			l = e.Size()
-			n += 1 + l + sovTypes(uint64(l))
-		}
-	}
-	return n
-}
-
 func (m *ProofOpValue) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1024,246 +794,6 @@ func sovTypes(x uint64) (n int) {
 }
 func sozTypes(x uint64) (n int) {
 	return sovTypes(uint64((x << 1) ^ uint64((int64(x) >> 63))))
-}
-func (m *ProofOp) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTypes
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOp: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOp: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
-			}
-			var stringLen uint64
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + intStringLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Type = string(dAtA[iNdEx:postIndex])
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Key", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Key = append(m.Key[:0], dAtA[iNdEx:postIndex]...)
-			if m.Key == nil {
-				m.Key = []byte{}
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
-			}
-			var byteLen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				byteLen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if byteLen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + byteLen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Data = append(m.Data[:0], dAtA[iNdEx:postIndex]...)
-			if m.Data == nil {
-				m.Data = []byte{}
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTypes(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *Proof) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowTypes
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: Proof: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: Proof: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Ops", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowTypes
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthTypes
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Ops = append(m.Ops, &ProofOp{})
-			if err := m.Ops[len(m.Ops)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipTypes(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthTypes
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
 }
 func (m *ProofOpValue) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
