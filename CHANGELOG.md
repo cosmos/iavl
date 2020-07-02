@@ -14,6 +14,10 @@ https://github.com/cosmos/iavl. This also affects the module import path, which 
 
 - Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
 
+### Bug Fixes
+
+- \#288 Fix panics when generating proofs for keys that are all `0xFF`.
+
 ## 0.14.0 (July 2, 2020)
 
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
