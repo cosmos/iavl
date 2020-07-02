@@ -14,51 +14,74 @@ https://github.com/cosmos/iavl. This also affects the module import path, which 
 
 - Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
 
-## 0.14.0-rc1 (FIXME merge from 0.14.x branch)
+## 0.14.0 (July 2, 2020)
 
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
-`KeepEvery` and `KeepRecent` has multiple problems with data corruption, performance, and
-memory usage. For these reasons, this functionality has now been removed. All 0.13 users are
-urged to upgrade, and to not change their pruning settings while on 0.13.
+`KeepEvery` and `KeepRecent` has problems with data corruption, performance, and memory usage. For 
+these reasons, this functionality has now been removed. All 0.13 users are urged to upgrade, and to 
+not change their pruning settings while on 0.13.
 
-If you are using 0.13 with a `KeepEvery` value other than `1` (the default), then when upgrading
-to 0.14 (or newer) it is important to follow these instructions:
+Make sure to follow these instructions when upgrading, to avoid data corruption:
 
-* If possible, upgrade after saving a multiple of `KeepEvery` - for example, with `KeepEvery: 1000`
-  then stop 1.13 immediately after saving e.g. version `7000` to disk. Upgrading to 1.14 is then 
-  safe.
+* If using `KeepEvery: 1` (the default) then upgrading to 0.14 is safe.
 
-* Otherwise, after upgrading to 0.14, do not delete the last version saved to disk - this
-  contains incorrect data that may cause data corruption, making the database unusable. For 
-  example, with `KeepEvery: 1000` then stopping 1.13 at version `7364` (saving `7000` to disk) and 
-  upgrading to 1.14 means version `7000` must never be deleted.
+* Otherwise, upgrade after saving a multiple of `KeepEvery` - for example, with `KeepEvery: 1000`
+  stop 0.13 after saving e.g. version `7000` to disk. A later version must never have been saved
+  to the tree. Upgrading to 0.14 is then safe.
+
+* Otherwise, consider using the `Repair013Orphans()` function to repair faulty data in databases
+  last written to by 0.13. This must be done before opening the database with IAVL 0.14, and a
+  database backup should be taken first. Upgrading to 0.14 is then safe.
+
+* Otherwise, after upgrading to 0.14, do not delete the last version saved to disk by 0.13 - this
+  contains incorrect data that may cause data corruption when deleted, making the database
+  unusable. For example, with `KeepEvery: 1000` then stopping 0.13 at version `7364` (saving
+  `7000` to disk) and upgrading to 0.14 means version `7000` must never be deleted.
   
-  It may be possible to delete it if the _same sequence_ of changes have been written to the newer 
-  versions as before the upgrade, and all versions between `7000` and `7364` are deleted, but
-  thorough testing and backups are recommended if attempting this.
+  It may be possible to delete it if the exact same sequence of changes have been written to the
+  newer versions as before the upgrade, and all versions between `7000` and `7364` are deleted
+  first, but thorough testing and backups are recommended if attempting this.
 
 Users wishing to prune historical versions can do so via `MutableTree.DeleteVersion()`.
+
+There are no changes from 0.14.0-rc2.
+
+## 0.14.0-rc2 (June 26, 2020)
+
+See important upgrade information for 0.14.0 above.
+
+### Improvements
+
+- [\#282](https://github.com/cosmos/iavl/pull/282) Add `Repair013Orphans()` to repair faulty 
+  orphans in a database last written to by IAVL 0.13.x
+
+### Bug Fixes
+
+- [\#281](https://github.com/cosmos/iavl/pull/281) Remove unnecessary Protobuf dependencies
+
+## 0.14.0-rc1 (June 24, 2020)
+
+See important upgrade information for 0.14.0 above.
 
 Special thanks to external contributors on this release: @ridenaio
 
 ### Breaking Changes
 
-- \#274 Remove pruning options `KeepEvery` and `KeepRecent` (see warning above) and the `recentDB`
-  parameter to `NewMutableTreeWithOpts()`.
+- [\#274](https://github.com/cosmos/iavl/pull/274) Remove pruning options `KeepEvery` and 
+  `KeepRecent` (see warning above) and the `recentDB` parameter to `NewMutableTreeWithOpts()`.
 
 ### Improvements
 
-- \#270 Tendermint dependency has been removed. 
-  - If you are using the proof system from IAVL then you must use the proto proof types in this repo. You can not use the Tendermint proof types
+- [\#271](https://github.com/cosmos/iavl/pull/271) Add `MutableTree.DeleteVersions()` for deleting 
+  multiple versions
 
-- \#271 Add `MutableTree.DeleteVersions()` for deleting multiple versions
-
-- \#235 Reduce `ImmutableTree.Export()` buffer size from 64 to 32 nodes
+- [\#235](https://github.com/cosmos/iavl/pull/235) Reduce `ImmutableTree.Export()` buffer size from 
+  64 to 32 nodes
 
 ### Bug Fixes
 
-- \#275 Fix data corruption with `LoadVersionForOverwriting`
-
+- [\#275](https://github.com/cosmos/iavl/pull/275) Fix data corruption with 
+  `LoadVersionForOverwriting`
 ## 0.13.3 (April 5, 2020)
 
 ### Bug Fixes
