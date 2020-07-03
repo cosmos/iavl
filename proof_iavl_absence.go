@@ -47,7 +47,7 @@ func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if n != len(pop.Data) {
 		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
 	}
-	pbProofOp := &iavlproto.ProofOpAbsence{}
+	pbProofOp := &iavlproto.AbsenceOp{}
 	err = proto.Unmarshal(bz, pbProofOp)
 	if err != nil {
 		return nil, err
@@ -60,7 +60,7 @@ func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 }
 
 func (op AbsenceOp) ProofOp() merkle.ProofOp {
-	pbProof := iavlproto.ProofOpAbsence{Proof: op.Proof.toProto()}
+	pbProof := iavlproto.AbsenceOp{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
 		panic(err)

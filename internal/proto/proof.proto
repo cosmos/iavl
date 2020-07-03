@@ -1,33 +1,30 @@
 syntax = "proto3";
 package iavl;
 
-// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
-message ProofOpValue {
-  ProofOpRange proof = 1;
+// ValueOp is a Protobuf representation of iavl.ValueOp.
+message ValueOp {
+  RangeProof proof = 1;
 }
 
-// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
-message ProofOpAbsence {
-  ProofOpRange proof = 1;
+// AbsenceOp is a Protobuf representation of iavl.AbsenceOp.
+message AbsenceOp {
+  RangeProof proof = 1;
 }
 
-// ProofOpRange is used internally to encode and decode ValueOp and
-// AbsenceOp proof operations.
-message ProofOpRange {
-  repeated ProofOpInner left_path   = 1;
-  repeated ProofOpPath  inner_nodes = 2;
-  repeated ProofOpLeaf  leaves      = 3;
+// RangeProof is a Protobuf representation of iavl.RangeProof.
+message RangeProof {
+  repeated ProofInnerNode left_path   = 1;
+  repeated PathToLeaf     inner_nodes = 2;
+  repeated ProofLeafNode  leaves      = 3;
 }
 
-// ProofOpPath is used internally to encode and decode leaf
-// node paths for ProofOpRange.
-message ProofOpPath {
-  repeated ProofOpInner inners = 1;
+// PathToLeaf is a Protobuf representation of iavl.PathToLeaf.
+message PathToLeaf {
+  repeated ProofInnerNode inners = 1;
 }
 
-// ProofOpInner is used internally to encode and decode inner nodes
-// for ProofOpRange.
-message ProofOpInner {
+// ProofInnerNode is a Protobuf representation of iavl.ProofInnerNode.
+message ProofInnerNode {
   sint32 height  = 1;
   int64  size    = 2;
   int64  version = 3;
@@ -35,9 +32,8 @@ message ProofOpInner {
   bytes  right   = 5;
 }
 
-// ProofOpLeaf is used internally to encode and decode leaf nodes
-// for ProofOpRange.
-message ProofOpLeaf {
+// ProofLeafNode is a Protobuf representation of iavl.ProofInnerNode.
+message ProofLeafNode {
   bytes key        = 1;
   bytes value_hash = 2;
   int64 version    = 3;

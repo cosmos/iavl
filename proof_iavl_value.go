@@ -48,7 +48,7 @@ func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if n != len(pop.Data) {
 		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
 	}
-	pbProofOp := &iavlproto.ProofOpValue{}
+	pbProofOp := &iavlproto.ValueOp{}
 	err = proto.Unmarshal(bz, pbProofOp)
 	if err != nil {
 		return nil, err
@@ -61,7 +61,7 @@ func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 }
 
 func (op ValueOp) ProofOp() merkle.ProofOp {
-	pbProof := iavlproto.ProofOpValue{Proof: op.Proof.toProto()}
+	pbProof := iavlproto.ValueOp{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
 		panic(err)

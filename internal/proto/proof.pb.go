@@ -22,23 +22,23 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
-type ProofOpValue struct {
-	Proof *ProofOpRange `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
+// ValueOp is a Protobuf representation of iavl.ValueOp.
+type ValueOp struct {
+	Proof *RangeProof `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
 }
 
-func (m *ProofOpValue) Reset()         { *m = ProofOpValue{} }
-func (m *ProofOpValue) String() string { return proto.CompactTextString(m) }
-func (*ProofOpValue) ProtoMessage()    {}
-func (*ProofOpValue) Descriptor() ([]byte, []int) {
+func (m *ValueOp) Reset()         { *m = ValueOp{} }
+func (m *ValueOp) String() string { return proto.CompactTextString(m) }
+func (*ValueOp) ProtoMessage()    {}
+func (*ValueOp) Descriptor() ([]byte, []int) {
 	return fileDescriptor_473d204b28f447f0, []int{0}
 }
-func (m *ProofOpValue) XXX_Unmarshal(b []byte) error {
+func (m *ValueOp) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ProofOpValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ValueOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ProofOpValue.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ValueOp.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -48,42 +48,42 @@ func (m *ProofOpValue) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *ProofOpValue) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOpValue.Merge(m, src)
+func (m *ValueOp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ValueOp.Merge(m, src)
 }
-func (m *ProofOpValue) XXX_Size() int {
+func (m *ValueOp) XXX_Size() int {
 	return m.Size()
 }
-func (m *ProofOpValue) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOpValue.DiscardUnknown(m)
+func (m *ValueOp) XXX_DiscardUnknown() {
+	xxx_messageInfo_ValueOp.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ProofOpValue proto.InternalMessageInfo
+var xxx_messageInfo_ValueOp proto.InternalMessageInfo
 
-func (m *ProofOpValue) GetProof() *ProofOpRange {
+func (m *ValueOp) GetProof() *RangeProof {
 	if m != nil {
 		return m.Proof
 	}
 	return nil
 }
 
-// ProofOpValue is a value proof, used internally to encode and decode ValueOp.
-type ProofOpAbsence struct {
-	Proof *ProofOpRange `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
+// AbsenceOp is a Protobuf representation of iavl.AbsenceOp.
+type AbsenceOp struct {
+	Proof *RangeProof `protobuf:"bytes,1,opt,name=proof,proto3" json:"proof,omitempty"`
 }
 
-func (m *ProofOpAbsence) Reset()         { *m = ProofOpAbsence{} }
-func (m *ProofOpAbsence) String() string { return proto.CompactTextString(m) }
-func (*ProofOpAbsence) ProtoMessage()    {}
-func (*ProofOpAbsence) Descriptor() ([]byte, []int) {
+func (m *AbsenceOp) Reset()         { *m = AbsenceOp{} }
+func (m *AbsenceOp) String() string { return proto.CompactTextString(m) }
+func (*AbsenceOp) ProtoMessage()    {}
+func (*AbsenceOp) Descriptor() ([]byte, []int) {
 	return fileDescriptor_473d204b28f447f0, []int{1}
 }
-func (m *ProofOpAbsence) XXX_Unmarshal(b []byte) error {
+func (m *AbsenceOp) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ProofOpAbsence) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *AbsenceOp) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ProofOpAbsence.Marshal(b, m, deterministic)
+		return xxx_messageInfo_AbsenceOp.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -93,45 +93,44 @@ func (m *ProofOpAbsence) XXX_Marshal(b []byte, deterministic bool) ([]byte, erro
 		return b[:n], nil
 	}
 }
-func (m *ProofOpAbsence) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOpAbsence.Merge(m, src)
+func (m *AbsenceOp) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_AbsenceOp.Merge(m, src)
 }
-func (m *ProofOpAbsence) XXX_Size() int {
+func (m *AbsenceOp) XXX_Size() int {
 	return m.Size()
 }
-func (m *ProofOpAbsence) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOpAbsence.DiscardUnknown(m)
+func (m *AbsenceOp) XXX_DiscardUnknown() {
+	xxx_messageInfo_AbsenceOp.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ProofOpAbsence proto.InternalMessageInfo
+var xxx_messageInfo_AbsenceOp proto.InternalMessageInfo
 
-func (m *ProofOpAbsence) GetProof() *ProofOpRange {
+func (m *AbsenceOp) GetProof() *RangeProof {
 	if m != nil {
 		return m.Proof
 	}
 	return nil
 }
 
-// ProofOpRange is used internally to encode and decode ValueOp and
-// AbsenceOp proof operations.
-type ProofOpRange struct {
-	LeftPath   []*ProofOpInner `protobuf:"bytes,1,rep,name=left_path,json=leftPath,proto3" json:"left_path,omitempty"`
-	InnerNodes []*ProofOpPath  `protobuf:"bytes,2,rep,name=inner_nodes,json=innerNodes,proto3" json:"inner_nodes,omitempty"`
-	Leaves     []*ProofOpLeaf  `protobuf:"bytes,3,rep,name=leaves,proto3" json:"leaves,omitempty"`
+// RangeProof is a Protobuf representation of iavl.RangeProof.
+type RangeProof struct {
+	LeftPath   []*ProofInnerNode `protobuf:"bytes,1,rep,name=left_path,json=leftPath,proto3" json:"left_path,omitempty"`
+	InnerNodes []*PathToLeaf     `protobuf:"bytes,2,rep,name=inner_nodes,json=innerNodes,proto3" json:"inner_nodes,omitempty"`
+	Leaves     []*ProofLeafNode  `protobuf:"bytes,3,rep,name=leaves,proto3" json:"leaves,omitempty"`
 }
 
-func (m *ProofOpRange) Reset()         { *m = ProofOpRange{} }
-func (m *ProofOpRange) String() string { return proto.CompactTextString(m) }
-func (*ProofOpRange) ProtoMessage()    {}
-func (*ProofOpRange) Descriptor() ([]byte, []int) {
+func (m *RangeProof) Reset()         { *m = RangeProof{} }
+func (m *RangeProof) String() string { return proto.CompactTextString(m) }
+func (*RangeProof) ProtoMessage()    {}
+func (*RangeProof) Descriptor() ([]byte, []int) {
 	return fileDescriptor_473d204b28f447f0, []int{2}
 }
-func (m *ProofOpRange) XXX_Unmarshal(b []byte) error {
+func (m *RangeProof) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ProofOpRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *RangeProof) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ProofOpRange.Marshal(b, m, deterministic)
+		return xxx_messageInfo_RangeProof.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -141,57 +140,56 @@ func (m *ProofOpRange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *ProofOpRange) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOpRange.Merge(m, src)
+func (m *RangeProof) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_RangeProof.Merge(m, src)
 }
-func (m *ProofOpRange) XXX_Size() int {
+func (m *RangeProof) XXX_Size() int {
 	return m.Size()
 }
-func (m *ProofOpRange) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOpRange.DiscardUnknown(m)
+func (m *RangeProof) XXX_DiscardUnknown() {
+	xxx_messageInfo_RangeProof.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ProofOpRange proto.InternalMessageInfo
+var xxx_messageInfo_RangeProof proto.InternalMessageInfo
 
-func (m *ProofOpRange) GetLeftPath() []*ProofOpInner {
+func (m *RangeProof) GetLeftPath() []*ProofInnerNode {
 	if m != nil {
 		return m.LeftPath
 	}
 	return nil
 }
 
-func (m *ProofOpRange) GetInnerNodes() []*ProofOpPath {
+func (m *RangeProof) GetInnerNodes() []*PathToLeaf {
 	if m != nil {
 		return m.InnerNodes
 	}
 	return nil
 }
 
-func (m *ProofOpRange) GetLeaves() []*ProofOpLeaf {
+func (m *RangeProof) GetLeaves() []*ProofLeafNode {
 	if m != nil {
 		return m.Leaves
 	}
 	return nil
 }
 
-// ProofOpPath is used internally to encode and decode leaf
-// node paths for ProofOpRange.
-type ProofOpPath struct {
-	Inners []*ProofOpInner `protobuf:"bytes,1,rep,name=inners,proto3" json:"inners,omitempty"`
+// PathToLeaf is a Protobuf representation of iavl.PathToLeaf.
+type PathToLeaf struct {
+	Inners []*ProofInnerNode `protobuf:"bytes,1,rep,name=inners,proto3" json:"inners,omitempty"`
 }
 
-func (m *ProofOpPath) Reset()         { *m = ProofOpPath{} }
-func (m *ProofOpPath) String() string { return proto.CompactTextString(m) }
-func (*ProofOpPath) ProtoMessage()    {}
-func (*ProofOpPath) Descriptor() ([]byte, []int) {
+func (m *PathToLeaf) Reset()         { *m = PathToLeaf{} }
+func (m *PathToLeaf) String() string { return proto.CompactTextString(m) }
+func (*PathToLeaf) ProtoMessage()    {}
+func (*PathToLeaf) Descriptor() ([]byte, []int) {
 	return fileDescriptor_473d204b28f447f0, []int{3}
 }
-func (m *ProofOpPath) XXX_Unmarshal(b []byte) error {
+func (m *PathToLeaf) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ProofOpPath) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *PathToLeaf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ProofOpPath.Marshal(b, m, deterministic)
+		return xxx_messageInfo_PathToLeaf.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -201,28 +199,27 @@ func (m *ProofOpPath) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return b[:n], nil
 	}
 }
-func (m *ProofOpPath) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOpPath.Merge(m, src)
+func (m *PathToLeaf) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_PathToLeaf.Merge(m, src)
 }
-func (m *ProofOpPath) XXX_Size() int {
+func (m *PathToLeaf) XXX_Size() int {
 	return m.Size()
 }
-func (m *ProofOpPath) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOpPath.DiscardUnknown(m)
+func (m *PathToLeaf) XXX_DiscardUnknown() {
+	xxx_messageInfo_PathToLeaf.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ProofOpPath proto.InternalMessageInfo
+var xxx_messageInfo_PathToLeaf proto.InternalMessageInfo
 
-func (m *ProofOpPath) GetInners() []*ProofOpInner {
+func (m *PathToLeaf) GetInners() []*ProofInnerNode {
 	if m != nil {
 		return m.Inners
 	}
 	return nil
 }
 
-// ProofOpInner is used internally to encode and decode inner nodes
-// for ProofOpRange.
-type ProofOpInner struct {
+// ProofInnerNode is a Protobuf representation of iavl.ProofInnerNode.
+type ProofInnerNode struct {
 	Height  int32  `protobuf:"zigzag32,1,opt,name=height,proto3" json:"height,omitempty"`
 	Size_   int64  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
 	Version int64  `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
@@ -230,18 +227,18 @@ type ProofOpInner struct {
 	Right   []byte `protobuf:"bytes,5,opt,name=right,proto3" json:"right,omitempty"`
 }
 
-func (m *ProofOpInner) Reset()         { *m = ProofOpInner{} }
-func (m *ProofOpInner) String() string { return proto.CompactTextString(m) }
-func (*ProofOpInner) ProtoMessage()    {}
-func (*ProofOpInner) Descriptor() ([]byte, []int) {
+func (m *ProofInnerNode) Reset()         { *m = ProofInnerNode{} }
+func (m *ProofInnerNode) String() string { return proto.CompactTextString(m) }
+func (*ProofInnerNode) ProtoMessage()    {}
+func (*ProofInnerNode) Descriptor() ([]byte, []int) {
 	return fileDescriptor_473d204b28f447f0, []int{4}
 }
-func (m *ProofOpInner) XXX_Unmarshal(b []byte) error {
+func (m *ProofInnerNode) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ProofOpInner) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ProofInnerNode) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ProofOpInner.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ProofInnerNode.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -251,73 +248,72 @@ func (m *ProofOpInner) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
 		return b[:n], nil
 	}
 }
-func (m *ProofOpInner) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOpInner.Merge(m, src)
+func (m *ProofInnerNode) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProofInnerNode.Merge(m, src)
 }
-func (m *ProofOpInner) XXX_Size() int {
+func (m *ProofInnerNode) XXX_Size() int {
 	return m.Size()
 }
-func (m *ProofOpInner) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOpInner.DiscardUnknown(m)
+func (m *ProofInnerNode) XXX_DiscardUnknown() {
+	xxx_messageInfo_ProofInnerNode.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ProofOpInner proto.InternalMessageInfo
+var xxx_messageInfo_ProofInnerNode proto.InternalMessageInfo
 
-func (m *ProofOpInner) GetHeight() int32 {
+func (m *ProofInnerNode) GetHeight() int32 {
 	if m != nil {
 		return m.Height
 	}
 	return 0
 }
 
-func (m *ProofOpInner) GetSize_() int64 {
+func (m *ProofInnerNode) GetSize_() int64 {
 	if m != nil {
 		return m.Size_
 	}
 	return 0
 }
 
-func (m *ProofOpInner) GetVersion() int64 {
+func (m *ProofInnerNode) GetVersion() int64 {
 	if m != nil {
 		return m.Version
 	}
 	return 0
 }
 
-func (m *ProofOpInner) GetLeft() []byte {
+func (m *ProofInnerNode) GetLeft() []byte {
 	if m != nil {
 		return m.Left
 	}
 	return nil
 }
 
-func (m *ProofOpInner) GetRight() []byte {
+func (m *ProofInnerNode) GetRight() []byte {
 	if m != nil {
 		return m.Right
 	}
 	return nil
 }
 
-// ProofOpLeaf is used internally to encode and decode leaf nodes
-// for ProofOpRange.
-type ProofOpLeaf struct {
+// ProofLeafNode is a Protobuf representation of iavl.ProofInnerNode.
+type ProofLeafNode struct {
 	Key       []byte `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	ValueHash []byte `protobuf:"bytes,2,opt,name=value_hash,json=valueHash,proto3" json:"value_hash,omitempty"`
 	Version   int64  `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
 }
 
-func (m *ProofOpLeaf) Reset()         { *m = ProofOpLeaf{} }
-func (m *ProofOpLeaf) String() string { return proto.CompactTextString(m) }
-func (*ProofOpLeaf) ProtoMessage()    {}
-func (*ProofOpLeaf) Descriptor() ([]byte, []int) {
+func (m *ProofLeafNode) Reset()         { *m = ProofLeafNode{} }
+func (m *ProofLeafNode) String() string { return proto.CompactTextString(m) }
+func (*ProofLeafNode) ProtoMessage()    {}
+func (*ProofLeafNode) Descriptor() ([]byte, []int) {
 	return fileDescriptor_473d204b28f447f0, []int{5}
 }
-func (m *ProofOpLeaf) XXX_Unmarshal(b []byte) error {
+func (m *ProofLeafNode) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ProofOpLeaf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *ProofLeafNode) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ProofOpLeaf.Marshal(b, m, deterministic)
+		return xxx_messageInfo_ProofLeafNode.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -327,33 +323,33 @@ func (m *ProofOpLeaf) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) 
 		return b[:n], nil
 	}
 }
-func (m *ProofOpLeaf) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ProofOpLeaf.Merge(m, src)
+func (m *ProofLeafNode) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ProofLeafNode.Merge(m, src)
 }
-func (m *ProofOpLeaf) XXX_Size() int {
+func (m *ProofLeafNode) XXX_Size() int {
 	return m.Size()
 }
-func (m *ProofOpLeaf) XXX_DiscardUnknown() {
-	xxx_messageInfo_ProofOpLeaf.DiscardUnknown(m)
+func (m *ProofLeafNode) XXX_DiscardUnknown() {
+	xxx_messageInfo_ProofLeafNode.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ProofOpLeaf proto.InternalMessageInfo
+var xxx_messageInfo_ProofLeafNode proto.InternalMessageInfo
 
-func (m *ProofOpLeaf) GetKey() []byte {
+func (m *ProofLeafNode) GetKey() []byte {
 	if m != nil {
 		return m.Key
 	}
 	return nil
 }
 
-func (m *ProofOpLeaf) GetValueHash() []byte {
+func (m *ProofLeafNode) GetValueHash() []byte {
 	if m != nil {
 		return m.ValueHash
 	}
 	return nil
 }
 
-func (m *ProofOpLeaf) GetVersion() int64 {
+func (m *ProofLeafNode) GetVersion() int64 {
 	if m != nil {
 		return m.Version
 	}
@@ -361,43 +357,44 @@ func (m *ProofOpLeaf) GetVersion() int64 {
 }
 
 func init() {
-	proto.RegisterType((*ProofOpValue)(nil), "iavl.ProofOpValue")
-	proto.RegisterType((*ProofOpAbsence)(nil), "iavl.ProofOpAbsence")
-	proto.RegisterType((*ProofOpRange)(nil), "iavl.ProofOpRange")
-	proto.RegisterType((*ProofOpPath)(nil), "iavl.ProofOpPath")
-	proto.RegisterType((*ProofOpInner)(nil), "iavl.ProofOpInner")
-	proto.RegisterType((*ProofOpLeaf)(nil), "iavl.ProofOpLeaf")
+	proto.RegisterType((*ValueOp)(nil), "iavl.ValueOp")
+	proto.RegisterType((*AbsenceOp)(nil), "iavl.AbsenceOp")
+	proto.RegisterType((*RangeProof)(nil), "iavl.RangeProof")
+	proto.RegisterType((*PathToLeaf)(nil), "iavl.PathToLeaf")
+	proto.RegisterType((*ProofInnerNode)(nil), "iavl.ProofInnerNode")
+	proto.RegisterType((*ProofLeafNode)(nil), "iavl.ProofLeafNode")
 }
 
 func init() { proto.RegisterFile("proof.proto", fileDescriptor_473d204b28f447f0) }
 
 var fileDescriptor_473d204b28f447f0 = []byte{
-	// 348 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xcd, 0x4a, 0xc3, 0x40,
-	0x10, 0x80, 0xbb, 0x4d, 0x1b, 0xed, 0x24, 0x88, 0x1d, 0x44, 0xf6, 0x62, 0x08, 0x39, 0x45, 0x0f,
-	0x15, 0xea, 0x45, 0xbd, 0xe9, 0x49, 0x41, 0xb4, 0xec, 0x41, 0xbc, 0x95, 0xad, 0x6e, 0x9b, 0x60,
-	0x48, 0x42, 0x36, 0x06, 0xf4, 0xe0, 0x33, 0xf8, 0x04, 0x3e, 0x8f, 0xc7, 0x1e, 0x3d, 0x4a, 0xfb,
-	0x22, 0xb2, 0xd3, 0x58, 0x14, 0x7f, 0xc0, 0xdb, 0xcc, 0xc7, 0x37, 0x7f, 0xc9, 0x82, 0x93, 0x17,
-	0x59, 0x36, 0xee, 0xe5, 0x45, 0x56, 0x66, 0xd8, 0x8a, 0x65, 0x95, 0x04, 0xfb, 0xe0, 0x0e, 0x0c,
-	0xbc, 0xc8, 0x2f, 0x65, 0x72, 0xa7, 0x30, 0x84, 0x36, 0x49, 0x9c, 0xf9, 0x2c, 0x74, 0xfa, 0xd8,
-	0x33, 0x56, 0xaf, 0x56, 0x84, 0x4c, 0x27, 0x4a, 0x2c, 0x84, 0xe0, 0x10, 0xd6, 0x6a, 0x7c, 0x34,
-	0xd2, 0x2a, 0xbd, 0xfe, 0x4f, 0xed, 0x33, 0x5b, 0x8e, 0x25, 0x8e, 0xbb, 0xd0, 0x49, 0xd4, 0xb8,
-	0x1c, 0xe6, 0xb2, 0x8c, 0x38, 0xf3, 0xad, 0x6f, 0xe5, 0xa7, 0x69, 0xaa, 0x0a, 0xb1, 0x6a, 0xa4,
-	0x81, 0x2c, 0x23, 0xec, 0x83, 0x13, 0x1b, 0x34, 0x4c, 0xb3, 0x1b, 0xa5, 0x79, 0x93, 0x4a, 0xba,
-	0x5f, 0x4a, 0x8c, 0x27, 0x80, 0xac, 0x73, 0x23, 0xe1, 0x36, 0xd8, 0x89, 0x92, 0x95, 0xd2, 0xdc,
-	0xfa, 0x41, 0x3f, 0x53, 0x72, 0x2c, 0x6a, 0x21, 0x38, 0x00, 0xe7, 0x53, 0x17, 0xdc, 0x01, 0x9b,
-	0xfa, 0xe8, 0x3f, 0x76, 0xab, 0x8d, 0xe0, 0x71, 0x79, 0x1a, 0x71, 0xdc, 0x04, 0x3b, 0x52, 0xf1,
-	0x24, 0x2a, 0xe9, 0xb3, 0x74, 0x45, 0x9d, 0x21, 0x42, 0x4b, 0xc7, 0x0f, 0x8a, 0x37, 0x7d, 0x16,
-	0x5a, 0x82, 0x62, 0xe4, 0xb0, 0x52, 0xa9, 0x42, 0xc7, 0x59, 0xca, 0x2d, 0xc2, 0x1f, 0xa9, 0xb1,
-	0xcd, 0xed, 0xbc, 0xe5, 0xb3, 0xd0, 0x15, 0x14, 0xe3, 0x06, 0xb4, 0x0b, 0x6a, 0xdc, 0x26, 0xb8,
-	0x48, 0x82, 0xab, 0xe5, 0xea, 0xe6, 0x22, 0x5c, 0x07, 0xeb, 0x56, 0xdd, 0xd3, 0x6c, 0x57, 0x98,
-	0x10, 0xb7, 0x00, 0x2a, 0xf3, 0xaf, 0x87, 0x91, 0xd4, 0x11, 0x8d, 0x77, 0x45, 0x87, 0xc8, 0x89,
-	0xd4, 0xd1, 0xef, 0x3b, 0x1c, 0xf3, 0x97, 0x99, 0xc7, 0xa6, 0x33, 0x8f, 0xbd, 0xcd, 0x3c, 0xf6,
-	0x34, 0xf7, 0x1a, 0xd3, 0xb9, 0xd7, 0x78, 0x9d, 0x7b, 0x8d, 0x91, 0x4d, 0x4f, 0x6a, 0xef, 0x3d,
-	0x00, 0x00, 0xff, 0xff, 0xa8, 0xe8, 0xa7, 0xb4, 0x61, 0x02, 0x00, 0x00,
+	// 363 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x94, 0x92, 0xc1, 0x4a, 0xf3, 0x40,
+	0x10, 0xc7, 0xbb, 0x4d, 0x9b, 0x7e, 0x9d, 0xf4, 0x93, 0xba, 0x16, 0xd9, 0x8b, 0x21, 0xe4, 0x20,
+	0x01, 0xa5, 0xd0, 0xf6, 0xe6, 0x4d, 0x4f, 0x0a, 0xa2, 0x65, 0x11, 0x0f, 0x5e, 0xca, 0xd6, 0x6e,
+	0x9b, 0x60, 0xc8, 0x86, 0x6c, 0x0c, 0xe8, 0xc9, 0x47, 0xf0, 0x0d, 0x7c, 0x1d, 0x8f, 0x3d, 0x7a,
+	0x94, 0xf6, 0x45, 0x64, 0xa7, 0x29, 0xb5, 0x07, 0x05, 0x6f, 0x33, 0xff, 0xf9, 0xcd, 0xfc, 0x27,
+	0x93, 0x05, 0x27, 0xcd, 0x94, 0x9a, 0x76, 0xd3, 0x4c, 0xe5, 0x8a, 0xd6, 0x22, 0x51, 0xc4, 0x7e,
+	0x0f, 0x1a, 0xb7, 0x22, 0x7e, 0x94, 0xd7, 0x29, 0x3d, 0x84, 0x3a, 0xd6, 0x19, 0xf1, 0x48, 0xe0,
+	0xf4, 0xdb, 0x5d, 0x03, 0x74, 0xb9, 0x48, 0x66, 0x72, 0x68, 0x74, 0xbe, 0x2a, 0xfb, 0x03, 0x68,
+	0x9e, 0x8e, 0xb5, 0x4c, 0xee, 0xff, 0xd2, 0xf4, 0x46, 0x00, 0x36, 0x2a, 0xed, 0x41, 0x33, 0x96,
+	0xd3, 0x7c, 0x94, 0x8a, 0x3c, 0x64, 0xc4, 0xb3, 0x02, 0xa7, 0xdf, 0x59, 0xb5, 0x62, 0xfd, 0x22,
+	0x49, 0x64, 0x76, 0xa5, 0x26, 0x92, 0xff, 0x33, 0xd8, 0x50, 0xe4, 0x21, 0xed, 0x81, 0x13, 0x19,
+	0x79, 0x94, 0xa8, 0x89, 0xd4, 0xac, 0x8a, 0x4d, 0xa5, 0x9f, 0x01, 0x6e, 0xd4, 0xa5, 0x14, 0x53,
+	0x0e, 0xd1, 0xba, 0x57, 0xd3, 0x23, 0xb0, 0x63, 0x29, 0x0a, 0xa9, 0x99, 0x85, 0xf4, 0xde, 0x37,
+	0x0b, 0x03, 0xa3, 0x43, 0x89, 0xf8, 0x27, 0x00, 0x9b, 0x31, 0xf4, 0x18, 0x6c, 0x1c, 0xa4, 0x7f,
+	0xdd, 0xae, 0x64, 0xfc, 0x17, 0x02, 0x3b, 0xdb, 0x25, 0xba, 0x0f, 0x76, 0x28, 0xa3, 0x59, 0x98,
+	0xe3, 0x65, 0x76, 0x79, 0x99, 0x51, 0x0a, 0x35, 0x1d, 0x3d, 0x4b, 0x56, 0xf5, 0x48, 0x60, 0x71,
+	0x8c, 0x29, 0x83, 0x46, 0x21, 0x33, 0x1d, 0xa9, 0x84, 0x59, 0x28, 0xaf, 0x53, 0x43, 0x9b, 0x03,
+	0xb0, 0x9a, 0x47, 0x82, 0x16, 0xc7, 0x98, 0x76, 0xa0, 0x9e, 0xe1, 0xe0, 0x3a, 0x8a, 0xab, 0xc4,
+	0xbf, 0x83, 0xff, 0x5b, 0xdf, 0x45, 0xdb, 0x60, 0x3d, 0xc8, 0x27, 0x74, 0x6f, 0x71, 0x13, 0xd2,
+	0x03, 0x80, 0xc2, 0xfc, 0xeb, 0x51, 0x28, 0x74, 0x88, 0x0b, 0xb4, 0x78, 0x13, 0x95, 0x73, 0xa1,
+	0xc3, 0x9f, 0xb7, 0x38, 0x63, 0xef, 0x0b, 0x97, 0xcc, 0x17, 0x2e, 0xf9, 0x5c, 0xb8, 0xe4, 0x75,
+	0xe9, 0x56, 0xe6, 0x4b, 0xb7, 0xf2, 0xb1, 0x74, 0x2b, 0x63, 0x1b, 0xdf, 0xd2, 0xe0, 0x2b, 0x00,
+	0x00, 0xff, 0xff, 0x64, 0x74, 0x79, 0xa5, 0x5a, 0x02, 0x00, 0x00,
 }
 
-func (m *ProofOpValue) Marshal() (dAtA []byte, err error) {
+func (m *ValueOp) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -407,12 +404,12 @@ func (m *ProofOpValue) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ProofOpValue) MarshalTo(dAtA []byte) (int, error) {
+func (m *ValueOp) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ProofOpValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ValueOp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -432,7 +429,7 @@ func (m *ProofOpValue) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ProofOpAbsence) Marshal() (dAtA []byte, err error) {
+func (m *AbsenceOp) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -442,12 +439,12 @@ func (m *ProofOpAbsence) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ProofOpAbsence) MarshalTo(dAtA []byte) (int, error) {
+func (m *AbsenceOp) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ProofOpAbsence) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *AbsenceOp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -467,7 +464,7 @@ func (m *ProofOpAbsence) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ProofOpRange) Marshal() (dAtA []byte, err error) {
+func (m *RangeProof) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -477,12 +474,12 @@ func (m *ProofOpRange) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ProofOpRange) MarshalTo(dAtA []byte) (int, error) {
+func (m *RangeProof) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ProofOpRange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *RangeProof) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -532,7 +529,7 @@ func (m *ProofOpRange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ProofOpPath) Marshal() (dAtA []byte, err error) {
+func (m *PathToLeaf) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -542,12 +539,12 @@ func (m *ProofOpPath) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ProofOpPath) MarshalTo(dAtA []byte) (int, error) {
+func (m *PathToLeaf) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ProofOpPath) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *PathToLeaf) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -569,7 +566,7 @@ func (m *ProofOpPath) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ProofOpInner) Marshal() (dAtA []byte, err error) {
+func (m *ProofInnerNode) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -579,12 +576,12 @@ func (m *ProofOpInner) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ProofOpInner) MarshalTo(dAtA []byte) (int, error) {
+func (m *ProofInnerNode) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ProofOpInner) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ProofInnerNode) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -621,7 +618,7 @@ func (m *ProofOpInner) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ProofOpLeaf) Marshal() (dAtA []byte, err error) {
+func (m *ProofLeafNode) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -631,12 +628,12 @@ func (m *ProofOpLeaf) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ProofOpLeaf) MarshalTo(dAtA []byte) (int, error) {
+func (m *ProofLeafNode) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ProofOpLeaf) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *ProofLeafNode) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -674,7 +671,7 @@ func encodeVarintProof(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *ProofOpValue) Size() (n int) {
+func (m *ValueOp) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -687,7 +684,7 @@ func (m *ProofOpValue) Size() (n int) {
 	return n
 }
 
-func (m *ProofOpAbsence) Size() (n int) {
+func (m *AbsenceOp) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -700,7 +697,7 @@ func (m *ProofOpAbsence) Size() (n int) {
 	return n
 }
 
-func (m *ProofOpRange) Size() (n int) {
+func (m *RangeProof) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -727,7 +724,7 @@ func (m *ProofOpRange) Size() (n int) {
 	return n
 }
 
-func (m *ProofOpPath) Size() (n int) {
+func (m *PathToLeaf) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -742,7 +739,7 @@ func (m *ProofOpPath) Size() (n int) {
 	return n
 }
 
-func (m *ProofOpInner) Size() (n int) {
+func (m *ProofInnerNode) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -768,7 +765,7 @@ func (m *ProofOpInner) Size() (n int) {
 	return n
 }
 
-func (m *ProofOpLeaf) Size() (n int) {
+func (m *ProofLeafNode) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -794,7 +791,7 @@ func sovProof(x uint64) (n int) {
 func sozProof(x uint64) (n int) {
 	return sovProof(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *ProofOpValue) Unmarshal(dAtA []byte) error {
+func (m *ValueOp) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -817,10 +814,10 @@ func (m *ProofOpValue) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOpValue: wiretype end group for non-group")
+			return fmt.Errorf("proto: ValueOp: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOpValue: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ValueOp: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -853,7 +850,7 @@ func (m *ProofOpValue) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Proof == nil {
-				m.Proof = &ProofOpRange{}
+				m.Proof = &RangeProof{}
 			}
 			if err := m.Proof.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -883,7 +880,7 @@ func (m *ProofOpValue) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ProofOpAbsence) Unmarshal(dAtA []byte) error {
+func (m *AbsenceOp) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -906,10 +903,10 @@ func (m *ProofOpAbsence) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOpAbsence: wiretype end group for non-group")
+			return fmt.Errorf("proto: AbsenceOp: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOpAbsence: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: AbsenceOp: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -942,7 +939,7 @@ func (m *ProofOpAbsence) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			if m.Proof == nil {
-				m.Proof = &ProofOpRange{}
+				m.Proof = &RangeProof{}
 			}
 			if err := m.Proof.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
@@ -972,7 +969,7 @@ func (m *ProofOpAbsence) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
+func (m *RangeProof) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -995,10 +992,10 @@ func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOpRange: wiretype end group for non-group")
+			return fmt.Errorf("proto: RangeProof: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOpRange: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: RangeProof: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1030,7 +1027,7 @@ func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.LeftPath = append(m.LeftPath, &ProofOpInner{})
+			m.LeftPath = append(m.LeftPath, &ProofInnerNode{})
 			if err := m.LeftPath[len(m.LeftPath)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1064,7 +1061,7 @@ func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.InnerNodes = append(m.InnerNodes, &ProofOpPath{})
+			m.InnerNodes = append(m.InnerNodes, &PathToLeaf{})
 			if err := m.InnerNodes[len(m.InnerNodes)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1098,7 +1095,7 @@ func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Leaves = append(m.Leaves, &ProofOpLeaf{})
+			m.Leaves = append(m.Leaves, &ProofLeafNode{})
 			if err := m.Leaves[len(m.Leaves)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1127,7 +1124,7 @@ func (m *ProofOpRange) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ProofOpPath) Unmarshal(dAtA []byte) error {
+func (m *PathToLeaf) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1150,10 +1147,10 @@ func (m *ProofOpPath) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOpPath: wiretype end group for non-group")
+			return fmt.Errorf("proto: PathToLeaf: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOpPath: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: PathToLeaf: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1185,7 +1182,7 @@ func (m *ProofOpPath) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.Inners = append(m.Inners, &ProofOpInner{})
+			m.Inners = append(m.Inners, &ProofInnerNode{})
 			if err := m.Inners[len(m.Inners)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
@@ -1214,7 +1211,7 @@ func (m *ProofOpPath) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ProofOpInner) Unmarshal(dAtA []byte) error {
+func (m *ProofInnerNode) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1237,10 +1234,10 @@ func (m *ProofOpInner) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOpInner: wiretype end group for non-group")
+			return fmt.Errorf("proto: ProofInnerNode: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOpInner: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ProofInnerNode: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1394,7 +1391,7 @@ func (m *ProofOpInner) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ProofOpLeaf) Unmarshal(dAtA []byte) error {
+func (m *ProofLeafNode) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1417,10 +1414,10 @@ func (m *ProofOpLeaf) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ProofOpLeaf: wiretype end group for non-group")
+			return fmt.Errorf("proto: ProofLeafNode: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ProofOpLeaf: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: ProofLeafNode: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:

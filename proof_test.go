@@ -211,7 +211,7 @@ func encodeProof(proof *RangeProof) ([]byte, error) {
 }
 
 func decodeProof(bz []byte) (*RangeProof, error) {
-	proofOp := &iavlproto.ProofOpRange{}
+	proofOp := &iavlproto.RangeProof{}
 	err := proto.Unmarshal(bz, proofOp)
 	if err != nil {
 		return nil, err
