@@ -1,8 +1,6 @@
 syntax = "proto3";
 package iavl;
 
-option go_package = "iavl";
-
 // ProofOpValue is a value proof, used internally to encode and decode ValueOp.
 message ProofOpValue {
   ProofOpRange proof = 1;
@@ -12,7 +10,6 @@ message ProofOpValue {
 message ProofOpAbsence {
   ProofOpRange proof = 1;
 }
-
 
 // ProofOpRange is used internally to encode and decode ValueOp and
 // AbsenceOp proof operations.

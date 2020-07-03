@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
 
 type RangeProof struct {
@@ -21,7 +23,6 @@ type RangeProof struct {
 	rootHash     []byte // valid iff rootVerified is true
 	rootVerified bool
 	treeEnd      bool // valid iff rootVerified is true
-
 }
 
 // Keys returns all the keys in the RangeProof.  NOTE: The keys here may
@@ -306,21 +307,21 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 }
 
 // toProto converts the proof to a Protobuf representation, for use in ValueOp and AbsenceOp.
-func (proof *RangeProof) toProto() *ProofOpRange {
-	pb := &ProofOpRange{
-		LeftPath:   make([]*ProofOpInner, 0, len(proof.LeftPath)),
-		InnerNodes: make([]*ProofOpPath, 0, len(proof.InnerNodes)),
-		Leaves:     make([]*ProofOpLeaf, 0, len(proof.Leaves)),
+func (proof *RangeProof) toProto() *iavlproto.ProofOpRange {
+	pb := &iavlproto.ProofOpRange{
+		LeftPath:   make([]*iavlproto.ProofOpInner, 0, len(proof.LeftPath)),
+		InnerNodes: make([]*iavlproto.ProofOpPath, 0, len(proof.InnerNodes)),
+		Leaves:     make([]*iavlproto.ProofOpLeaf, 0, len(proof.Leaves)),
 	}
 	for _, inner := range proof.LeftPath {
 		pb.LeftPath = append(pb.LeftPath, inner.toProto())
 	}
 	for _, path := range proof.InnerNodes {
-		pbPath := make([]*ProofOpInner, 0, len(path))
+		pbPath := make([]*iavlproto.ProofOpInner, 0, len(path))
 		for _, inner := range path {
 			pbPath = append(pbPath, inner.toProto())
 		}
-		pb.InnerNodes = append(pb.InnerNodes, &ProofOpPath{Inners: pbPath})
+		pb.InnerNodes = append(pb.InnerNodes, &iavlproto.ProofOpPath{Inners: pbPath})
 	}
 	for _, leaf := range proof.Leaves {
 		pb.Leaves = append(pb.Leaves, leaf.toProto())
@@ -330,7 +331,7 @@ func (proof *RangeProof) toProto() *ProofOpRange {
 }
 
 // rangeProofFromProto generates a RangeProof from a Protobuf ProofOpRange.
-func rangeProofFromProto(pbProof *ProofOpRange) (RangeProof, error) {
+func rangeProofFromProto(pbProof *iavlproto.ProofOpRange) (RangeProof, error) {
 	proof := RangeProof{}
 
 	for _, pbInner := range pbProof.LeftPath {

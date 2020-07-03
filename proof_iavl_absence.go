@@ -5,8 +5,9 @@ import (
 
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
-
 	"github.com/tendermint/tendermint/crypto/merkle"
+
+	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
 
 const ProofOpIAVLAbsence = "iavl:a"
@@ -46,7 +47,7 @@ func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if n != len(pop.Data) {
 		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
 	}
-	pbProofOp := &ProofOpAbsence{}
+	pbProofOp := &iavlproto.ProofOpAbsence{}
 	err = proto.Unmarshal(bz, pbProofOp)
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 }
 
 func (op AbsenceOp) ProofOp() merkle.ProofOp {
-	pbProof := ProofOpAbsence{Proof: op.Proof.toProto()}
+	pbProof := iavlproto.ProofOpAbsence{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
 		panic(err)

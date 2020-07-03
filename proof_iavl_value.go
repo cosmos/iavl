@@ -6,6 +6,8 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/crypto/merkle"
+
+	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
 
 const ProofOpIAVLValue = "iavl:v"
@@ -46,7 +48,7 @@ func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	if n != len(pop.Data) {
 		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
 	}
-	pbProofOp := &ProofOpValue{}
+	pbProofOp := &iavlproto.ProofOpValue{}
 	err = proto.Unmarshal(bz, pbProofOp)
 	if err != nil {
 		return nil, err
@@ -59,7 +61,7 @@ func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 }
 
 func (op ValueOp) ProofOp() merkle.ProofOp {
-	pbProof := ProofOpValue{Proof: op.Proof.toProto()}
+	pbProof := iavlproto.ProofOpValue{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
 		panic(err)
