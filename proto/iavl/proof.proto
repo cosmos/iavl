@@ -1,6 +1,8 @@
 syntax = "proto3";
 package iavl;
 
+option go_package = "proto";
+
 // ValueOp is a Protobuf representation of iavl.ValueOp.
 message ValueOp {
   RangeProof proof = 1;
