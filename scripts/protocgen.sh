@@ -9,6 +9,3 @@ for dir in $proto_dirs; do
   --gogofaster_out=$dir \
   $(find "${dir}" -maxdepth 1 -name '*.proto')
 done
-
-#mv ./iavl/* .
-#rm -rf ./iavl
