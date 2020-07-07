@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	cmn "github.com/cosmos/iavl/common"
+	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
 
 var (
@@ -91,8 +92,8 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 }
 
 // toProto converts the inner node proof to Protobuf, for use in ProofOps.
-func (pin ProofInnerNode) toProto() *ProofOpInner {
-	return &ProofOpInner{
+func (pin ProofInnerNode) toProto() *iavlproto.ProofInnerNode {
+	return &iavlproto.ProofInnerNode{
 		Height:  int32(pin.Height),
 		Size_:   pin.Size,
 		Version: pin.Version,
@@ -101,8 +102,8 @@ func (pin ProofInnerNode) toProto() *ProofOpInner {
 	}
 }
 
-// proofInnerNodeFromProto converts a Protobuf ProofOpInner to a ProofInnerNode.
-func proofInnerNodeFromProto(pbInner *ProofOpInner) (ProofInnerNode, error) {
+// proofInnerNodeFromProto converts a Protobuf ProofInnerNode to a ProofInnerNode.
+func proofInnerNodeFromProto(pbInner *iavlproto.ProofInnerNode) (ProofInnerNode, error) {
 	if pbInner == nil {
 		return ProofInnerNode{}, errors.New("inner node cannot be nil")
 	}
@@ -172,16 +173,16 @@ func (pln ProofLeafNode) Hash() []byte {
 }
 
 // toProto converts the leaf node proof to Protobuf, for use in ProofOps.
-func (pln ProofLeafNode) toProto() *ProofOpLeaf {
-	return &ProofOpLeaf{
+func (pln ProofLeafNode) toProto() *iavlproto.ProofLeafNode {
+	return &iavlproto.ProofLeafNode{
 		Key:       pln.Key,
 		ValueHash: pln.ValueHash,
 		Version:   pln.Version,
 	}
 }
 
-// proofLeafNodeFromProto converts a Protobuf ProofOpInner to a ProofLeafNode.
-func proofLeafNodeFromProto(pbLeaf *ProofOpLeaf) (ProofLeafNode, error) {
+// proofLeafNodeFromProto converts a Protobuf ProofLeadNode to a ProofLeafNode.
+func proofLeafNodeFromProto(pbLeaf *iavlproto.ProofLeafNode) (ProofLeafNode, error) {
 	if pbLeaf == nil {
 		return ProofLeafNode{}, errors.New("leaf node cannot be nil")
 	}
