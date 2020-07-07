@@ -5,11 +5,12 @@ import (
 	"bytes"
 	"testing"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	cmn "github.com/cosmos/iavl/common"
-	amino "github.com/tendermint/go-amino"
+	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
 
 func TestTreeGetWithProof(t *testing.T) {
@@ -205,27 +206,39 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 	}
 }
 
+func encodeProof(proof *RangeProof) ([]byte, error) {
+	return proof.toProto().Marshal()
+}
+
+func decodeProof(bz []byte) (*RangeProof, error) {
+	proofOp := &iavlproto.RangeProof{}
+	err := proto.Unmarshal(bz, proofOp)
+	if err != nil {
+		return nil, err
+	}
+	proof, err := rangeProofFromProto(proofOp)
+	return &proof, err
+}
+
 func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 	// Proof must verify.
 	require.NoError(t, proof.Verify(root))
 
 	// Write/Read then verify.
-	cdc := amino.NewCodec()
-	proofBytes := cdc.MustMarshalBinaryLengthPrefixed(proof)
-	var proof2 = new(RangeProof)
-	err := cdc.UnmarshalBinaryLengthPrefixed(proofBytes, proof2)
-	require.Nil(t, err, "Failed to read KeyExistsProof from bytes: %v", err)
+	proofBytes, err := encodeProof(proof)
+	require.NoError(t, err)
+	_, err = decodeProof(proofBytes)
+	require.NoError(t, err)
 
 	// Random mutations must not verify
 	for i := 0; i < 1e4; i++ {
 		badProofBytes := cmn.MutateByteSlice(proofBytes)
-		var badProof = new(RangeProof)
-		err := cdc.UnmarshalBinaryLengthPrefixed(badProofBytes, badProof)
+		badProof, err := decodeProof(badProofBytes)
 		if err != nil {
 			continue // couldn't even decode.
 		}
 		// re-encode to make sure it's actually different.
-		badProofBytes2 := cdc.MustMarshalBinaryLengthPrefixed(badProof)
+		badProofBytes2, err := encodeProof(badProof)
 		if bytes.Equal(proofBytes, badProofBytes2) {
 			continue // didn't mutate successfully.
 		}

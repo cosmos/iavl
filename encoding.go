@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -66,6 +67,13 @@ func encodeBytes(w io.Writer, bz []byte) error {
 	}
 	_, err = w.Write(bz)
 	return err
+}
+
+// encodeBytesSlice length-prefixes the byte slice and returns it.
+func encodeBytesSlice(bz []byte) ([]byte, error) {
+	var buf bytes.Buffer
+	err := encodeBytes(&buf, bz)
+	return buf.Bytes(), err
 }
 
 // encodeBytesSize returns the byte size of the given slice including length-prefixing.
