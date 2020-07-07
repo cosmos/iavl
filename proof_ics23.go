@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
 
 	ics23 "github.com/confio/ics23/go"
@@ -10,8 +11,8 @@ import (
 GetMembershipProof will produce a CommitmentProof that the given key (and queries value) exists in the iavl tree.
 If the key doesn't exist in the tree, this will return an error.
 */
-func (tree *ImmutableTree) GetMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
-	exist, err := createExistenceProof(tree, key)
+func (t *ImmutableTree) GetMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
+	exist, err := createExistenceProof(t, key)
 	if err != nil {
 		return nil, err
 	}
@@ -27,9 +28,9 @@ func (tree *ImmutableTree) GetMembershipProof(key []byte) (*ics23.CommitmentProo
 GetNonMembershipProof will produce a CommitmentProof that the given key doesn't exist in the iavl tree.
 If the key exists in the tree, this will return an error.
 */
-func (tree *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
+func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
 	// idx is one node right of what we want....
-	idx, val := tree.Get(key)
+	idx, val := t.Get(key)
 	if val != nil {
 		return nil, fmt.Errorf("cannot create NonExistanceProof when Key in State")
 	}
@@ -40,17 +41,17 @@ func (tree *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentP
 	}
 
 	if idx >= 1 {
-		leftkey, _ := tree.GetByIndex(idx - 1)
-		nonexist.Left, err = createExistenceProof(tree, leftkey)
+		leftkey, _ := t.GetByIndex(idx - 1)
+		nonexist.Left, err = createExistenceProof(t, leftkey)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	// this will be nil if nothing right of the queried key
-	rightkey, _ := tree.GetByIndex(idx)
+	rightkey, _ := t.GetByIndex(idx)
 	if rightkey != nil {
-		nonexist.Right, err = createExistenceProof(tree, rightkey)
+		nonexist.Right, err = createExistenceProof(t, rightkey)
 		if err != nil {
 			return nil, err
 		}
@@ -94,9 +95,9 @@ func convertExistenceProof(p *RangeProof, key, value []byte) (*ics23.ExistencePr
 
 func convertLeafOp(version int64) *ics23.LeafOp {
 	// this is adapted from iavl/proof.go:proofLeafNode.Hash()
-	prefix := aminoVarInt(0)
-	prefix = append(prefix, aminoVarInt(1)...)
-	prefix = append(prefix, aminoVarInt(version)...)
+	prefix := convertVarIntToBytes(0)
+	prefix = append(prefix, convertVarIntToBytes(1)...)
+	prefix = append(prefix, convertVarIntToBytes(version)...)
 
 	return &ics23.LeafOp{
 		Hash:         ics23.HashOp_SHA256,
@@ -117,9 +118,9 @@ func convertInnerOps(path PathToLeaf) []*ics23.InnerOp {
 	// we want to go up from the leaf to the root
 	for i := len(path) - 1; i >= 0; i-- {
 		// this is adapted from iavl/proof.go:proofInnerNode.Hash()
-		prefix := aminoVarInt(int64(path[i].Height))
-		prefix = append(prefix, aminoVarInt(path[i].Size)...)
-		prefix = append(prefix, aminoVarInt(path[i].Version)...)
+		prefix := convertVarIntToBytes(int64(path[i].Height))
+		prefix = append(prefix, convertVarIntToBytes(path[i].Size)...)
+		prefix = append(prefix, convertVarIntToBytes(path[i].Version)...)
 
 		var suffix []byte
 		if len(path[i].Left) > 0 {
@@ -146,21 +147,12 @@ func convertInnerOps(path PathToLeaf) []*ics23.InnerOp {
 	return steps
 }
 
-func aminoVarInt(orig int64) []byte {
-	// amino-specific byte swizzling
-	i := uint64(orig) << 1
-	if orig < 0 {
-		i = ^i
+func convertVarIntToBytes(orig int64) []byte {
+	buf := new(bytes.Buffer)
+	err := encodeVarint(buf, orig)
+	// write should not fail
+	if err != nil {
+		panic(err)
 	}
-
-	// avoid multiple allocs for normal case
-	res := make([]byte, 0, 8)
-
-	// standard protobuf encoding
-	for i >= 1<<7 {
-		res = append(res, uint8(i&0x7f|0x80))
-		i >>= 7
-	}
-	res = append(res, uint8(i))
-	return res
+	return buf.Bytes()
 }

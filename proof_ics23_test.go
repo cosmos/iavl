@@ -179,9 +179,10 @@ func BuildTree(size int) (itree *ImmutableTree, keys [][]byte, err error) {
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)
 	for i := 0; i < size; i++ {
+		key := make([]byte, 4)
 		// create random 4 byte key
 		// nolint:gosec
-		key := []byte{byte(rand.Uint64()), byte(rand.Uint64()), byte(rand.Uint64()), byte(rand.Uint64())}
+		rand.Read(key)
 		value := "value_for_key:" + string(key)
 		tree.Set(key, []byte(value))
 		keys[i] = key
