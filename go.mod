@@ -3,6 +3,7 @@ module github.com/cosmos/iavl
 go 1.13
 
 require (
+	github.com/confio/ics23/go v0.0.0-20200610201322-18c7bd6b2dd3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect

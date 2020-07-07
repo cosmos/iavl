@@ -13,6 +13,8 @@ https://github.com/cosmos/iavl. This also affects the module import path, which 
 ### Improvements
 
 - Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
+- Introduced new methods `CreateMembershipProof` and `CreateNonMembershipProof` to return 
+  ics23 ExistenceProof and NonExistenceProofs respectively
 
 ### Bug Fixes
 
