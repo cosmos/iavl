@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/crypto/merkle"
+	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto/merkle"
 	db "github.com/tendermint/tm-db"
 )
 
@@ -61,7 +61,7 @@ func TestProofOp(t *testing.T) {
 
 				valueOp := NewValueOp(key, proof)
 				proofOp := valueOp.ProofOp()
-				assert.Equal(t, merkle.ProofOp{
+				assert.Equal(t, tmmerkle.ProofOp{
 					Type: ProofOpIAVLValue,
 					Key:  key,
 					Data: expectBytes,
@@ -81,7 +81,7 @@ func TestProofOp(t *testing.T) {
 
 				absenceOp := NewAbsenceOp(key, proof)
 				proofOp := absenceOp.ProofOp()
-				assert.Equal(t, merkle.ProofOp{
+				assert.Equal(t, tmmerkle.ProofOp{
 					Type: ProofOpIAVLAbsence,
 					Key:  key,
 					Data: expectBytes,

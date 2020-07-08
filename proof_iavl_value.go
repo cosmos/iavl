@@ -6,6 +6,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/crypto/merkle"
+	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto/merkle"
 
 	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
@@ -36,7 +37,7 @@ func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 	}
 }
 
-func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func ValueOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
@@ -60,7 +61,7 @@ func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	return NewValueOp(pop.Key, &proof), nil
 }
 
-func (op ValueOp) ProofOp() merkle.ProofOp {
+func (op ValueOp) ProofOp() tmmerkle.ProofOp {
 	pbProof := iavlproto.ValueOp{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
@@ -71,7 +72,7 @@ func (op ValueOp) ProofOp() merkle.ProofOp {
 	if err != nil {
 		panic(err)
 	}
-	return merkle.ProofOp{
+	return tmmerkle.ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,
 		Data: bz,
