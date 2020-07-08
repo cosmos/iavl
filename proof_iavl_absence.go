@@ -6,6 +6,7 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/crypto/merkle"
+	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto/merkle"
 
 	iavlproto "github.com/cosmos/iavl/internal/proto"
 )
@@ -35,7 +36,7 @@ func NewAbsenceOp(key []byte, proof *RangeProof) AbsenceOp {
 	}
 }
 
-func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func AbsenceOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
@@ -59,7 +60,7 @@ func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
 	return NewAbsenceOp(pop.Key, &proof), nil
 }
 
-func (op AbsenceOp) ProofOp() merkle.ProofOp {
+func (op AbsenceOp) ProofOp() tmmerkle.ProofOp {
 	pbProof := iavlproto.AbsenceOp{Proof: op.Proof.toProto()}
 	bz, err := pbProof.Marshal()
 	if err != nil {
@@ -70,7 +71,7 @@ func (op AbsenceOp) ProofOp() merkle.ProofOp {
 	if err != nil {
 		panic(err)
 	}
-	return merkle.ProofOp{
+	return tmmerkle.ProofOp{
 		Type: ProofOpIAVLAbsence,
 		Key:  op.key,
 		Data: bz,
