@@ -6,7 +6,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/cosmos/iavl"
+	iavl "github.com/cosmos/iavl"
 	pb "github.com/cosmos/iavl/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
@@ -76,7 +76,7 @@ func (s *IAVLServer) GetWithProof(ctx context.Context, req *pb.GetRequest) (*pb.
 		return nil, s.Err()
 	}
 
-	proofPb := iavl.ConvertRangeProofToProto(req.Key, proof)
+	proofPb := proof.ToProto()
 
 	return &pb.GetWithProofResponse{Value: value, Proof: proofPb}, nil
 }
@@ -112,7 +112,7 @@ func (s *IAVLServer) GetVersionedWithProof(_ context.Context, req *pb.GetVersion
 		return nil, s.Err()
 	}
 
-	proofPb := iavl.ConvertRangeProofToProto(req.Key, proof)
+	proofPb := proof.ToProto()
 
 	return &pb.GetWithProofResponse{Value: value, Proof: proofPb}, nil
 }
@@ -184,7 +184,12 @@ func (s *IAVLServer) VersionExists(_ context.Context, req *pb.VersionExistsReque
 
 // Verify verifies an IAVL range proof returning an error if the proof is invalid.
 func (*IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Empty, error) {
-	proof := iavl.ConvertProtoRangeProof(req.Proof)
+	proof, err := iavl.RangeProofFromProto(req.Proof)
+
+	if err != nil {
+		return nil, err
+	}
+
 	if err := proof.Verify(req.RootHash); err != nil {
 		return nil, err
 	}
@@ -195,7 +200,12 @@ func (*IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Em
 // VerifyItem verifies if a given key/value pair in an IAVL range proof returning
 // an error if the proof or key is invalid.
 func (*IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*empty.Empty, error) {
-	proof := iavl.ConvertProtoRangeProof(req.Proof)
+	proof, err := iavl.RangeProofFromProto(req.Proof)
+
+	if err != nil {
+		return nil, err
+	}
+
 	if err := proof.Verify(req.RootHash); err != nil {
 		return nil, err
 	}
@@ -210,7 +220,12 @@ func (*IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*
 // VerifyAbsence verifies the absence of a given key in an IAVL range proof
 // returning an error if the proof or key is invalid.
 func (*IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceRequest) (*empty.Empty, error) {
-	proof := iavl.ConvertProtoRangeProof(req.Proof)
+	proof, err := iavl.RangeProofFromProto(req.Proof)
+
+	if err != nil {
+		return nil, err
+	}
+
 	if err := proof.Verify(req.RootHash); err != nil {
 		return nil, err
 	}

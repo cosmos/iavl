@@ -12,8 +12,6 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/cosmos/iavl"
-
 	"github.com/gogo/gateway"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkg/errors"
@@ -36,8 +34,6 @@ var (
 	cpuProfile      = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
 	memProfile      = flag.String("memprofile", "", "If set, write memory profile to this file")
 	noGateway       = flag.Bool("no-gateway", false, "Disables the gRPC-Gateway server")
-	keepEvery       = flag.Int64("keep-every", iavl.DefaultOptions().KeepEvery, "The version interval to persist to disk")
-	keepRecent      = flag.Int64("keep-recent", iavl.DefaultOptions().KeepRecent, "The number of recent versions to keep in memory")
 )
 
 var log grpclog.LoggerV2
@@ -81,7 +77,7 @@ func main() {
 		log.Fatalf("failed to open DB: %s", err)
 	}
 
-	svr, err := server.New(db, *cacheSize, *version, *keepEvery, *keepRecent)
+	svr, err := server.New(db, *cacheSize, *version)
 	if err != nil {
 		log.Fatalf("failed to create IAVL server: %s", err)
 	}
@@ -142,6 +138,7 @@ func startRPCGateway() error {
 
 func openDB() (dbm.DB, error) {
 	var err error
+	var db dbm.DB
 
 	switch {
 	case *dbName == "":
@@ -160,7 +157,13 @@ func openDB() (dbm.DB, error) {
 		}
 	}()
 
-	return dbm.NewDB(*dbName, dbm.BackendType(*dbBackend), *dbDataDir), err
+	db, err = dbm.NewDB(*dbName, dbm.BackendType(*dbBackend), *dbDataDir)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return db, err
 }
 
 // trapSignal will listen for any OS signal and invokes a callback function to

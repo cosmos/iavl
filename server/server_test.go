@@ -20,9 +20,11 @@ type ServerTestSuite struct {
 }
 
 func (suite *ServerTestSuite) SetupTest() {
-	db := dbm.NewDB("test", dbm.MemDBBackend, "")
+	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
 
-	server, err := server.New(db, 1000, 0, 1, 0)
+	suite.NoError(err)
+
+	server, err := server.New(db, 1000, 0)
 	suite.NoError(err)
 
 	suite.server = server
@@ -303,7 +305,11 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 				suite.Equal(tc.result, res.Value)
 
 				if tc.result != nil {
-					proof := iavl.ConvertProtoRangeProof(res.Proof)
+					proof, err := iavl.RangeProofFromProto(res.Proof)
+
+					if err != nil {
+						suite.Error(err)
+					}
 
 					rootHash := proof.ComputeRootHash()
 					suite.Equal(tc.expectErr, rootHash == nil)
@@ -418,7 +424,12 @@ func (suite *ServerTestSuite) TestVerify() {
 
 			if !tc.expectErr {
 
-				proof := iavl.ConvertProtoRangeProof(res.Proof)
+				proof, err := iavl.RangeProofFromProto(res.Proof)
+
+				if err != nil {
+					suite.Error(err)
+				}
+
 				rootHash := proof.ComputeRootHash()
 				suite.Equal(tc.expectErr, rootHash == nil)
 
@@ -427,7 +438,7 @@ func (suite *ServerTestSuite) TestVerify() {
 					Proof:    res.Proof,
 				}
 
-				_, err := suite.server.Verify(context.TODO(), verifyReq)
+				_, err = suite.server.Verify(context.TODO(), verifyReq)
 				suite.NoError(err)
 			}
 		})
@@ -471,7 +482,10 @@ func (suite *ServerTestSuite) TestVerifyAbsense() {
 
 			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.existingKey})
 			if err != nil {
-				proof := iavl.ConvertProtoRangeProof(res.Proof)
+				proof, err := iavl.RangeProofFromProto(res.Proof)
+				if err != nil {
+					suite.Error(err)
+				}
 				rootHash := proof.ComputeRootHash()
 				suite.Equal(tc.expectErr, rootHash == nil)
 
@@ -481,7 +495,7 @@ func (suite *ServerTestSuite) TestVerifyAbsense() {
 					Key:      tc.questionableKey,
 				}
 
-				_, err := suite.server.VerifyAbsence(context.TODO(), verifyAbsReq)
+				_, err = suite.server.VerifyAbsence(context.TODO(), verifyAbsReq)
 				suite.Equal(tc.expectErr, err != nil)
 			}
 
@@ -526,7 +540,8 @@ func (suite *ServerTestSuite) TestVerifyItem() {
 
 			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
 			if err != nil {
-				proof := iavl.ConvertProtoRangeProof(res.Proof)
+				proof, err := iavl.RangeProofFromProto(res.Proof)
+				suite.NoError(err)
 				rootHash := proof.ComputeRootHash()
 				suite.Equal(tc.expectErr, rootHash == nil)
 
@@ -537,7 +552,7 @@ func (suite *ServerTestSuite) TestVerifyItem() {
 					Value:    tc.value,
 				}
 
-				_, err := suite.server.VerifyItem(context.TODO(), verifyItemReq)
+				_, err = suite.server.VerifyItem(context.TODO(), verifyItemReq)
 				suite.Equal(tc.expectErr, err != nil)
 			}
 

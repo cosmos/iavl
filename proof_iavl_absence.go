@@ -53,7 +53,7 @@ func AbsenceOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 	if err != nil {
 		return nil, err
 	}
-	proof, err := rangeProofFromProto(pbProofOp.Proof)
+	proof, err := RangeProofFromProto(pbProofOp.Proof)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func AbsenceOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 }
 
 func (op AbsenceOp) ProofOp() tmmerkle.ProofOp {
-	pbProof := iavlproto.AbsenceOp{Proof: op.Proof.toProto()}
+	pbProof := iavlproto.AbsenceOp{Proof: op.Proof.ToProto()}
 	bz, err := proto.Marshal(&pbProof)
 	if err != nil {
 		panic(err)
