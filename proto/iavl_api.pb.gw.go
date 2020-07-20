@@ -2,11 +2,11 @@
 // source: proto/iavl_api.proto
 
 /*
-Package proto is a reverse proxy.
+Package iavl is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
-package proto
+package iavl
 
 import (
 	"context"

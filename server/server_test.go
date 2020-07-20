@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cosmos/iavl"
 	"github.com/stretchr/testify/suite"
-	"github.com/tendermint/iavl"
 	dbm "github.com/tendermint/tm-db"
 
-	pb "github.com/tendermint/iavl/proto"
-	"github.com/tendermint/iavl/server"
+	pb "github.com/cosmos/iavl/proto"
+	"github.com/cosmos/iavl/server"
 )
 
 type ServerTestSuite struct {

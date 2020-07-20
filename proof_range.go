@@ -9,7 +9,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	iavlproto "github.com/cosmos/iavl/proto/iavl"
+	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 type RangeProof struct {

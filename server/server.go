@@ -6,10 +6,10 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/cosmos/iavl"
+	pb "github.com/cosmos/iavl/proto"
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/pkg/errors"
-	"github.com/tendermint/iavl"
-	pb "github.com/tendermint/iavl/proto"
 	dbm "github.com/tendermint/tm-db"
 )
 

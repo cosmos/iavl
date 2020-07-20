@@ -8,7 +8,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/merkle"
 	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto"
 
-	iavlproto "github.com/cosmos/iavl/proto/iavl"
+	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 const ProofOpIAVLAbsence = "iavl:a"
@@ -62,7 +62,7 @@ func AbsenceOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 
 func (op AbsenceOp) ProofOp() tmmerkle.ProofOp {
 	pbProof := iavlproto.AbsenceOp{Proof: op.Proof.toProto()}
-	bz, err := pbProof.Marshal()
+	bz, err := proto.Marshal(&pbProof)
 	if err != nil {
 		panic(err)
 	}

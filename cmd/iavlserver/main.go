@@ -12,7 +12,7 @@ import (
 	"runtime/pprof"
 	"syscall"
 
-	"github.com/tendermint/iavl"
+	"github.com/cosmos/iavl"
 
 	"github.com/gogo/gateway"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -21,8 +21,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
-	pb "github.com/tendermint/iavl/proto"
-	"github.com/tendermint/iavl/server"
+	pb "github.com/cosmos/iavl/proto"
+	"github.com/cosmos/iavl/server"
 )
 
 var (

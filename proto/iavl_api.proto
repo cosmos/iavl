@@ -1,8 +1,11 @@
 syntax = "proto3";
-package proto;
+package iavl;
+
+option go_package = "proto/iavl";
 
 import "third_party/google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "proto/proof.proto";
 
 // ----------------------------------------------------------------------------
 // gRPC service
@@ -183,19 +186,19 @@ message VersionExistsRequest {
 
 message VerifyRequest {
   bytes root_hash = 1;
-  RangeProof proof = 2;
+  iavl.RangeProof proof = 2;
 }
 
 message VerifyItemRequest {
   bytes root_hash = 1;
-  RangeProof proof = 2;
+  iavl.RangeProof proof = 2;
   bytes key = 3;
   bytes value = 4;
 }
 
 message VerifyAbsenceRequest {
   bytes root_hash = 1;
-  RangeProof proof = 2;
+  iavl.RangeProof proof = 2;
   bytes key = 3;
 }
 
@@ -245,30 +248,5 @@ message VersionExistsResponse {
 
 message GetWithProofResponse {
   bytes value = 1;
-  RangeProof proof = 2;
-}
-
-message ProofInnerNode {
-  int32 height = 1;
-  int64 size = 2;
-  int64 version = 3;
-  bytes left = 4;
-  bytes right = 5;
-}
-
-message ProofLeafNode {
-  bytes key = 1;
-  bytes value_hash = 2;
-  int64 version = 3;
-}
-
-message PathToLeaf {
-  repeated ProofInnerNode nodes = 1;
-}
-
-message RangeProof {
-  bytes key = 1;
-  PathToLeaf left_path = 2;
-  repeated PathToLeaf inner_nodes = 3;
-  repeated ProofLeafNode leaves = 4;
+  iavl.RangeProof proof = 2;
 }

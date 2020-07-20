@@ -6,8 +6,6 @@ import (
 	"os"
 	"sort"
 	"strings"
-
-	pb "github.com/cosmos/iavl/proto"
 )
 
 // PrintTree prints the whole tree in an indented form.
@@ -108,107 +106,6 @@ func sortByteSlices(src [][]byte) [][]byte {
 	bzz := byteslices(src)
 	sort.Sort(bzz)
 	return bzz
-}
-
-// ConvertProtoRangeProof converts a protobuf RangeProof to a RangeProof and
-// returns the reference.
-func ConvertProtoRangeProof(proofPb *pb.RangeProof) *RangeProof {
-	leftPath := make(PathToLeaf, len(proofPb.LeftPath.Nodes))
-	for i, n := range proofPb.LeftPath.Nodes {
-		leftPath[i] = ProofInnerNode{
-			Height:  int8(n.Height),
-			Size:    n.Size,
-			Version: n.Version,
-			Left:    n.Left,
-			Right:   n.Right,
-		}
-	}
-
-	innerNodes := make([]PathToLeaf, len(proofPb.InnerNodes))
-	for i, pl := range proofPb.InnerNodes {
-		nodes := make([]ProofInnerNode, len(pl.Nodes))
-		for j, n := range pl.Nodes {
-			nodes[j] = ProofInnerNode{
-				Height:  int8(n.Height),
-				Size:    n.Size,
-				Version: n.Version,
-				Left:    n.Left,
-				Right:   n.Right,
-			}
-		}
-
-		innerNodes[i] = nodes
-	}
-
-	leaves := make([]ProofLeafNode, len(proofPb.Leaves))
-	for i, l := range proofPb.Leaves {
-		leaves[i] = ProofLeafNode{
-			Key:       l.Key,
-			ValueHash: l.ValueHash,
-			Version:   l.Version,
-		}
-	}
-
-	return &RangeProof{
-		LeftPath:   leftPath,
-		InnerNodes: innerNodes,
-		Leaves:     leaves,
-	}
-}
-
-// ConvertRangeProofToProto converts a protobuf RangeProof to a RangeProof and
-// returns the reference.
-func ConvertRangeProofToProto(key []byte, proof *RangeProof) *pb.RangeProof {
-	proofPb := &pb.RangeProof{
-		Key:        key,
-		InnerNodes: make([]*pb.PathToLeaf, len(proof.InnerNodes)),
-		Leaves:     make([]*pb.ProofLeafNode, len(proof.Leaves)),
-	}
-
-	// left path
-	nodes := make([]*pb.ProofInnerNode, len(proof.LeftPath))
-	for i, n := range proof.LeftPath {
-		nodes[i] = &pb.ProofInnerNode{
-			Height:  int32(n.Height),
-			Size:    n.Size,
-			Version: n.Version,
-			Left:    n.Left,
-			Right:   n.Right,
-		}
-	}
-
-	proofPb.LeftPath = &pb.PathToLeaf{
-		Nodes: nodes,
-	}
-
-	// inner nodes
-	for i, pl := range proof.InnerNodes {
-		nodes := make([]*pb.ProofInnerNode, len(pl))
-		for j, n := range pl {
-			nodes[j] = &pb.ProofInnerNode{
-				Height:  int32(n.Height),
-				Size:    n.Size,
-				Version: n.Version,
-				Left:    n.Left,
-				Right:   n.Right,
-			}
-		}
-
-		proofPb.InnerNodes[i] = &pb.PathToLeaf{
-			Nodes: nodes,
-		}
-	}
-
-	// leaves
-	for i, l := range proof.Leaves {
-		proofPb.Leaves[i] = &pb.ProofLeafNode{
-			Key:       l.Key,
-			ValueHash: l.ValueHash,
-			Version:   l.Version,
-		}
-	}
-
-	return proofPb
 }
 
 // Colors: ------------------------------------------------
