@@ -3,9 +3,12 @@ package iavl
 import (
 	"fmt"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
-
 	"github.com/tendermint/tendermint/crypto/merkle"
+	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto"
+
+	iavlproto "github.com/cosmos/iavl/proto/iavl"
 )
 
 const ProofOpIAVLAbsence = "iavl:a"
@@ -33,21 +36,42 @@ func NewAbsenceOp(key []byte, proof *RangeProof) AbsenceOp {
 	}
 }
 
-func AbsenceOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func AbsenceOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLAbsence {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLAbsence)
 	}
-	var op AbsenceOp // a bit strange as we'll discard this, but it works.
-	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
+	// Strip the varint length prefix, used for backwards compatibility with Amino.
+	bz, n, err := decodeBytes(pop.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLAbsenceOp")
+		return nil, err
 	}
-	return NewAbsenceOp(pop.Key, op.Proof), nil
+	if n != len(pop.Data) {
+		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
+	}
+	pbProofOp := &iavlproto.AbsenceOp{}
+	err = proto.Unmarshal(bz, pbProofOp)
+	if err != nil {
+		return nil, err
+	}
+	proof, err := rangeProofFromProto(pbProofOp.Proof)
+	if err != nil {
+		return nil, err
+	}
+	return NewAbsenceOp(pop.Key, &proof), nil
 }
 
-func (op AbsenceOp) ProofOp() merkle.ProofOp {
-	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
-	return merkle.ProofOp{
+func (op AbsenceOp) ProofOp() tmmerkle.ProofOp {
+	pbProof := iavlproto.AbsenceOp{Proof: op.Proof.toProto()}
+	bz, err := pbProof.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	// We length-prefix the byte slice to retain backwards compatibility with the Amino proofs.
+	bz, err = encodeBytesSlice(bz)
+	if err != nil {
+		panic(err)
+	}
+	return tmmerkle.ProofOp{
 		Type: ProofOpIAVLAbsence,
 		Key:  op.key,
 		Data: bz,

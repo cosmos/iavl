@@ -3,9 +3,12 @@ package iavl
 import (
 	"fmt"
 
+	proto "github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
-
 	"github.com/tendermint/tendermint/crypto/merkle"
+	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto"
+
+	iavlproto "github.com/cosmos/iavl/proto/iavl"
 )
 
 const ProofOpIAVLValue = "iavl:v"
@@ -34,21 +37,42 @@ func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 	}
 }
 
-func ValueOpDecoder(pop merkle.ProofOp) (merkle.ProofOperator, error) {
+func ValueOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
-	var op ValueOp // a bit strange as we'll discard this, but it works.
-	err := cdc.UnmarshalBinaryLengthPrefixed(pop.Data, &op)
+	// Strip the varint length prefix, used for backwards compatibility with Amino.
+	bz, n, err := decodeBytes(pop.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "decoding ProofOp.Data into IAVLValueOp")
+		return nil, err
 	}
-	return NewValueOp(pop.Key, op.Proof), nil
+	if n != len(pop.Data) {
+		return nil, fmt.Errorf("unexpected bytes, expected %v got %v", n, len(pop.Data))
+	}
+	pbProofOp := &iavlproto.ValueOp{}
+	err = proto.Unmarshal(bz, pbProofOp)
+	if err != nil {
+		return nil, err
+	}
+	proof, err := rangeProofFromProto(pbProofOp.Proof)
+	if err != nil {
+		return nil, err
+	}
+	return NewValueOp(pop.Key, &proof), nil
 }
 
-func (op ValueOp) ProofOp() merkle.ProofOp {
-	bz := cdc.MustMarshalBinaryLengthPrefixed(op)
-	return merkle.ProofOp{
+func (op ValueOp) ProofOp() tmmerkle.ProofOp {
+	pbProof := iavlproto.ValueOp{Proof: op.Proof.toProto()}
+	bz, err := pbProof.Marshal()
+	if err != nil {
+		panic(err)
+	}
+	// We length-prefix the byte slice to retain backwards compatibility with the Amino proofs.
+	bz, err = encodeBytesSlice(bz)
+	if err != nil {
+		panic(err)
+	}
+	return tmmerkle.ProofOp{
 		Type: ProofOpIAVLValue,
 		Key:  op.key,
 		Data: bz,

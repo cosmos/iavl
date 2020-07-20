@@ -3,8 +3,10 @@ package iavl
 
 import (
 	"bytes"
+	"encoding/hex"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"runtime"
 	"strconv"
@@ -12,7 +14,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	cmn "github.com/tendermint/iavl/common"
+
+	cmn "github.com/cosmos/iavl/common"
 	db "github.com/tendermint/tm-db"
 )
 
@@ -94,6 +97,73 @@ func TestVersionedRandomTree(t *testing.T) {
 	require.Len(tree.ndb.leafNodes(), int(tree.Size()))
 
 	require.Equal(tree.nodeSize(), len(tree.ndb.nodes()))
+}
+
+// nolint: dupl
+func TestTreeHash(t *testing.T) {
+	const (
+		randSeed  = 49872768940 // For deterministic tests
+		keySize   = 16
+		valueSize = 16
+
+		versions    = 4    // number of versions to generate
+		versionOps  = 4096 // number of operations (create/update/delete) per version
+		updateRatio = 0.4  // ratio of updates out of all operations
+		deleteRatio = 0.2  // ratio of deletes out of all operations
+	)
+
+	// expected hashes for each version
+	expectHashes := []string{
+		"58ec30fa27f338057e5964ed9ec3367e59b2b54bec4c194f10fde7fed16c2a1c",
+		"91ad3ace227372f0064b2d63e8493ce8f4bdcbd16c7a8e4f4d54029c9db9570c",
+		"92c25dce822c5968c228cfe7e686129ea281f79273d4a8fcf6f9130a47aa5421",
+		"e44d170925554f42e00263155c19574837a38e3efed8910daccc7fa12f560fa0",
+	}
+	require.Len(t, expectHashes, versions, "must have expected hashes for all versions")
+
+	r := rand.New(rand.NewSource(randSeed))
+	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	require.NoError(t, err)
+
+	keys := make([][]byte, 0, versionOps)
+	for i := 0; i < versions; i++ {
+		for j := 0; j < versionOps; j++ {
+			key := make([]byte, keySize)
+			value := make([]byte, valueSize)
+
+			// The performance of this is likely to be terrible, but that's fine for small tests
+			switch {
+			case len(keys) > 0 && r.Float64() <= deleteRatio:
+				index := r.Intn(len(keys))
+				key = keys[index]
+				keys = append(keys[:index], keys[index+1:]...)
+				_, removed := tree.Remove(key)
+				require.True(t, removed)
+
+			case len(keys) > 0 && r.Float64() <= updateRatio:
+				key = keys[r.Intn(len(keys))]
+				r.Read(value)
+				updated := tree.Set(key, value)
+				require.True(t, updated)
+
+			default:
+				r.Read(key)
+				r.Read(value)
+				// If we get an update, set again
+				for tree.Set(key, value) {
+					key = make([]byte, keySize)
+					r.Read(key)
+				}
+				keys = append(keys, key)
+			}
+		}
+		hash, version, err := tree.SaveVersion()
+		require.NoError(t, err)
+		require.EqualValues(t, i+1, version)
+		require.Equal(t, expectHashes[i], hex.EncodeToString(hash))
+	}
+
+	require.EqualValues(t, versions, tree.Version())
 }
 
 func TestVersionedRandomTreeSmallKeys(t *testing.T) {
@@ -1009,7 +1079,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 	tree.Set([]byte("k1"), []byte("v1"))
 	tree.Set([]byte("k2"), []byte("v1"))
 	tree.Set([]byte("k3"), []byte("v1"))
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	// fmt.Println("TREE VERSION 1")
 	// printNode(tree.ndb, tree.root, 0)
@@ -1019,7 +1090,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 
 	tree.Set([]byte("k2"), []byte("v2"))
 	tree.Set([]byte("k4"), []byte("v2"))
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	// fmt.Println("TREE VERSION 2")
 	// printNode(tree.ndb, tree.root, 0)
@@ -1029,7 +1101,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NotEqual(root1, root2)
 
 	tree.Remove([]byte("k2"))
-	tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
 
 	// fmt.Println("TREE VERSION 3")
 	// printNode(tree.ndb, tree.root, 0)
@@ -1371,4 +1444,108 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 			}
 		}
 	})
+}
+func TestLoadVersionForOverwritingCase2(t *testing.T) {
+	require := require.New(t)
+
+	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil)
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i})
+	}
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail")
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i + 1})
+	}
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail with the same key")
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i + 2})
+	}
+	tree.SaveVersion()
+
+	removedNodes := []*Node{}
+
+	for _, n := range tree.ndb.nodes() {
+		if n.version > 1 {
+			removedNodes = append(removedNodes, n)
+		}
+	}
+
+	_, err = tree.LoadVersionForOverwriting(1)
+	require.NoError(err, "LoadVersionForOverwriting should not fail")
+
+	for i := byte(0); i < 20; i++ {
+		_, v := tree.Get([]byte{i})
+		require.Equal([]byte{i}, v)
+	}
+
+	for _, n := range removedNodes {
+		has, _ := tree.ndb.Has(n.hash)
+		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
+	}
+
+	tree.Set([]byte{0x2}, []byte{0x3})
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail")
+
+	err = tree.DeleteVersion(1)
+	require.NoError(err, "DeleteVersion should not fail")
+
+	tree.Set([]byte{0x1}, []byte{0x3})
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(err, "SaveVersion should not fail")
+}
+
+func TestLoadVersionForOverwritingCase3(t *testing.T) {
+	require := require.New(t)
+
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil)
+	require.NoError(err)
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i})
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
+
+	for i := byte(0); i < 20; i++ {
+		tree.Set([]byte{i}, []byte{i + 1})
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
+
+	removedNodes := []*Node{}
+
+	for _, n := range tree.ndb.nodes() {
+		if n.version > 1 {
+			removedNodes = append(removedNodes, n)
+		}
+	}
+
+	for i := byte(0); i < 20; i++ {
+		tree.Remove([]byte{i})
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
+
+	_, err = tree.LoadVersionForOverwriting(1)
+	require.NoError(err)
+	for _, n := range removedNodes {
+		has, err := tree.ndb.Has(n.hash)
+		require.NoError(err)
+		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
+	}
+
+	for i := byte(0); i < 20; i++ {
+		_, v := tree.Get([]byte{i})
+		require.Equal([]byte{i}, v)
+	}
 }

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	pb "github.com/tendermint/iavl/proto"
+	pb "github.com/cosmos/iavl/proto"
 )
 
 // PrintTree prints the whole tree in an indented form.
@@ -74,6 +74,9 @@ func cpIncr(bz []byte) (ret []byte) {
 		}
 		ret[i] = byte(0x00)
 		if i == 0 {
+			// here, the original bz is all 0xFF, so we keep the original and append 0x00
+			// instead of returning all 0x00
+			ret = cp(bz)
 			return append(ret, 0x00)
 		}
 	}

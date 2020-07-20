@@ -24,7 +24,6 @@ In Ethereum, the analog is [Patricia tries](http://en.wikipedia.org/wiki/Radix_t
 3. [NodeDB docs](./node/nodedb.md): 
     - Explains how nodes, orphans, roots get saved in database
     - Explains saving and deleting tree logic.
-    - Explains how pruning IAVL tree works
 4. [ImmutableTree docs](./tree/immutable_tree.md)
     - Explains ImmutableTree structure
     - Explains ImmutableTree Iteration functions
@@ -33,3 +32,7 @@ In Ethereum, the analog is [Patricia tries](http://en.wikipedia.org/wiki/Radix_t
     - Explains how to make updates (set/delete) to current working tree of IAVL
     - Explains how automatic rebalancing of IAVL works
     - Explains how Saving and Deleting versions of IAVL works
+6. [Export/import docs](./tree/export_import.md)
+    - Explains the overall export/import functionality
+    - Explains the `ExportNode` format for exported nodes
+    - Explains the algorithms for exporting and importing nodes

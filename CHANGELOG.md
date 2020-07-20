@@ -2,13 +2,113 @@
 
 ## Unreleased
 
-Special thanks to external contributors on this release:
+The IAVL project has moved from https://github.com/tendermint/iavl to
+https://github.com/cosmos/iavl. This also affects the module import path, which is now
+`github.com/cosmos/iavl`.
 
-### BREAKING CHANGES
+### Breaking Changes
 
-### IMPROVEMENTS
+- The module path has changed from `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
 
-### Bug Fix
+### Improvements
+
+- Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
+- Introduced new methods `CreateMembershipProof` and `CreateNonMembershipProof` to return 
+  ics23 ExistenceProof and NonExistenceProofs respectively
+
+### Bug Fixes
+
+- \#288 Fix panics when generating proofs for keys that are all `0xFF`.
+
+## 0.14.0 (July 2, 2020)
+
+**Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
+`KeepEvery` and `KeepRecent` has problems with data corruption, performance, and memory usage. For 
+these reasons, this functionality has now been removed. All 0.13 users are urged to upgrade, and to 
+not change their pruning settings while on 0.13.
+
+Make sure to follow these instructions when upgrading, to avoid data corruption:
+
+* If using `KeepEvery: 1` (the default) then upgrading to 0.14 is safe.
+
+* Otherwise, upgrade after saving a multiple of `KeepEvery` - for example, with `KeepEvery: 1000`
+  stop 0.13 after saving e.g. version `7000` to disk. A later version must never have been saved
+  to the tree. Upgrading to 0.14 is then safe.
+
+* Otherwise, consider using the `Repair013Orphans()` function to repair faulty data in databases
+  last written to by 0.13. This must be done before opening the database with IAVL 0.14, and a
+  database backup should be taken first. Upgrading to 0.14 is then safe.
+
+* Otherwise, after upgrading to 0.14, do not delete the last version saved to disk by 0.13 - this
+  contains incorrect data that may cause data corruption when deleted, making the database
+  unusable. For example, with `KeepEvery: 1000` then stopping 0.13 at version `7364` (saving
+  `7000` to disk) and upgrading to 0.14 means version `7000` must never be deleted.
+  
+  It may be possible to delete it if the exact same sequence of changes have been written to the
+  newer versions as before the upgrade, and all versions between `7000` and `7364` are deleted
+  first, but thorough testing and backups are recommended if attempting this.
+
+Users wishing to prune historical versions can do so via `MutableTree.DeleteVersion()`.
+
+There are no changes from 0.14.0-rc2.
+
+## 0.14.0-rc2 (June 26, 2020)
+
+See important upgrade information for 0.14.0 above.
+
+### Improvements
+
+- [\#282](https://github.com/cosmos/iavl/pull/282) Add `Repair013Orphans()` to repair faulty 
+  orphans in a database last written to by IAVL 0.13.x
+
+### Bug Fixes
+
+- [\#281](https://github.com/cosmos/iavl/pull/281) Remove unnecessary Protobuf dependencies
+
+## 0.14.0-rc1 (June 24, 2020)
+
+See important upgrade information for 0.14.0 above.
+
+Special thanks to external contributors on this release: @ridenaio
+
+### Breaking Changes
+
+- [\#274](https://github.com/cosmos/iavl/pull/274) Remove pruning options `KeepEvery` and 
+  `KeepRecent` (see warning above) and the `recentDB` parameter to `NewMutableTreeWithOpts()`.
+
+### Improvements
+
+- [\#271](https://github.com/cosmos/iavl/pull/271) Add `MutableTree.DeleteVersions()` for deleting 
+  multiple versions
+
+- [\#235](https://github.com/cosmos/iavl/pull/235) Reduce `ImmutableTree.Export()` buffer size from 
+  64 to 32 nodes
+
+### Bug Fixes
+
+- [\#275](https://github.com/cosmos/iavl/pull/275) Fix data corruption with 
+  `LoadVersionForOverwriting`
+## 0.13.3 (April 5, 2020)
+
+### Bug Fixes
+
+- [import] [\#230](https://github.com/tendermint/iavl/pull/230) Set correct version when committing an empty import.
+
+## 0.13.2 (March 18, 2020)
+
+### Improvements
+
+- [\#213] Added `ImmutableTree.Export()` and `MutableTree.Import()` to export tree contents at a specific version and import it to recreate an identical tree.
+
+## 0.13.1 (March 13, 2020)
+
+### Improvements
+
+- [dep] [\#220](https://github.com/tendermint/iavl/pull/220) Update tm-db to 0.5.0, which includes a new B-tree based MemDB used by IAVL for non-persisted versions.
+
+### Bug Fixes
+
+- [nodedb] [\#219](https://github.com/tendermint/iavl/pull/219) Fix a concurrent database access issue when deleting orphans.
 
 ## 0.13.0 (January 16, 2020)
 
@@ -17,7 +117,7 @@ Special thanks to external contributors on this release:
 
 ### BREAKING CHANGES
 
-- [pruning] [/#158](https://github.com/tendermint/iavl/pull/158) NodeDB constructor must provide `keepRecent` and `keepEvery` fields to define PruningStrategy. All Save functionality must specify whether they should flushToDisk as well using `flushToDisk` boolean argument. All Delete functionality must specify whether object should be deleted from memory only using the `memOnly` boolean argument.
+- [pruning] [\#158](https://github.com/tendermint/iavl/pull/158) NodeDB constructor must provide `keepRecent` and `keepEvery` fields to define PruningStrategy. All Save functionality must specify whether they should flushToDisk as well using `flushToDisk` boolean argument. All Delete functionality must specify whether object should be deleted from memory only using the `memOnly` boolean argument.
 - [dep] [\#194](https://github.com/tendermint/iavl/pull/194) Update tm-db to 0.4.0 this includes interface breaking to return errors.
 
 ### IMPROVEMENTS

@@ -2,13 +2,14 @@ package iavl
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"math"
 
 	"github.com/pkg/errors"
 
-	amino "github.com/tendermint/go-amino"
-	cmn "github.com/tendermint/iavl/common"
-	"github.com/tendermint/tendermint/crypto/tmhash"
+	cmn "github.com/cosmos/iavl/common"
+	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 var (
@@ -53,30 +54,30 @@ func (pin ProofInnerNode) stringIndented(indent string) string {
 }
 
 func (pin ProofInnerNode) Hash(childHash []byte) []byte {
-	hasher := tmhash.New()
+	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
-	err := amino.EncodeInt8(buf, pin.Height)
+	err := encodeVarint(buf, int64(pin.Height))
 	if err == nil {
-		err = amino.EncodeVarint(buf, pin.Size)
+		err = encodeVarint(buf, pin.Size)
 	}
 	if err == nil {
-		err = amino.EncodeVarint(buf, pin.Version)
+		err = encodeVarint(buf, pin.Version)
 	}
 
 	if len(pin.Left) == 0 {
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, childHash)
+			err = encodeBytes(buf, childHash)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, pin.Right)
+			err = encodeBytes(buf, pin.Right)
 		}
 	} else {
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, pin.Left)
+			err = encodeBytes(buf, pin.Left)
 		}
 		if err == nil {
-			err = amino.EncodeByteSlice(buf, childHash)
+			err = encodeBytes(buf, childHash)
 		}
 	}
 	if err != nil {
@@ -88,6 +89,34 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 		panic(err)
 	}
 	return hasher.Sum(nil)
+}
+
+// toProto converts the inner node proof to Protobuf, for use in ProofOps.
+func (pin ProofInnerNode) toProto() *iavlproto.ProofInnerNode {
+	return &iavlproto.ProofInnerNode{
+		Height:  int32(pin.Height),
+		Size:    pin.Size,
+		Version: pin.Version,
+		Left:    pin.Left,
+		Right:   pin.Right,
+	}
+}
+
+// proofInnerNodeFromProto converts a Protobuf ProofInnerNode to a ProofInnerNode.
+func proofInnerNodeFromProto(pbInner *iavlproto.ProofInnerNode) (ProofInnerNode, error) {
+	if pbInner == nil {
+		return ProofInnerNode{}, errors.New("inner node cannot be nil")
+	}
+	if pbInner.Height > math.MaxInt8 || pbInner.Height < math.MinInt8 {
+		return ProofInnerNode{}, fmt.Errorf("height must fit inside an int8, got %v", pbInner.Height)
+	}
+	return ProofInnerNode{
+		Height:  int8(pbInner.Height),
+		Size:    pbInner.Size,
+		Version: pbInner.Version,
+		Left:    pbInner.Left,
+		Right:   pbInner.Right,
+	}, nil
 }
 
 //----------------------------------------
@@ -115,21 +144,21 @@ func (pln ProofLeafNode) stringIndented(indent string) string {
 }
 
 func (pln ProofLeafNode) Hash() []byte {
-	hasher := tmhash.New()
+	hasher := sha256.New()
 	buf := new(bytes.Buffer)
 
-	err := amino.EncodeInt8(buf, 0)
+	err := encodeVarint(buf, 0)
 	if err == nil {
-		err = amino.EncodeVarint(buf, 1)
+		err = encodeVarint(buf, 1)
 	}
 	if err == nil {
-		err = amino.EncodeVarint(buf, pln.Version)
+		err = encodeVarint(buf, pln.Version)
 	}
 	if err == nil {
-		err = amino.EncodeByteSlice(buf, pln.Key)
+		err = encodeBytes(buf, pln.Key)
 	}
 	if err == nil {
-		err = amino.EncodeByteSlice(buf, pln.ValueHash)
+		err = encodeBytes(buf, pln.ValueHash)
 	}
 	if err != nil {
 		panic(fmt.Sprintf("Failed to hash ProofLeafNode: %v", err))
@@ -141,6 +170,27 @@ func (pln ProofLeafNode) Hash() []byte {
 	}
 
 	return hasher.Sum(nil)
+}
+
+// toProto converts the leaf node proof to Protobuf, for use in ProofOps.
+func (pln ProofLeafNode) toProto() *iavlproto.ProofLeafNode {
+	return &iavlproto.ProofLeafNode{
+		Key:       pln.Key,
+		ValueHash: pln.ValueHash,
+		Version:   pln.Version,
+	}
+}
+
+// proofLeafNodeFromProto converts a Protobuf ProofLeadNode to a ProofLeafNode.
+func proofLeafNodeFromProto(pbLeaf *iavlproto.ProofLeafNode) (ProofLeafNode, error) {
+	if pbLeaf == nil {
+		return ProofLeafNode{}, errors.New("leaf node cannot be nil")
+	}
+	return ProofLeafNode{
+		Key:       pbLeaf.Key,
+		ValueHash: pbLeaf.ValueHash,
+		Version:   pbLeaf.Version,
+	}, nil
 }
 
 //----------------------------------------
@@ -165,6 +215,10 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		return node, errors.New("key does not exist")
 	}
 
+	// Note that we do not store the left child in the ProofInnerNode when we're going to add the
+	// left node as part of the path, similarly we don't store the right child info when going down
+	// the right child node. This is done as an optimization since the child info is going to be
+	// already stored in the next ProofInnerNode in PathToLeaf.
 	if bytes.Compare(key, node.key) < 0 {
 		// left side
 		pin := ProofInnerNode{

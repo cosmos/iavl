@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tendermint/iavl"
+	"github.com/cosmos/iavl"
 	dbm "github.com/tendermint/tm-db"
 )
 
@@ -53,7 +53,7 @@ func main() {
 	}
 }
 
-func OpenDb(dir string) (dbm.DB, error) {
+func OpenDB(dir string) (dbm.DB, error) {
 	switch {
 	case strings.HasSuffix(dir, ".db"):
 		dir = dir[:len(dir)-3]
@@ -76,19 +76,23 @@ func OpenDb(dir string) (dbm.DB, error) {
 }
 
 // nolint: unused,deadcode
-func PrintDbStats(db dbm.DB) {
+func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
-	iter, err := db.Iterator(nil, nil)
+	itr, err := db.Iterator(nil, nil)
 	if err != nil {
 		panic(err)
 	}
-	for ; iter.Valid(); iter.Next() {
-		key := string(iter.Key()[:1])
+
+	defer itr.Close()
+	for ; itr.Valid(); itr.Next() {
+		key := string(itr.Key()[:1])
 		prefix[key]++
 		count++
 	}
-	iter.Close()
+	if err := itr.Error(); err != nil {
+		panic(err)
+	}
 	fmt.Printf("DB contains %d entries\n", count)
 	for k, v := range prefix {
 		fmt.Printf("  %s: %d\n", k, v)
@@ -98,7 +102,7 @@ func PrintDbStats(db dbm.DB) {
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
 func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
-	db, err := OpenDb(dir)
+	db, err := OpenDB(dir)
 	if err != nil {
 		return nil, err
 	}

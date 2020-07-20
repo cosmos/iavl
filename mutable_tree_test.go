@@ -7,12 +7,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
 	db "github.com/tendermint/tm-db"
 )
 
 func TestDelete(t *testing.T) {
-	memDb := db.NewMemDB()
-	tree, err := NewMutableTree(memDb, 0)
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 
 	tree.set([]byte("k1"), []byte("Fred"))
@@ -27,7 +28,7 @@ func TestDelete(t *testing.T) {
 	require.Nil(t, k1Value)
 
 	key := tree.ndb.rootKey(version)
-	err = memDb.Set(key, hash)
+	err = memDB.Set(key, hash)
 	require.NoError(t, err)
 	tree.versions[version] = true
 
@@ -37,8 +38,8 @@ func TestDelete(t *testing.T) {
 }
 
 func TestTraverse(t *testing.T) {
-	memDb := db.NewMemDB()
-	tree, err := NewMutableTree(memDb, 0)
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 
 	for i := 0; i < 6; i++ {
@@ -48,28 +49,65 @@ func TestTraverse(t *testing.T) {
 	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
 }
 
-func TestEmptyRecents(t *testing.T) {
+func TestMutableTree_DeleteVersions(t *testing.T) {
 	memDB := db.NewMemDB()
-	opts := Options{
-		KeepRecent: 100,
-		KeepEvery:  10000,
+	tree, err := NewMutableTree(memDB, 0)
+	require.NoError(t, err)
+
+	type entry struct {
+		key   []byte
+		value []byte
 	}
 
-	tree, err := NewMutableTreeWithOpts(memDB, db.NewMemDB(), 0, &opts)
-	require.NoError(t, err)
-	hash, version, err := tree.SaveVersion()
+	versionEntries := make(map[int64][]entry)
 
-	require.Nil(t, err)
-	require.Equal(t, int64(1), version)
-	require.Nil(t, hash)
-	require.True(t, tree.VersionExists(int64(1)))
+	// create 10 tree versions, each with 1000 random key/value entries
+	for i := 0; i < 10; i++ {
+		entries := make([]entry, 1000)
 
-	_, err = tree.GetImmutable(int64(1))
-	require.Nil(t, err)
+		for j := 0; j < 1000; j++ {
+			k := randBytes(10)
+			v := randBytes(10)
+
+			entries[j] = entry{k, v}
+			_ = tree.Set(k, v)
+		}
+
+		_, v, err := tree.SaveVersion()
+		require.NoError(t, err)
+
+		versionEntries[v] = entries
+	}
+
+	// delete even versions
+	versionsToDelete := []int64{2, 4, 6, 8}
+	require.NoError(t, tree.DeleteVersions(versionsToDelete...))
+
+	// ensure even versions have been deleted
+	for _, v := range versionsToDelete {
+		require.False(t, tree.versions[v])
+
+		_, err := tree.LazyLoadVersion(v)
+		require.Error(t, err)
+	}
+
+	// ensure odd number versions exist and we can query for all set entries
+	for _, v := range []int64{1, 3, 5, 7, 9, 10} {
+		require.True(t, tree.versions[v])
+
+		_, err := tree.LazyLoadVersion(v)
+		require.NoError(t, err)
+
+		for _, e := range versionEntries[v] {
+			_, val := tree.Get(e.key)
+			require.Equal(t, e.value, val)
+		}
+	}
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
-	db := db.NewDB("test", db.MemDBBackend, "")
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(b, err)
 	t, err := NewMutableTree(db, 100000)
 	require.NoError(b, err)
 	for i := 0; i < 1000000; i++ {
