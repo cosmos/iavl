@@ -314,7 +314,7 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 					rootHash := proof.ComputeRootHash()
 					suite.Equal(tc.expectErr, rootHash == nil)
 
-					suite.NoError(proof.Verify(rootHash), fmt.Sprintf("root: %X\nproof: %s", rootHash, proof))
+					suite.NoError(proof.Verify(rootHash), fmt.Sprintf("root: %X\nproof: %s", rootHash, proof.String()))
 				}
 			}
 		})
