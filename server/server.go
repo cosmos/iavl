@@ -22,12 +22,8 @@ type IAVLServer struct {
 }
 
 // New creates an IAVLServer.
-func New(db dbm.DB, cacheSize, version int64, keepEvery int64, keepRecent int64) (*IAVLServer, error) {
-	opts := &iavl.Options{
-		KeepEvery:  keepEvery,
-		KeepRecent: keepRecent,
-	}
-	tree, err := iavl.NewMutableTreeWithOpts(db, dbm.NewMemDB(), int(cacheSize), opts)
+func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
+	tree, err := iavl.NewMutableTree(db, int(cacheSize))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create iavl tree")
 	}
