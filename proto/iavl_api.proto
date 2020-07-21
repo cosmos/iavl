@@ -1,0 +1,252 @@
+syntax = "proto3";
+package iavl;
+
+option go_package = "proto/iavl";
+
+import "third_party/google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+import "proto/proof.proto";
+
+// ----------------------------------------------------------------------------
+// gRPC service
+// ----------------------------------------------------------------------------
+
+// IAVLService defines the gRPC service API contract for the IAVL tree.
+service IAVLService {
+  // Has returns a result containing a boolean on whether or not the IAVL tree
+  // has a given key at a specific tree version.
+  rpc Has(HasRequest) returns (HasResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/{version}/has"
+    };
+  }
+
+  // Get returns a result containing the IAVL tree version and value for a given
+  // key based on the current state (version) of the tree.
+  rpc Get(GetRequest) returns (GetResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/get"
+    };
+  }
+
+  // GetWithProof returns a result containing the IAVL tree version and value for
+  // a given key based on the current state (version) of the tree including a
+  // verifiable Merkle proof.
+  rpc GetWithProof(GetRequest) returns (GetWithProofResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/get_with_proof"
+    };
+  }
+  
+  // GetVersioned returns a result containing the IAVL tree version and value
+  // for a given key at a specific tree version.
+  rpc GetVersioned(GetVersionedRequest) returns (GetResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/{version}/get_versioned"
+    };
+  }
+
+  // GetVersionedWithProof returns a result containing the IAVL tree version and
+  // value for a given key at a specific tree version including a verifiable Merkle
+  // proof.
+  rpc GetVersionedWithProof(GetVersionedRequest) returns (GetWithProofResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/{version}/get_versioned_with_proof"
+    };
+  }
+
+  // Set returns a result after inserting a key/value pair into the IAVL tree
+  // based on the current state (version) of the tree.
+  rpc Set(SetRequest) returns (SetResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/set"
+      body: "*"
+    };
+  }
+
+  // Remove returns a result after removing a key/value pair from the IAVL tree
+  // based on the current state (version) of the tree.
+  rpc Remove(RemoveRequest) returns (RemoveResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/remove"
+      body: "*"
+    };
+  }
+
+  // SaveVersion saves a new IAVL tree version to the DB based on the current
+  // state (version) of the tree. It returns a result containing the hash and
+  // new version number.
+  rpc SaveVersion(google.protobuf.Empty) returns (SaveVersionResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/save_version"
+      body: "*"
+    };
+  }
+
+  // DeleteVersion deletes an IAVL tree version from the DB. The version can then
+  // no longer be accessed. It returns a result containing the version and root
+  // hash of the versioned tree that was deleted.
+  rpc DeleteVersion(DeleteVersionRequest) returns (DeleteVersionResponse) {
+    option (google.api.http) = {
+      post: "/v1/tree/delete_version"
+      body: "*"
+    };
+  }
+
+  // Version returns the IAVL tree version based on the current state.
+  rpc Version(google.protobuf.Empty) returns (VersionResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/version"
+    };
+  }
+
+  // Hash returns the IAVL tree root hash based on the current state.
+  rpc Hash(google.protobuf.Empty) returns (HashResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/hash"
+    };
+  }
+  
+  // VersionExists returns a result containing a boolean on whether or not a given
+  // version exists in the IAVL tree.
+  rpc VersionExists(VersionExistsRequest) returns (VersionExistsResponse) {
+    option (google.api.http) = {
+      get: "/v1/tree/version_exists"
+    };
+  }
+
+  // Verify verifies an IAVL range proof returning an error if the proof is
+  // invalid.
+  rpc Verify(VerifyRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/tree/range_proof/verify"
+    };
+  }
+
+  // VerifyItem verifies if a given key/value pair in an IAVL range proof returning
+  // an error if the proof or key is invalid.
+  rpc VerifyItem(VerifyItemRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/tree/range_proof/verify_item"
+    };
+  }
+
+  // VerifyAbsence verifies the absence of a given key in an IAVL range proof
+  // returning an error if the proof or key is invalid.
+  rpc VerifyAbsence(VerifyAbsenceRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/tree/range_proof/verify_absence"
+    };
+  }
+
+  // Rollback resets the working tree to the latest saved version, discarding
+  // any unsaved modifications.
+  rpc Rollback(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/tree/rollback"
+      body: "*"
+    };
+  }
+}
+
+// ----------------------------------------------------------------------------
+// Request types
+// ----------------------------------------------------------------------------
+
+message HasRequest {
+  int64 version = 1;
+  bytes key = 2;
+}
+
+message GetRequest {
+  bytes key = 1;
+}
+
+message GetVersionedRequest {
+  int64 version = 1;
+  bytes key = 2;
+}
+
+message SetRequest {
+  bytes key = 1;
+  bytes value = 2;
+}
+
+message RemoveRequest {
+  bytes key = 1;
+}
+
+message DeleteVersionRequest {
+  int64 version = 1;
+}
+
+message VersionExistsRequest {
+  int64 version = 1;
+}
+
+message VerifyRequest {
+  bytes root_hash = 1;
+  iavl.RangeProof proof = 2;
+}
+
+message VerifyItemRequest {
+  bytes root_hash = 1;
+  iavl.RangeProof proof = 2;
+  bytes key = 3;
+  bytes value = 4;
+}
+
+message VerifyAbsenceRequest {
+  bytes root_hash = 1;
+  iavl.RangeProof proof = 2;
+  bytes key = 3;
+}
+
+// ----------------------------------------------------------------------------
+// Response types
+// ----------------------------------------------------------------------------
+
+message HasResponse {
+  bool result = 1;
+}
+
+message GetResponse {
+  int64 index = 1;
+  bytes value = 2;
+}
+
+message SetResponse {
+  bool result = 1;
+}
+
+message RemoveResponse {
+  bytes value = 1;
+  bool removed = 2;
+}
+
+message SaveVersionResponse {
+  bytes root_hash = 1;
+  int64 version = 2;
+}
+
+message DeleteVersionResponse{
+  bytes root_hash = 1;
+  int64 version = 2;
+}
+
+message VersionResponse {
+  int64 version = 1;
+}
+
+message HashResponse {
+  bytes root_hash = 1;
+}
+
+message VersionExistsResponse {
+  bool result = 1;
+}
+
+message GetWithProofResponse {
+  bytes value = 1;
+  iavl.RangeProof proof = 2;
+}

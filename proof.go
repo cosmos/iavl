@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	cmn "github.com/cosmos/iavl/common"
-	iavlproto "github.com/cosmos/iavl/internal/proto"
+	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 var (
@@ -95,7 +95,7 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 func (pin ProofInnerNode) toProto() *iavlproto.ProofInnerNode {
 	return &iavlproto.ProofInnerNode{
 		Height:  int32(pin.Height),
-		Size_:   pin.Size,
+		Size:   pin.Size,
 		Version: pin.Version,
 		Left:    pin.Left,
 		Right:   pin.Right,
@@ -112,7 +112,7 @@ func proofInnerNodeFromProto(pbInner *iavlproto.ProofInnerNode) (ProofInnerNode,
 	}
 	return ProofInnerNode{
 		Height:  int8(pbInner.Height),
-		Size:    pbInner.Size_,
+		Size:    pbInner.Size,
 		Version: pbInner.Version,
 		Left:    pbInner.Left,
 		Right:   pbInner.Right,
