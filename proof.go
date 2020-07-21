@@ -95,7 +95,7 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 func (pin ProofInnerNode) toProto() *iavlproto.ProofInnerNode {
 	return &iavlproto.ProofInnerNode{
 		Height:  int32(pin.Height),
-		Size:   pin.Size,
+		Size_:   pin.Size,
 		Version: pin.Version,
 		Left:    pin.Left,
 		Right:   pin.Right,
@@ -112,7 +112,7 @@ func proofInnerNodeFromProto(pbInner *iavlproto.ProofInnerNode) (ProofInnerNode,
 	}
 	return ProofInnerNode{
 		Height:  int8(pbInner.Height),
-		Size:    pbInner.Size,
+		Size:    pbInner.Size_,
 		Version: pbInner.Version,
 		Left:    pbInner.Left,
 		Right:   pbInner.Right,
