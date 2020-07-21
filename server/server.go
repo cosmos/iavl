@@ -221,10 +221,6 @@ func (s *IAVLServer) Version(_ context.Context, _ *empty.Empty) (*pb.VersionResp
 
 // Hash returns the IAVL tree root hash based on the current state.
 func (s *IAVLServer) Hash(_ context.Context, _ *empty.Empty) (*pb.HashResponse, error) {
-
-	s.rwLock.RLock()
-	defer s.rwLock.RUnlock()
-
 	return &pb.HashResponse{RootHash: s.tree.Hash()}, nil
 }
 
@@ -232,17 +228,11 @@ func (s *IAVLServer) Hash(_ context.Context, _ *empty.Empty) (*pb.HashResponse, 
 // version exists in the IAVL tree.
 func (s *IAVLServer) VersionExists(_ context.Context, req *pb.VersionExistsRequest) (*pb.VersionExistsResponse, error) {
 
-	s.rwLock.RLock()
-	defer s.rwLock.RUnlock()
-
 	return &pb.VersionExistsResponse{Result: s.tree.VersionExists(req.Version)}, nil
 }
 
 // Verify verifies an IAVL range proof returning an error if the proof is invalid.
-func (s *IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Empty, error) {
-
-	s.rwLock.RLock()
-	defer s.rwLock.RUnlock()
+func (*IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.Empty, error) {
 
 	proof, err := iavl.RangeProofFromProto(req.Proof)
 
@@ -259,10 +249,7 @@ func (s *IAVLServer) Verify(ctx context.Context, req *pb.VerifyRequest) (*empty.
 
 // VerifyItem verifies if a given key/value pair in an IAVL range proof returning
 // an error if the proof or key is invalid.
-func (s *IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*empty.Empty, error) {
-
-	s.rwLock.RLock()
-	defer s.rwLock.RUnlock()
+func (*IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) (*empty.Empty, error) {
 
 	proof, err := iavl.RangeProofFromProto(req.Proof)
 
@@ -283,10 +270,7 @@ func (s *IAVLServer) VerifyItem(ctx context.Context, req *pb.VerifyItemRequest) 
 
 // VerifyAbsence verifies the absence of a given key in an IAVL range proof
 // returning an error if the proof or key is invalid.
-func (s *IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceRequest) (*empty.Empty, error) {
-
-	s.rwLock.RLock()
-	defer s.rwLock.RUnlock()
+func (*IAVLServer) VerifyAbsence(ctx context.Context, req *pb.VerifyAbsenceRequest) (*empty.Empty, error) {
 
 	proof, err := iavl.RangeProofFromProto(req.Proof)
 
