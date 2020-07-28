@@ -6,8 +6,9 @@ type Options struct {
 	// Disabling this significantly improves performance, but can lose data on e.g. power loss.
 	Sync bool
 
-	// InitialVersion specifies the initial version number. If any versions lower than this exists,
-	// an error will be returned. Only used for the initial SaveVersion() call.
+	// InitialVersion specifies the initial version number. If any versions already exist below
+	// this, an error is returned when loading the tree. Only used for the initial SaveVersion()
+	// call.
 	InitialVersion uint64
 }
 
