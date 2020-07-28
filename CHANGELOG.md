@@ -13,8 +13,11 @@ https://github.com/cosmos/iavl. This also affects the module import path, which 
 ### Improvements
 
 - Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
+
 - Introduced new methods `CreateMembershipProof` and `CreateNonMembershipProof` to return 
-  ics23 ExistenceProof and NonExistenceProofs respectively
+  ics23 ExistenceProof and NonExistenceProofs respectively.
+
+- Added `Options.InitialVersion` to specify the initial version to start new IAVL trees from.
 
 ### Bug Fixes
 
