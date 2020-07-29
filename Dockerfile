@@ -1,4 +1,4 @@
-FROM golang:1.12 as build
+FROM golang:1.14 as build
 
 WORKDIR /iavl
 
@@ -20,3 +20,7 @@ RUN go get ./cmd/iavlserver
 FROM gcr.io/distroless/base
 
 COPY --from=build /go/bin/iavlserver /
+
+EXPOSE 8090 8091
+ENTRYPOINT ["/iavlserver"]
+CMD ["-db-name", "iavl", "-datadir", "."]

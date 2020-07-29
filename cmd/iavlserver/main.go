@@ -151,12 +151,6 @@ func openDB() (dbm.DB, error) {
 		return nil, errors.New("database datadir cannot be empty")
 	}
 
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("failed to create db: %v", r)
-		}
-	}()
-
 	db, err = dbm.NewDB(*dbName, dbm.BackendType(*dbBackend), *dbDataDir)
 
 	if err != nil {

@@ -11,7 +11,6 @@ Below is a brief introduction.
 ```shell
 go get github.com/tendermint/iavl
 cd ${GOPATH}/src/github.com/tendermint/iavl
-make get_vendor_deps
 make install
 ```
 
