@@ -228,6 +228,9 @@ func (s *IAVLServer) Hash(_ context.Context, _ *empty.Empty) (*pb.HashResponse, 
 // version exists in the IAVL tree.
 func (s *IAVLServer) VersionExists(_ context.Context, req *pb.VersionExistsRequest) (*pb.VersionExistsResponse, error) {
 
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+
 	return &pb.VersionExistsResponse{Result: s.tree.VersionExists(req.Version)}, nil
 }
 
@@ -298,4 +301,62 @@ func (s *IAVLServer) Rollback(ctx context.Context, req *empty.Empty) (*empty.Emp
 
 	s.tree.Rollback()
 	return &empty.Empty{}, nil
+}
+
+func (s *IAVLServer) GetAvailableVersions(ctx context.Context, req *empty.Empty) (*pb.GetAvailableVersionsResponse, error) {
+
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+
+	versionsInts := s.tree.AvailableVersions()
+
+	versions := make([]int64, len(versionsInts))
+
+	for _, version := range versionsInts {
+		versions = append(versions, int64(version))
+	}
+
+	return &pb.GetAvailableVersionsResponse{Versions: versions}, nil
+}
+
+func (s *IAVLServer) Load(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
+
+	s.rwLock.Lock()
+	defer s.rwLock.Unlock()
+
+	_, err := s.tree.Load()
+
+	return &empty.Empty{}, err
+
+}
+
+func (s *IAVLServer) LoadVersion(ctx context.Context, req *pb.LoadVersionRequest) (*empty.Empty, error) {
+
+	s.rwLock.Lock()
+	defer s.rwLock.Unlock()
+
+	_, err := s.tree.LoadVersion(req.Version)
+
+	return &empty.Empty{}, err
+
+}
+
+func (s *IAVLServer) LoadVersionForOverwriting(ctx context.Context, req *pb.LoadVersionForOverwritingRequest) (*empty.Empty, error) {
+
+	s.rwLock.Lock()
+	defer s.rwLock.Unlock()
+
+	_, err := s.tree.LoadVersionForOverwriting(req.Version)
+
+	return &empty.Empty{}, err
+
+}
+
+func (s *IAVLServer) Size(ctx context.Context, req *empty.Empty) (*pb.SizeResponse, error) {
+
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+
+	return &pb.SizeResponse{Size_: s.tree.Size()}, nil
+
 }

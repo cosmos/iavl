@@ -176,33 +176,13 @@ service IAVLService {
     };
   }
 
-  // Get the current version
-  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {
-    option (google.api.http) = {
-      get: "/v1/version"
-    };
-  }
-
   // Get the number of leaves in the tree
-  rpc GetSize(google.protobuf.Empty) returns (GetSizeResponse) {
+  rpc Size(google.protobuf.Empty) returns (SizeResponse) {
     option (google.api.http) = {
       get: "/v1/size"
     };
   }
 
-  //// Get the number of leaves in the tree
-  //rpc Iterate(google.protobuf.Empty) returns (stream IterateResponse) {
-  //  option (google.api.http) = {
-  //    get: "/v1/iterate"
-  //  };
-  //}
-
-  //// Get the number of leaves in the tree
-  //rpc IterateRange(google.protobuf.Empty) returns (stream IterateResponse) {
-  //  option (google.api.http) = {
-  //    get: "/v1/iterate"
-  //  };
-  //}
 }
 
 // ----------------------------------------------------------------------------
@@ -323,15 +303,7 @@ message GetAvailableVersionsResponse {
   repeated int64 versions = 1;
 }
 
-message GetVersionResponse {
-  int64 version = 1;
-}
 
-message GetSizeResponse {
+message SizeResponse {
   int64 size = 1;
 }
-
-// message IterateResponse {
-//   bytes key = 1;
-//   bytes value = 2;
-// }
