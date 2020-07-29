@@ -147,6 +147,62 @@ service IAVLService {
       body: "*"
     };
   }
+
+  // Returns the committed versions
+  rpc GetAvailableVersions(google.protobuf.Empty) returns (GetAvailableVersionsResponse) {
+    option (google.api.http) = {
+      get: "/v1/available_versions"
+    };
+  }
+
+  // Load the most recent version
+  rpc Load(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/load"
+    };
+  }
+
+  // Load a specific version
+  rpc LoadVersion(LoadVersionRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/load_version"
+    };
+  }
+
+  // Load a specific version and delete all the more recent versions
+  rpc LoadVersionForOverwriting(LoadVersionForOverwritingRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      get: "/v1/load_version_for_overwriting"
+    };
+  }
+
+  // Get the current version
+  rpc GetVersion(google.protobuf.Empty) returns (GetVersionResponse) {
+    option (google.api.http) = {
+      get: "/v1/version"
+    };
+  }
+
+  // Get the number of leaves in the tree
+  rpc GetSize(google.protobuf.Empty) returns (GetSizeResponse) {
+    option (google.api.http) = {
+      get: "/v1/size"
+    };
+  }
+
+  //// Get the number of leaves in the tree
+  //rpc Iterate(google.protobuf.Empty) returns (stream IterateResponse) {
+  //  option (google.api.http) = {
+  //    get: "/v1/iterate"
+  //  };
+  //}
+
+  //// Get the number of leaves in the tree
+  //rpc IterateRange(google.protobuf.Empty) returns (stream IterateResponse) {
+  //  option (google.api.http) = {
+  //    get: "/v1/iterate"
+  //  };
+  //}
 }
 
 // ----------------------------------------------------------------------------
@@ -202,6 +258,18 @@ message VerifyAbsenceRequest {
   bytes key = 3;
 }
 
+message LoadVersionRequest {
+  int64 version = 1;
+}
+
+message LoadVersionForOverwritingRequest {
+  int64 version = 1;
+}
+
+//message IterateRangeRequest {
+//
+//}
+
 // ----------------------------------------------------------------------------
 // Response types
 // ----------------------------------------------------------------------------
@@ -250,3 +318,20 @@ message GetWithProofResponse {
   bytes value = 1;
   iavl.RangeProof proof = 2;
 }
+
+message GetAvailableVersionsResponse {
+  repeated int64 versions = 1;
+}
+
+message GetVersionResponse {
+  int64 version = 1;
+}
+
+message GetSizeResponse {
+  int64 size = 1;
+}
+
+// message IterateResponse {
+//   bytes key = 1;
+//   bytes value = 2;
+// }

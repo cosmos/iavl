@@ -540,6 +540,94 @@ func (m *VerifyAbsenceRequest) GetKey() []byte {
 	return nil
 }
 
+type LoadVersionRequest struct {
+	Version int64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *LoadVersionRequest) Reset()         { *m = LoadVersionRequest{} }
+func (m *LoadVersionRequest) String() string { return proto.CompactTextString(m) }
+func (*LoadVersionRequest) ProtoMessage()    {}
+func (*LoadVersionRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{10}
+}
+func (m *LoadVersionRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LoadVersionRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LoadVersionRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LoadVersionRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoadVersionRequest.Merge(m, src)
+}
+func (m *LoadVersionRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *LoadVersionRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LoadVersionRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LoadVersionRequest proto.InternalMessageInfo
+
+func (m *LoadVersionRequest) GetVersion() int64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+type LoadVersionForOverwritingRequest struct {
+	Version int64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *LoadVersionForOverwritingRequest) Reset()         { *m = LoadVersionForOverwritingRequest{} }
+func (m *LoadVersionForOverwritingRequest) String() string { return proto.CompactTextString(m) }
+func (*LoadVersionForOverwritingRequest) ProtoMessage()    {}
+func (*LoadVersionForOverwritingRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{11}
+}
+func (m *LoadVersionForOverwritingRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *LoadVersionForOverwritingRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_LoadVersionForOverwritingRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *LoadVersionForOverwritingRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_LoadVersionForOverwritingRequest.Merge(m, src)
+}
+func (m *LoadVersionForOverwritingRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *LoadVersionForOverwritingRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_LoadVersionForOverwritingRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_LoadVersionForOverwritingRequest proto.InternalMessageInfo
+
+func (m *LoadVersionForOverwritingRequest) GetVersion() int64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
 type HasResponse struct {
 	Result bool `protobuf:"varint,1,opt,name=result,proto3" json:"result,omitempty"`
 }
@@ -548,7 +636,7 @@ func (m *HasResponse) Reset()         { *m = HasResponse{} }
 func (m *HasResponse) String() string { return proto.CompactTextString(m) }
 func (*HasResponse) ProtoMessage()    {}
 func (*HasResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{10}
+	return fileDescriptor_92d8372b52373ba9, []int{12}
 }
 func (m *HasResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -593,7 +681,7 @@ func (m *GetResponse) Reset()         { *m = GetResponse{} }
 func (m *GetResponse) String() string { return proto.CompactTextString(m) }
 func (*GetResponse) ProtoMessage()    {}
 func (*GetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{11}
+	return fileDescriptor_92d8372b52373ba9, []int{13}
 }
 func (m *GetResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -644,7 +732,7 @@ func (m *SetResponse) Reset()         { *m = SetResponse{} }
 func (m *SetResponse) String() string { return proto.CompactTextString(m) }
 func (*SetResponse) ProtoMessage()    {}
 func (*SetResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{12}
+	return fileDescriptor_92d8372b52373ba9, []int{14}
 }
 func (m *SetResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -689,7 +777,7 @@ func (m *RemoveResponse) Reset()         { *m = RemoveResponse{} }
 func (m *RemoveResponse) String() string { return proto.CompactTextString(m) }
 func (*RemoveResponse) ProtoMessage()    {}
 func (*RemoveResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{13}
+	return fileDescriptor_92d8372b52373ba9, []int{15}
 }
 func (m *RemoveResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -741,7 +829,7 @@ func (m *SaveVersionResponse) Reset()         { *m = SaveVersionResponse{} }
 func (m *SaveVersionResponse) String() string { return proto.CompactTextString(m) }
 func (*SaveVersionResponse) ProtoMessage()    {}
 func (*SaveVersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{14}
+	return fileDescriptor_92d8372b52373ba9, []int{16}
 }
 func (m *SaveVersionResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -793,7 +881,7 @@ func (m *DeleteVersionResponse) Reset()         { *m = DeleteVersionResponse{} }
 func (m *DeleteVersionResponse) String() string { return proto.CompactTextString(m) }
 func (*DeleteVersionResponse) ProtoMessage()    {}
 func (*DeleteVersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{15}
+	return fileDescriptor_92d8372b52373ba9, []int{17}
 }
 func (m *DeleteVersionResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -844,7 +932,7 @@ func (m *VersionResponse) Reset()         { *m = VersionResponse{} }
 func (m *VersionResponse) String() string { return proto.CompactTextString(m) }
 func (*VersionResponse) ProtoMessage()    {}
 func (*VersionResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{16}
+	return fileDescriptor_92d8372b52373ba9, []int{18}
 }
 func (m *VersionResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -888,7 +976,7 @@ func (m *HashResponse) Reset()         { *m = HashResponse{} }
 func (m *HashResponse) String() string { return proto.CompactTextString(m) }
 func (*HashResponse) ProtoMessage()    {}
 func (*HashResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{17}
+	return fileDescriptor_92d8372b52373ba9, []int{19}
 }
 func (m *HashResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -932,7 +1020,7 @@ func (m *VersionExistsResponse) Reset()         { *m = VersionExistsResponse{} }
 func (m *VersionExistsResponse) String() string { return proto.CompactTextString(m) }
 func (*VersionExistsResponse) ProtoMessage()    {}
 func (*VersionExistsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{18}
+	return fileDescriptor_92d8372b52373ba9, []int{20}
 }
 func (m *VersionExistsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -977,7 +1065,7 @@ func (m *GetWithProofResponse) Reset()         { *m = GetWithProofResponse{} }
 func (m *GetWithProofResponse) String() string { return proto.CompactTextString(m) }
 func (*GetWithProofResponse) ProtoMessage()    {}
 func (*GetWithProofResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_92d8372b52373ba9, []int{19}
+	return fileDescriptor_92d8372b52373ba9, []int{21}
 }
 func (m *GetWithProofResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1020,6 +1108,138 @@ func (m *GetWithProofResponse) GetProof() *RangeProof {
 	return nil
 }
 
+type GetAvailableVersionsResponse struct {
+	Versions []int64 `protobuf:"varint,1,rep,packed,name=versions,proto3" json:"versions,omitempty"`
+}
+
+func (m *GetAvailableVersionsResponse) Reset()         { *m = GetAvailableVersionsResponse{} }
+func (m *GetAvailableVersionsResponse) String() string { return proto.CompactTextString(m) }
+func (*GetAvailableVersionsResponse) ProtoMessage()    {}
+func (*GetAvailableVersionsResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{22}
+}
+func (m *GetAvailableVersionsResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetAvailableVersionsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetAvailableVersionsResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetAvailableVersionsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetAvailableVersionsResponse.Merge(m, src)
+}
+func (m *GetAvailableVersionsResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetAvailableVersionsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetAvailableVersionsResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetAvailableVersionsResponse proto.InternalMessageInfo
+
+func (m *GetAvailableVersionsResponse) GetVersions() []int64 {
+	if m != nil {
+		return m.Versions
+	}
+	return nil
+}
+
+type GetVersionResponse struct {
+	Version int64 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+}
+
+func (m *GetVersionResponse) Reset()         { *m = GetVersionResponse{} }
+func (m *GetVersionResponse) String() string { return proto.CompactTextString(m) }
+func (*GetVersionResponse) ProtoMessage()    {}
+func (*GetVersionResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{23}
+}
+func (m *GetVersionResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetVersionResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetVersionResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetVersionResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetVersionResponse.Merge(m, src)
+}
+func (m *GetVersionResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetVersionResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetVersionResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetVersionResponse proto.InternalMessageInfo
+
+func (m *GetVersionResponse) GetVersion() int64 {
+	if m != nil {
+		return m.Version
+	}
+	return 0
+}
+
+type GetSizeResponse struct {
+	Size_ int64 `protobuf:"varint,1,opt,name=size,proto3" json:"size,omitempty"`
+}
+
+func (m *GetSizeResponse) Reset()         { *m = GetSizeResponse{} }
+func (m *GetSizeResponse) String() string { return proto.CompactTextString(m) }
+func (*GetSizeResponse) ProtoMessage()    {}
+func (*GetSizeResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_92d8372b52373ba9, []int{24}
+}
+func (m *GetSizeResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *GetSizeResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_GetSizeResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *GetSizeResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetSizeResponse.Merge(m, src)
+}
+func (m *GetSizeResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *GetSizeResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetSizeResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetSizeResponse proto.InternalMessageInfo
+
+func (m *GetSizeResponse) GetSize_() int64 {
+	if m != nil {
+		return m.Size_
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*HasRequest)(nil), "iavl.HasRequest")
 	proto.RegisterType((*GetRequest)(nil), "iavl.GetRequest")
@@ -1031,6 +1251,8 @@ func init() {
 	proto.RegisterType((*VerifyRequest)(nil), "iavl.VerifyRequest")
 	proto.RegisterType((*VerifyItemRequest)(nil), "iavl.VerifyItemRequest")
 	proto.RegisterType((*VerifyAbsenceRequest)(nil), "iavl.VerifyAbsenceRequest")
+	proto.RegisterType((*LoadVersionRequest)(nil), "iavl.LoadVersionRequest")
+	proto.RegisterType((*LoadVersionForOverwritingRequest)(nil), "iavl.LoadVersionForOverwritingRequest")
 	proto.RegisterType((*HasResponse)(nil), "iavl.HasResponse")
 	proto.RegisterType((*GetResponse)(nil), "iavl.GetResponse")
 	proto.RegisterType((*SetResponse)(nil), "iavl.SetResponse")
@@ -1041,73 +1263,87 @@ func init() {
 	proto.RegisterType((*HashResponse)(nil), "iavl.HashResponse")
 	proto.RegisterType((*VersionExistsResponse)(nil), "iavl.VersionExistsResponse")
 	proto.RegisterType((*GetWithProofResponse)(nil), "iavl.GetWithProofResponse")
+	proto.RegisterType((*GetAvailableVersionsResponse)(nil), "iavl.GetAvailableVersionsResponse")
+	proto.RegisterType((*GetVersionResponse)(nil), "iavl.GetVersionResponse")
+	proto.RegisterType((*GetSizeResponse)(nil), "iavl.GetSizeResponse")
 }
 
 func init() { proto.RegisterFile("proto/iavl_api.proto", fileDescriptor_92d8372b52373ba9) }
 
 var fileDescriptor_92d8372b52373ba9 = []byte{
-	// 961 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x96, 0xdd, 0x6e, 0x1b, 0x45,
-	0x14, 0xc7, 0xb3, 0x71, 0x92, 0x86, 0xe3, 0xa4, 0x89, 0x27, 0x76, 0xe2, 0x6e, 0x8a, 0x09, 0x53,
-	0x05, 0x45, 0x8d, 0xf0, 0x42, 0xcb, 0x05, 0xf4, 0xaa, 0x01, 0xaa, 0x24, 0xa8, 0x02, 0xb4, 0xae,
-	0x02, 0xaa, 0x84, 0xac, 0x71, 0x7c, 0x6c, 0xaf, 0xea, 0x78, 0xcd, 0xee, 0x64, 0xa9, 0x85, 0x90,
-	0x10, 0xbc, 0x00, 0x12, 0x2f, 0xc5, 0x65, 0x25, 0x6e, 0xb8, 0x44, 0x09, 0x77, 0xbc, 0x04, 0x9a,
-	0x8f, 0xdd, 0x1d, 0xdb, 0xbb, 0x76, 0x04, 0xf4, 0xca, 0x9e, 0xaf, 0xdf, 0x7f, 0xe6, 0xcc, 0x7f,
-	0xce, 0x59, 0x28, 0x0f, 0x03, 0x9f, 0xfb, 0x8e, 0xc7, 0xa2, 0x7e, 0x93, 0x0d, 0xbd, 0xba, 0x6c,
-	0x92, 0x25, 0xd1, 0xb6, 0x0f, 0x78, 0xcf, 0x0b, 0xda, 0xcd, 0x21, 0x0b, 0xf8, 0xc8, 0xe9, 0xfa,
-	0x7e, 0xb7, 0x8f, 0x0e, 0x1b, 0x7a, 0x0e, 0x1b, 0x0c, 0x7c, 0xce, 0xb8, 0xe7, 0x0f, 0x42, 0x35,
-	0xdf, 0xde, 0xd5, 0xa3, 0xb2, 0xd5, 0xba, 0xec, 0x38, 0x78, 0x31, 0xe4, 0x23, 0x3d, 0x58, 0x52,
-	0x12, 0xc3, 0xc0, 0xf7, 0x3b, 0xaa, 0x8b, 0x7e, 0x08, 0x70, 0xc2, 0x42, 0x17, 0xbf, 0xbd, 0xc4,
-	0x90, 0x93, 0x2a, 0xdc, 0x8a, 0x30, 0x08, 0x3d, 0x7f, 0x50, 0xb5, 0xf6, 0xac, 0x83, 0x82, 0x1b,
-	0x37, 0xc9, 0x26, 0x14, 0x5e, 0xe0, 0xa8, 0xba, 0xb8, 0x67, 0x1d, 0xac, 0xb9, 0xe2, 0x2f, 0xad,
-	0x01, 0x1c, 0x23, 0x8f, 0x57, 0xea, 0x71, 0x2b, 0x1d, 0x3f, 0x82, 0xad, 0x63, 0xe4, 0x67, 0x6a,
-	0x3d, 0xb6, 0xff, 0x8d, 0xc4, 0x07, 0x00, 0x8d, 0x19, 0x12, 0xa4, 0x0c, 0xcb, 0x11, 0xeb, 0x5f,
-	0xa2, 0x5e, 0xa3, 0x1a, 0xf4, 0x6d, 0x58, 0x77, 0xf1, 0xc2, 0x8f, 0x30, 0x7f, 0x6f, 0xef, 0x41,
-	0xf9, 0x53, 0xec, 0x23, 0x47, 0xbd, 0xbd, 0xb9, 0x9b, 0x13, 0x2b, 0xf4, 0xdc, 0x27, 0x2f, 0xbd,
-	0x90, 0xcf, 0x8f, 0x18, 0x7d, 0x06, 0xeb, 0x67, 0x18, 0x78, 0x9d, 0x51, 0x3c, 0x75, 0x17, 0xde,
-	0x08, 0x7c, 0x9f, 0x37, 0x7b, 0x2c, 0xec, 0xe9, 0xcd, 0xac, 0x8a, 0x8e, 0x13, 0x16, 0xf6, 0xc8,
-	0x3b, 0xb0, 0x2c, 0xaf, 0x45, 0x1e, 0xa5, 0xf8, 0x60, 0xb3, 0x2e, 0xee, 0xbd, 0xee, 0xb2, 0x41,
-	0x17, 0xbf, 0x14, 0xfd, 0xae, 0x1a, 0xa6, 0x3f, 0x5a, 0x50, 0x52, 0xd8, 0x53, 0x8e, 0x17, 0xff,
-	0x27, 0x3a, 0x0e, 0x53, 0x21, 0x23, 0xbe, 0x4b, 0x66, 0x7c, 0x2f, 0x64, 0x28, 0xbc, 0xce, 0xe8,
-	0xa8, 0x15, 0xe2, 0xe0, 0x1c, 0x5f, 0xef, 0x26, 0xe8, 0x3e, 0x14, 0xa5, 0x43, 0xc3, 0xa1, 0x3f,
-	0x08, 0x91, 0x6c, 0xc3, 0x4a, 0x80, 0xe1, 0x65, 0x9f, 0x4b, 0x89, 0x55, 0x57, 0xb7, 0xe8, 0x47,
-	0x50, 0x94, 0x76, 0xd4, 0xd3, 0xca, 0xb0, 0xec, 0x0d, 0xda, 0xf8, 0x52, 0xdf, 0x8a, 0x6a, 0xe4,
-	0x18, 0x66, 0x1f, 0x8a, 0x0d, 0x63, 0x69, 0x9e, 0xc2, 0x63, 0xb8, 0x1d, 0xfb, 0x2a, 0x15, 0x51,
-	0x38, 0xcb, 0xc0, 0x09, 0x4b, 0x04, 0x72, 0x5e, 0x5b, 0xca, 0xac, 0xba, 0x71, 0x93, 0x3e, 0x85,
-	0xad, 0x06, 0x8b, 0x52, 0xd3, 0x69, 0xcc, 0xcc, 0xc0, 0x19, 0x06, 0x5b, 0x1c, 0x37, 0xd8, 0xe7,
-	0x50, 0x99, 0x30, 0xf1, 0x7f, 0xe3, 0x1d, 0xc2, 0xc6, 0x24, 0x29, 0xdf, 0xdd, 0x87, 0xb0, 0x26,
-	0x70, 0x37, 0xd2, 0xa4, 0x0e, 0x54, 0x26, 0x1e, 0xcf, 0x9c, 0x50, 0x3f, 0x83, 0xf2, 0x31, 0xf2,
-	0xaf, 0x3c, 0xde, 0x53, 0xe6, 0x98, 0x1d, 0xf0, 0x1b, 0x7a, 0xeb, 0xc1, 0xdf, 0x45, 0x28, 0x9e,
-	0x1e, 0x9d, 0x3d, 0x6d, 0x60, 0x10, 0x79, 0xe7, 0x48, 0x3e, 0x83, 0xc2, 0x09, 0x0b, 0x89, 0x9e,
-	0x9f, 0xa6, 0x41, 0xbb, 0x64, 0xf4, 0x28, 0x65, 0x5a, 0xfb, 0xe9, 0xf7, 0xbf, 0x7e, 0x5d, 0xac,
-	0x92, 0x6d, 0x27, 0x7a, 0xdf, 0xe1, 0x01, 0xa2, 0xf3, 0xbd, 0x0e, 0xc5, 0x0f, 0x4e, 0x8f, 0x85,
-	0xe4, 0x31, 0x14, 0x8e, 0x91, 0xc7, 0xac, 0x34, 0x31, 0xc6, 0x2c, 0xc3, 0x9b, 0xb4, 0x2c, 0x59,
-	0xb7, 0xc9, 0x5a, 0xc2, 0xea, 0x22, 0x27, 0xdf, 0xc0, 0x9a, 0x79, 0xe6, 0x0c, 0x94, 0x9d, 0xf4,
-	0x4c, 0x45, 0x86, 0xbe, 0x25, 0x99, 0x77, 0xc8, 0x8e, 0xc9, 0x6c, 0x7e, 0xe7, 0xf1, 0x5e, 0x53,
-	0x3d, 0xac, 0x8e, 0xc4, 0x27, 0xe9, 0x98, 0xdc, 0x49, 0x60, 0x93, 0x29, 0x3a, 0x6b, 0xcb, 0x07,
-	0x12, 0x4f, 0xc9, 0x5e, 0xc6, 0xf1, 0x85, 0x50, 0x94, 0x70, 0x7f, 0xb6, 0xa0, 0x62, 0x42, 0xd3,
-	0x03, 0xcd, 0x50, 0x9c, 0x75, 0xb2, 0x87, 0x52, 0xfa, 0x5d, 0x72, 0x38, 0x4f, 0xda, 0x3c, 0xed,
-	0x27, 0x50, 0x68, 0xa4, 0xd7, 0xd1, 0x98, 0xba, 0x0e, 0xe3, 0xbd, 0xd3, 0x1d, 0x29, 0x50, 0xa2,
-	0xe9, 0x75, 0x84, 0xc8, 0x1f, 0x59, 0xf7, 0xc9, 0x17, 0xb0, 0xa2, 0x1e, 0x3c, 0xd9, 0xd2, 0x96,
-	0x32, 0xcb, 0x8a, 0x5d, 0x1e, 0xef, 0xd4, 0x34, 0x5b, 0xd2, 0xca, 0x74, 0x23, 0xa1, 0xa9, 0xd7,
-	0x2f, 0x80, 0x2d, 0x28, 0x1a, 0xef, 0x9f, 0x6c, 0xd7, 0x55, 0xb1, 0xae, 0xc7, 0xc5, 0xba, 0xfe,
-	0x44, 0x14, 0x6b, 0x5b, 0x07, 0x2a, 0x23, 0x55, 0xd0, 0x3d, 0x49, 0xb7, 0x69, 0x25, 0xdd, 0x2b,
-	0x8b, 0x30, 0x8e, 0x81, 0xd0, 0xe8, 0xc3, 0xfa, 0x58, 0x56, 0x20, 0x3a, 0xb6, 0x59, 0xf5, 0xce,
-	0xde, 0xcd, 0x1c, 0xd3, 0x5a, 0x54, 0x6a, 0xdd, 0xa5, 0xa9, 0xa5, 0xda, 0x72, 0x9e, 0xa9, 0xe6,
-	0xc2, 0xad, 0x79, 0xa7, 0xa9, 0x28, 0x8d, 0x49, 0x7a, 0x55, 0xd2, 0x09, 0xd9, 0x4c, 0xe8, 0xf1,
-	0x77, 0xc0, 0x29, 0x2c, 0xc9, 0x4c, 0x95, 0x07, 0x24, 0xc9, 0xeb, 0x4c, 0xd2, 0x0f, 0xad, 0x48,
-	0xda, 0x06, 0x59, 0x4f, 0x68, 0x22, 0x11, 0x11, 0x4f, 0xd6, 0xe0, 0x34, 0xf1, 0xc4, 0xc1, 0xc8,
-	0x2a, 0xe5, 0x71, 0x30, 0x32, 0x33, 0x55, 0xc6, 0xfb, 0xd2, 0xdb, 0x6d, 0xa2, 0x22, 0x3f, 0x87,
-	0x15, 0x55, 0x15, 0x63, 0xb3, 0x8c, 0x15, 0x7f, 0x3b, 0xe7, 0x30, 0xf4, 0x9e, 0xe4, 0xbe, 0x49,
-	0x76, 0x53, 0xbb, 0x88, 0xbc, 0xa5, 0x6c, 0x2c, 0x34, 0x04, 0xb1, 0x0b, 0x90, 0xd6, 0x7c, 0xb2,
-	0x63, 0xf2, 0x8d, 0xaf, 0x80, 0x5c, 0x8d, 0xe9, 0xc7, 0x3b, 0xad, 0xd1, 0xf4, 0x04, 0x7a, 0x18,
-	0x7f, 0xb3, 0xe8, 0xd2, 0x6e, 0xc4, 0x6b, 0xaa, 0xde, 0xe7, 0xca, 0x1d, 0x4a, 0xb9, 0x7d, 0x72,
-	0x6f, 0x96, 0x1c, 0xd3, 0x02, 0x5f, 0xc3, 0xaa, 0xeb, 0xf7, 0xfb, 0x2d, 0x76, 0xfe, 0x22, 0xf7,
-	0xc2, 0xf3, 0x84, 0xee, 0x4a, 0xa1, 0x6d, 0x5a, 0x4a, 0x85, 0x34, 0xea, 0x91, 0x75, 0xff, 0xe3,
-	0xfd, 0xdf, 0xae, 0x6a, 0xd6, 0xab, 0xab, 0x9a, 0xf5, 0xe7, 0x55, 0xcd, 0xfa, 0xe5, 0xba, 0xb6,
-	0xf0, 0xea, 0xba, 0xb6, 0xf0, 0xc7, 0x75, 0x6d, 0xe1, 0x79, 0x31, 0xf9, 0x0c, 0xe6, 0x7e, 0x6b,
-	0x45, 0xfe, 0x3c, 0xfc, 0x27, 0x00, 0x00, 0xff, 0xff, 0x9f, 0x46, 0x7d, 0xf7, 0x7f, 0x0b, 0x00,
-	0x00,
+	// 1149 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x97, 0x5b, 0x6f, 0x1b, 0x45,
+	0x14, 0xc7, 0xbb, 0x71, 0x2e, 0xee, 0x71, 0x42, 0xec, 0xb1, 0x9d, 0x38, 0x6b, 0x6a, 0x99, 0x41,
+	0x89, 0x2c, 0x2a, 0xd9, 0x50, 0x78, 0x80, 0x82, 0x10, 0x41, 0x0d, 0x4e, 0xab, 0x70, 0xd1, 0xba,
+	0x84, 0x8b, 0x84, 0xac, 0x71, 0x3c, 0xb6, 0x57, 0xd9, 0x78, 0xcd, 0xee, 0x64, 0x5b, 0x17, 0x81,
+	0x10, 0x12, 0xef, 0x48, 0x7c, 0x29, 0x1e, 0x2b, 0xf1, 0xc2, 0x03, 0x0f, 0x28, 0xe1, 0x83, 0xa0,
+	0xb9, 0x79, 0x77, 0x6d, 0xaf, 0x1d, 0x6e, 0x4f, 0xc9, 0xec, 0xcc, 0xfc, 0xfe, 0x73, 0xce, 0x9c,
+	0x39, 0xe7, 0x18, 0x0a, 0x23, 0xcf, 0x65, 0x6e, 0xc3, 0x26, 0x81, 0xd3, 0x26, 0x23, 0xbb, 0x2e,
+	0x86, 0x68, 0x95, 0x8f, 0xcd, 0x1a, 0x1b, 0xd8, 0x5e, 0xb7, 0x3d, 0x22, 0x1e, 0x1b, 0x37, 0xfa,
+	0xae, 0xdb, 0x77, 0x68, 0x83, 0x8c, 0xec, 0x06, 0x19, 0x0e, 0x5d, 0x46, 0x98, 0xed, 0x0e, 0x7d,
+	0xb9, 0xde, 0x2c, 0xab, 0x59, 0x31, 0xea, 0x5c, 0xf6, 0x1a, 0xf4, 0x62, 0xc4, 0xc6, 0x6a, 0x32,
+	0x27, 0x25, 0x46, 0x9e, 0xeb, 0xf6, 0xe4, 0x27, 0xfc, 0x26, 0xc0, 0x31, 0xf1, 0x2d, 0xfa, 0xf5,
+	0x25, 0xf5, 0x19, 0x2a, 0xc1, 0x46, 0x40, 0x3d, 0xdf, 0x76, 0x87, 0x25, 0xa3, 0x6a, 0xd4, 0x52,
+	0x96, 0x1e, 0xa2, 0x2c, 0xa4, 0xce, 0xe9, 0xb8, 0xb4, 0x52, 0x35, 0x6a, 0x9b, 0x16, 0xff, 0x17,
+	0x57, 0x00, 0x9a, 0x94, 0xe9, 0x9d, 0x6a, 0xde, 0x08, 0xe7, 0x0f, 0x21, 0xdf, 0xa4, 0xec, 0x54,
+	0xee, 0xa7, 0xdd, 0x7f, 0x22, 0xf1, 0x06, 0x40, 0x6b, 0x81, 0x04, 0x2a, 0xc0, 0x5a, 0x40, 0x9c,
+	0x4b, 0xaa, 0xf6, 0xc8, 0x01, 0x7e, 0x09, 0xb6, 0x2c, 0x7a, 0xe1, 0x06, 0x34, 0xf9, 0x6c, 0xaf,
+	0x42, 0xe1, 0x01, 0x75, 0x28, 0xa3, 0xea, 0x78, 0x4b, 0x0f, 0xc7, 0x77, 0xa8, 0xb5, 0x47, 0x4f,
+	0x6d, 0x9f, 0x2d, 0xf7, 0x18, 0x7e, 0x0c, 0x5b, 0xa7, 0xd4, 0xb3, 0x7b, 0x63, 0xbd, 0xb4, 0x0c,
+	0xb7, 0x3d, 0xd7, 0x65, 0xed, 0x01, 0xf1, 0x07, 0xea, 0x30, 0x69, 0xfe, 0xe1, 0x98, 0xf8, 0x03,
+	0x74, 0x00, 0x6b, 0xe2, 0x5a, 0x84, 0x29, 0x99, 0x7b, 0xd9, 0x3a, 0xbf, 0xf7, 0xba, 0x45, 0x86,
+	0x7d, 0xfa, 0x09, 0xff, 0x6e, 0xc9, 0x69, 0xfc, 0xbd, 0x01, 0x39, 0x89, 0x7d, 0xc8, 0xe8, 0xc5,
+	0x7f, 0x89, 0xd6, 0x6e, 0x4a, 0xcd, 0xf1, 0xef, 0x6a, 0xd4, 0xbf, 0x17, 0xc2, 0x15, 0x76, 0x6f,
+	0x7c, 0xd8, 0xf1, 0xe9, 0xf0, 0x8c, 0xfe, 0xbf, 0x87, 0xc0, 0x75, 0x40, 0x27, 0x2e, 0xe9, 0xde,
+	0xf8, 0xa6, 0xde, 0x81, 0x6a, 0x64, 0xfd, 0x07, 0xae, 0xf7, 0x71, 0x40, 0xbd, 0x27, 0x9e, 0xcd,
+	0xec, 0x61, 0x7f, 0xf9, 0xee, 0x7d, 0xc8, 0x88, 0xf7, 0xe0, 0x8f, 0xdc, 0xa1, 0x4f, 0xd1, 0x0e,
+	0xac, 0x7b, 0xd4, 0xbf, 0x74, 0x98, 0x58, 0x97, 0xb6, 0xd4, 0x08, 0xbf, 0x05, 0x19, 0x11, 0xfc,
+	0x6a, 0x59, 0x01, 0xd6, 0xec, 0x61, 0x97, 0x3e, 0x55, 0x34, 0x39, 0x48, 0x08, 0xcf, 0x7d, 0xc8,
+	0xb4, 0x22, 0x5b, 0x93, 0x14, 0xde, 0x83, 0x17, 0x74, 0x14, 0x87, 0x22, 0x12, 0x67, 0x44, 0x70,
+	0xdc, 0x14, 0x4f, 0xac, 0xeb, 0x0a, 0x99, 0xb4, 0xa5, 0x87, 0xf8, 0x04, 0xf2, 0x2d, 0x12, 0x84,
+	0x21, 0xae, 0x30, 0x0b, 0xaf, 0x29, 0xe2, 0x98, 0x95, 0xb8, 0x63, 0x3e, 0x82, 0xe2, 0xd4, 0x93,
+	0xf9, 0x77, 0xbc, 0xbb, 0xb0, 0x3d, 0x4d, 0x4a, 0xbe, 0x95, 0xbb, 0xb0, 0xc9, 0x71, 0x37, 0xd2,
+	0xc4, 0x0d, 0x28, 0x4e, 0x3d, 0xd5, 0x25, 0xae, 0x7e, 0x0c, 0x85, 0x26, 0x65, 0x9f, 0xd9, 0x6c,
+	0x20, 0x43, 0x71, 0xb1, 0xc3, 0x6f, 0xfa, 0x52, 0xef, 0xc3, 0x8b, 0x4d, 0xca, 0x0e, 0x03, 0x62,
+	0x3b, 0xa4, 0xe3, 0x68, 0xb7, 0x85, 0xa7, 0x31, 0x21, 0xad, 0xcc, 0xf3, 0x4b, 0x46, 0x35, 0x55,
+	0x4b, 0x59, 0x93, 0x31, 0x8f, 0xf9, 0x30, 0x77, 0xde, 0xc0, 0x3f, 0xfb, 0xb0, 0xdd, 0xa4, 0xac,
+	0x65, 0x3f, 0x0b, 0xa3, 0x05, 0xc1, 0xaa, 0x6f, 0x3f, 0xa3, 0x6a, 0xa5, 0xf8, 0xff, 0xde, 0xef,
+	0xdb, 0x90, 0x79, 0x78, 0x78, 0x7a, 0xd2, 0xa2, 0x5e, 0x60, 0x9f, 0x51, 0x74, 0x04, 0xa9, 0x63,
+	0xe2, 0x23, 0x65, 0x42, 0x58, 0x07, 0xcc, 0x5c, 0xe4, 0x8b, 0xe4, 0xe1, 0xbd, 0x1f, 0x7e, 0xfd,
+	0xf3, 0xe7, 0x95, 0x3c, 0xca, 0x35, 0x82, 0xd7, 0x1a, 0xdf, 0x28, 0xe1, 0x6f, 0x1b, 0x03, 0xe2,
+	0xa3, 0xb7, 0x21, 0xd5, 0xa4, 0x4c, 0x63, 0xc2, 0xa2, 0xa0, 0x31, 0x91, 0x97, 0x82, 0xb7, 0x05,
+	0xe6, 0x36, 0xda, 0xe0, 0x98, 0x3e, 0x65, 0xe8, 0x73, 0xd8, 0x8c, 0x3a, 0x7f, 0x0e, 0xc5, 0x9c,
+	0x7c, 0x99, 0xb9, 0x22, 0x6c, 0x0a, 0x5c, 0x01, 0x21, 0x85, 0x6b, 0x3f, 0xb1, 0xd9, 0xa0, 0x2d,
+	0x53, 0x09, 0x11, 0xe4, 0x49, 0x01, 0x42, 0x7b, 0x13, 0xce, 0x74, 0x51, 0x9a, 0x77, 0xd0, 0x97,
+	0x05, 0xf9, 0x0e, 0x2a, 0xc7, 0xed, 0xe5, 0x1a, 0xc1, 0x04, 0xf9, 0x1d, 0x14, 0xa3, 0xb8, 0xd0,
+	0x8a, 0x05, 0x5a, 0x8b, 0xcc, 0xa9, 0x0b, 0xd1, 0x1a, 0x3a, 0x58, 0x20, 0x1a, 0x35, 0xf1, 0x5d,
+	0x48, 0xb5, 0x42, 0xcf, 0xb7, 0x66, 0x3c, 0x1f, 0x49, 0x34, 0x18, 0x09, 0xf6, 0x26, 0x16, 0x9e,
+	0xf7, 0x29, 0xbb, 0x6f, 0xbc, 0x82, 0x1e, 0xc1, 0xba, 0x4c, 0x32, 0x28, 0xaf, 0xc2, 0x38, 0x5a,
+	0x38, 0xcd, 0x42, 0xfc, 0xa3, 0x02, 0x15, 0x05, 0x68, 0x1b, 0x03, 0x07, 0xc9, 0x64, 0xc3, 0x59,
+	0x5f, 0x41, 0x26, 0x92, 0x6e, 0xd0, 0x4e, 0x5d, 0x76, 0x22, 0x75, 0xdd, 0x89, 0xd4, 0x8f, 0x78,
+	0x27, 0x62, 0x2a, 0xcf, 0xcc, 0xc9, 0x4c, 0xb8, 0x2c, 0xc0, 0x45, 0x9c, 0x15, 0x27, 0x24, 0x01,
+	0xd5, 0x46, 0x73, 0x7c, 0x1f, 0xb6, 0x62, 0xf9, 0x07, 0x29, 0x3f, 0xce, 0xab, 0xe3, 0x66, 0x79,
+	0xee, 0x9c, 0x92, 0xb9, 0x23, 0x64, 0x76, 0xb1, 0x88, 0x99, 0xae, 0x58, 0x12, 0x15, 0xfa, 0x10,
+	0x36, 0x96, 0xd9, 0x50, 0x94, 0xf8, 0x69, 0x70, 0x5e, 0x80, 0xb7, 0x50, 0x86, 0x83, 0x75, 0x57,
+	0xf3, 0x00, 0x56, 0x45, 0x26, 0x4c, 0x62, 0xa1, 0xc9, 0x53, 0x9b, 0xa4, 0x37, 0x9c, 0x15, 0x20,
+	0x40, 0x69, 0x0e, 0xe2, 0x39, 0x0e, 0x75, 0x45, 0x33, 0x11, 0xe6, 0x34, 0x6d, 0xfd, 0xbc, 0x9e,
+	0x44, 0x5b, 0x3f, 0x37, 0x09, 0xc6, 0x5f, 0x8c, 0x3a, 0x64, 0x9b, 0x4a, 0xe8, 0xa7, 0xb0, 0x2e,
+	0x2b, 0xbb, 0x0e, 0x87, 0x58, 0x03, 0x63, 0x26, 0x98, 0x80, 0x2b, 0x02, 0x59, 0x42, 0x3b, 0x22,
+	0x20, 0x78, 0x22, 0x94, 0xe1, 0xc9, 0xf1, 0x1c, 0xd6, 0x01, 0x08, 0x5b, 0x16, 0xb4, 0x1b, 0x45,
+	0x47, 0x9a, 0x98, 0x44, 0x7c, 0xec, 0x25, 0xce, 0xe2, 0xdb, 0x36, 0xa7, 0x9e, 0xeb, 0x6e, 0x4b,
+	0x35, 0x25, 0x11, 0x07, 0xcd, 0x74, 0x2a, 0x89, 0x4a, 0x07, 0x42, 0xa9, 0x8a, 0x2a, 0x09, 0x4a,
+	0x44, 0xb1, 0x5b, 0x90, 0xb6, 0x5c, 0xc7, 0xe9, 0x90, 0xb3, 0xf3, 0xc4, 0x7b, 0x4d, 0xd2, 0xd8,
+	0x15, 0x1a, 0x39, 0xbc, 0x29, 0x34, 0x14, 0x85, 0xc7, 0x9d, 0x27, 0xaa, 0xd0, 0x4c, 0xbd, 0x48,
+	0x14, 0xc0, 0x93, 0x3c, 0x92, 0x58, 0x63, 0xe2, 0x37, 0x43, 0xf4, 0x32, 0x1d, 0xed, 0x3e, 0x3a,
+	0x86, 0x55, 0xde, 0x2b, 0xfd, 0x6d, 0x23, 0x62, 0x01, 0xea, 0x70, 0xc2, 0x17, 0x90, 0x89, 0x74,
+	0x5d, 0xa8, 0x24, 0x0f, 0x37, 0xdb, 0xb8, 0x25, 0x22, 0x4b, 0x02, 0x89, 0x50, 0x56, 0x23, 0xf5,
+	0x29, 0xd1, 0x8f, 0x06, 0xec, 0x25, 0x76, 0x74, 0xe8, 0x60, 0x46, 0x69, 0x6e, 0xcb, 0x97, 0xa8,
+	0x5b, 0x13, 0xba, 0x18, 0x55, 0xa7, 0x75, 0xdb, 0x3d, 0xd7, 0x6b, 0xbb, 0x11, 0xa5, 0x96, 0xf8,
+	0xc1, 0xb3, 0x2c, 0x37, 0x94, 0xa6, 0x33, 0xff, 0xe2, 0xf4, 0xf0, 0x08, 0x36, 0x54, 0xe5, 0x5e,
+	0x96, 0x6d, 0xa6, 0x0a, 0x7c, 0xfc, 0x0e, 0x78, 0x79, 0x7f, 0x7f, 0xff, 0x97, 0xab, 0x8a, 0xf1,
+	0xfc, 0xaa, 0x62, 0xfc, 0x71, 0x55, 0x31, 0x7e, 0xba, 0xae, 0xdc, 0x7a, 0x7e, 0x5d, 0xb9, 0xf5,
+	0xdb, 0x75, 0xe5, 0xd6, 0x97, 0x99, 0xc9, 0x0f, 0x3f, 0xe6, 0x76, 0xd6, 0xc5, 0x9f, 0xd7, 0xff,
+	0x0a, 0x00, 0x00, 0xff, 0xff, 0x80, 0x3d, 0x0a, 0x16, 0x71, 0x0e, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -1172,6 +1408,18 @@ type IAVLServiceClient interface {
 	// Rollback resets the working tree to the latest saved version, discarding
 	// any unsaved modifications.
 	Rollback(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	// Returns the committed versions
+	GetAvailableVersions(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetAvailableVersionsResponse, error)
+	// Load the most recent version
+	Load(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error)
+	// Load a specific version
+	LoadVersion(ctx context.Context, in *LoadVersionRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// Load a specific version and delete all the more recent versions
+	LoadVersionForOverwriting(ctx context.Context, in *LoadVersionForOverwritingRequest, opts ...grpc.CallOption) (*empty.Empty, error)
+	// Get the current version
+	GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error)
+	// Get the number of leaves in the tree
+	GetSize(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetSizeResponse, error)
 }
 
 type iAVLServiceClient struct {
@@ -1326,6 +1574,60 @@ func (c *iAVLServiceClient) Rollback(ctx context.Context, in *empty.Empty, opts 
 	return out, nil
 }
 
+func (c *iAVLServiceClient) GetAvailableVersions(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetAvailableVersionsResponse, error) {
+	out := new(GetAvailableVersionsResponse)
+	err := c.cc.Invoke(ctx, "/iavl.IAVLService/GetAvailableVersions", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) Load(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/iavl.IAVLService/Load", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) LoadVersion(ctx context.Context, in *LoadVersionRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/iavl.IAVLService/LoadVersion", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) LoadVersionForOverwriting(ctx context.Context, in *LoadVersionForOverwritingRequest, opts ...grpc.CallOption) (*empty.Empty, error) {
+	out := new(empty.Empty)
+	err := c.cc.Invoke(ctx, "/iavl.IAVLService/LoadVersionForOverwriting", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) GetVersion(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetVersionResponse, error) {
+	out := new(GetVersionResponse)
+	err := c.cc.Invoke(ctx, "/iavl.IAVLService/GetVersion", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *iAVLServiceClient) GetSize(ctx context.Context, in *empty.Empty, opts ...grpc.CallOption) (*GetSizeResponse, error) {
+	out := new(GetSizeResponse)
+	err := c.cc.Invoke(ctx, "/iavl.IAVLService/GetSize", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // IAVLServiceServer is the server API for IAVLService service.
 type IAVLServiceServer interface {
 	// Has returns a result containing a boolean on whether or not the IAVL tree
@@ -1378,6 +1680,18 @@ type IAVLServiceServer interface {
 	// Rollback resets the working tree to the latest saved version, discarding
 	// any unsaved modifications.
 	Rollback(context.Context, *empty.Empty) (*empty.Empty, error)
+	// Returns the committed versions
+	GetAvailableVersions(context.Context, *empty.Empty) (*GetAvailableVersionsResponse, error)
+	// Load the most recent version
+	Load(context.Context, *empty.Empty) (*empty.Empty, error)
+	// Load a specific version
+	LoadVersion(context.Context, *LoadVersionRequest) (*empty.Empty, error)
+	// Load a specific version and delete all the more recent versions
+	LoadVersionForOverwriting(context.Context, *LoadVersionForOverwritingRequest) (*empty.Empty, error)
+	// Get the current version
+	GetVersion(context.Context, *empty.Empty) (*GetVersionResponse, error)
+	// Get the number of leaves in the tree
+	GetSize(context.Context, *empty.Empty) (*GetSizeResponse, error)
 }
 
 // UnimplementedIAVLServiceServer can be embedded to have forward compatible implementations.
@@ -1431,6 +1745,24 @@ func (*UnimplementedIAVLServiceServer) VerifyAbsence(ctx context.Context, req *V
 }
 func (*UnimplementedIAVLServiceServer) Rollback(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Rollback not implemented")
+}
+func (*UnimplementedIAVLServiceServer) GetAvailableVersions(ctx context.Context, req *empty.Empty) (*GetAvailableVersionsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetAvailableVersions not implemented")
+}
+func (*UnimplementedIAVLServiceServer) Load(ctx context.Context, req *empty.Empty) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Load not implemented")
+}
+func (*UnimplementedIAVLServiceServer) LoadVersion(ctx context.Context, req *LoadVersionRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LoadVersion not implemented")
+}
+func (*UnimplementedIAVLServiceServer) LoadVersionForOverwriting(ctx context.Context, req *LoadVersionForOverwritingRequest) (*empty.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method LoadVersionForOverwriting not implemented")
+}
+func (*UnimplementedIAVLServiceServer) GetVersion(ctx context.Context, req *empty.Empty) (*GetVersionResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVersion not implemented")
+}
+func (*UnimplementedIAVLServiceServer) GetSize(ctx context.Context, req *empty.Empty) (*GetSizeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetSize not implemented")
 }
 
 func RegisterIAVLServiceServer(s *grpc.Server, srv IAVLServiceServer) {
@@ -1725,6 +2057,114 @@ func _IAVLService_Rollback_Handler(srv interface{}, ctx context.Context, dec fun
 	return interceptor(ctx, in, info, handler)
 }
 
+func _IAVLService_GetAvailableVersions_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).GetAvailableVersions(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iavl.IAVLService/GetAvailableVersions",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).GetAvailableVersions(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_Load_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).Load(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iavl.IAVLService/Load",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).Load(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_LoadVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadVersionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).LoadVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iavl.IAVLService/LoadVersion",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).LoadVersion(ctx, req.(*LoadVersionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_LoadVersionForOverwriting_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LoadVersionForOverwritingRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).LoadVersionForOverwriting(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iavl.IAVLService/LoadVersionForOverwriting",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).LoadVersionForOverwriting(ctx, req.(*LoadVersionForOverwritingRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_GetVersion_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).GetVersion(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iavl.IAVLService/GetVersion",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).GetVersion(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _IAVLService_GetSize_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(empty.Empty)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(IAVLServiceServer).GetSize(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/iavl.IAVLService/GetSize",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(IAVLServiceServer).GetSize(ctx, req.(*empty.Empty))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _IAVLService_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "iavl.IAVLService",
 	HandlerType: (*IAVLServiceServer)(nil),
@@ -1792,6 +2232,30 @@ var _IAVLService_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Rollback",
 			Handler:    _IAVLService_Rollback_Handler,
+		},
+		{
+			MethodName: "GetAvailableVersions",
+			Handler:    _IAVLService_GetAvailableVersions_Handler,
+		},
+		{
+			MethodName: "Load",
+			Handler:    _IAVLService_Load_Handler,
+		},
+		{
+			MethodName: "LoadVersion",
+			Handler:    _IAVLService_LoadVersion_Handler,
+		},
+		{
+			MethodName: "LoadVersionForOverwriting",
+			Handler:    _IAVLService_LoadVersionForOverwriting_Handler,
+		},
+		{
+			MethodName: "GetVersion",
+			Handler:    _IAVLService_GetVersion_Handler,
+		},
+		{
+			MethodName: "GetSize",
+			Handler:    _IAVLService_GetSize_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -2168,6 +2632,62 @@ func (m *VerifyAbsenceRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *LoadVersionRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LoadVersionRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LoadVersionRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Version != 0 {
+		i = encodeVarintIavlApi(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *LoadVersionForOverwritingRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *LoadVersionForOverwritingRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *LoadVersionForOverwritingRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Version != 0 {
+		i = encodeVarintIavlApi(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *HasResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2512,6 +3032,104 @@ func (m *GetWithProofResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *GetAvailableVersionsResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetAvailableVersionsResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetAvailableVersionsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Versions) > 0 {
+		dAtA6 := make([]byte, len(m.Versions)*10)
+		var j5 int
+		for _, num1 := range m.Versions {
+			num := uint64(num1)
+			for num >= 1<<7 {
+				dAtA6[j5] = uint8(uint64(num)&0x7f | 0x80)
+				num >>= 7
+				j5++
+			}
+			dAtA6[j5] = uint8(num)
+			j5++
+		}
+		i -= j5
+		copy(dAtA[i:], dAtA6[:j5])
+		i = encodeVarintIavlApi(dAtA, i, uint64(j5))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetVersionResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetVersionResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetVersionResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Version != 0 {
+		i = encodeVarintIavlApi(dAtA, i, uint64(m.Version))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *GetSizeResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *GetSizeResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *GetSizeResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Size_ != 0 {
+		i = encodeVarintIavlApi(dAtA, i, uint64(m.Size_))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintIavlApi(dAtA []byte, offset int, v uint64) int {
 	offset -= sovIavlApi(v)
 	base := offset
@@ -2685,6 +3303,30 @@ func (m *VerifyAbsenceRequest) Size() (n int) {
 	return n
 }
 
+func (m *LoadVersionRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Version != 0 {
+		n += 1 + sovIavlApi(uint64(m.Version))
+	}
+	return n
+}
+
+func (m *LoadVersionForOverwritingRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Version != 0 {
+		n += 1 + sovIavlApi(uint64(m.Version))
+	}
+	return n
+}
+
 func (m *HasResponse) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2823,6 +3465,46 @@ func (m *GetWithProofResponse) Size() (n int) {
 	if m.Proof != nil {
 		l = m.Proof.Size()
 		n += 1 + l + sovIavlApi(uint64(l))
+	}
+	return n
+}
+
+func (m *GetAvailableVersionsResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.Versions) > 0 {
+		l = 0
+		for _, e := range m.Versions {
+			l += sovIavlApi(uint64(e))
+		}
+		n += 1 + sovIavlApi(uint64(l)) + l
+	}
+	return n
+}
+
+func (m *GetVersionResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Version != 0 {
+		n += 1 + sovIavlApi(uint64(m.Version))
+	}
+	return n
+}
+
+func (m *GetSizeResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Size_ != 0 {
+		n += 1 + sovIavlApi(uint64(m.Size_))
 	}
 	return n
 }
@@ -3955,6 +4637,150 @@ func (m *VerifyAbsenceRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *LoadVersionRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIavlApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LoadVersionRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LoadVersionRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			m.Version = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIavlApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Version |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIavlApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *LoadVersionForOverwritingRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIavlApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: LoadVersionForOverwritingRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: LoadVersionForOverwritingRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			m.Version = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIavlApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Version |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIavlApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *HasResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -4857,6 +5683,279 @@ func (m *GetWithProofResponse) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIavlApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetAvailableVersionsResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIavlApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetAvailableVersionsResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetAvailableVersionsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType == 0 {
+				var v int64
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowIavlApi
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					v |= int64(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				m.Versions = append(m.Versions, v)
+			} else if wireType == 2 {
+				var packedLen int
+				for shift := uint(0); ; shift += 7 {
+					if shift >= 64 {
+						return ErrIntOverflowIavlApi
+					}
+					if iNdEx >= l {
+						return io.ErrUnexpectedEOF
+					}
+					b := dAtA[iNdEx]
+					iNdEx++
+					packedLen |= int(b&0x7F) << shift
+					if b < 0x80 {
+						break
+					}
+				}
+				if packedLen < 0 {
+					return ErrInvalidLengthIavlApi
+				}
+				postIndex := iNdEx + packedLen
+				if postIndex < 0 {
+					return ErrInvalidLengthIavlApi
+				}
+				if postIndex > l {
+					return io.ErrUnexpectedEOF
+				}
+				var elementCount int
+				var count int
+				for _, integer := range dAtA[iNdEx:postIndex] {
+					if integer < 128 {
+						count++
+					}
+				}
+				elementCount = count
+				if elementCount != 0 && len(m.Versions) == 0 {
+					m.Versions = make([]int64, 0, elementCount)
+				}
+				for iNdEx < postIndex {
+					var v int64
+					for shift := uint(0); ; shift += 7 {
+						if shift >= 64 {
+							return ErrIntOverflowIavlApi
+						}
+						if iNdEx >= l {
+							return io.ErrUnexpectedEOF
+						}
+						b := dAtA[iNdEx]
+						iNdEx++
+						v |= int64(b&0x7F) << shift
+						if b < 0x80 {
+							break
+						}
+					}
+					m.Versions = append(m.Versions, v)
+				}
+			} else {
+				return fmt.Errorf("proto: wrong wireType = %d for field Versions", wireType)
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIavlApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetVersionResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIavlApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetVersionResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetVersionResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Version", wireType)
+			}
+			m.Version = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIavlApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Version |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipIavlApi(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthIavlApi
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *GetSizeResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowIavlApi
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: GetSizeResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: GetSizeResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Size_", wireType)
+			}
+			m.Size_ = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowIavlApi
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Size_ |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipIavlApi(dAtA[iNdEx:])
