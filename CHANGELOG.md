@@ -1,10 +1,12 @@
 # Changelog
 
-## Unreleased
+## 0.15.0-rc1 (July 30, 2020)
 
 The IAVL project has moved from https://github.com/tendermint/iavl to
-https://github.com/cosmos/iavl. This also affects the module import path, which is now
+https://github.com/cosmos/iavl. This changes the module import path, which is now
 `github.com/cosmos/iavl`.
+
+Users upgrading from 0.13 should read important upgrade information in the 0.14.0 release below.
 
 ### Breaking Changes
 
@@ -14,14 +16,15 @@ https://github.com/cosmos/iavl. This also affects the module import path, which 
 
 - Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
 
-- Introduced new methods `GetMembershipProof` and `GetNonMembershipProof` on `ImmutableTree` to return 
-  ics23 ExistenceProof and NonExistenceProofs respectively.
+- Introduced `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to 
+  return ics23 ExistenceProof and NonExistenceProof respectively.
 
-- Added `Options.InitialVersion` to specify the initial version to start new IAVL trees from.
+- Added `Options.InitialVersion` to specify the initial version for new IAVL trees.
 
 ### Bug Fixes
 
-- \#288 Fix panics when generating proofs for keys that are all `0xFF`.
+- [\#288](https://github.com/cosmos/iavl/pull/288) Fix panics when generating proofs for keys that 
+  are all `0xFF`.
 
 ## 0.14.0 (July 2, 2020)
 
@@ -91,6 +94,7 @@ Special thanks to external contributors on this release: @ridenaio
 
 - [\#275](https://github.com/cosmos/iavl/pull/275) Fix data corruption with 
   `LoadVersionForOverwriting`
+
 ## 0.13.3 (April 5, 2020)
 
 ### Bug Fixes
