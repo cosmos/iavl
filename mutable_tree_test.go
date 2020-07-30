@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/tendermint/tm-db"
@@ -103,6 +104,47 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 			require.Equal(t, e.value, val)
 		}
 	}
+}
+
+func TestMutableTree_InitialVersion(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9})
+	require.NoError(t, err)
+
+	tree.Set([]byte("a"), []byte{0x01})
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	assert.EqualValues(t, 9, version)
+
+	tree.Set([]byte("b"), []byte{0x02})
+	_, version, err = tree.SaveVersion()
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
+	// Reloading the tree with the same initial version is fine
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9})
+	require.NoError(t, err)
+	version, err = tree.Load()
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
+	// Reloading the tree with an initial version beyond the lowest should error
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10})
+	require.NoError(t, err)
+	_, err = tree.Load()
+	require.Error(t, err)
+
+	// Reloading the tree with a lower initial version is fine, and new versions can be produced
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3})
+	require.NoError(t, err)
+	version, err = tree.Load()
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
+	tree.Set([]byte("c"), []byte{0x03})
+	_, version, err = tree.SaveVersion()
+	require.NoError(t, err)
+	assert.EqualValues(t, 11, version)
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
