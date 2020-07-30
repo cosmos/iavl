@@ -51,7 +51,10 @@ func Repair013Orphans(db dbm.DB) (uint64, error) {
 			return
 		}
 		repaired++
-		batch.Delete(k)
+		err = batch.Delete(k)
+		if err != nil {
+			return
+		}
 	})
 	if err != nil {
 		return 0, err
