@@ -14,7 +14,8 @@ Users upgrading from 0.13 should read important upgrade information in the 0.14.
 
 ### Improvements
 
-- Proofs are now encoded using Protobuf instead of Amino. The binary encoding is identical.
+- Encoding of tree nodes and proofs is now done using the Go stdlib and Protobuf instead of Amino.
+  The binary encoding is identical.
 
 - Introduced `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to 
   return ics23 ExistenceProof and NonExistenceProof respectively.
