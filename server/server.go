@@ -360,3 +360,21 @@ func (s *IAVLServer) Size(ctx context.Context, req *empty.Empty) (*pb.SizeRespon
 	return &pb.SizeResponse{Size_: s.tree.Size()}, nil
 
 }
+
+func (s *IAVLServer) List(req *pb.ListElementsRequest, stream pb.IAVLService_ListServer) error {
+
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+
+	var err error
+
+	_ = s.tree.IterateRange(req.FromKey, req.ToKey, req.Ascending, func(k []byte, v []byte) bool {
+
+		res := &pb.ListElementsResponse{Key: k, Value: v}
+		err = stream.Send(res)
+		return err != nil
+	})
+
+	return err
+
+}

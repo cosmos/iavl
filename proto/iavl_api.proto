@@ -183,6 +183,12 @@ service IAVLService {
     };
   }
 
+  rpc List(ListElementsRequest) returns (stream ListElementsResponse) {
+    option (google.api.http) = {
+      get: "/v1/size"
+    };
+  }
+
 }
 
 // ----------------------------------------------------------------------------
@@ -246,9 +252,12 @@ message LoadVersionForOverwritingRequest {
   int64 version = 1;
 }
 
-//message IterateRangeRequest {
-//
-//}
+message ListElementsRequest {
+  bytes from_key = 1;
+  bytes to_key = 2;
+  bool ascending = 3;
+}
+
 
 // ----------------------------------------------------------------------------
 // Response types
@@ -306,4 +315,9 @@ message GetAvailableVersionsResponse {
 
 message SizeResponse {
   int64 size = 1;
+}
+
+message ListElementsResponse {
+  bytes key = 1;
+  bytes value = 2;
 }
