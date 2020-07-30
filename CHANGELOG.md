@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- Added `Options.InitialVersion` to specify the initial version to start new IAVL trees from.
+
 ## 0.14.0 (July 2, 2020)
 
 **Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
