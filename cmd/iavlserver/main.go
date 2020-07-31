@@ -117,7 +117,7 @@ func startRPCGateway() error {
 	}
 
 	r := http.NewServeMux()
-	http.Handle("/", gatewayMux)
+	r.Handle("/", gatewayMux)
 
 	// Register pprof handlers
 	if *withProfiling {
@@ -130,7 +130,14 @@ func startRPCGateway() error {
 
 	log.Infof("gRPC-gateway server starting on %s", *gatewayEndpoint)
 
-	if err := http.ListenAndServe(*gatewayEndpoint, panicRecovery(r)); err != nil {
+	handlerWithPanicMW := panicRecovery(r)
+
+	httpServer := &http.Server{
+		Addr:    *gatewayEndpoint,
+		Handler: handlerWithPanicMW,
+	}
+
+	if err := httpServer.ListenAndServe(); err != nil {
 		return errors.Wrap(err, "gRPC-gateway server terminated")
 	}
 
