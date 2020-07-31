@@ -32,7 +32,7 @@ func (suite *ServerTestSuite) SetupTest() {
 }
 
 func (suite *ServerTestSuite) populateItems(n int) {
-	versionRes, err := suite.server.Version(context.TODO(), nil)
+	versionRes, err := suite.server.Version(context.Background(), nil)
 	suite.NoError(err)
 
 	for i := 0; i < n; i++ {
@@ -41,11 +41,11 @@ func (suite *ServerTestSuite) populateItems(n int) {
 			Value: []byte(fmt.Sprintf("value-%d", i)),
 		}
 
-		_, err = suite.server.Set(context.TODO(), req)
+		_, err = suite.server.Set(context.Background(), req)
 		suite.NoError(err)
 	}
 
-	res, err := suite.server.SaveVersion(context.TODO(), nil)
+	res, err := suite.server.SaveVersion(context.Background(), nil)
 	suite.NoError(err)
 	suite.Equal(versionRes.Version+1, res.Version)
 }
@@ -84,7 +84,7 @@ func (suite *ServerTestSuite) TestHas() {
 	for _, tc := range testCases {
 		tc := tc
 		suite.Run(tc.name, func() {
-			res, err := suite.server.HasVersioned(context.TODO(), &pb.HasVersionedRequest{Version: tc.version, Key: tc.key})
+			res, err := suite.server.HasVersioned(context.Background(), &pb.HasVersionedRequest{Version: tc.version, Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
@@ -117,10 +117,10 @@ func (suite *ServerTestSuite) TestGet() {
 					Value: []byte("NEW_VALUE"),
 				}
 
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 
-				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				_, err = suite.server.SaveVersion(context.Background(), nil)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -143,7 +143,7 @@ func (suite *ServerTestSuite) TestGet() {
 				tc.preRun()
 			}
 
-			res, err := suite.server.Get(context.TODO(), &pb.GetRequest{Key: tc.key})
+			res, err := suite.server.Get(context.Background(), &pb.GetRequest{Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
@@ -179,10 +179,10 @@ func (suite *ServerTestSuite) TestGetVersioned() {
 					Value: []byte("NEW_VALUE"),
 				}
 
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 
-				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				_, err = suite.server.SaveVersion(context.Background(), nil)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -198,10 +198,10 @@ func (suite *ServerTestSuite) TestGetVersioned() {
 					Value: []byte("NEW_VALUE"),
 				}
 
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 
-				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				_, err = suite.server.SaveVersion(context.Background(), nil)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -226,7 +226,7 @@ func (suite *ServerTestSuite) TestGetVersioned() {
 				tc.preRun()
 			}
 
-			res, err := suite.server.GetVersioned(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			res, err := suite.server.GetVersioned(context.Background(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
@@ -262,10 +262,10 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 					Value: []byte("NEW_VALUE"),
 				}
 
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 
-				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				_, err = suite.server.SaveVersion(context.Background(), nil)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -298,7 +298,7 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 				tc.preRun()
 			}
 
-			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			res, err := suite.server.GetVersionedWithProof(context.Background(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
@@ -322,19 +322,19 @@ func (suite *ServerTestSuite) TestGetVersionedWithProof() {
 }
 
 func (suite *ServerTestSuite) TestSet() {
-	res, err := suite.server.Set(context.TODO(), &pb.SetRequest{Key: nil, Value: nil})
+	res, err := suite.server.Set(context.Background(), &pb.SetRequest{Key: nil, Value: nil})
 	suite.Error(err)
 	suite.Nil(res)
 
-	res, err = suite.server.Set(context.TODO(), &pb.SetRequest{Key: []byte("key"), Value: nil})
+	res, err = suite.server.Set(context.Background(), &pb.SetRequest{Key: []byte("key"), Value: nil})
 	suite.Error(err)
 	suite.Nil(res)
 
-	res, err = suite.server.Set(context.TODO(), &pb.SetRequest{Key: nil, Value: []byte("value")})
+	res, err = suite.server.Set(context.Background(), &pb.SetRequest{Key: nil, Value: []byte("value")})
 	suite.Error(err)
 	suite.Nil(res)
 
-	_, err = suite.server.Set(context.TODO(), &pb.SetRequest{Key: []byte("key"), Value: []byte("value")})
+	_, err = suite.server.Set(context.Background(), &pb.SetRequest{Key: []byte("key"), Value: []byte("value")})
 	suite.NoError(err)
 }
 
@@ -365,7 +365,7 @@ func (suite *ServerTestSuite) TestRemove() {
 	for _, tc := range testCases {
 		tc := tc
 		suite.Run(tc.name, func() {
-			res, err := suite.server.Remove(context.TODO(), &pb.RemoveRequest{Key: tc.key})
+			res, err := suite.server.Remove(context.Background(), &pb.RemoveRequest{Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
@@ -400,10 +400,10 @@ func (suite *ServerTestSuite) TestVerify() {
 					Value: []byte("NEW_VALUE"),
 				}
 
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 
-				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				_, err = suite.server.SaveVersion(context.Background(), nil)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -419,7 +419,7 @@ func (suite *ServerTestSuite) TestVerify() {
 				tc.preRun()
 			}
 
-			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			res, err := suite.server.GetVersionedWithProof(context.Background(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
@@ -438,7 +438,7 @@ func (suite *ServerTestSuite) TestVerify() {
 					Proof:    res.Proof,
 				}
 
-				_, err = suite.server.Verify(context.TODO(), verifyReq)
+				_, err = suite.server.Verify(context.Background(), verifyReq)
 				suite.NoError(err)
 			}
 		})
@@ -480,7 +480,7 @@ func (suite *ServerTestSuite) TestVerifyAbsense() {
 				tc.preRun()
 			}
 
-			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.existingKey})
+			res, err := suite.server.GetVersionedWithProof(context.Background(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.existingKey})
 			if err != nil {
 				proof, err := iavl.RangeProofFromProto(res.Proof)
 				if err != nil {
@@ -495,7 +495,7 @@ func (suite *ServerTestSuite) TestVerifyAbsense() {
 					Key:      tc.questionableKey,
 				}
 
-				_, err = suite.server.VerifyAbsence(context.TODO(), verifyAbsReq)
+				_, err = suite.server.VerifyAbsence(context.Background(), verifyAbsReq)
 				suite.Equal(tc.expectErr, err != nil)
 			}
 
@@ -538,7 +538,7 @@ func (suite *ServerTestSuite) TestVerifyItem() {
 				tc.preRun()
 			}
 
-			res, err := suite.server.GetVersionedWithProof(context.TODO(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
+			res, err := suite.server.GetVersionedWithProof(context.Background(), &pb.GetVersionedRequest{Version: tc.version, Key: tc.key})
 			if err != nil {
 				proof, err := iavl.RangeProofFromProto(res.Proof)
 				suite.NoError(err)
@@ -552,7 +552,7 @@ func (suite *ServerTestSuite) TestVerifyItem() {
 					Value:    tc.value,
 				}
 
-				_, err = suite.server.VerifyItem(context.TODO(), verifyItemReq)
+				_, err = suite.server.VerifyItem(context.Background(), verifyItemReq)
 				suite.Equal(tc.expectErr, err != nil)
 			}
 
@@ -561,25 +561,25 @@ func (suite *ServerTestSuite) TestVerifyItem() {
 }
 
 func (suite *ServerTestSuite) TestDeleteVersion() {
-	res, err := suite.server.DeleteVersion(context.TODO(), &pb.DeleteVersionRequest{Version: 0})
+	res, err := suite.server.DeleteVersion(context.Background(), &pb.DeleteVersionRequest{Version: 0})
 	suite.Error(err)
 	suite.Nil(res)
 
-	res, err = suite.server.DeleteVersion(context.TODO(), &pb.DeleteVersionRequest{Version: 1})
+	res, err = suite.server.DeleteVersion(context.Background(), &pb.DeleteVersionRequest{Version: 1})
 	suite.Error(err)
 	suite.Nil(res)
 
-	_, err = suite.server.SaveVersion(context.TODO(), nil)
+	_, err = suite.server.SaveVersion(context.Background(), nil)
 	suite.NoError(err)
 
-	res, err = suite.server.DeleteVersion(context.TODO(), &pb.DeleteVersionRequest{Version: 1})
+	res, err = suite.server.DeleteVersion(context.Background(), &pb.DeleteVersionRequest{Version: 1})
 	suite.NoError(err)
 	suite.Equal(int64(1), res.Version)
 	suite.Equal("B01CCD167F03233BC51C44116D0420935826A533473AE39829556D0665BACDA9", fmt.Sprintf("%X", res.RootHash))
 }
 
 func (suite *ServerTestSuite) TestHash() {
-	res, err := suite.server.Hash(context.TODO(), nil)
+	res, err := suite.server.Hash(context.Background(), nil)
 	suite.NoError(err)
 	suite.Equal("B01CCD167F03233BC51C44116D0420935826A533473AE39829556D0665BACDA9", fmt.Sprintf("%X", res.RootHash))
 
@@ -588,23 +588,23 @@ func (suite *ServerTestSuite) TestHash() {
 		Value: []byte("NEW_VALUE"),
 	}
 
-	_, err = suite.server.Set(context.TODO(), req)
+	_, err = suite.server.Set(context.Background(), req)
 	suite.NoError(err)
 
-	_, err = suite.server.SaveVersion(context.TODO(), nil)
+	_, err = suite.server.SaveVersion(context.Background(), nil)
 	suite.NoError(err)
 
-	res, err = suite.server.Hash(context.TODO(), nil)
+	res, err = suite.server.Hash(context.Background(), nil)
 	suite.NoError(err)
 	suite.Equal("B708C71EA143DF334BB7DC9FBD7C47DA3A3B16C2E15F2990E5BEB3FABC8AE8CA", fmt.Sprintf("%X", res.RootHash))
 }
 
 func (suite *ServerTestSuite) TestVersionExists() {
-	res, err := suite.server.VersionExists(context.TODO(), &pb.VersionExistsRequest{Version: 1})
+	res, err := suite.server.VersionExists(context.Background(), &pb.VersionExistsRequest{Version: 1})
 	suite.NoError(err)
 	suite.True(res.Result)
 
-	res, err = suite.server.VersionExists(context.TODO(), &pb.VersionExistsRequest{Version: 2})
+	res, err = suite.server.VersionExists(context.Background(), &pb.VersionExistsRequest{Version: 2})
 	suite.NoError(err)
 	suite.False(res.Result)
 }
@@ -626,7 +626,7 @@ func (suite *ServerTestSuite) TestRollback() {
 					Key:   []byte("key-0"),
 					Value: []byte("NEW_VALUE"),
 				}
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -641,10 +641,10 @@ func (suite *ServerTestSuite) TestRollback() {
 					Key:   []byte("key-0"),
 					Value: []byte("NEW_VALUE"),
 				}
-				_, err := suite.server.Set(context.TODO(), req)
+				_, err := suite.server.Set(context.Background(), req)
 				suite.NoError(err)
 
-				_, err = suite.server.SaveVersion(context.TODO(), nil)
+				_, err = suite.server.SaveVersion(context.Background(), nil)
 				suite.NoError(err)
 			},
 			[]byte("key-0"),
@@ -661,10 +661,10 @@ func (suite *ServerTestSuite) TestRollback() {
 				tc.preRun()
 			}
 
-			_, err := suite.server.Rollback(context.TODO(), nil)
+			_, err := suite.server.Rollback(context.Background(), nil)
 			suite.Equal(tc.expectErr, err != nil)
 
-			res, getErr := suite.server.Get(context.TODO(), &pb.GetRequest{Key: tc.key})
+			res, getErr := suite.server.Get(context.Background(), &pb.GetRequest{Key: tc.key})
 			suite.Equal(tc.expectErr, getErr != nil)
 
 			suite.Equal(res.Value, tc.value)
