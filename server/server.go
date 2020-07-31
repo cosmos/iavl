@@ -23,8 +23,8 @@ var _ pb.IAVLServiceServer = (*IAVLServer)(nil)
 // 2. Unlimited concurrent reads.
 // 3. Sequential writes.
 type IAVLServer struct {
+	rwLock sync.RWMutex
 	tree   *iavl.MutableTree
-	rwLock *sync.RWMutex
 }
 
 // New creates an IAVLServer.
@@ -38,9 +38,7 @@ func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
 		return nil, errors.Wrapf(err, "unable to load version %d", version)
 	}
 
-	var rwLock sync.RWMutex
-
-	return &IAVLServer{tree: tree, rwLock: &rwLock}, nil
+	return &IAVLServer{tree: tree}, nil
 }
 
 // HasVersioned returns a result containing a boolean on whether or not the IAVL tree
