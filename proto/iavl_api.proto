@@ -164,21 +164,24 @@ service IAVLService {
   // Load the most recent version
   rpc Load(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/v1/load"
+      post: "/v1/load"
+      body: "*"
     };
   }
 
   // Load a specific version
   rpc LoadVersion(LoadVersionRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/v1/load_version"
+      post: "/v1/load_version"
+      body: "*"
     };
   }
 
   // Load a specific version and delete all the more recent versions
   rpc LoadVersionForOverwriting(LoadVersionForOverwritingRequest) returns (google.protobuf.Empty) {
     option (google.api.http) = {
-      get: "/v1/load_version_for_overwriting"
+      post: "/v1/load_version_for_overwriting"
+      body: "*"
     };
   }
 
@@ -191,7 +194,7 @@ service IAVLService {
 
   rpc List(ListElementsRequest) returns (stream ListElementsResponse) {
     option (google.api.http) = {
-      get: "/v1/size"
+      get: "/v1/list"
     };
   }
 
