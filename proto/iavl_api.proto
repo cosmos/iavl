@@ -17,7 +17,13 @@ service IAVLService {
   // has a given key at a specific tree version.
   rpc Has(HasRequest) returns (HasResponse) {
     option (google.api.http) = {
-      get: "/v1/{version}/has"
+      get: "/v1/has"
+    };
+  }
+
+  rpc HasVersioned(HasVersionedRequest) returns (HasResponse) {
+    option (google.api.http) = {
+      get: "/v1/has_versioned"
     };
   }
 
@@ -196,6 +202,10 @@ service IAVLService {
 // ----------------------------------------------------------------------------
 
 message HasRequest {
+  bytes key = 1;
+}
+
+message HasVersionedRequest {
   int64 version = 1;
   bytes key = 2;
 }

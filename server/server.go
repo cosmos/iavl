@@ -43,9 +43,9 @@ func New(db dbm.DB, cacheSize, version int64) (*IAVLServer, error) {
 	return &IAVLServer{tree: tree, rwLock: &rwLock}, nil
 }
 
-// Has returns a result containing a boolean on whether or not the IAVL tree
+// HasVersioned returns a result containing a boolean on whether or not the IAVL tree
 // has a given key at a specific tree version.
-func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse, error) {
+func (s *IAVLServer) HasVersioned(_ context.Context, req *pb.HasVersionedRequest) (*pb.HasResponse, error) {
 
 	s.rwLock.RLock()
 	defer s.rwLock.RUnlock()
@@ -60,6 +60,16 @@ func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse
 	}
 
 	return &pb.HasResponse{Result: iTree.Has(req.Key)}, nil
+}
+
+// Has returns a result containing a boolean on whether or not the IAVL tree
+// has a given key in the current version
+func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse, error) {
+
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+
+	return &pb.HasResponse{Result: s.tree.Has(req.Key)}, nil
 }
 
 // Get returns a result containing the IAVL tree version and value for a given
