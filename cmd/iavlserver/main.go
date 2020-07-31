@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
-	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	rt "runtime"
@@ -32,8 +31,6 @@ var (
 	cacheSize       = flag.Int64("cache-size", 10000, "Tree cache size")
 	gRPCEndpoint    = flag.String("grpc-endpoint", "localhost:8090", "The gRPC server endpoint (host:port)")
 	gatewayEndpoint = flag.String("gateway-endpoint", "localhost:8091", "The gRPC-Gateway server endpoint (host:port)")
-	cpuProfile      = flag.String("cpuprofile", "", "If set, write CPU profile to this file")
-	memProfile      = flag.String("memprofile", "", "If set, write memory profile to this file")
 	noGateway       = flag.Bool("no-gateway", false, "Disables the gRPC-Gateway server")
 )
 
@@ -165,13 +162,4 @@ func trapSignal(cb func()) {
 		log.Infof("caught signal %s; shutting down...", sig)
 		cb()
 	}()
-}
-
-func mustCreateFile(fileName string) *os.File {
-	f, err := os.Create(fileName)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return f
 }

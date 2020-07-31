@@ -84,7 +84,7 @@ func (suite *ServerTestSuite) TestHas() {
 	for _, tc := range testCases {
 		tc := tc
 		suite.Run(tc.name, func() {
-			res, err := suite.server.Has(context.TODO(), &pb.HasRequest{Version: tc.version, Key: tc.key})
+			res, err := suite.server.HasVersioned(context.TODO(), &pb.HasVersionedRequest{Version: tc.version, Key: tc.key})
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
