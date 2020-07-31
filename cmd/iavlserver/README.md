@@ -24,8 +24,6 @@ $ iavlserver -h
 Usage of iavlserver:
   -cache-size int
         Tree cache size (default 10000)
-  -cpuprofile string
-        If set, write CPU profile to this file
   -datadir string
         The database data directory
   -db-backend string
@@ -36,8 +34,6 @@ Usage of iavlserver:
         The gRPC-Gateway server endpoint (host:port) (default "localhost:8091")
   -grpc-endpoint string
         The gRPC server endpoint (host:port) (default "localhost:8090")
-  -memprofile string
-        If set, write memory profile to this file
   -no-gateway
         Disables the gRPC-Gateway server
   -version int
@@ -58,13 +54,13 @@ iavlserver -db-name "example-db" -datadir ./tmp
 Once it is up and running you can test it is working by running:
 
 ```shell
-curl http://localhost:8091/v1/tree/version
+curl http://localhost:8091/v1/version
 ```
 
 The result should be:
 
 ```shell
-$ curl http://localhost:8091/v1/tree/version
+$ curl http://localhost:8091/v1/version
 {
   "version": "0"
 }

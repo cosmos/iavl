@@ -6,9 +6,11 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
-	"runtime/pprof"
+	rt "runtime"
+
 	"syscall"
 
 	"github.com/gogo/gateway"
@@ -43,15 +45,10 @@ func init() {
 }
 
 func main() {
+
+	rt.SetBlockProfileRate(1)
+
 	flag.Parse()
-
-	// enable CPU profile if requested
-	if *cpuProfile != "" {
-		f := mustCreateFile(*cpuProfile)
-		_ = pprof.StartCPUProfile(f)
-
-		defer pprof.StopCPUProfile()
-	}
 
 	// start gRPC-gateway process
 	go func() {
@@ -94,11 +91,6 @@ func main() {
 		log.Fatalf("gRPC server terminated: %s", err)
 	}
 
-	// write memory profile if requested
-	if *memProfile != "" {
-		f := mustCreateFile(*memProfile)
-		_ = pprof.WriteHeapProfile(f)
-	}
 }
 
 // startRPCGateway starts the gRPC-gateway server. It returns an error if the
@@ -126,6 +118,7 @@ func startRPCGateway() error {
 	}
 
 	http.Handle("/", gatewayMux)
+
 	log.Infof("gRPC-gateway server starting on %s", *gatewayEndpoint)
 
 	if err := http.ListenAndServe(*gatewayEndpoint, nil); err != nil {
