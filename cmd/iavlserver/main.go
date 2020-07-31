@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	rt "runtime"
@@ -32,6 +33,7 @@ var (
 	gRPCEndpoint    = flag.String("grpc-endpoint", "localhost:8090", "The gRPC server endpoint (host:port)")
 	gatewayEndpoint = flag.String("gateway-endpoint", "localhost:8091", "The gRPC-Gateway server endpoint (host:port)")
 	noGateway       = flag.Bool("no-gateway", false, "Disables the gRPC-Gateway server")
+	withProfiling   = flag.Bool("with-profiling", false, "Enable the pprof server")
 )
 
 var log grpclog.LoggerV2
@@ -114,11 +116,21 @@ func startRPCGateway() error {
 		return errors.Wrap(err, "failed to register IAVL service handler for gRPC-gateway")
 	}
 
+	r := http.NewServeMux()
 	http.Handle("/", gatewayMux)
+
+	// Register pprof handlers
+	if *withProfiling {
+		r.HandleFunc("/debug/pprof/", pprof.Index)
+		r.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		r.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		r.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		r.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	}
 
 	log.Infof("gRPC-gateway server starting on %s", *gatewayEndpoint)
 
-	if err := http.ListenAndServe(*gatewayEndpoint, nil); err != nil {
+	if err := http.ListenAndServe(*gatewayEndpoint, panicRecovery(r)); err != nil {
 		return errors.Wrap(err, "gRPC-gateway server terminated")
 	}
 
@@ -162,4 +174,23 @@ func trapSignal(cb func()) {
 		log.Infof("caught signal %s; shutting down...", sig)
 		cb()
 	}()
+}
+
+// panic recovery middleware, if the handler throws a panic then this will write a 500
+// response
+func panicRecovery(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, rq *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				log.Error(err)
+
+				// To avoid 'superfluous response.WriteHeader call' error
+				if rw.Header().Get("Content-Type") == "" {
+					rw.WriteHeader(http.StatusInternalServerError)
+				}
+			}
+		}()
+
+		handler.ServeHTTP(rw, rq)
+	})
 }
