@@ -3,11 +3,14 @@ package server_test
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
 	"testing"
 
 	"github.com/cosmos/iavl"
 	"github.com/stretchr/testify/suite"
 	dbm "github.com/tendermint/tm-db"
+	"google.golang.org/grpc"
 
 	pb "github.com/cosmos/iavl/proto"
 	"github.com/cosmos/iavl/server"
@@ -17,6 +20,8 @@ type ServerTestSuite struct {
 	suite.Suite
 
 	server *server.IAVLServer
+
+	client pb.IAVLServiceClient
 }
 
 func (suite *ServerTestSuite) SetupTest() {
@@ -29,6 +34,25 @@ func (suite *ServerTestSuite) SetupTest() {
 
 	suite.server = server
 	suite.populateItems(100)
+
+	grpcServer := grpc.NewServer()
+	//nolint
+	listener, err := net.Listen("tcp", ":0") // random available port
+	pb.RegisterIAVLServiceServer(grpcServer, server)
+	suite.NoError(err)
+	addr := listener.Addr().String()
+
+	go func() {
+		err = grpcServer.Serve(listener)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	suite.NoError(err)
+	client := pb.NewIAVLServiceClient(conn)
+	suite.client = client
+
 }
 
 func (suite *ServerTestSuite) populateItems(n int) {
@@ -693,7 +717,61 @@ func (suite *ServerTestSuite) TestSize() {
 	suite.NoError(err)
 
 	res3, err := suite.server.Size(context.Background(), nil)
+	suite.NoError(err)
 	suite.Equal(res3.Size_, res1.Size_)
+
+}
+
+func (suite *ServerTestSuite) TestList() {
+
+	req1 := &pb.SetRequest{
+		Key:   []byte("test-list-key1"),
+		Value: []byte("test-list-value1"),
+	}
+
+	req2 := &pb.SetRequest{
+		Key:   []byte("test-list-key2"),
+		Value: []byte("test-list-value2"),
+	}
+
+	_, err := suite.server.Set(context.Background(), req1)
+	suite.NoError(err)
+
+	_, err = suite.server.Set(context.Background(), req2)
+	suite.NoError(err)
+
+	req3 := &pb.ListElementsRequest{
+		FromKey:   []byte("test-list-key1"),
+		ToKey:     []byte("test-list-key2"),
+		Ascending: true,
+	}
+
+	stream, err := suite.client.List(context.Background(), req3)
+	suite.NoError(err)
+
+	keyIndex := 0
+	for {
+		res, err := stream.Recv()
+		if err == io.EOF {
+			break
+		}
+		suite.NoError(err)
+
+		if keyIndex == 1 {
+			suite.Equal(res.Key, req3.ToKey)
+			keyIndex++
+		}
+
+		if keyIndex == 0 {
+			suite.Equal(res.Key, req3.FromKey)
+			keyIndex++
+		}
+
+		if keyIndex > 1 {
+			panic("Unexpected key in List method")
+		}
+
+	}
 
 }
 
@@ -706,6 +784,7 @@ func (suite *ServerTestSuite) TestAvailableVersions() {
 	suite.NoError(err)
 
 	versionRes, err := suite.server.Version(context.Background(), nil)
+	suite.NoError(err)
 	newVersions := append(oldVersions, versionRes.Version)
 
 	res2, err := suite.server.GetAvailableVersions(context.Background(), nil)
