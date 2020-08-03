@@ -672,6 +672,49 @@ func (suite *ServerTestSuite) TestRollback() {
 	}
 }
 
+func (suite *ServerTestSuite) TestSize() {
+	res1, err := suite.server.Size(context.Background(), nil)
+	suite.NoError(err)
+
+	req := &pb.SetRequest{
+		Key:   []byte("test-size-key"),
+		Value: []byte("test-size-value"),
+	}
+
+	_, err = suite.server.Set(context.Background(), req)
+	suite.NoError(err)
+
+	res2, err := suite.server.Size(context.Background(), nil)
+	suite.NoError(err)
+
+	suite.Equal(res1.Size_+1, res2.Size_)
+
+	_, err = suite.server.Rollback(context.Background(), nil)
+	suite.NoError(err)
+
+	res3, err := suite.server.Size(context.Background(), nil)
+	suite.Equal(res3.Size_, res1.Size_)
+
+}
+
+func (suite *ServerTestSuite) TestAvailableVersions() {
+	res1, err := suite.server.GetAvailableVersions(context.Background(), nil)
+	suite.NoError(err)
+	oldVersions := res1.Versions
+
+	_, err = suite.server.SaveVersion(context.Background(), nil)
+	suite.NoError(err)
+
+	versionRes, err := suite.server.Version(context.Background(), nil)
+	newVersions := append(oldVersions, versionRes.Version)
+
+	res2, err := suite.server.GetAvailableVersions(context.Background(), nil)
+	suite.NoError(err)
+
+	suite.Equal(res2.Versions, newVersions)
+
+}
+
 func TestServerTestSuite(t *testing.T) {
 	suite.Run(t, new(ServerTestSuite))
 }

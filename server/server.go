@@ -320,8 +320,8 @@ func (s *IAVLServer) GetAvailableVersions(ctx context.Context, req *empty.Empty)
 
 	versions := make([]int64, len(versionsInts))
 
-	for _, version := range versionsInts {
-		versions = append(versions, int64(version))
+	for i, version := range versionsInts {
+		versions[i] = int64(version)
 	}
 
 	return &pb.GetAvailableVersionsResponse{Versions: versions}, nil
