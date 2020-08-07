@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.15.0-rc2
+
+### Breaking Changes
+
+- [\#304](https://github.com/cosmos/iavl/pull/304) Empty trees now return hashes rather than `nil` 
+  from e.g. `Hash()`, `WorkingHash()`, and `SaveVersion()`, for conformance with RFC-6962.
+
 ## 0.15.0-rc1 (July 30, 2020)
 
 The IAVL project has moved from https://github.com/tendermint/iavl to
