@@ -218,7 +218,12 @@ func (node *Node) _hash() []byte {
 
 // Hash the node and its descendants recursively. This usually mutates all
 // descendant nodes. Returns the node hash and number of nodes hashed.
+// If the tree is empty (i.e. the node is nil), returns the hash of an empty input,
+// to conform with RFC-6962.
 func (node *Node) hashWithCount() ([]byte, int64) {
+	if node == nil {
+		return sha256.New().Sum(nil), 0
+	}
 	if node.hash != nil {
 		return node.hash, 0
 	}

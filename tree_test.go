@@ -301,24 +301,24 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.NoError(err)
 
 	hash, v, err := tree.SaveVersion()
-	require.Nil(hash)
+	require.NoError(err)
+	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 	require.EqualValues(1, v)
-	require.NoError(err)
 
 	hash, v, err = tree.SaveVersion()
-	require.Nil(hash)
+	require.NoError(err)
+	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 	require.EqualValues(2, v)
-	require.NoError(err)
 
 	hash, v, err = tree.SaveVersion()
-	require.Nil(hash)
+	require.NoError(err)
+	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 	require.EqualValues(3, v)
-	require.NoError(err)
 
 	hash, v, err = tree.SaveVersion()
-	require.Nil(hash)
-	require.EqualValues(4, v)
 	require.NoError(err)
+	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
+	require.EqualValues(4, v)
 
 	require.EqualValues(4, tree.Version())
 
@@ -1183,20 +1183,22 @@ func TestVersionedTreeHash(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(err)
 
-	require.Nil(tree.Hash())
+	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(tree.Hash()))
 	tree.Set([]byte("I"), []byte("D"))
-	require.Nil(tree.Hash())
+	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(tree.Hash()))
 
-	hash1, _, _ := tree.SaveVersion()
+	hash1, _, err := tree.SaveVersion()
+	require.NoError(err)
 
 	tree.Set([]byte("I"), []byte("F"))
 	require.EqualValues(hash1, tree.Hash())
 
-	hash2, _, _ := tree.SaveVersion()
+	hash2, _, err := tree.SaveVersion()
+	require.NoError(err)
 
 	val, proof, err := tree.GetVersionedWithProof([]byte("I"), 2)
 	require.NoError(err)
-	require.EqualValues(val, []byte("F"))
+	require.EqualValues([]byte("F"), val)
 	require.NoError(proof.Verify(hash2))
 	require.NoError(proof.VerifyItem([]byte("I"), val))
 }

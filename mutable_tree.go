@@ -74,10 +74,7 @@ func (tree *MutableTree) AvailableVersions() []int {
 // Hash returns the hash of the latest saved version of the tree, as returned
 // by SaveVersion. If no versions have been saved, Hash returns nil.
 func (tree *MutableTree) Hash() []byte {
-	if tree.version > 0 {
-		return tree.lastSaved.Hash()
-	}
-	return nil
+	return tree.lastSaved.Hash()
 }
 
 // WorkingHash returns the hash of the current working tree.
