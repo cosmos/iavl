@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.15.0-rc2
+## 0.15.0-rc2 (August 13, 2020)
 
 ### Breaking Changes
 
@@ -17,17 +17,20 @@ Users upgrading from 0.13 should read important upgrade information in the 0.14.
 
 ### Breaking Changes
 
-- The module path has changed from `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
+- [\#285](https://github.com/cosmos/iavl/pull/285) The module path has changed from
+  `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
 
 ### Improvements
 
-- Encoding of tree nodes and proofs is now done using the Go stdlib and Protobuf instead of Amino.
-  The binary encoding is identical.
+- [\#265](https://github.com/cosmos/iavl/pull/265) Encoding of tree nodes and proofs is now done 
+  using the Go stdlib and Protobuf instead of Amino. The binary encoding is identical.
 
-- Introduced `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to 
-  return ics23 ExistenceProof and NonExistenceProof respectively.
+- [\#276](https://github.com/cosmos/iavl/pull/276/files) Introduced
+  `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to return ics23 ExistenceProof 
+  and NonExistenceProof respectively.
 
-- Added `Options.InitialVersion` to specify the initial version for new IAVL trees.
+- [\#299](https://github.com/cosmos/iavl/pull/299) Added `Options.InitialVersion` to specify the 
+  initial version for new IAVL trees.
 
 ### Bug Fixes
 
