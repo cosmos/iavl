@@ -192,7 +192,7 @@ service IAVLService {
     };
   }
 
-  rpc List(ListElementsRequest) returns (stream ListElementsResponse) {
+  rpc List(ListRequest) returns (stream ListResponse) {
     option (google.api.http) = {
       get: "/v1/list"
     };
@@ -265,10 +265,10 @@ message LoadVersionForOverwritingRequest {
   int64 version = 1;
 }
 
-message ListElementsRequest {
+message ListRequest {
   bytes from_key = 1;
   bytes to_key = 2;
-  bool ascending = 3;
+  bool descending = 3;
 }
 
 
@@ -286,7 +286,7 @@ message GetResponse {
 }
 
 message SetResponse {
-  bool result = 1;
+  bool updated = 1;
 }
 
 message RemoveResponse {
@@ -330,7 +330,7 @@ message SizeResponse {
   int64 size = 1;
 }
 
-message ListElementsResponse {
+message ListResponse {
   bytes key = 1;
   bytes value = 2;
 }

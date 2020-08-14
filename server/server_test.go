@@ -36,7 +36,6 @@ func (suite *ServerTestSuite) SetupTest() {
 	suite.populateItems(100)
 
 	grpcServer := grpc.NewServer()
-	//nolint
 	listener, err := net.Listen("tcp", ":0") // random available port
 	pb.RegisterIAVLServiceServer(grpcServer, server)
 	suite.NoError(err)
@@ -740,10 +739,10 @@ func (suite *ServerTestSuite) TestList() {
 	_, err = suite.server.Set(context.Background(), req2)
 	suite.NoError(err)
 
-	req3 := &pb.ListElementsRequest{
-		FromKey:   []byte("test-list-key1"),
-		ToKey:     []byte("test-list-key2"),
-		Ascending: true,
+	req3 := &pb.ListRequest{
+		FromKey:    []byte("test-list-key1"),
+		ToKey:      []byte("test-list-key2"),
+		Descending: false,
 	}
 
 	stream, err := suite.client.List(context.Background(), req3)

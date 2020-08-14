@@ -168,7 +168,7 @@ func (s *IAVLServer) Set(_ context.Context, req *pb.SetRequest) (*pb.SetResponse
 		return nil, errors.New("value cannot be nil")
 	}
 
-	return &pb.SetResponse{Result: s.tree.Set(req.Key, req.Value)}, nil
+	return &pb.SetResponse{Updated: s.tree.Set(req.Key, req.Value)}, nil
 }
 
 // Remove returns a result after removing a key/value pair from the IAVL tree
@@ -369,16 +369,16 @@ func (s *IAVLServer) Size(ctx context.Context, req *empty.Empty) (*pb.SizeRespon
 
 }
 
-func (s *IAVLServer) List(req *pb.ListElementsRequest, stream pb.IAVLService_ListServer) error {
+func (s *IAVLServer) List(req *pb.ListRequest, stream pb.IAVLService_ListServer) error {
 
 	s.rwLock.RLock()
 	defer s.rwLock.RUnlock()
 
 	var err error
 
-	_ = s.tree.IterateRange(req.FromKey, req.ToKey, req.Ascending, func(k []byte, v []byte) bool {
+	_ = s.tree.IterateRange(req.FromKey, req.ToKey, req.Descending, func(k []byte, v []byte) bool {
 
-		res := &pb.ListElementsResponse{Key: k, Value: v}
+		res := &pb.ListResponse{Key: k, Value: v}
 		err = stream.Send(res)
 		return err != nil
 	})

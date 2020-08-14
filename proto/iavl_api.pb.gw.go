@@ -813,7 +813,7 @@ var (
 )
 
 func request_IAVLService_List_0(ctx context.Context, marshaler runtime.Marshaler, client IAVLServiceClient, req *http.Request, pathParams map[string]string) (IAVLService_ListClient, runtime.ServerMetadata, error) {
-	var protoReq ListElementsRequest
+	var protoReq ListRequest
 	var metadata runtime.ServerMetadata
 
 	if err := req.ParseForm(); err != nil {
