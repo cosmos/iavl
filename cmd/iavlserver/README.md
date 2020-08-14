@@ -65,3 +65,65 @@ $ curl http://localhost:8091/v1/version
   "version": "0"
 }
 ```
+
+We can also test a simple `set`/`get`:
+
+```shell
+curl -XPOST http://localhost:8091/v1/set -d '{"key": "'$(echo -n foo | base64)'", "value": "'$(echo -n bar | base64)'"}'
+```
+
+You should see
+
+```shell
+{
+  "updated": false
+}
+```
+
+where the `updated` field indicates that we did not overwrite a value, which makes sense for our fresh database. If
+you want to check tha saved key/value pair, you can make use the `get` method
+
+```shell
+curl "http://localhost:8091/v1/get?key=$(echo -n foo | base64)"
+```
+
+and should see the response
+
+```shell
+{
+  "index": "0",
+  "value": "YmFy"
+}
+```
+
+where `"YmFy"` is the base64 encoding of `"bar"`. If you would like to commit this version of the database, you can submit
+a `save_version` request like
+
+```shell
+curl -XPOST "http://localhost:8091/v1/save_version"
+```
+
+which should yield the response
+
+{
+  "root_hash": "Xv1EBVNQtcw029JghTR6nbvkTqGSuShqn8EH9A6h+sU=",
+  "version": "1"
+}
+```
+
+This indicates that the version of the database just saved is `1` with root hash `"Xv1E...`. If you would like to view all
+of the saved versions, you can use the `available_versions` method:
+
+```shell
+curl -XGET "http://localhost:8091/v1/available_versions"
+```
+
+which returns a list of all of the saved versions
+
+```shell
+{
+  "versions": [
+    "1"
+  ]
+}
+```                                                          
