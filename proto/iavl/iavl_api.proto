@@ -1,11 +1,11 @@
 syntax = "proto3";
 package iavl;
 
-option go_package = "proto/proto";
+option go_package = "proto";
 
-import "third_party/google/api/annotations.proto";
+import "google/api/annotations.proto";
 import "google/protobuf/empty.proto";
-import "proto/proof.proto";
+import "iavl/proof.proto";
 
 // ----------------------------------------------------------------------------
 // gRPC service

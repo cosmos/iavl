@@ -6,11 +6,11 @@ proto_dirs=$(find . -path ./third_party -prune -o -name '*.proto' -print0 | xarg
 for dir in $proto_dirs; do
   echo $dir
   protoc \
-  -I. \
-  --gogofaster_out=plugins=grpc,paths=source_relative:. \
-  --grpc-gateway_out=logtostderr=true,paths=source_relative:. \
+  --proto_path=third_party \
+  --proto_path=proto \
+  --gogofaster_out=plugins=grpc,paths=source_relative:./proto \
+  --grpc-gateway_out=logtostderr=true,paths=source_relative:./proto \
   $(find "${dir}" -name '*.proto')
 done 
 
-#mv ./internal/proto/iavl/* ./internal/proto
-#rm -rf ./internal/proto/iavl
+mv ./proto/iavl/*.go ./proto
