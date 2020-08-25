@@ -14,8 +14,10 @@ all: lint test install
 install:
 ifeq ($(COLORS_ON),)
 	go install ./cmd/iaviewer
+	go install ./cmd/iavlserver
 else
 	go install $(CMDFLAGS) ./cmd/iaviewer
+	go install $(CMDFLAGS) ./cmd/iavlserver
 endif
 .PHONY: install
 
@@ -83,19 +85,6 @@ delve:
 	dlv test ./benchmarks -- -test.bench=.
 .PHONY: delve
 
-proto-gen:
-	@sh scripts/protocgen.sh
-.PHONY: proto-gen
-
-proto-lint:
-	@$(DOCKER_BUF) check lint --error-format=json
-.PHONY: proto-lint
-
-proto-check-breaking:
-	@$(DOCKER_BUF) check breaking --against-input $(HTTPS_GIT)#branch=master
-.PHONY: proto-check-breaking
-
-
 all: tools
 .PHONY: all
 
@@ -110,12 +99,6 @@ check_tools:
 	@echo "Found tools: $(foreach tool,$(notdir $(GOTOOLS)),\
         $(if $(shell which $(tool)),$(tool),$(error "No $(tool) in PATH")))"
 .PHONY: check_tools
-
-protobuf: $(PROTOBUF)
-$(PROTOBUF):
-	@echo "Get GoGo Protobuf"
-	@go get github.com/gogo/protobuf/protoc-gen-gogofaster@v1.3.1
-.PHONY: protobuf
 
 tools-clean:
 	rm -f $(CERTSTRAP) $(PROTOBUF) $(GOX) $(GOODMAN)
@@ -139,6 +122,25 @@ ifneq ($(OS),Windows_NT)
 			PROTOC_ZIP="protoc-3.10.1-osx-x86_64.zip"
 		endif
 endif
+
+.PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench proto-gen proto-lint proto-check-breaking
+
+proto-gen:
+	@bash scripts/protocgen.sh
+.PHONY: proto-gen
+
+proto-lint:
+	@$(DOCKER_BUF) check lint --error-format=json
+.PHONY: proto-lint
+
+proto-check-breaking:
+	@$(DOCKER_BUF) check breaking --against-input $(HTTPS_GIT)#branch=master
+.PHONY: proto-check-breaking
+
+protobuf: $(PROTOBUF)
+	@echo "Get GoGo Protobuf"
+	@go get github.com/gogo/protobuf/protoc-gen-gogofaster@v1.3.1
+.PHONY: protobuf
 
 protoc:
 	@echo "Get Protobuf"
