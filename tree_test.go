@@ -1333,6 +1333,41 @@ func TestOverwrite(t *testing.T) {
 	require.NoError(err, "SaveVersion should not fail, overwrite was idempotent")
 }
 
+func TestOverwriteEmpty(t *testing.T) {
+	require := require.New(t)
+
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 0)
+	require.NoError(err)
+
+	// Save empty version 1
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
+
+	// Save empty version 2
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
+
+	// Save a key in version 3
+	tree.Set([]byte("key"), []byte("value"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(err)
+
+	// Load version 1 and attempt to save a different key
+	_, err = tree.LoadVersion(1)
+	require.NoError(err)
+	tree.Set([]byte("foo"), []byte("bar"))
+	_, _, err = tree.SaveVersion()
+	require.Error(err)
+
+	// However, deleting the key and saving an empty version should work,
+	// since it's the same as the existing version.
+	tree.Remove([]byte("foo"))
+	_, version, err := tree.SaveVersion()
+	require.NoError(err)
+	require.EqualValues(2, version)
+}
+
 func TestLoadVersionForOverwriting(t *testing.T) {
 	require := require.New(t)
 

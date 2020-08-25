@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"sort"
 
@@ -455,6 +456,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		existingHash, err := tree.ndb.getRoot(version)
 		if err != nil {
 			return nil, version, err
+		}
+
+		// If the existing root hash is empty (because the tree is empty), then we need to
+		// compare with the hash of an empty input which is what `WorkingHash()` returns.
+		if len(existingHash) == 0 {
+			existingHash = sha256.New().Sum(nil)
 		}
 
 		var newHash = tree.WorkingHash()

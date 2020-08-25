@@ -2,6 +2,10 @@
 
 ## 0.15.0-rc2 (August 13, 2020)
 
+### Bug Fixes
+
+- Fix `SaveVersion()` for old, empty versions as long as the new version is identical.
+
 ### Breaking Changes
 
 - [\#304](https://github.com/cosmos/iavl/pull/304) Empty trees now return hashes rather than `nil` 
