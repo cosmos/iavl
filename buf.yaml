@@ -1,6 +1,7 @@
 build:
   roots:
     - proto
+    - third_party
 lint:
   use:
     - MINIMAL

@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	cmn "github.com/cosmos/iavl/common"
-	iavlproto "github.com/cosmos/iavl/internal/proto"
+	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 func TestTreeGetWithProof(t *testing.T) {
@@ -207,7 +207,7 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 }
 
 func encodeProof(proof *RangeProof) ([]byte, error) {
-	return proof.toProto().Marshal()
+	return proto.Marshal(proof.ToProto())
 }
 
 func decodeProof(bz []byte) (*RangeProof, error) {
@@ -216,7 +216,7 @@ func decodeProof(bz []byte) (*RangeProof, error) {
 	if err != nil {
 		return nil, err
 	}
-	proof, err := rangeProofFromProto(proofOp)
+	proof, err := RangeProofFromProto(proofOp)
 	return &proof, err
 }
 

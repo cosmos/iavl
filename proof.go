@@ -9,7 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	cmn "github.com/cosmos/iavl/common"
-	iavlproto "github.com/cosmos/iavl/internal/proto"
+	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 var (
