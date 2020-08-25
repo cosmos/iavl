@@ -14,6 +14,7 @@ import (
 	"syscall"
 
 	"github.com/gogo/gateway"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
@@ -64,8 +65,10 @@ func main() {
 		log.Fatalf("failed to listen on %s: %s", *gRPCEndpoint, err)
 	}
 
-	var svrOpts []grpc.ServerOption
-	grpcServer := grpc.NewServer(svrOpts...)
+        grpcServer := grpc.NewServer(
+                grpc.UnaryInterceptor(grpc_recovery.UnaryServerInterceptor()),
+                grpc.StreamInterceptor(grpc_recovery.StreamServerInterceptor()),
+        )
 
 	db, err := openDB()
 	if err != nil {
