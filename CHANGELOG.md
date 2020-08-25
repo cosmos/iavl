@@ -1,11 +1,13 @@
 # Changelog
 
-## 0.15.0-rc2 (August 13, 2020)
+## Unreleased
 
 ### Bug Fixes
 
 - [\#309](https://github.com/cosmos/iavl/pull/309) Fix `SaveVersion()` for old, empty versions as 
   long as the new version is identical.
+
+## 0.15.0-rc2 (August 13, 2020)
 
 ### Breaking Changes
 
