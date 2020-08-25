@@ -4,7 +4,8 @@
 
 ### Bug Fixes
 
-- Fix `SaveVersion()` for old, empty versions as long as the new version is identical.
+- [\#309](https://github.com/cosmos/iavl/pull/309) Fix `SaveVersion()` for old, empty versions as 
+  long as the new version is identical.
 
 ### Breaking Changes
 
