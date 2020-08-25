@@ -65,10 +65,10 @@ func main() {
 		log.Fatalf("failed to listen on %s: %s", *gRPCEndpoint, err)
 	}
 
-        grpcServer := grpc.NewServer(
-                grpc.UnaryInterceptor(grpc_recovery.UnaryServerInterceptor()),
-                grpc.StreamInterceptor(grpc_recovery.StreamServerInterceptor()),
-        )
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(grpc_recovery.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(grpc_recovery.StreamServerInterceptor()),
+	)
 
 	db, err := openDB()
 	if err != nil {
