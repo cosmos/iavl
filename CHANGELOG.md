@@ -6,6 +6,9 @@
 
 - [\#296](https://github.com/cosmos/iavl/pull/296) Add `iavlserver`, a gRPC/REST API server.
 
+- [\#312](https://github.com/cosmos/iavl/pull/312) Add `MutableTree.SetInitialVersion()` to set the 
+  initial version after tree initialization.
+
 ### Bug Fixes
 
 - [\#309](https://github.com/cosmos/iavl/pull/309) Fix `SaveVersion()` for old, empty versions as 
