@@ -13,6 +13,6 @@ type Options struct {
 }
 
 // DefaultOptions returns the default options for IAVL.
-func DefaultOptions() *Options {
-	return &Options{}
+func DefaultOptions() Options {
+	return Options{}
 }

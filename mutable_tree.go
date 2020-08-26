@@ -527,6 +527,13 @@ func (tree *MutableTree) deleteVersion(version int64) error {
 	return nil
 }
 
+// SetInitialVersion sets the initial version of the tree, replacing Options.InitialVersion.
+// It is only used during the initial SaveVersion() call for a tree with no other versions,
+// and is otherwise ignored.
+func (tree *MutableTree) SetInitialVersion(version uint64) {
+	tree.ndb.opts.InitialVersion = version
+}
+
 // DeleteVersions deletes a series of versions from the MutableTree. An error
 // is returned if any single version is invalid or the delete fails. All writes
 // happen in a single batch with a single commit.
