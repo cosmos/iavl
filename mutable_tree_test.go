@@ -147,6 +147,18 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	assert.EqualValues(t, 11, version)
 }
 
+func TestMutableTree_SetInitialVersion(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
+	require.NoError(t, err)
+	tree.SetInitialVersion(9)
+
+	tree.Set([]byte("a"), []byte{0x01})
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	assert.EqualValues(t, 9, version)
+}
+
 func BenchmarkMutableTree_Set(b *testing.B) {
 	db, err := db.NewDB("test", db.MemDBBackend, "")
 	require.NoError(b, err)
