@@ -4,7 +4,11 @@
 
 ### Improvements
 
-- Added `Options.InitialVersion` to specify the initial version to start new IAVL trees from.
+- [\#299](https://github.com/cosmos/iavl/pull/299) Added `Options.InitialVersion` to specify the 
+  initial version for new IAVL trees.
+
+- [\#312](https://github.com/cosmos/iavl/pull/312) Added `MutableTree.SetInitialVersion()` to
+  set the initial version after tree initialization.
 
 ## 0.14.0 (July 2, 2020)
 

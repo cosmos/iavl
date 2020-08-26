@@ -38,7 +38,7 @@ type nodeDB struct {
 	mtx            sync.Mutex       // Read/write lock.
 	db             dbm.DB           // Persistent node storage.
 	batch          dbm.Batch        // Batched writing buffer.
-	opts           *Options         // Options to customize for pruning/writing
+	opts           Options          // Options to customize for pruning/writing
 	versionReaders map[int64]uint32 // Number of active version readers
 
 	latestVersion  int64
@@ -49,12 +49,13 @@ type nodeDB struct {
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 	if opts == nil {
-		opts = DefaultOptions()
+		o := DefaultOptions()
+		opts = &o
 	}
 	return &nodeDB{
 		db:             db,
 		batch:          db.NewBatch(),
-		opts:           opts,
+		opts:           *opts,
 		latestVersion:  0, // initially invalid
 		nodeCache:      make(map[string]*list.Element),
 		nodeCacheSize:  cacheSize,
