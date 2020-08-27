@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.0-rc3 (August 27, 2020)
 
 ### Improvements
 
