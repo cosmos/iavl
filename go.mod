@@ -12,10 +12,10 @@ require (
 	github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
-	github.com/tendermint/tendermint v0.34.0-rc3
+	github.com/tendermint/tendermint v0.34.0-rc4
 	github.com/tendermint/tm-db v0.6.2
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	google.golang.org/genproto v0.0.0-20200825200019-8632dd797987
-	google.golang.org/grpc v1.31.1
+	google.golang.org/grpc v1.32.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f // indirect
 )
