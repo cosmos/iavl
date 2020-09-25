@@ -284,7 +284,10 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 
 	// no versions have been saved if the latest version is non-positive
 	if latestVersion <= 0 {
-		return 0, nil
+		if targetVersion <= 0 {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("no versions found while trying to load %v", targetVersion)
 	}
 
 	// default to the latest version if the targeted version is non-positive
@@ -323,7 +326,10 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	if len(roots) == 0 {
-		return 0, nil
+		if targetVersion <= 0 {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("no versions found while trying to load %v", targetVersion)
 	}
 
 	firstVersion := int64(0)

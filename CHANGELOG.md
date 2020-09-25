@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Breaking Changes
+
+- `LoadVersion()` and `LazyLoadVersion()` now error if called with a positive version number on an
+  empty tree.
+
 ## 0.15.0-rc3 (August 27, 2020)
 
 ### Improvements
