@@ -106,6 +106,40 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 	}
 }
 
+func TestMutableTree_LoadVersion_Empty(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
+	require.NoError(t, err)
+
+	version, err := tree.LoadVersion(0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, version)
+
+	version, err = tree.LoadVersion(-1)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, version)
+
+	_, err = tree.LoadVersion(3)
+	require.Error(t, err)
+}
+
+func TestMutableTree_LazyLoadVersion_Empty(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 0)
+	require.NoError(t, err)
+
+	version, err := tree.LazyLoadVersion(0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, version)
+
+	version, err = tree.LazyLoadVersion(-1)
+	require.NoError(t, err)
+	assert.EqualValues(t, 0, version)
+
+	_, err = tree.LazyLoadVersion(3)
+	require.Error(t, err)
+}
+
 func TestMutableTree_InitialVersion(t *testing.T) {
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9})
