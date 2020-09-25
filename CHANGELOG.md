@@ -4,7 +4,7 @@
 
 ### Breaking Changes
 
-- [\#317](https://github.com/cosmos/iavl/pull/317)`LoadVersion()` and `LazyLoadVersion()` now error 
+- [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now error 
   if called with a positive version number on an empty tree.
 
 ## 0.15.0-rc3 (August 27, 2020)
