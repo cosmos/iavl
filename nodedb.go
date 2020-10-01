@@ -230,7 +230,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	})
 
 	// Finally, delete the version root entries
-	ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(math.MaxInt64), func(k, v []byte) {
+	ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(int64(math.MaxInt64)), func(k, v []byte) {
 		ndb.batch.Delete(k)
 	})
 

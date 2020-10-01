@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- [\#318](https://github.com/cosmos/iavl/pull/318) Fix constant overflow when compiling for 32bit machines.
+
 ## 0.14.1 (October 9, 2020)
 
 ### Improvements
