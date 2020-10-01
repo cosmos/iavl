@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- [\#318](https://github.com/cosmos/iavl/pull/318) fix: constant overflow when compiling for 32bit machines
+
 ### Breaking Changes
 
 - [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now error 
