@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.14.1 (October 9, 2020)
 
 ### Improvements
 
