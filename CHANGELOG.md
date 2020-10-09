@@ -9,6 +9,20 @@
 - [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now error 
   if called with a positive version number on an empty tree.
 
+## 0.14.1 (October 9, 2020)
+
+### Improvements
+
+- [\#299](https://github.com/cosmos/iavl/pull/299) Added `Options.InitialVersion` to specify the 
+  initial version for new IAVL trees.
+
+- [\#312](https://github.com/cosmos/iavl/pull/312) Added `MutableTree.SetInitialVersion()` to
+  set the initial version after tree initialization.
+
+### Bug Fixes
+
+- [\#288](https://github.com/cosmos/iavl/pull/288) Fix panics when generating proofs for keys that are all `0xFF`.
+
 ## 0.15.0-rc3 (August 27, 2020)
 
 ### Improvements
