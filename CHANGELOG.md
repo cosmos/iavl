@@ -9,6 +9,12 @@
 - [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now error 
   if called with a positive version number on an empty tree.
 
+## 0.14.2 (October 12, 2020)
+
+### Bug Fixes
+
+- [\#318](https://github.com/cosmos/iavl/pull/318) Fix constant overflow when compiling for 32bit machines.
+
 ## 0.14.1 (October 9, 2020)
 
 ### Improvements
