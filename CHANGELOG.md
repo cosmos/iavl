@@ -1,13 +1,15 @@
 # Changelog
 
-## Unreleased
-
-- [\#318](https://github.com/cosmos/iavl/pull/318) fix: constant overflow when compiling for 32bit machines
+## 0.15.0-rc4 (October 14, 2020)
 
 ### Breaking Changes
 
-- [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now error 
-  if called with a positive version number on an empty tree.
+- [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now 
+  error if called with a positive version number on an empty tree.
+
+### Bug Fixes
+
+- [\#318](https://github.com/cosmos/iavl/pull/318) Fix constant overflow when compiling for 32bit machines.
 
 ## 0.14.2 (October 12, 2020)
 
