@@ -243,6 +243,9 @@ func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
 		return errors.New("version must be greater than 0")
 	}
 
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
 	latest := ndb.getLatestVersion()
 	if latest < version {
 		return errors.Errorf("cannot delete latest saved version (%d)", version)
@@ -253,9 +256,6 @@ func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
 			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
-
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
 
 	// Delete orphans
 	ndb.traverseOrphans(func(key, hash []byte) {
