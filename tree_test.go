@@ -1360,37 +1360,28 @@ func TestDeleteVersionsTo(t *testing.T) {
 	err = tree.DeleteVersionsTo(int64(maxLength / 2))
 	require.NoError(err, "DeleteVersionsTo should not fail")
 
-	// this value is less than the VersionsDeletes method and is equal to the VersionsDelete () of each height
-	t.Log(mdb.Stats()["database.size"])
-
-	tree, err = NewMutableTree(mdb, 0)
-	require.NoError(err)
-	targetVersion, err = tree.LoadVersion(int64(maxLength))
-	require.NoError(err)
-	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
-
 	for _, version := range versions[:int64(maxLength/2)-1] {
-		exist := tree.VersionExists(version)
-		require.False(exist, "versions %d no more than 50 should have been deleted", version)
+		require.False(tree.versions[version], "versions %d no more than 50 should have been deleted", version)
+
+		_, err := tree.LazyLoadVersion(version)
+		require.Error(err)
 	}
 
 	for _, version := range versions[int64(maxLength/2)-1:] {
-		exist := tree.VersionExists(version)
-		require.True(exist, "versions %d more than 50 should exist", version)
+		require.True(tree.versions[version], "versions %d more than 50 should exist", version)
 
-		t, _ := NewMutableTree(mdb, 0)
-		v, err := t.LoadVersion(version)
+		v, err := tree.LazyLoadVersion(version)
 		require.NoError(err)
 		require.Equal(v, version)
-	}
 
-	_, value := tree.Get([]byte("aaa"))
-	require.Equal(string(value), "bbb")
+		_, value := tree.Get([]byte("aaa"))
+		require.Equal(string(value), "bbb")
 
-	for count := 1; count <= maxLength; count++ {
-		countStr := strconv.Itoa(count)
-		_, value := tree.Get([]byte("key" + countStr))
-		require.Equal(string(value), "value"+countStr)
+		for _, count := range versions[int64(maxLength/2)-1 : version] {
+			countStr := strconv.Itoa(int(count))
+			_, value := tree.Get([]byte("key" + countStr))
+			require.Equal(string(value), "value"+countStr)
+		}
 	}
 }
 
