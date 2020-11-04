@@ -1331,6 +1331,65 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	require.NoError(err, "SaveVersion should not fail.")
 }
 
+func TestDeleteVersionsTo(t *testing.T) {
+	require := require.New(t)
+
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 25)
+	require.NoError(err)
+
+	const maxLength = 100
+	for count := 1; count <= maxLength; count++ {
+		countStr := strconv.Itoa(count)
+		// Set kv pair and save version
+		tree.Set([]byte("aaa"), []byte("bbb"))
+		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		_, version, err := tree.SaveVersion()
+		require.NoError(err, "SaveVersion should not fail")
+		require.Equal(version, int64(count))
+	}
+
+	tree, err = NewMutableTree(mdb, 0)
+	require.NoError(err)
+	targetVersion, err := tree.LoadVersion(int64(maxLength))
+	require.NoError(err)
+	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+	err = tree.DeleteVersionsTo(int64(maxLength / 2))
+	require.NoError(err, "DeleteVersionsTo should not fail")
+
+	tree, err = NewMutableTree(mdb, 0)
+	require.NoError(err)
+	targetVersion, err = tree.LoadVersion(int64(maxLength))
+	require.NoError(err)
+	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+	for version := 1; version < maxLength/2; version++ {
+		exist := tree.VersionExists(int64(version))
+		require.False(exist, "versions no more than 50 should have been deleted")
+	}
+
+	for version := maxLength / 2; version <= maxLength; version++ {
+		exist := tree.VersionExists(int64(version))
+		require.True(exist, "versions more than 50 should exist")
+
+		t, _ := NewMutableTree(mdb, 0)
+		v, err := t.LoadVersion(int64(version))
+		require.NoError(err)
+		require.Equal(v, int64(version))
+	}
+
+	_, value := tree.Get([]byte("aaa"))
+	require.Equal(string(value), "bbb")
+
+	for count := 1; count <= maxLength; count++ {
+		countStr := strconv.Itoa(count)
+		_, value := tree.Get([]byte("key" + countStr))
+		require.Equal(string(value), "value"+countStr)
+	}
+
+}
+
 //////////////////////////// BENCHMARKS ///////////////////////////////////////
 
 func BenchmarkTreeLoadAndDelete(b *testing.B) {

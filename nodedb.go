@@ -237,6 +237,55 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	return nil
 }
 
+// DeleteVersionsTo deletes all versions below the given height.
+func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
+	if version == 0 {
+		return errors.New("version must be greater than 0")
+	}
+
+	latest := ndb.getLatestVersion()
+	if latest < version {
+		return errors.Errorf("cannot delete latest saved version (%d)", version)
+	}
+
+	root, err := ndb.getRoot(version)
+	if err != nil {
+		return err
+	}
+	if root == nil {
+		return errors.Errorf("root for version %v not found", version)
+	}
+
+	for v, r := range ndb.versionReaders {
+		if v < version && r != 0 {
+			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
+		}
+	}
+
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	// Delete orphans
+	ndb.traverseOrphans(func(key, hash []byte) {
+		var fromVersion, toVersion int64
+		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
+		if toVersion < version {
+			ndb.batch.Delete(key)
+			ndb.batch.Delete(ndb.nodeKey(hash))
+			ndb.uncacheNode(hash)
+		} else if fromVersion < version {
+			ndb.batch.Delete(key)
+		}
+	})
+
+	// Delete the version root entries
+	ndb.traverseRange(rootKeyFormat.Key(int64(0)), rootKeyFormat.Key(version), func(k, v []byte) {
+		ndb.batch.Delete(k)
+	})
+
+	return nil
+}
+
 // deleteNodesFrom deletes the given node and any descendants that have versions after the given
 // (inclusive). It is mainly used via LoadVersionForOverwriting, to delete the current version.
 func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {

@@ -570,6 +570,25 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	return nil
 }
 
+// DeleteVersionsTo deletes all versions below the given height.
+func (tree *MutableTree) DeleteVersionsTo(targetVersion int64) error {
+	if err := tree.ndb.DeleteVersionsTo(targetVersion); err != nil {
+		return err
+	}
+
+	if err := tree.ndb.Commit(); err != nil {
+		return err
+	}
+
+	for v := range tree.versions {
+		if v < targetVersion {
+			delete(tree.versions, v)
+		}
+	}
+
+	return nil
+}
+
 // Rotate right and return the new node and orphan.
 func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node) {
 	version := tree.version + 1
