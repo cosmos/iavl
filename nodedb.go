@@ -238,35 +238,35 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 }
 
 // DeleteVersionsFromInterval deletes versions from an interval (not inclusive).
-func (ndb *nodeDB) DeleteVersionsFromInterval(from, to int64) error {
-	if from >= to {
-		return errors.New("to version must be greater than from version")
+func (ndb *nodeDB) DeleteVersionsFromInterval(fromVersion, toVersion int64) error {
+	if fromVersion >= toVersion {
+		return errors.New("toVersion must be greater than fromVersion")
 	}
-	if to == 0 {
-		return errors.New("to version must be greater than 0")
+	if toVersion == 0 {
+		return errors.New("toVersion must be greater than 0")
 	}
 
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	latest := ndb.getLatestVersion()
-	if latest < to {
+	if latest < toVersion {
 		return errors.Errorf("cannot delete latest saved version (%d)", latest)
 	}
 
-	previous := ndb.getPreviousVersion(from)
+	previous := ndb.getPreviousVersion(fromVersion)
 
 	for v, r := range ndb.versionReaders {
-		if v < to && v > previous && r != 0 {
+		if v < toVersion && v > previous && r != 0 {
 			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
 
 	// Delete orphans
 	ndb.traverseOrphans(func(key, hash []byte) {
-		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-		if toVersion < to && fromVersion > previous {
+		var from, to int64
+		orphanKeyFormat.Scan(key, &to, &from)
+		if to < toVersion && from > previous {
 			ndb.batch.Delete(key)
 			ndb.batch.Delete(ndb.nodeKey(hash))
 			ndb.uncacheNode(hash)
@@ -274,7 +274,7 @@ func (ndb *nodeDB) DeleteVersionsFromInterval(from, to int64) error {
 	})
 
 	// Delete the version root entries
-	ndb.traverseRange(rootKeyFormat.Key(from), rootKeyFormat.Key(to), func(k, v []byte) {
+	ndb.traverseRange(rootKeyFormat.Key(fromVersion), rootKeyFormat.Key(toVersion), func(k, v []byte) {
 		ndb.batch.Delete(k)
 	})
 
