@@ -247,7 +247,7 @@ func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
 	defer ndb.mtx.Unlock()
 
 	latest := ndb.getLatestVersion()
-	if latest < version {
+	if latest <= version {
 		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
 
