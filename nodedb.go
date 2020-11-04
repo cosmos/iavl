@@ -248,14 +248,6 @@ func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
 		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
 
-	root, err := ndb.getRoot(version)
-	if err != nil {
-		return err
-	}
-	if root == nil {
-		return errors.Errorf("root for version %v not found", version)
-	}
-
 	for v, r := range ndb.versionReaders {
 		if v < version && r != 0 {
 			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
