@@ -273,8 +273,6 @@ func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
 			ndb.batch.Delete(key)
 			ndb.batch.Delete(ndb.nodeKey(hash))
 			ndb.uncacheNode(hash)
-		} else if fromVersion < version {
-			ndb.batch.Delete(key)
 		}
 	})
 
@@ -566,7 +564,7 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	}
 }
 
-////////////////// Utility and test functions /////////////////////////////////
+// //////////////// Utility and test functions /////////////////////////////////
 
 func (ndb *nodeDB) leafNodes() []*Node {
 	leaves := []*Node{}
