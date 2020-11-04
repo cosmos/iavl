@@ -269,7 +269,7 @@ func (ndb *nodeDB) DeleteVersionsTo(version int64) error {
 	ndb.traverseOrphans(func(key, hash []byte) {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-		if fromVersion < version {
+		if toVersion < version {
 			ndb.batch.Delete(key)
 			ndb.batch.Delete(ndb.nodeKey(hash))
 			ndb.uncacheNode(hash)
