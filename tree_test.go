@@ -1331,57 +1331,96 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	require.NoError(err, "SaveVersion should not fail.")
 }
 
-func TestDeleteVersionsTo(t *testing.T) {
+func TestDeleteVersionsCompare(t *testing.T) {
 	require := require.New(t)
 
-	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 0)
-	require.NoError(err)
-
 	const maxLength = 100
-	var versions []int64
-	for count := 1; count <= maxLength; count++ {
-		versions = append(versions, int64(count))
-		countStr := strconv.Itoa(count)
-		// Set kv pair and save version
-		tree.Set([]byte("aaa"), []byte("bbb"))
-		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
-		_, version, err := tree.SaveVersion()
-		require.NoError(err, "SaveVersion should not fail")
-		require.Equal(version, int64(count))
-	}
-
-	tree, err = NewMutableTree(mdb, 0)
-	require.NoError(err)
-	targetVersion, err := tree.LoadVersion(int64(maxLength))
-	require.NoError(err)
-	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
-
-	err = tree.DeleteVersionsTo(int64(maxLength / 2))
-	require.NoError(err, "DeleteVersionsTo should not fail")
-
-	for _, version := range versions[:int64(maxLength/2)-1] {
-		require.False(tree.versions[version], "versions %d no more than 50 should have been deleted", version)
-
-		_, err := tree.LazyLoadVersion(version)
-		require.Error(err)
-	}
-
-	for _, version := range versions[int64(maxLength/2)-1:] {
-		require.True(tree.versions[version], "versions %d more than 50 should exist", version)
-
-		v, err := tree.LazyLoadVersion(version)
+	const fromLength = 5
+	{
+		mdb := db.NewMemDB()
+		tree, err := NewMutableTree(mdb, 0)
 		require.NoError(err)
-		require.Equal(v, version)
 
-		_, value := tree.Get([]byte("aaa"))
-		require.Equal(string(value), "bbb")
-
-		for _, count := range versions[int64(maxLength/2)-1 : version] {
-			countStr := strconv.Itoa(int(count))
-			_, value := tree.Get([]byte("key" + countStr))
-			require.Equal(string(value), "value"+countStr)
+		versions := make([]int64, 0, maxLength)
+		for count := 1; count <= maxLength; count++ {
+			versions = append(versions, int64(count))
+			countStr := strconv.Itoa(count)
+			// Set kv pair and save version
+			tree.Set([]byte("aaa"), []byte("bbb"))
+			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+			_, version, err := tree.SaveVersion()
+			require.NoError(err, "SaveVersion should not fail")
+			require.Equal(version, int64(count))
 		}
+
+		tree, err = NewMutableTree(mdb, 0)
+		require.NoError(err)
+		targetVersion, err := tree.LoadVersion(int64(maxLength))
+		require.NoError(err)
+		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+		err = tree.DeleteVersionsFromInterval(versions[fromLength], versions[int64(maxLength/2)])
+		require.NoError(err, "DeleteVersionsFromInterval should not fail")
+
+		t.Logf("DeleteVersionsFromInterval database.size %s", mdb.Stats()["database.size"])
+	}
+	{
+		mdb := db.NewMemDB()
+		tree, err := NewMutableTree(mdb, 0)
+		require.NoError(err)
+
+		versions := make([]int64, 0, maxLength)
+		for count := 1; count <= maxLength; count++ {
+			versions = append(versions, int64(count))
+			countStr := strconv.Itoa(count)
+			// Set kv pair and save version
+			tree.Set([]byte("aaa"), []byte("bbb"))
+			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+			_, version, err := tree.SaveVersion()
+			require.NoError(err, "SaveVersion should not fail")
+			require.Equal(version, int64(count))
+		}
+
+		tree, err = NewMutableTree(mdb, 0)
+		require.NoError(err)
+		targetVersion, err := tree.LoadVersion(int64(maxLength))
+		require.NoError(err)
+		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+		for _, version := range versions[fromLength:int64(maxLength/2)] {
+			err = tree.DeleteVersion(version)
+			require.NoError(err, "DeleteVersion should not fail for %v", version)
+		}
+
+		t.Logf("DeleteVersion database.size %s", mdb.Stats()["database.size"])
+	}
+	{
+		mdb := db.NewMemDB()
+		tree, err := NewMutableTree(mdb, 0)
+		require.NoError(err)
+
+		versions := make([]int64, 0, maxLength)
+		for count := 1; count <= maxLength; count++ {
+			versions = append(versions, int64(count))
+			countStr := strconv.Itoa(count)
+			// Set kv pair and save version
+			tree.Set([]byte("aaa"), []byte("bbb"))
+			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+			_, version, err := tree.SaveVersion()
+			require.NoError(err, "SaveVersion should not fail")
+			require.Equal(version, int64(count))
+		}
+
+		tree, err = NewMutableTree(mdb, 0)
+		require.NoError(err)
+		targetVersion, err := tree.LoadVersion(int64(maxLength))
+		require.NoError(err)
+		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+		err = tree.DeleteVersions(versions[fromLength:int64(maxLength/2)]...)
+		require.NoError(err, "DeleteVersions should not fail")
+
+		t.Logf("DeleteVersions database.size %s", mdb.Stats()["database.size"])
 	}
 }
 

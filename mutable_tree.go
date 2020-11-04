@@ -553,6 +553,27 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 	return nil
 }
 
+// DeleteVersionsFromInterval removes versions from an interval from the MutableTree (not inclusive).
+// An error is returned if any single version has active readers.
+// All writes happen in a single batch with a single commit.
+func (tree *MutableTree) DeleteVersionsFromInterval(fromVersion, toVersion int64) error {
+	if err := tree.ndb.DeleteVersionsFromInterval(fromVersion, toVersion); err != nil {
+		return err
+	}
+
+	if err := tree.ndb.Commit(); err != nil {
+		return err
+	}
+
+	for v := range tree.versions {
+		if v < toVersion && v > fromVersion {
+			delete(tree.versions, v)
+		}
+	}
+
+	return nil
+}
+
 // DeleteVersion deletes a tree version from disk. The version can then no
 // longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
@@ -567,25 +588,6 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	}
 
 	delete(tree.versions, version)
-	return nil
-}
-
-// DeleteVersionsTo deletes all versions below the given height.
-func (tree *MutableTree) DeleteVersionsTo(targetVersion int64) error {
-	if err := tree.ndb.DeleteVersionsTo(targetVersion); err != nil {
-		return err
-	}
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	for v := range tree.versions {
-		if v < targetVersion {
-			delete(tree.versions, v)
-		}
-	}
-
 	return nil
 }
 
