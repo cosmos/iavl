@@ -149,7 +149,7 @@ func TestUnit(t *testing.T) {
 		tree.root = origNode
 	}
 
-	//////// Test Set cases:
+	// ////// Test Set cases:
 
 	// Case 1:
 	t1 := T(N(4, 20))
@@ -172,7 +172,7 @@ func TestUnit(t *testing.T) {
 	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))", 5)
 	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))", 5)
 
-	//////// Test Remove cases:
+	// ////// Test Remove cases:
 
 	t10 := T(N(N(1, 2), 3))
 
@@ -205,6 +205,7 @@ func TestRemove(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		step := 50 * i
 		// remove a bunch of existing keys (may have been deleted twice)
+		/* #nosec */
 		for j := 0; j < step; j++ {
 			key := keys[mrand.Int31n(l)]
 			t1.Remove(key)

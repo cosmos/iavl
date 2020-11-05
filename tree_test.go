@@ -1348,9 +1348,8 @@ func TestDeleteVersionsCompare(t *testing.T) {
 			// Set kv pair and save version
 			tree.Set([]byte("aaa"), []byte("bbb"))
 			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
-			_, version, err := tree.SaveVersion()
+			_, _, err = tree.SaveVersion()
 			require.NoError(err, "SaveVersion should not fail")
-			require.Equal(version, int64(count))
 		}
 
 		tree, err = NewMutableTree(mdb, 0)
@@ -1376,9 +1375,8 @@ func TestDeleteVersionsCompare(t *testing.T) {
 			// Set kv pair and save version
 			tree.Set([]byte("aaa"), []byte("bbb"))
 			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
-			_, version, err := tree.SaveVersion()
+			_, _, err = tree.SaveVersion()
 			require.NoError(err, "SaveVersion should not fail")
-			require.Equal(version, int64(count))
 		}
 
 		tree, err = NewMutableTree(mdb, 0)
@@ -1406,9 +1404,8 @@ func TestDeleteVersionsCompare(t *testing.T) {
 			// Set kv pair and save version
 			tree.Set([]byte("aaa"), []byte("bbb"))
 			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
-			_, version, err := tree.SaveVersion()
+			_, _, err = tree.SaveVersion()
 			require.NoError(err, "SaveVersion should not fail")
-			require.Equal(version, int64(count))
 		}
 
 		tree, err = NewMutableTree(mdb, 0)
