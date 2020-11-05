@@ -138,7 +138,7 @@ func TestMutableTree_DeleteVersionsInterval(t *testing.T) {
 	require.NoError(err, "DeleteVersionsTo should not fail")
 
 	for _, version := range versions[:fromLength-1] {
-		require.True(tree.versions[version], "versions %d more than 50 should exist", version)
+		require.True(tree.versions[version], "versions %d no more than 10 should exist", version)
 
 		v, err := tree.LazyLoadVersion(version)
 		require.NoError(err, version)
@@ -155,7 +155,7 @@ func TestMutableTree_DeleteVersionsInterval(t *testing.T) {
 	}
 
 	for _, version := range versions[fromLength : int64(maxLength/2)-1] {
-		require.False(tree.versions[version], "versions %d no more than 50 should have been deleted", version)
+		require.False(tree.versions[version], "versions %d more 10 and no more than 50 should have been deleted", version)
 
 		_, err := tree.LazyLoadVersion(version)
 		require.Error(err)

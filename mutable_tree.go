@@ -566,7 +566,7 @@ func (tree *MutableTree) DeleteVersionsInterval(fromVersion, toVersion int64) er
 	}
 
 	for v := range tree.versions {
-		if v < toVersion && v > fromVersion {
+		if v < toVersion && v >= fromVersion {
 			delete(tree.versions, v)
 		}
 	}
