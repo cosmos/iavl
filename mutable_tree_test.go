@@ -107,7 +107,7 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 	}
 }
 
-func TestMutableTree_DeleteVersionsFromInterval(t *testing.T) {
+func TestMutableTree_DeleteVersionsInterval(t *testing.T) {
 	require := require.New(t)
 
 	mdb := db.NewMemDB()
