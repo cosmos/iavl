@@ -553,11 +553,11 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 	return nil
 }
 
-// DeleteVersionsFromInterval removes versions from an interval from the MutableTree (not inclusive).
+// DeleteVersionsInterval removes versions from an interval from the MutableTree (not inclusive).
 // An error is returned if any single version has active readers.
 // All writes happen in a single batch with a single commit.
-func (tree *MutableTree) DeleteVersionsFromInterval(fromVersion, toVersion int64) error {
-	if err := tree.ndb.DeleteVersionsFromInterval(fromVersion, toVersion); err != nil {
+func (tree *MutableTree) DeleteVersionsInterval(fromVersion, toVersion int64) error {
+	if err := tree.ndb.DeleteVersionsInterval(fromVersion, toVersion); err != nil {
 		return err
 	}
 

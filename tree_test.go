@@ -1359,10 +1359,10 @@ func TestDeleteVersionsCompare(t *testing.T) {
 		require.NoError(err)
 		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
 
-		err = tree.DeleteVersionsFromInterval(versions[fromLength], versions[int64(maxLength/2)])
-		require.NoError(err, "DeleteVersionsFromInterval should not fail")
+		err = tree.DeleteVersionsInterval(versions[fromLength], versions[int64(maxLength/2)])
+		require.NoError(err, "DeleteVersionsInterval should not fail")
 
-		t.Logf("DeleteVersionsFromInterval database.size %s", mdb.Stats()["database.size"])
+		t.Logf("DeleteVersionsInterval database.size %s", mdb.Stats()["database.size"])
 	}
 	{
 		mdb := db.NewMemDB()

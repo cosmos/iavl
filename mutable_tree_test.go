@@ -135,7 +135,7 @@ func TestMutableTree_DeleteVersionsFromInterval(t *testing.T) {
 	require.NoError(err)
 	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
 
-	err = tree.DeleteVersionsFromInterval(fromLength, int64(maxLength/2))
+	err = tree.DeleteVersionsInterval(fromLength, int64(maxLength/2))
 	require.NoError(err, "DeleteVersionsTo should not fail")
 
 	for _, version := range versions[:fromLength-1] {
