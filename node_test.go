@@ -81,7 +81,7 @@ func TestNode_validate(t *testing.T) {
 }
 
 func BenchmarkNode_aminoSize(b *testing.B) {
-	/* #nosec */
+	//nolint:gosec
 	node := &Node{
 		key:       randBytes(25),
 		value:     randBytes(100),
@@ -99,7 +99,7 @@ func BenchmarkNode_aminoSize(b *testing.B) {
 }
 
 func BenchmarkNode_WriteBytes(b *testing.B) {
-	/* #nosec */
+	//nolint:gosec
 	node := &Node{
 		key:       randBytes(25),
 		value:     randBytes(100),

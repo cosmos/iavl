@@ -54,7 +54,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		deleteRatio = 0.2 // ratio of deletes out of all operations
 	)
 
-	/* #nosec */
+	//nolint:gosec
 	r := rand.New(rand.NewSource(randSeed))
 
 	// loadTree loads the last persisted version of a tree with random pruning settings.

@@ -205,7 +205,7 @@ func TestRemove(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		step := 50 * i
 		// remove a bunch of existing keys (may have been deleted twice)
-		/* #nosec */
+		//nolint:gosec
 		for j := 0; j < step; j++ {
 			key := keys[mrand.Int31n(l)]
 			t1.Remove(key)
