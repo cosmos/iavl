@@ -262,16 +262,21 @@ func (ndb *nodeDB) DeleteVersionsInterval(fromVersion, toVersion int64) error {
 		}
 	}
 
-	// Delete orphans
-	ndb.traverseOrphans(func(key, hash []byte) {
-		var from, to int64
-		orphanKeyFormat.Scan(key, &to, &from)
-		if to < toVersion && from > previous {
+	// If the predecessor is earlier than the beginning of the lifetime, we can delete the orphan.
+	// Otherwise, we shorten its lifetime, by moving its endpoint to the previous version.
+	for i := toVersion - 1; i >= fromVersion; i-- {
+		ndb.traverseOrphansVersion(i, func(key, hash []byte) {
+			var from, to int64
+			orphanKeyFormat.Scan(key, &to, &from)
 			ndb.batch.Delete(key)
-			ndb.batch.Delete(ndb.nodeKey(hash))
-			ndb.uncacheNode(hash)
-		}
-	})
+			if from > previous {
+				ndb.batch.Delete(ndb.nodeKey(hash))
+				ndb.uncacheNode(hash)
+			} else {
+				ndb.saveOrphan(hash, from, previous)
+			}
+		})
+	}
 
 	// Delete the version root entries
 	ndb.traverseRange(rootKeyFormat.Key(fromVersion), rootKeyFormat.Key(toVersion), func(k, v []byte) {
