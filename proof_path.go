@@ -32,7 +32,7 @@ func (pwl pathWithLeaf) computeRootHash() []byte {
 	return pwl.Path.computeRootHash(leafHash)
 }
 
-//----------------------------------------
+// ----------------------------------------
 
 // PathToLeaf represents an inner path to a leaf node.
 // Note that the nodes are ordered such that the last one is closest

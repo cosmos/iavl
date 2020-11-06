@@ -22,7 +22,7 @@ var (
 	ErrInvalidRoot = fmt.Errorf("invalid root")
 )
 
-//----------------------------------------
+// ----------------------------------------
 
 type ProofInnerNode struct {
 	Height  int8   `json:"height"`
@@ -90,7 +90,7 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 	return hasher.Sum(nil)
 }
 
-//----------------------------------------
+// ----------------------------------------
 
 type ProofLeafNode struct {
 	Key       cmn.HexBytes `json:"key"`
@@ -143,7 +143,7 @@ func (pln ProofLeafNode) Hash() []byte {
 	return hasher.Sum(nil)
 }
 
-//----------------------------------------
+// ----------------------------------------
 
 // If the key does not exist, returns the path to the next leaf left of key (w/
 // path), except when key is less than the least item, in which case it returns

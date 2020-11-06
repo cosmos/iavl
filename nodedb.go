@@ -237,8 +237,8 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	return nil
 }
 
-// DeleteVersionsInterval deletes versions from an interval (not inclusive).
-func (ndb *nodeDB) DeleteVersionsInterval(fromVersion, toVersion int64) error {
+// DeleteVersionsRange deletes versions from an interval (not inclusive).
+func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 	if fromVersion >= toVersion {
 		return errors.New("toVersion must be greater than fromVersion")
 	}

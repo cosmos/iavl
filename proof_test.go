@@ -238,7 +238,7 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 	}
 }
 
-//----------------------------------------
+// ----------------------------------------
 
 func flatten(bzz [][]byte) (res []byte) {
 	for _, bz := range bzz {

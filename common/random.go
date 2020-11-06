@@ -46,9 +46,7 @@ func (r *Rand) init() {
 	r.reset(int64(seed))
 }
 
-/* #nosec */
 func (r *Rand) reset(seed int64) {
-
 	r.rand = mrand.New(mrand.NewSource(seed)) //nolint:gosec // G404: Use of weak random number generator
 }
 
@@ -79,7 +77,7 @@ func RandPerm(n int) []int {
 	return grand.Perm(n)
 }
 
-//----------------------------------------
+// ----------------------------------------
 // Rand methods
 
 func (r *Rand) Seed(seed int64) {

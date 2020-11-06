@@ -57,7 +57,6 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 		deleteRatio = 0.2  // ratio of deletes out of all operations
 	)
 
-	/* #nosec */
 	r := rand.New(rand.NewSource(randSeed))
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)
@@ -116,7 +115,6 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 		valueSize = 16
 	)
 
-	/* #nosec */
 	r := rand.New(rand.NewSource(randSeed))
 	tree, err := NewMutableTree(db.NewMemDB(), 0)
 	require.NoError(t, err)

@@ -530,34 +530,45 @@ func (tree *MutableTree) SetInitialVersion(version uint64) {
 	tree.ndb.opts.InitialVersion = version
 }
 
-// DeleteVersions deletes a series of versions from the MutableTree. An error
-// is returned if any single version is invalid or the delete fails. All writes
-// happen in a single batch with a single commit.
+// DeleteVersions deletes a series of versions from the MutableTree.
+// Deprecated: please use DeleteVersionsRange instead.
 func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 	debug("DELETING VERSIONS: %v\n", versions)
 
-	for _, version := range versions {
-		if err := tree.deleteVersion(version); err != nil {
+	if len(versions) == 0 {
+		return nil
+	}
+
+	sort.Slice(versions, func(i, j int) bool {
+		return versions[i] < versions[j]
+	})
+
+	fromVersion := versions[0]
+	toVersion := fromVersion
+	for _, predecessor := range versions {
+		if predecessor-toVersion <= 1 {
+			toVersion = predecessor
+			continue
+		}
+		if err := tree.DeleteVersionsRange(fromVersion, toVersion+1); err != nil {
 			return err
 		}
+		fromVersion = predecessor
+		toVersion = fromVersion
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err := tree.DeleteVersionsRange(fromVersion, toVersion+1); err != nil {
 		return err
-	}
-
-	for _, version := range versions {
-		delete(tree.versions, version)
 	}
 
 	return nil
 }
 
-// DeleteVersionsInterval removes versions from an interval from the MutableTree (not inclusive).
+// DeleteVersionsRange removes versions from an interval from the MutableTree (not inclusive).
 // An error is returned if any single version has active readers.
 // All writes happen in a single batch with a single commit.
-func (tree *MutableTree) DeleteVersionsInterval(fromVersion, toVersion int64) error {
-	if err := tree.ndb.DeleteVersionsInterval(fromVersion, toVersion); err != nil {
+func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error {
+	if err := tree.ndb.DeleteVersionsRange(fromVersion, toVersion); err != nil {
 		return err
 	}
 
