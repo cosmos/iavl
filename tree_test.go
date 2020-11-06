@@ -1146,9 +1146,9 @@ func TestVersionedTreeProofs(t *testing.T) {
 }
 
 func TestOrphans(t *testing.T) {
-	//If you create a sequence of saved versions
-	//Then randomly delete versions other than the first and last until only those two remain
-	//Any remaining orphan nodes should either have fromVersion == firstVersion || toVersion == lastVersion
+	// If you create a sequence of saved versions
+	// Then randomly delete versions other than the first and last until only those two remain
+	// Any remaining orphan nodes should either have fromVersion == firstVersion || toVersion == lastVersion
 	require := require.New(t)
 	tree, err := NewMutableTree(db.NewMemDB(), 100)
 	require.NoError(err)
@@ -1430,14 +1430,14 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail, write the same value")
 
-	//The tree version now is 52 which is equal to latest version.
-	//Now any key value can be written into the tree
+	// The tree version now is 52 which is equal to latest version.
+	// Now any key value can be written into the tree
 	tree.Set([]byte("key any value"), []byte("value any value"))
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail.")
 }
 
-//////////////////////////// BENCHMARKS ///////////////////////////////////////
+// BENCHMARKS
 
 func BenchmarkTreeLoadAndDelete(b *testing.B) {
 	numVersions := 5000

@@ -366,8 +366,6 @@ func RangeProofFromProto(pbProof *iavlproto.RangeProof) (RangeProof, error) {
 	return proof, nil
 }
 
-///////////////////////////////////////////////////////////////////////////////
-
 // keyStart is inclusive and keyEnd is exclusive.
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
