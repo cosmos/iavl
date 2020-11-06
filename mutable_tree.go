@@ -543,6 +543,7 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 		return versions[i] < versions[j]
 	})
 
+	// Find ordered data and delete by interval
 	fromVersion := versions[0]
 	toVersion := fromVersion
 	for _, predecessor := range versions {
@@ -576,10 +577,8 @@ func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error
 		return err
 	}
 
-	for v := range tree.versions {
-		if v < toVersion && v >= fromVersion {
-			delete(tree.versions, v)
-		}
+	for version := fromVersion; version < toVersion; version++ {
+		delete(tree.versions, version)
 	}
 
 	return nil
