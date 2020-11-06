@@ -303,8 +303,6 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 	return rootHash, treeEnd, nil
 }
 
-// /////////////////////////////////////////////////////////////////////////////
-
 // keyStart is inclusive and keyEnd is exclusive.
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
