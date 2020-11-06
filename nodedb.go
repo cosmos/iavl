@@ -254,26 +254,26 @@ func (ndb *nodeDB) DeleteVersionsInterval(fromVersion, toVersion int64) error {
 		return errors.Errorf("cannot delete latest saved version (%d)", latest)
 	}
 
-	previous := ndb.getPreviousVersion(fromVersion)
+	predecessor := ndb.getPreviousVersion(fromVersion)
 
 	for v, r := range ndb.versionReaders {
-		if v < toVersion && v > previous && r != 0 {
+		if v < toVersion && v > predecessor && r != 0 {
 			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
 
 	// If the predecessor is earlier than the beginning of the lifetime, we can delete the orphan.
-	// Otherwise, we shorten its lifetime, by moving its endpoint to the previous version.
-	for i := toVersion - 1; i >= fromVersion; i-- {
-		ndb.traverseOrphansVersion(i, func(key, hash []byte) {
+	// Otherwise, we shorten its lifetime, by moving its endpoint to the predecessor version.
+	for version := toVersion - 1; version >= fromVersion; version-- {
+		ndb.traverseOrphansVersion(version, func(key, hash []byte) {
 			var from, to int64
 			orphanKeyFormat.Scan(key, &to, &from)
 			ndb.batch.Delete(key)
-			if from > previous {
+			if from > predecessor {
 				ndb.batch.Delete(ndb.nodeKey(hash))
 				ndb.uncacheNode(hash)
 			} else {
-				ndb.saveOrphan(hash, from, previous)
+				ndb.saveOrphan(hash, from, predecessor)
 			}
 		})
 	}
