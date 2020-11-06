@@ -550,7 +550,7 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	}
 }
 
-////////////////// Utility and test functions /////////////////////////////////
+// Utility and test functions
 
 func (ndb *nodeDB) leafNodes() []*Node {
 	leaves := []*Node{}
