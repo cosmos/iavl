@@ -226,6 +226,50 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	assertMirror(t, tree, mirror, 0)
 	assertOrphans(t, tree, 0)
 	t.Logf("Final version %v is correct, with no stray orphans", version)
+
+	// Now, let's delete all remaining key/value pairs, and make sure no stray
+	// data is left behind in the database.
+	prevVersion := tree.Version()
+	keys := [][]byte{}
+	tree.Iterate(func(key, value []byte) bool {
+		keys = append(keys, key)
+		return false
+	})
+	for _, key := range keys {
+		_, removed := tree.Remove(key)
+		require.True(t, removed)
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	err = tree.DeleteVersion(prevVersion)
+	require.NoError(t, err)
+	assertEmptyDatabase(t, tree)
+	t.Logf("Deleting final version %v left no stray database entries", prevVersion)
+}
+
+// Checks that the database is empty, only containing a single root entry
+// at the given version.
+func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
+	version := tree.Version()
+	iter, err := tree.ndb.db.Iterator(nil, nil)
+	require.NoError(t, err)
+
+	var (
+		firstKey []byte
+		count    int
+	)
+	for ; iter.Valid(); iter.Next() {
+		count++
+		if firstKey == nil {
+			firstKey = iter.Key()
+		}
+	}
+	require.EqualValues(t, 1, count, "Found %v database entries, expected 1", count)
+	require.NoError(t, iter.Error())
+
+	var foundVersion int64
+	rootKeyFormat.Scan(firstKey, &foundVersion)
+	require.Equal(t, version, foundVersion, "Unexpected root version")
 }
 
 // Checks that the tree has the given number of orphan nodes.
