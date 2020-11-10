@@ -41,14 +41,15 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		keySize   = 16 // before base64-encoding
 		valueSize = 16 // before base64-encoding
 
-		versions          = 32   // number of final versions to generate
-		reloadChance      = 0.1  // chance of tree reload after save
-		deleteChance      = 0.2  // chance of random version deletion after save
-		revertChance      = 0.05 // chance to revert tree to random version with LoadVersionForOverwriting
-		syncChance        = 0.2  // chance of enabling sync writes on tree load
-		cacheChance       = 0.4  // chance of enabling caching
-		cacheSizeMax      = 256  // maximum size of cache (will be random from 1)
-		deleteRangeChance = 0.5  // chance deletion versions in range
+		versions            = 32   // number of final versions to generate
+		reloadChance        = 0.1  // chance of tree reload after save
+		deleteChance        = 0.2  // chance of random version deletion after save
+		revertChance        = 0.05 // chance to revert tree to random version with LoadVersionForOverwriting
+		syncChance          = 0.2  // chance of enabling sync writes on tree load
+		cacheChance         = 0.4  // chance of enabling caching
+		cacheSizeMax        = 256  // maximum size of cache (will be random from 1)
+		deleteRangeChance   = 0.5  // chance deletion versions in range
+		deleteRangeMaxBatch = 5    // small range to delete
 
 		versionOps  = 64  // number of operations (create/update/delete) per version
 		updateRatio = 0.4 // ratio of updates out of all operations
@@ -149,16 +150,23 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if r.Float64() < deleteChance {
 			versions := getMirrorVersions(diskMirrors, memMirrors)
 			if len(versions) > 2 {
-				i := r.Intn(len(versions) - 1)
-				if i > versions[0] {
-					t.Logf("Deleting versions range %v - %v", versions[0], versions[i])
-					err = tree.DeleteVersionsRange(int64(versions[0]), int64(versions[i]))
+				if r.Float64() < deleteRangeChance {
+					indexFrom := r.Intn(len(versions) - 1)
+					from := versions[indexFrom]
+					batch := r.Intn(deleteRangeMaxBatch)
+					if batch > len(versions[indexFrom:])-2 {
+						batch = len(versions[indexFrom:]) - 2
+					}
+					to := versions[indexFrom+batch] + 1
+					t.Logf("Deleting versions range %v - %v", from, to)
+					err = tree.DeleteVersionsRange(int64(from), int64(to))
 					require.NoError(t, err)
-					for _, version := range versions[:i] {
+					for version := from; version < to; version++ {
 						delete(diskMirrors, int64(version))
 						delete(memMirrors, int64(version))
 					}
 				} else {
+					i := r.Intn(len(versions) - 1)
 					deleteVersion := int64(versions[i])
 					t.Logf("Deleting version %v", deleteVersion)
 					err = tree.DeleteVersion(deleteVersion)
