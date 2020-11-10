@@ -544,22 +544,19 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 	})
 
 	// Find ordered data and delete by interval
-	fromVersion := versions[0]
-	toVersion := fromVersion
-	for _, predecessor := range versions {
-		if predecessor-toVersion <= 1 {
-			toVersion = predecessor
-			continue
+	intervals := map[int64]int64{}
+	var fromVersion int64
+	for i := 0; i < len(versions); i++ {
+		if versions[i]-versions[fromVersion] != intervals[versions[fromVersion]] {
+			fromVersion = int64(i)
 		}
-		if err := tree.DeleteVersionsRange(fromVersion, toVersion+1); err != nil {
-			return err
-		}
-		fromVersion = predecessor
-		toVersion = fromVersion
+		intervals[versions[fromVersion]]++
 	}
 
-	if err := tree.DeleteVersionsRange(fromVersion, toVersion+1); err != nil {
-		return err
+	for fromVersion, sortedBatchSize := range intervals {
+		if err := tree.DeleteVersionsRange(fromVersion, fromVersion+sortedBatchSize); err != nil {
+			return err
+		}
 	}
 
 	return nil

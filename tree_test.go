@@ -1422,9 +1422,8 @@ func TestDeleteVersionsCompare(t *testing.T) {
 		databaseSizeDeleteVersions = mdb.Stats()["database.size"]
 	}
 
+	require.Equal(databaseSizeDeleteVersion, databaseSizeDeleteVersionsRange)
 	require.Equal(databaseSizeDeleteVersion, databaseSizeDeleteVersions)
-	require.Equal(databaseSizeDeleteVersions, databaseSizeDeleteVersionsRange)
-	require.Equal(databaseSizeDeleteVersionsRange, databaseSizeDeleteVersion)
 }
 
 // BENCHMARKS
