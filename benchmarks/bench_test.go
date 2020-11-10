@@ -121,7 +121,6 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 	// check := t
 
 	for i := 0; i < b.N; i++ {
-
 		for j := 0; j < blockSize; j++ {
 			// 50% insert, 50% update
 			var key []byte
