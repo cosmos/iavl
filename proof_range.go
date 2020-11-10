@@ -447,7 +447,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 	}, keys, values, nil
 }
 
-// ----------------------------------------
+//----------------------------------------
 
 // GetWithProof gets the value under the key if it exists, or returns nil.
 // A proof of existence or absence is returned alongside the value.

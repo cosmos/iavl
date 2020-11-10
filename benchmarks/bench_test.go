@@ -66,7 +66,6 @@ func runQueries(b *testing.B, t *iavl.MutableTree, keyLen int) {
 
 func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
-
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
 		t.Get(q)
@@ -86,7 +85,6 @@ func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 
 func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
 	l := int32(len(keys))
-
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
 		t.Set(key, randBytes(dataLen))
