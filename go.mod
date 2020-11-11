@@ -13,9 +13,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
 	github.com/tendermint/tendermint v0.34.0-rc4
-	github.com/tendermint/tm-db v0.6.2
+	github.com/tendermint/tm-db v0.6.3
 	golang.org/x/crypto v0.0.0-20201012173705-84dcc777aaee
 	google.golang.org/genproto v0.0.0-20201014134559-03b6142f0dc9
-	google.golang.org/grpc v1.33.0
+	google.golang.org/grpc v1.33.2
 	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
