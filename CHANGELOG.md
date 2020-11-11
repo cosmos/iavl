@@ -4,8 +4,8 @@
 
 ### Bug Fixes
 
-- [\#324](https://github.com/cosmos/iavl/pull/324) Fix `DeleteVersions` causing a memory leak. 
-  Add `DeleteVersionsRange` to delete in range (@klim0v)
+- [\#324](https://github.com/cosmos/iavl/pull/324) Fix `DeleteVersions` not properly removing
+  orphans, and add `DeleteVersionsRange` to delete a range (@klim0v)
 
 ## 0.14.2 (October 12, 2020)
 

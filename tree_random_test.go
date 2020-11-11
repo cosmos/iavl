@@ -158,7 +158,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 						batch = len(versions[indexFrom:]) - 2
 					}
 					to := versions[indexFrom+batch] + 1
-					t.Logf("Deleting versions range %v - %v", from, to)
+					t.Logf("Deleting versions %v-%v", from, to-1)
 					err = tree.DeleteVersionsRange(int64(from), int64(to))
 					require.NoError(t, err)
 					for version := from; version < to; version++ {
@@ -234,7 +234,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 
 	if r.Float64() < deleteRangeChance {
 		if len(remaining) > 0 {
-			t.Logf("Deleting versions range %v - %v", remaining[0], remaining[len(remaining)-2])
+			t.Logf("Deleting versions %v-%v", remaining[0], remaining[len(remaining)-2])
 			err = tree.DeleteVersionsRange(int64(remaining[0]), int64(remaining[len(remaining)-1]))
 			require.NoError(t, err)
 		}
