@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.0-rc5 (November 12, 2020)
 
 ### Bug Fixes
 
