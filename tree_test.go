@@ -1331,6 +1331,101 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	require.NoError(err, "SaveVersion should not fail.")
 }
 
+func TestDeleteVersionsCompare(t *testing.T) {
+	require := require.New(t)
+
+	var databaseSizeDeleteVersionsRange, databaseSizeDeleteVersion, databaseSizeDeleteVersions string
+
+	const maxLength = 100
+	const fromLength = 5
+	{
+		mdb := db.NewMemDB()
+		tree, err := NewMutableTree(mdb, 0)
+		require.NoError(err)
+
+		versions := make([]int64, 0, maxLength)
+		for count := 1; count <= maxLength; count++ {
+			versions = append(versions, int64(count))
+			countStr := strconv.Itoa(count)
+			// Set kv pair and save version
+			tree.Set([]byte("aaa"), []byte("bbb"))
+			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+			_, _, err = tree.SaveVersion()
+			require.NoError(err, "SaveVersion should not fail")
+		}
+
+		tree, err = NewMutableTree(mdb, 0)
+		require.NoError(err)
+		targetVersion, err := tree.LoadVersion(int64(maxLength))
+		require.NoError(err)
+		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+		err = tree.DeleteVersionsRange(versions[fromLength], versions[int64(maxLength/2)])
+		require.NoError(err, "DeleteVersionsRange should not fail")
+
+		databaseSizeDeleteVersionsRange = mdb.Stats()["database.size"]
+	}
+	{
+		mdb := db.NewMemDB()
+		tree, err := NewMutableTree(mdb, 0)
+		require.NoError(err)
+
+		versions := make([]int64, 0, maxLength)
+		for count := 1; count <= maxLength; count++ {
+			versions = append(versions, int64(count))
+			countStr := strconv.Itoa(count)
+			// Set kv pair and save version
+			tree.Set([]byte("aaa"), []byte("bbb"))
+			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+			_, _, err = tree.SaveVersion()
+			require.NoError(err, "SaveVersion should not fail")
+		}
+
+		tree, err = NewMutableTree(mdb, 0)
+		require.NoError(err)
+		targetVersion, err := tree.LoadVersion(int64(maxLength))
+		require.NoError(err)
+		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+		for _, version := range versions[fromLength:int64(maxLength/2)] {
+			err = tree.DeleteVersion(version)
+			require.NoError(err, "DeleteVersion should not fail for %v", version)
+		}
+
+		databaseSizeDeleteVersion = mdb.Stats()["database.size"]
+	}
+	{
+		mdb := db.NewMemDB()
+		tree, err := NewMutableTree(mdb, 0)
+		require.NoError(err)
+
+		versions := make([]int64, 0, maxLength)
+		for count := 1; count <= maxLength; count++ {
+			versions = append(versions, int64(count))
+			countStr := strconv.Itoa(count)
+			// Set kv pair and save version
+			tree.Set([]byte("aaa"), []byte("bbb"))
+			tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+			_, _, err = tree.SaveVersion()
+			require.NoError(err, "SaveVersion should not fail")
+		}
+
+		tree, err = NewMutableTree(mdb, 0)
+		require.NoError(err)
+		targetVersion, err := tree.LoadVersion(int64(maxLength))
+		require.NoError(err)
+		require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+		err = tree.DeleteVersions(versions[fromLength:int64(maxLength/2)]...)
+		require.NoError(err, "DeleteVersions should not fail")
+
+		databaseSizeDeleteVersions = mdb.Stats()["database.size"]
+	}
+
+	require.Equal(databaseSizeDeleteVersion, databaseSizeDeleteVersionsRange)
+	require.Equal(databaseSizeDeleteVersion, databaseSizeDeleteVersions)
+}
+
 // BENCHMARKS
 
 func BenchmarkTreeLoadAndDelete(b *testing.B) {
@@ -1376,6 +1471,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 		}
 	})
 }
+
 func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	require := require.New(t)
 

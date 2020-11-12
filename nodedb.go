@@ -237,6 +237,55 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	return nil
 }
 
+// DeleteVersionsRange deletes versions from an interval (not inclusive).
+func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
+	if fromVersion >= toVersion {
+		return errors.New("toVersion must be greater than fromVersion")
+	}
+	if toVersion == 0 {
+		return errors.New("toVersion must be greater than 0")
+	}
+
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	latest := ndb.getLatestVersion()
+	if latest < toVersion {
+		return errors.Errorf("cannot delete latest saved version (%d)", latest)
+	}
+
+	predecessor := ndb.getPreviousVersion(fromVersion)
+
+	for v, r := range ndb.versionReaders {
+		if v < toVersion && v > predecessor && r != 0 {
+			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
+		}
+	}
+
+	// If the predecessor is earlier than the beginning of the lifetime, we can delete the orphan.
+	// Otherwise, we shorten its lifetime, by moving its endpoint to the predecessor version.
+	for version := fromVersion; version < toVersion; version++ {
+		ndb.traverseOrphansVersion(version, func(key, hash []byte) {
+			var from, to int64
+			orphanKeyFormat.Scan(key, &to, &from)
+			ndb.batch.Delete(key)
+			if from > predecessor {
+				ndb.batch.Delete(ndb.nodeKey(hash))
+				ndb.uncacheNode(hash)
+			} else {
+				ndb.saveOrphan(hash, from, predecessor)
+			}
+		})
+	}
+
+	// Delete the version root entries
+	ndb.traverseRange(rootKeyFormat.Key(fromVersion), rootKeyFormat.Key(toVersion), func(k, v []byte) {
+		ndb.batch.Delete(k)
+	})
+
+	return nil
+}
+
 // deleteNodesFrom deletes the given node and any descendants that have versions after the given
 // (inclusive). It is mainly used via LoadVersionForOverwriting, to delete the current version.
 func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {

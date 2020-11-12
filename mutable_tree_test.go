@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"runtime"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -102,6 +103,83 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 		for _, e := range versionEntries[v] {
 			_, val := tree.Get(e.key)
 			require.Equal(t, e.value, val)
+		}
+	}
+}
+
+func TestMutableTree_DeleteVersionsRange(t *testing.T) {
+	require := require.New(t)
+
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 0)
+	require.NoError(err)
+
+	const maxLength = 100
+	const fromLength = 10
+
+	versions := make([]int64, 0, maxLength)
+	for count := 1; count <= maxLength; count++ {
+		versions = append(versions, int64(count))
+		countStr := strconv.Itoa(count)
+		// Set kv pair and save version
+		tree.Set([]byte("aaa"), []byte("bbb"))
+		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		_, _, err = tree.SaveVersion()
+		require.NoError(err, "SaveVersion should not fail")
+	}
+
+	tree, err = NewMutableTree(mdb, 0)
+	require.NoError(err)
+	targetVersion, err := tree.LoadVersion(int64(maxLength))
+	require.NoError(err)
+	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
+
+	err = tree.DeleteVersionsRange(fromLength, int64(maxLength/2))
+	require.NoError(err, "DeleteVersionsTo should not fail")
+
+	for _, version := range versions[:fromLength-1] {
+		require.True(tree.versions[version], "versions %d no more than 10 should exist", version)
+
+		v, err := tree.LazyLoadVersion(version)
+		require.NoError(err, version)
+		require.Equal(v, version)
+
+		_, value := tree.Get([]byte("aaa"))
+		require.Equal(string(value), "bbb")
+
+		for _, count := range versions[:version] {
+			countStr := strconv.Itoa(int(count))
+			_, value := tree.Get([]byte("key" + countStr))
+			require.Equal(string(value), "value"+countStr)
+		}
+	}
+
+	for _, version := range versions[fromLength : int64(maxLength/2)-1] {
+		require.False(tree.versions[version], "versions %d more 10 and no more than 50 should have been deleted", version)
+
+		_, err := tree.LazyLoadVersion(version)
+		require.Error(err)
+	}
+
+	for _, version := range versions[int64(maxLength/2)-1:] {
+		require.True(tree.versions[version], "versions %d more than 50 should exist", version)
+
+		v, err := tree.LazyLoadVersion(version)
+		require.NoError(err)
+		require.Equal(v, version)
+
+		_, value := tree.Get([]byte("aaa"))
+		require.Equal(string(value), "bbb")
+
+		for _, count := range versions[:fromLength] {
+			countStr := strconv.Itoa(int(count))
+			_, value := tree.Get([]byte("key" + countStr))
+			require.Equal(string(value), "value"+countStr)
+		}
+		for _, count := range versions[int64(maxLength/2)-1 : version] {
+			countStr := strconv.Itoa(int(count))
+			_, value := tree.Get([]byte("key" + countStr))
+			require.Equal(string(value), "value"+countStr)
 		}
 	}
 }
