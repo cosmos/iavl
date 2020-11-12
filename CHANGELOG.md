@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- [\#324](https://github.com/cosmos/iavl/pull/324) Fix `DeleteVersions` not properly removing
+  orphans, and add `DeleteVersionsRange` to delete a range.
+
 ## 0.15.0-rc4 (October 14, 2020)
 
 ### Breaking Changes
