@@ -46,14 +46,9 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build Tendermint
-        run: |
-          make build-linux && cp build/tendermint DOCKER/tendermint
-
       - name: Publish to Docker Hub
         uses: docker/build-push-action@v2
         with:
-          context: ./DOCKER
-          file: ./DOCKER/Dockerfile
+          file: ./Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.prep.outputs.tags }}
