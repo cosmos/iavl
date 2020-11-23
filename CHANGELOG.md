@@ -27,12 +27,6 @@ Users upgrading from 0.13 should read important upgrade information in the 0.14.
   `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to return ics23 ExistenceProof 
   and NonExistenceProof respectively.
 
-- [\#299](https://github.com/cosmos/iavl/pull/299) Added `Options.InitialVersion` to specify the 
-  initial version for new IAVL trees.
-
-- [\#312](https://github.com/cosmos/iavl/pull/312) Add `MutableTree.SetInitialVersion()` to set the 
-  initial version after tree initialization.
-
 - [\#265](https://github.com/cosmos/iavl/pull/265) Encoding of tree nodes and proofs is now done 
   using the Go stdlib and Protobuf instead of Amino. The binary encoding is identical.
 
