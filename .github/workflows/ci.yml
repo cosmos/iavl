@@ -23,6 +23,8 @@ jobs:
         # with the race detector enabled, so we use -short when -race is
         # enabled to reduce the number of slow tests, and then run without
         # -short with -race disabled for a larger test set.
+        #
+        # We still run the same tests, just on smaller data sets with -short.
         run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m
