@@ -11,10 +11,9 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.6.1
-	github.com/tendermint/tendermint v0.34.0-rc6
+	github.com/tendermint/tendermint v0.34.0
 	github.com/tendermint/tm-db v0.6.3
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
-	google.golang.org/genproto v0.0.0-20201111145450-ac7456db90a6
+	golang.org/x/crypto v0.0.0-20201117144127-c1f2f97bffc9
+	google.golang.org/genproto v0.0.0-20201119123407-9b1e624d6bc4
 	google.golang.org/grpc v1.33.2
-	gopkg.in/check.v1 v1.0.0-20200902074654-038fdea0a05b // indirect
 )
