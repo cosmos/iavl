@@ -170,23 +170,26 @@ func TestExporter(t *testing.T) {
 }
 
 func TestExporter_Import(t *testing.T) {
-	testcases := map[string]struct {
-		tree *ImmutableTree
-	}{
-		"empty tree":  {tree: NewImmutableTree(db.NewMemDB(), 0)},
-		"basic tree":  {tree: setupExportTreeBasic(t)},
-		"sized tree":  {tree: setupExportTreeSized(t, 4096)},
-		"random tree": {tree: setupExportTreeRandom(t)},
+	testcases := map[string]*ImmutableTree{
+		"empty tree": NewImmutableTree(db.NewMemDB(), 0),
+		"basic tree": setupExportTreeBasic(t),
 	}
-	for desc, tc := range testcases {
-		tc := tc // appease scopelint
+	if !testing.Short() {
+		testcases["sized tree"] = setupExportTreeSized(t, 4096)
+		testcases["random tree"] = setupExportTreeRandom(t)
+	}
+
+	for desc, tree := range testcases {
+		tree := tree
 		t.Run(desc, func(t *testing.T) {
-			exporter := tc.tree.Export()
+			t.Parallel()
+
+			exporter := tree.Export()
 			defer exporter.Close()
 
 			newTree, err := NewMutableTree(db.NewMemDB(), 0)
 			require.NoError(t, err)
-			importer, err := newTree.Import(tc.tree.Version())
+			importer, err := newTree.Import(tree.Version())
 			require.NoError(t, err)
 			defer importer.Close()
 
@@ -202,12 +205,12 @@ func TestExporter_Import(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tc.tree.Hash(), newTree.Hash(), "Tree hash mismatch")
-			require.Equal(t, tc.tree.Size(), newTree.Size(), "Tree size mismatch")
-			require.Equal(t, tc.tree.Version(), newTree.Version(), "Tree version mismatch")
+			require.Equal(t, tree.Hash(), newTree.Hash(), "Tree hash mismatch")
+			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
+			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
 
-			tc.tree.Iterate(func(key, value []byte) bool {
-				index, _ := tc.tree.Get(key)
+			tree.Iterate(func(key, value []byte) bool {
+				index, _ := tree.Get(key)
 				newIndex, newValue := newTree.Get(key)
 				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
 				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
