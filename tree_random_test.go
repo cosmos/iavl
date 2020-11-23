@@ -31,6 +31,7 @@ func TestRandomOperations(t *testing.T) {
 	for _, seed := range seeds {
 		seed := seed
 		t.Run(fmt.Sprintf("Seed %v", seed), func(t *testing.T) {
+			t.Parallel() // comment out to disable parallel tests, or use -parallel 1
 			testRandomOperations(t, seed)
 		})
 	}
