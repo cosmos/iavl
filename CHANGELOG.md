@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.14.3 (November 23, 2020)
 
 ### Bug Fixes
 
