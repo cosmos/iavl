@@ -19,9 +19,10 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: test & coverage report creation
-        # The TestRandomOperations test is extremely slow in CI with the race detector
-        # enabled, so we use -short when -race is enabled to only do a couple of random
-        # runs, and the run without -short with -race disabled for a wider set.
+        # Some tests, notably TestRandomOperations, are extremely slow in CI
+        # with the race detector enabled, so we use -short when -race is
+        # enabled to reduce the number of slow tests, and then run without
+        # -short with -race disabled for a larger test set.
         run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m

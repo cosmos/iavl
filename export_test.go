@@ -172,16 +172,22 @@ func TestExporter(t *testing.T) {
 
 func TestExporter_Import(t *testing.T) {
 	testcases := map[string]struct {
-		tree *ImmutableTree
+		tree  *ImmutableTree
+		short bool // if false, don't run when -short is given
 	}{
-		"empty tree":  {tree: NewImmutableTree(db.NewMemDB(), 0)},
-		"basic tree":  {tree: setupExportTreeBasic(t)},
-		"sized tree":  {tree: setupExportTreeSized(t, 4096)},
-		"random tree": {tree: setupExportTreeRandom(t)},
+		"empty tree":  {tree: NewImmutableTree(db.NewMemDB(), 0), short: true},
+		"basic tree":  {tree: setupExportTreeBasic(t), short: true},
+		"sized tree":  {tree: setupExportTreeSized(t, 4096), short: false},
+		"random tree": {tree: setupExportTreeRandom(t), short: false},
 	}
 	for desc, tc := range testcases {
-		tc := tc // appease scopelint
+		tc := tc
 		t.Run(desc, func(t *testing.T) {
+			if testing.Short() && !tc.short {
+				t.Skip("Skipping test in short mode")
+			}
+			t.Parallel()
+
 			exporter := tc.tree.Export()
 			defer exporter.Close()
 
