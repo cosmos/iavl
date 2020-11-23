@@ -15,6 +15,8 @@ import (
 )
 
 func TestRandomOperations(t *testing.T) {
+	// In short mode (specifically, when running in CI with the race detector),
+	// we only run the first couple of seeds.
 	seeds := []int64{
 		498727689,
 		756509998,
@@ -28,9 +30,12 @@ func TestRandomOperations(t *testing.T) {
 		957382170,
 	}
 
-	for _, seed := range seeds {
-		seed := seed
+	for i, seed := range seeds {
+		i, seed := i, seed
 		t.Run(fmt.Sprintf("Seed %v", seed), func(t *testing.T) {
+			if testing.Short() && i >= 2 {
+				t.Skip("Skipping seed in short mode")
+			}
 			t.Parallel() // comment out to disable parallel tests, or use -parallel 1
 			testRandomOperations(t, seed)
 		})
