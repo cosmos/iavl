@@ -12,19 +12,21 @@ import (
 // decodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
 // of input bytes read.
 func decodeBytes(bz []byte) ([]byte, int, error) {
-	size, n, err := decodeUvarint(bz)
+	s, n, err := decodeUvarint(bz)
 	if err != nil {
 		return nil, n, err
 	}
-	if int(size) < 0 {
-		return nil, n, fmt.Errorf("invalid negative length %v decoding []byte", size)
+	// ^uint(0) >> 1 will help determine the max int value variably on 32-bit and 64-bit machines.
+	if uint64(n)+s >= uint64(^uint(0)>>1) {
+		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", uint64(n)+s)
 	}
-	if len(bz) < n+int(size) {
+	size := int(s)
+	if len(bz) < n+size {
 		return nil, n, fmt.Errorf("insufficient bytes decoding []byte of length %v", size)
 	}
 	bz2 := make([]byte, size)
-	copy(bz2, bz[n:n+int(size)])
-	n += int(size)
+	copy(bz2, bz[n:n+size])
+	n += size
 	return bz2, n, nil
 }
 

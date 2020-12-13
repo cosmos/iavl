@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- [\#340](https://github.com/cosmos/iavl/pull/340) Fix integer overflow in `decodeBytes()` that can cause out-of-memory errors on 32-bit machines for certain inputs.
+
 ## 0.15.0 (November 23, 2020)
 
 The IAVL project has moved from https://github.com/tendermint/iavl to
