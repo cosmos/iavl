@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.15.1 (December 13, 2020)
 
 ### Bug Fixes
 
