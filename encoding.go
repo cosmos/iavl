@@ -16,18 +16,23 @@ func decodeBytes(bz []byte) ([]byte, int, error) {
 	if err != nil {
 		return nil, n, err
 	}
-	// ^uint(0) >> 1 will help determine the max int value variably on 32-bit and 64-bit machines.
-	if uint64(n)+s >= uint64(^uint(0)>>1) {
-		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", uint64(n)+s)
-	}
+	// Make sure size doesn't overflow.
 	size := int(s)
-	if len(bz) < n+size {
+	if size < 0 {
+		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", s)
+	}
+	// Make sure end index doesn't overflow. We know n>0 from decodeUvarint().
+	end := n + size
+	if end < n {
+		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", size)
+	}
+	// Make sure the end index is within bounds.
+	if len(bz) < end {
 		return nil, n, fmt.Errorf("insufficient bytes decoding []byte of length %v", size)
 	}
 	bz2 := make([]byte, size)
-	copy(bz2, bz[n:n+size])
-	n += size
-	return bz2, n, nil
+	copy(bz2, bz[n:end])
+	return bz2, end, nil
 }
 
 // decodeUvarint decodes a varint-encoded unsigned integer from a byte slice, returning it and the
