@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.2 (December 14, 2020)
+
+### Bug Fixes
+
+- [\#341](https://github.com/cosmos/iavl/pull/340) Fix another integer overflow in `decodeBytes()` that can cause panics for certain inputs.
+
 ## 0.15.1 (December 13, 2020)
 
 ### Bug Fixes
