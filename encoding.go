@@ -16,9 +16,11 @@ func decodeBytes(bz []byte) ([]byte, int, error) {
 	if err != nil {
 		return nil, n, err
 	}
-	// Make sure size doesn't overflow.
+	// Make sure size doesn't overflow. ^uint(0) >> 1 will help determine the
+	// max int value variably on 32-bit and 64-bit machines. We also doublecheck
+	// that size is positive.
 	size := int(s)
-	if size < 0 {
+	if s >= uint64(^uint(0)>>1) || size < 0 {
 		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", s)
 	}
 	// Make sure end index doesn't overflow. We know n>0 from decodeUvarint().
