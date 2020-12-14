@@ -6,6 +6,8 @@
 
 - [\#347](https://github.com/cosmos/iavl/pull/347) Fix another integer overflow in `decodeBytes()` that can cause panics for certain inputs. The `ValueOp` and `AbsenceOp` proof decoders are vulnerable to this via malicious inputs since 0.15.0.
 
+- [\#349](https://github.com/cosmos/iavl/pull/349) Fix spurious blank lines in `PathToLeaf.String()`.
+
 ## 0.15.1 (December 13, 2020)
 
 ### Bug Fixes
