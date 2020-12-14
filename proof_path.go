@@ -47,13 +47,13 @@ func (pl PathToLeaf) stringIndented(indent string) string {
 	if len(pl) == 0 {
 		return "empty-PathToLeaf"
 	}
-	strs := make([]string, len(pl))
+	strs := make([]string, 0, len(pl))
 	for i, pin := range pl {
 		if i == 20 {
-			strs[i] = fmt.Sprintf("... (%v total)", len(pl))
+			strs = append(strs, fmt.Sprintf("... (%v total)", len(pl)))
 			break
 		}
-		strs[i] = fmt.Sprintf("%v:%v", i, pin.stringIndented(indent+"  "))
+		strs = append(strs, fmt.Sprintf("%v:%v", i, pin.stringIndented(indent+"  ")))
 	}
 	return fmt.Sprintf(`PathToLeaf{
 %s  %v
