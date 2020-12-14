@@ -26,11 +26,11 @@ jobs:
         #
         # We still run the same tests, just on smaller data sets with -short.
         #
-        # We also do a 32-bit run, even though this is executed on a 64-bit system.
-        # This will e.g. catch constant overflows and such.
-        #go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
-        #go test ./... -mod=readonly -timeout 5m
+        # We also do a 32-bit run. Wven though this is executed on a 64-bit system,
+        # it will execute with 32-bit semantics (e.g. 32-bit integer overflow).
         run: |
+          go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
+          go test ./... -mod=readonly -timeout 5m
           GOARCH=386 go test -v ./... -mod=readonly -timeout 5m
       - uses: codecov/codecov-action@v1
         with:

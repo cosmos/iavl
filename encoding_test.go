@@ -9,9 +9,6 @@ import (
 )
 
 func TestDecodeBytes(t *testing.T) {
-	i32 := math.MaxInt32
-	t.Logf("i32=%v", i32+1)
-
 	bz := []byte{0, 1, 2, 3, 4, 5, 6, 7}
 	testcases := map[string]struct {
 		bz           []byte
