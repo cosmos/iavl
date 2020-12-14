@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"encoding/binary"
-	"fmt"
 	"math"
 	"testing"
 
@@ -11,7 +10,7 @@ import (
 
 func TestDecodeBytes(t *testing.T) {
 	i32 := math.MaxInt32
-	fmt.Printf("i32=%v\n", i32+1)
+	t.Logf("i32=%v", i32+1)
 
 	bz := []byte{0, 1, 2, 3, 4, 5, 6, 7}
 	testcases := map[string]struct {

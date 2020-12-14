@@ -31,7 +31,7 @@ jobs:
         #go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
         #go test ./... -mod=readonly -timeout 5m
         run: |
-          GOARCH=386 go test ./... -mod=readonly -timeout 5m
+          GOARCH=386 go test -v ./... -mod=readonly -timeout 5m
       - uses: codecov/codecov-action@v1
         with:
           file: ./coverage.txt
