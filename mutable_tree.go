@@ -516,7 +516,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 }
 
 func (tree *MutableTree) deleteVersion(version int64) error {
-	if version == 0 {
+	if version <= 0 {
 		return errors.New("version must be greater than 0")
 	}
 	if version == tree.version {
