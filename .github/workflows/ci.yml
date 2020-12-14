@@ -22,12 +22,12 @@ jobs:
         # Some tests, notably TestRandomOperations, are extremely slow in CI
         # with the race detector enabled, so we use -short when -race is
         # enabled to reduce the number of slow tests, and then run without
-        # -short with -race disabled for a larger test set.
+        # -short with -race disabled for a larger test set. The same tests
+        # are run, just with smaller data sets.
         #
-        # We still run the same tests, just on smaller data sets with -short.
-        #
-        # We also do a 32-bit run. Wven though this is executed on a 64-bit system,
-        # it will execute with 32-bit semantics (e.g. 32-bit integer overflow).
+        # We also do a 32-bit run. Even though this is executed on a 64-bit
+        # system, it will use 32-bit instructions and semantics (e.g. 32-bit
+        # integer overflow).
         run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m
