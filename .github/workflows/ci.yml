@@ -25,9 +25,13 @@ jobs:
         # -short with -race disabled for a larger test set.
         #
         # We still run the same tests, just on smaller data sets with -short.
+        #
+        # We also do a 32-bit run, even though this is executed on a 64-bit system.
+        # This will e.g. catch constant overflows and such.
         run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m
+          GOARCH=386 go test ./... -mod=readonly -timeout 5m
       - uses: codecov/codecov-action@v1
         with:
           file: ./coverage.txt
