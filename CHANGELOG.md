@@ -1,6 +1,16 @@
 # Changelog
 
+## 0.15.3 (December 21, 2020)
+
+Special thanks to external contributors on this release: @odeke-em
+
+### Improvements
+
+- [\#352](https://github.com/cosmos/iavl/pull/352) Reuse buffer to improve performance of `GetMembershipProof()` and `GetNonMembershipProof()`.
+
 ## 0.15.2 (December 14, 2020)
+
+Special thanks to external contributors on this release: @odeke-em
 
 ### Bug Fixes
 
@@ -10,9 +20,11 @@
 
 ## 0.15.1 (December 13, 2020)
 
+Special thanks to external contributors on this release: @odeke-em
+
 ### Bug Fixes
 
-[\#340](https://github.com/cosmos/iavl/pull/340) Fix integer overflow in `decodeBytes()` that can cause panics on 64-bit systems and out-of-memory issues on 32-bit systems. The `ValueOp` and `AbsenceOp` proof decoders are vulnerable to this via malicious inputs. The bug was introduced in 0.15.0.
+- [\#340](https://github.com/cosmos/iavl/pull/340) Fix integer overflow in `decodeBytes()` that can cause panics on 64-bit systems and out-of-memory issues on 32-bit systems. The `ValueOp` and `AbsenceOp` proof decoders are vulnerable to this via malicious inputs. The bug was introduced in 0.15.0.
 
 ## 0.15.0 (November 23, 2020)
 
