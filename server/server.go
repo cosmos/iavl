@@ -70,7 +70,7 @@ func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse
 	return &pb.HasResponse{Result: s.tree.Has(req.Key)}, nil
 }
 
-// Get returns a result containing the IAVL index and value for a given
+// Get returns a result containing the index and value for a given
 // key based on the current state (version) of the tree.
 func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 
