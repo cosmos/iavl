@@ -3,6 +3,7 @@ VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
 DOCKER_BUF := docker run -v $(shell pwd):/workspace --workdir /workspace bufbuild/buf
+DOCKER := $(shell which docker)
 HTTPS_GIT := https://github.com/cosmos/iavl.git
 
 PDFFLAGS := -pdf --nodefraction=0.1
@@ -110,24 +111,7 @@ tools-clean:
 # Non Go tools
 ###
 
-# Choose protobuf binary based on OS (only works for 64bit Linux and Mac).
-# NOTE: On Mac, installation via brew (brew install protoc) might be favorable.
-PROTOC_ZIP=""
-ifneq ($(OS),Windows_NT)
-		UNAME_S := $(shell uname -s)
-		ifeq ($(UNAME_S),Linux)
-			PROTOC_ZIP="protoc-3.10.1-linux-x86_64.zip"
-		endif
-		ifeq ($(UNAME_S),Darwin)
-			PROTOC_ZIP="protoc-3.10.1-osx-x86_64.zip"
-		endif
-endif
-
 .PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench proto-gen proto-lint proto-check-breaking
-
-proto-gen:
-	@bash scripts/protocgen.sh
-.PHONY: proto-gen
 
 proto-lint:
 	@$(DOCKER_BUF) check lint --error-format=json
@@ -137,16 +121,7 @@ proto-check-breaking:
 	@$(DOCKER_BUF) check breaking --against-input $(HTTPS_GIT)#branch=master
 .PHONY: proto-check-breaking
 
-protobuf: $(PROTOBUF)
-	@echo "Get GoGo Protobuf"
-	@go get github.com/gogo/protobuf/protoc-gen-gogofaster@v1.3.1
-.PHONY: protobuf
-
-protoc:
-	@echo "Get Protobuf"
-	@echo "In case of any errors, please install directly from https://github.com/protocolbuffers/protobuf/releases"
-	@curl -OL https://github.com/protocolbuffers/protobuf/releases/download/v3.10.1/$(PROTOC_ZIP)
-	@unzip -o $(PROTOC_ZIP) -d /usr/local bin/protoc
-	@unzip -o $(PROTOC_ZIP) -d /usr/local 'include/*'
-	@rm -f $(PROTOC_ZIP)
-.PHONY: protoc
+proto-gen:
+	@echo "Generating Protobuf files"
+	$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace tendermintdev/sdk-proto-gen:master sh scripts/protocgen.sh
+.PHONY: proto-gen-d
