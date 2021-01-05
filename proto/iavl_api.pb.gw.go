@@ -839,6 +839,7 @@ func request_IAVLService_List_0(ctx context.Context, marshaler runtime.Marshaler
 // RegisterIAVLServiceHandlerServer registers the http handlers for service IAVLService to "mux".
 // UnaryRPC     :call IAVLServiceServer directly.
 // StreamingRPC :currently unsupported pending https://github.com/grpc/grpc-go/issues/906.
+// Note that using this registration option will cause many gRPC library features (such as grpc.SendHeader, etc) to stop working. Consider using RegisterIAVLServiceHandlerFromEndpoint instead.
 func RegisterIAVLServiceHandlerServer(ctx context.Context, mux *runtime.ServeMux, server IAVLServiceServer) error {
 
 	mux.Handle("GET", pattern_IAVLService_Has_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
