@@ -29,6 +29,7 @@ service IAVLService {
 
   // Get returns a result containing the index and value for a given
   // key based on the current state (version) of the tree.
+  // If the key does not exist, Get returns the index of the next value.
   rpc Get(GetRequest) returns (GetResponse) {
     option (google.api.http) = {
       get: "/v1/get"
