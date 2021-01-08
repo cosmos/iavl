@@ -295,6 +295,7 @@ message HasResponse {
 message GetResponse {
   int64 index = 1;
   bytes value = 2;
+  bool missing = 3;
 }
 
 message GetByIndexResponse {

@@ -123,14 +123,14 @@ func (suite *ServerTestSuite) TestGet() {
 		preRun    func()
 		key       []byte
 		expectErr bool
-		result    []byte
+		result    *pb.GetResponse
 	}{
 		{
 			"existing key",
 			nil,
 			[]byte("key-0"),
 			false,
-			[]byte("value-0"),
+			&pb.GetResponse{Index: 0, Value: []byte("value-0"), Missing: false},
 		},
 		{
 			"existing modified key",
@@ -148,14 +148,14 @@ func (suite *ServerTestSuite) TestGet() {
 			},
 			[]byte("key-0"),
 			false,
-			[]byte("NEW_VALUE"),
+			&pb.GetResponse{Index: 0, Value: []byte("NEW_VALUE"), Missing: false},
 		},
 		{
 			"non-existent key",
 			nil,
 			[]byte("key-1000"),
-			true,
-			nil,
+			false,
+			&pb.GetResponse{Index: 3, Value: nil, Missing: true},
 		},
 	}
 
@@ -170,7 +170,66 @@ func (suite *ServerTestSuite) TestGet() {
 			suite.Equal(tc.expectErr, err != nil)
 
 			if !tc.expectErr {
-				suite.Equal(tc.result, res.Value)
+				suite.Equal(tc.result, res)
+			}
+		})
+	}
+}
+
+func (suite *ServerTestSuite) TestGetByIndex() {
+	testCases := []struct {
+		name      string
+		preRun    func()
+		index     int64
+		expectErr bool
+		result    *pb.GetByIndexResponse
+	}{
+		{
+			"existing index",
+			nil,
+			0,
+			false,
+			&pb.GetByIndexResponse{Key: []byte("key-0"), Value: []byte("value-0")},
+		},
+		{
+			"existing modified index",
+			func() {
+				req := &pb.SetRequest{
+					Key:   []byte("key-0"),
+					Value: []byte("NEW_VALUE"),
+				}
+
+				_, err := suite.server.Set(context.Background(), req)
+				suite.NoError(err)
+
+				_, err = suite.server.SaveVersion(context.Background(), nil)
+				suite.NoError(err)
+			},
+			0,
+			false,
+			&pb.GetByIndexResponse{Key: []byte("key-0"), Value: []byte("NEW_VALUE")},
+		},
+		{
+			"non-existent index",
+			nil,
+			1000,
+			true,
+			nil,
+		},
+	}
+
+	for _, tc := range testCases {
+		tc := tc
+		suite.Run(tc.name, func() {
+			if tc.preRun != nil {
+				tc.preRun()
+			}
+
+			res, err := suite.server.GetByIndex(context.Background(), &pb.GetByIndexRequest{Index: tc.index})
+			suite.Equal(tc.expectErr, err != nil)
+
+			if !tc.expectErr {
+				suite.Equal(tc.result, res)
 			}
 		})
 	}
