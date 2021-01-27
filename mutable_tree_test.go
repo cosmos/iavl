@@ -296,11 +296,15 @@ func prepareTree(t *testing.T) *MutableTree {
 	for i := 0; i < 100; i++ {
 		tree.Set([]byte{byte(i)}, []byte("a"))
 	}
-	tree.SaveVersion()
+	_, ver, err := tree.SaveVersion()
+	require.True(t, ver == 1)
+	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
 		tree.Set([]byte{byte(i)}, []byte("b"))
 	}
-	tree.SaveVersion()
+	_, ver, err = tree.SaveVersion()
+	require.True(t, ver == 2)
+	require.NoError(t, err)
 	newTree, err := NewMutableTree(mdb, 1000)
 	require.NoError(t, err)
 

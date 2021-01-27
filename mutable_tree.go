@@ -63,10 +63,7 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 		return true
 	}
 	rootHash, _ := tree.ndb.getRoot(version)
-	if rootHash != nil {
-		return true
-	}
-	return false
+	return rootHash != nil
 }
 
 // AvailableVersions returns all available versions in ascending order
