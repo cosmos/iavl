@@ -467,9 +467,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	if !tree.allLoaded || tree.versions[version] {
 		existingHash, err := tree.ndb.getRoot(version)
+		if err != nil {
+			return nil, version, err
+		}
 		// If the version already exists, return an error as we're attempting to overwrite.
 		// However, the same hash means idempotent (i.e. no-op).
-		if existingHash != nil && err == nil {
+		if existingHash != nil {
 			// If the existing root hash is empty (because the tree is empty), then we need to
 			// compare with the hash of an empty input which is what `WorkingHash()` returns.
 			if len(existingHash) == 0 {
