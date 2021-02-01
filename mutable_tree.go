@@ -59,11 +59,18 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
-	if tree.versions[version] {
-		return true
+	if tree.allLoaded {
+		return tree.versions[version]
 	}
-	rootHash, _ := tree.ndb.getRoot(version)
-	return rootHash != nil
+
+	has, ok := tree.versions[version]
+	if ok {
+		return has
+	}
+	root, _ := tree.ndb.getRoot(version)
+	has = root != nil
+	tree.versions[version] = has
+	return has
 }
 
 // AvailableVersions returns all available versions in ascending order
@@ -447,7 +454,7 @@ func (tree *MutableTree) Rollback() {
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
-	if !tree.allLoaded || tree.versions[version] {
+	if tree.VersionExists(version) {
 		t, err := tree.GetImmutable(version)
 		if err != nil {
 			return -1, nil
@@ -467,7 +474,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	// If the version already exists, return an error as we're attempting to overwrite.
 	// However, the same hash means idempotent (i.e. no-op).
-	if !tree.allLoaded || tree.versions[version] {
+	if tree.VersionExists(version) {
 		existingHash, err := tree.ndb.getRoot(version)
 		if err != nil {
 			return nil, version, err
@@ -534,15 +541,8 @@ func (tree *MutableTree) deleteVersion(version int64) error {
 	if version == tree.version {
 		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
-	if tree.allLoaded {
-		if _, ok := tree.versions[version]; !ok {
-			return errors.Wrap(ErrVersionDoesNotExist, "")
-		}
-	} else {
-		rootHash, err := tree.ndb.getRoot(version)
-		if rootHash == nil || err != nil {
-			return errors.Wrap(ErrVersionDoesNotExist, "")
-		}
+	if !tree.VersionExists(version) {
+		return errors.Wrap(ErrVersionDoesNotExist, "")
 	}
 	if err := tree.ndb.DeleteVersion(version, true); err != nil {
 		return err
