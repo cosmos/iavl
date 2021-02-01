@@ -32,7 +32,11 @@ In Ethereum, the analog is [Patricia tries](http://en.wikipedia.org/wiki/Radix_t
     - Explains how to make updates (set/delete) to current working tree of IAVL
     - Explains how automatic rebalancing of IAVL works
     - Explains how Saving and Deleting versions of IAVL works
-6. [Export/import docs](./tree/export_import.md)
+6. [Proof docs](./proof/proof.md)
+    - Explains what Merkle proofs are
+    - Explains how IAVL supports presence, absence, and range proofs
+    - Explains the IAVL proof data structures
+7. [Export/import docs](./tree/export_import.md)
     - Explains the overall export/import functionality
     - Explains the `ExportNode` format for exported nodes
     - Explains the algorithms for exporting and importing nodes
