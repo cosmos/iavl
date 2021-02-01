@@ -79,11 +79,8 @@ func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse
 	defer s.rwLock.RUnlock()
 
 	idx, value := s.tree.Get(req.Key)
-	if value == nil {
-		return &pb.GetResponse{Index: idx, Value: nil, Missing: true}, nil
-	}
+	return &pb.GetResponse{Index: idx, Value: nil, NotFound: value == nil}, nil
 
-	return &pb.GetResponse{Index: idx, Value: value, Missing: false}, nil
 }
 
 // GetByIndex returns a result containing the key and value for a given

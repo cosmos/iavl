@@ -130,7 +130,7 @@ func (suite *ServerTestSuite) TestGet() {
 			nil,
 			[]byte("key-0"),
 			false,
-			&pb.GetResponse{Index: 0, Value: []byte("value-0"), Missing: false},
+			&pb.GetResponse{Index: 0, Value: []byte("value-0"), NotFound: false},
 		},
 		{
 			"existing modified key",
@@ -148,14 +148,14 @@ func (suite *ServerTestSuite) TestGet() {
 			},
 			[]byte("key-0"),
 			false,
-			&pb.GetResponse{Index: 0, Value: []byte("NEW_VALUE"), Missing: false},
+			&pb.GetResponse{Index: 0, Value: []byte("NEW_VALUE"), NotFound: false},
 		},
 		{
 			"non-existent key",
 			nil,
 			[]byte("key-1000"),
 			false,
-			&pb.GetResponse{Index: 3, Value: nil, Missing: true},
+			&pb.GetResponse{Index: 3, Value: nil, NotFound: true},
 		},
 	}
 
