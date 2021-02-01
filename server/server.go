@@ -79,7 +79,7 @@ func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse
 	defer s.rwLock.RUnlock()
 
 	idx, value := s.tree.Get(req.Key)
-	return &pb.GetResponse{Index: idx, Value: nil, NotFound: value == nil}, nil
+	return &pb.GetResponse{Index: idx, Value: value, NotFound: value == nil}, nil
 
 }
 
