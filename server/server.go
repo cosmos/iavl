@@ -70,20 +70,34 @@ func (s *IAVLServer) Has(_ context.Context, req *pb.HasRequest) (*pb.HasResponse
 	return &pb.HasResponse{Result: s.tree.Has(req.Key)}, nil
 }
 
-// Get returns a result containing the IAVL tree version and value for a given
+// Get returns a result containing the index and value for a given
 // key based on the current state (version) of the tree.
+// If the key does not exist, Get returns the index of the next value.
 func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse, error) {
 
 	s.rwLock.RLock()
 	defer s.rwLock.RUnlock()
 
 	idx, value := s.tree.Get(req.Key)
-	if value == nil {
-		s := status.New(codes.NotFound, "the key requested does not exist")
-		return nil, s.Err()
+	return &pb.GetResponse{Index: idx, Value: value, NotFound: value == nil}, nil
+
+}
+
+// GetByIndex returns a result containing the key and value for a given
+// index based on the current state (version) of the tree.
+func (s *IAVLServer) GetByIndex(_ context.Context, req *pb.GetByIndexRequest) (*pb.GetByIndexResponse, error) {
+
+	s.rwLock.RLock()
+	defer s.rwLock.RUnlock()
+
+	key, value := s.tree.GetByIndex(req.Index)
+	if key == nil {
+		e := status.New(codes.NotFound, "the index requested does not exist")
+		return nil, e.Err()
 	}
 
-	return &pb.GetResponse{Index: idx, Value: value}, nil
+	return &pb.GetByIndexResponse{Key: key, Value: value}, nil
+
 }
 
 // GetWithProof returns a result containing the IAVL tree version and value for

@@ -27,11 +27,20 @@ service IAVLService {
     };
   }
 
-  // Get returns a result containing the IAVL tree version and value for a given
+  // Get returns a result containing the index and value for a given
   // key based on the current state (version) of the tree.
+  // If the key does not exist, Get returns the index of the next value.
   rpc Get(GetRequest) returns (GetResponse) {
     option (google.api.http) = {
       get: "/v1/get"
+    };
+  }
+
+  // GetByIndex returns a result containing the key and value for a given
+  // index based on the current state (version) of the tree.
+  rpc GetByIndex(GetByIndexRequest) returns (GetByIndexResponse) {
+    option (google.api.http) = {
+      get: "/v1/getbyindex"
     };
   }
 
@@ -217,6 +226,10 @@ message GetRequest {
   bytes key = 1;
 }
 
+message GetByIndexRequest {
+  int64 index = 1;
+}
+
 message GetVersionedRequest {
   int64 version = 1;
   bytes key = 2;
@@ -282,6 +295,12 @@ message HasResponse {
 
 message GetResponse {
   int64 index = 1;
+  bytes value = 2;
+  bool not_found = 3;
+}
+
+message GetByIndexResponse {
+  bytes key = 1;
   bytes value = 2;
 }
 
