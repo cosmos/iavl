@@ -1,5 +1,14 @@
 # Changelog
 
+
+## Unreleased
+
+### Breaking Changes
+- [\#355](https://github.com/cosmos/iavl/pull/355) `Get` in `iavlServer` no longer returns an error if the requested key does not exist. `GetResponse` now contains a `NotFound` boolean to indicate that a key does not exist, and the returned index will be that of the next occupied key.
+
+### Improvements
+- [\#355](https://github.com/cosmos/iavl/pull/355) Add support for `GetByIndex` to `iavlServer`
+
 ## 0.15.3 (December 21, 2020)
 
 Special thanks to external contributors on this release: @odeke-em
