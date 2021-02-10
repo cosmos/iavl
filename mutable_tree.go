@@ -94,10 +94,13 @@ func (tree *MutableTree) prepareOrphansSlice() []*Node {
 	return make([]*Node, 0, tree.Height()+3)
 }
 
-// Set sets a key in the working tree. Nil values are invalid. The given key/value byte slices must
-// not be modified after this call, since they point to slices stored within IAVL.
-func (tree *MutableTree) Set(key, value []byte) bool {
-	orphaned, updated := tree.set(key, value)
+// Set sets a key in the working tree. Nil values are invalid. The given
+// key/value byte slices must not be modified after this call, since they point
+// to slices stored within IAVL. It returns true when an existing value was
+// updated, while false means it was a new key.
+func (tree *MutableTree) Set(key, value []byte) (updated bool) {
+	var orphaned []*Node
+	orphaned, updated = tree.set(key, value)
 	tree.addOrphans(orphaned)
 	return updated
 }
