@@ -449,7 +449,7 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.version + 1
 	if version == 1 && tree.ndb.opts.InitialVersion > 0 {
-		version = int64(tree.ndb.opts.InitialVersion)
+		version = int64(tree.ndb.opts.InitialVersion) + 1
 	}
 
 	if tree.versions[version] {
