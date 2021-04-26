@@ -323,7 +323,11 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	iTree := &ImmutableTree{
 		ndb:     tree.ndb,
 		version: targetVersion,
-		root:    tree.ndb.GetNode(rootHash),
+	}
+	if len(rootHash) > 0 {
+		// If rootHash is empty then root of tree should be nil
+		// This makes `LazyLoadVersion` to do the same thing as `LoadVersion`
+		iTree.root = tree.ndb.GetNode(rootHash)
 	}
 
 	tree.orphans = map[string]int64{}

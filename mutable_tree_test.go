@@ -358,3 +358,25 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 	// cannot delete latest version
 	require.Error(t, tree.DeleteVersion(2))
 }
+
+func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	_, v1, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	newTree1, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	v2, err := newTree1.LazyLoadVersion(1)
+	require.NoError(t, err)
+	require.True(t, v1 == v2)
+
+	newTree2, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	v2, err = newTree1.LoadVersion(1)
+	require.NoError(t, err)
+	require.True(t, v1 == v2)
+
+	require.True(t, newTree1.root == newTree2.root)
+}
