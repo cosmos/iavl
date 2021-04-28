@@ -288,3 +288,95 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 		t.Set(randBytes(10), []byte{})
 	}
 }
+
+func prepareTree(t *testing.T) *MutableTree {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		tree.Set([]byte{byte(i)}, []byte("a"))
+	}
+	_, ver, err := tree.SaveVersion()
+	require.True(t, ver == 1)
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		tree.Set([]byte{byte(i)}, []byte("b"))
+	}
+	_, ver, err = tree.SaveVersion()
+	require.True(t, ver == 2)
+	require.NoError(t, err)
+	newTree, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+
+	return newTree
+}
+
+func TestMutableTree_VersionExists(t *testing.T) {
+	tree := prepareTree(t)
+	require.True(t, tree.VersionExists(1))
+	require.True(t, tree.VersionExists(2))
+	require.False(t, tree.VersionExists(3))
+}
+
+func checkGetVersioned(t *testing.T, tree *MutableTree, version, index int64, key, value []byte) {
+	idx, val := tree.GetVersioned(key, version)
+	require.True(t, idx == index)
+	require.True(t, bytes.Equal(val, value))
+}
+
+func TestMutableTree_GetVersioned(t *testing.T) {
+	tree := prepareTree(t)
+	ver, err := tree.LazyLoadVersion(1)
+	require.True(t, ver == 1)
+	require.NoError(t, err)
+	// check key of unloaded version
+	checkGetVersioned(t, tree, 1, 1, []byte{1}, []byte("a"))
+	checkGetVersioned(t, tree, 2, 1, []byte{1}, []byte("b"))
+	checkGetVersioned(t, tree, 3, -1, []byte{1}, nil)
+
+	tree = prepareTree(t)
+	ver, err = tree.LazyLoadVersion(2)
+	require.True(t, ver == 2)
+	require.NoError(t, err)
+	checkGetVersioned(t, tree, 1, 1, []byte{1}, []byte("a"))
+	checkGetVersioned(t, tree, 2, 1, []byte{1}, []byte("b"))
+	checkGetVersioned(t, tree, 3, -1, []byte{1}, nil)
+}
+
+func TestMutableTree_DeleteVersion(t *testing.T) {
+	tree := prepareTree(t)
+	ver, err := tree.LazyLoadVersion(2)
+	require.True(t, ver == 2)
+	require.NoError(t, err)
+
+	require.NoError(t, tree.DeleteVersion(1))
+
+	require.False(t, tree.VersionExists(1))
+	require.True(t, tree.VersionExists(2))
+	require.False(t, tree.VersionExists(3))
+
+	// cannot delete latest version
+	require.Error(t, tree.DeleteVersion(2))
+}
+
+func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	_, v1, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	newTree1, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	v2, err := newTree1.LazyLoadVersion(1)
+	require.NoError(t, err)
+	require.True(t, v1 == v2)
+
+	newTree2, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	v2, err = newTree1.LoadVersion(1)
+	require.NoError(t, err)
+	require.True(t, v1 == v2)
+
+	require.True(t, newTree1.root == newTree2.root)
+}
