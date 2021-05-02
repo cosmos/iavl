@@ -3,11 +3,19 @@
 
 ## Unreleased
 
+
+
+## 0.16.0 (May 02, 2021)
+
 ### Breaking Changes
 - [\#355](https://github.com/cosmos/iavl/pull/355) `Get` in `iavlServer` no longer returns an error if the requested key does not exist. `GetResponse` now contains a `NotFound` boolean to indicate that a key does not exist, and the returned index will be that of the next occupied key.
 
 ### Improvements
-- [\#355](https://github.com/cosmos/iavl/pull/355) Add support for `GetByIndex` to `iavlServer`
+- [\#355](https://github.com/cosmos/iavl/pull/355) Add support for `GetByIndex` to `iavlServer` and RPC interface.
+
+### Bug Fixes
+= [\#385](https://github.com/cosmos/iavl/pull/385) Fix `GetVersioned` - now it works with `LazyLoadVersion`.
+
 
 ## 0.15.3 (December 21, 2020)
 
@@ -48,10 +56,10 @@ Users upgrading from 0.13 should read important upgrade information in the 0.14.
 - [\#285](https://github.com/cosmos/iavl/pull/285) The module path has changed from
   `github.com/tendermint/iavl` to `github.com/cosmos/iavl`.
 
-- [\#304](https://github.com/cosmos/iavl/pull/304) Empty trees now return hashes rather than `nil` 
+- [\#304](https://github.com/cosmos/iavl/pull/304) Empty trees now return hashes rather than `nil`
   from e.g. `Hash()`, `WorkingHash()`, and `SaveVersion()`, for conformance with RFC-6962.
 
-- [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now 
+- [\#317](https://github.com/cosmos/iavl/pull/317) `LoadVersion()` and `LazyLoadVersion()` now
   error if called with a positive version number on an empty tree.
 
 ### Improvements
@@ -59,15 +67,15 @@ Users upgrading from 0.13 should read important upgrade information in the 0.14.
 - [\#296](https://github.com/cosmos/iavl/pull/296) Add `iavlserver`, a gRPC/REST API server.
 
 - [\#276](https://github.com/cosmos/iavl/pull/276/files) Introduced
-  `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to return ics23 ExistenceProof 
+  `ImmutableTree.GetMembershipProof()` and `GetNonMembershipProof()` to return ics23 ExistenceProof
   and NonExistenceProof respectively.
 
-- [\#265](https://github.com/cosmos/iavl/pull/265) Encoding of tree nodes and proofs is now done 
+- [\#265](https://github.com/cosmos/iavl/pull/265) Encoding of tree nodes and proofs is now done
   using the Go stdlib and Protobuf instead of Amino. The binary encoding is identical.
 
 ### Bug Fixes
 
-- [\#309](https://github.com/cosmos/iavl/pull/309) Allow `SaveVersion()` for old, empty versions as 
+- [\#309](https://github.com/cosmos/iavl/pull/309) Allow `SaveVersion()` for old, empty versions as
   long as the new version is identical.
 
 ## 0.14.3 (November 23, 2020)
@@ -89,7 +97,7 @@ Special thanks to external contributors on this release: @klim0v
 
 ### Improvements
 
-- [\#299](https://github.com/cosmos/iavl/pull/299) Added `Options.InitialVersion` to specify the 
+- [\#299](https://github.com/cosmos/iavl/pull/299) Added `Options.InitialVersion` to specify the
   initial version for new IAVL trees.
 
 - [\#312](https://github.com/cosmos/iavl/pull/312) Added `MutableTree.SetInitialVersion()` to
@@ -101,9 +109,9 @@ Special thanks to external contributors on this release: @klim0v
 
 ## 0.14.0 (July 2, 2020)
 
-**Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options 
-`KeepEvery` and `KeepRecent` has problems with data corruption, performance, and memory usage. For 
-these reasons, this functionality has now been removed. All 0.13 users are urged to upgrade, and to 
+**Important information:** the pruning functionality introduced with IAVL 0.13.0 via the options
+`KeepEvery` and `KeepRecent` has problems with data corruption, performance, and memory usage. For
+these reasons, this functionality has now been removed. All 0.13 users are urged to upgrade, and to
 not change their pruning settings while on 0.13.
 
 Make sure to follow these instructions when upgrading, to avoid data corruption:
@@ -122,7 +130,7 @@ Make sure to follow these instructions when upgrading, to avoid data corruption:
   contains incorrect data that may cause data corruption when deleted, making the database
   unusable. For example, with `KeepEvery: 1000` then stopping 0.13 at version `7364` (saving
   `7000` to disk) and upgrading to 0.14 means version `7000` must never be deleted.
-  
+
   It may be possible to delete it if the exact same sequence of changes have been written to the
   newer versions as before the upgrade, and all versions between `7000` and `7364` are deleted
   first, but thorough testing and backups are recommended if attempting this.
@@ -131,25 +139,25 @@ Users wishing to prune historical versions can do so via `MutableTree.DeleteVers
 
 ### Breaking Changes
 
-- [\#274](https://github.com/cosmos/iavl/pull/274) Remove pruning options `KeepEvery` and 
+- [\#274](https://github.com/cosmos/iavl/pull/274) Remove pruning options `KeepEvery` and
   `KeepRecent` (see warning above) and the `recentDB` parameter to `NewMutableTreeWithOpts()`.
 
 ### Improvements
 
-- [\#282](https://github.com/cosmos/iavl/pull/282) Add `Repair013Orphans()` to repair faulty 
+- [\#282](https://github.com/cosmos/iavl/pull/282) Add `Repair013Orphans()` to repair faulty
   orphans in a database last written to by IAVL 0.13.x
 
-- [\#271](https://github.com/cosmos/iavl/pull/271) Add `MutableTree.DeleteVersions()` for deleting 
+- [\#271](https://github.com/cosmos/iavl/pull/271) Add `MutableTree.DeleteVersions()` for deleting
   multiple versions.
 
-- [\#235](https://github.com/cosmos/iavl/pull/235) Reduce `ImmutableTree.Export()` buffer size from 
+- [\#235](https://github.com/cosmos/iavl/pull/235) Reduce `ImmutableTree.Export()` buffer size from
   64 to 32 nodes.
 
 ### Bug Fixes
 
 - [\#281](https://github.com/cosmos/iavl/pull/281) Remove unnecessary Protobuf dependencies.
 
-- [\#275](https://github.com/cosmos/iavl/pull/275) Fix data corruption with 
+- [\#275](https://github.com/cosmos/iavl/pull/275) Fix data corruption with
   `LoadVersionForOverwriting`.
 
 ## 0.13.3 (April 5, 2020)
