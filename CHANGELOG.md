@@ -14,7 +14,8 @@
 - [\#355](https://github.com/cosmos/iavl/pull/355) Add support for `GetByIndex` to `iavlServer` and RPC interface.
 
 ### Bug Fixes
-= [\#385](https://github.com/cosmos/iavl/pull/385) Fix `GetVersioned` - now it works with `LazyLoadVersion`.
++ [\#385](https://github.com/cosmos/iavl/pull/385) Fix `GetVersioned` - now it works with `LazyLoadVersion`.
++ [\#374](https://github.com/cosmos/iavl/pull/374) Fix large genesis file commit.
 
 
 ## 0.15.3 (December 21, 2020)
