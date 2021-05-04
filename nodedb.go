@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	int64Size = 8
-	hashSize  = sha256.Size
+	int64Size      = 8
+	hashSize       = sha256.Size
 	genesisVersion = 1
 )
 
@@ -180,7 +180,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 }
 
 // resetBatch reset the db batch, keep low memory used
-func (ndb *nodeDB) resetBatch(){
+func (ndb *nodeDB) resetBatch() {
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
