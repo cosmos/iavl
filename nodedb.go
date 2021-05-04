@@ -170,7 +170,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 	ndb.SaveNode(node)
 
 	//resetBatch only working on generate a genesis block
-	if node.version == genesisVersion {
+	if node.version <= genesisVersion {
 		ndb.resetBatch()
 	}
 	node.leftNode = nil
