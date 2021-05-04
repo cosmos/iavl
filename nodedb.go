@@ -169,7 +169,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 	node._hash()
 	ndb.SaveNode(node)
 
-	//resetBatch only working on generate a genesis block
+	// resetBatch only working on generate a genesis block
 	if node.version <= genesisVersion {
 		ndb.resetBatch()
 	}
@@ -179,7 +179,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 	return node.hash
 }
 
-//resetBatch reset the db batch, keep low memory used
+// resetBatch reset the db batch, keep low memory used
 func (ndb *nodeDB) resetBatch(){
 	var err error
 	if ndb.opts.Sync {
