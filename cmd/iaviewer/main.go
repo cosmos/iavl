@@ -109,7 +109,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 	if err != nil {
 		return nil, err
 	}
-	if len(prefix) != nil {
+	if len(prefix) != 0 {
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
