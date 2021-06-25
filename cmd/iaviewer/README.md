@@ -99,6 +99,7 @@ To confirm that, and possibly get more insights, there is another command.
 ```shell
 iaviewer shape ./bns-a.db "" 190258 > a-cur.shape
 iaviewer shape ./bns-b.db "" 190258 > b-cur.shape
+
 diff a-cur.shape b-cur.shape
 ```
 
