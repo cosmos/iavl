@@ -172,6 +172,29 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 	return node.hash
 }
 
+// resetBatch reset the db batch, keep low memory used
+func (ndb *nodeDB) resetBatch() {
+	var err error
+	if ndb.opts.Sync {
+		err = ndb.batch.WriteSync()
+	} else {
+		err = ndb.batch.Write()
+	}
+	if err != nil {
+		panic(err)
+	}
+	ndb.batch.Close()
+	ndb.batch = ndb.db.NewBatch()
+}
+
+func (ndb *nodeDB) clearBatch() {
+		ndb.mtx.Lock()
+		defer ndb.mtx.Unlock()
+
+		ndb.batch.Close()
+		ndb.batch = ndb.db.NewBatch()
+}
+
 // DeleteVersion deletes a tree version from disk.
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	ndb.mtx.Lock()
@@ -276,6 +299,13 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 				ndb.saveOrphan(hash, from, predecessor)
 			}
 		})
+		if version % CommitIntervalHeight == 0 {
+			if err := ndb.Commit(); err != nil {
+				return err
+			}
+		} else {
+			ndb.clearBatch()
+		}
 	}
 
 	// Delete the version root entries
@@ -324,6 +354,17 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 	for hash, fromVersion := range orphans {
 		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
+	}
+}
+
+func (ndb *nodeDB) DeleteOrphans(version int64, orphans map[string]int64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	toVersion := ndb.getPreviousVersion(version)
+	for hash, fromVersion := range orphans {
+		debug("Delete ORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
+		ndb.uncacheNode([]byte(hash))
 	}
 }
 
@@ -543,10 +584,9 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 
 	// We allow the initial version to be arbitrary
 	latest := ndb.getLatestVersion()
-	if latest > 0 && version != latest+1 {
+	if latest > 0 && version != latest + CommitIntervalHeight {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 	}
-
 	ndb.batch.Set(ndb.rootKey(version), hash)
 	ndb.updateLatestVersion(version)
 	return nil

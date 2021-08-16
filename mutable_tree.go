@@ -12,7 +12,7 @@ import (
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = errors.New("version does not exist")
-
+var CommitIntervalHeight int64 = 10000
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
 // version can be returned via GetImmutable, which is safe for concurrent access.
@@ -473,27 +473,34 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
 
-	if tree.root == nil {
-		// There can still be orphans, for example if the root is the node being
-		// removed.
-		debug("SAVE EMPTY TREE %v\n", version)
-		tree.ndb.SaveOrphans(version, tree.orphans)
-		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
-			return nil, 0, err
+
+
+	if version % CommitIntervalHeight == 0 {
+		if tree.root == nil {
+			// There can still be orphans, for example if the root is the node being
+			// removed.
+			debug("SAVE EMPTY TREE %v\n", version)
+			tree.ndb.DeleteOrphans(version, tree.orphans)
+			if err := tree.ndb.SaveEmptyRoot(version); err != nil {
+				return nil, 0, err
+			}
+		} else {
+			debug("SAVE TREE %v\n", version)
+			tree.ndb.SaveBranch(tree.root)
+			tree.ndb.DeleteOrphans(version, tree.orphans)
+			if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
+				return nil, 0, err
+			}
+		}
+		if err := tree.ndb.Commit(); err != nil {
+			return nil, version, err
 		}
 	} else {
-		debug("SAVE TREE %v\n", version)
-		tree.ndb.SaveBranch(tree.root)
-		tree.ndb.SaveOrphans(version, tree.orphans)
-		if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
-			return nil, 0, err
-		}
+		tree.ndb.DeleteOrphans(version, tree.orphans)
+		tree.ndb.clearBatch()
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
-		return nil, version, err
-	}
-
+	fmt.Println("iavl nodeDB caching length:", len(tree.ndb.nodeCache))
 	tree.version = version
 	tree.versions[version] = true
 
@@ -566,13 +573,6 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 // An error is returned if any single version has active readers.
 // All writes happen in a single batch with a single commit.
 func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error {
-	if err := tree.ndb.DeleteVersionsRange(fromVersion, toVersion); err != nil {
-		return err
-	}
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
 
 	for version := fromVersion; version < toVersion; version++ {
 		delete(tree.versions, version)
