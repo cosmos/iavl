@@ -42,7 +42,18 @@ func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 
 // Format the byte segments into the key format - will panic if the segment lengths do not match the layout.
 func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
-	key := make([]byte, kf.length)
+	keyLen := kf.length
+	// In case segments length is less than layouts length,
+	// we don't have to allocate the whole kf.length, just
+	// enough space to store the segments.
+	if len(segments) < len(kf.layout) {
+		keyLen = 1
+		for i := range segments {
+			keyLen += kf.layout[i]
+		}
+	}
+
+	key := make([]byte, keyLen)
 	key[0] = kf.prefix
 	n := 1
 	for i, s := range segments {
