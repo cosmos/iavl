@@ -32,7 +32,16 @@ var (
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
+
+	CommitIntervalHeight   int64 = 100
+	HeightOrphansCacheSize       = 8
 )
+
+type heightOrphansItem struct {
+	version  int64
+	rootHash []byte
+	orphans  []*Node //orphans 存储重新设计，看弄成什么样一个map用于查询，还需要按照高度索引相关节点，两重索引
+}
 
 type nodeDB struct {
 	mtx            sync.Mutex       // Read/write lock.
@@ -45,6 +54,13 @@ type nodeDB struct {
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+
+	orphanNodeCache         map[string]*Node
+	heightOrphansCacheQueue *list.List
+	heightOrphansCacheSize  int
+	heightOrphansMap        map[int64]*heightOrphansItem
+
+	prePersistNodeCache map[string]*Node
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -53,14 +69,19 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		opts = &o
 	}
 	return &nodeDB{
-		db:             db,
-		batch:          db.NewBatch(),
-		opts:           *opts,
-		latestVersion:  0, // initially invalid
-		nodeCache:      make(map[string]*list.Element),
-		nodeCacheSize:  cacheSize,
-		nodeCacheQueue: list.New(),
-		versionReaders: make(map[int64]uint32, 8),
+		db:                      db,
+		batch:                   db.NewBatch(),
+		opts:                    *opts,
+		latestVersion:           0, // initially invalid
+		nodeCache:               make(map[string]*list.Element),
+		nodeCacheSize:           cacheSize,
+		nodeCacheQueue:          list.New(),
+		versionReaders:          make(map[int64]uint32, 8),
+		orphanNodeCache:         make(map[string]*Node),
+		heightOrphansCacheQueue: list.New(),
+		heightOrphansCacheSize:  HeightOrphansCacheSize,
+		heightOrphansMap:        make(map[int64]*heightOrphansItem),
+		prePersistNodeCache:     make(map[string]*Node),
 	}
 }
 
@@ -73,12 +94,17 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	if len(hash) == 0 {
 		panic("nodeDB.GetNode() requires hash")
 	}
-
+	if elem, ok := ndb.prePersistNodeCache[string(hash)]; ok {
+		return elem
+	}
 	// Check the cache.
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
 		// Already exists. Move to back of nodeCacheQueue.
 		ndb.nodeCacheQueue.MoveToBack(elem)
 		return elem.Value.(*Node)
+	}
+	if elem, ok := ndb.orphanNodeCache[string(hash)]; ok {
+		return elem
 	}
 
 	// Doesn't exist, load.
@@ -313,19 +339,19 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 	return nil
 }
 
-// Saves orphaned nodes to disk under a special prefix.
-// version: the new version being saved.
-// orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	toVersion := ndb.getPreviousVersion(version)
-	for hash, fromVersion := range orphans {
-		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
-		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
-	}
-}
+//// Saves orphaned nodes to disk under a special prefix.
+//// version: the new version being saved.
+//// orphans: the orphan nodes created since version-1
+//func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
+//	ndb.mtx.Lock()
+//	defer ndb.mtx.Unlock()
+//
+//	toVersion := ndb.getPreviousVersion(version)
+//	for hash, fromVersion := range orphans {
+//		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
+//		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
+//	}
+//}
 
 // Saves a single orphan to disk.
 func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) {
@@ -509,6 +535,10 @@ func (ndb *nodeDB) Commit() error {
 }
 
 func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
+	orphansObj := ndb.heightOrphansMap[version]
+	if orphansObj != nil {
+		return orphansObj.rootHash, nil
+	}
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
@@ -664,4 +694,89 @@ func (ndb *nodeDB) String() string {
 		index++
 	})
 	return "-" + "\n" + str + "-"
+}
+
+func (ndb *nodeDB) UpdateBranch(node *Node) []byte {
+	if node.persisted || node.prePersisted {
+		return node.hash
+	}
+
+	if node.leftNode != nil {
+		node.leftHash = ndb.UpdateBranch(node.leftNode)
+	}
+	if node.rightNode != nil {
+		node.rightHash = ndb.UpdateBranch(node.rightNode)
+	}
+
+	node._hash()
+	ndb.SaveNodeToPrePersistCache(node)
+
+	return node.hash
+}
+
+func (ndb *nodeDB) SaveOrphans(version int64, orphans []*Node) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	version = version - 1
+
+	orphansObj := ndb.heightOrphansMap[version]
+	if orphansObj != nil {
+		orphansObj.orphans = orphans
+	}
+	for _, node := range orphans {
+		ndb.orphanNodeCache[string(node.key)] = node
+		ndb.uncacheNode(node.hash)
+		delete(ndb.prePersistNodeCache, string(node.hash))
+	}
+}
+
+func (ndb *nodeDB) SetHeightOrphansItem(version int64, rootHash []byte) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	orphanObj := &heightOrphansItem{
+		version:  version,
+		rootHash: rootHash,
+	}
+	ndb.heightOrphansCacheQueue.PushBack(&orphanObj)
+	ndb.heightOrphansMap[version] = orphanObj
+
+	for ndb.heightOrphansCacheQueue.Len() > ndb.heightOrphansCacheSize {
+		orphans := ndb.heightOrphansCacheQueue.Front()
+		oldHeightOrphanItem := ndb.heightOrphansCacheQueue.Remove(orphans).(*heightOrphansItem)
+		for _, node := range oldHeightOrphanItem.orphans {
+			delete(ndb.orphanNodeCache, string(node.hash))
+		}
+		delete(ndb.heightOrphansMap, oldHeightOrphanItem.version)
+	}
+}
+
+func (ndb *nodeDB) uncacheOrphanNode(hash []byte) {
+	if _, ok := ndb.orphanNodeCache[string(hash)]; ok {
+		delete(ndb.orphanNodeCache, string(hash))
+	}
+}
+
+func (ndb *nodeDB) SaveNodeToPrePersistCache(node *Node) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if node.hash == nil {
+		panic("Expected to find node.hash, but none found.")
+	}
+	if node.persisted {
+		panic("Shouldn't be calling save on an already persisted node.")
+	}
+
+	node.prePersisted = true
+	ndb.prePersistNodeCache[string(node.hash)] = node
+}
+
+func (ndb *nodeDB) PersistNodeFromPrePersistCache() {
+	for _, node := range ndb.prePersistNodeCache {
+		if node.persisted || (!node.prePersisted) {
+			panic("unexpected logic")
+		}
+		ndb.SaveNode(node)
+	}
+	ndb.prePersistNodeCache = map[string]*Node{}
 }
