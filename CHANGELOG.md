@@ -2,6 +2,9 @@
 
 
 ## Unreleased
+
+### CLI Breaking Changes
+
 - [\#396](https://github.com/cosmos/iavl/pull/396) Add "prefix" arg to iaviewer.
 
 
