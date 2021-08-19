@@ -255,16 +255,33 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 }
 
 func TestSaveVersion(t *testing.T) {
+	testKV := make(map[string]string)
+	testKV["k1"] = "Fred"
+	testKV["k2"] = "Fred"
+	testKV["k3"] = "Fred"
+	newKV := make(map[string]string)
+	for k, v := range testKV {
+		newKV[k] = v
+	}
+	newKV["k1"] = "hhhhh"
+
+	testTree := func(data map[string]string, tree *ImmutableTree) {
+		for k, v := range data {
+			_, value := tree.Get([]byte(k))
+			require.Equal(t, value, []byte(v))
+		}
+	}
+
+
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 100)
 	require.NoError(t, err)
 	//
 	//_, _, err = tree.SaveVersion()
 	//require.NoError(t, err)
-
-	tree.Set([]byte("k1"), []byte("Fred"))
-	tree.Set([]byte("k2"), []byte("Fred"))
-	tree.Set([]byte("k3"), []byte("Fred"))
+	for k, v := range testKV {
+		tree.set([]byte(k), []byte(v))
+	}
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 	oldVersion := tree.version
@@ -279,19 +296,23 @@ func TestSaveVersion(t *testing.T) {
 	newTree, err := tree.GetImmutable(tree.version)
 	require.Equal(t, 5, oldTree.nodeSize())
 	require.Equal(t, 5, newTree.nodeSize())
-	_, oldValue := oldTree.Get([]byte("k1"))
-	require.Equal(t, oldValue, []byte("Fred"))
-	_, oldValue2 := oldTree.Get([]byte("k2"))
-	require.Equal(t, oldValue2, []byte("Fred"))
-	_, oldValue3 := oldTree.Get([]byte("k3"))
-	require.Equal(t, oldValue3, []byte("Fred"))
+	testTree(testKV, oldTree)
+	testTree(newKV, newTree)
 
-	_, newValue := newTree.Get([]byte("k1"))
-	require.Equal(t, newValue, []byte("hhhhh"))
-	_, newValue2 := newTree.Get([]byte("k2"))
-	require.Equal(t, newValue2, []byte("Fred"))
-	_, newValue3 := newTree.Get([]byte("k3"))
-	require.Equal(t, newValue3, []byte("Fred"))
+	for i:=0; i<10; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+	for i:=0; i<200; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+		for  j:=0; j<8; j++ {
+			tree, err := tree.GetImmutable(tree.version - int64(j))
+			require.NoError(t, err)
+			testTree(newKV, tree)
+		}
+
+	}
 
 }
 
