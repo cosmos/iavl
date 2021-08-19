@@ -281,9 +281,17 @@ func TestSaveVersion(t *testing.T) {
 	require.Equal(t, 5, newTree.nodeSize())
 	_, oldValue := oldTree.Get([]byte("k1"))
 	require.Equal(t, oldValue, []byte("Fred"))
+	_, oldValue2 := oldTree.Get([]byte("k2"))
+	require.Equal(t, oldValue2, []byte("Fred"))
+	_, oldValue3 := oldTree.Get([]byte("k3"))
+	require.Equal(t, oldValue3, []byte("Fred"))
 
 	_, newValue := newTree.Get([]byte("k1"))
 	require.Equal(t, newValue, []byte("hhhhh"))
+	_, newValue2 := newTree.Get([]byte("k2"))
+	require.Equal(t, newValue2, []byte("Fred"))
+	_, newValue3 := newTree.Get([]byte("k3"))
+	require.Equal(t, newValue3, []byte("Fred"))
 
 }
 

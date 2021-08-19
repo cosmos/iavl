@@ -490,16 +490,15 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				return nil, 0, err
 			}
 		}
+
+		if err := tree.ndb.Commit(); err != nil {
+			return nil, version, err
+		}
 	} else {
 		if tree.root != nil {
 			tree.ndb.UpdateBranch(tree.root)
 			tree.ndb.SaveOrphans(version, tree.orphans)
 		}
-	}
-
-
-	if err := tree.ndb.Commit(); err != nil {
-		return nil, version, err
 	}
 
 	tree.version = version
@@ -512,7 +511,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	rootHash := tree.Hash()
 	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
-
+	fmt.Println("version:", tree.version,
+		", nodeCacheSize:", len(tree.ndb.nodeCache),
+		", orphansNodeCacheSize:", len(tree.ndb.orphanNodeCache),
+		", prePersistNodeCacheSize:", len(tree.ndb.prePersistNodeCache),
+		", heightOrphansItemNumbers:", len(tree.ndb.heightOrphansMap))
 	return tree.Hash(), version, nil
 }
 
