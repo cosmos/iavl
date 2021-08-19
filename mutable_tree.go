@@ -511,7 +511,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.orphans = []*Node{}
 
 	rootHash := tree.Hash()
-	tree.ndb.SetHeightOrphansItem(version, rootHash)
+	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
 
 	return tree.Hash(), version, nil
 }
@@ -577,18 +577,6 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 // An error is returned if any single version has active readers.
 // All writes happen in a single batch with a single commit.
 func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error {
-	if err := tree.ndb.DeleteVersionsRange(fromVersion, toVersion); err != nil {
-		return err
-	}
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	for version := fromVersion; version < toVersion; version++ {
-		delete(tree.versions, version)
-	}
-
 	return nil
 }
 

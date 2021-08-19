@@ -40,7 +40,7 @@ var (
 type heightOrphansItem struct {
 	version  int64
 	rootHash []byte
-	orphans  []*Node //orphans 存储重新设计，看弄成什么样一个map用于查询，还需要按照高度索引相关节点，两重索引
+	orphans  []*Node
 }
 
 type nodeDB struct {
@@ -573,7 +573,7 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 
 	// We allow the initial version to be arbitrary
 	latest := ndb.getLatestVersion()
-	if latest > 0 && version != latest+1 {
+	if latest > 0 && version != latest + CommitIntervalHeight {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 	}
 
@@ -730,14 +730,14 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans []*Node) {
 	}
 }
 
-func (ndb *nodeDB) SetHeightOrphansItem(version int64, rootHash []byte) {
+func (ndb *nodeDB) SetHeightOrphansItem(version int64, rootHash []byte, versionMap map[int64]bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	orphanObj := &heightOrphansItem{
 		version:  version,
 		rootHash: rootHash,
 	}
-	ndb.heightOrphansCacheQueue.PushBack(&orphanObj)
+	ndb.heightOrphansCacheQueue.PushBack(orphanObj)
 	ndb.heightOrphansMap[version] = orphanObj
 
 	for ndb.heightOrphansCacheQueue.Len() > ndb.heightOrphansCacheSize {
@@ -747,6 +747,7 @@ func (ndb *nodeDB) SetHeightOrphansItem(version int64, rootHash []byte) {
 			delete(ndb.orphanNodeCache, string(node.hash))
 		}
 		delete(ndb.heightOrphansMap, oldHeightOrphanItem.version)
+		delete(versionMap, oldHeightOrphanItem.version)
 	}
 }
 

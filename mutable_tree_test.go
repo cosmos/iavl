@@ -253,3 +253,84 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 		t.Set(randBytes(10), []byte{})
 	}
 }
+
+func TestSaveVersion(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 100)
+	require.NoError(t, err)
+	//
+	//_, _, err = tree.SaveVersion()
+	//require.NoError(t, err)
+
+	tree.Set([]byte("k1"), []byte("Fred"))
+	tree.Set([]byte("k2"), []byte("Fred"))
+	tree.Set([]byte("k3"), []byte("Fred"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	oldVersion := tree.version
+
+	tree.Set([]byte("k1"), []byte("hhhhh"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	oldTree, err := tree.GetImmutable(oldVersion)
+	require.NoError(t, err)
+
+	newTree, err := tree.GetImmutable(tree.version)
+	require.Equal(t, 5, oldTree.nodeSize())
+	require.Equal(t, 5, newTree.nodeSize())
+	_, oldValue := oldTree.Get([]byte("k1"))
+	require.Equal(t, oldValue, []byte("Fred"))
+
+	_, newValue := newTree.Get([]byte("k1"))
+	require.Equal(t, newValue, []byte("hhhhh"))
+
+}
+
+
+func TestSaveVersionCommitIntervalHeight(t *testing.T) {
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 10000)
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	tree.Set([]byte("k1"), []byte("Fred"))
+	tree.Set([]byte("k2"), []byte("Fred"))
+	tree.Set([]byte("k3"), []byte("Fred"))
+	//    k1
+	//  k1   k2
+	//     k2  k3
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	tree.Set([]byte("k2"), []byte("hhhhh"))
+	_, _, err = tree.SaveVersion()
+
+	require.Equal(t, 5, len(tree.ndb.prePersistNodeCache))
+	require.Equal(t, 0, len(tree.ndb.nodeCache))
+	require.Equal(t, 3, len(tree.ndb.orphanNodeCache))
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	require.NoError(t, err)
+	for i:=0; i<96; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, 0, len(tree.ndb.prePersistNodeCache))
+	require.Equal(t, 5, len(tree.ndb.nodeCache))
+	require.Equal(t, 0, len(tree.ndb.orphanNodeCache))
+	tree.Set([]byte("k5"), []byte("5555555555"))
+	for i:=0; i<98; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+}
