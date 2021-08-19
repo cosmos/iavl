@@ -511,8 +511,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	rootHash := tree.Hash()
 	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
+
 	fmt.Println("db prefix:", tree.ndb.db,
-		", version:", tree.version,
+		"\n version:", tree.version,
 		", nodeCacheSize:", len(tree.ndb.nodeCache),
 		", orphansNodeCacheSize:", len(tree.ndb.orphanNodeCache),
 		", prePersistNodeCacheSize:", len(tree.ndb.prePersistNodeCache),
