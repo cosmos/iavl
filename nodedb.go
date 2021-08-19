@@ -724,7 +724,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans []*Node) {
 		orphansObj.orphans = orphans
 	}
 	for _, node := range orphans {
-		ndb.orphanNodeCache[string(node.key)] = node
+		ndb.orphanNodeCache[string(node.hash)] = node
 		ndb.uncacheNode(node.hash)
 		delete(ndb.prePersistNodeCache, string(node.hash))
 	}
