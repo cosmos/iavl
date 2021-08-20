@@ -535,6 +535,8 @@ func (ndb *nodeDB) Commit() error {
 }
 
 func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	orphansObj := ndb.heightOrphansMap[version]
 	if orphansObj != nil {
 		return orphansObj.rootHash, nil
@@ -543,6 +545,8 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 }
 
 func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	roots := map[int64][]byte{}
 
 	ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) {
@@ -550,6 +554,9 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 		rootKeyFormat.Scan(k, &version)
 		roots[version] = v
 	})
+	for version, item := range ndb.heightOrphansMap {
+		roots[version] = item.rootHash
+	}
 	return roots, nil
 }
 
