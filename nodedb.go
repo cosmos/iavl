@@ -733,6 +733,9 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans []*Node) {
 func (ndb *nodeDB) SetHeightOrphansItem(version int64, rootHash []byte, versionMap map[int64]bool) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	if rootHash == nil {
+		rootHash = []byte{}
+	}
 	orphanObj := &heightOrphansItem{
 		version:  version,
 		rootHash: rootHash,
