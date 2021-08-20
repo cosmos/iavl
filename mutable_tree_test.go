@@ -255,15 +255,22 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 }
 
 func TestSaveVersion(t *testing.T) {
-	testKV := make(map[string]string)
-	testKV["k1"] = "Fred"
-	testKV["k2"] = "Fred"
-	testKV["k3"] = "Fred"
-	newKV := make(map[string]string)
-	for k, v := range testKV {
-		newKV[k] = v
+	originData := make(map[string]string)
+	for i:=0 ; i<100; i++ {
+		key := randstr(5)
+		value := randstr(5)
+		originData[key] = value
 	}
-	newKV["k1"] = "hhhhh"
+	originData["k1"] = "Fred"
+	originData["k2"] = "Fred"
+	originData["k3"] = "Fred"
+	modifiedData := make(map[string]string)
+	for k, v := range originData {
+		modifiedData[k] = v
+	}
+	modifiedData["k1"] = "hhhhh"
+	modifiedData["k2"] = "hhhhh"
+	modifiedData["k3"] = "hhhhh"
 
 	testTree := func(data map[string]string, tree *ImmutableTree) {
 		for k, v := range data {
@@ -279,7 +286,7 @@ func TestSaveVersion(t *testing.T) {
 	//
 	//_, _, err = tree.SaveVersion()
 	//require.NoError(t, err)
-	for k, v := range testKV {
+	for k, v := range originData {
 		tree.set([]byte(k), []byte(v))
 	}
 	_, _, err = tree.SaveVersion()
@@ -287,6 +294,11 @@ func TestSaveVersion(t *testing.T) {
 	oldVersion := tree.version
 
 	tree.Set([]byte("k1"), []byte("hhhhh"))
+	tree.Set([]byte("k2"), []byte("hhhhh"))
+	tree.Set([]byte("k3"), []byte("hhhhh"))
+	tree.Remove([]byte("k1"))
+	delete(modifiedData, "k1")
+
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
@@ -294,10 +306,9 @@ func TestSaveVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	newTree, err := tree.GetImmutable(tree.version)
-	require.Equal(t, 5, oldTree.nodeSize())
-	require.Equal(t, 5, newTree.nodeSize())
-	testTree(testKV, oldTree)
-	testTree(newKV, newTree)
+	//require.Equal(t, oldTree.nodeSize(), newTree.nodeSize())
+	testTree(originData, oldTree)
+	testTree(modifiedData, newTree)
 
 	for i:=0; i<10; i++ {
 		_, _, err = tree.SaveVersion()
@@ -309,7 +320,7 @@ func TestSaveVersion(t *testing.T) {
 		for  j:=0; j<8; j++ {
 			tree, err := tree.GetImmutable(tree.version - int64(j))
 			require.NoError(t, err)
-			testTree(newKV, tree)
+			testTree(modifiedData, tree)
 		}
 
 	}
@@ -362,4 +373,20 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+}
+
+func TestConcurrentGetNode(t *testing.T) {
+
+}
+
+func TestParseDBName(t *testing.T) {
+	str := "staking"
+	memDB := db.NewMemDB()
+	prefixDB := db.NewPrefixDB(memDB, []byte(str))
+
+	result := ParseDBName(prefixDB)
+	require.Equal(t, str, result)
+
+	result2 := ParseDBName(memDB)
+	require.Equal(t, "", result2)
 }

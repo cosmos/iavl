@@ -3,8 +3,11 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	dbm "github.com/tendermint/tm-db"
 	"os"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -167,4 +170,27 @@ func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string
 		}
 	}
 	return s
+}
+
+
+func ParseDBName(db dbm.DB) string {
+	originStr := fmt.Sprintln(db)
+	originReg := regexp.MustCompile(`\[.*\]`)
+	originSlice := originReg.FindAllString(originStr, -1)
+	if len(originSlice) == 0 {
+		return ""
+	}
+	numReg := regexp.MustCompile(`[\d]+`)
+	numberSlice := numReg.FindAllString(originSlice[0], -1)
+	var result []rune
+	for _, str := range numberSlice {
+		value, err := strconv.Atoi(str)
+
+		if err != nil {
+			return string(result)
+		}
+		result = append(result, rune(value))
+	}
+	return string(result)
+
 }
