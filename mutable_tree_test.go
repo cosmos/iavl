@@ -379,6 +379,47 @@ func TestConcurrentGetNode(t *testing.T) {
 
 }
 
+func TestShareNode(t *testing.T) {
+	CommitIntervalHeight = 10
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 10000)
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	tree.Set([]byte("k1"), []byte("Fred"))
+	tree.Set([]byte("k2"), []byte("Fred"))
+	tree.Set([]byte("k3"), []byte("Fred"))
+	//    k1
+	//  k1   k2
+	//     k2  k3
+
+	_, oldVersion, err := tree.SaveVersion()
+	require.NoError(t, err)
+	tree.Set([]byte("k2"), []byte("hhhhh"))
+	_, _, err = tree.SaveVersion()
+
+	oldTree, err := tree.GetImmutable(oldVersion)
+	require.NoError(t, err)
+
+	oldK1Node := oldTree.root.getLeftNode(oldTree)
+	newK1Node := tree.root.getLeftNode(tree.ImmutableTree)
+	require.Equal(t, oldK1Node, newK1Node)
+	nodeDBK1Node := tree.ndb.GetNode(oldK1Node.hash)
+	require.Equal(t, oldK1Node, nodeDBK1Node)
+
+	for i:=0; i<10; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+	oldK1Node = oldTree.root.getLeftNode(oldTree)
+	newK1Node = tree.root.getLeftNode(tree.ImmutableTree)
+	require.Equal(t, oldK1Node, newK1Node)
+	nodeDBK1Node = tree.ndb.GetNode(oldK1Node.hash)
+	require.Equal(t, oldK1Node, nodeDBK1Node)
+
+}
+
 func TestParseDBName(t *testing.T) {
 	str := "staking"
 	memDB := db.NewMemDB()
