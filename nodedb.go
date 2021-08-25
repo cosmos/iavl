@@ -61,6 +61,8 @@ type nodeDB struct {
 	heightOrphansMap        map[int64]*heightOrphansItem
 
 	prePersistNodeCache map[string]*Node
+
+	isInitSavedVersion bool
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -82,6 +84,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		heightOrphansCacheSize:  HeightOrphansCacheSize,
 		heightOrphansMap:        make(map[int64]*heightOrphansItem),
 		prePersistNodeCache:     make(map[string]*Node),
+		isInitSavedVersion:      true,
 	}
 }
 
@@ -580,12 +583,14 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 
 	// We allow the initial version to be arbitrary
 	latest := ndb.getLatestVersion()
-	if latest > 0 && version != latest + CommitIntervalHeight {
+	if latest > 0 && version != latest+CommitIntervalHeight && (!ndb.isInitSavedVersion) {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 	}
 
 	ndb.batch.Set(ndb.rootKey(version), hash)
 	ndb.updateLatestVersion(version)
+
+	ndb.isInitSavedVersion = false
 	return nil
 }
 
