@@ -517,7 +517,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		", nodeCacheSize:", len(tree.ndb.nodeCache),
 		", orphansNodeCacheSize:", len(tree.ndb.orphanNodeCache),
 		", prePersistNodeCacheSize:", len(tree.ndb.prePersistNodeCache),
-		", heightOrphansItemNumbers:", len(tree.ndb.heightOrphansMap))
+		", heightOrphansItemNumbers:", len(tree.ndb.heightOrphansMap),
+		", dbReadCount:", tree.ndb.GetDBReadCount(),
+		", dbWriteCount:", tree.ndb.GetDBWriteCount(),
+	)
+	tree.ndb.resetDBReadCount()
+	tree.ndb.resetDBWriteCount()
 	return tree.Hash(), version, nil
 }
 

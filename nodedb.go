@@ -63,6 +63,8 @@ type nodeDB struct {
 	prePersistNodeCache map[string]*Node
 
 	isInitSavedVersion bool
+	dbReadCount        int
+	dbWriteCount       int
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -85,6 +87,8 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		heightOrphansMap:        make(map[int64]*heightOrphansItem),
 		prePersistNodeCache:     make(map[string]*Node),
 		isInitSavedVersion:      true,
+		dbReadCount:             0,
+		dbWriteCount:            0,
 	}
 }
 
@@ -112,6 +116,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(ndb.nodeKey(hash))
+	ndb.addDBReadCount()
 	if err != nil {
 		panic(fmt.Sprintf("can't get node %X: %v", hash, err))
 	}
@@ -154,6 +159,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
 	debug("BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
+	ndb.addDBWriteCount()
 	ndb.cacheNode(node)
 }
 
@@ -795,4 +801,28 @@ func (ndb *nodeDB) PersistNodeFromPrePersistCache() {
 		ndb.SaveNode(node)
 	}
 	ndb.prePersistNodeCache = map[string]*Node{}
+}
+
+func (ndb *nodeDB) addDBReadCount() {
+	ndb.dbReadCount ++
+}
+
+func (ndb *nodeDB) addDBWriteCount() {
+	ndb.dbWriteCount ++
+}
+
+func (ndb *nodeDB) resetDBReadCount() {
+	ndb.dbReadCount = 0
+}
+
+func (ndb *nodeDB) resetDBWriteCount() {
+	ndb.dbWriteCount = 0
+}
+
+func (ndb *nodeDB) GetDBReadCount() int {
+	return ndb.dbReadCount
+}
+
+func (ndb *nodeDB) GetDBWriteCount() int {
+	return ndb.dbWriteCount
 }
