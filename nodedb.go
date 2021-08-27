@@ -875,20 +875,22 @@ func (ndb *nodeDB) GetNodeReadCount() int {
 
 func (ndb *nodeDB) PrintCacheLog(version int64) {
 	nodeReadCount := ndb.GetNodeReadCount()
-	if nodeReadCount == 0 {
-		nodeReadCount = 1
-	}
 	cacheReadCount := ndb.GetNodeReadCount() - ndb.GetDBReadCount()
-	fmt.Println("db prefix:", ParseDBName(ndb.db),
-		" version:", version,
-		", nodeCacheSize:", len(ndb.nodeCache),
-		", orphansNodeCacheSize:", len(ndb.orphanNodeCache),
-		", prePersistNodeCacheSize:", len(ndb.prePersistNodeCache),
-		", tempPrePersistNodeCacheSize", len(ndb.tempPrePersistNodeCache),
-		", dbReadCount:", ndb.GetDBReadCount(),
-		", dbWriteCount:", ndb.GetDBWriteCount(),
-		", cacheHitRate:", fmt.Sprintf("%.2f%%", float64(cacheReadCount) / float64(nodeReadCount) * 100),
-	)
+	printLog := fmt.Sprintf("db prefix: %s", ParseDBName(ndb.db))
+	printLog += fmt.Sprintf(" version: %d", version)
+	printLog += fmt.Sprintf(", nodeCacheSize: %d", len(ndb.nodeCache))
+	printLog += fmt.Sprintf(", orphansNodeCacheSize: %d", len(ndb.orphanNodeCache))
+	printLog += fmt.Sprintf(", prePersistNodeCacheSize: %d", len(ndb.prePersistNodeCache))
+	printLog += fmt.Sprintf(", tempPrePersistNodeCacheSize %d", len(ndb.tempPrePersistNodeCache))
+	printLog += fmt.Sprintf(", dbReadCount: %d", ndb.GetDBReadCount())
+	printLog += fmt.Sprintf(", dbWriteCount: %d", ndb.GetDBWriteCount())
+
+	if nodeReadCount > 0 {
+		printLog += fmt.Sprintf(", cacheHitRate: %.2f%%", float64(cacheReadCount) / float64(nodeReadCount) * 100)
+	} else {
+		printLog += fmt.Sprintf(", cacheHitRate: 0 read")
+	}
+	fmt.Println(printLog)
 	ndb.resetDBReadCount()
 	ndb.resetDBWriteCount()
 	ndb.resetNodeReadCount()
