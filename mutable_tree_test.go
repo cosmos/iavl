@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -362,8 +363,12 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(tree.ndb.prePersistNodeCache))
-	require.Equal(t, 5, len(tree.ndb.nodeCache))
+	require.Equal(t, 0, len(tree.ndb.nodeCache))
+	require.Equal(t, 5, len(tree.ndb.tempPrePersistNodeCache))
 	require.Equal(t, 0, len(tree.ndb.orphanNodeCache))
+	time.Sleep(time.Millisecond * 500)
+	require.Equal(t, 5, len(tree.ndb.nodeCache))
+	require.Equal(t, 0, len(tree.ndb.tempPrePersistNodeCache))
 	tree.Set([]byte("k5"), []byte("5555555555"))
 	for i:=0; i<98; i++ {
 		_, _, err = tree.SaveVersion()
@@ -431,3 +436,4 @@ func TestParseDBName(t *testing.T) {
 	result2 := ParseDBName(memDB)
 	require.Equal(t, "", result2)
 }
+

@@ -3,9 +3,8 @@ package iavl
 import (
 	"bytes"
 	"fmt"
-	"sort"
-
 	"github.com/pkg/errors"
+	"sort"
 
 	dbm "github.com/tendermint/tm-db"
 )
@@ -381,7 +380,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
-	if err = tree.ndb.Commit(); err != nil {
+	if err = tree.ndb.Commit(tree.ndb.batch); err != nil {
 		return latestVersion, err
 	}
 
@@ -484,16 +483,22 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		} else {
 			debug("SAVE TREE %v\n", version)
 			tree.ndb.UpdateBranch(tree.root)
-			tree.ndb.PersistNodeFromPrePersistCache()
 			tree.ndb.SaveOrphans(version, tree.orphans)
+			tree.ndb.MovePrePersistCacheToTempCache()
 			if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
 				return nil, 0, err
 			}
 		}
+			go func() {
+				tree.ndb.tempPrePersistNodeCacheMtx.Lock()
+				batch := tree.ndb.BatchSetPrePersistCache()
+				if err := tree.ndb.Commit(batch); err != nil {
+					panic(err)
+				}
+				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
+				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
+			}()
 
-		if err := tree.ndb.Commit(); err != nil {
-			return nil, version, err
-		}
 	} else {
 		if tree.root != nil {
 			tree.ndb.UpdateBranch(tree.root)
@@ -512,18 +517,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	rootHash := tree.Hash()
 	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
 
-	fmt.Println("db prefix:", ParseDBName(tree.ndb.db),
-		" version:", tree.version,
-		", nodeCacheSize:", len(tree.ndb.nodeCache),
-		", orphansNodeCacheSize:", len(tree.ndb.orphanNodeCache),
-		", prePersistNodeCacheSize:", len(tree.ndb.prePersistNodeCache),
-		", heightOrphansItemNumbers:", len(tree.ndb.heightOrphansMap),
-		", dbReadCount:", tree.ndb.GetDBReadCount(),
-		", dbWriteCount:", tree.ndb.GetDBWriteCount(),
-	)
-	tree.ndb.resetDBReadCount()
-	tree.ndb.resetDBWriteCount()
-	return tree.Hash(), version, nil
+	tree.PrintVersionLog()
+	return rootHash, version, nil
+}
+
+func (tree *MutableTree) PrintVersionLog() {
+	tree.ndb.PrintCacheLog(tree.version)
 }
 
 func (tree *MutableTree) deleteVersion(version int64) error {
@@ -599,7 +598,7 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return err
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err := tree.ndb.Commit(tree.ndb.batch); err != nil {
 		return err
 	}
 

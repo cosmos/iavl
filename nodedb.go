@@ -60,10 +60,13 @@ type nodeDB struct {
 	heightOrphansCacheSize  int
 	heightOrphansMap        map[int64]*heightOrphansItem
 
-	prePersistNodeCache map[string]*Node
+	prePersistNodeCache        map[string]*Node
+	tempPrePersistNodeCache    map[string]*Node
+	tempPrePersistNodeCacheMtx sync.Mutex
 
 	isInitSavedVersion bool
 	dbReadCount        int
+	nodeReadCount      int
 	dbWriteCount       int
 }
 
@@ -86,6 +89,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		heightOrphansCacheSize:  HeightOrphansCacheSize,
 		heightOrphansMap:        make(map[int64]*heightOrphansItem),
 		prePersistNodeCache:     make(map[string]*Node),
+		tempPrePersistNodeCache: make(map[string]*Node),
 		isInitSavedVersion:      true,
 		dbReadCount:             0,
 		dbWriteCount:            0,
@@ -97,7 +101,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-
+	ndb.addNodeReadCount()
 	if len(hash) == 0 {
 		panic("nodeDB.GetNode() requires hash")
 	}
@@ -111,6 +115,9 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 		return elem.Value.(*Node)
 	}
 	if elem, ok := ndb.orphanNodeCache[string(hash)]; ok {
+		return elem
+	}
+	if elem, ok := ndb.tempPrePersistNodeCache[string(hash)]; ok {
 		return elem
 	}
 
@@ -136,32 +143,32 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	return node
 }
 
-// SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *Node) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	if node.hash == nil {
-		panic("Expected to find node.hash, but none found.")
-	}
-	if node.persisted {
-		panic("Shouldn't be calling save on an already persisted node.")
-	}
-
-	// Save node bytes to db.
-	var buf bytes.Buffer
-	buf.Grow(node.aminoSize())
-
-	if err := node.writeBytes(&buf); err != nil {
-		panic(err)
-	}
-
-	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
-	debug("BATCH SAVE %X %p\n", node.hash, node)
-	node.persisted = true
-	ndb.addDBWriteCount()
-	ndb.cacheNode(node)
-}
+//// SaveNode saves a node to disk.
+//func (ndb *nodeDB) SaveNode(node *Node) {
+//	ndb.mtx.Lock()
+//	defer ndb.mtx.Unlock()
+//
+//	if node.hash == nil {
+//		panic("Expected to find node.hash, but none found.")
+//	}
+//	if node.persisted {
+//		panic("Shouldn't be calling save on an already persisted node.")
+//	}
+//
+//	// Save node bytes to db.
+//	var buf bytes.Buffer
+//	buf.Grow(node.aminoSize())
+//
+//	if err := node.writeBytes(&buf); err != nil {
+//		panic(err)
+//	}
+//
+//	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+//	debug("BATCH SAVE %X %p\n", node.hash, node)
+//	node.persisted = true
+//	ndb.addDBWriteCount()
+//	ndb.cacheNode(node)
+//}
 
 // Has checks if a hash exists in the database.
 func (ndb *nodeDB) Has(hash []byte) (bool, error) {
@@ -180,31 +187,6 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	}
 
 	return value != nil, nil
-}
-
-// SaveBranch saves the given node and all of its descendants.
-// NOTE: This function clears leftNode/rigthNode recursively and
-// calls _hash() on the given node.
-// TODO refactor, maybe use hashWithCount() but provide a callback.
-func (ndb *nodeDB) SaveBranch(node *Node) []byte {
-	if node.persisted {
-		return node.hash
-	}
-
-	if node.leftNode != nil {
-		node.leftHash = ndb.SaveBranch(node.leftNode)
-	}
-	if node.rightNode != nil {
-		node.rightHash = ndb.SaveBranch(node.rightNode)
-	}
-
-	node._hash()
-	ndb.SaveNode(node)
-
-	node.leftNode = nil
-	node.rightNode = nil
-
-	return node.hash
 }
 
 // DeleteVersion deletes a tree version from disk.
@@ -523,22 +505,19 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 }
 
 // Write to disk.
-func (ndb *nodeDB) Commit() error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
+func (ndb *nodeDB) Commit(batch dbm.Batch) error {
 	var err error
 	if ndb.opts.Sync {
-		err = ndb.batch.WriteSync()
+		err = batch.WriteSync()
 	} else {
-		err = ndb.batch.Write()
+		err = batch.Write()
 	}
 	if err != nil {
 		return errors.Wrap(err, "failed to write batch")
 	}
 
-	ndb.batch.Close()
-	ndb.batch = ndb.db.NewBatch()
+	batch.Close()
+
 
 	return nil
 }
@@ -785,7 +764,7 @@ func (ndb *nodeDB) SaveNodeToPrePersistCache(node *Node) {
 	if node.hash == nil {
 		panic("Expected to find node.hash, but none found.")
 	}
-	if node.persisted {
+	if node.persisted || node.prePersisted {
 		panic("Shouldn't be calling save on an already persisted node.")
 	}
 
@@ -793,14 +772,69 @@ func (ndb *nodeDB) SaveNodeToPrePersistCache(node *Node) {
 	ndb.prePersistNodeCache[string(node.hash)] = node
 }
 
-func (ndb *nodeDB) PersistNodeFromPrePersistCache() {
-	for _, node := range ndb.prePersistNodeCache {
+func (ndb *nodeDB) BatchSetPrePersistCache() dbm.Batch {
+	batch := ndb.db.NewBatch()
+	for _, node := range ndb.tempPrePersistNodeCache {
 		if node.persisted || (!node.prePersisted) {
 			panic("unexpected logic")
 		}
-		ndb.SaveNode(node)
+		ndb.BatchSet(node, batch)
 	}
+	return batch
+}
+
+func (ndb *nodeDB) SaveNodeFromPrePersistNodeCacheToNodeCache() {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	for _, node := range ndb.tempPrePersistNodeCache {
+		if !node.persisted {
+			panic("unexpected logic")
+		}
+		ndb.cacheNode(node)
+	}
+	ndb.tempPrePersistNodeCache = make(map[string]*Node)
+}
+
+
+
+// SaveNode saves a node to disk.
+func (ndb *nodeDB) BatchSet(node *Node, batch dbm.Batch) {
+	//ndb.mtx.Lock()
+	//defer ndb.mtx.Unlock()
+
+	if node.hash == nil {
+		panic("Expected to find node.hash, but none found.")
+	}
+	if node.persisted {
+		panic("Shouldn't be calling save on an already persisted node.")
+	}
+
+	if !node.prePersisted {
+		panic("Should be calling save on an prePersisted node.")
+	}
+
+	// Save node bytes to db.
+	var buf bytes.Buffer
+	buf.Grow(node.aminoSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		panic(err)
+	}
+
+	batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	debug("BATCH SAVE %X %p\n", node.hash, node)
+	node.persisted = true
+	ndb.addDBWriteCount()
+}
+
+func (ndb *nodeDB) MovePrePersistCacheToTempCache() {
+	ndb.tempPrePersistNodeCacheMtx.Lock()
+	ndb.mtx.Lock()
+	ndb.tempPrePersistNodeCache = ndb.prePersistNodeCache
 	ndb.prePersistNodeCache = map[string]*Node{}
+	ndb.mtx.Unlock()
+	ndb.tempPrePersistNodeCacheMtx.Unlock()
 }
 
 func (ndb *nodeDB) addDBReadCount() {
@@ -811,6 +845,10 @@ func (ndb *nodeDB) addDBWriteCount() {
 	ndb.dbWriteCount ++
 }
 
+func (ndb *nodeDB) addNodeReadCount() {
+	ndb.nodeReadCount ++
+}
+
 func (ndb *nodeDB) resetDBReadCount() {
 	ndb.dbReadCount = 0
 }
@@ -819,10 +857,39 @@ func (ndb *nodeDB) resetDBWriteCount() {
 	ndb.dbWriteCount = 0
 }
 
+func (ndb *nodeDB) resetNodeReadCount() {
+	ndb.nodeReadCount = 0
+}
+
 func (ndb *nodeDB) GetDBReadCount() int {
 	return ndb.dbReadCount
 }
 
 func (ndb *nodeDB) GetDBWriteCount() int {
 	return ndb.dbWriteCount
+}
+
+func (ndb *nodeDB) GetNodeReadCount() int {
+	return ndb.nodeReadCount
+}
+
+func (ndb *nodeDB) PrintCacheLog(version int64) {
+	nodeReadCount := ndb.GetNodeReadCount()
+	if nodeReadCount == 0 {
+		nodeReadCount = 1
+	}
+	cacheReadCount := ndb.GetNodeReadCount() - ndb.GetDBReadCount()
+	fmt.Println("db prefix:", ParseDBName(ndb.db),
+		" version:", version,
+		", nodeCacheSize:", len(ndb.nodeCache),
+		", orphansNodeCacheSize:", len(ndb.orphanNodeCache),
+		", prePersistNodeCacheSize:", len(ndb.prePersistNodeCache),
+		", tempPrePersistNodeCacheSize", len(ndb.tempPrePersistNodeCache),
+		", dbReadCount:", ndb.GetDBReadCount(),
+		", dbWriteCount:", ndb.GetDBWriteCount(),
+		", cacheHitRate:", fmt.Sprintf("%.2f%%", float64(cacheReadCount) / float64(nodeReadCount) * 100),
+	)
+	ndb.resetDBReadCount()
+	ndb.resetDBWriteCount()
+	ndb.resetNodeReadCount()
 }
