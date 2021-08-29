@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"sort"
+	"time"
 
 	dbm "github.com/tendermint/tm-db"
 )
@@ -495,7 +496,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				if err := tree.ndb.Commit(batch); err != nil {
 					panic(err)
 				}
+				fmt.Println(version, "saveNodeToNodeCache start")
+				startTime := time.Now()
 				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
+				fmt.Println(version, "saveNodeToNodeCache end")
+				fmt.Println(version, "saveNodeToNodeCacheTime:", time.Since(startTime))
 				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
 			}()
 
