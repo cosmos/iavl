@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"sort"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -29,6 +30,8 @@ type MutableTree struct {
 	versions       map[int64]bool   // The previous, saved versions of the tree.
 	allRootLoaded  bool             // Whether all roots are loaded or not(by LazyLoadVersion)
 	ndb            *nodeDB
+
+	mtx sync.RWMutex // versions Read/write lock.
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -59,6 +62,9 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
+	tree.mtx.RLock()
+	defer tree.mtx.RUnlock()
+
 	if tree.allRootLoaded {
 		return tree.versions[version]
 	}
@@ -74,6 +80,9 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 
 // AvailableVersions returns all available versions in ascending order
 func (tree *MutableTree) AvailableVersions() []int {
+	tree.mtx.RLock()
+	defer tree.mtx.RUnlock()
+
 	res := make([]int, 0, len(tree.versions))
 	for i, v := range tree.versions {
 		if v {
@@ -318,6 +327,8 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 		return latestVersion, ErrVersionDoesNotExist
 	}
 
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 	tree.versions[targetVersion] = true
 
 	iTree := &ImmutableTree{
@@ -353,6 +364,9 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 
 	firstVersion := int64(0)
 	latestVersion := int64(0)
+
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 
 	var latestRoot []byte
 	for version, r := range roots {
@@ -411,6 +425,9 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 
 	tree.ndb.resetLatestVersion(latestVersion)
 
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
+
 	for v := range tree.versions {
 		if v > targetVersion {
 			delete(tree.versions, v)
@@ -429,7 +446,11 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 	}
 	if rootHash == nil {
 		return nil, ErrVersionDoesNotExist
-	} else if len(rootHash) == 0 {
+	}
+
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
+	if len(rootHash) == 0 {
 		tree.versions[version] = true
 		return &ImmutableTree{
 			ndb:     tree.ndb,
@@ -526,6 +547,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, err
 	}
 
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 	tree.version = version
 	tree.versions[version] = true
 
@@ -605,6 +628,8 @@ func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error
 		return err
 	}
 
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 	for version := fromVersion; version < toVersion; version++ {
 		delete(tree.versions, version)
 	}
@@ -625,6 +650,8 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return err
 	}
 
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 	delete(tree.versions, version)
 	return nil
 }
