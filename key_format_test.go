@@ -68,3 +68,35 @@ func TestOverflow(t *testing.T) {
 	assert.Equal(t, a, *ao)
 	assert.Equal(t, int64(b), *bo)
 }
+
+func benchmarkKeyFormatBytes(b *testing.B, kf *KeyFormat, segments ...[]byte) {
+	for i := 0; i < b.N; i++ {
+		kf.KeyBytes(segments...)
+	}
+}
+
+func BenchmarkKeyFormat_KeyBytesOneSegment(b *testing.B) {
+	benchmarkKeyFormatBytes(b, NewKeyFormat('e', 8, 8, 8), nil)
+}
+
+func BenchmarkKeyFormat_KeyBytesThreeSegment(b *testing.B) {
+	segments := [][]byte{
+		{1, 2, 3, 4, 5, 6, 7, 8},
+		{1, 2, 3, 4, 5, 6, 7, 8},
+		{1, 1, 2, 2, 3, 3},
+	}
+	benchmarkKeyFormatBytes(b, NewKeyFormat('e', 8, 8, 8), segments...)
+}
+
+func BenchmarkKeyFormat_KeyBytesOneSegmentWithVariousLayouts(b *testing.B) {
+	benchmarkKeyFormatBytes(b, NewKeyFormat('e', 8, 16, 32), nil)
+}
+
+func BenchmarkKeyFormat_KeyBytesThreeSegmentWithVariousLayouts(b *testing.B) {
+	segments := [][]byte{
+		{1, 2, 3, 4, 5, 6, 7, 8},
+		{1, 2, 3, 4, 5, 6, 7, 8},
+		{1, 1, 2, 2, 3, 3},
+	}
+	benchmarkKeyFormatBytes(b, NewKeyFormat('e', 8, 16, 32), segments...)
+}
