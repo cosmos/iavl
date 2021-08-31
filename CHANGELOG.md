@@ -3,10 +3,16 @@
 
 ## Unreleased
 
+## 0.17.0 (August 31, 2021)
+
+### Improvements
+
+- Various performance improvements. Credits: Orijtech.
+- Updating dependencies
+
 ### CLI Breaking Changes
 
 - [\#396](https://github.com/cosmos/iavl/pull/396) Add "prefix" arg to iaviewer.
-
 
 ## 0.16.0 (May 04, 2021)
 
