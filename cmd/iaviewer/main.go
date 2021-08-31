@@ -20,22 +20,24 @@ const (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) < 2 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions") {
-		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions> <leveldb dir> [version number]")
+	if len(args) < 3 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions") {
+		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions> <leveldb dir> <prefix> [version number]")
+		fmt.Fprintln(os.Stderr, "<prefix> is the prefix of db, and the iavl tree of different modules in cosmos-sdk uses ")
+		fmt.Fprintln(os.Stderr, "different <prefix> to identify, just like \"s/k:gov/\" represents the prefix of gov module")
 		os.Exit(1)
 	}
 
 	version := 0
-	if len(args) == 3 {
+	if len(args) == 4 {
 		var err error
-		version, err = strconv.Atoi(args[2])
+		version, err = strconv.Atoi(args[3])
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Invalid version number: %s\n", err)
 			os.Exit(1)
 		}
 	}
 
-	tree, err := ReadTree(args[1], version)
+	tree, err := ReadTree(args[1], version, []byte(args[2]))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error reading data: %s\n", err)
 		os.Exit(1)
@@ -101,11 +103,16 @@ func PrintDBStats(db dbm.DB) {
 
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
-func ReadTree(dir string, version int) (*iavl.MutableTree, error) {
+// The prefix represents which iavl tree you want to read. The iaviwer will always set a prefix.
+func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error) {
 	db, err := OpenDB(dir)
 	if err != nil {
 		return nil, err
 	}
+	if len(prefix) != 0 {
+		db = dbm.NewPrefixDB(db, prefix)
+	}
+
 	tree, err := iavl.NewMutableTree(db, DefaultCacheSize)
 	if err != nil {
 		return nil, err
