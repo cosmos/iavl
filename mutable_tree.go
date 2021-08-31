@@ -508,11 +508,16 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		if tree.root != nil {
 			tree.ndb.UpdateBranch(tree.root)
 			tree.ndb.SaveOrphans(version, tree.orphans)
+		} else {
+			// There can still be orphans, for example if the root is the node being
+			// removed.
+			debug("SAVE EMPTY TREE %v\n", version)
+			tree.ndb.SaveOrphans(version, tree.orphans)
 		}
 	}
 
-	tree.version = version
-	tree.versions[version] = true
+
+
 
 	// set new working tree
 	tree.ImmutableTree = tree.ImmutableTree.clone()
@@ -521,6 +526,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	rootHash := tree.Hash()
 	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
+
+	tree.version = version
+	tree.versions[version] = true
 
 	tree.PrintVersionLog()
 	return rootHash, version, nil

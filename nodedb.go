@@ -784,14 +784,13 @@ func (ndb *nodeDB) BatchSetPrePersistCache() dbm.Batch {
 }
 
 func (ndb *nodeDB) SaveNodeFromPrePersistNodeCacheToNodeCache() {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	for _, node := range ndb.tempPrePersistNodeCache {
 		if !node.persisted {
 			panic("unexpected logic")
 		}
+		ndb.mtx.Lock()
 		ndb.cacheNode(node)
+		ndb.mtx.Unlock()
 	}
 	ndb.tempPrePersistNodeCache = make(map[string]*Node)
 }

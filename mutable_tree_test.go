@@ -3,8 +3,10 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -381,7 +383,64 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 }
 
 func TestConcurrentGetNode(t *testing.T) {
+	originData := make(map[string]string)
+	var dataKey  []string
+	var dataLock sync.RWMutex
+	for i:=0 ; i<10000; i++ {
+		key := randstr(5)
+		value := randstr(5)
+		originData[key] = value
+		dataKey = append(dataKey, key)
+	}
 
+	memDB := db.NewMemDB()
+	tree, err := NewMutableTree(memDB, 100)
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	for k, v := range originData {
+		tree.set([]byte(k), []byte(v))
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	go func() {
+		for  {
+			time.Sleep(time.Microsecond * 10)
+			go func() {
+				queryTree, err := tree.GetImmutable(tree.version)
+				require.Nil(t, err)
+				idx := rand.Int() % len(dataKey)
+				_, value := queryTree.Get([]byte(dataKey[idx]))
+				dataLock.RLock()
+				if originData[string(dataKey[idx])] != string(value) {
+					//fmt.Println("not equal", originData[string(dataKey[idx])], string(value))
+					time.Sleep(time.Millisecond * 10)
+				}
+				dataLock.RUnlock()
+				_, value = queryTree.Get([]byte(dataKey[idx]))
+				dataLock.RLock()
+				require.Equal(t, originData[string(dataKey[idx])], string(value))
+				dataLock.RUnlock()
+			}()
+
+		}
+	}()
+	for i:=0;i<1000;i++ {
+		time.Sleep(time.Millisecond * 10)
+		for j:=0;j<100;j++ {
+			key := randstr(5)
+			value := randstr(5)
+			dataLock.Lock()
+			originData[key] = value
+			dataLock.Unlock()
+			tree.set([]byte(key), []byte(value))
+
+		}
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+
+	}
 }
 
 func TestShareNode(t *testing.T) {
@@ -436,4 +495,3 @@ func TestParseDBName(t *testing.T) {
 	result2 := ParseDBName(memDB)
 	require.Equal(t, "", result2)
 }
-
