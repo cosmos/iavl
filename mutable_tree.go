@@ -496,10 +496,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				if err := tree.ndb.Commit(batch); err != nil {
 					panic(err)
 				}
-				fmt.Println(version, "saveNodeToNodeCache start")
 				startTime := time.Now()
+				fmt.Println(startTime, version, "saveNodeToNodeCache start")
 				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
-				fmt.Println(version, "saveNodeToNodeCache end")
+				fmt.Println(time.Now(), version, "saveNodeToNodeCache end")
 				fmt.Println(version, "saveNodeToNodeCacheTime:", time.Since(startTime))
 				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
 			}()
@@ -524,7 +524,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = []*Node{}
 
-	rootHash := tree.Hash()
+	rootHash := tree.lastSaved.Hash()
 	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
 
 	tree.version = version

@@ -286,7 +286,7 @@ func TestSaveVersion(t *testing.T) {
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 100)
 	require.NoError(t, err)
-	//
+
 	//_, _, err = tree.SaveVersion()
 	//require.NoError(t, err)
 	for k, v := range originData {
@@ -397,8 +397,8 @@ func TestConcurrentGetNode(t *testing.T) {
 	tree, err := NewMutableTree(memDB, 100)
 	require.NoError(t, err)
 
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
+	//_, _, err = tree.SaveVersion()
+	//require.NoError(t, err)
 	for k, v := range originData {
 		tree.set([]byte(k), []byte(v))
 	}
