@@ -573,6 +573,10 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	}
 
 	ndb.batch.Set(ndb.rootKey(version), hash)
+	err := ndb.batch.Write()
+	if err != nil {
+		return err
+	}
 	ndb.updateLatestVersion(version)
 
 	ndb.isInitSavedVersion = false

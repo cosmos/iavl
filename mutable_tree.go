@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/pkg/errors"
-	"sort"
-	"time"
-
 	dbm "github.com/tendermint/tm-db"
+	"sort"
 )
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
@@ -496,11 +494,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				if err := tree.ndb.Commit(batch); err != nil {
 					panic(err)
 				}
-				startTime := time.Now()
-				fmt.Println(startTime, version, "saveNodeToNodeCache start")
+				//startTime := time.Now()
+				//fmt.Println(startTime, version, "saveNodeToNodeCache start")
 				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
-				fmt.Println(time.Now(), version, "saveNodeToNodeCache end")
-				fmt.Println(version, "saveNodeToNodeCacheTime:", time.Since(startTime))
+				//fmt.Println(time.Now(), version, "saveNodeToNodeCache end")
+				//fmt.Println(version, "saveNodeToNodeCacheTime:", time.Since(startTime))
 				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
 			}()
 
@@ -715,4 +713,27 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 		}
 		tree.orphans = append(tree.orphans, node)
 	}
+}
+
+func (tree *MutableTree) StopTree() {
+	tree.ndb.tempPrePersistNodeCacheMtx.Lock()
+	if err := tree.ndb.SaveEmptyRoot(tree.version); err != nil {
+		panic(err)
+	}
+	if err := tree.ndb.SaveRoot(tree.root, tree.version); err != nil {
+		panic(err)
+	}
+
+	tree.ndb.mtx.Lock()
+	tree.ndb.tempPrePersistNodeCache = tree.ndb.prePersistNodeCache
+	tree.ndb.prePersistNodeCache = map[string]*Node{}
+	tree.ndb.mtx.Unlock()
+
+	batch := tree.ndb.BatchSetPrePersistCache()
+	if err := tree.ndb.Commit(batch); err != nil {
+		panic(err)
+	}
+	tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
+
+	tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
 }
