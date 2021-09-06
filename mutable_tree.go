@@ -717,12 +717,18 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 
 func (tree *MutableTree) StopTree() {
 	tree.ndb.tempPrePersistNodeCacheMtx.Lock()
-	if err := tree.ndb.SaveEmptyRoot(tree.version); err != nil {
-		panic(err)
+
+	if tree.root == nil {
+		if err := tree.ndb.SaveEmptyRoot(tree.version); err != nil {
+			panic(err)
+		}
+	} else {
+		if err := tree.ndb.SaveRoot(tree.root, tree.version); err != nil {
+			panic(err)
+		}
 	}
-	if err := tree.ndb.SaveRoot(tree.root, tree.version); err != nil {
-		panic(err)
-	}
+
+
 
 	tree.ndb.mtx.Lock()
 	tree.ndb.tempPrePersistNodeCache = tree.ndb.prePersistNodeCache
