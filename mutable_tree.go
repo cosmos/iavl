@@ -476,7 +476,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			// removed.
 			debug("SAVE EMPTY TREE %v\n", version)
 			tree.ndb.SaveOrphans(version, tree.orphans)
-			if err := tree.ndb.SaveEmptyRoot(version); err != nil {
+			if err := tree.ndb.SaveEmptyRoot(version, false); err != nil {
 				return nil, 0, err
 			}
 		} else {
@@ -484,7 +484,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.ndb.UpdateBranch(tree.root)
 			tree.ndb.SaveOrphans(version, tree.orphans)
 			tree.ndb.MovePrePersistCacheToTempCache()
-			if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
+			if err := tree.ndb.SaveRoot(tree.root, version, false); err != nil {
 				return nil, 0, err
 			}
 		}
@@ -715,11 +715,11 @@ func (tree *MutableTree) StopTree() {
 	tree.ndb.tempPrePersistNodeCacheMtx.Lock()
 
 	if tree.root == nil {
-		if err := tree.ndb.SaveEmptyRoot(tree.version); err != nil {
+		if err := tree.ndb.SaveEmptyRoot(tree.version, true); err != nil {
 			panic(err)
 		}
 	} else {
-		if err := tree.ndb.SaveRoot(tree.root, tree.version); err != nil {
+		if err := tree.ndb.SaveRoot(tree.root, tree.version, true); err != nil {
 			panic(err)
 		}
 	}
