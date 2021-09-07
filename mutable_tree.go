@@ -20,10 +20,10 @@ var ErrVersionDoesNotExist = errors.New("version does not exist")
 //
 // The inner ImmutableTree should not be used directly by callers.
 type MutableTree struct {
-	*ImmutableTree                  // The current, working tree.
-	lastSaved      *ImmutableTree   // The most recently saved tree.
-	orphans        []*Node // Nodes removed by changes to working tree.
-	versions       map[int64]bool   // The previous, saved versions of the tree.
+	*ImmutableTree                // The current, working tree.
+	lastSaved      *ImmutableTree // The most recently saved tree.
+	orphans        []*Node        // Nodes removed by changes to working tree.
+	versions       map[int64]bool // The previous, saved versions of the tree.
 	ndb            *nodeDB
 }
 
@@ -470,7 +470,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
-	if version % CommitIntervalHeight == 0 {
+	if version%CommitIntervalHeight == 0 {
 		if tree.root == nil {
 			// There can still be orphans, for example if the root is the node being
 			// removed.
@@ -488,15 +488,15 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				return nil, 0, err
 			}
 		}
-			go func() {
-				tree.ndb.tempPrePersistNodeCacheMtx.Lock()
-				batch := tree.ndb.BatchSetPrePersistCache()
-				if err := tree.ndb.Commit(batch); err != nil {
-					panic(err)
-				}
-				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
-				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
-			}()
+		tree.ndb.tempPrePersistNodeCacheMtx.Lock()
+		go func() {
+			batch := tree.ndb.BatchSetPrePersistCache()
+			if err := tree.ndb.Commit(batch); err != nil {
+				panic(err)
+			}
+			tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
+			tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
+		}()
 
 	} else {
 		if tree.root != nil {
@@ -509,9 +509,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.ndb.SaveOrphans(version, tree.orphans)
 		}
 	}
-
-
-
 
 	// set new working tree
 	tree.ImmutableTree = tree.ImmutableTree.clone()
@@ -723,8 +720,6 @@ func (tree *MutableTree) StopTree() {
 			panic(err)
 		}
 	}
-
-
 
 	tree.ndb.mtx.Lock()
 	tree.ndb.tempPrePersistNodeCache = tree.ndb.prePersistNodeCache
