@@ -571,12 +571,13 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	if latest > 0 && version != latest+CommitIntervalHeight && (!ndb.isInitSavedVersion) {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 	}
-
 	ndb.batch.Set(ndb.rootKey(version), hash)
 	err := ndb.batch.Write()
 	if err != nil {
 		return err
 	}
+	ndb.batch.Close()
+	ndb.batch = ndb.db.NewBatch()
 	ndb.updateLatestVersion(version)
 
 	ndb.isInitSavedVersion = false

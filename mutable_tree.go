@@ -494,11 +494,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				if err := tree.ndb.Commit(batch); err != nil {
 					panic(err)
 				}
-				//startTime := time.Now()
-				//fmt.Println(startTime, version, "saveNodeToNodeCache start")
 				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
-				//fmt.Println(time.Now(), version, "saveNodeToNodeCache end")
-				//fmt.Println(version, "saveNodeToNodeCacheTime:", time.Since(startTime))
 				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
 			}()
 
