@@ -178,7 +178,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) []byte {
 }
 
 //resetBatch reset the db batch, keep low memory used
-func (ndb *nodeDB) resetBatch(){
+func (ndb *nodeDB) resetBatch() {
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
@@ -563,7 +563,7 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 
 	// We allow the initial version to be arbitrary
 	latest := ndb.getLatestVersion()
-	if latest > 0 && version != latest+1 {
+	if !ignoreVersionCheck && latest > 0 && version != latest+1 {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 	}
 

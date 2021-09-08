@@ -6,9 +6,14 @@ import (
 	"sort"
 
 	"github.com/pkg/errors"
-
 	dbm "github.com/tendermint/tm-db"
 )
+
+var ignoreVersionCheck = false
+
+func SetIgnoreVersionCheck(check bool) {
+	ignoreVersionCheck = check
+}
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = errors.New("version does not exist")
@@ -452,7 +457,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		version = int64(tree.ndb.opts.InitialVersion) + 1
 	}
 
-	if tree.versions[version] {
+	if !ignoreVersionCheck && tree.versions[version] {
 		// If the version already exists, return an error as we're attempting to overwrite.
 		// However, the same hash means idempotent (i.e. no-op).
 		existingHash, err := tree.ndb.getRoot(version)
