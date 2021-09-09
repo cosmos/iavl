@@ -713,6 +713,8 @@ func (ndb *nodeDB) UpdateBranch(node *Node) []byte {
 	node._hash()
 	ndb.SaveNodeToPrePersistCache(node)
 
+	node.leftNode = nil
+	node.rightNode = nil
 	return node.hash
 }
 
@@ -729,6 +731,8 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans []*Node) {
 		ndb.orphanNodeCache[string(node.hash)] = node
 		ndb.uncacheNode(node.hash)
 		delete(ndb.prePersistNodeCache, string(node.hash))
+		node.leftNode = nil
+		node.rightNode = nil
 	}
 }
 
