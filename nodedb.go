@@ -34,6 +34,7 @@ var (
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
 
 	CommitIntervalHeight   int64 = 100
+	MinCommitItemCount     int64 = 500000
 	HeightOrphansCacheSize       = 8
 )
 
@@ -64,7 +65,6 @@ type nodeDB struct {
 	tempPrePersistNodeCache    map[string]*Node
 	tempPrePersistNodeCacheMtx sync.Mutex
 
-	isInitSavedVersion bool
 	dbReadCount        int
 	nodeReadCount      int
 	dbWriteCount       int
@@ -90,7 +90,6 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		heightOrphansMap:        make(map[int64]*heightOrphansItem),
 		prePersistNodeCache:     make(map[string]*Node),
 		tempPrePersistNodeCache: make(map[string]*Node),
-		isInitSavedVersion:      true,
 		dbReadCount:             0,
 		dbWriteCount:            0,
 	}
@@ -550,27 +549,23 @@ func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 
 // SaveRoot creates an entry on disk for the given root, so that it can be
 // loaded later.
-func (ndb *nodeDB) SaveRoot(root *Node, version int64, breakSave bool) error {
+func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
 		panic("SaveRoot: root hash should not be empty")
 	}
-	return ndb.saveRoot(root.hash, version, breakSave)
+	return ndb.saveRoot(root.hash, version)
 }
 
 // SaveEmptyRoot creates an entry on disk for an empty root.
-func (ndb *nodeDB) SaveEmptyRoot(version int64, breakSave bool) error {
-	return ndb.saveRoot([]byte{}, version, breakSave)
+func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
+	return ndb.saveRoot([]byte{}, version)
 }
 
-func (ndb *nodeDB) saveRoot(hash []byte, version int64, breakSave bool) error {
+func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	// We allow the initial version to be arbitrary
-	latest := ndb.getLatestVersion()
-	if latest > 0 && version != latest + CommitIntervalHeight && (!ndb.isInitSavedVersion) && (!breakSave){
-		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest + CommitIntervalHeight, version)
-	}
+
 	ndb.batch.Set(ndb.rootKey(version), hash)
 	err := ndb.batch.Write()
 	if err != nil {
@@ -580,7 +575,6 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64, breakSave bool) error {
 	ndb.batch = ndb.db.NewBatch()
 	ndb.updateLatestVersion(version)
 
-	ndb.isInitSavedVersion = false
 	return nil
 }
 
