@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"container/list"
 	"fmt"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
@@ -10,6 +11,11 @@ import (
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = errors.New("version does not exist")
+
+var CommitIntervalHeight int64 = 100
+var MinCommitItemCount int64 = 500000
+var HeightOrphansCacheSize = 8
+var MaxCommittedHeightNum = 8
 
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
@@ -20,11 +26,16 @@ var ErrVersionDoesNotExist = errors.New("version does not exist")
 //
 // The inner ImmutableTree should not be used directly by callers.
 type MutableTree struct {
-	*ImmutableTree                // The current, working tree.
-	lastSaved      *ImmutableTree // The most recently saved tree.
-	orphans        []*Node        // Nodes removed by changes to working tree.
-	versions       map[int64]bool // The previous, saved versions of the tree.
+	*ImmutableTree                  // The current, working tree.
+	lastSaved      *ImmutableTree   // The most recently saved tree.
+	orphans        []*Node          // Nodes removed by changes to working tree.Will refresh after each block
+	commitOrphans  map[string]int64 // Nodes removed by changes to working tree.Will refresh after each commit.
+	versions       map[int64]bool   // The previous, saved versions of the tree.
 	ndb            *nodeDB
+
+	committedHeightQueue  *list.List
+	committedHeightMap    map[int64]bool
+	maxCommittedHeightNum int
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -38,11 +49,16 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
-		ImmutableTree: head,
-		lastSaved:     head.clone(),
-		orphans:       []*Node{},
-		versions:      map[int64]bool{},
-		ndb:           ndb,
+		ImmutableTree:         head,
+		lastSaved:             head.clone(),
+		orphans:               []*Node{},
+		commitOrphans:         map[string]int64{},
+		versions:              map[int64]bool{},
+		ndb:                   ndb,
+
+		committedHeightMap:    map[int64]bool{},
+		committedHeightQueue:  list.New(),
+		maxCommittedHeightNum: MaxCommittedHeightNum,
 	}, nil
 }
 
@@ -309,6 +325,7 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	tree.orphans = []*Node{}
+	tree.commitOrphans = map[string]int64{}
 	tree.ImmutableTree = iTree
 	tree.lastSaved = iTree.clone()
 
@@ -361,6 +378,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	tree.orphans = []*Node{}
+	tree.commitOrphans = map[string]int64{}
 	tree.ImmutableTree = t
 	tree.lastSaved = t.clone()
 
@@ -375,11 +393,12 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
-	if err = tree.ndb.DeleteVersionsFrom(targetVersion + 1); err != nil {
+	batch := tree.NewBatch()
+	if err = tree.ndb.DeleteVersionsFrom(batch, targetVersion+1); err != nil {
 		return latestVersion, err
 	}
 
-	if err = tree.ndb.Commit(tree.ndb.batch); err != nil {
+	if err = tree.ndb.Commit(batch); err != nil {
 		return latestVersion, err
 	}
 
@@ -425,6 +444,7 @@ func (tree *MutableTree) Rollback() {
 		tree.ImmutableTree = &ImmutableTree{ndb: tree.ndb, version: 0}
 	}
 	tree.orphans = []*Node{}
+	tree.commitOrphans = map[string]int64{}
 }
 
 // GetVersioned gets the value at the specified key and version. The returned value must not be
@@ -465,6 +485,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.ImmutableTree = tree.ImmutableTree.clone()
 			tree.lastSaved = tree.ImmutableTree.clone()
 			tree.orphans = []*Node{}
+			tree.commitOrphans = map[string]int64{}
 			return existingHash, version, nil
 		}
 
@@ -472,33 +493,39 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	var currentPrePersistNodeCount = int64(len(tree.ndb.prePersistNodeCache))
-	if version % CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
+	if version%CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
+		batch := tree.NewBatch()
 		if tree.root == nil {
 			// There can still be orphans, for example if the root is the node being
 			// removed.
 			debug("SAVE EMPTY TREE %v\n", version)
 			tree.ndb.SaveOrphans(version, tree.orphans)
-			if err := tree.ndb.SaveEmptyRoot(version); err != nil {
+			tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
+			if err := tree.ndb.SaveEmptyRoot(batch, version); err != nil {
 				return nil, 0, err
 			}
 		} else {
 			debug("SAVE TREE %v\n", version)
 			tree.ndb.UpdateBranch(tree.root)
 			tree.ndb.SaveOrphans(version, tree.orphans)
+			tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
 			tree.ndb.MovePrePersistCacheToTempCache()
-			if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
+			if err := tree.ndb.SaveRoot(batch, tree.root, version); err != nil {
 				return nil, 0, err
 			}
 		}
+		tree.commitOrphans = map[string]int64{}
 		tree.ndb.tempPrePersistNodeCacheMtx.Lock()
-		go func() {
-			batch := tree.ndb.BatchSetPrePersistCache()
+
+		go func(version int64) {
+			tree.ndb.BatchSetPrePersistCache(batch)
+			tree.UpdateCommittedStateHeightPool(batch, version)
 			if err := tree.ndb.Commit(batch); err != nil {
 				panic(err)
 			}
 			tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
 			tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
-		}()
+		}(version)
 
 	} else {
 		if tree.root != nil {
@@ -518,7 +545,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.orphans = []*Node{}
 
 	rootHash := tree.lastSaved.Hash()
-	tree.ndb.SetHeightOrphansItem(version, rootHash, tree.versions)
+	tree.SetHeightOrphansItem(version, rootHash)
 
 	tree.version = version
 	tree.versions[version] = true
@@ -527,11 +554,36 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	return rootHash, version, nil
 }
 
+func (tree *MutableTree) SetHeightOrphansItem(version int64, rootHash []byte) {
+	tree.ndb.SetHeightOrphansItem(version, rootHash, func(v int64) {
+		if !tree.committedHeightMap[v] {
+			delete(tree.versions, v)
+		}
+	})
+}
+
+func (tree *MutableTree) UpdateCommittedStateHeightPool(batch dbm.Batch, version int64) {
+	committedHeightQueue := tree.committedHeightQueue
+	committedHeightQueue.PushBack(version)
+	tree.committedHeightMap[version] = true
+	if committedHeightQueue.Len() > tree.maxCommittedHeightNum {
+		item := committedHeightQueue.Front()
+		oldVersion := committedHeightQueue.Remove(item).(int64)
+		err := tree.deleteVersion(batch, oldVersion)
+		if err != nil {
+			panic(err)
+		}
+		if tree.ndb.heightOrphansMap[version] == nil {
+			delete(tree.versions, version)
+		}
+	}
+}
+
 func (tree *MutableTree) PrintVersionLog() {
 	tree.ndb.PrintCacheLog(tree.version)
 }
 
-func (tree *MutableTree) deleteVersion(version int64) error {
+func (tree *MutableTree) deleteVersion(batch dbm.Batch, version int64) error {
 	if version == 0 {
 		return errors.New("version must be greater than 0")
 	}
@@ -542,7 +594,7 @@ func (tree *MutableTree) deleteVersion(version int64) error {
 		return errors.Wrap(ErrVersionDoesNotExist, "")
 	}
 
-	if err := tree.ndb.DeleteVersion(version, true); err != nil {
+	if err := tree.ndb.DeleteVersion(batch, version, true); err != nil {
 		return err
 	}
 
@@ -592,6 +644,18 @@ func (tree *MutableTree) DeleteVersions(versions ...int64) error {
 // An error is returned if any single version has active readers.
 // All writes happen in a single batch with a single commit.
 func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error {
+	batch := tree.NewBatch()
+	if err := tree.ndb.DeleteVersionsRange(batch, fromVersion, toVersion); err != nil {
+		return err
+	}
+
+	if err := tree.ndb.Commit(batch); err != nil {
+		return err
+	}
+
+	for version := fromVersion; version < toVersion; version++ {
+		delete(tree.versions, version)
+	}
 	return nil
 }
 
@@ -599,12 +663,12 @@ func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error
 // longer be accessed.
 func (tree *MutableTree) DeleteVersion(version int64) error {
 	debug("DELETE VERSION: %d\n", version)
-
-	if err := tree.deleteVersion(version); err != nil {
+	batch := tree.NewBatch()
+	if err := tree.deleteVersion(batch, version); err != nil {
 		return err
 	}
 
-	if err := tree.ndb.Commit(tree.ndb.batch); err != nil {
+	if err := tree.ndb.Commit(batch); err != nil {
 		return err
 	}
 
@@ -699,26 +763,28 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node) {
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
 	for _, node := range orphans {
-		if !(node.persisted || node.prePersisted) {
-			// We don't need to orphan nodes that were never persisted.
-			continue
+		if node.persisted || node.prePersisted {
+			if len(node.hash) == 0 {
+				panic("Expected to find node hash, but was empty")
+			}
+			tree.orphans = append(tree.orphans, node)
+			if node.persisted {
+				tree.commitOrphans[string(node.hash)] = node.version
+			}
 		}
-		if len(node.hash) == 0 {
-			panic("Expected to find node hash, but was empty")
-		}
-		tree.orphans = append(tree.orphans, node)
+
 	}
 }
 
 func (tree *MutableTree) StopTree() {
 	tree.ndb.tempPrePersistNodeCacheMtx.Lock()
-
+	batch := tree.NewBatch()
 	if tree.root == nil {
-		if err := tree.ndb.SaveEmptyRoot(tree.version); err != nil {
+		if err := tree.ndb.SaveEmptyRoot(batch, tree.version); err != nil {
 			panic(err)
 		}
 	} else {
-		if err := tree.ndb.SaveRoot(tree.root, tree.version); err != nil {
+		if err := tree.ndb.SaveRoot(batch, tree.root, tree.version); err != nil {
 			panic(err)
 		}
 	}
@@ -728,11 +794,15 @@ func (tree *MutableTree) StopTree() {
 	tree.ndb.prePersistNodeCache = map[string]*Node{}
 	tree.ndb.mtx.Unlock()
 
-	batch := tree.ndb.BatchSetPrePersistCache()
+	tree.ndb.BatchSetPrePersistCache(batch)
 	if err := tree.ndb.Commit(batch); err != nil {
 		panic(err)
 	}
 	tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
 
 	tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
+}
+
+func (tree *MutableTree) NewBatch() dbm.Batch {
+	return tree.ndb.NewBatch()
 }
