@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	int64Size = 8
-	hashSize  = tmhash.Size
+	int64Size      = 8
+	hashSize       = tmhash.Size
+	genesisVersion = 1
 )
 
 var (
@@ -563,6 +564,7 @@ func (ndb *nodeDB) saveRoot(batch dbm.Batch, hash []byte, version int64) error {
 	err := batch.Write()
 	if err != nil {
 		return err
+
 	}
 	batch.Close()
 	batch = ndb.db.NewBatch()
