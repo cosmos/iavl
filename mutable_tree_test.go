@@ -192,22 +192,22 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	tree.Set([]byte("a"), []byte{0x01})
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
-	assert.EqualValues(t, 9, version)
+	assert.EqualValues(t, 10, version)
 
 	tree.Set([]byte("b"), []byte{0x02})
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
-	assert.EqualValues(t, 10, version)
+	assert.EqualValues(t, 11, version)
 
 	// Reloading the tree with the same initial version is fine
 	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9})
 	require.NoError(t, err)
 	version, err = tree.Load()
 	require.NoError(t, err)
-	assert.EqualValues(t, 10, version)
+	assert.EqualValues(t, 11, version)
 
 	// Reloading the tree with an initial version beyond the lowest should error
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10})
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 11})
 	require.NoError(t, err)
 	_, err = tree.Load()
 	require.Error(t, err)
@@ -217,12 +217,12 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	version, err = tree.Load()
 	require.NoError(t, err)
-	assert.EqualValues(t, 10, version)
+	assert.EqualValues(t, 11, version)
 
 	tree.Set([]byte("c"), []byte{0x03})
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
-	assert.EqualValues(t, 11, version)
+	assert.EqualValues(t, 12, version)
 }
 
 func TestMutableTree_SetInitialVersion(t *testing.T) {
@@ -234,7 +234,7 @@ func TestMutableTree_SetInitialVersion(t *testing.T) {
 	tree.Set([]byte("a"), []byte{0x01})
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
-	assert.EqualValues(t, 9, version)
+	assert.EqualValues(t, 10, version)
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
