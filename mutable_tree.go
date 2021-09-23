@@ -523,7 +523,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.commitOrphans = map[string]int64{}
 		tree.ndb.tempPrePersistNodeCacheMtx.Lock()
 
-		go func(version int64) {
+		go func(version int64, batch dbm.Batch) {
 			tree.ndb.BatchSetPrePersistCache(batch)
 			tree.UpdateCommittedStateHeightPool(batch, version)
 			if err := tree.ndb.Commit(batch); err != nil {
@@ -531,7 +531,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			}
 			tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
 			tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
-		}(version)
+		}(version, batch)
 
 	} else {
 		if tree.root != nil {
