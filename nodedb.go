@@ -138,32 +138,32 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	return node
 }
 
-//// SaveNode saves a node to disk.
-//func (ndb *nodeDB) SaveNode(node *Node) {
-//	ndb.mtx.Lock()
-//	defer ndb.mtx.Unlock()
-//
-//	if node.hash == nil {
-//		panic("Expected to find node.hash, but none found.")
-//	}
-//	if node.persisted {
-//		panic("Shouldn't be calling save on an already persisted node.")
-//	}
-//
-//	// Save node bytes to db.
-//	var buf bytes.Buffer
-//	buf.Grow(node.aminoSize())
-//
-//	if err := node.writeBytes(&buf); err != nil {
-//		panic(err)
-//	}
-//
-//	ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
-//	debug("BATCH SAVE %X %p\n", node.hash, node)
-//	node.persisted = true
-//	ndb.addDBWriteCount()
-//	ndb.cacheNode(node)
-//}
+// SaveNode saves a node to disk.
+func (ndb *nodeDB) SaveNode(batch dbm.Batch, node *Node) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if node.hash == nil {
+		panic("Expected to find node.hash, but none found.")
+	}
+	if node.persisted {
+		panic("Shouldn't be calling save on an already persisted node.")
+	}
+
+	// Save node bytes to db.
+	var buf bytes.Buffer
+	buf.Grow(node.aminoSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		panic(err)
+	}
+
+	batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
+	debug("BATCH SAVE %X %p\n", node.hash, node)
+	node.persisted = true
+	ndb.addDBWriteCount()
+	ndb.cacheNode(node)
+}
 
 // Has checks if a hash exists in the database.
 func (ndb *nodeDB) Has(hash []byte) (bool, error) {
@@ -182,6 +182,51 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 	}
 
 	return value != nil, nil
+}
+
+// SaveBranch saves the given node and all of its descendants.
+// NOTE: This function clears leftNode/rigthNode recursively and
+// calls _hash() on the given node.
+// TODO refactor, maybe use hashWithCount() but provide a callback.
+func (ndb *nodeDB) SaveBranch(batch dbm.Batch, node *Node) []byte {
+	if node.persisted {
+		return node.hash
+	}
+
+	if node.leftNode != nil {
+		node.leftHash = ndb.SaveBranch(batch, node.leftNode)
+	}
+	if node.rightNode != nil {
+		node.rightHash = ndb.SaveBranch(batch, node.rightNode)
+	}
+
+	node._hash()
+	ndb.SaveNode(batch, node)
+
+	////resetBatch only working on generate a genesis block
+	//if node.version == genesisVersion {
+	//	ndb.resetBatch(batch)
+	//}
+
+	node.leftNode = nil
+	node.rightNode = nil
+
+	return node.hash
+}
+
+//resetBatch reset the db batch, keep low memory used
+func (ndb *nodeDB) resetBatch(batch dbm.Batch) {
+	var err error
+	if ndb.opts.Sync {
+		err = batch.WriteSync()
+	} else {
+		err = batch.Write()
+	}
+	if err != nil {
+		panic(err)
+	}
+	//ndb.batch.Close()
+	//ndb.batch = ndb.db.NewBatch()
 }
 
 // DeleteVersion deletes a tree version from disk.
@@ -517,12 +562,15 @@ func (ndb *nodeDB) Commit(batch dbm.Batch) error {
 }
 
 func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-	orphansObj := ndb.heightOrphansMap[version]
-	if orphansObj != nil {
-		return orphansObj.rootHash, nil
+	if EnableOptPruing {
+		ndb.mtx.Lock()
+		defer ndb.mtx.Unlock()
+		orphansObj := ndb.heightOrphansMap[version]
+		if orphansObj != nil {
+			return orphansObj.rootHash, nil
+		}
 	}
+
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
@@ -560,15 +608,26 @@ func (ndb *nodeDB) saveRoot(batch dbm.Batch, hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	batch.Set(ndb.rootKey(version), hash)
-	err := batch.Write()
-	if err != nil {
-		return err
+	if EnableOptPruing {
+		batch.Set(ndb.rootKey(version), hash)
+		err := batch.Write()
+		if err != nil {
+			return err
 
+		}
+		batch.Close()
+		batch = ndb.db.NewBatch()
+		ndb.updateLatestVersion(version)
+	} else {
+		// We allow the initial version to be arbitrary
+		latest := ndb.getLatestVersion()
+		if !ignoreVersionCheck && latest > 0 && version != latest+1 {
+			return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
+		}
+
+		batch.Set(ndb.rootKey(version), hash)
+		ndb.updateLatestVersion(version)
 	}
-	batch.Close()
-	batch = ndb.db.NewBatch()
-	ndb.updateLatestVersion(version)
 
 	return nil
 }
@@ -707,21 +766,30 @@ func (ndb *nodeDB) UpdateBranch(node *Node) []byte {
 	return node.hash
 }
 
-func (ndb *nodeDB) SaveOrphans(version int64, orphans []*Node) {
+func (ndb *nodeDB) SaveOrphans(batch dbm.Batch, version int64, orphans []*Node) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	version = version - 1
 
-	orphansObj := ndb.heightOrphansMap[version]
-	if orphansObj != nil {
-		orphansObj.orphans = orphans
-	}
-	for _, node := range orphans {
-		ndb.orphanNodeCache[string(node.hash)] = node
-		ndb.uncacheNode(node.hash)
-		delete(ndb.prePersistNodeCache, string(node.hash))
-		node.leftNode = nil
-		node.rightNode = nil
+	if EnableOptPruing {
+		version = version - 1
+
+		orphansObj := ndb.heightOrphansMap[version]
+		if orphansObj != nil {
+			orphansObj.orphans = orphans
+		}
+		for _, node := range orphans {
+			ndb.orphanNodeCache[string(node.hash)] = node
+			ndb.uncacheNode(node.hash)
+			delete(ndb.prePersistNodeCache, string(node.hash))
+			node.leftNode = nil
+			node.rightNode = nil
+		}
+	} else {
+		toVersion := ndb.getPreviousVersion(version)
+		for _, node := range orphans {
+			debug("SAVEORPHAN %v-%v %X\n", node.version, toVersion, node.hash)
+			ndb.saveOrphan(batch, node.hash, node.version, toVersion)
+		}
 	}
 }
 
