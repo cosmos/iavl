@@ -9,19 +9,30 @@ import (
 	"sort"
 )
 
-var ignoreVersionCheck = false
-
 func SetIgnoreVersionCheck(check bool) {
 	ignoreVersionCheck = check
 }
 
-// ErrVersionDoesNotExist is returned if a requested version does not exist.
-var ErrVersionDoesNotExist = errors.New("version does not exist")
+const (
+	FlagIavlCommitIntervalHeight   = "iavl-commit-interval-height"
+	FlagIavlMinCommitItemCount = "iavl-min-commit-item-count"
+	FlagIavlHeightOrphansCacheSize   = "iavl-height-orphans-cache-size"
+	FlagIavlMaxCommittedHeightNum = "iavl-max-committed-height-num"
+	FlagIavlEnableOptPruing = "iavl-enable-opt-pruing"
+)
 
-var CommitIntervalHeight int64 = 100
-var MinCommitItemCount int64 = 500000
-var HeightOrphansCacheSize = 8
-var MaxCommittedHeightNum = 8
+var (
+	ignoreVersionCheck = false
+
+	// ErrVersionDoesNotExist is returned if a requested version does not exist.
+	ErrVersionDoesNotExist = errors.New("version does not exist")
+
+	CommitIntervalHeight int64 = 100
+	MinCommitItemCount int64 = 500000
+	HeightOrphansCacheSize = 8
+	MaxCommittedHeightNum = 8
+	EnableOptPruing = true
+)
 
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
