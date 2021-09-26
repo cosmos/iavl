@@ -608,26 +608,16 @@ func (ndb *nodeDB) saveRoot(batch dbm.Batch, hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	if EnableOptPruing {
-		batch.Set(ndb.rootKey(version), hash)
-		err := batch.Write()
-		if err != nil {
-			return err
-
-		}
-		batch.Close()
-		batch = ndb.db.NewBatch()
-		ndb.updateLatestVersion(version)
-	} else {
+	if !EnableOptPruing {
 		// We allow the initial version to be arbitrary
 		latest := ndb.getLatestVersion()
 		if !ignoreVersionCheck && latest > 0 && version != latest+1 {
 			return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 		}
-
-		batch.Set(ndb.rootKey(version), hash)
-		ndb.updateLatestVersion(version)
 	}
+
+	batch.Set(ndb.rootKey(version), hash)
+	ndb.updateLatestVersion(version)
 
 	return nil
 }

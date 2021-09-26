@@ -513,6 +513,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		var currentPrePersistNodeCount = int64(len(tree.ndb.prePersistNodeCache))
 		if version%CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
 			batch := tree.NewBatch()
+
 			if tree.root == nil {
 				// There can still be orphans, for example if the root is the node being
 				// removed.
