@@ -9,19 +9,30 @@ import (
 	"sort"
 )
 
-var ignoreVersionCheck = false
-
 func SetIgnoreVersionCheck(check bool) {
 	ignoreVersionCheck = check
 }
 
-// ErrVersionDoesNotExist is returned if a requested version does not exist.
-var ErrVersionDoesNotExist = errors.New("version does not exist")
+const (
+	FlagIavlCommitIntervalHeight   = "iavl-commit-interval-height"
+	FlagIavlMinCommitItemCount     = "iavl-min-commit-item-count"
+	FlagIavlHeightOrphansCacheSize = "iavl-height-orphans-cache-size"
+	FlagIavlMaxCommittedHeightNum  = "iavl-max-committed-height-num"
+	FlagIavlEnableOptPruing        = "iavl-enable-opt-pruing"
+)
 
-var CommitIntervalHeight int64 = 100
-var MinCommitItemCount int64 = 500000
-var HeightOrphansCacheSize = 8
-var MaxCommittedHeightNum = 8
+var (
+	ignoreVersionCheck = false
+
+	// ErrVersionDoesNotExist is returned if a requested version does not exist.
+	ErrVersionDoesNotExist = errors.New("version does not exist")
+
+	CommitIntervalHeight   int64 = 100
+	MinCommitItemCount     int64 = 500000
+	HeightOrphansCacheSize       = 8
+	MaxCommittedHeightNum        = 8
+	EnableOptPruing              = true
+)
 
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
@@ -55,12 +66,12 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 	head := &ImmutableTree{ndb: ndb}
 
 	return &MutableTree{
-		ImmutableTree:         head,
-		lastSaved:             head.clone(),
-		orphans:               []*Node{},
-		commitOrphans:         map[string]int64{},
-		versions:              map[int64]bool{},
-		ndb:                   ndb,
+		ImmutableTree: head,
+		lastSaved:     head.clone(),
+		orphans:       []*Node{},
+		commitOrphans: map[string]int64{},
+		versions:      map[int64]bool{},
+		ndb:           ndb,
 
 		committedHeightMap:    map[int64]bool{},
 		committedHeightQueue:  list.New(),
@@ -498,66 +509,104 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
 
-	var currentPrePersistNodeCount = int64(len(tree.ndb.prePersistNodeCache))
-	if version%CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
+	if EnableOptPruing {
+		var currentPrePersistNodeCount = int64(len(tree.ndb.prePersistNodeCache))
+		if version%CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
+			batch := tree.NewBatch()
+
+			if tree.root == nil {
+				// There can still be orphans, for example if the root is the node being
+				// removed.
+				debug("SAVE EMPTY TREE %v\n", version)
+				tree.ndb.SaveOrphans(batch, version, tree.orphans)
+				tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
+				if err := tree.ndb.SaveEmptyRoot(batch, version); err != nil {
+					return nil, 0, err
+				}
+			} else {
+				debug("SAVE TREE %v\n", version)
+				tree.ndb.UpdateBranch(tree.root)
+				tree.ndb.SaveOrphans(batch, version, tree.orphans)
+				tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
+				tree.ndb.MovePrePersistCacheToTempCache()
+				if err := tree.ndb.SaveRoot(batch, tree.root, version); err != nil {
+					return nil, 0, err
+				}
+			}
+			tree.commitOrphans = map[string]int64{}
+			tree.ndb.tempPrePersistNodeCacheMtx.Lock()
+
+			go func(version int64, batch dbm.Batch) {
+				tree.ndb.BatchSetPrePersistCache(batch)
+				tree.UpdateCommittedStateHeightPool(batch, version)
+				if err := tree.ndb.Commit(batch); err != nil {
+					panic(err)
+				}
+				tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
+				tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
+			}(version, batch)
+
+		} else {
+			batch := tree.NewBatch()
+			if tree.root != nil {
+				tree.ndb.UpdateBranch(tree.root)
+				tree.ndb.SaveOrphans(batch, version, tree.orphans)
+			} else {
+				// There can still be orphans, for example if the root is the node being
+				// removed.
+				debug("SAVE EMPTY TREE %v\n", version)
+				tree.ndb.SaveOrphans(batch, version, tree.orphans)
+			}
+			batch.Close()
+		}
+
+		// set new working tree
+		tree.ImmutableTree = tree.ImmutableTree.clone()
+		tree.lastSaved = tree.ImmutableTree.clone()
+		tree.orphans = []*Node{}
+
+		rootHash := tree.lastSaved.Hash()
+		tree.SetHeightOrphansItem(version, rootHash)
+
+		tree.version = version
+		tree.versions[version] = true
+
+		tree.PrintVersionLog()
+		return rootHash, version, nil
+	} else {
 		batch := tree.NewBatch()
 		if tree.root == nil {
 			// There can still be orphans, for example if the root is the node being
 			// removed.
 			debug("SAVE EMPTY TREE %v\n", version)
-			tree.ndb.SaveOrphans(version, tree.orphans)
-			tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
+			tree.ndb.SaveOrphans(batch, version, tree.orphans)
 			if err := tree.ndb.SaveEmptyRoot(batch, version); err != nil {
 				return nil, 0, err
 			}
 		} else {
 			debug("SAVE TREE %v\n", version)
-			tree.ndb.UpdateBranch(tree.root)
-			tree.ndb.SaveOrphans(version, tree.orphans)
-			tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
-			tree.ndb.MovePrePersistCacheToTempCache()
+			tree.ndb.SaveBranch(batch, tree.root)
+			tree.ndb.SaveOrphans(batch, version, tree.orphans)
 			if err := tree.ndb.SaveRoot(batch, tree.root, version); err != nil {
 				return nil, 0, err
 			}
 		}
-		tree.commitOrphans = map[string]int64{}
-		tree.ndb.tempPrePersistNodeCacheMtx.Lock()
 
-		go func(version int64, batch dbm.Batch) {
-			tree.ndb.BatchSetPrePersistCache(batch)
-			tree.UpdateCommittedStateHeightPool(batch, version)
-			if err := tree.ndb.Commit(batch); err != nil {
-				panic(err)
-			}
-			tree.ndb.SaveNodeFromPrePersistNodeCacheToNodeCache()
-			tree.ndb.tempPrePersistNodeCacheMtx.Unlock()
-		}(version, batch)
-
-	} else {
-		if tree.root != nil {
-			tree.ndb.UpdateBranch(tree.root)
-			tree.ndb.SaveOrphans(version, tree.orphans)
-		} else {
-			// There can still be orphans, for example if the root is the node being
-			// removed.
-			debug("SAVE EMPTY TREE %v\n", version)
-			tree.ndb.SaveOrphans(version, tree.orphans)
+		if err := tree.ndb.Commit(batch); err != nil {
+			return nil, version, err
 		}
+
+		tree.version = version
+		tree.versions[version] = true
+
+		// set new working tree
+		tree.ImmutableTree = tree.ImmutableTree.clone()
+		tree.lastSaved = tree.ImmutableTree.clone()
+		tree.orphans = []*Node{}
+
+		tree.PrintVersionLog()
+		return tree.Hash(), version, nil
 	}
-
-	// set new working tree
-	tree.ImmutableTree = tree.ImmutableTree.clone()
-	tree.lastSaved = tree.ImmutableTree.clone()
-	tree.orphans = []*Node{}
-
-	rootHash := tree.lastSaved.Hash()
-	tree.SetHeightOrphansItem(version, rootHash)
-
-	tree.version = version
-	tree.versions[version] = true
-
-	tree.PrintVersionLog()
-	return rootHash, version, nil
 }
 
 func (tree *MutableTree) SetHeightOrphansItem(version int64, rootHash []byte) {
@@ -768,21 +817,38 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node) {
 }
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
-	for _, node := range orphans {
-		if node.persisted || node.prePersisted {
+	if EnableOptPruing {
+		for _, node := range orphans {
+			if node.persisted || node.prePersisted {
+				if len(node.hash) == 0 {
+					panic("Expected to find node hash, but was empty")
+				}
+				tree.orphans = append(tree.orphans, node)
+				if node.persisted {
+					tree.commitOrphans[string(node.hash)] = node.version
+				}
+			}
+
+		}
+	} else {
+		for _, node := range orphans {
+			if !node.persisted {
+				// We don't need to orphan nodes that were never persisted.
+				continue
+			}
 			if len(node.hash) == 0 {
 				panic("Expected to find node hash, but was empty")
 			}
 			tree.orphans = append(tree.orphans, node)
-			if node.persisted {
-				tree.commitOrphans[string(node.hash)] = node.version
-			}
 		}
-
 	}
 }
 
 func (tree *MutableTree) StopTree() {
+	if !EnableOptPruing {
+		return
+	}
+
 	tree.ndb.tempPrePersistNodeCacheMtx.Lock()
 	batch := tree.NewBatch()
 	if tree.root == nil {
