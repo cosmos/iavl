@@ -619,7 +619,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.lastSaved = tree.ImmutableTree.clone()
 		tree.orphans = []*Node{}
 
-		tree.PrintVersionLog()
 		tree.hasCommitted = false
 		return tree.Hash(), version, nil
 	}
