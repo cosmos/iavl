@@ -34,6 +34,16 @@ var (
 	EnableOptPruing              = true
 )
 
+var MultableTreeList []*MutableTree
+
+func GetTotalPreCommitCacheSize() int64 {
+	var size int64 = 0
+	for _, tree := range MultableTreeList {
+		size = size + int64(len(tree.ndb.prePersistNodeCache))
+	}
+	return size
+}
+
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
 // version can be returned via GetImmutable, which is safe for concurrent access.
@@ -53,6 +63,8 @@ type MutableTree struct {
 	committedHeightQueue  *list.List
 	committedHeightMap    map[int64]bool
 	maxCommittedHeightNum int
+
+	hasCommitted bool
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -65,7 +77,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 	ndb := newNodeDB(db, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}
 
-	return &MutableTree{
+	tree :=  &MutableTree{
 		ImmutableTree: head,
 		lastSaved:     head.clone(),
 		orphans:       []*Node{},
@@ -76,7 +88,9 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		committedHeightMap:    map[int64]bool{},
 		committedHeightQueue:  list.New(),
 		maxCommittedHeightNum: MaxCommittedHeightNum,
-	}, nil
+	}
+	MultableTreeList = append(MultableTreeList, tree)
+	return tree, nil
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
@@ -510,7 +524,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if EnableOptPruing {
-		var currentPrePersistNodeCount = int64(len(tree.ndb.prePersistNodeCache))
+		var currentPrePersistNodeCount = GetTotalPreCommitCacheSize()
 		if version%CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
 			batch := tree.NewBatch()
 
@@ -572,6 +586,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.versions[version] = true
 
 		tree.PrintVersionLog()
+		tree.hasCommitted = true
 		return rootHash, version, nil
 	} else {
 		batch := tree.NewBatch()
@@ -605,6 +620,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.orphans = []*Node{}
 
 		tree.PrintVersionLog()
+		tree.hasCommitted = false
 		return tree.Hash(), version, nil
 	}
 }
@@ -846,6 +862,9 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 
 func (tree *MutableTree) StopTree() {
 	if !EnableOptPruing {
+		return
+	}
+	if tree.hasCommitted {
 		return
 	}
 
