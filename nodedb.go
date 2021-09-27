@@ -201,12 +201,15 @@ func (ndb *nodeDB) SaveBranch(batch dbm.Batch, node *Node) []byte {
 	}
 
 	node._hash()
-	ndb.SaveNode(batch, node)
 
-	////resetBatch only working on generate a genesis block
-	//if node.version == genesisVersion {
-	//	ndb.resetBatch(batch)
-	//}
+	//resetBatch only working on generate a genesis block
+	if node.version == genesisVersion {
+		tmpBatch := ndb.NewBatch()
+		ndb.SaveNode(tmpBatch, node)
+		ndb.resetBatch(tmpBatch)
+	} else {
+		ndb.SaveNode(batch, node)
+	}
 
 	node.leftNode = nil
 	node.rightNode = nil
@@ -225,8 +228,7 @@ func (ndb *nodeDB) resetBatch(batch dbm.Batch) {
 	if err != nil {
 		panic(err)
 	}
-	//ndb.batch.Close()
-	//ndb.batch = ndb.db.NewBatch()
+	batch.Close()
 }
 
 // DeleteVersion deletes a tree version from disk.

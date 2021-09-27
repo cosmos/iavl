@@ -817,17 +817,30 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node) {
 }
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
-	for _, node := range orphans {
-		if node.persisted || node.prePersisted {
+	if EnableOptPruing {
+		for _, node := range orphans {
+			if node.persisted || node.prePersisted {
+				if len(node.hash) == 0 {
+					panic("Expected to find node hash, but was empty")
+				}
+				tree.orphans = append(tree.orphans, node)
+				if node.persisted {
+					tree.commitOrphans[string(node.hash)] = node.version
+				}
+			}
+
+		}
+	} else {
+		for _, node := range orphans {
+			if !node.persisted {
+				// We don't need to orphan nodes that were never persisted.
+				continue
+			}
 			if len(node.hash) == 0 {
 				panic("Expected to find node hash, but was empty")
 			}
 			tree.orphans = append(tree.orphans, node)
-			if node.persisted {
-				tree.commitOrphans[string(node.hash)] = node.version
-			}
 		}
-
 	}
 }
 
