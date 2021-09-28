@@ -913,7 +913,7 @@ func (tree *MutableTree) StopTree() {
 	if tree.hasCommitted {
 		return
 	}
-	debug(LEVEL1, "stopping tree, module name:%d\n", ParseDBName(tree.ndb.db))
+	debug(LEVEL1, "stopping tree, module name:%s\n", ParseDBName(tree.ndb.db))
 	tree.ndb.tempPrePersistNodeCacheMtx.Lock()
 	batch := tree.NewBatch()
 	if tree.root == nil {

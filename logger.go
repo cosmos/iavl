@@ -10,6 +10,7 @@ var (
 
 const (
 	FlagIavlDebug        = "iavl-debug"
+	LEVEL0 = 0
 	LEVEL1 = 1
 	LEVEL2 = 2
 )

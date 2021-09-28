@@ -258,6 +258,7 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 }
 
 func TestSaveVersion(t *testing.T) {
+	EnableOptPruning = true
 	originData := make(map[string]string)
 	for i:=0 ; i<100; i++ {
 		key := randstr(5)
@@ -332,6 +333,7 @@ func TestSaveVersion(t *testing.T) {
 
 
 func TestSaveVersionCommitIntervalHeight(t *testing.T) {
+	EnableOptPruning = true
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 10000)
 	require.NoError(t, err)
@@ -350,8 +352,7 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 	tree.Set([]byte("k2"), []byte("hhhhh"))
 	_, _, err = tree.SaveVersion()
 
-	require.Equal(t, 5, len(tree.ndb.prePersistNodeCache))
-	require.Equal(t, 0, len(tree.ndb.nodeCache))
+	require.Equal(t, 5, len(tree.ndb.prePersistNodeCache) + len(tree.ndb.nodeCache))
 	require.Equal(t, 3, len(tree.ndb.orphanNodeCache))
 
 	_, _, err = tree.SaveVersion()
@@ -380,6 +381,7 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 }
 
 func TestConcurrentGetNode(t *testing.T) {
+	EnableOptPruning = true
 	originData := make(map[string]string)
 	var dataKey  []string
 	var dataLock sync.RWMutex
@@ -401,9 +403,10 @@ func TestConcurrentGetNode(t *testing.T) {
 	}
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
+	wg := sync.WaitGroup{}
 	go func() {
-		for  {
-			time.Sleep(time.Microsecond * 10)
+		for i:=0;i<50;i++  {
+			wg.Add(1)
 			go func() {
 				queryTree, err := tree.GetImmutable(tree.version)
 				require.Nil(t, err)
@@ -420,10 +423,9 @@ func TestConcurrentGetNode(t *testing.T) {
 				require.Equal(t, originData[string(dataKey[idx])], string(value))
 				dataLock.RUnlock()
 			}()
-
 		}
 	}()
-	for i:=0;i<100;i++ {
+	for i:=0;i<10;i++ {
 		time.Sleep(time.Millisecond * 10)
 		for j:=0;j<100;j++ {
 			key := randstr(5)
@@ -438,9 +440,11 @@ func TestConcurrentGetNode(t *testing.T) {
 		require.NoError(t, err)
 
 	}
+	wg.Done()
 }
 
 func TestShareNode(t *testing.T) {
+	EnableOptPruning = true
 	CommitIntervalHeight = 10
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 10000)
