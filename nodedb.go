@@ -965,6 +965,7 @@ func (ndb *nodeDB) PrintCacheLog(moduleName string, version int64) {
 	printLog += fmt.Sprintf(", TPersisSize:%d", ndb.totalPersistedSize)
 	printLog += fmt.Sprintf(", TDelCnt:%d", ndb.totalDeletedCount)
 	printLog += fmt.Sprintf(", TOrphanCnt:%d", ndb.totalOrphanCount)
+	printLog += "\n"
 	debug(LEVEL0, printLog)
 	ndb.resetDBReadCount()
 	ndb.resetDBWriteCount()

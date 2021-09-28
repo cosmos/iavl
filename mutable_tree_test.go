@@ -259,6 +259,9 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 
 func TestSaveVersion(t *testing.T) {
 	EnableOptPruning = true
+	defer func() {
+		EnableOptPruning = false
+	}()
 	originData := make(map[string]string)
 	for i:=0 ; i<100; i++ {
 		key := randstr(5)
@@ -334,6 +337,9 @@ func TestSaveVersion(t *testing.T) {
 
 func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 	EnableOptPruning = true
+	defer func() {
+		EnableOptPruning = false
+	}()
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 10000)
 	require.NoError(t, err)
@@ -382,6 +388,9 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 
 func TestConcurrentGetNode(t *testing.T) {
 	EnableOptPruning = true
+	defer func() {
+		EnableOptPruning = false
+	}()
 	originData := make(map[string]string)
 	var dataKey  []string
 	var dataLock sync.RWMutex
@@ -422,6 +431,7 @@ func TestConcurrentGetNode(t *testing.T) {
 				dataLock.RLock()
 				require.Equal(t, originData[string(dataKey[idx])], string(value))
 				dataLock.RUnlock()
+				wg.Done()
 			}()
 		}
 	}()
@@ -440,11 +450,14 @@ func TestConcurrentGetNode(t *testing.T) {
 		require.NoError(t, err)
 
 	}
-	wg.Done()
+	wg.Wait()
 }
 
 func TestShareNode(t *testing.T) {
 	EnableOptPruning = true
+	defer func() {
+		EnableOptPruning = false
+	}()
 	CommitIntervalHeight = 10
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 10000)
@@ -482,7 +495,6 @@ func TestShareNode(t *testing.T) {
 	require.Equal(t, oldK1Node, newK1Node)
 	nodeDBK1Node = tree.ndb.GetNode(oldK1Node.hash)
 	require.Equal(t, oldK1Node, nodeDBK1Node)
-
 }
 
 func TestParseDBName(t *testing.T) {
