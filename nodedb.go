@@ -67,8 +67,9 @@ type nodeDB struct {
 	dbWriteCount  int
 
 	totalPersistedCount int
-	totalPersistedSize int
-	totalDeletedCount int
+	totalPersistedSize  int
+	totalDeletedCount   int
+	totalOrphanCount    int
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -426,7 +427,7 @@ func (ndb *nodeDB) deleteOrphans(batch dbm.Batch, version int64) {
 			debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			batch.Delete(ndb.nodeKey(hash))
 			ndb.uncacheNode(hash)
-			ndb.totalDeletedCount ++
+			ndb.totalDeletedCount++
 		} else {
 			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.saveOrphan(batch, hash, fromVersion, predecessor)
@@ -769,7 +770,7 @@ func (ndb *nodeDB) SaveOrphans(batch dbm.Batch, version int64, orphans []*Node) 
 
 	if EnableOptPruning {
 		version = version - 1
-
+		ndb.totalOrphanCount += len(orphans)
 		orphansObj := ndb.heightOrphansMap[version]
 		if orphansObj != nil {
 			orphansObj.orphans = orphans
@@ -884,7 +885,7 @@ func (ndb *nodeDB) BatchSet(node *Node, batch dbm.Batch) {
 	nodeKey := ndb.nodeKey(node.hash)
 	nodeValue := buf.Bytes()
 	batch.Set(nodeKey, nodeValue)
-	ndb.totalPersistedCount ++
+	ndb.totalPersistedCount++
 	ndb.totalPersistedSize += len(nodeKey) + len(nodeValue)
 	debug("BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
@@ -939,23 +940,25 @@ func (ndb *nodeDB) GetNodeReadCount() int {
 func (ndb *nodeDB) PrintCacheLog(version int64) {
 	nodeReadCount := ndb.GetNodeReadCount()
 	cacheReadCount := ndb.GetNodeReadCount() - ndb.GetDBReadCount()
-	printLog := fmt.Sprintf("module: %s", ParseDBName(ndb.db))
-	printLog += fmt.Sprintf(" height: %d", version)
-	printLog += fmt.Sprintf(", nodeCacheSize: %d", len(ndb.nodeCache))
-	printLog += fmt.Sprintf(", orphansCacheSize: %d", len(ndb.orphanNodeCache))
-	printLog += fmt.Sprintf(", prePersistCacheSize: %d", len(ndb.prePersistNodeCache))
-	printLog += fmt.Sprintf(", tempPrePersistCacheSize %d", len(ndb.tempPrePersistNodeCache))
-	printLog += fmt.Sprintf(", dbReadCount: %d", ndb.GetDBReadCount())
-	printLog += fmt.Sprintf(", dbWriteCount: %d", ndb.GetDBWriteCount())
+	printLog := fmt.Sprintf("db:%s", ParseDBName(ndb.db))
+	printLog += fmt.Sprintf(",height:%d", version)
+	printLog += fmt.Sprintf(",nodeCCnt:%d", len(ndb.nodeCache))
+	printLog += fmt.Sprintf(",orphanCCnt:%d", len(ndb.orphanNodeCache))
+	printLog += fmt.Sprintf(",prePerCCnt:%d", len(ndb.prePersistNodeCache))
+	printLog += fmt.Sprintf(",tmpPrePerCCnt:%d", len(ndb.tempPrePersistNodeCache))
+	printLog += fmt.Sprintf(",dbRCnt:%d", ndb.GetDBReadCount())
+	printLog += fmt.Sprintf(",dbWCnt:%d", ndb.GetDBWriteCount())
+	printLog += fmt.Sprintf(",nodeRCnt:%d", ndb.GetNodeReadCount())
 
 	if nodeReadCount > 0 {
-		printLog += fmt.Sprintf(", cacheHit: %.2f%%", float64(cacheReadCount)/float64(nodeReadCount)*100)
+		printLog += fmt.Sprintf(",CHit:%.2f%%", float64(cacheReadCount)/float64(nodeReadCount)*100)
 	} else {
-		printLog += fmt.Sprintf(", cacheHit: 0 read")
+		printLog += fmt.Sprintf(",CHit:0")
 	}
-	printLog += fmt.Sprintf(", totalPersistedCount: %d", ndb.totalPersistedCount)
-	printLog += fmt.Sprintf(", totalPersistedSize: %d", ndb.totalPersistedSize)
-	printLog += fmt.Sprintf(", totalDeletedCount: %d", ndb.totalDeletedCount)
+	printLog += fmt.Sprintf(",TPersisCnt:%d", ndb.totalPersistedCount)
+	printLog += fmt.Sprintf(",TPersisSize:%d", ndb.totalPersistedSize)
+	printLog += fmt.Sprintf(",TDelCnt:%d", ndb.totalDeletedCount)
+	printLog += fmt.Sprintf(",TOrphanCnt:%d", ndb.totalOrphanCount)
 	fmt.Println(printLog)
 	ndb.resetDBReadCount()
 	ndb.resetDBWriteCount()
