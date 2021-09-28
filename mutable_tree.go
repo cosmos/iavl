@@ -119,9 +119,12 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		committedHeightQueue:  list.New(),
 		maxCommittedHeightNum: MaxCommittedHeightNum,
 	}
-	MutableTreeList = append(MutableTreeList, tree)
-	moduleName := ParseDBName(db)
-	MutableTreeSavedMap[moduleName] = false
+	if EnableOptPruning {
+		MutableTreeList = append(MutableTreeList, tree)
+		moduleName := ParseDBName(db)
+		MutableTreeSavedMap[moduleName] = false
+	}
+
 
 	return tree, nil
 }

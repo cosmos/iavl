@@ -555,7 +555,7 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 
 // Write to disk.
 func (ndb *nodeDB) Commit(batch dbm.Batch) error {
-	debug(LEVEL1, "committing data to disk")
+	debug(LEVEL1, "committing data to disk\n")
 	var err error
 	if ndb.opts.Sync {
 		err = batch.WriteSync()
