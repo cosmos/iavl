@@ -5,7 +5,7 @@ import (
 )
 
 var (
-	debugging = false
+	Debugging = false
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 )
 
 func debug(format string, args ...interface{}) {
-	if debugging {
+	if Debugging {
 		fmt.Printf(format, args...)
 	}
 }
