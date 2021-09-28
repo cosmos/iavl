@@ -381,6 +381,7 @@ func (ndb *nodeDB) deleteNodesFrom(batch dbm.Batch, version int64, hash []byte) 
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
 func (ndb *nodeDB) SaveCommitOrphans(batch dbm.Batch, version int64, orphans map[string]int64) {
+	debug("saving committed orphan node log to disk\n")
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -554,6 +555,7 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 
 // Write to disk.
 func (ndb *nodeDB) Commit(batch dbm.Batch) error {
+	debug("committing data to disk")
 	var err error
 	if ndb.opts.Sync {
 		err = batch.WriteSync()
@@ -604,6 +606,7 @@ func (ndb *nodeDB) SaveRoot(batch dbm.Batch, root *Node, version int64) error {
 	if len(root.hash) == 0 {
 		panic("SaveRoot: root hash should not be empty")
 	}
+	debug("saving root hash(version %d) to disk\n", version)
 	return ndb.saveRoot(batch, root.hash, version)
 }
 
@@ -769,6 +772,7 @@ func (ndb *nodeDB) SaveOrphans(batch dbm.Batch, version int64, orphans []*Node) 
 	defer ndb.mtx.Unlock()
 
 	if EnableOptPruning {
+		debug("saving orphan node(size:%d) to OrphanCache\n", len(orphans))
 		version = version - 1
 		ndb.totalOrphanCount += len(orphans)
 		orphansObj := ndb.heightOrphansMap[version]
@@ -847,6 +851,7 @@ func (ndb *nodeDB) BatchSetPrePersistCache(batch dbm.Batch) dbm.Batch {
 }
 
 func (ndb *nodeDB) SaveNodeFromPrePersistNodeCacheToNodeCache() {
+	debug("saving node from tempPerPersistNodeCache(size:%d) to nodeCache\n", len(ndb.tempPrePersistNodeCache))
 	for _, node := range ndb.tempPrePersistNodeCache {
 		if !node.persisted {
 			panic("unexpected logic")
@@ -893,6 +898,7 @@ func (ndb *nodeDB) BatchSet(node *Node, batch dbm.Batch) {
 }
 
 func (ndb *nodeDB) MovePrePersistCacheToTempCache() {
+	debug("moving prePersistCache(size:%d) to tempPrePersistCache\n", len(ndb.prePersistNodeCache))
 	ndb.tempPrePersistNodeCacheMtx.Lock()
 	ndb.mtx.Lock()
 	ndb.tempPrePersistNodeCache = ndb.prePersistNodeCache
@@ -937,10 +943,10 @@ func (ndb *nodeDB) GetNodeReadCount() int {
 	return ndb.nodeReadCount
 }
 
-func (ndb *nodeDB) PrintCacheLog(version int64) {
+func (ndb *nodeDB) PrintCacheLog(moduleName string, version int64) {
 	nodeReadCount := ndb.GetNodeReadCount()
 	cacheReadCount := ndb.GetNodeReadCount() - ndb.GetDBReadCount()
-	printLog := fmt.Sprintf("db:%s", ParseDBName(ndb.db))
+	printLog := fmt.Sprintf("db:%s", moduleName)
 	printLog += fmt.Sprintf(", height:%d", version)
 	printLog += fmt.Sprintf(", nodeCCnt:%d", len(ndb.nodeCache))
 	printLog += fmt.Sprintf(", orphanCCnt:%d", len(ndb.orphanNodeCache))
