@@ -569,7 +569,7 @@ func (ndb *nodeDB) Commit(batch dbm.Batch) error {
 }
 
 func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
-	if EnableOptPruing {
+	if EnableOptPruning {
 		ndb.mtx.Lock()
 		defer ndb.mtx.Unlock()
 		orphansObj := ndb.heightOrphansMap[version]
@@ -615,7 +615,7 @@ func (ndb *nodeDB) saveRoot(batch dbm.Batch, hash []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	if !EnableOptPruing {
+	if !EnableOptPruning {
 		// We allow the initial version to be arbitrary
 		latest := ndb.getLatestVersion()
 		if !ignoreVersionCheck && latest > 0 && version != latest+1 {
@@ -767,7 +767,7 @@ func (ndb *nodeDB) SaveOrphans(batch dbm.Batch, version int64, orphans []*Node) 
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	if EnableOptPruing {
+	if EnableOptPruning {
 		version = version - 1
 
 		orphansObj := ndb.heightOrphansMap[version]

@@ -18,7 +18,7 @@ const (
 	FlagIavlMinCommitItemCount     = "iavl-min-commit-item-count"
 	FlagIavlHeightOrphansCacheSize = "iavl-height-orphans-cache-size"
 	FlagIavlMaxCommittedHeightNum  = "iavl-max-committed-height-num"
-	FlagIavlEnableOptPruing        = "iavl-enable-opt-pruing"
+	FlagIavlEnableOptPruning        = "iavl-enable-opt-pruing"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 	MinCommitItemCount     int64 = 500000
 	HeightOrphansCacheSize       = 8
 	MaxCommittedHeightNum        = 8
-	EnableOptPruing              = true
+	EnableOptPruning             = true
 )
 
 var MutableTreeList []*MutableTree
@@ -555,7 +555,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, fmt.Errorf("version %d was already saved to different hash %X (existing hash %X)", version, newHash, existingHash)
 	}
 
-	if EnableOptPruing {
+	if EnableOptPruning {
 		if version%CommitIntervalHeight == 0 || TotalPreCommitCacheSize >= MinCommitItemCount {
 			batch := tree.NewBatch()
 
@@ -868,7 +868,7 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node) {
 }
 
 func (tree *MutableTree) addOrphans(orphans []*Node) {
-	if EnableOptPruing {
+	if EnableOptPruning {
 		for _, node := range orphans {
 			if node.persisted || node.prePersisted {
 				if len(node.hash) == 0 {
@@ -896,7 +896,7 @@ func (tree *MutableTree) addOrphans(orphans []*Node) {
 }
 
 func (tree *MutableTree) StopTree() {
-	if !EnableOptPruing {
+	if !EnableOptPruning {
 		return
 	}
 	if tree.hasCommitted {
