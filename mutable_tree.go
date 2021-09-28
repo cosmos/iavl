@@ -618,7 +618,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 		tree.PrintVersionLog()
 		tree.hasCommitted = true
-		MutableTreeReady(tree.GetModuleName())
+		UpdateMutableTreeMap(tree.GetModuleName())
 		return rootHash, version, nil
 	} else {
 		batch := tree.NewBatch()
