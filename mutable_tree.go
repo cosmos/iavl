@@ -689,6 +689,7 @@ func (tree *MutableTree) UpdateCommittedStateHeightPool(batch dbm.Batch, version
 		item := committedHeightQueue.Front()
 		oldVersion := committedHeightQueue.Remove(item).(int64)
 		debug(LEVEL1, "deleting old height(%d) orphan nodes\n", oldVersion)
+		delete(tree.committedHeightMap, oldVersion)
 		err := tree.deleteVersion(batch, oldVersion)
 		if err != nil {
 			panic(err)
@@ -711,7 +712,7 @@ func (tree *MutableTree) deleteVersion(batch dbm.Batch, version int64) error {
 		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
 	if _, ok := tree.versions[version]; !ok {
-		return errors.Wrap(ErrVersionDoesNotExist, "")
+		return errors.Wrap(ErrVersionDoesNotExist, fmt.Sprintf("%d", version))
 	}
 
 	if err := tree.ndb.DeleteVersion(batch, version, true); err != nil {
