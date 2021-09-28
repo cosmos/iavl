@@ -5,15 +5,17 @@ import (
 )
 
 var (
-	Debugging = false
+	Debugging = 0
 )
 
 const (
 	FlagIavlDebug        = "iavl-debug"
+	LEVEL1 = 1
+	LEVEL2 = 2
 )
 
-func debug(format string, args ...interface{}) {
-	if Debugging {
+func debug(level int, format string, args ...interface{}) {
+	if Debugging >= level {
 		fmt.Printf(format, args...)
 	}
 }
