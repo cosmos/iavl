@@ -34,14 +34,43 @@ var (
 	EnableOptPruing              = true
 )
 
-var MultableTreeList []*MutableTree
+var MutableTreeList []*MutableTree
+var TotalPreCommitCacheSize int64
+var MutableTreeSavedMap map[string]bool
 
-func GetTotalPreCommitCacheSize() int64 {
+func init()  {
+	MutableTreeSavedMap = make(map[string]bool)
+}
+
+func UpdateTotalPreCommitCacheSize() {
 	var size int64 = 0
-	for _, tree := range MultableTreeList {
+	for _, tree := range MutableTreeList {
 		size = size + int64(len(tree.ndb.prePersistNodeCache))
 	}
-	return size
+	TotalPreCommitCacheSize = size
+}
+
+func IsMutableTreeSavedMapAllReady() bool {
+	for _, isReady := range MutableTreeSavedMap {
+		if !isReady {
+			return false
+		}
+	}
+	for key, _ := range MutableTreeSavedMap {
+		MutableTreeSavedMap[key] = false
+	}
+	return true
+}
+
+func MutableTreeReady(module string) {
+	MutableTreeSavedMap[module] = true
+}
+
+func UpdateMutableTreeMap(module string) {
+	MutableTreeReady(module)
+	if IsMutableTreeSavedMapAllReady() {
+		UpdateTotalPreCommitCacheSize()
+	}
 }
 
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
@@ -89,7 +118,10 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		committedHeightQueue:  list.New(),
 		maxCommittedHeightNum: MaxCommittedHeightNum,
 	}
-	MultableTreeList = append(MultableTreeList, tree)
+	MutableTreeList = append(MutableTreeList, tree)
+	moduleName := ParseDBName(db)
+	MutableTreeSavedMap[moduleName] = false
+
 	return tree, nil
 }
 
@@ -524,8 +556,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if EnableOptPruing {
-		var currentPrePersistNodeCount = GetTotalPreCommitCacheSize()
-		if version%CommitIntervalHeight == 0 || currentPrePersistNodeCount >= MinCommitItemCount {
+		if version%CommitIntervalHeight == 0 || TotalPreCommitCacheSize >= MinCommitItemCount {
 			batch := tree.NewBatch()
 
 			if tree.root == nil {
@@ -587,6 +618,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 		tree.PrintVersionLog()
 		tree.hasCommitted = true
+		MutableTreeReady(tree.GetModuleName())
 		return rootHash, version, nil
 	} else {
 		batch := tree.NewBatch()
@@ -622,6 +654,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.hasCommitted = false
 		return tree.Hash(), version, nil
 	}
+}
+
+func (tree *MutableTree) GetModuleName() string {
+	return ParseDBName(tree.ndb.db)
 }
 
 func (tree *MutableTree) SetHeightOrphansItem(version int64, rootHash []byte) {

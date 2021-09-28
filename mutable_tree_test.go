@@ -365,12 +365,9 @@ func TestSaveVersionCommitIntervalHeight(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(tree.ndb.prePersistNodeCache))
-	require.Equal(t, 0, len(tree.ndb.nodeCache))
-	require.Equal(t, 5, len(tree.ndb.tempPrePersistNodeCache))
 	require.Equal(t, 0, len(tree.ndb.orphanNodeCache))
-	time.Sleep(time.Millisecond * 500)
-	require.Equal(t, 5, len(tree.ndb.nodeCache))
-	require.Equal(t, 0, len(tree.ndb.tempPrePersistNodeCache))
+
+	require.Equal(t, 5, len(tree.ndb.nodeCache) + len(tree.ndb.tempPrePersistNodeCache))
 	tree.Set([]byte("k5"), []byte("5555555555"))
 	for i:=0; i<98; i++ {
 		_, _, err = tree.SaveVersion()
@@ -426,7 +423,7 @@ func TestConcurrentGetNode(t *testing.T) {
 
 		}
 	}()
-	for i:=0;i<1000;i++ {
+	for i:=0;i<100;i++ {
 		time.Sleep(time.Millisecond * 10)
 		for j:=0;j<100;j++ {
 			key := randstr(5)
