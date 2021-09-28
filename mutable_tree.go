@@ -18,7 +18,7 @@ const (
 	FlagIavlMinCommitItemCount     = "iavl-min-commit-item-count"
 	FlagIavlHeightOrphansCacheSize = "iavl-height-orphans-cache-size"
 	FlagIavlMaxCommittedHeightNum  = "iavl-max-committed-height-num"
-	FlagIavlEnableOptPruning        = "iavl-enable-opt-pruing"
+	FlagIavlEnableOptPruning        = "iavl-enable-opt-pruning"
 )
 
 var (
@@ -31,7 +31,7 @@ var (
 	MinCommitItemCount     int64 = 500000
 	HeightOrphansCacheSize       = 8
 	MaxCommittedHeightNum        = 8
-	EnableOptPruning             = true
+	EnableOptPruning             = false
 )
 
 var MutableTreeList []*MutableTree
