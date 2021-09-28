@@ -18,7 +18,7 @@ const (
 	FlagIavlMinCommitItemCount     = "iavl-min-commit-item-count"
 	FlagIavlHeightOrphansCacheSize = "iavl-height-orphans-cache-size"
 	FlagIavlMaxCommittedHeightNum  = "iavl-max-committed-height-num"
-	FlagIavlEnableOptPruning        = "iavl-enable-opt-pruning"
+	FlagIavlEnableOptPruning       = "iavl-enable-opt-pruning"
 )
 
 var (
@@ -38,7 +38,7 @@ var MutableTreeList []*MutableTree
 var TotalPreCommitCacheSize int64
 var MutableTreeSavedMap map[string]bool
 
-func init()  {
+func init() {
 	MutableTreeSavedMap = make(map[string]bool)
 }
 
@@ -107,7 +107,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 	ndb := newNodeDB(db, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}
 
-	tree :=  &MutableTree{
+	tree := &MutableTree{
 		ImmutableTree: head,
 		lastSaved:     head.clone(),
 		orphans:       []*Node{},
@@ -124,7 +124,6 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		moduleName := ParseDBName(db)
 		MutableTreeSavedMap[moduleName] = false
 	}
-
 
 	return tree, nil
 }
@@ -579,7 +578,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				debug(LEVEL1, "saving increasedState to PrePersistNodeCache\n")
 				startCacheSize := len(tree.ndb.prePersistNodeCache)
 				tree.ndb.UpdateBranch(tree.root)
-				debug(LEVEL1, "saved increasedState count: %d\n", len(tree.ndb.prePersistNodeCache) - startCacheSize)
+				debug(LEVEL1, "saved increasedState count: %d\n", len(tree.ndb.prePersistNodeCache)-startCacheSize)
 				tree.ndb.SaveOrphans(batch, version, tree.orphans)
 				tree.ndb.SaveCommitOrphans(batch, version, tree.commitOrphans)
 				tree.ndb.MovePrePersistCacheToTempCache()
@@ -606,7 +605,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				debug(LEVEL1, "saving increasedState to PrePersistNodeCache\n")
 				startCacheSize := len(tree.ndb.prePersistNodeCache)
 				tree.ndb.UpdateBranch(tree.root)
-				debug(LEVEL1, "saved increasedState count: %d\n", len(tree.ndb.prePersistNodeCache) - startCacheSize)
+				debug(LEVEL1, "saved increasedState count: %d\n", len(tree.ndb.prePersistNodeCache)-startCacheSize)
 				tree.ndb.SaveOrphans(batch, version, tree.orphans)
 			} else {
 				// There can still be orphans, for example if the root is the node being
@@ -712,6 +711,13 @@ func (tree *MutableTree) deleteVersion(batch dbm.Batch, version int64) error {
 		return errors.Errorf("cannot delete latest saved version (%d)", version)
 	}
 	if _, ok := tree.versions[version]; !ok {
+		var logStr string
+		for v, isTrue := range tree.versions {
+			logStr += fmt.Sprintf("%d:%t, ", v, isTrue)
+
+		}
+		logStr += "\n"
+		debug(LEVEL1, logStr)
 		return errors.Wrap(ErrVersionDoesNotExist, fmt.Sprintf("%d", version))
 	}
 
