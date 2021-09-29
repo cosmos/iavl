@@ -164,7 +164,7 @@ func (ndb *nodeDB) SaveNode(batch dbm.Batch, node *Node) {
 	}
 
 	batch.Set(ndb.nodeKey(node.hash), buf.Bytes())
-	debug(LEVEL2, "BATCH SAVE %X %p\n", node.hash, node)
+	debug2(LEVEL2, "BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
 	ndb.addDBWriteCount()
 	ndb.cacheNode(node)
@@ -381,13 +381,13 @@ func (ndb *nodeDB) deleteNodesFrom(batch dbm.Batch, version int64, hash []byte) 
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
 func (ndb *nodeDB) SaveCommitOrphans(batch dbm.Batch, version int64, orphans map[string]int64) {
-	debug(LEVEL1, "saving committed orphan node log to disk\n")
+	debug2(LEVEL1, "saving committed orphan node log to disk\n")
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
 	for hash, fromVersion := range orphans {
-		debug(LEVEL2, "SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
+		debug2(LEVEL2, "SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan(batch, []byte(hash), fromVersion, toVersion)
 	}
 }
@@ -425,12 +425,12 @@ func (ndb *nodeDB) deleteOrphans(batch dbm.Batch, version int64) {
 		// can delete the orphan.  Otherwise, we shorten its lifetime, by
 		// moving its endpoint to the previous version.
 		if predecessor < fromVersion || fromVersion == toVersion {
-			debug(LEVEL2, "DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
+			debug2(LEVEL2, "DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			batch.Delete(ndb.nodeKey(hash))
 			ndb.uncacheNode(hash)
 			ndb.totalDeletedCount++
 		} else {
-			debug(LEVEL2, "MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
+			debug2(LEVEL2, "MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.saveOrphan(batch, hash, fromVersion, predecessor)
 		}
 	})
@@ -555,7 +555,7 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 
 // Write to disk.
 func (ndb *nodeDB) Commit(batch dbm.Batch) error {
-	debug(LEVEL1, "committing data to disk\n")
+	debug2(LEVEL1, "committing data to disk\n")
 	var err error
 	if ndb.opts.Sync {
 		err = batch.WriteSync()
@@ -606,7 +606,7 @@ func (ndb *nodeDB) SaveRoot(batch dbm.Batch, root *Node, version int64) error {
 	if len(root.hash) == 0 {
 		panic("SaveRoot: root hash should not be empty")
 	}
-	debug(LEVEL1, "saving root hash(version %d) to disk\n", version)
+	debug2(LEVEL1, "saving root hash(version %d) to disk\n", version)
 	return ndb.saveRoot(batch, root.hash, version)
 }
 
@@ -772,7 +772,7 @@ func (ndb *nodeDB) SaveOrphans(batch dbm.Batch, version int64, orphans []*Node) 
 	defer ndb.mtx.Unlock()
 
 	if EnableOptPruning {
-		debug(LEVEL1, "saving orphan node(size:%d) to OrphanCache\n", len(orphans))
+		debug2(LEVEL1, "saving orphan node(size:%d) to OrphanCache\n", len(orphans))
 		version = version - 1
 		ndb.totalOrphanCount += len(orphans)
 		orphansObj := ndb.heightOrphansMap[version]
@@ -789,7 +789,7 @@ func (ndb *nodeDB) SaveOrphans(batch dbm.Batch, version int64, orphans []*Node) 
 	} else {
 		toVersion := ndb.getPreviousVersion(version)
 		for _, node := range orphans {
-			debug(LEVEL2, "SAVEORPHAN %v-%v %X\n", node.version, toVersion, node.hash)
+			debug2(LEVEL2, "SAVEORPHAN %v-%v %X\n", node.version, toVersion, node.hash)
 			ndb.saveOrphan(batch, node.hash, node.version, toVersion)
 		}
 	}
@@ -851,7 +851,7 @@ func (ndb *nodeDB) BatchSetPrePersistCache(batch dbm.Batch) dbm.Batch {
 }
 
 func (ndb *nodeDB) SaveNodeFromPrePersistNodeCacheToNodeCache() {
-	debug(LEVEL1, "saving node from tempPerPersistNodeCache(size:%d) to nodeCache\n", len(ndb.tempPrePersistNodeCache))
+	debug2(LEVEL1, "saving node from tempPerPersistNodeCache(size:%d) to nodeCache\n", len(ndb.tempPrePersistNodeCache))
 	for _, node := range ndb.tempPrePersistNodeCache {
 		if !node.persisted {
 			panic("unexpected logic")
@@ -892,13 +892,13 @@ func (ndb *nodeDB) BatchSet(node *Node, batch dbm.Batch) {
 	batch.Set(nodeKey, nodeValue)
 	ndb.totalPersistedCount++
 	ndb.totalPersistedSize += len(nodeKey) + len(nodeValue)
-	debug(LEVEL2, "BATCH SAVE %X %p\n", node.hash, node)
+	debug2(LEVEL2, "BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
 	ndb.addDBWriteCount()
 }
 
 func (ndb *nodeDB) MovePrePersistCacheToTempCache() {
-	debug(LEVEL1, "moving prePersistCache(size:%d) to tempPrePersistCache\n", len(ndb.prePersistNodeCache))
+	debug2(LEVEL1, "moving prePersistCache(size:%d) to tempPrePersistCache\n", len(ndb.prePersistNodeCache))
 	ndb.tempPrePersistNodeCacheMtx.Lock()
 	ndb.mtx.Lock()
 	ndb.tempPrePersistNodeCache = ndb.prePersistNodeCache
@@ -966,7 +966,7 @@ func (ndb *nodeDB) PrintCacheLog(moduleName string, version int64) {
 	printLog += fmt.Sprintf(", TDelCnt:%d", ndb.totalDeletedCount)
 	printLog += fmt.Sprintf(", TOrphanCnt:%d", ndb.totalOrphanCount)
 	printLog += "\n"
-	debug(LEVEL0, printLog)
+	debug2(LEVEL0, printLog)
 	ndb.resetDBReadCount()
 	ndb.resetDBWriteCount()
 	ndb.resetNodeReadCount()

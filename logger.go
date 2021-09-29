@@ -15,8 +15,13 @@ const (
 	LEVEL2 = 2
 )
 
-func debug(level int, format string, args ...interface{}) {
+func debug2(level int, format string, args ...interface{}) {
 	if Debugging >= level {
-		fmt.Printf(format, args...)
+		debug(format, args...)
 	}
+}
+
+
+func debug(format string, args ...interface{}) {
+	fmt.Printf(format, args...)
 }
