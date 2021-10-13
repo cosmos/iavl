@@ -166,12 +166,23 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped
 	if t.root == nil {
 		return false
 	}
+  iter := t.Iterator(nil, nil, true)
+  defer iter.Close()
+  for ; iter.Valid(); iter.Next() {
+    stopped = fn(iter.Key(), iter.Value())
+    if stopped {
+      return stopped
+    }
+  }
+  return stopped
+  /*
 	return t.root.traverse(t, true, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		}
 		return false
 	})
+  */
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
@@ -229,6 +240,8 @@ type Iterator struct {
 
   key, value []byte
 
+  valid bool
+
   next traversal
 }
 
@@ -236,6 +249,7 @@ func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
   iter := &Iterator {
     start: start,
     end: end,
+    valid: true,
     next: t.root.traversal(t, start, end, ascending, false, 0, false, true, nil),
   }
 
@@ -250,7 +264,7 @@ func (iter *Iterator) Domain() ([]byte, []byte) {
 }
 
 func (iter *Iterator) Valid() bool {
-  return iter.next != nil
+  return iter.valid
 }
 
 func (iter *Iterator) Key() []byte {
@@ -262,13 +276,24 @@ func (iter *Iterator) Value() []byte {
 }
 
 func (iter *Iterator) Next() {
+  if iter.next == nil {
+    iter.valid = false
+    return
+  }
   node, _, next := iter.next()
-  iter.key, iter.value = node.key, node.value
   iter.next = next
+
+  if node.height == 0 {
+    iter.key, iter.value = node.key, node.value
+    return
+  }
+
+  iter.Next()
 }
 
 func (iter *Iterator) Close() error {
   iter.next = nil
+  iter.valid = false
   return nil
 }
 
