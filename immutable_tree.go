@@ -283,6 +283,10 @@ func (iter *Iterator) Next() {
   node, _, next := iter.next()
   iter.next = next
 
+  if node == nil {
+    iter.valid = false
+    return
+  }
   if node.height == 0 {
     iter.key, iter.value = node.key, node.value
     return
