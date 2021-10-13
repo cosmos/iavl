@@ -223,3 +223,55 @@ func (t *ImmutableTree) nodeSize() int {
 	})
 	return size
 }
+
+type Iterator struct {
+  start, end []byte
+
+  key, value []byte
+
+  next traversal
+}
+
+func (t *ImmutableTree) Iterator(start, end []byte) *Iterator {
+  iter := &Iterator {
+    start: start,
+    end: end,
+    next: t.root.traversal(t, start, end, true, false, 0, false, true, nil),
+  }
+
+  iter.Next()
+  return iter
+}
+
+var _ dbm.Iterator = &Iterator{}
+
+func (iter *Iterator) Domain() ([]byte, []byte) {
+  return iter.start, iter.end
+}
+
+func (iter *Iterator) Valid() bool {
+  return iter.next != nil
+}
+
+func (iter *Iterator) Key() []byte {
+  return iter.key
+}
+
+func (iter *Iterator) Value() []byte {
+  return iter.value
+}
+
+func (iter *Iterator) Next() {
+  node, _, next := iter.next()
+  iter.key, iter.value = node.key, node.value
+  iter.next = next
+}
+
+func (iter *Iterator) Close() error {
+  iter.next = nil
+  return nil
+}
+
+func (iter *Iterator) Error() error {
+  return nil
+}

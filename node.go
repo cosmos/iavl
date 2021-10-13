@@ -456,7 +456,7 @@ type traversal func() (*Node, uint8, traversal)
 
 func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, cb func(*Node, uint8) bool) bool {
   stop := false
-  next := node.traversal(t, start, end, ascending, inclusive, depth, post, true, func() (*Node, uint8, traversal) { return nil, 0, nil })
+  next := node.traversal(t, start, end, ascending, inclusive, depth, post, true, nil)
   var node2 *Node
   var depth2 uint8
   for next != nil {
@@ -514,12 +514,17 @@ func (node *Node) traversal(t *ImmutableTree, start, end []byte, ascending bool,
 	  }
 
 	  if post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
-	    return inner(func() (*Node, uint8, traversal) {
-        return node, depth, continuation
-      })()
+      continuation2 := continuation
+      continuation = func() (*Node, uint8, traversal) {
+        return node, depth, continuation2
+      }
     }
 
-    return inner(continuation)()
+    next := inner(continuation)
+    if next == nil {
+      return nil, 0, nil
+    }
+    return next()
   }
 }
 
