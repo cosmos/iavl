@@ -232,11 +232,11 @@ type Iterator struct {
   next traversal
 }
 
-func (t *ImmutableTree) Iterator(start, end []byte) *Iterator {
+func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
   iter := &Iterator {
     start: start,
     end: end,
-    next: t.root.traversal(t, start, end, true, false, 0, false, true, nil),
+    next: t.root.traversal(t, start, end, ascending, false, 0, false, true, nil),
   }
 
   iter.Next()
