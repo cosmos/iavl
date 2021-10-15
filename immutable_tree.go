@@ -166,23 +166,23 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped
 	if t.root == nil {
 		return false
 	}
-  iter := t.Iterator(nil, nil, true)
-  defer iter.Close()
-  for ; iter.Valid(); iter.Next() {
-    stopped = fn(iter.Key(), iter.Value())
-    if stopped {
-      return stopped
-    }
-  }
-  return stopped
-  /*
-	return t.root.traverse(t, true, func(node *Node) bool {
-		if node.height == 0 {
-			return fn(node.key, node.value)
+	iter := t.Iterator(nil, nil, true)
+	defer iter.Close()
+	for ; iter.Valid(); iter.Next() {
+		stopped = fn(iter.Key(), iter.Value())
+		if stopped {
+			return stopped
 		}
-		return false
-	})
-  */
+	}
+	return stopped
+	/*
+		return t.root.traverse(t, true, func(node *Node) bool {
+			if node.height == 0 {
+				return fn(node.key, node.value)
+			}
+			return false
+		})
+	*/
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
@@ -236,71 +236,71 @@ func (t *ImmutableTree) nodeSize() int {
 }
 
 type Iterator struct {
-  start, end []byte
+	start, end []byte
 
-  key, value []byte
+	key, value []byte
 
-  valid bool
+	valid bool
 
-  next traversal
+	next traversal
 }
 
 func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
-  iter := &Iterator {
-    start: start,
-    end: end,
-    valid: true,
-    next: t.root.traversal(t, start, end, ascending, false, 0, false, true, nil),
-  }
+	iter := &Iterator{
+		start: start,
+		end:   end,
+		valid: true,
+		next:  t.root.traversal(t, start, end, ascending, false, 0, false, true, nil),
+	}
 
-  iter.Next()
-  return iter
+	iter.Next()
+	return iter
 }
 
 var _ dbm.Iterator = &Iterator{}
 
 func (iter *Iterator) Domain() ([]byte, []byte) {
-  return iter.start, iter.end
+	return iter.start, iter.end
 }
 
 func (iter *Iterator) Valid() bool {
-  return iter.valid
+	return iter.valid
 }
 
 func (iter *Iterator) Key() []byte {
-  return iter.key
+	return iter.key
 }
 
 func (iter *Iterator) Value() []byte {
-  return iter.value
+	return iter.value
 }
 
 func (iter *Iterator) Next() {
-  if iter.next == nil {
-    iter.valid = false
-    return
-  }
-  node, _, next := iter.next()
-  iter.next = next
+	if iter.next == nil {
+		iter.valid = false
+		return
+	}
+	node, _, next := iter.next()
+	iter.next = next
 
-  if node == nil {
-    iter.valid = false
-    return
-  }
-  if node.height == 0 {
-    iter.key, iter.value = node.key, node.value
-    return
-  }
+	if node == nil {
+		iter.valid = false
+		return
+	}
+	if node.height == 0 {
+		iter.key, iter.value = node.key, node.value
+		return
+	}
 
-  iter.Next()
+	iter.Next()
 }
 
 func (iter *Iterator) Close() error {
-  iter.next = nil
-  iter.valid = false
-  return nil
+	iter.next = nil
+	iter.valid = false
+	return nil
 }
 
 func (iter *Iterator) Error() error {
-  return nil
+	return nil
 }
