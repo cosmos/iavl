@@ -473,59 +473,61 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 }
 
 func (node *Node) traversal(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, condition bool, continuation traversal) traversal {
-	return func() (*Node, uint8, traversal) {
-		if !condition {
-			if continuation == nil {
-				return nil, 0, nil
+	if node == nil {
+		return continuation
+	}
+
+	if !condition {
+		return continuation
+	}
+
+	afterStart := start == nil || bytes.Compare(start, node.key) < 0
+	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
+	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
+	if inclusive {
+		beforeEnd = end == nil || bytes.Compare(node.key, end) <= 0
+	}
+
+	inner := func(continuation traversal) traversal {
+		if !node.isLeaf() {
+			if ascending {
+				// check lower nodes, then higher
+				return node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
+					node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
+						continuation))
+			} else {
+				// check the higher nodes first
+				return node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
+					node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
+						continuation))
 			}
-			return continuation()
 		}
+		return continuation
+	}
 
-		if node == nil {
-			return nil, 0, nil
-		}
-		afterStart := start == nil || bytes.Compare(start, node.key) < 0
-		startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
-		beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
-		if inclusive {
-			beforeEnd = end == nil || bytes.Compare(node.key, end) <= 0
-		}
+	// Run callback per inner/leaf node.
 
-		inner := func(continuation traversal) traversal {
-			if !node.isLeaf() {
-				if ascending {
-					// check lower nodes, then higher
-					return node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
-						node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
-							continuation))
-				} else {
-					// check the higher nodes first
-					return node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
-						node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
-							continuation))
-				}
-			}
-			return continuation
-		}
-
-		// Run callback per inner/leaf node.
-		if !post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+	// case of preorder traversal.
+	// traversal for this node is first visited and then proceed to inner()
+	if !post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+		return func() (*Node, uint8, traversal) {
 			return node, depth, inner(continuation)
 		}
-
-		if post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
-			continuation2 := continuation
-			continuation = func() (*Node, uint8, traversal) {
-				return node, depth, continuation2
-			}
-		}
-
-		next := inner(continuation)
-		if next == nil {
-			return nil, 0, nil
-		}
-		return next()
 	}
+
+	// case of postorder traversal.
+	// traversal for this node is captured in the continuation and
+	// passed into inner()
+	if post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+		return func() (*Node, uint8, traversal) {
+			return inner(func() (*Node, uint8, traversal) {
+				return node, depth, continuation
+			})()
+		}
+	}
+
+	// ignore this node, keep traverse on children.
+	return inner(continuation)
 }
 
 // Only used in testing...
