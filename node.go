@@ -471,7 +471,16 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 
 // `traversal` returns the delayed execution of recursive traveral in order to give the caller the control of the execution flow.
 // The caller can either call the next traversal to proceed, or simply discard the function variable to stop iteration.
-func (node *Node) traversal(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, condition bool, continuation traversal) traversal {
+// The condition is to determine whether this traversal is required or not, depending on the caller is included in the search
+// range or not.
+func (node *Node) traversal(
+	t *ImmutableTree,
+	start, end []byte, ascending bool, inclusive bool,
+	depth uint8,
+	post bool,
+	condition bool,
+	continuation traversal,
+) traversal {
 	if node == nil {
 		return continuation
 	}
@@ -492,18 +501,18 @@ func (node *Node) traversal(t *ImmutableTree, start, end []byte, ascending bool,
 			if ascending {
 				// if node is a branch node and the order is ascending, then;
 				// return the traversal for the left nodes, which will then proceed on the continuation of;
-				//   the traversal for the right nodes, which will then proceed on the continuation of;
-				//     the delayed traversal for the parent nodes and their children(which is passed as an argument)
 				return node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
+					// the traversal for the right nodes, which will then proceed on the continuation of;
 					node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
+						// the delayed traversal for the parent nodes and their children(which is passed as an argument)
 						continuation))
 			} else {
 				// if node is a branch node and the order is not ascending, then;
 				// return the traversal for the right nodes, which will then proceed on the continuation of;
-				//   the traversal for the left nodes, which will then proceed on the continuation of;
-				//     the delayed traversal for the parent nodes and their children(which is passed as an argument)
 				return node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
+					// the traversal for the left nodes, which will then proceed on the continuation of;
 					node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
+						// the delayed traversal for the parent nodes and their children(which is passed as an argument)
 						continuation))
 			}
 		}

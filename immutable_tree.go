@@ -231,6 +231,8 @@ type Iterator struct {
 
 	valid bool
 
+	// next is the argument for retrieving the sequence starting from the next element.
+	// By calling next manually, Iterator can control the execution flow.
 	next traversal
 }
 
