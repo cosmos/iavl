@@ -166,23 +166,12 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped
 	if t.root == nil {
 		return false
 	}
-	iter := t.Iterator(nil, nil, true)
-	defer iter.Close()
-	for ; iter.Valid(); iter.Next() {
-		stopped = fn(iter.Key(), iter.Value())
-		if stopped {
-			return stopped
+	return t.root.traverse(t, true, func(node *Node) bool {
+		if node.height == 0 {
+			return fn(node.key, node.value)
 		}
-	}
-	return stopped
-	/*
-		return t.root.traverse(t, true, func(node *Node) bool {
-			if node.height == 0 {
-				return fn(node.key, node.value)
-			}
-			return false
-		})
-	*/
+		return false
+	})
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
