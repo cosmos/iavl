@@ -461,9 +461,6 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 	var depth2 uint8
 	for next != nil {
 		node2, depth2, next = next()
-		if node2 == nil {
-			return stop
-		}
 		stop = cb(node2, depth2)
 		if stop {
 			return stop
@@ -472,6 +469,8 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 	return stop
 }
 
+// `traversal` returns the delayed execution of recursive traveral in order to give the caller the control of the execution flow.
+// The caller can either call the next traversal to proceed, or simply discard the function variable to stop iteration.
 func (node *Node) traversal(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, condition bool, continuation traversal) traversal {
 	if node == nil {
 		return continuation
@@ -491,43 +490,59 @@ func (node *Node) traversal(t *ImmutableTree, start, end []byte, ascending bool,
 	inner := func(continuation traversal) traversal {
 		if !node.isLeaf() {
 			if ascending {
-				// check lower nodes, then higher
+				// if node is a branch node and the order is ascending, then;
+				// return the traversal for the left nodes, which will then proceed on the continuation of;
+				//   the traversal for the right nodes, which will then proceed on the continuation of;
+				//     the delayed traversal for the parent nodes and their children(which is passed as an argument)
 				return node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
 					node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
 						continuation))
 			} else {
-				// check the higher nodes first
+				// if node is a branch node and the order is not ascending, then;
+				// return the traversal for the right nodes, which will then proceed on the continuation of;
+				//   the traversal for the left nodes, which will then proceed on the continuation of;
+				//     the delayed traversal for the parent nodes and their children(which is passed as an argument)
 				return node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
 					node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
 						continuation))
 			}
 		}
+		// if node is not a branch node, we don't care about it in this closure.
 		return continuation
 	}
 
 	// Run callback per inner/leaf node.
 
 	// case of preorder traversal.
-	// traversal for this node is first visited and then proceed to inner()
 	if !post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		return func() (*Node, uint8, traversal) {
-			return node, depth, inner(continuation)
+			// return the traversal for this node, which will then proceed on the continuation of;
+			return node, depth,
+				// the traversal for the inner nodes, which will then proceed on the continuation of;
+				inner(
+					// the delayed traversal for the parent nodes and their children(which is passed as an argument)
+					continuation,
+				)
 		}
 	}
 
 	// case of postorder traversal.
-	// traversal for this node is captured in the continuation and
-	// passed into inner()
 	if post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		return func() (*Node, uint8, traversal) {
+			// return the traversal for the inner nodes, which will then proceed on the continuation of;
 			return inner(func() (*Node, uint8, traversal) {
-				return node, depth, continuation
+				// the traversal for this node, which will then proceed on the continuation of;
+				return node, depth,
+					// the delayed traversal for the parent nodes and their children(which is passed as an argument)
+					continuation
 			})()
 		}
 	}
 
-	// ignore this node, keep traverse on children.
-	return inner(continuation)
+	// ignore this node, keep traverse on children and then proceed to delayed continuation.
+	return inner(
+		continuation,
+	)
 }
 
 // Only used in testing...
