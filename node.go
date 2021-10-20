@@ -440,28 +440,49 @@ func (node *Node) calcBalance(t *ImmutableTree) int {
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
 func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, false, func(node *Node, depth uint8) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, false, func(node *Node) bool {
 		return cb(node)
 	})
 }
 
 // traversePost is a wrapper over traverseInRange when we want the whole tree post-order
 func (node *Node) traversePost(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, 0, true, func(node *Node, depth uint8) bool {
+	return node.traverseInRange(t, nil, nil, ascending, false, true, func(node *Node) bool {
 		return cb(node)
 	})
 }
 
-type traversal func() (*Node, uint8, traversal)
+type traversal struct {
+	tree         *ImmutableTree
+	start, end   []byte
+	ascending    bool
+	inclusive    bool
+	post         bool
+	delayedNodes []delayedNode
+}
 
-func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending bool, inclusive bool, depth uint8, post bool, cb func(*Node, uint8) bool) bool {
+func (node *Node) newTraversal(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool) *traversal {
+	return &traversal{
+		tree:         tree,
+		start:        start,
+		end:          end,
+		ascending:    ascending,
+		inclusive:    inclusive,
+		post:         post,
+		delayedNodes: []delayedNode{{node, true}},
+	}
+}
+
+type delayedNode struct {
+	node    *Node
+	delayed bool
+}
+
+func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool, cb func(*Node) bool) bool {
 	stop := false
-	next := node.traversal(t, start, end, ascending, inclusive, depth, post, true, nil)
-	var node2 *Node
-	var depth2 uint8
-	for next != nil {
-		node2, depth2, next = next()
-		stop = cb(node2, depth2)
+	t := node.newTraversal(tree, start, end, ascending, inclusive, post)
+	for node2 := t.next(); node2 != nil; node2 = t.next() {
+		stop = cb(node2)
 		if stop {
 			return stop
 		}
@@ -473,85 +494,72 @@ func (node *Node) traverseInRange(t *ImmutableTree, start, end []byte, ascending
 // The caller can either call the next traversal to proceed, or simply discard the function variable to stop iteration.
 // The condition is to determine whether this traversal is required or not, depending on the caller is included in the search
 // range or not.
-func (node *Node) traversal(
-	t *ImmutableTree,
-	start, end []byte, ascending bool, inclusive bool,
-	depth uint8,
-	post bool,
-	condition bool,
-	continuation traversal,
-) traversal {
+func (t *traversal) next() *Node {
+	if len(t.delayedNodes) == 0 {
+		// end of traversal
+		return nil
+	}
+
+	delayed := t.delayedNodes[0].delayed
+	node := t.delayedNodes[0].node
+	t.delayedNodes = t.delayedNodes[1:]
+
+	if !delayed {
+		return node
+	}
+
 	if node == nil {
-		return continuation
+		return node
 	}
 
-	if !condition {
-		return continuation
-	}
-
-	afterStart := start == nil || bytes.Compare(start, node.key) < 0
-	startOrAfter := start == nil || bytes.Compare(start, node.key) <= 0
-	beforeEnd := end == nil || bytes.Compare(node.key, end) < 0
-	if inclusive {
-		beforeEnd = end == nil || bytes.Compare(node.key, end) <= 0
-	}
-
-	inner := func(continuation traversal) traversal {
-		if !node.isLeaf() {
-			if ascending {
-				// if node is a branch node and the order is ascending, then;
-				// return the traversal for the left nodes, which will then proceed on the continuation of;
-				return node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
-					// the traversal for the right nodes, which will then proceed on the continuation of;
-					node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
-						// the delayed traversal for the parent nodes and their children(which is passed as an argument)
-						continuation))
-			} else {
-				// if node is a branch node and the order is not ascending, then;
-				// return the traversal for the right nodes, which will then proceed on the continuation of;
-				return node.getRightNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, beforeEnd,
-					// the traversal for the left nodes, which will then proceed on the continuation of;
-					node.getLeftNode(t).traversal(t, start, end, ascending, inclusive, depth+1, post, afterStart,
-						// the delayed traversal for the parent nodes and their children(which is passed as an argument)
-						continuation))
-			}
-		}
-		// if node is not a branch node, we don't care about it in this closure.
-		return continuation
-	}
-
-	// Run callback per inner/leaf node.
-
-	// case of preorder traversal.
-	if !post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
-		return func() (*Node, uint8, traversal) {
-			// return the traversal for this node, which will then proceed on the continuation of;
-			return node, depth,
-				// the traversal for the inner nodes, which will then proceed on the continuation of;
-				inner(
-					// the delayed traversal for the parent nodes and their children(which is passed as an argument)
-					continuation,
-				)
-		}
+	afterStart := t.start == nil || bytes.Compare(t.start, node.key) < 0
+	startOrAfter := t.start == nil || bytes.Compare(t.start, node.key) <= 0
+	beforeEnd := t.end == nil || bytes.Compare(node.key, t.end) < 0
+	if t.inclusive {
+		beforeEnd = t.end == nil || bytes.Compare(node.key, t.end) <= 0
 	}
 
 	// case of postorder traversal.
-	if post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
-		return func() (*Node, uint8, traversal) {
-			// return the traversal for the inner nodes, which will then proceed on the continuation of;
-			return inner(func() (*Node, uint8, traversal) {
-				// the traversal for this node, which will then proceed on the continuation of;
-				return node, depth,
-					// the delayed traversal for the parent nodes and their children(which is passed as an argument)
-					continuation
-			})()
-		}
+	if t.post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+		// set the continuation to first traverse the inner nodes, and then the currnet node as non-delayed,
+		// and then the existing delayed nodes.
+		t.delayedNodes = append([]delayedNode{{node, false}}, t.delayedNodes...)
 	}
 
-	// ignore this node, keep traverse on children and then proceed to delayed continuation.
-	return inner(
-		continuation,
-	)
+	if !node.isLeaf() {
+		newDelays := []delayedNode{}
+		// if node is a branch node and the order is ascending, then;
+		if t.ascending {
+			if afterStart {
+				// push the delayed traversal for the left nodes,
+				newDelays = append(newDelays, delayedNode{node.getLeftNode(t.tree), true})
+			}
+			if beforeEnd {
+				// push the delayed traversal for the right nodes,
+				newDelays = append(newDelays, delayedNode{node.getRightNode(t.tree), true})
+			}
+		} else {
+			// if node is a branch node and the order is not ascending, then;
+			if beforeEnd {
+				// push the delayed traversal for the right nodes,
+				newDelays = append(newDelays, delayedNode{node.getRightNode(t.tree), true})
+			}
+			if afterStart {
+				// push the delayed traversal for the left nodes,
+				newDelays = append(newDelays, delayedNode{node.getLeftNode(t.tree), true})
+			}
+		}
+		// then push the delayed traversal for the parent nodes and their children(which is passed as an argument)
+		t.delayedNodes = append(newDelays, t.delayedNodes...)
+	}
+
+	// case of preorder traversal.
+	if !t.post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
+		// set the continuation to first traverse the inner nodes, and then the existing delayed nodes.
+		return node
+	}
+
+	return t.next()
 }
 
 // Only used in testing...

@@ -181,7 +181,7 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, false, 0, false, func(node *Node, _ uint8) bool {
+	return t.root.traverseInRange(t, start, end, ascending, false, false, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		}
@@ -196,7 +196,7 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	if t.root == nil {
 		return false
 	}
-	return t.root.traverseInRange(t, start, end, ascending, true, 0, false, func(node *Node, _ uint8) bool {
+	return t.root.traverseInRange(t, start, end, ascending, true, false, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value, node.version)
 		}
@@ -233,7 +233,7 @@ type Iterator struct {
 
 	// next is the argument for retrieving the sequence starting from the next element.
 	// By calling next manually, Iterator can control the execution flow.
-	next traversal
+	t *traversal
 }
 
 func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
@@ -241,7 +241,7 @@ func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
 		start: start,
 		end:   end,
 		valid: true,
-		next:  t.root.traversal(t, start, end, ascending, false, 0, false, true, nil),
+		t:     t.root.newTraversal(t, start, end, ascending, false, false),
 	}
 
 	iter.Next()
@@ -267,12 +267,12 @@ func (iter *Iterator) Value() []byte {
 }
 
 func (iter *Iterator) Next() {
-	if iter.next == nil {
+	node := iter.t.next()
+	if node == nil {
+		iter.t = nil
 		iter.valid = false
 		return
 	}
-	node, _, next := iter.next()
-	iter.next = next
 
 	if node.height == 0 {
 		iter.key, iter.value = node.key, node.value
@@ -283,7 +283,7 @@ func (iter *Iterator) Next() {
 }
 
 func (iter *Iterator) Close() error {
-	iter.next = nil
+	iter.t = nil
 	iter.valid = false
 	return nil
 }
