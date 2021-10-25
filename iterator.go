@@ -72,7 +72,7 @@ func (nodes *delayedNodes) length() int {
 //    are traversed, without being expanded.
 // 2. Append the traversable children nodes into the `delayedNodes`, with `delayed` set to true. This
 //    makes the children nodes to be traversed, and expanded with their respective children.
-// 3. If the traversal is preorder, (with the children to be traversed already pushed to the 
+// 3. If the traversal is preorder, (with the children to be traversed already pushed to the
 //    `delayedNodes`), returns the current node.
 // 4. Call `traversal.next()` to further traverse through the `delayedNodes`.
 //
