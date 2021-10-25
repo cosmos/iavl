@@ -64,20 +64,20 @@ func (nodes *delayedNodes) length() int {
 // 3. It has length of 2>=, meaning that there are delayed nodes to be traversed.
 //
 // When the `delayedNodes` are not empty, `next` retrieves the first `delayedNode` and initially check:
-// 1. If it is not an delayed node (delayedNodes[0].delayed == false) it immediately returns it.
+// 1. If it is not an delayed node (node.delayed == false) it immediately returns it.
 //
-// A. If the `delayedNodes[0]` is a branch node:
-// 1. If the traversal is postorder, then prepend the current node to the t.delayedNodes,
+// A. If the `node` is a branch node:
+// 1. If the traversal is postorder, then append the current node to the t.delayedNodes,
 //    with `delayed` set to false. This makes the current node returned *after* all the children
 //    are traversed, without being expanded.
-// 2. Prepend the traversable children nodes into the `delayedNodes`, with `delayed` set to true. This
+// 2. Append the traversable children nodes into the `delayedNodes`, with `delayed` set to true. This
 //    makes the children nodes to be traversed, and expanded with their respective children.
-// 3. If the traversal is preorder, (with the children already pushed to the `delayedNodes`),
-//    returns the current node.
+// 3. If the traversal is preorder, (with the children to be traversed already pushed to the 
+//    `delayedNodes`), returns the current node.
 // 4. Call `traversal.next()` to further traverse through the `delayedNodes`.
 //
-// B. If the `delayedNodes[0]` is a leaf node, it will be returned without expand, by the following process:
-// 1. If the traversal is postorder, the current node will be prepended to the `delayedNodes` with `delayed`
+// B. If the `node` is a leaf node, it will be returned without expand, by the following process:
+// 1. If the traversal is postorder, the current node will be append to the `delayedNodes` with `delayed`
 //    set to false, and immediately returned at the subsequent call of `traversal.next()` at the last line.
 // 2. If the traversal is preorder, the current node will be returned.
 func (t *traversal) next() *Node {
@@ -94,10 +94,10 @@ func (t *traversal) next() *Node {
 	}
 
 	afterStart := t.start == nil || bytes.Compare(t.start, node.key) < 0
-	startOrAfter := afterStart || bytes.Compare(t.start, node.key) == 0
+	startOrAfter := afterStart || bytes.Equal(t.start, node.key)
 	beforeEnd := t.end == nil || bytes.Compare(node.key, t.end) < 0
 	if t.inclusive {
-		beforeEnd = beforeEnd || bytes.Compare(node.key, t.end) == 0
+		beforeEnd = beforeEnd || bytes.Equal(node.key, t.end)
 	}
 
 	// case of postorder. A-1 and B-1
@@ -127,7 +127,6 @@ func (t *traversal) next() *Node {
 				// push the delayed traversal for the right nodes,
 				t.delayedNodes.push(node.getRightNode(t.tree), true)
 			}
-
 		}
 	}
 
