@@ -56,7 +56,13 @@ func (nodes *delayedNodes) length() int {
 }
 
 // `traversal` returns the delayed execution of recursive traversal on a tree.
-// `traversal` has `delayedNodes`, which is an array of `delayedNode`.
+//
+// `traversal` will traverse the tree in a depth-first manner. To handle locating
+// the next element, and to handle unwinding, the traversal maintains its future
+// iteration under `delayedNodes`. At each call of `next()`, it will retrieve the
+// next element from the `delayedNodes` and acts accordingly. The `next()` itself
+// defines how to unwind the delayed nodes stack. The caller can either call the
+// next traversal to proceed, or simply discard the `traversal` struct to stop iteration.
 //
 // At the each step of `next`, the `delayedNodes` can have one of the three states:
 // 1. It has length of 0, meaning that their is no more traversable nodes.
@@ -101,13 +107,15 @@ func (t *traversal) next() *Node {
 	}
 
 	// case of postorder. A-1 and B-1
+	// Recursively process left sub-tree, then right-subtree, then node itself.
 	if t.post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		t.delayedNodes.push(node, false)
 	}
 
 	// case of branch node, traversing children. A-2.
 	if !node.isLeaf() {
-		// if node is a branch node and the order is ascending, then;
+		// if node is a branch node and the order is ascending,
+		// We traverse through the left subtree, then the right subtree.
 		if t.ascending {
 			if beforeEnd {
 				// push the delayed traversal for the right nodes,
@@ -118,7 +126,8 @@ func (t *traversal) next() *Node {
 				t.delayedNodes.push(node.getLeftNode(t.tree), true)
 			}
 		} else {
-			// if node is a branch node and the order is not ascending, then;
+			// if node is a branch node and the order is not ascending
+			// We traverse through the right subtree, then the left subtree.
 			if afterStart {
 				// push the delayed traversal for the left nodes,
 				t.delayedNodes.push(node.getLeftNode(t.tree), true)
@@ -131,6 +140,7 @@ func (t *traversal) next() *Node {
 	}
 
 	// case of preorder traversal. A-3 and B-2.
+	// Process root then (recursively) processing left child, then process right child
 	if !t.post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
 		return node
 	}
