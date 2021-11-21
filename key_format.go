@@ -7,9 +7,10 @@ import (
 
 // Provides a fixed-width lexicographically sortable []byte key format
 type KeyFormat struct {
-	prefix byte
-	layout []int
-	length int
+	prefix    byte
+	layout    []int
+	length    int
+	unbounded bool
 }
 
 // Create a []byte key format based on a single byte prefix and fixed width key segments each of whose length is
@@ -27,16 +28,26 @@ type KeyFormat struct {
 //  	hasher.Sum(nil)
 //  	return keyFormat.Key(version, hasher.Sum(nil))
 //  }
+// if the last term of the layout ends in 0
 func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 	// For prefix byte
 	length := 1
-	for _, l := range layout {
+	for i, l := range layout {
 		length += l
+		if l == 0 && i != len(layout)-1 {
+			panic("Only the last item in a key format can be 0")
+		}
 	}
+	unboundedSize := false
+	if len(layout) >= 1 {
+		unboundedSize = layout[len(layout)-1] == 0
+	}
+
 	return &KeyFormat{
-		prefix: prefix,
-		layout: layout,
-		length: length,
+		prefix:    prefix,
+		layout:    layout,
+		length:    length,
+		unbounded: unboundedSize,
 	}
 }
 
@@ -53,16 +64,29 @@ func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
 		}
 	}
 
+	if kf.unbounded {
+		lastSegmentLen := 0
+		if len(segments) > 0 {
+			lastSegmentLen += len(segments[len(segments)-1])
+		}
+		keyLen += lastSegmentLen
+	}
 	key := make([]byte, keyLen)
 	key[0] = kf.prefix
 	n := 1
 	for i, s := range segments {
 		l := kf.layout[i]
-		if len(s) > l {
+		if l > 0 && len(s) > l {
 			panic(fmt.Errorf("length of segment %X provided to KeyFormat.KeyBytes() is longer than the %d bytes "+
 				"required by layout for segment %d", s, l, i))
 		}
-		n += l
+		// if expected segment length is unbounded, increase it by `string length`
+		// otherwise increase it by segment length `l`
+		if l == 0 {
+			n += len(s)
+		} else {
+			n += l
+		}
 		// Big endian so pad on left if not given the full width for this segment
 		copy(key[n-len(s):n], s)
 	}
@@ -90,10 +114,17 @@ func (kf *KeyFormat) ScanBytes(key []byte) [][]byte {
 	n := 1
 	for i, l := range kf.layout {
 		n += l
+		// if current section is longer than key, then there are no more subsequent segments.
 		if n > len(key) {
 			return segments[:i]
 		}
-		segments[i] = key[n-l : n]
+		// if unbounded, segment is rest of key
+		if l == 0 {
+			segments[i] = key[n:]
+			break
+		} else {
+			segments[i] = key[n-l : n]
+		}
 	}
 	return segments
 }
