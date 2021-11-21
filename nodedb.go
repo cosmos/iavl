@@ -30,7 +30,13 @@ var (
 	// to exist, while the second number represents the *earliest* version at
 	// which it is expected to exist - which starts out by being the version
 	// of the node being orphaned.
+	// To clarify:
+	// When I write to key {X} with value V and old value O, we orphan O with <last-version>=time of write
+	// and <first-version> = version O was created at.
 	orphanKeyFormat = NewKeyFormat('o', int64Size, int64Size, hashSize) // o<last-version><first-version><hash>
+
+	//
+	fastKeyFormat = NewKeyFormat('f', 0) //
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
@@ -196,6 +202,7 @@ func (ndb *nodeDB) resetBatch() {
 }
 
 // DeleteVersion deletes a tree version from disk.
+// calls deleteOrphans(version), deleteRoot(version, checkLatestVersion)
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
