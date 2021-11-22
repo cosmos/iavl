@@ -35,8 +35,12 @@ var (
 	// and <first-version> = version O was created at.
 	orphanKeyFormat = NewKeyFormat('o', int64Size, int64Size, hashSize) // o<last-version><first-version><hash>
 
-	//
-	fastKeyFormat = NewKeyFormat('f', 0) //
+	// Key Format for making reads and iterates go through a data-locality preserving db.
+	// The value at an entry will list what version it was written to.
+	// Then to query values, you first query state via this fast method.
+	// If its present, then check the tree version. If tree version >= result_version,
+	// return result_version. Else, go through old (slow) IAVL get method that walks through tree.
+	fastKeyFormat = NewKeyFormat('f', 0) // f<keystring>
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
