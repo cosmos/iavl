@@ -145,8 +145,9 @@ func (t *ImmutableTree) Export() *Exporter {
 // Get returns the index and value of the specified key if it exists, or nil and the next index
 // otherwise. The returned value must not be modified, since it may point to data stored within
 // IAVL.
-// TODO: Understand what is this index? Index on its own isn't well defined
-// index = index of the leaf node
+//
+// The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
+// It's neighbor has index 1 and so on.
 func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 	if t.root == nil {
 		return 0, nil
