@@ -15,15 +15,16 @@ type FastNode struct {
 }
 
 // NewFastNode returns a new fast node from a value and version.
-func NewFastNode(value []byte, version int64) *FastNode {
+func NewFastNode(key []byte, value []byte, version int64) *FastNode {
 	return &FastNode{
+		key:                  key,
 		versionLastUpdatedAt: version,
 		value:                value,
 	}
 }
 
-// MakeFastNode constructs an *FastNode from an encoded byte slice.
-func MakeFastNode(buf []byte) (*FastNode, error) {
+// DeserializeFastNode constructs an *FastNode from an encoded byte slice.
+func DeserializeFastNode(buf []byte) (*FastNode, error) {
 	val, n, cause := decodeBytes(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding fastnode.value")
@@ -35,7 +36,10 @@ func MakeFastNode(buf []byte) (*FastNode, error) {
 		return nil, errors.Wrap(cause, "decoding fastnode.version")
 	}
 
-	fastNode := NewFastNode(val, ver)
+	fastNode := &FastNode{
+		versionLastUpdatedAt: ver,
+		value:                val,
+	}
 
 	return fastNode, nil
 }

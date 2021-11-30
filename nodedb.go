@@ -144,7 +144,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 		return nil, fmt.Errorf("Value missing for key %x ", key)
 	}
 
-	fastNode, err := MakeFastNode(buf)
+	fastNode, err := DeserializeFastNode(buf)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading FastNode. bytes: %x, error: %v ", buf, err)
 	}
