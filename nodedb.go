@@ -57,6 +57,10 @@ type nodeDB struct {
 	nodeCache      map[string]*list.Element // Node cache.
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+
+	fastNodeCache      map[string]*list.Element // FastNode cache.
+	fastNodeCacheSize  int                      // FastNode cache size limit in elements.
+	fastNodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -65,14 +69,17 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		opts = &o
 	}
 	return &nodeDB{
-		db:             db,
-		batch:          db.NewBatch(),
-		opts:           *opts,
-		latestVersion:  0, // initially invalid
-		nodeCache:      make(map[string]*list.Element),
-		nodeCacheSize:  cacheSize,
-		nodeCacheQueue: list.New(),
-		versionReaders: make(map[int64]uint32, 8),
+		db:                 db,
+		batch:              db.NewBatch(),
+		opts:               *opts,
+		latestVersion:      0, // initially invalid
+		nodeCache:          make(map[string]*list.Element),
+		nodeCacheSize:      cacheSize,
+		nodeCacheQueue:     list.New(),
+		fastNodeCache:      make(map[string]*list.Element),
+		fastNodeCacheSize:  cacheSize,
+		fastNodeCacheQueue: list.New(),
+		versionReaders:     make(map[int64]uint32, 8),
 	}
 }
 
@@ -112,6 +119,40 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	ndb.cacheNode(node)
 
 	return node
+}
+
+func (ndb *nodeDB) GetFastNode(key []byte) *FastNode {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if len(key) == 0 {
+		panic("nodeDB.GetFastNode() requires key")
+	}
+
+	// Check the cache.
+	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+		// Already exists. Move to back of fastNodeCacheQueue.
+		ndb.fastNodeCacheQueue.MoveToBack(elem)
+		return elem.Value.(*FastNode)
+	}
+
+	// Doesn't exist, load.
+	buf, err := ndb.db.Get(key)
+	if err != nil {
+		panic(fmt.Sprintf("can't get fast-node %X: %v", key, err))
+	}
+	if buf == nil {
+		panic(fmt.Sprintf("Value missing for key %x ", key))
+	}
+
+	fastNode, err := MakeFastNode(buf)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading FastNode. bytes: %x, error: %v", buf, err))
+	}
+
+	fastNode.key = key
+	ndb.cacheFastNode(fastNode)
+	return fastNode
 }
 
 // SaveNode saves a node to disk.
@@ -551,6 +592,26 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 		oldest := ndb.nodeCacheQueue.Front()
 		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
 		delete(ndb.nodeCache, string(hash))
+	}
+}
+
+func (ndb *nodeDB) uncacheFastNode(key []byte) {
+	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+		ndb.fastNodeCacheQueue.Remove(elem)
+		delete(ndb.fastNodeCache, string(key))
+	}
+}
+
+// Add a node to the cache and pop the least recently used node if we've
+// reached the cache size limit.
+func (ndb *nodeDB) cacheFastNode(node *FastNode) {
+	elem := ndb.fastNodeCacheQueue.PushBack(node)
+	ndb.fastNodeCache[string(node.key)] = elem
+
+	if ndb.fastNodeCacheQueue.Len() > ndb.fastNodeCacheSize {
+		oldest := ndb.fastNodeCacheQueue.Front()
+		key := ndb.fastNodeCacheQueue.Remove(oldest).(*FastNode).key
+		delete(ndb.fastNodeCache, string(key))
 	}
 }
 
