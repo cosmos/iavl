@@ -164,9 +164,8 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 
 	if fastNode.versionLastUpdatedAt > t.version {
 		return t.root.get(t, key)
-	} else {
-		return 0, value // TODO determine index and adjust this appropriately
 	}
+	return 0, value // TODO determine index and adjust this appropriately
 }
 
 // GetByIndex gets the key and value at the specified index.
