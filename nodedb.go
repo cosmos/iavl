@@ -120,7 +120,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 	return node
 }
 
-func (ndb *nodeDB) GetFastNode(key []byte) *FastNode {
+func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -132,26 +132,26 @@ func (ndb *nodeDB) GetFastNode(key []byte) *FastNode {
 	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
 		// Already exists. Move to back of fastNodeCacheQueue.
 		ndb.fastNodeCacheQueue.MoveToBack(elem)
-		return elem.Value.(*FastNode)
+		return elem.Value.(*FastNode), nil
 	}
 
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(key)
 	if err != nil {
-		panic(fmt.Sprintf("can't get fast-node %X: %v", key, err))
+		return nil, fmt.Errorf("can't get fast-node %X: %v", key, err)
 	}
 	if buf == nil {
-		panic(fmt.Sprintf("Value missing for key %x ", key))
+		return nil, fmt.Errorf("Value missing for key %x ", key)
 	}
 
 	fastNode, err := MakeFastNode(buf)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading FastNode. bytes: %x, error: %v", buf, err))
+		return nil, fmt.Errorf("Error reading FastNode. bytes: %x, error: %v ", buf, err)
 	}
 
 	fastNode.key = key
 	ndb.cacheFastNode(fastNode)
-	return fastNode
+	return fastNode, nil
 }
 
 // SaveNode saves a node to disk.

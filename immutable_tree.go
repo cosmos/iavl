@@ -152,8 +152,8 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 		return 0, nil
 	}
 
-	fastNode := t.ndb.GetFastNode(key)
-	if fastNode == nil {
+	fastNode, err := t.ndb.GetFastNode(key)
+	if fastNode == nil || err != nil {
 		return t.root.get(t, key)
 	}
 	value = fastNode.value
