@@ -3,6 +3,18 @@
 
 ## Unreleased
 
+## 0.17.2 (November 13, 2021)
+
+### Improvements
+
++ [\#440](https://github.com/cosmos/iavl/pull/440) Introduce Cosmos SDK iterator type directly into IAVL. Improves the iterator performance by 40%.
+
+## 0.17.1 (September 15, 2021)
+
+### Bug Fixes
+
++ [\#432](https://github.com/cosmos/iavl/pull/432) Fix race condition related to Cosmos SDK and nodeDB usage.
+
 ## 0.17.0 (August 31, 2021)
 
 ### Improvements

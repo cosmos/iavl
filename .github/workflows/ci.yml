@@ -17,7 +17,7 @@ jobs:
   Test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2.3.4
+      - uses: actions/checkout@v2.4.0
       - name: test & coverage report creation
         # Some tests, notably TestRandomOperations, are extremely slow in CI
         # with the race detector enabled, so we use -short when -race is
@@ -32,7 +32,7 @@ jobs:
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m
           GOARCH=386 go test ./... -mod=readonly -timeout 5m
-      - uses: codecov/codecov-action@v2.0.3
+      - uses: codecov/codecov-action@v2.1.0
         with:
           file: ./coverage.txt
           fail_ci_if_error: true
