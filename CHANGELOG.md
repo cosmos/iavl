@@ -3,6 +3,12 @@
 
 ## Unreleased
 
+## 0.17.3 (December 1, 2021)
+
+### Bug Fixes
+
+* [\#448](https://github.com/cosmos/iavl/pull/448) Change RMutex to Mutex in `VersionExists()`.
+
 ## 0.17.2 (November 13, 2021)
 
 ### Improvements
