@@ -62,8 +62,8 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
-	tree.mtx.RLock()
-	defer tree.mtx.RUnlock()
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 
 	if tree.allRootLoaded {
 		return tree.versions[version]
