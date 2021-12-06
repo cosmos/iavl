@@ -139,15 +139,15 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(key)
 	if err != nil {
-		return nil, fmt.Errorf("can't get FastNode %X: %v", key, err)
+		return nil, fmt.Errorf("can't get FastNode %X: %w", key, err)
 	}
 	if buf == nil {
-		return nil, fmt.Errorf("value missing for key %x ", key)
+		return nil, fmt.Errorf("value missing for key %x", key)
 	}
 
 	fastNode, err := DeserializeFastNode(buf)
 	if err != nil {
-		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %v ", buf, err)
+		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
 	}
 
 	fastNode.key = key
@@ -181,6 +181,31 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	debug("BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
 	ndb.cacheNode(node)
+}
+
+// SaveNode saves a FastNode to disk.
+func (ndb *nodeDB) SaveFastNode(node *FastNode) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if node.key == nil {
+		return fmt.Errorf("FastNode cannot have a nil value for key")
+	}
+
+	// Save node bytes to db.
+	var buf bytes.Buffer
+	buf.Grow(node.encodedSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		return fmt.Errorf("error while writing fastnode bytes. Err: %w", err)
+	}
+
+	if err := ndb.batch.Set(node.key, buf.Bytes()); err != nil {
+		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
+	}
+	debug("BATCH SAVE %X %p\n", node.key, node)
+	ndb.cacheFastNode(node)
+	return nil
 }
 
 // Has checks if a hash exists in the database.

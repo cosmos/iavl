@@ -153,8 +153,8 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 		return 0, nil
 	}
 
-	// attempt to get a FastNode directly from nodedb/cache.
-	// if call fails for any reason we fall back to the original, yet slower, IAVL logic in place.
+	// attempt to get a FastNode directly from db/cache.
+	// if call fails, fall back to the original IAVL logic in place.
 	fastNode, err := t.ndb.GetFastNode(key)
 	if fastNode == nil || err != nil {
 		debug("failed to get FastNode with key: %X, falling back to regular IAVL logic", key)
