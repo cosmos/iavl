@@ -126,7 +126,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 	defer ndb.mtx.Unlock()
 
 	if len(key) == 0 {
-		panic("nodeDB.GetFastNode() requires key")
+		return nil, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
 	}
 
 	// TODO make a second write lock just for fastNodeCacheQueue later
@@ -140,7 +140,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(key)
 	if err != nil {
-		return nil, fmt.Errorf("can't get fast-node %X: %v", key, err)
+		return nil, fmt.Errorf("can't get FastNode %X: %v", key, err)
 	}
 	if buf == nil {
 		return nil, fmt.Errorf("value missing for key %x ", key)
