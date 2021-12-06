@@ -145,20 +145,28 @@ func (t *ImmutableTree) Export() *Exporter {
 // Get returns the index and value of the specified key if it exists, or nil and the next index
 // otherwise. The returned value must not be modified, since it may point to data stored within
 // IAVL.
-// TODO: Understand what is this index? Index on its own isn't well defined
-// index across all leaves?
+//
+// The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
+// It's neighbor has index 1 and so on.
 func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 	if t.root == nil {
 		return 0, nil
 	}
-	// IMPLEMENT FOLLOWING PSUEDOCODE
-	// value, version := t.nodeDb.fastGet(key)
-	// if value == nil { return t.root.get(t, key)}
-	// if version > t.version { return t.root.get(t, key)}
-	// else: return value
-	// TODO: Figure out what index is
 
-	return t.root.get(t, key)
+	fastNode, err := t.ndb.GetFastNode(key)
+	if fastNode == nil || err != nil {
+		return t.root.get(t, key)
+	}
+	value = fastNode.value
+	if value == nil {
+		return t.root.get(t, key)
+	}
+
+	// cache node is too new, so read from historical tree
+	if fastNode.versionLastUpdatedAt > t.version {
+		return t.root.get(t, key)
+	}
+	return 0, value // TODO determine index and adjust this appropriately
 }
 
 // GetByIndex gets the key and value at the specified index.
