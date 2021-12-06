@@ -162,6 +162,7 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 		return t.root.get(t, key)
 	}
 
+	// cache node is too new, so read from historical tree
 	if fastNode.versionLastUpdatedAt > t.version {
 		return t.root.get(t, key)
 	}
