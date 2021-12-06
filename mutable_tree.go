@@ -121,6 +121,13 @@ func (tree *MutableTree) prepareOrphansSlice() []*Node {
 // updated, while false means it was a new key.
 func (tree *MutableTree) Set(key, value []byte) (updated bool) {
 	var orphaned []*Node
+
+	// attempt to create a FastNode and persist to db/cache
+	fastNode := NewFastNode(key, value, tree.version+1)
+	if err := tree.ndb.SaveFastNode(fastNode); err != nil {
+		debug("Failed to save FastNode in database. Err: %s", err)
+	}
+
 	orphaned, updated = tree.set(key, value)
 	tree.addOrphans(orphaned)
 	return updated
