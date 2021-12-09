@@ -163,7 +163,6 @@ func BenchmarkNode_WriteBytes(b *testing.B) {
 		sub.ReportAllocs()
 		for i := 0; i < sub.N; i++ {
 			var buf bytes.Buffer
-			buf.Reset()
 			_ = node.writeBytes(&buf)
 		}
 	})
