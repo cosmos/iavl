@@ -55,7 +55,10 @@ func (pin ProofInnerNode) stringIndented(indent string) string {
 
 func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 	hasher := sha256.New()
-	buf := new(bytes.Buffer)
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
 
 	err := encodeVarint(buf, int64(pin.Height))
 	if err == nil {
@@ -145,7 +148,10 @@ func (pln ProofLeafNode) stringIndented(indent string) string {
 
 func (pln ProofLeafNode) Hash() []byte {
 	hasher := sha256.New()
-	buf := new(bytes.Buffer)
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
 
 	err := encodeVarint(buf, 0)
 	if err == nil {
