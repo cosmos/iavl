@@ -104,7 +104,11 @@ func encodeBytesSlice(bz []byte) ([]byte, error) {
 	defer bufPool.Put(buf)
 
 	err := encodeBytes(buf, bz)
-	return buf.Bytes(), err
+
+	bytesCopy := make([]byte, buf.Len())
+	copy(bytesCopy, buf.Bytes())
+
+	return bytesCopy, err
 }
 
 // encodeBytesSize returns the byte size of the given slice including length-prefixing.
