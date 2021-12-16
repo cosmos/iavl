@@ -119,13 +119,18 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return err
 	}
 
-	var buf bytes.Buffer
-	err = node.writeBytes(&buf)
-	if err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	if err = node.writeBytes(buf); err != nil {
 		return err
 	}
 
-	if err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), buf.Bytes()); err != nil {
+	bytesCopy := make([]byte, buf.Len())
+	copy(bytesCopy, buf.Bytes())
+
+	if err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy); err != nil {
 		return err
 	}
 
