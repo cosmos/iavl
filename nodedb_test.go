@@ -4,6 +4,10 @@ import (
 	"encoding/binary"
 	"math/rand"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	dbm "github.com/tendermint/tm-db"
 )
 
 func BenchmarkNodeKey(b *testing.B) {
@@ -20,6 +24,37 @@ func BenchmarkOrphanKey(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		ndb.orphanKey(1234, 1239, hashes[i])
 	}
+}
+
+func BenchmarkTreeString(b *testing.B) {
+	tree := makeAndPopulateMutableTree(b)
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		sink = tree.String()
+	}
+
+	if sink == nil {
+		b.Fatal("Benchmark did not run")
+	}
+	sink = (interface{})(nil)
+}
+
+func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
+	memDB := dbm.NewMemDB()
+	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9})
+	require.NoError(tb, err)
+
+	for i := 0; i < 1e4; i++ {
+		buf := make([]byte, 0, (i/255)+1)
+		for j := 0; 1<<j <= i; j++ {
+			buf = append(buf, byte((i>>j)&0xff))
+		}
+		tree.Set(buf, buf)
+	}
+	_, _, err = tree.SaveVersion()
+	require.Nil(tb, err, "Expected .SaveVersion to succeed")
+	return tree
 }
 
 func makeHashes(b *testing.B, seed int64) [][]byte {
