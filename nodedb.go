@@ -698,33 +698,36 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node)) {
 }
 
 func (ndb *nodeDB) String() string {
-	var str string
+	buf := bufPool.Get().(*bytes.Buffer)
+	defer bufPool.Put(buf)
+	buf.Reset()
+
 	index := 0
 
 	ndb.traversePrefix(rootKeyFormat.Key(), func(key, value []byte) {
-		str += fmt.Sprintf("%s: %x\n", string(key), value)
+		fmt.Fprintf(buf, "%s: %x\n", key, value)
 	})
-	str += "\n"
+	buf.WriteByte('\n')
 
 	ndb.traverseOrphans(func(key, value []byte) {
-		str += fmt.Sprintf("%s: %x\n", string(key), value)
+		fmt.Fprintf(buf, "%s: %x\n", key, value)
 	})
-	str += "\n"
+	buf.WriteByte('\n')
 
 	ndb.traverseNodes(func(hash []byte, node *Node) {
 		switch {
 		case len(hash) == 0:
-			str += "<nil>\n"
+			buf.WriteByte('\n')
 		case node == nil:
-			str += fmt.Sprintf("%s%40x: <nil>\n", nodeKeyFormat.Prefix(), hash)
+			fmt.Fprintf(buf, "%s%40x: <nil>\n", nodeKeyFormat.Prefix(), hash)
 		case node.value == nil && node.height > 0:
-			str += fmt.Sprintf("%s%40x: %s   %-16s h=%d version=%d\n",
+			fmt.Fprintf(buf, "%s%40x: %s   %-16s h=%d version=%d\n",
 				nodeKeyFormat.Prefix(), hash, node.key, "", node.height, node.version)
 		default:
-			str += fmt.Sprintf("%s%40x: %s = %-16s h=%d version=%d\n",
+			fmt.Fprintf(buf, "%s%40x: %s = %-16s h=%d version=%d\n",
 				nodeKeyFormat.Prefix(), hash, node.key, node.value, node.height, node.version)
 		}
 		index++
 	})
-	return "-" + "\n" + str + "-"
+	return "-" + "\n" + buf.String() + "-"
 }
