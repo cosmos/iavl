@@ -10,6 +10,12 @@ import (
 	"sync"
 )
 
+var bufPool = &sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+
 var varintPool = &sync.Pool{
 	New: func() interface{} {
 		return &[binary.MaxVarintLen64]byte{}
@@ -93,9 +99,16 @@ func encodeBytes(w io.Writer, bz []byte) error {
 
 // encodeBytesSlice length-prefixes the byte slice and returns it.
 func encodeBytesSlice(bz []byte) ([]byte, error) {
-	var buf bytes.Buffer
-	err := encodeBytes(&buf, bz)
-	return buf.Bytes(), err
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	err := encodeBytes(buf, bz)
+
+	bytesCopy := make([]byte, buf.Len())
+	copy(bytesCopy, buf.Bytes())
+
+	return bytesCopy, err
 }
 
 // encodeBytesSize returns the byte size of the given slice including length-prefixing.
