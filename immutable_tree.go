@@ -160,17 +160,19 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 		debug("failed to get FastNode with key: %X, falling back to regular IAVL logic", key)
 		return t.root.get(t, key)
 	}
+
+	// cache node is too new, so read from historical tree
+	if fastNode.versionLastUpdatedAt > t.version {
+		debug("last updated version %d is too new for FastNode where tree is of version %d with key %X, falling back to regular IAVL logic", fastNode.versionLastUpdatedAt, t.version, key)
+		return t.root.get(t, key)
+	}
+
 	value = fastNode.value
 	if value == nil {
 		debug("nil value for FastNode with key %X , falling back to regular IAVL logic", key)
 		return t.root.get(t, key)
 	}
 
-	// cache node is too new, so read from historical tree
-	if fastNode.versionLastUpdatedAt > t.version {
-		debug("last updated version %d is too new for FastNode with key %X, falling back to regular IAVL logic", fastNode.versionLastUpdatedAt, key)
-		return t.root.get(t, key)
-	}
 	return 0, value // TODO determine index and adjust this appropriately
 }
 
