@@ -616,6 +616,16 @@ func (ndb *nodeDB) cacheFastNode(node *FastNode) {
 	}
 }
 
+func (ndb *nodeDB) updateCacheFastNode(key []byte, value []byte, version int64) {
+	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+		fastNode := elem.Value.(*FastNode)
+		fastNode.value = value
+		fastNode.versionLastUpdatedAt = version
+	} else {
+		ndb.cacheFastNode(NewFastNode(key, value, version))
+	}
+}
+
 // Write to disk.
 func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()

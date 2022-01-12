@@ -163,6 +163,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1:
+			tree.ndb.updateCacheFastNode(key, value, version)
 			return &Node{
 				key:       node.key,
 				height:    1,
@@ -483,6 +484,7 @@ func (tree *MutableTree) Rollback() {
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
+	
 	if tree.VersionExists(version) {
 		t, err := tree.GetImmutable(version)
 		if err != nil {
