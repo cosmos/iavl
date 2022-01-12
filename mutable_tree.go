@@ -490,7 +490,10 @@ func (tree *MutableTree) Rollback() {
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
-	
+	if fastNode, err := tree.ndb.GetFastNode(); err == nil && fastNode.versionLastUpdatedAt == version {
+		return 0, fastNode.value // TODO: determine how to handle index
+	}
+
 	if tree.VersionExists(version) {
 		t, err := tree.GetImmutable(version)
 		if err != nil {
