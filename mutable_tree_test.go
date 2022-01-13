@@ -367,15 +367,13 @@ func TestSet(t *testing.T) {
 	const testVal = "test"
 
 	res := tree.Set([]byte("a"), []byte(testVal))
-	require.True(t, res)
+	require.False(t, res)
 
 	res = tree.Set([]byte("b"), []byte(testVal))
-	require.True(t, res)
+	require.False(t, res)
 
 	res = tree.Set([]byte("c"), []byte(testVal))
-	require.True(t, res)
-
-
+	require.False(t, res)
 }
 
 
