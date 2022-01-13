@@ -163,12 +163,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	version := tree.version + 1
 
 	if node.isLeaf() {
-		if fastNode, ok := tree.unsavedFastNodeChanges[string(key)]; ok {
-			fastNode.value = value
-			fastNode.versionLastUpdatedAt = version
-		} else {
-			tree.unsavedFastNodeChanges[string(key)] =  NewFastNode(key, value, version)
-		}
+		tree.unsavedFastNodeChanges[string(key)] =  NewFastNode(key, value, version)
 		
 		switch bytes.Compare(key, node.key) {
 		case -1:
@@ -493,7 +488,7 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
 	if fastNode, err := tree.ndb.GetFastNode(key); err == nil && fastNode.versionLastUpdatedAt == version {
-		return 0, fastNode.value // TODO: determine how to handle index
+		return 0, fastNode.value // TODO: refactor index - not needed
 	}
 
 	if tree.VersionExists(version) {
