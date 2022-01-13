@@ -53,6 +53,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		orphans:       map[string]int64{},
 		versions:      map[int64]bool{},
 		allRootLoaded: false,
+		unsavedFastNodeChanges: make(map[string]*FastNode),
 		ndb:           ndb,
 	}, nil
 }
@@ -492,7 +493,7 @@ func (tree *MutableTree) Rollback() {
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
-	if fastNode, err := tree.ndb.GetFastNode(); err == nil && fastNode.versionLastUpdatedAt == version {
+	if fastNode, err := tree.ndb.GetFastNode(key); err == nil && fastNode.versionLastUpdatedAt == version {
 		return 0, fastNode.value // TODO: determine how to handle index
 	}
 
