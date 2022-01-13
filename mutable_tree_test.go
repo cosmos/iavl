@@ -359,21 +359,45 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 	require.Error(t, tree.DeleteVersion(2))
 }
 
-func TestSet(t *testing.T) {
+func TestSaveFastNodeVersion(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 1000)
 	require.NoError(t, err)
 
-	const testVal = "test"
+	const testVal1 = "test"
+	const testVal2 = "test2"
 
-	res := tree.Set([]byte("a"), []byte(testVal))
+	res := tree.Set([]byte("a"), []byte(testVal1))
 	require.False(t, res)
 
-	res = tree.Set([]byte("b"), []byte(testVal))
+	unsavedNodes := tree.getUnsavedFastNodeChanges()
+	require.Equal(t, len(unsavedNodes), 1)
+
+	res = tree.Set([]byte("b"), []byte(testVal1))
 	require.False(t, res)
 
-	res = tree.Set([]byte("c"), []byte(testVal))
+	unsavedNodes = tree.getUnsavedFastNodeChanges()
+	require.Equal(t, len(unsavedNodes), 2)
+
+	res = tree.Set([]byte("c"), []byte(testVal1))
 	require.False(t, res)
+
+	unsavedNodes = tree.getUnsavedFastNodeChanges()
+	require.Equal(t, len(unsavedNodes), 3)
+
+	res = tree.Set([]byte("c"), []byte(testVal2))
+	require.True(t, res)
+
+	unsavedNodes = tree.getUnsavedFastNodeChanges()
+	require.Equal(t, len(unsavedNodes), 3)
+
+	err = tree.saveFastNodeVersion()
+	require.NoError(t, err)
+
+	// clearing is expected to be done separately from saving
+	// since we must commit the saved fast nodes before we can clear
+	unsavedNodes = tree.getUnsavedFastNodeChanges()
+	require.Equal(t, len(unsavedNodes), 3)
 }
 
 

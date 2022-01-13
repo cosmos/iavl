@@ -149,6 +149,7 @@ func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated
 	}
 
 	if tree.ImmutableTree.root == nil {
+		tree.unsavedFastNodeChanges[string(key)] =  NewFastNode(key, value, tree.version + 1)
 		tree.ImmutableTree.root = NewNode(key, value, tree.version+1)
 		return nil, updated
 	}
@@ -597,6 +598,11 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 		}
 	}
 	return nil
+}
+
+// getUnsavedFastNodeChanges returns unsaved FastNodes, used for unit testing
+func (tree *MutableTree) getUnsavedFastNodeChanges() map[string]*FastNode {
+	return tree.unsavedFastNodeChanges
 }
 
 func (tree *MutableTree) deleteVersion(version int64) error {
