@@ -562,9 +562,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, err
 	}
 
-	// clear unsaved nodes only after a succesful commit
-	tree.unsavedFastNodeChanges = make(map[string]*FastNode, 0)
-
 	tree.mtx.Lock()
 	defer tree.mtx.Unlock()
 	tree.version = version
@@ -574,6 +571,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
+	tree.unsavedFastNodeChanges = make(map[string]*FastNode, 0)
 
 	return tree.Hash(), version, nil
 }
