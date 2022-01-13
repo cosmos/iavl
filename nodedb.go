@@ -201,7 +201,7 @@ func (ndb *nodeDB) SaveFastNode(node *FastNode) error {
 		return fmt.Errorf("error while writing fastnode bytes. Err: %w", err)
 	}
 
-	if err := ndb.batch.Set(node.key, buf.Bytes()); err != nil {
+	if err := ndb.batch.Set(ndb.fastNodeKey(node.key), buf.Bytes()); err != nil {
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
 	debug("BATCH SAVE %X %p\n", node.key, node)
@@ -498,6 +498,10 @@ func (ndb *nodeDB) nodeKey(hash []byte) []byte {
 	return nodeKeyFormat.KeyBytes(hash)
 }
 
+func (ndb *nodeDB) fastNodeKey(hash []byte) []byte {
+	return fastKeyFormat.KeyBytes(hash)
+}
+
 func (ndb *nodeDB) orphanKey(fromVersion, toVersion int64, hash []byte) []byte {
 	return orphanKeyFormat.Key(toVersion, fromVersion, hash)
 }
@@ -638,16 +642,6 @@ func (ndb *nodeDB) cacheFastNode(node *FastNode) {
 		oldest := ndb.fastNodeCacheQueue.Front()
 		key := ndb.fastNodeCacheQueue.Remove(oldest).(*FastNode).key
 		delete(ndb.fastNodeCache, string(key))
-	}
-}
-
-func (ndb *nodeDB) updateCacheFastNode(key []byte, value []byte, version int64) {
-	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
-		fastNode := elem.Value.(*FastNode)
-		fastNode.value = value
-		fastNode.versionLastUpdatedAt = version
-	} else {
-		ndb.cacheFastNode(NewFastNode(key, value, version))
 	}
 }
 
