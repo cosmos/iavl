@@ -152,28 +152,41 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 	if t.root == nil {
 		return 0, nil
 	}
+	return t.root.get(t, key)
+}
+
+// GetFast returns the value of the specified key if it exists, or nil. 
+// The returned value must not be modified, since it may point to data stored within IAVL.
+// GetFast employs a more performant strategy than Get for retrieving the value.
+func (t *ImmutableTree) GetFast(key []byte) []byte {
+	if t.root == nil {
+		return nil
+	}
 
 	// attempt to get a FastNode directly from db/cache.
 	// if call fails, fall back to the original IAVL logic in place.
 	fastNode, err := t.ndb.GetFastNode(key)
 	if fastNode == nil || err != nil {
 		debug("failed to get FastNode with key: %X, falling back to regular IAVL logic", key)
-		return t.root.get(t, key)
+		_, result := t.root.get(t, key)
+		return result
 	}
 
 	// cache node is of different version, so read from the current tree
 	if fastNode.versionLastUpdatedAt > t.version {
 		debug("last updated version %d is too new for FastNode where tree is of version %d with key %X, falling back to regular IAVL logic", fastNode.versionLastUpdatedAt, t.version, key)
-		return t.root.get(t, key)
+		_, result := t.root.get(t, key)
+		return result
 	}
 
-	value = fastNode.value
+	value := fastNode.value
 	if value == nil {
 		debug("nil value for FastNode with key %X , falling back to regular IAVL logic", key)
-		return t.root.get(t, key)
+		_, result := t.root.get(t, key)
+		return result
 	}
 
-	return 0, value // TODO determine index and adjust this appropriately
+	return value
 }
 
 // GetByIndex gets the key and value at the specified index.
