@@ -283,6 +283,7 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 
 	ndb.deleteOrphans(version)
 	ndb.deleteRoot(version, checkLatestVersion)
+	ndb.uncacheFastNodesWithVersion(version)
 	return nil
 }
 
