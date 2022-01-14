@@ -125,7 +125,6 @@ func (tree *MutableTree) prepareOrphansSlice() []*Node {
 // updated, while false means it was a new key.
 func (tree *MutableTree) Set(key, value []byte) (updated bool) {
 	var orphaned []*Node
-
 	orphaned, updated = tree.set(key, value)
 	tree.addOrphans(orphaned)
 	return updated
@@ -166,7 +165,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 
 	if node.isLeaf() {
 		tree.unsavedFastNodeAdditions[string(key)] =  NewFastNode(key, value, version)
-		
+
 		switch bytes.Compare(key, node.key) {
 		case -1:
 			return &Node{
@@ -486,6 +485,7 @@ func (tree *MutableTree) Rollback() {
 	}
 	tree.orphans = map[string]int64{}
 	tree.unsavedFastNodeAdditions = map[string]*FastNode{}
+	tree.unsavedFastNodeRemovals = map[string]interface{}{}
 }
 
 // GetVersioned gets the value at the specified key and version. The returned value must not be
