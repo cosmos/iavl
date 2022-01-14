@@ -389,7 +389,9 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	require.EqualValues(t, len(mirror), itree.Size())
 	require.EqualValues(t, len(mirror), iterated)
 	for key, value := range mirror {
-		actual := itree.GetFast([]byte(key))
+		actualFast := itree.GetFast([]byte(key))
+		require.Equal(t, value, string(actualFast))
+		_, actual := itree.Get([]byte(key))
 		require.Equal(t, value, string(actual))
 	}
 }
