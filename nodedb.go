@@ -412,6 +412,14 @@ func (ndb *nodeDB) DeleteFastNodes() error {
 	return nil
 }
 
+func (ndb *nodeDB) DeleteFastNode(key []byte) error {
+	if err := ndb.db.Delete(ndb.fastNodeKey(key)); err != nil {
+		return err
+	}
+	ndb.uncacheFastNode(key)
+	return nil
+}
+
 // deleteNodesFrom deletes the given node and any descendants that have versions after the given
 // (inclusive). It is mainly used via LoadVersionForOverwriting, to delete the current version.
 func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {

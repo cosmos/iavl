@@ -590,6 +590,16 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 }
 
 func (tree *MutableTree) saveFastNodeVersion() error {
+	if err := tree.saveFastNodeAdditions(); err != nil {
+		return err
+	}
+	if err := tree.saveFastNodeRemovals(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (tree *MutableTree) saveFastNodeAdditions() error {
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeAdditions))
 	for key, _ := range tree.unsavedFastNodeAdditions {
 		keysToSort = append(keysToSort, key)
@@ -600,6 +610,19 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 		if err := tree.ndb.SaveFastNode(tree.unsavedFastNodeAdditions[key]); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (tree *MutableTree) saveFastNodeRemovals() error {
+	keysToSort := make([]string, 0, len(tree.unsavedFastNodeRemovals))
+	for key, _ := range tree.unsavedFastNodeRemovals {
+		keysToSort = append(keysToSort, key)
+	}
+	sort.Strings(keysToSort)
+
+	for _, key := range keysToSort {
+		tree.ndb.DeleteFastNode([]byte(key))
 	}
 	return nil
 }
