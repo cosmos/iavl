@@ -718,8 +718,6 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 		return err
 	}
 
-	tree.ndb.uncacheFastNodesWithVersion(version)
-
 	if err := tree.ndb.Commit(); err != nil {
 		return err
 	}
