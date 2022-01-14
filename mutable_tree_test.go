@@ -101,7 +101,7 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, e := range versionEntries[v] {
-			_, val := tree.Get(e.key)
+			val := tree.GetFast(e.key)
 			require.Equal(t, e.value, val)
 		}
 	}
@@ -178,12 +178,12 @@ func TestMutableTree_DeleteVersionsRange(t *testing.T) {
 		require.NoError(err, version)
 		require.Equal(v, version)
 
-		_, value := tree.Get([]byte("aaa"))
+		value := tree.GetFast([]byte("aaa"))
 		require.Equal(string(value), "bbb")
 
 		for _, count := range versions[:version] {
 			countStr := strconv.Itoa(int(count))
-			_, value := tree.Get([]byte("key" + countStr))
+			 value := tree.GetFast([]byte("key" + countStr))
 			require.Equal(string(value), "value"+countStr)
 		}
 	}
@@ -202,17 +202,17 @@ func TestMutableTree_DeleteVersionsRange(t *testing.T) {
 		require.NoError(err)
 		require.Equal(v, version)
 
-		_, value := tree.Get([]byte("aaa"))
+		value := tree.GetFast([]byte("aaa"))
 		require.Equal(string(value), "bbb")
 
 		for _, count := range versions[:fromLength] {
 			countStr := strconv.Itoa(int(count))
-			_, value := tree.Get([]byte("key" + countStr))
+			value := tree.GetFast([]byte("key" + countStr))
 			require.Equal(string(value), "value"+countStr)
 		}
 		for _, count := range versions[int64(maxLength/2)-1 : version] {
 			countStr := strconv.Itoa(int(count))
-			_, value := tree.Get([]byte("key" + countStr))
+			value := tree.GetFast([]byte("key" + countStr))
 			require.Equal(string(value), "value"+countStr)
 		}
 	}
@@ -448,13 +448,13 @@ func TestSetSaveLoadSimple(t *testing.T) {
 	_, err = t2.Load()
 	require.NoError(t, err)
 
-	_, val := t2.Get([]byte(testKey1))
+	val := t2.GetFast([]byte(testKey1))
 	require.Equal(t, testVal1, string(val))
 
-	_, val = t2.Get([]byte(testKey2))
+	val = t2.GetFast([]byte(testKey2))
 	require.Equal(t, testVal1, string(val))
 
-	_, val = t2.Get([]byte(testKey3))
+	val = t2.GetFast([]byte(testKey3))
 	require.Equal(t, testVal2, string(val))
 }
 
@@ -484,7 +484,7 @@ func TestSetSaveLoadComplex(t *testing.T) {
 	_, err = t2.Load()
 	require.NoError(t, err)
 
-	_, val := t2.Get(testKey)
+	val := t2.GetFast(testKey)
 	require.Equal(t, testVal, val)
 }
 

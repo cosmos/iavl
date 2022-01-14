@@ -60,7 +60,7 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 func runQueries(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
-		t.Get(q)
+		t.GetFast(q)
 	}
 }
 
@@ -68,7 +68,7 @@ func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
-		t.Get(q)
+		t.GetFast(q)
 	}
 }
 
@@ -132,9 +132,9 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 			data := randBytes(dataLen)
 
 			// perform query and write on check and then real
-			// check.Get(key)
+			// check.GetFast(key)
 			// check.Set(key, data)
-			real.Get(key)
+			real.GetFast(key)
 			real.Set(key, data)
 		}
 
