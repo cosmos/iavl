@@ -162,7 +162,7 @@ func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
 	}
 
 	// cache node is of different version, so read from the current tree
-	if fastNode.versionLastUpdatedAt != t.version {
+	if fastNode.versionLastUpdatedAt > t.version {
 		debug("last updated version %d is too new for FastNode where tree is of version %d with key %X, falling back to regular IAVL logic", fastNode.versionLastUpdatedAt, t.version, key)
 		return t.root.get(t, key)
 	}
