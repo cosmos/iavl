@@ -810,6 +810,8 @@ func TestVersionedCheckpoints(t *testing.T) {
 		}
 		_, _, err = tree.SaveVersion()
 		require.NoError(err, "failed to save version")
+
+		
 	}
 
 	for i := 1; i <= versions; i++ {

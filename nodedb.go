@@ -406,8 +406,9 @@ func (ndb *nodeDB) DeleteFastNodes() error {
 		if err := ndb.batch.Delete(key); err != nil {
 			panic(err)
 		}
-		ndb.uncacheFastNode(key)
 	})
+	ndb.fastNodeCache = make(map[string]*list.Element)
+	ndb.fastNodeCacheQueue = list.New()
 	return nil
 }
 

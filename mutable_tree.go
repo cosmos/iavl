@@ -561,8 +561,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, err
 	}
 
-
-
 	if err := tree.saveFastNodeVersion(); err != nil {
 		tree.ndb.resetBatch()
 		return nil, version, err
