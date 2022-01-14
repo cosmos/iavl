@@ -15,6 +15,8 @@ import (
 )
 
 func TestRandomOperations(t *testing.T) {
+	t.Skip()
+
 	// In short mode (specifically, when running in CI with the race detector),
 	// we only run the first couple of seeds.
 	seeds := []int64{
