@@ -150,6 +150,7 @@ func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated
 	}
 
 	if tree.ImmutableTree.root == nil {
+		delete(tree.unsavedFastNodeRemovals, string(key))
 		tree.unsavedFastNodeAdditions[string(key)] =  NewFastNode(key, value, tree.version + 1)
 		tree.ImmutableTree.root = NewNode(key, value, tree.version+1)
 		return nil, updated
@@ -166,6 +167,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	version := tree.version + 1
 
 	if node.isLeaf() {
+		delete(tree.unsavedFastNodeAdditions, string(key))
 		tree.unsavedFastNodeAdditions[string(key)] =  NewFastNode(key, value, version)
 
 		switch bytes.Compare(key, node.key) {
@@ -232,6 +234,7 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 		return nil, nil, false
 	}
 
+	delete(tree.unsavedFastNodeAdditions, string(key))
 	tree.unsavedFastNodeRemovals[string(key)] = true
 	tree.ndb.uncacheFastNode(key)
 
@@ -561,11 +564,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	if err := tree.ndb.DeleteFastNodes(); err != nil {
-		tree.ndb.resetBatch()
-		return nil, version, err
-	}
-
 	if err := tree.saveFastNodeVersion(); err != nil {
 		tree.ndb.resetBatch()
 		return nil, version, err
@@ -584,7 +582,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
-	tree.unsavedFastNodeAdditions = make(map[string]*FastNode, 0)
+	tree.unsavedFastNodeAdditions = make(map[string]*FastNode)
+	tree.unsavedFastNodeRemovals= make(map[string]interface{})
 
 	return tree.Hash(), version, nil
 }
@@ -601,7 +600,7 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeAdditions))
-	for key, _ := range tree.unsavedFastNodeAdditions {
+	for key := range tree.unsavedFastNodeAdditions {
 		keysToSort = append(keysToSort, key)
 	}
 	sort.Strings(keysToSort)
@@ -616,7 +615,7 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeRemovals))
-	for key, _ := range tree.unsavedFastNodeRemovals {
+	for key := range tree.unsavedFastNodeRemovals {
 		keysToSort = append(keysToSort, key)
 	}
 	sort.Strings(keysToSort)
