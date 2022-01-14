@@ -138,7 +138,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 	}
 
 	// Doesn't exist, load.
-	buf, err := ndb.db.Get(key)
+	buf, err := ndb.db.Get(ndb.fastNodeKey(key))
 	if err != nil {
 		return nil, fmt.Errorf("can't get FastNode %X: %w", key, err)
 	}
@@ -401,6 +401,16 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 	return nil
 }
 
+func (ndb *nodeDB) DeleteFastNodes() error {
+	ndb.traverseFastNodes(func(key, v []byte) {
+		if err := ndb.batch.Delete(key); err != nil {
+			panic(err)
+		}
+		ndb.uncacheFastNode(key)
+	})
+	return nil
+}
+
 // deleteNodesFrom deletes the given node and any descendants that have versions after the given
 // (inclusive). It is mainly used via LoadVersionForOverwriting, to delete the current version.
 func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
@@ -498,8 +508,8 @@ func (ndb *nodeDB) nodeKey(hash []byte) []byte {
 	return nodeKeyFormat.KeyBytes(hash)
 }
 
-func (ndb *nodeDB) fastNodeKey(hash []byte) []byte {
-	return fastKeyFormat.KeyBytes(hash)
+func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
+	return fastKeyFormat.KeyBytes(key)
 }
 
 func (ndb *nodeDB) orphanKey(fromVersion, toVersion int64, hash []byte) []byte {
@@ -563,6 +573,10 @@ func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) {
 
 func (ndb *nodeDB) traverseOrphans(fn func(k, v []byte)) {
 	ndb.traversePrefix(orphanKeyFormat.Key(), fn)
+}
+
+func (ndb *nodeDB) traverseFastNodes(fn func(k, v []byte)) {
+	ndb.traversePrefix(fastKeyFormat.Key(), fn)
 }
 
 // Traverse orphans ending at a certain version.
@@ -629,6 +643,15 @@ func (ndb *nodeDB) uncacheFastNode(key []byte) {
 	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
 		ndb.fastNodeCacheQueue.Remove(elem)
 		delete(ndb.fastNodeCache, string(key))
+	}
+}
+
+func (ndb *nodeDB) uncacheFastNodesWithVersion(version int64) {
+	for key, elem := range ndb.fastNodeCache {
+		if elem.Value.(*FastNode).versionLastUpdatedAt == version {
+			ndb.fastNodeCacheQueue.Remove(elem)
+			delete(ndb.fastNodeCache, string(key))
+		}
 	}
 }
 

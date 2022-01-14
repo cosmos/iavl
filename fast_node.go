@@ -26,18 +26,25 @@ func NewFastNode(key []byte, value []byte, version int64) *FastNode {
 
 // DeserializeFastNode constructs an *FastNode from an encoded byte slice.
 func DeserializeFastNode(buf []byte) (*FastNode, error) {
-	val, n, cause := decodeBytes(buf)
+	key, n, cause := decodeBytes(buf)
 	if cause != nil {
-		return nil, errors.Wrap(cause, "decoding fastnode.value")
+		return nil, errors.Wrap(cause, "decoding fastnode.key")
 	}
 	buf = buf[n:]
 
-	ver, _, cause := decodeVarint(buf)
+	ver, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding fastnode.version")
 	}
+	buf = buf[n:]
+
+	val, _, cause := decodeBytes(buf)
+	if cause != nil {
+		return nil, errors.Wrap(cause, "decoding node.value")
+	}
 
 	fastNode := &FastNode{
+		key: key,
 		versionLastUpdatedAt: ver,
 		value:                val,
 	}

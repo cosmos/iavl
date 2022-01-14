@@ -482,6 +482,7 @@ func (tree *MutableTree) Rollback() {
 		tree.ImmutableTree = &ImmutableTree{ndb: tree.ndb, version: 0}
 	}
 	tree.orphans = map[string]int64{}
+	tree.unsavedFastNodeChanges = map[string]*FastNode{}
 }
 
 // GetVersioned gets the value at the specified key and version. The returned value must not be
@@ -554,6 +555,13 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			return nil, 0, err
 		}
 	}
+
+	if err := tree.ndb.DeleteFastNodes(); err != nil {
+		tree.ndb.resetBatch()
+		return nil, version, err
+	}
+
+
 
 	if err := tree.saveFastNodeVersion(); err != nil {
 		tree.ndb.resetBatch()
@@ -683,6 +691,8 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 	if err := tree.deleteVersion(version); err != nil {
 		return err
 	}
+
+	tree.ndb.uncacheFastNodesWithVersion(version)
 
 	if err := tree.ndb.Commit(); err != nil {
 		return err
