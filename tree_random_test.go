@@ -15,7 +15,6 @@ import (
 )
 
 func TestRandomOperations(t *testing.T) {
-
 	// In short mode (specifically, when running in CI with the race detector),
 	// we only run the first couple of seeds.
 	seeds := []int64{
@@ -391,9 +390,6 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	require.EqualValues(t, len(mirror), iterated)
 	for key, value := range mirror {
 		_, actual := itree.Get([]byte(key))
-		if value != string(actual) {
-			fmt.Println("")
-		}
 		require.Equal(t, value, string(actual))
 	}
 }
