@@ -1,4 +1,4 @@
-package iavl
+package encoding
 
 import (
 	"encoding/binary"
@@ -69,7 +69,7 @@ func TestDecodeBytes(t *testing.T) {
 			buf = append(buf[:varintBytes], tc.bz...)
 
 			// Attempt to decode it.
-			b, n, err := decodeBytes(buf)
+			b, n, err := DecodeBytes(buf)
 			if tc.expectErr {
 				require.Error(t, err)
 				require.Equal(t, varintBytes, n)
@@ -83,40 +83,6 @@ func TestDecodeBytes(t *testing.T) {
 }
 
 func TestDecodeBytes_invalidVarint(t *testing.T) {
-	_, _, err := decodeBytes([]byte{0xff})
+	_, _, err := DecodeBytes([]byte{0xff})
 	require.Error(t, err)
-}
-
-// sink is kept as a global to ensure that value checks and assignments to it can't be
-// optimized away, and this will help us ensure that benchmarks successfully run.
-var sink interface{}
-
-func BenchmarkConvertLeafOp(b *testing.B) {
-	var versions = []int64{
-		0,
-		1,
-		100,
-		127,
-		128,
-		1 << 29,
-		-0,
-		-1,
-		-100,
-		-127,
-		-128,
-		-1 << 29,
-	}
-
-	b.ReportAllocs()
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		for _, version := range versions {
-			sink = convertLeafOp(version)
-		}
-	}
-	if sink == nil {
-		b.Fatal("Benchmark wasn't run")
-	}
-	sink = nil
 }
