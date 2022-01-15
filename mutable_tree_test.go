@@ -319,8 +319,8 @@ func TestMutableTree_VersionExists(t *testing.T) {
 }
 
 func checkGetVersioned(t *testing.T, tree *MutableTree, version, index int64, key, value []byte) {
-	_, val := tree.GetVersioned(key, version)
-	// require.True(t, idx == index) TODO: uncomment and fix
+	idx, val := tree.GetVersioned(key, version)
+	require.True(t, idx == index)
 	require.True(t, bytes.Equal(val, value))
 }
 
