@@ -810,16 +810,12 @@ func TestVersionedCheckpoints(t *testing.T) {
 		}
 		_, _, err = tree.SaveVersion()
 		require.NoError(err, "failed to save version")
-
-		
 	}
 
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
 			err = tree.DeleteVersion(int64(i))
-			if err != nil {
-				require.NoError(err, "failed to delete")
-			}
+			require.NoError(err, "failed to delete")
 		}
 	}
 
@@ -835,13 +831,7 @@ func TestVersionedCheckpoints(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
 			for _, k := range keys[int64(i)] {
-				if string(k) == "f" && i == 41 {
-					fmt.Println("")
-				}
 				_, val := tree.GetVersioned(k, int64(i))
-				if val != nil {
-					fmt.Println("")
-				}
 				require.Nil(val)
 			}
 		}
