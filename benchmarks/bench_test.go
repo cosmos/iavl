@@ -276,7 +276,7 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 
 	b.ResetTimer()
 
-	b.Run("query-miss", func(sub *testing.B) {
+	b.Run("query-no-in-tree-guarantee", func(sub *testing.B) {
 		sub.ReportAllocs()
 		runQueries(sub, t, keyLen)
 	})
