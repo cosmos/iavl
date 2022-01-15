@@ -449,7 +449,6 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
 }
 
-
 func TestMutableTree_SetOverwrite(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
