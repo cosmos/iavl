@@ -359,133 +359,250 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 	require.Error(t, tree.DeleteVersion(2))
 }
 
-func TestSaveFastNodeVersion(t *testing.T) {
-	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 1000)
-	require.NoError(t, err)
-
-	const testVal1 = "test"
-	const testVal2 = "test2"
-
-	res := tree.Set([]byte("a"), []byte(testVal1))
-	require.False(t, res)
-
-	unsavedNodes := tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 1)
-
-	res = tree.Set([]byte("b"), []byte(testVal1))
-	require.False(t, res)
-
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 2)
-
-	res = tree.Set([]byte("c"), []byte(testVal1))
-	require.False(t, res)
-
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 3)
-
-	res = tree.Set([]byte("c"), []byte(testVal2))
-	require.True(t, res)
-
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 3)
-
-	err = tree.saveFastNodeVersion()
-	require.NoError(t, err)
-
-	// clearing is expected to be done separately from saving
-	// since we must commit the saved fast nodes before we can clear
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 3)
-}
-
-func TestSetSaveLoadSimple(t *testing.T) {
+func TestSetSimple(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
 
 	const testKey1 = "a"
-	const testKey2 = "b"
-	const testKey3 = "c"
-
 	const testVal1 = "test"
-	const testVal2 = "test2"
 
-	res := tree.Set([]byte(testKey1), []byte(testVal1))
-	require.False(t, res)
+	isUpdated := tree.Set([]byte(testKey1), []byte(testVal1))
+	require.False(t, isUpdated)
 
-	unsavedNodes := tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 1)
+	fastValue := tree.GetFast([]byte(testKey1))
+	_, regularValue := tree.Get([]byte(testKey1))
 
-	res = tree.Set([]byte(testKey2), []byte(testVal1))
-	require.False(t, res)
+	require.Equal(t, []byte(testVal1), fastValue)
+	require.Equal(t, []byte(testVal1), regularValue)
 
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 2)
-
-	res = tree.Set([]byte(testKey3), []byte(testVal1))
-	require.False(t, res)
-
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 3)
-
-	res = tree.Set([]byte(testKey3), []byte(testVal2))
-	require.True(t, res)
-
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 3)
-
-	_, _, err = tree.SaveVersion()
-	require.NoError(t, err)
-
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 0)
-
-	t2, err := NewMutableTree(mdb, 0)
-	require.NoError(t, err)
 	
-	_, err = t2.Load()
-	require.NoError(t, err)
-
-	val := t2.GetFast([]byte(testKey1))
-	require.Equal(t, testVal1, string(val))
-
-	val = t2.GetFast([]byte(testKey2))
-	require.Equal(t, testVal1, string(val))
-
-	val = t2.GetFast([]byte(testKey3))
-	require.Equal(t, testVal2, string(val))
+	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, 1, len(fastNodeAdditions))
+	
+	fastNodeAddition := fastNodeAdditions[testKey1]
+	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
+	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
+	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
 }
 
-func TestSetSaveLoadComplex(t *testing.T) {
+func TestSetTwoKeys(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
 
-	testKey := []byte {197,90,108,50,159,151,242,89,57,195}
-	testVal := []byte {171,136,5,117,57,54,212,152,28,0}
+	const testKey1 = "a"
+	const testVal1 = "test"
 
-	res := tree.Set(testKey, testVal)
+	const testKey2 = "b"
+	const testVal2 = "test2"
+
+	isUpdated := tree.Set([]byte(testKey1), []byte(testVal1))
+	require.False(t, isUpdated)
+
+	isUpdated = tree.Set([]byte(testKey2), []byte(testVal2))
+	require.False(t, isUpdated)
+
+	fastValue := tree.GetFast([]byte(testKey1))
+	_, regularValue := tree.Get([]byte(testKey1))
+	require.Equal(t, []byte(testVal1), fastValue)
+	require.Equal(t, []byte(testVal1), regularValue)
+
+	fastValue2 := tree.GetFast([]byte(testKey2))
+	_, regularValue2 := tree.Get([]byte(testKey2))
+	require.Equal(t, []byte(testVal2), fastValue2)
+	require.Equal(t, []byte(testVal2), regularValue2)
+
+	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, 2, len(fastNodeAdditions))
+	
+	fastNodeAddition := fastNodeAdditions[testKey1]
+	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
+	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
+	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
+
+	fastNodeAddition = fastNodeAdditions[testKey2]
+	require.Equal(t, []byte(testKey2), fastNodeAddition.key)
+	require.Equal(t, []byte(testVal2), fastNodeAddition.value)
+	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
+}
+
+
+func TestSetOverwrite(t *testing.T) {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 0)
+	require.NoError(t, err)
+
+	const testKey1 = "a"
+	const testVal1 = "test"
+	const testVal2 = "test2"
+
+	isUpdated := tree.Set([]byte(testKey1), []byte(testVal1))
+	require.False(t, isUpdated)
+
+	isUpdated = tree.Set([]byte(testKey1), []byte(testVal2))
+	require.True(t, isUpdated)
+
+	fastValue := tree.GetFast([]byte(testKey1))
+	_, regularValue := tree.Get([]byte(testKey1))
+	require.Equal(t, []byte(testVal2), fastValue)
+	require.Equal(t, []byte(testVal2), regularValue)
+
+	
+	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, 1, len(fastNodeAdditions))
+	
+	fastNodeAddition := fastNodeAdditions[testKey1]
+	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
+	require.Equal(t, []byte(testVal2), fastNodeAddition.value)
+	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
+}
+
+func TestSetRemoveSet(t *testing.T) {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 0)
+	require.NoError(t, err)
+
+	const testKey1 = "a"
+	const testVal1 = "test"
+
+	// Set 1
+	isUpdated := tree.Set([]byte(testKey1), []byte(testVal1))
+	require.False(t, isUpdated)
+
+	fastValue := tree.GetFast([]byte(testKey1))
+	_, regularValue := tree.Get([]byte(testKey1))
+	require.Equal(t, []byte(testVal1), fastValue)
+	require.Equal(t, []byte(testVal1), regularValue)
+
+	
+	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, 1, len(fastNodeAdditions))
+	
+	fastNodeAddition := fastNodeAdditions[testKey1]
+	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
+	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
+	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
+
+	// Remove
+	removedVal, isRemoved := tree.Remove([]byte(testKey1))
+	require.NotNil(t, removedVal)
+	require.True(t, isRemoved)
+
+	fastNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, 0, len(fastNodeAdditions))
+
+	fastNodeRemovals := tree.GetUnsavedFastNodeRemovals()
+	require.Equal(t, 1, len(fastNodeRemovals))
+
+	fastValue = tree.GetFast([]byte(testKey1))
+	_, regularValue = tree.Get([]byte(testKey1))
+	require.Nil(t, fastValue)
+	require.Nil(t, regularValue)
+
+	// Set 2
+	isUpdated = tree.Set([]byte(testKey1), []byte(testVal1))
+	require.False(t, isUpdated)
+
+	fastValue = tree.GetFast([]byte(testKey1))
+	_, regularValue = tree.Get([]byte(testKey1))
+	require.Equal(t, []byte(testVal1), fastValue)
+	require.Equal(t, []byte(testVal1), regularValue)
+
+	
+	fastNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, 1, len(fastNodeAdditions))
+	
+	fastNodeAddition = fastNodeAdditions[testKey1]
+	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
+	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
+	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
+
+	fastNodeRemovals = tree.GetUnsavedFastNodeRemovals()
+	require.Equal(t, 0, len(fastNodeRemovals))
+}
+
+func TestFastNodeIntegration(t *testing.T) {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+
+	const key1 = "a"
+	const key2 = "b"
+	const key3 = "c"
+
+	const testVal1 = "test"
+	const testVal2 = "test2"
+
+	// Set key1
+	res := tree.Set([]byte(key1), []byte(testVal1))
 	require.False(t, res)
 
-	unsavedNodes := tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 1)
+	unsavedNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, len(unsavedNodeAdditions), 1)
 
+	// Set key2
+	res = tree.Set([]byte(key2), []byte(testVal1))
+	require.False(t, res)
+
+	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, len(unsavedNodeAdditions), 2)
+
+	// Set key3
+	res = tree.Set([]byte(key3), []byte(testVal1))
+	require.False(t, res)
+
+	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, len(unsavedNodeAdditions), 3)
+
+	// Set key3 with new value
+	res = tree.Set([]byte(key3), []byte(testVal2))
+	require.True(t, res)
+
+	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, len(unsavedNodeAdditions), 3)
+
+	// Remove key2
+	removedVal, isRemoved := tree.Remove([]byte(key2))
+	require.True(t, isRemoved)
+	require.Equal(t, []byte(testVal1), removedVal)
+
+	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, len(unsavedNodeAdditions), 2)
+
+	unsavedNodeRemovals := tree.GetUnsavedFastNodeRemovals()
+	require.Equal(t, len(unsavedNodeRemovals), 1)
+
+	// Save
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	unsavedNodes = tree.getUnsavedFastNodeChanges()
-	require.Equal(t, len(unsavedNodes), 0)
+	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	require.Equal(t, len(unsavedNodeAdditions), 0)
 
+	unsavedNodeRemovals = tree.GetUnsavedFastNodeRemovals()
+	require.Equal(t, len(unsavedNodeRemovals), 0)
+
+	// Load
 	t2, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
 	
 	_, err = t2.Load()
 	require.NoError(t, err)
 
-	val := t2.GetFast(testKey)
-	require.Equal(t, testVal, val)
+	// Get and GetFast
+	fastValue := t2.GetFast([]byte(key1))
+	_, regularValue := tree.Get([]byte(key1))
+	require.Equal(t, []byte(testVal1), fastValue)
+	require.Equal(t, []byte(testVal1), regularValue)
+
+	fastValue = t2.GetFast([]byte(key2))
+	_, regularValue = t2.Get([]byte(key2))
+	require.Nil(t, fastValue)
+	require.Nil(t, regularValue)
+
+	fastValue = t2.GetFast([]byte(key3))
+	_, regularValue = tree.Get([]byte(key3))
+	require.Equal(t, []byte(testVal2), fastValue)
+	require.Equal(t, []byte(testVal2), regularValue)
 }
-
-

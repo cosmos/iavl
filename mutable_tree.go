@@ -563,7 +563,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if err := tree.saveFastNodeVersion(); err != nil {
-		tree.ndb.resetBatch()
 		return nil, version, err
 	}
 
@@ -624,9 +623,14 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 	return nil
 }
 
-// getUnsavedFastNodeChanges returns unsaved FastNodes, used for unit testing
-func (tree *MutableTree) getUnsavedFastNodeChanges() map[string]*FastNode {
+// GetUnsavedFastNodeAdditions returns unsaved FastNodes to add, used for unit testing
+func (tree *MutableTree) GetUnsavedFastNodeAdditions() map[string]*FastNode {
 	return tree.unsavedFastNodeAdditions
+}
+
+// GetUnsavedFastNodeAdditions returns unsaved FastNodes to remove, used for unit testing
+func (tree *MutableTree) GetUnsavedFastNodeRemovals() map[string]interface{} {
+	return tree.unsavedFastNodeRemovals
 }
 
 func (tree *MutableTree) deleteVersion(version int64) error {
