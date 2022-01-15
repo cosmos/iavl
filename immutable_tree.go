@@ -166,10 +166,17 @@ func (t *ImmutableTree) GetFast(key []byte) []byte {
 	// attempt to get a FastNode directly from db/cache.
 	// if call fails, fall back to the original IAVL logic in place.
 	fastNode, err := t.ndb.GetFastNode(key)
-	if fastNode == nil || err != nil {
+	if err != nil {
 		debug("failed to get FastNode with key: %X, falling back to regular IAVL logic", key)
 		_, result := t.root.get(t, key)
 		return result
+	}
+
+	// If the tree is of the latest version and fast node is not in the tree
+	// then the regular node is not in the tree either because fast node
+	// represents live state.
+	if t.version == t.ndb.latestVersion && fastNode == nil {
+		return nil
 	}
 
 	// cache node is of different version, so read from the current tree
