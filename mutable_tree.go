@@ -519,7 +519,7 @@ func (tree *MutableTree) GetUnsavedFastNodeAdditions() map[string]*FastNode {
 	return tree.unsavedFastNodeAdditions
 }
 
-// GetUnsavedFastNodeAdditions returns unsaved FastNodes to remove
+// GetUnsavedFastNodeRemovals returns unsaved FastNodes to remove
 func (tree *MutableTree) GetUnsavedFastNodeRemovals() map[string]interface{} {
 	return tree.unsavedFastNodeRemovals
 }
