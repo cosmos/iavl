@@ -493,15 +493,11 @@ func (tree *MutableTree) Rollback() {
 	tree.unsavedFastNodeRemovals = map[string]interface{}{}
 }
 
-// GetVersioned gets the value at the specified key and version. The returned value must not be
+// GetVersioned gets the value and index at the specified key and version. The returned value must not be
 // modified, since it may point to data stored within IAVL.
 func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 	index int64, value []byte,
 ) {
-	if fastNode, err := tree.ndb.GetFastNode(key); err == nil && fastNode.versionLastUpdatedAt == version {
-		return 0, fastNode.value // TODO: refactor index - not needed
-	}
-
 	if tree.VersionExists(version) {
 		t, err := tree.GetImmutable(version)
 		if err != nil {
@@ -510,6 +506,18 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 		return t.Get(key)
 	}
 	return -1, nil
+}
+
+// GetVersionedFast gets the value at the specified key and version. The returned value must not be
+// modified, since it may point to data stored within IAVL. GetVersionedFast utilizes a more performant
+// strategy for retrieving the value than GetVersioned but falls back to regular strategy if fails.
+func (tree *MutableTree) GetVersionedFast(key []byte, version int64) []byte {
+	if fastNode, err := tree.ndb.GetFastNode(key); err == nil && fastNode.versionLastUpdatedAt == version {
+		return fastNode.value
+	}
+
+	_, value := tree.GetVersioned(key, version)
+	return value
 }
 
 // SaveVersion saves a new tree version to disk, based on the current state of
