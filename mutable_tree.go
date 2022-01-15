@@ -150,8 +150,7 @@ func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated
 	}
 
 	if tree.ImmutableTree.root == nil {
-		delete(tree.unsavedFastNodeRemovals, string(key))
-		tree.unsavedFastNodeAdditions[string(key)] =  NewFastNode(key, value, tree.version + 1)
+		tree.addUnsavedAddition(key, NewFastNode(key, value, tree.version+1))
 		tree.ImmutableTree.root = NewNode(key, value, tree.version+1)
 		return nil, updated
 	}
@@ -167,8 +166,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	version := tree.version + 1
 
 	if node.isLeaf() {
-		delete(tree.unsavedFastNodeAdditions, string(key))
-		tree.unsavedFastNodeAdditions[string(key)] =  NewFastNode(key, value, version)
+		tree.addUnsavedAddition(key,  NewFastNode(key, value, version))
 
 		switch bytes.Compare(key, node.key) {
 		case -1:
@@ -234,9 +232,7 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 		return nil, nil, false
 	}
 
-	delete(tree.unsavedFastNodeAdditions, string(key))
-	tree.unsavedFastNodeRemovals[string(key)] = true
-	tree.ndb.uncacheFastNode(key)
+	tree.addUnsavedRemoval(key)
 
 	if newRoot == nil && newRootHash != nil {
 		tree.root = tree.ndb.GetNode(newRootHash)
@@ -520,6 +516,16 @@ func (tree *MutableTree) GetVersionedFast(key []byte, version int64) []byte {
 	return value
 }
 
+// GetUnsavedFastNodeAdditions returns unsaved FastNodes to add
+func (tree *MutableTree) GetUnsavedFastNodeAdditions() map[string]*FastNode {
+	return tree.unsavedFastNodeAdditions
+}
+
+// GetUnsavedFastNodeAdditions returns unsaved FastNodes to remove
+func (tree *MutableTree) GetUnsavedFastNodeRemovals() map[string]interface{} {
+	return tree.unsavedFastNodeRemovals
+}
+
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
@@ -605,6 +611,11 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return nil
 }
 
+func (tree *MutableTree) addUnsavedAddition(key []byte, node *FastNode) {
+	delete(tree.unsavedFastNodeRemovals, string(key))
+	tree.unsavedFastNodeAdditions[string(key)] = node
+}
+
 func (tree *MutableTree) saveFastNodeAdditions() error {
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeAdditions))
 	for key := range tree.unsavedFastNodeAdditions {
@@ -620,6 +631,12 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 	return nil
 }
 
+func (tree *MutableTree) addUnsavedRemoval(key []byte) {
+	delete(tree.unsavedFastNodeAdditions, string(key))
+	tree.unsavedFastNodeRemovals[string(key)] = true
+	tree.ndb.uncacheFastNode(key)
+}
+
 func (tree *MutableTree) saveFastNodeRemovals() error {
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeRemovals))
 	for key := range tree.unsavedFastNodeRemovals {
@@ -631,16 +648,6 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 		tree.ndb.DeleteFastNode([]byte(key))
 	}
 	return nil
-}
-
-// GetUnsavedFastNodeAdditions returns unsaved FastNodes to add, used for unit testing
-func (tree *MutableTree) GetUnsavedFastNodeAdditions() map[string]*FastNode {
-	return tree.unsavedFastNodeAdditions
-}
-
-// GetUnsavedFastNodeAdditions returns unsaved FastNodes to remove, used for unit testing
-func (tree *MutableTree) GetUnsavedFastNodeRemovals() map[string]interface{} {
-	return tree.unsavedFastNodeRemovals
 }
 
 func (tree *MutableTree) deleteVersion(version int64) error {
