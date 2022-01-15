@@ -359,7 +359,29 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 	require.Error(t, tree.DeleteVersion(2))
 }
 
-func TestSetSimple(t *testing.T) {
+func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
+	mdb := db.NewMemDB()
+	tree, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	_, v1, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	newTree1, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	v2, err := newTree1.LazyLoadVersion(1)
+	require.NoError(t, err)
+	require.True(t, v1 == v2)
+
+	newTree2, err := NewMutableTree(mdb, 1000)
+	require.NoError(t, err)
+	v2, err = newTree1.LoadVersion(1)
+	require.NoError(t, err)
+	require.True(t, v1 == v2)
+
+	require.True(t, newTree1.root == newTree2.root)
+}
+
+func TestMutableTree_SetSimple(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
@@ -386,7 +408,7 @@ func TestSetSimple(t *testing.T) {
 	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
 }
 
-func TestSetTwoKeys(t *testing.T) {
+func TestMutableTree_SetTwoKeys(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
@@ -428,7 +450,7 @@ func TestSetTwoKeys(t *testing.T) {
 }
 
 
-func TestSetOverwrite(t *testing.T) {
+func TestMutableTree_SetOverwrite(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
@@ -458,7 +480,7 @@ func TestSetOverwrite(t *testing.T) {
 	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
 }
 
-func TestSetRemoveSet(t *testing.T) {
+func TestMutableTree_SetRemoveSet(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
@@ -522,7 +544,7 @@ func TestSetRemoveSet(t *testing.T) {
 	require.Equal(t, 0, len(fastNodeRemovals))
 }
 
-func TestFastNodeIntegration(t *testing.T) {
+func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 1000)
 	require.NoError(t, err)
