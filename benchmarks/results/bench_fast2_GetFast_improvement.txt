@@ -1,0 +1,62 @@
+cd benchmarks && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-51-gd049e4c -X github.com/cosmos/iavl.Commit=d049e4c41bd357da87e4c87f727979daffedb462 -X github.com/cosmos/iavl.Branch=roman/fast-node-get-set" -bench=RandomBytes . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-51-gd049e4c -X github.com/cosmos/iavl.Commit=d049e4c41bd357da87e4c87f727979daffedb462 -X github.com/cosmos/iavl.Branch=roman/fast-node-get-set" -bench=Small . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-51-gd049e4c -X github.com/cosmos/iavl.Commit=d049e4c41bd357da87e4c87f727979daffedb462 -X github.com/cosmos/iavl.Branch=roman/fast-node-get-set" -bench=Medium . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-51-gd049e4c -X github.com/cosmos/iavl.Commit=d049e4c41bd357da87e4c87f727979daffedb462 -X github.com/cosmos/iavl.Branch=roman/fast-node-get-set" -bench=BenchmarkMemKeySizes .
+iavl: 0.17.2-51-gd049e4c
+git commit: d049e4c41bd357da87e4c87f727979daffedb462
+git branch: roman/fast-node-get-set
+go version go1.17.6 linux/amd64
+
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: DO-Regular
+BenchmarkRandomBytes/random-4         	20631091	        54.53 ns/op
+BenchmarkRandomBytes/random-16        	13131164	        94.72 ns/op
+BenchmarkRandomBytes/random-32        	 9285213	       130.6 ns/op
+BenchmarkRandomBytes/random-100       	 4164633	       287.1 ns/op
+BenchmarkRandomBytes/random-1000      	  543921	      2243 ns/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	6.630s
+iavl: 0.17.2-51-gd049e4c
+git commit: d049e4c41bd357da87e4c87f727979daffedb462
+git branch: roman/fast-node-get-set
+go version go1.17.6 linux/amd64
+
+Init Tree took 1.10 MB
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: DO-Regular
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee         	 1350070	       893.0 ns/op	      87 B/op	       3 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits                         	 8293453	       134.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/update                             	   10000	    104374 ns/op	   12546 B/op	     194 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/block                              	     100	  30155192 ns/op	 2979138 B/op	   47841 allocs/op
+Init Tree took 0.72 MB
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee     	  762082	      1718 ns/op	     144 B/op	       7 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits                     	 7538671	       145.2 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/update                         	   10000	    165523 ns/op	   22092 B/op	     214 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/block                          	      87	  37833595 ns/op	 4576088 B/op	   53257 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	15.375s
+iavl: 0.17.2-51-gd049e4c
+git commit: d049e4c41bd357da87e4c87f727979daffedb462
+git branch: roman/fast-node-get-set
+go version go1.17.6 linux/amd64
+
+Init Tree took 114.29 MB
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: DO-Regular
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee         	  428670	      2496 ns/op	     112 B/op	       4 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits                         	  828895	      1348 ns/op	      19 B/op	       0 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/update                             	    8337	   4422422 ns/op	  591640 B/op	    8032 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/block                              	       2	 617373598 ns/op	75344500 B/op	 1023759 allocs/op
+Init Tree took 70.27 MB
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee     	  147496	      8889 ns/op	     840 B/op	      16 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits                     	  644355	      1678 ns/op	      76 B/op	       1 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/update                         	signal: killed
+FAIL	github.com/cosmos/iavl/benchmarks	120.142s
+FAIL
