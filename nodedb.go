@@ -143,7 +143,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 		return nil, fmt.Errorf("can't get FastNode %X: %w", key, err)
 	}
 	if buf == nil {
-		return nil, fmt.Errorf("value missing for key %x", key)
+		return nil, nil
 	}
 
 	fastNode, err := DeserializeFastNode(buf)
@@ -188,7 +188,11 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 func (ndb *nodeDB) SaveFastNode(node *FastNode) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	return ndb.saveFastNodeUnlocked(node)
+}
 
+// SaveNode saves a FastNode to disk.
+func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode) error {
 	if node.key == nil {
 		return fmt.Errorf("FastNode cannot have a nil value for key")
 	}
@@ -293,20 +297,25 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 			panic(err)
 		}
 
-		if checkLatestVersion && version == ndb.getLatestVersion() {
+		if checkLatestVersion && version == ndb.latestVersion {
 			// Latest version must not be deleted
 			return
 		}
 
 		if fastNode.versionLastUpdatedAt == version {
-			if err = ndb.batch.Delete(key); err != nil {
-				panic(err)
-			}
 			ndb.uncacheFastNode(key)
+			if version + 1 <= ndb.latestVersion {
+				fastNode.versionLastUpdatedAt = version + 1
+				if err = ndb.saveFastNodeUnlocked(fastNode); err != nil {
+					panic(err)
+				}
+			} else {
+				if err = ndb.batch.Delete(key); err != nil {
+					panic(err)
+				}
+			}
 		}
 	})
-
-	ndb.uncacheFastNodesWithVersion(version)
 	return nil
 }
 
@@ -452,10 +461,17 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		}
 
 		if fromVersion <= fastNode.versionLastUpdatedAt && fastNode.versionLastUpdatedAt < toVersion {
-			if err = ndb.batch.Delete(key); err != nil {
-				panic(err)
-			}
 			ndb.uncacheFastNode(key)
+			if toVersion <= ndb.latestVersion {
+				fastNode.versionLastUpdatedAt = toVersion
+				if err = ndb.saveFastNodeUnlocked(fastNode); err != nil {
+					panic(err)
+				}
+			} else {
+				if err = ndb.batch.Delete(key); err != nil {
+					panic(err)
+				}
+			}
 		}
 	})
 
