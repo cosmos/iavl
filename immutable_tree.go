@@ -167,28 +167,35 @@ func (t *ImmutableTree) GetFast(key []byte) []byte {
 	// if call fails, fall back to the original IAVL logic in place.
 	fastNode, err := t.ndb.GetFastNode(key)
 	if err != nil {
-		debug("failed to get FastNode with key: %X, falling back to regular IAVL logic", key)
+		debug("failed to get FastNode with key: %X, falling back to regular IAVL logic\n", key)
 		_, result := t.root.get(t, key)
 		return result
 	}
 
-	// If the tree is of the latest version and fast node is not in the tree
-	// then the regular node is not in the tree either because fast node
-	// represents live state.
-	if t.version == t.ndb.getLatestVersion() && fastNode == nil {
-		return nil
+	if fastNode == nil {
+		// If the tree is of the latest version and fast node is not in the tree
+		// then the regular node is not in the tree either because fast node
+		// represents live state.
+		if t.version == t.ndb.latestVersion {
+			debug("latest version with no fast node for key: %X. The node must node exist, return nil. Tree version: %d\n", key, t.version)
+			return nil
+		}
+
+		debug("old version with no fast node for key: %X, falling back to regular IAVL logic. Tree version: %d\n", key, t.version)
+		_, result := t.root.get(t, key)
+		return result
 	}
 
 	// cache node is of different version, so read from the current tree
 	if fastNode.versionLastUpdatedAt > t.version {
-		debug("last updated version %d is too new for FastNode where tree is of version %d with key %X, falling back to regular IAVL logic", fastNode.versionLastUpdatedAt, t.version, key)
+		debug("last updated version %d is too new for FastNode where tree is of version %d with key %X, falling back to regular IAVL logic\n", fastNode.versionLastUpdatedAt, t.version, key)
 		_, result := t.root.get(t, key)
 		return result
 	}
 
 	value := fastNode.value
 	if value == nil {
-		debug("nil value for FastNode with key %X , falling back to regular IAVL logic", key)
+		debug("nil value for FastNode with key %X , falling back to regular IAVL logic\n", key)
 		_, result := t.root.get(t, key)
 		return result
 	}

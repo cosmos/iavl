@@ -130,6 +130,20 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool) {
 	return updated
 }
 
+// GetFast returns the value of the specified key if it exists, or nil otherwise.
+// The returned value must not be modified, since it may point to data stored within IAVL.
+func (t *MutableTree) GetFast(key []byte) []byte {
+	if t.root == nil {
+		return nil
+	}
+
+	if fastNode, ok := t.unsavedFastNodeAdditions[string(key)]; ok {
+		return fastNode.value
+	}
+
+	return t.ImmutableTree.GetFast(key)
+}
+
 // Import returns an importer for tree nodes previously exported by ImmutableTree.Export(),
 // producing an identical IAVL tree. The caller must call Close() on the importer when done.
 //
@@ -428,6 +442,11 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
+	err = tree.createFastNodesFromLatestTree(err, targetVersion, latestVersion)
+	if err != nil {
+		return latestVersion, err
+	}
+
 	if err = tree.ndb.Commit(); err != nil {
 		return latestVersion, err
 	}
@@ -444,6 +463,22 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	}
 
 	return latestVersion, nil
+}
+
+func (tree *MutableTree) createFastNodesFromLatestTree(err error, targetVersion int64, latestVersion int64) error {
+	didInterruptFastNodesRestoration := tree.Iterate(func(key, value []byte) bool {
+		if err = tree.ndb.SaveFastNode(NewFastNode(key, value, tree.version)); err != nil {
+			debug("error saving fast node when restoring fast nodes: %v\n", err)
+			return true
+		}
+
+		return false
+	})
+
+	if didInterruptFastNodesRestoration {
+		return errors.New("failed restoring fast node cache from latest live state")
+	}
+	return nil
 }
 
 // GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is
@@ -506,7 +541,12 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) (
 // modified, since it may point to data stored within IAVL. GetVersionedFast utilizes a more performant
 // strategy for retrieving the value than GetVersioned but falls back to regular strategy if fails.
 func (tree *MutableTree) GetVersionedFast(key []byte, version int64) []byte {
-	if fastNode, err := tree.ndb.GetFastNode(key); err == nil && fastNode.versionLastUpdatedAt == version {
+	fastNode, _ := tree.ndb.GetFastNode(key)
+	if fastNode == nil && version == tree.ndb.latestVersion || version > tree.version {
+		return nil
+	}
+
+	if  fastNode != nil && fastNode.versionLastUpdatedAt <= version {
 		return fastNode.value
 	}
 
@@ -612,6 +652,7 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *FastNode) {
 	delete(tree.unsavedFastNodeRemovals, string(key))
 	tree.unsavedFastNodeAdditions[string(key)] = node
+	tree.ndb.cacheFastNode(node)
 }
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
