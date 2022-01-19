@@ -9,6 +9,7 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/cosmos/iavl/internal/logger"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -126,7 +127,7 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	if err := ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes()); err != nil {
 		panic(err)
 	}
-	debug("BATCH SAVE %X %p\n", node.hash, node)
+	logger.Debug("BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
 	ndb.cacheNode(node)
 }
@@ -361,7 +362,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
 
 	toVersion := ndb.getPreviousVersion(version)
 	for hash, fromVersion := range orphans {
-		debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
+		logger.Debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
 		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
 	}
 }
@@ -403,13 +404,13 @@ func (ndb *nodeDB) deleteOrphans(version int64) {
 		// can delete the orphan.  Otherwise, we shorten its lifetime, by
 		// moving its endpoint to the previous version.
 		if predecessor < fromVersion || fromVersion == toVersion {
-			debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
+			logger.Debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			if err := ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
 				panic(err)
 			}
 			ndb.uncacheNode(hash)
 		} else {
-			debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
+			logger.Debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
 			ndb.saveOrphan(hash, fromVersion, predecessor)
 		}
 	})

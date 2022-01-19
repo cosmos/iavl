@@ -8,6 +8,7 @@ import (
 	"github.com/tendermint/tendermint/crypto/merkle"
 	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto"
 
+	"github.com/cosmos/iavl/internal/encoding"
 	iavlproto "github.com/cosmos/iavl/proto"
 )
 
@@ -42,7 +43,7 @@ func ValueOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
 	// Strip the varint length prefix, used for backwards compatibility with Amino.
-	bz, n, err := decodeBytes(pop.Data)
+	bz, n, err := encoding.DecodeBytes(pop.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +69,7 @@ func (op ValueOp) ProofOp() tmmerkle.ProofOp {
 		panic(err)
 	}
 	// We length-prefix the byte slice to retain backwards compatibility with the Amino proofs.
-	bz, err = encodeBytesSlice(bz)
+	bz, err = encoding.EncodeBytesSlice(bz)
 	if err != nil {
 		panic(err)
 	}

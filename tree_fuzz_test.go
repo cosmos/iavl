@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	cmn "github.com/cosmos/iavl/common"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 // This file implement fuzz testing by generating programs and then running
@@ -86,7 +86,7 @@ func genRandomProgram(size int) *program {
 	nextVersion := 1
 
 	for p.size() < size {
-		k, v := []byte(cmn.RandStr(1)), []byte(cmn.RandStr(1))
+		k, v := []byte(iavlrand.RandStr(1)), []byte(iavlrand.RandStr(1))
 
 		switch rand.Int() % 7 {
 		case 0, 1, 2:
