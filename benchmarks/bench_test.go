@@ -72,21 +72,34 @@ func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	}
 }
 
-func runIteration(b *testing.B, t *iavl.MutableTree) {
-	itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree)
-	defer itr.Close()
-
-	for i := 0; i < b.N && itr.Valid(); i++ {
-		itr.Next()
+func runIteration(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+	for i := 0; i < b.N; i++ {
+		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree)
+		iterate(b, itr, expectedSize)
+		itr.Close()
 	}
 }
 
-func runFastIteration(b *testing.B, t *iavl.MutableTree) {
-	itr := t.ImmutableTree.Iterator(nil, nil, false)
-	defer itr.Close()
+func runFastIteration(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+	for i := 0; i < b.N; i++ {
+		itr := t.ImmutableTree.Iterator(nil, nil, false)
+		iterate(b, itr, expectedSize)
+		itr.Close()
+	}
+}
 
-	for i := 0; i < b.N && itr.Valid(); i++ {
+func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
+	b.StartTimer()
+	keyValuePairs := make([][][]byte, 0, expectedSize)
+	for i := 0; i < expectedSize && itr.Valid(); i++ {
 		itr.Next()
+		keyValuePairs = append(keyValuePairs, [][]byte{itr.Key(), itr.Value()})
+	}
+	b.StopTimer()
+	if len(keyValuePairs) != expectedSize {
+		b.Errorf("iteration count mismatch: %d != %d", len(keyValuePairs), expectedSize)
+	} else {
+		b.Logf("completed %d iterations", len(keyValuePairs))
 	}
 }
 
@@ -164,26 +177,6 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 	return lastCommit
 }
 
-
-func BenchmarkIteration(b *testing.B) {
-	fmt.Printf("%s\n", iavl.GetVersionInfo())
-	benchmarks := []struct {
-		length int
-	}{
-		{4}, {16}, {32}, {100}, {1000},
-	}
-	for _, bench := range benchmarks {
-		bench := bench
-		name := fmt.Sprintf("random-%d", bench.length)
-		b.Run(name, func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				randBytes(bench.length)
-			}
-			runtime.GC()
-		})
-	}
-}
-
 func BenchmarkRandomBytes(b *testing.B) {
 	fmt.Printf("%s\n", iavl.GetVersionInfo())
 	benchmarks := []struct {
@@ -229,10 +222,18 @@ func BenchmarkSmall(b *testing.B) {
 	runBenchmarks(b, benchmarks)
 }
 
+func BenchmarkLoop(b *testing.B) {
+	for j := 0; j < b.N; j++ {
+		for i := 0; i < 1000; i++ {
+			// do some op
+		}
+	}
+}
+
 func BenchmarkLarge(b *testing.B) {
 	benchmarks := []benchmark{
-		{"memdb", 1000000, 100, 16, 40},
-		{"goleveldb", 1000000, 100, 16, 40},
+		{"memdb", 1000000, 100, 4, 10},
+		{"goleveldb", 1000000, 100, 4, 10},
 		// FIXME: this crashes on init! Either remove support, or make it work.
 		// {"cleveldb", 100000, 100, 16, 40},
 	}
@@ -322,15 +323,17 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	// 	sub.ReportAllocs()
 	// 	runKnownQueries(sub, t, keys)
 	// })
+
 	b.Run("iteration", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runIteration(sub, t)
+		runIteration(sub, t, initSize)
 	})
 
 	b.Run("fast-iteration", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runFastIteration(sub, t)
+		runFastIteration(sub, t, initSize)
 	})
+
 	// b.Run("update", func(sub *testing.B) {
 	// 	sub.ReportAllocs()
 	// 	t = runUpdate(sub, t, dataLen, blockSize, keys)
