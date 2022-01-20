@@ -111,7 +111,7 @@ func (tree *MutableTree) WorkingHash() []byte {
 }
 
 // String returns a string representation of the tree.
-func (tree *MutableTree) String() string {
+func (tree *MutableTree) String() (string, error) {
 	return tree.ndb.String()
 }
 
@@ -156,6 +156,111 @@ func (t *MutableTree) GetFast(key []byte) []byte {
 // modifications are made to the tree while importing.
 func (tree *MutableTree) Import(version int64) (*Importer, error) {
 	return newImporter(tree, version)
+}
+
+// Iterate iterates over all keys of the tree. The keys and values must not be modified,
+// since they may point to data stored within IAVL.
+func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
+	if t.root == nil {
+		return false
+	}
+
+	if t.version == t.ndb.getLatestVersion() {
+		// We need to ensure that we iterate over saved and unsaved state in order.
+		// The strategy is to sort unsaved nodes, the fast node on disk are already sorted.
+		// Then, we keep a pointer to both the unsaved and saved nodes, and iterate over them in sorted order efficiently.
+
+		unsavedFastNodesToSort := make([]string, 0, len(t.unsavedFastNodeAdditions))
+
+		for _, fastNode := range t.unsavedFastNodeAdditions {
+			unsavedFastNodesToSort = append(unsavedFastNodesToSort, string(fastNode.key))
+		}
+
+		sort.Strings(unsavedFastNodesToSort)
+
+		itr, err := t.ndb.getFastIterator(nil, nil, true)
+		if err != nil {
+			panic(err)
+		}
+
+		nextUnsavedIdx := 0
+
+		for itr.Valid() && nextUnsavedIdx < len(unsavedFastNodesToSort) {
+			diskKeyStr := string(itr.Key()[1:])
+
+			if t.unsavedFastNodeRemovals[string(diskKeyStr)] != nil {
+				// If next fast node from disk is to be removed, skip it.
+				itr.Next()
+				continue
+			}
+
+			nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
+			nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey] // O(1)
+
+			
+
+			if diskKeyStr >= nextUnsavedKey {
+				// Unsaved node is next
+
+				if diskKeyStr == nextUnsavedKey {
+					// Unsaved update prevails over saved copy so we skip the copy from disk
+					itr.Next()
+				}
+
+				if fn(nextUnsavedNode.key, nextUnsavedNode.value) {
+					return true
+				}
+
+				nextUnsavedIdx++
+			} else {
+				// Disk node is next
+
+				fastNode, err := DeserializeFastNode([]byte(diskKeyStr), itr.Value())
+
+				if err != nil {
+					panic(err)
+				}
+
+				if fn(fastNode.key, fastNode.value) {
+					return true
+				}
+
+				itr.Next()
+			}
+		}
+
+		// if only nodes on disk are left, we can just iterate
+		for itr.Valid() {
+			fastNode, err := DeserializeFastNode(itr.Key()[1:], itr.Value())
+			if err != nil {
+				panic(err)
+			}
+
+			if fn(fastNode.key, fastNode.value) {
+				return true
+			}
+			itr.Next()
+		}
+
+		// if only unsaved nodes are left, we can just iterate
+		for ; nextUnsavedIdx < len(unsavedFastNodesToSort); nextUnsavedIdx++ {
+			nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
+			nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey]
+
+			if fn(nextUnsavedNode.key, nextUnsavedNode.value) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return t.ImmutableTree.Iterate(fn)
+}
+
+// Iterator is not supported and is therefore invalid for MutableTree. Get an ImmutableTree instead for a valid iterator.
+func (t *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
+	return NewIterator(start, end, ascending, nil) // this is an invalid iterator
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
@@ -526,34 +631,25 @@ func (tree *MutableTree) Rollback() {
 
 // GetVersioned gets the value and index at the specified key and version. The returned value must not be
 // modified, since it may point to data stored within IAVL.
-func (tree *MutableTree) GetVersioned(key []byte, version int64) (
-	index int64, value []byte,
-) {
+func (tree *MutableTree) GetVersioned(key []byte, version int64) []byte {
 	if tree.VersionExists(version) {
+		fastNode, _ := tree.ndb.GetFastNode(key)
+		if fastNode == nil && version == tree.ndb.latestVersion {
+			return nil
+		}
+	
+		if  fastNode != nil && fastNode.versionLastUpdatedAt <= version {
+			return fastNode.value
+		}
+
 		t, err := tree.GetImmutable(version)
 		if err != nil {
-			return -1, nil
+			return nil
 		}
-		return t.Get(key)
+		_, value := t.Get(key)
+		return value
 	}
-	return -1, nil
-}
-
-// GetVersionedFast gets the value at the specified key and version. The returned value must not be
-// modified, since it may point to data stored within IAVL. GetVersionedFast utilizes a more performant
-// strategy for retrieving the value than GetVersioned but falls back to regular strategy if fails.
-func (tree *MutableTree) GetVersionedFast(key []byte, version int64) []byte {
-	fastNode, _ := tree.ndb.GetFastNode(key)
-	if fastNode == nil && version == tree.ndb.latestVersion || version > tree.version {
-		return nil
-	}
-
-	if  fastNode != nil && fastNode.versionLastUpdatedAt <= version {
-		return fastNode.value
-	}
-
-	_, value := tree.GetVersioned(key, version)
-	return value
+	return nil
 }
 
 // GetUnsavedFastNodeAdditions returns unsaved FastNodes to add

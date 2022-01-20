@@ -353,9 +353,11 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 // Checks that the tree has the given number of orphan nodes.
 func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
 	count := 0
-	tree.ndb.traverseOrphans(func(k, v []byte) {
+	err := tree.ndb.traverseOrphans(func(k, v []byte) error {
 		count++
+		return nil
 	})
+	require.Nil(t, err)
 	require.EqualValues(t, expected, count, "Expected %v orphans, got %v", expected, count)
 }
 
@@ -408,7 +410,7 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 
 	for key, cacheElem := range tree.ndb.fastNodeCache {
 		liveFastNode := mirror[key]
-		
+
 		require.NotNil(t, liveFastNode, "cached fast node must be in live tree")
 		require.Equal(t, liveFastNode, string(cacheElem.Value.(*FastNode).value), "cached fast node's value must be equal to live state value")
 	}
@@ -420,19 +422,21 @@ func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string
 		// The fast node disk check should only be done to the latest version
 		return
 	}
-	
+
 	count := 0
-	tree.ndb.traverseFastNodes(func(k, v []byte) {
+	err := tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
+		key := keyWithPrefix[1:]
 		count += 1
-		fastNode, err := DeserializeFastNode(v)
+		fastNode, err := DeserializeFastNode(key, v)
 		require.Nil(t, err)
 
 		mirrorVal := mirror[string(fastNode.key)]
 
 		require.NotNil(t, mirrorVal)
 		require.Equal(t, []byte(mirrorVal), fastNode.value)
+		return nil
 	})
-
+	require.NoError(t, err)
 	require.Equal(t, len(mirror), count)
 }
 

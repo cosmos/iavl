@@ -109,6 +109,11 @@ func (t *ImmutableTree) Version() int64 {
 	return t.version
 }
 
+// IsLatestVersion returns true if curren tree is of the latest version, false otherwise.
+func (t *ImmutableTree) IsLatestVersion() bool {
+	return t.version == t.ndb.getLatestVersion()
+}
+
 // Height returns the height of the tree.
 func (t *ImmutableTree) Height() int8 {
 	if t.root == nil {
@@ -211,18 +216,48 @@ func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte) {
 	return t.root.getByIndex(t, index)
 }
 
-// Iterate iterates over all keys of the tree, in order. The keys and values must not be modified,
+// Iterate iterates over all keys of the tree. The keys and values must not be modified,
 // since they may point to data stored within IAVL.
 func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
 	}
+
+	if t.version == t.ndb.getLatestVersion() {
+		stopped, err := t.ndb.traverseFastNodesWithStop(func(keyWithPrefix, v []byte) (bool, error) {
+			key := keyWithPrefix[1:]
+			fastNode, err := DeserializeFastNode(key, v)
+
+			if err != nil {
+				return false, err
+			}
+
+			return fn(fastNode.key, fastNode.value), nil
+		})
+
+		if err != nil {
+			panic(err)
+		}
+
+		return stopped
+	}
+
 	return t.root.traverse(t, true, func(node *Node) bool {
 		if node.height == 0 {
 			return fn(node.key, node.value)
 		}
 		return false
 	})
+}
+
+// Iterator returns an iterator over the immutable tree.
+func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
+	isFastTraversal := t.IsLatestVersion()
+	if isFastTraversal {
+		return NewFastIterator(start, end, ascending, t.ndb)
+	} else {
+		return NewIterator(start, end, ascending, t)
+	}
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.

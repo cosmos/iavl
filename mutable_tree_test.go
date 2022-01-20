@@ -318,9 +318,8 @@ func TestMutableTree_VersionExists(t *testing.T) {
 	require.False(t, tree.VersionExists(3))
 }
 
-func checkGetVersioned(t *testing.T, tree *MutableTree, version, index int64, key, value []byte) {
-	idx, val := tree.GetVersioned(key, version)
-	require.True(t, idx == index)
+func checkGetVersioned(t *testing.T, tree *MutableTree, version int64, key, value []byte) {
+	val := tree.GetVersioned(key, version)
 	require.True(t, bytes.Equal(val, value))
 }
 
@@ -330,17 +329,17 @@ func TestMutableTree_GetVersioned(t *testing.T) {
 	require.True(t, ver == 1)
 	require.NoError(t, err)
 	// check key of unloaded version
-	checkGetVersioned(t, tree, 1, 1, []byte{1}, []byte("a"))
-	checkGetVersioned(t, tree, 2, 1, []byte{1}, []byte("b"))
-	checkGetVersioned(t, tree, 3, -1, []byte{1}, nil)
+	checkGetVersioned(t, tree, 1, []byte{1}, []byte("a"))
+	checkGetVersioned(t, tree, 2, []byte{1}, []byte("b"))
+	checkGetVersioned(t, tree, 3, []byte{1}, nil)
 
 	tree = prepareTree(t)
 	ver, err = tree.LazyLoadVersion(2)
 	require.True(t, ver == 2)
 	require.NoError(t, err)
-	checkGetVersioned(t, tree, 1, 1, []byte{1}, []byte("a"))
-	checkGetVersioned(t, tree, 2, 1, []byte{1}, []byte("b"))
-	checkGetVersioned(t, tree, 3, -1, []byte{1}, nil)
+	checkGetVersioned(t, tree, 1, []byte{1}, []byte("a"))
+	checkGetVersioned(t, tree, 2, []byte{1}, []byte("b"))
+	checkGetVersioned(t, tree, 3, []byte{1}, nil)
 }
 
 func TestMutableTree_DeleteVersion(t *testing.T) {
@@ -626,4 +625,41 @@ func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	_, regularValue = tree.Get([]byte(key3))
 	require.Equal(t, []byte(testVal2), fastValue)
 	require.Equal(t, []byte(testVal2), regularValue)
+}
+
+func TestIterate_MutableTree_Unsaved(t *testing.T) {
+	tree, mirror := getRandomizedTreeAndMirror(t)
+	assertMutableMirrorIterate(t, tree, mirror)
+}
+
+func TestIterate_MutableTree_Saved(t *testing.T) {
+	tree, mirror := getRandomizedTreeAndMirror(t)
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	assertMutableMirrorIterate(t, tree, mirror)
+}
+
+func TestIterate_MutableTree_Unsaved_NextVersion(t *testing.T) {
+	tree, mirror := getRandomizedTreeAndMirror(t)
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	assertMutableMirrorIterate(t, tree, mirror)
+
+	randomizeTreeAndMirror(t, tree, mirror)
+
+	assertMutableMirrorIterate(t, tree, mirror)
+}
+
+func TestIterator_MutableTree_Invalid(t *testing.T) {
+	tree, err := getTestTree(0)
+	require.NoError(t, err)
+
+	itr := tree.Iterator([]byte("a"), []byte("b"), true)
+
+	require.NotNil(t, itr)
+	require.False(t, itr.Valid())
 }

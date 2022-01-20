@@ -1,0 +1,65 @@
+cd benchmarks && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-14-g0944259 -X github.com/cosmos/iavl.Commit=094425990290c396365553ff8d1c078b9a8a2607 -X github.com/cosmos/iavl.Branch=dev/iavl_data_locality" -bench=RandomBytes . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-14-g0944259 -X github.com/cosmos/iavl.Commit=094425990290c396365553ff8d1c078b9a8a2607 -X github.com/cosmos/iavl.Branch=dev/iavl_data_locality" -bench=Small . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-14-g0944259 -X github.com/cosmos/iavl.Commit=094425990290c396365553ff8d1c078b9a8a2607 -X github.com/cosmos/iavl.Branch=dev/iavl_data_locality" -bench=Medium . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-14-g0944259 -X github.com/cosmos/iavl.Commit=094425990290c396365553ff8d1c078b9a8a2607 -X github.com/cosmos/iavl.Branch=dev/iavl_data_locality" -bench=BenchmarkMemKeySizes .
+iavl: 0.17.2-14-g0944259
+git commit: 094425990290c396365553ff8d1c078b9a8a2607
+git branch: dev/iavl_data_locality
+go version go1.17.6 linux/amd64
+
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz
+BenchmarkRandomBytes/random-4-8         	24844308	        45.68 ns/op
+BenchmarkRandomBytes/random-16-8        	16860562	        70.71 ns/op
+BenchmarkRandomBytes/random-32-8        	10909080	       104.8 ns/op
+BenchmarkRandomBytes/random-100-8       	 6314937	       264.1 ns/op
+BenchmarkRandomBytes/random-1000-8      	  741458	      1550 ns/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	6.771s
+iavl: 0.17.2-14-g0944259
+git commit: 094425990290c396365553ff8d1c078b9a8a2607
+git branch: dev/iavl_data_locality
+go version go1.17.6 linux/amd64
+
+Init Tree took 0.76 MB
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz
+BenchmarkSmall/memdb-1000-100-4-10/query-miss-8         	  284538	      4979 ns/op	     506 B/op	      12 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-8         	  230426	      4835 ns/op	     682 B/op	      15 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/update-8             	   26002	     47491 ns/op	   11639 B/op	     167 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/block-8              	     165	   9876546 ns/op	 2180318 B/op	   33752 allocs/op
+Init Tree took 0.47 MB
+BenchmarkSmall/goleveldb-1000-100-4-10/query-miss-8     	  217694	      5542 ns/op	     725 B/op	      20 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-8     	  181466	      6261 ns/op	     945 B/op	      24 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/update-8         	   17618	     78426 ns/op	   20895 B/op	     164 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/block-8          	     100	  11495975 ns/op	 2941281 B/op	   29216 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	12.763s
+iavl: 0.17.2-14-g0944259
+git commit: 094425990290c396365553ff8d1c078b9a8a2607
+git branch: dev/iavl_data_locality
+go version go1.17.6 linux/amd64
+
+Init Tree took 78.75 MB
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz
+BenchmarkMedium/memdb-100000-100-16-40/query-miss-8         	   89678	     13027 ns/op	     592 B/op	      12 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-8         	   85288	     13898 ns/op	     759 B/op	      15 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/update-8             	   10000	    158839 ns/op	   26897 B/op	     327 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/block-8              	      67	  22582378 ns/op	 2896848 B/op	   35408 allocs/op
+Init Tree took 46.38 MB
+BenchmarkMedium/goleveldb-100000-100-16-40/query-miss-8     	   53392	     21976 ns/op	    1557 B/op	      30 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-8     	   40587	     29711 ns/op	    2103 B/op	      39 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/update-8         	    9184	    258844 ns/op	   40476 B/op	     391 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/block-8          	      33	  39943139 ns/op	 5498317 B/op	   57375 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	24.381s
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	0.016s
