@@ -9,7 +9,7 @@
 ![Test](https://github.com/cosmos/iavl/workflows/Test/badge.svg?branch=master)
 [![Discord chat](https://img.shields.io/discord/669268347736686612.svg)](https://discord.gg/AzefAFd)
 
-**Note: Requires Go 1.13+**
+**Note: Requires Go 1.17+**
 
 A versioned, snapshottable (immutable) AVL+ tree for persistent data.
 
