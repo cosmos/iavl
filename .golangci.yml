@@ -6,6 +6,7 @@ linters:
     - dogsled
     - dupl
     - errcheck
+    - exportloopref
     # - funlen
     # - gochecknoglobals
     # - gochecknoinits
@@ -15,18 +16,15 @@ linters:
     # - godox
     - gofmt
     - goimports
-    - golint
+    - revive
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     # - lll
     - misspell
-    - maligned
     - nakedret
     - prealloc
-    - scopelint
     - staticcheck
     - structcheck
     - stylecheck
@@ -61,8 +59,4 @@ linters-settings:
     min-confidence: 0
   misspell:
     locale: US
-#   gocritic:
-#     enabled-tags:
-#       - performance
-#       - style
-#       - experimental
+
