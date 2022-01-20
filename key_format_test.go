@@ -13,11 +13,11 @@ func TestKeyFormatBytes(t *testing.T) {
 	}
 	emptyTestVector := keyPairs{key: [][]byte{}, expected: []byte{'e'}}
 	threeByteTestVector := keyPairs{
-		key:      [][]byte{[]byte{1, 2, 3}},
+		key:      [][]byte{{1, 2, 3}},
 		expected: []byte{'e', 0, 0, 0, 0, 0, 1, 2, 3},
 	}
 	eightByteTestVector := keyPairs{
-		key:      [][]byte{[]byte{1, 2, 3, 4, 5, 6, 7, 8}},
+		key:      [][]byte{{1, 2, 3, 4, 5, 6, 7, 8}},
 		expected: []byte{'e', 1, 2, 3, 4, 5, 6, 7, 8},
 	}
 
@@ -33,7 +33,7 @@ func TestKeyFormatBytes(t *testing.T) {
 			threeByteTestVector,
 			eightByteTestVector,
 			{
-				key:      [][]byte{[]byte{1, 2, 3, 4, 5, 6, 7, 8}, []byte{1, 2, 3, 4, 5, 6, 7, 8}, []byte{1, 1, 2, 2, 3, 3}},
+				key:      [][]byte{{1, 2, 3, 4, 5, 6, 7, 8}, {1, 2, 3, 4, 5, 6, 7, 8}, {1, 1, 2, 2, 3, 3}},
 				expected: []byte{'e', 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 0, 0, 1, 1, 2, 2, 3, 3},
 			},
 		},
@@ -45,11 +45,11 @@ func TestKeyFormatBytes(t *testing.T) {
 			threeByteTestVector,
 			eightByteTestVector,
 			{
-				key:      [][]byte{[]byte{1, 2, 3, 4, 5, 6, 7, 8}, []byte{1, 2, 3, 4, 5, 6, 7, 8, 9}},
+				key:      [][]byte{{1, 2, 3, 4, 5, 6, 7, 8}, {1, 2, 3, 4, 5, 6, 7, 8, 9}},
 				expected: []byte{'e', 1, 2, 3, 4, 5, 6, 7, 8, 1, 2, 3, 4, 5, 6, 7, 8, 9},
 			},
 			{
-				key:      [][]byte{[]byte{1, 2, 3, 4, 5, 6, 7, 8}, []byte("hellohello")},
+				key:      [][]byte{{1, 2, 3, 4, 5, 6, 7, 8}, []byte("hellohello")},
 				expected: []byte{'e', 1, 2, 3, 4, 5, 6, 7, 8, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x68, 0x65, 0x6c, 0x6c, 0x6f},
 			},
 		},
