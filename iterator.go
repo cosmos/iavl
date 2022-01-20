@@ -5,6 +5,7 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
 
 	dbm "github.com/tendermint/tm-db"
 )
@@ -157,22 +158,31 @@ type Iterator struct {
 
 	valid bool
 
+	err error
+
 	t *traversal
 }
 
-func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
+var _ dbm.Iterator = &Iterator{}
+
+// Returns a new iterator over the immutable tree. If the tree is nil, the iterator will be invalid.
+func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Iterator {
 	iter := &Iterator{
 		start: start,
 		end:   end,
-		valid: true,
-		t:     t.root.newTraversal(t, start, end, ascending, false, false),
+		valid: tree != nil,
+		t:     nil,
 	}
 
-	iter.Next()
+	if iter.valid {
+		iter.t = tree.root.newTraversal(tree, start, end, ascending, false, false)
+		iter.Next()
+	} else {
+		iter.err = errors.New("Iterator must be created with an immutable tree but it was mil")
+	}
+	
 	return iter
 }
-
-var _ dbm.Iterator = &Iterator{}
 
 // Domain implements dbm.Iterator.
 func (iter *Iterator) Domain() ([]byte, []byte) {
@@ -219,10 +229,18 @@ func (iter *Iterator) Next() {
 func (iter *Iterator) Close() error {
 	iter.t = nil
 	iter.valid = false
-	return nil
+	return iter.err
 }
 
 // Error implements dbm.Iterator
 func (iter *Iterator) Error() error {
+	if iter.err != nil {
+		return iter.err
+	}
 	return nil
+}
+
+// IsFast returnts true if iterator uses fast strategy
+func (iter *Iterator) IsFast() bool {
+	return false
 }

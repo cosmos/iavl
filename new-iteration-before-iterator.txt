@@ -1,0 +1,53 @@
+cd benchmarks && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-60-gbe48191 -X github.com/cosmos/iavl.Commit=be48191cee2ea69e2d0c552428b8cc858a039d23 -X github.com/cosmos/iavl.Branch=roman/fast-node-iteration" -bench=RandomBytes . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-60-gbe48191 -X github.com/cosmos/iavl.Commit=be48191cee2ea69e2d0c552428b8cc858a039d23 -X github.com/cosmos/iavl.Branch=roman/fast-node-iteration" -bench=Small . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-60-gbe48191 -X github.com/cosmos/iavl.Commit=be48191cee2ea69e2d0c552428b8cc858a039d23 -X github.com/cosmos/iavl.Branch=roman/fast-node-iteration" -bench=Medium . && \
+	go test -ldflags "-X github.com/cosmos/iavl.Version=0.17.2-60-gbe48191 -X github.com/cosmos/iavl.Commit=be48191cee2ea69e2d0c552428b8cc858a039d23 -X github.com/cosmos/iavl.Branch=roman/fast-node-iteration" -bench=BenchmarkMemKeySizes .
+iavl: 0.17.2-60-gbe48191
+git commit: be48191cee2ea69e2d0c552428b8cc858a039d23
+git branch: roman/fast-node-iteration
+go version go1.17.6 linux/amd64
+
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz
+BenchmarkRandomBytes/random-4-8         	24876063	        49.10 ns/op
+BenchmarkRandomBytes/random-16-8        	15777246	        87.06 ns/op
+BenchmarkRandomBytes/random-32-8        	11110020	       101.7 ns/op
+BenchmarkRandomBytes/random-100-8       	 5163843	       273.9 ns/op
+BenchmarkRandomBytes/random-1000-8      	  690846	      1505 ns/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	8.712s
+iavl: 0.17.2-60-gbe48191
+git commit: be48191cee2ea69e2d0c552428b8cc858a039d23
+git branch: roman/fast-node-iteration
+go version go1.17.6 linux/amd64
+
+Init Tree took 1.10 MB
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz
+BenchmarkSmall/memdb-1000-100-4-10/iteration-8         	1000000000	         0.002510 ns/op	       0 B/op	       0 allocs/op
+Init Tree took 0.72 MB
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-8     	1000000000	         0.004526 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	0.204s
+iavl: 0.17.2-60-gbe48191
+git commit: be48191cee2ea69e2d0c552428b8cc858a039d23
+git branch: roman/fast-node-iteration
+go version go1.17.6 linux/amd64
+
+Init Tree took 114.27 MB
+goos: linux
+goarch: amd64
+pkg: github.com/cosmos/iavl/benchmarks
+cpu: Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz
+BenchmarkMedium/memdb-100000-100-16-40/iteration-8         	1000000000	         0.7426 ns/op	       0 B/op	       0 allocs/op
+Init Tree took 66.92 MB
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-8     	   90834	     17064 ns/op	    2004 B/op	      34 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	25.720s
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	0.015s

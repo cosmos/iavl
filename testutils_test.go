@@ -5,14 +5,21 @@ import (
 	"bytes"
 	"fmt"
 	"runtime"
+	"sort"
 	"testing"
 
-	mrand "math/rand"
+	"math/rand"
 
 	cmn "github.com/cosmos/iavl/common"
 	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db"
+	dbm "github.com/tendermint/tm-db"
 )
+
+type iteratorTestConfig struct {
+	startByteToSet, endByteToSet byte
+	startIterate, endIterate []byte
+	ascending bool
+}
 
 func randstr(length int) string {
 	return cmn.RandStr(length)
@@ -34,7 +41,7 @@ func b2i(bz []byte) int {
 
 // Construct a MutableTree
 func getTestTree(cacheSize int) (*MutableTree, error) {
-	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil)
+	return NewMutableTreeWithOpts(dbm.NewMemDB(), cacheSize, nil)
 }
 
 // Convenience for a new node
@@ -83,7 +90,7 @@ func randBytes(length int) []byte {
 	// math.rand.Read always returns err=nil
 	// we do not need cryptographic randomness for this test:
 	//nolint:gosec
-	mrand.Read(key)
+	rand.Read(key)
 	return key
 }
 
@@ -114,13 +121,186 @@ func expectTraverse(t *testing.T, trav traverser, start, end string, count int) 
 	}
 }
 
+func assertMutableMirrorIterate(t *testing.T, tree *MutableTree, mirror map[string]string) {
+	sortedMirrorKeys := make([]string, 0, len(mirror))
+	for k := range mirror {
+		sortedMirrorKeys = append(sortedMirrorKeys, k)
+	}
+	sort.Strings(sortedMirrorKeys)
+
+	curKeyIdx := 0
+	tree.Iterate(func(k, v []byte) bool {
+		nextMirrorKey := sortedMirrorKeys[curKeyIdx]
+		nextMirrorValue := mirror[nextMirrorKey]
+
+		require.Equal(t, []byte(nextMirrorKey), k)
+		require.Equal(t, []byte(nextMirrorValue), v)
+
+		curKeyIdx++
+		return false
+	})
+}
+
+func assertImmutableMirrorIterate(t *testing.T, tree *ImmutableTree, mirror map[string]string) {
+	sortedMirrorKeys := getSortedMirrorKeys(mirror)
+
+	curKeyIdx := 0
+	tree.Iterate(func(k, v []byte) bool {
+		nextMirrorKey := sortedMirrorKeys[curKeyIdx]
+		nextMirrorValue := mirror[nextMirrorKey]
+
+		require.Equal(t, []byte(nextMirrorKey), k)
+		require.Equal(t, []byte(nextMirrorValue), v)
+
+		curKeyIdx++
+		return false
+	})
+}
+
+func getSortedMirrorKeys(mirror map[string]string) []string {
+	sortedMirrorKeys := make([]string, 0, len(mirror))
+	for k := range mirror {
+		sortedMirrorKeys = append(sortedMirrorKeys, k)
+	}
+	sort.Strings(sortedMirrorKeys)
+	return sortedMirrorKeys
+}
+
+func getRandomizedTreeAndMirror(t *testing.T) (*MutableTree, map[string]string) {
+	const cacheSize = 100
+
+	tree, err := getTestTree(cacheSize)
+	require.NoError(t, err)
+
+	mirror := make(map[string]string)
+
+	randomizeTreeAndMirror(t, tree, mirror)
+	return tree, mirror
+}
+
+func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]string) {
+	const keyValLength = 5
+
+	numberOfSets := 1000
+	numberOfUpdates := numberOfSets / 4
+	numberOfRemovals := numberOfSets / 4
+
+	for numberOfSets > numberOfRemovals*3 {
+		key := randBytes(keyValLength)
+		value := randBytes(keyValLength)
+
+		isUpdated := tree.Set(key, value)
+		require.False(t, isUpdated)
+		mirror[string(key)] = string(value)
+
+		numberOfSets--
+	}
+
+	for numberOfSets+numberOfRemovals+numberOfUpdates > 0 {
+		randOp := rand.Intn(2)
+		if randOp == 0 && numberOfSets > 0 {
+
+			numberOfSets--
+
+			key := randBytes(keyValLength)
+			value := randBytes(keyValLength)
+
+			isUpdated := tree.Set(key, value)
+			require.False(t, isUpdated)
+			mirror[string(key)] = string(value)
+		} else if randOp == 1 && numberOfUpdates > 0 {
+
+			numberOfUpdates--
+
+			key := getRandomKeyFrom(mirror)
+			value := randBytes(keyValLength)
+
+			isUpdated := tree.Set([]byte(key), value)
+			require.True(t, isUpdated)
+			mirror[string(key)] = string(value)
+		} else if numberOfRemovals > 0 {
+
+			numberOfRemovals--
+
+			key := getRandomKeyFrom(mirror)
+
+			val, isRemoved := tree.Remove([]byte(key))
+			require.True(t, isRemoved)
+			require.NotNil(t, val)
+			delete(mirror, string(key))
+		}
+	}
+}
+
+func getRandomKeyFrom(mirror map[string]string) string {
+	keys := make([]string, 0, len(mirror))
+	for k := range mirror {
+		keys = append(keys, k)
+	}
+	key := keys[rand.Intn(len(keys))]
+	return key
+}
+
+func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *MutableTree) [][]string {
+	mirror := make([][]string, 0)
+	
+	startByteToSet := config.startByteToSet
+	endByteToSet := config.endByteToSet
+
+	if !config.ascending {
+		startByteToSet, endByteToSet = endByteToSet, startByteToSet
+	}
+
+	curByte := startByteToSet
+	for curByte != endByteToSet {
+		value := randBytes(5)
+
+		if (config.startIterate == nil || curByte >= config.startIterate[0]) && (config.endIterate == nil || curByte < config.endIterate[0]) {
+			mirror = append(mirror, []string{string(curByte), string(value)})
+		}
+
+		isUpdated := tree.Set([]byte{curByte}, value)
+		require.False(t, isUpdated)
+
+		if config.ascending {
+			curByte++
+		} else {
+			curByte--
+		}
+	}
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+	return mirror
+}
+
+func assertIterator(t *testing.T, itr dbm.Iterator, mirror [][]string, ascending bool) {
+	startIdx, endIdx := 0, len(mirror)-1
+	increment := 1
+	if !ascending {
+		startIdx, endIdx = endIdx, startIdx
+		increment *= -1
+	}
+
+	for startIdx < endIdx {
+		nextExpectedPair := mirror[startIdx]
+
+		require.True(t, itr.Valid())
+		require.Equal(t, []byte(nextExpectedPair[0]), itr.Key())
+		require.Equal(t, []byte(nextExpectedPair[1]), itr.Value())
+		itr.Next()
+		require.NoError(t, itr.Error())
+
+		startIdx += increment
+	}
+}
+
 func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
-	db, err := db.NewDB("test", db.MemDBBackend, "")
+	db, err := dbm.NewDB("test", dbm.MemDBBackend, "")
 	require.NoError(b, err)
 	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 
-func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
+func benchmarkImmutableAvlTreeWithDB(b *testing.B, db dbm.DB) {
 	defer db.Close()
 
 	b.StopTimer()

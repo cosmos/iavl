@@ -118,7 +118,9 @@ func TestMutableTreeFuzz(t *testing.T) {
 			program := genRandomProgram(size)
 			err = program.Execute(tree)
 			if err != nil {
-				t.Fatalf("Error after %d iterations (size %d): %s\n%s", iterations, size, err.Error(), tree.String())
+				str, err := tree.String()
+				require.Nil(t, err)
+				t.Fatalf("Error after %d iterations (size %d): %s\n%s", iterations, size, err.Error(), str)
 			}
 			iterations++
 		}

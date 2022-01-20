@@ -25,13 +25,7 @@ func NewFastNode(key []byte, value []byte, version int64) *FastNode {
 }
 
 // DeserializeFastNode constructs an *FastNode from an encoded byte slice.
-func DeserializeFastNode(buf []byte) (*FastNode, error) {
-	key, n, cause := decodeBytes(buf)
-	if cause != nil {
-		return nil, errors.Wrap(cause, "decoding fastnode.key")
-	}
-	buf = buf[n:]
-
+func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 	ver, n, cause := decodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding fastnode.version")
@@ -54,7 +48,6 @@ func DeserializeFastNode(buf []byte) (*FastNode, error) {
 
 func (node *FastNode) encodedSize() int {
 	n := 1 +
-		encodeBytesSize(node.key) +
 		encodeVarintSize(node.versionLastUpdatedAt) +
 		encodeBytesSize(node.value)
 	return n
@@ -65,11 +58,7 @@ func (node *FastNode) writeBytes(w io.Writer) error {
 	if node == nil {
 		return errors.New("cannot write nil node")
 	}
-	cause := encodeBytes(w, node.key)
-	if cause != nil {
-		return errors.Wrap(cause, "writing key")
-	}
-	cause = encodeVarint(w, node.versionLastUpdatedAt)
+	cause := encodeVarint(w, node.versionLastUpdatedAt)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version last updated at")
 	}

@@ -72,6 +72,24 @@ func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	}
 }
 
+func runIteration(b *testing.B, t *iavl.MutableTree) {
+	itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree)
+	defer itr.Close()
+
+	for i := 0; i < b.N && itr.Valid(); i++ {
+		itr.Next()
+	}
+}
+
+func runFastIteration(b *testing.B, t *iavl.MutableTree) {
+	itr := t.ImmutableTree.Iterator(nil, nil, false)
+	defer itr.Close()
+
+	for i := 0; i < b.N && itr.Valid(); i++ {
+		itr.Next()
+	}
+}
+
 // func runInsert(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int) *iavl.MutableTree {
 // 	for i := 1; i <= b.N; i++ {
 // 		t.Set(randBytes(keyLen), randBytes(dataLen))
@@ -144,6 +162,26 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 	}
 
 	return lastCommit
+}
+
+
+func BenchmarkIteration(b *testing.B) {
+	fmt.Printf("%s\n", iavl.GetVersionInfo())
+	benchmarks := []struct {
+		length int
+	}{
+		{4}, {16}, {32}, {100}, {1000},
+	}
+	for _, bench := range benchmarks {
+		bench := bench
+		name := fmt.Sprintf("random-%d", bench.length)
+		b.Run(name, func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				randBytes(bench.length)
+			}
+			runtime.GC()
+		})
+	}
 }
 
 func BenchmarkRandomBytes(b *testing.B) {
@@ -270,28 +308,37 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	runtime.GC()
 	init := memUseMB()
 
-	t, keys := prepareTree(b, d, initSize, keyLen, dataLen)
+	t, _ := prepareTree(b, d, initSize, keyLen, dataLen)
 	used := memUseMB() - init
 	fmt.Printf("Init Tree took %0.2f MB\n", used)
 
 	b.ResetTimer()
 
-	b.Run("query-no-in-tree-guarantee", func(sub *testing.B) {
+	// b.Run("query-no-in-tree-guarantee", func(sub *testing.B) {
+	// 	sub.ReportAllocs()
+	// 	runQueries(sub, t, keyLen)
+	// })
+	// b.Run("query-hits", func(sub *testing.B) {
+	// 	sub.ReportAllocs()
+	// 	runKnownQueries(sub, t, keys)
+	// })
+	b.Run("iteration", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runQueries(sub, t, keyLen)
+		runIteration(sub, t)
 	})
-	b.Run("query-hits", func(sub *testing.B) {
+
+	b.Run("fast-iteration", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runKnownQueries(sub, t, keys)
+		runFastIteration(sub, t)
 	})
-	b.Run("update", func(sub *testing.B) {
-		sub.ReportAllocs()
-		t = runUpdate(sub, t, dataLen, blockSize, keys)
-	})
-	b.Run("block", func(sub *testing.B) {
-		sub.ReportAllocs()
-		t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
-	})
+	// b.Run("update", func(sub *testing.B) {
+	// 	sub.ReportAllocs()
+	// 	t = runUpdate(sub, t, dataLen, blockSize, keys)
+	// })
+	// b.Run("block", func(sub *testing.B) {
+	// 	sub.ReportAllocs()
+	// 	t = runBlock(sub, t, keyLen, dataLen, blockSize, keys)
+	// })
 
 	// both of these edit size of the tree too much
 	// need to run with their own tree
