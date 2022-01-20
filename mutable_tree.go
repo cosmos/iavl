@@ -159,7 +159,7 @@ func (tree *MutableTree) Import(version int64) (*Importer, error) {
 }
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,
-// since they may point to data stored within IAVL.
+// since they may point to data stored within IAVL. Returns true if stopped by callnack, false otherwise
 func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
 	if t.root == nil {
 		return false
@@ -178,15 +178,11 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 
 		sort.Strings(unsavedFastNodesToSort)
 
-		itr, err := t.ndb.getFastIterator(nil, nil, true)
-		if err != nil {
-			panic(err)
-		}
-
+		itr := t.ImmutableTree.Iterator(nil, nil, true)
+		
 		nextUnsavedIdx := 0
-
 		for itr.Valid() && nextUnsavedIdx < len(unsavedFastNodesToSort) {
-			diskKeyStr := string(itr.Key()[1:])
+			diskKeyStr := string(itr.Key())
 
 			if t.unsavedFastNodeRemovals[string(diskKeyStr)] != nil {
 				// If next fast node from disk is to be removed, skip it.
@@ -195,9 +191,7 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 			}
 
 			nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
-			nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey] // O(1)
-
-			
+			nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey]
 
 			if diskKeyStr >= nextUnsavedKey {
 				// Unsaved node is next
@@ -214,14 +208,7 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 				nextUnsavedIdx++
 			} else {
 				// Disk node is next
-
-				fastNode, err := DeserializeFastNode([]byte(diskKeyStr), itr.Value())
-
-				if err != nil {
-					panic(err)
-				}
-
-				if fn(fastNode.key, fastNode.value) {
+				if fn(itr.Key(), itr.Value()) {
 					return true
 				}
 
@@ -231,12 +218,7 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 
 		// if only nodes on disk are left, we can just iterate
 		for itr.Valid() {
-			fastNode, err := DeserializeFastNode(itr.Key()[1:], itr.Value())
-			if err != nil {
-				panic(err)
-			}
-
-			if fn(fastNode.key, fastNode.value) {
+			if fn(itr.Key(), itr.Value()) {
 				return true
 			}
 			itr.Next()
