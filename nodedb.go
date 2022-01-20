@@ -638,11 +638,6 @@ func (ndb *nodeDB) traverseFastNodes(fn func(k, v []byte) error) error {
 	return ndb.traversePrefix(fastKeyFormat.Key(), fn)
 }
 
-// Traverse fast nodes. Returns a flag indicating if traversal was stopped by the callback and error if any, nil otherwise
-func (ndb *nodeDB) traverseFastNodesWithStop(fn func(keyWithPrefix, v []byte) (bool, error)) (bool, error) {
-	return ndb.traversePrefixWithStop(fastKeyFormat.Key(), fn)
-}
-
 // Traverse orphans ending at a certain version. return error if any, nil otherwise
 func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte) error) error {
 	return ndb.traversePrefix(orphanKeyFormat.Key(version), fn)
@@ -689,26 +684,6 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 	}
 
 	return nil
-}
-
-// traversePrefixWithStop traverse all keys with a certain prefix. Returns a flag indicating if
-// traversal was stopped by the callback and error if any, nil otherwise
-func (ndb *nodeDB) traversePrefixWithStop(prefix []byte, fn func(k, v []byte) (bool, error)) (bool, error) {
-	itr, err := dbm.IteratePrefix(ndb.db, prefix)
-	if err != nil {
-		return false, err
-	}
-	defer itr.Close()
-
-	for ; itr.Valid(); itr.Next() {
-		if stopped, err := fn(itr.Key(), itr.Value()); err != nil {
-			return stopped, err
-		} else if stopped {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 // Get iterator for fast prefix and error, if any

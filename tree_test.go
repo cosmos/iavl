@@ -1109,7 +1109,7 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 		require.NoError(err)
 		sizeBefore := len(nodes)
 		tree.SaveVersion()
-		nodes, err = tree.ndb.nodes()
+		_, err = tree.ndb.nodes()
 		require.NoError(err)
 		nodes, err = tree.ndb.nodes()
 		require.NoError(err)
