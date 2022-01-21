@@ -57,14 +57,14 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	}
 }
 
-func runQueries(b *testing.B, t *iavl.MutableTree, keyLen int) {
+func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
 		t.Get(q)
 	}
 }
 
-func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
@@ -72,17 +72,32 @@ func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	}
 }
 
-func runIteration(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+func runQueriesSlow(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	for i := 0; i < b.N; i++ {
-		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree)
+		q := randBytes(keyLen)
+		t.GetWithIndex(q)
+	}
+}
+
+func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+	l := int32(len(keys))
+	for i := 0; i < b.N; i++ {
+		q := keys[rand.Int31n(l)]
+		t.GetWithIndex(q)
+	}
+}
+
+func runIterationFast(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+	for i := 0; i < b.N; i++ {
+		itr := t.ImmutableTree.Iterator(nil, nil, false)
 		iterate(b, itr, expectedSize)
 		itr.Close()
 	}
 }
 
-func runFastIteration(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	for i := 0; i < b.N; i++ {
-		itr := t.ImmutableTree.Iterator(nil, nil, false)
+		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree)
 		iterate(b, itr, expectedSize)
 		itr.Close()
 	}
@@ -307,25 +322,33 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 
 	b.ResetTimer()
 
-	b.Run("query-no-in-tree-guarantee", func(sub *testing.B) {
+	b.Run("query-no-in-tree-guarantee-fast", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runQueries(sub, t, keyLen)
+		runQueriesFast(sub, t, keyLen)
 	})
-	b.Run("query-hits", func(sub *testing.B) {
+	b.Run("query-no-in-tree-guarantee-slow", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runKnownQueries(sub, t, keys)
+		runQueriesSlow(sub, t, keyLen)
 	})
-
-	b.Run("iteration", func(sub *testing.B) {
+	//
+	b.Run("query-hits-fast", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runIteration(sub, t, initSize)
+		runKnownQueriesFast(sub, t, keys)
 	})
-
-	b.Run("fast-iteration", func(sub *testing.B) {
+	b.Run("query-hits-slow", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runFastIteration(sub, t, initSize)
+		runKnownQueriesSlow(sub, t, keys)
 	})
-
+	//
+	b.Run("iteration-fast", func(sub *testing.B) {
+		sub.ReportAllocs()
+		runIterationFast(sub, t, initSize)
+	})
+	b.Run("iteration-slow", func(sub *testing.B) {
+		sub.ReportAllocs()
+		runIterationSlow(sub, t, initSize)
+	})
+	//
 	b.Run("update", func(sub *testing.B) {
 		sub.ReportAllocs()
 		t = runUpdate(sub, t, dataLen, blockSize, keys)
