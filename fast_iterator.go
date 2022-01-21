@@ -6,6 +6,8 @@ import (
 	dbm "github.com/tendermint/tm-db"
 )
 
+var errFastIteratorNilNdbGiven = errors.New("fast iterator must be created with a nodedb but it was nil")
+
 // Iterator is a dbm.Iterator for ImmutableTree
 type FastIterator struct {
 	start, end []byte
@@ -92,7 +94,7 @@ func (iter *FastIterator) Value() []byte {
 // Next implements dbm.Iterator
 func (iter *FastIterator) Next() {
 	if iter.ndb == nil {
-		iter.err = errors.New("nodeDB is nil")
+		iter.err = errFastIteratorNilNdbGiven
 		iter.valid = false
 		return
 	}
