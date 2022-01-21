@@ -401,7 +401,7 @@ func TestMutableTree_SetSimple(t *testing.T) {
 	require.Equal(t, []byte(testVal1), regularValue)
 
 	
-	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
 	
 	fastNodeAddition := fastNodeAdditions[testKey1]
@@ -437,7 +437,7 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 	require.Equal(t, []byte(testVal2), fastValue2)
 	require.Equal(t, []byte(testVal2), regularValue2)
 
-	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 2, len(fastNodeAdditions))
 	
 	fastNodeAddition := fastNodeAdditions[testKey1]
@@ -472,7 +472,7 @@ func TestMutableTree_SetOverwrite(t *testing.T) {
 	require.Equal(t, []byte(testVal2), regularValue)
 
 	
-	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
 	
 	fastNodeAddition := fastNodeAdditions[testKey1]
@@ -499,7 +499,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	require.Equal(t, []byte(testVal1), regularValue)
 
 	
-	fastNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
 	
 	fastNodeAddition := fastNodeAdditions[testKey1]
@@ -512,10 +512,10 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	require.NotNil(t, removedVal)
 	require.True(t, isRemoved)
 
-	fastNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	fastNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 0, len(fastNodeAdditions))
 
-	fastNodeRemovals := tree.GetUnsavedFastNodeRemovals()
+	fastNodeRemovals := tree.getUnsavedFastNodeRemovals()
 	require.Equal(t, 1, len(fastNodeRemovals))
 
 	fastValue = tree.Get([]byte(testKey1))
@@ -533,7 +533,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	require.Equal(t, []byte(testVal1), regularValue)
 
 	
-	fastNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	fastNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
 	
 	fastNodeAddition = fastNodeAdditions[testKey1]
@@ -541,7 +541,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
 	require.Equal(t, int64(1), fastNodeAddition.versionLastUpdatedAt)
 
-	fastNodeRemovals = tree.GetUnsavedFastNodeRemovals()
+	fastNodeRemovals = tree.getUnsavedFastNodeRemovals()
 	require.Equal(t, 0, len(fastNodeRemovals))
 }
 
@@ -561,28 +561,28 @@ func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	res := tree.Set([]byte(key1), []byte(testVal1))
 	require.False(t, res)
 
-	unsavedNodeAdditions := tree.GetUnsavedFastNodeAdditions()
+	unsavedNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, len(unsavedNodeAdditions), 1)
 
 	// Set key2
 	res = tree.Set([]byte(key2), []byte(testVal1))
 	require.False(t, res)
 
-	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	unsavedNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, len(unsavedNodeAdditions), 2)
 
 	// Set key3
 	res = tree.Set([]byte(key3), []byte(testVal1))
 	require.False(t, res)
 
-	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	unsavedNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, len(unsavedNodeAdditions), 3)
 
 	// Set key3 with new value
 	res = tree.Set([]byte(key3), []byte(testVal2))
 	require.True(t, res)
 
-	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	unsavedNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, len(unsavedNodeAdditions), 3)
 
 	// Remove key2
@@ -590,20 +590,20 @@ func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	require.True(t, isRemoved)
 	require.Equal(t, []byte(testVal1), removedVal)
 
-	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	unsavedNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, len(unsavedNodeAdditions), 2)
 
-	unsavedNodeRemovals := tree.GetUnsavedFastNodeRemovals()
+	unsavedNodeRemovals := tree.getUnsavedFastNodeRemovals()
 	require.Equal(t, len(unsavedNodeRemovals), 1)
 
 	// Save
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	unsavedNodeAdditions = tree.GetUnsavedFastNodeAdditions()
+	unsavedNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, len(unsavedNodeAdditions), 0)
 
-	unsavedNodeRemovals = tree.GetUnsavedFastNodeRemovals()
+	unsavedNodeRemovals = tree.getUnsavedFastNodeRemovals()
 	require.Equal(t, len(unsavedNodeRemovals), 0)
 
 	// Load
