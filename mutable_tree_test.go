@@ -2,11 +2,14 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"runtime"
 	"strconv"
 	"testing"
 
+	"github.com/cosmos/iavl/mock"
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -662,4 +665,152 @@ func TestIterator_MutableTree_Invalid(t *testing.T) {
 
 	require.NotNil(t, itr)
 	require.False(t, itr.Valid())
+}
+
+func TestUpgradeStorageToFastCache_LatestVersion_Success(t *testing.T) {
+	// Setup
+	db := db.NewMemDB()
+	oldTree := newMutableTreeWithOpts(db, 1000, nil)
+	mirror := make(map[string]string)
+	// Fill with some data
+	randomizeTreeAndMirror(t, oldTree, mirror)
+
+	require.True(t, oldTree.IsLatestTreeVersion())
+	require.Equal(t, defaultStorageVersionValue, oldTree.GetStorageVersion())
+
+	// Test new tree from not upgraded db, should upgrade
+	sut, err := NewMutableTree(db, 0)
+	require.NoError(t, err)
+	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+}
+
+func TestUpgrade_AlreadyUpgraded_Success(t *testing.T) {
+	// Setup
+	db := db.NewMemDB()
+	oldTree := newMutableTreeWithOpts(db, 1000, nil)
+	mirror := make(map[string]string)
+	// Fill with some data
+	randomizeTreeAndMirror(t, oldTree, mirror)
+	// Upgrade
+	require.NoError(t, oldTree.ndb.upgradeToFastCacheFromLeaves())
+	require.Equal(t, fastStorageVersionValue, oldTree.GetStorageVersion())
+
+	// Test new tree from upgraded db
+	sut, err := NewMutableTree(db, 0)
+	require.NoError(t, err)
+	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+}
+
+func TestUpgradeStorageToFastCache_DbError_Failure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
+
+	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(defaultStorageVersionValue), nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+
+	expectedError := errors.New("some db error")
+
+	dbMock.EXPECT().Iterator(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
+
+	tree, err := NewMutableTree(dbMock, 0)
+	require.Equal(t, expectedError, err)
+	require.Nil(t, tree)
+}
+
+func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *testing.T) {	
+	oldTree, mirror := setupTreeAndMirrorForUpgrade(t)
+	require.Equal(t, defaultStorageVersionValue, oldTree.GetStorageVersion())
+
+	sut, err := NewMutableTreeWithOpts(oldTree.ndb.db, 100, nil)
+	require.NoError(t, err)
+	require.NotNil(t, sut)
+	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+
+	// Load version
+	version, err := sut.Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), version)
+	
+	// Test that upgraded mutable tree iterates as expected
+	t.Run("Mutable tree", func (t *testing.T)  {
+		i := 0
+		oldTree.Iterate(func (k, v []byte) bool {
+			require.Equal(t, []byte(mirror[i][0]), k)
+			require.Equal(t, []byte(mirror[i][1]), v)
+			i++
+			return false	
+		})
+	})
+
+	// Test that upgraded immutable tree iterates as expected
+	t.Run("Immutable tree", func (t *testing.T)  {
+		immutableTree, err := oldTree.GetImmutable(oldTree.version)
+		require.NoError(t, err)
+
+		i := 0
+		immutableTree.Iterate(func (k, v []byte) bool {
+			require.Equal(t, []byte(mirror[i][0]), k)
+			require.Equal(t, []byte(mirror[i][1]), v)
+			i++
+			return false	
+		})
+	})
+}
+
+func TestUpgradeStorageToFastCache_Integration_Upgraded_GetFast_Success(t *testing.T) {
+	oldTree, mirror := setupTreeAndMirrorForUpgrade(t)
+	require.Equal(t, defaultStorageVersionValue, oldTree.GetStorageVersion())
+
+	sut, err := NewMutableTreeWithOpts(oldTree.ndb.db, 100, nil)
+	require.NoError(t, err)
+	require.NotNil(t, sut)
+	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+
+	// Lazy Load version
+	version, err := sut.LazyLoadVersion(1)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), version)
+
+	t.Run("Mutable tree", func (t *testing.T)  {
+		for _, kv := range mirror {
+			v := sut.GetFast([]byte(kv[0]))
+			require.Equal(t, []byte(kv[1]), v)
+		}
+	})
+
+	t.Run("Immutable tree", func (t *testing.T)  {
+		immutableTree, err := sut.GetImmutable(sut.version)
+		require.NoError(t, err)
+
+		for _, kv := range mirror {
+			v := immutableTree.GetFast([]byte(kv[0]))
+			require.Equal(t, []byte(kv[1]), v)
+		}
+	})
+}
+
+func setupTreeAndMirrorForUpgrade(t *testing.T) (*MutableTree, [][]string) {
+	db := db.NewMemDB()
+
+	tree := newMutableTreeWithOpts(db, 0, nil)
+
+	var keyPrefix, valPrefix string = "key", "val"
+
+	mirror := make([][]string, 0, 10)
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("%s_%d", keyPrefix, i)
+		val := fmt.Sprintf("%s_%d", valPrefix, i)
+		mirror = append(mirror, []string{key, val})
+		require.False(t, tree.Set([]byte(key), []byte(val)))
+	}
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Delete fast nodes from database to mimic a version with no upgrade
+	for i := 0; i < 10; i++ {
+		key := fmt.Sprintf("%s_%d", keyPrefix, i)
+		require.NoError(t, db.Delete(fastKeyFormat.Key([]byte(key))))
+	}
+	return tree, mirror
 }

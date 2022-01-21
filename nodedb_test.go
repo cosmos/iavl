@@ -2,12 +2,15 @@ package iavl
 
 import (
 	"encoding/binary"
+	"errors"
 	"math/rand"
 	"testing"
 
+	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	db "github.com/tendermint/tm-db"
 
-	dbm "github.com/tendermint/tm-db"
+	"github.com/cosmos/iavl/mock"
 )
 
 func BenchmarkNodeKey(b *testing.B) {
@@ -31,7 +34,9 @@ func BenchmarkTreeString(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sink = tree.String()
+		sink, err := tree.String()
+		require.NoError(b, err)
+		require.NotNil(b, sink)
 	}
 
 	if sink == nil {
@@ -40,8 +45,75 @@ func BenchmarkTreeString(b *testing.B) {
 	sink = (interface{})(nil)
 }
 
+func TestNewNoDbChain_ChainVersionInDb_Success(t *testing.T) {
+	const expectedVersion = fastStorageVersionValue
+	
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
+
+	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(expectedVersion), nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	
+	ndb := newNodeDB(dbMock, 0, nil)
+	require.Equal(t, expectedVersion, ndb.storageVersion)
+}
+
+func TestNewNoDbChain_ErrorInConstructor_DefaultSet(t *testing.T) {
+	const expectedVersion = defaultStorageVersionValue
+	
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
+
+	dbMock.EXPECT().Get(gomock.Any()).Return(nil, errors.New("some db error")).Times(1)
+	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	
+	ndb := newNodeDB(dbMock, 0, nil)
+	require.Equal(t, expectedVersion, string(ndb.getStorageVersion()))
+}
+
+func TestNewNoDbChain_DoesNotExist_DefaultSet(t *testing.T) {
+	const expectedVersion = defaultStorageVersionValue
+	
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
+
+	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	
+	ndb := newNodeDB(dbMock, 0, nil)
+	require.Equal(t, expectedVersion, string(ndb.getStorageVersion()))
+}
+
+func TestSetChainVersion_Success(t *testing.T) {
+	const expectedVersion = fastStorageVersionValue
+	
+	db := db.NewMemDB()
+	
+	ndb := newNodeDB(db, 0, nil)
+	require.Equal(t, defaultStorageVersionValue, string(ndb.getStorageVersion()))
+
+	err := ndb.setStorageVersion(expectedVersion)
+	require.NoError(t, err)
+	require.Equal(t, expectedVersion, string(ndb.getStorageVersion()))
+}
+
+func TestSetChainVersion_Failure_OldKept(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	
+	dbMock := mock.NewMockDB(ctrl)
+	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(defaultStorageVersionValue), nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(errors.New("some db error")).Times(1)
+
+	ndb := newNodeDB(dbMock, 0, nil)
+	require.Equal(t, defaultStorageVersionValue, string(ndb.getStorageVersion()))
+
+	ndb.setStorageVersion(fastStorageVersionValue)
+	require.Equal(t, defaultStorageVersionValue, string(ndb.getStorageVersion()))
+}
+
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
-	memDB := dbm.NewMemDB()
+	memDB := db.NewMemDB()
 	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9})
 	require.NoError(tb, err)
 
