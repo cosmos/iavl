@@ -18,7 +18,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2.4.0
-      - name: test & coverage report creation
       - uses: actions/setup-go@v2
         with:
           go-version: '1.17.6' # The Go version to download (if necessary) and use.
@@ -31,7 +30,8 @@ jobs:
         # We also do a 32-bit run. Even though this is executed on a 64-bit
         # system, it will use 32-bit instructions and semantics (e.g. 32-bit
         # integer overflow).
-      - run: |
+      - name: test & coverage report creation
+        run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m
           GOARCH=386 go test ./... -mod=readonly -timeout 5m
