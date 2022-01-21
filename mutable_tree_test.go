@@ -676,12 +676,12 @@ func TestUpgradeStorageToFastCache_LatestVersion_Success(t *testing.T) {
 	randomizeTreeAndMirror(t, oldTree, mirror)
 
 	require.True(t, oldTree.IsLatestTreeVersion())
-	require.Equal(t, defaultStorageVersionValue, oldTree.GetStorageVersion())
+	require.Equal(t, defaultStorageVersionValue, oldTree.ndb.getStorageVersion())
 
 	// Test new tree from not upgraded db, should upgrade
 	sut, err := NewMutableTree(db, 0)
 	require.NoError(t, err)
-	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
 }
 
 func TestUpgrade_AlreadyUpgraded_Success(t *testing.T) {
@@ -693,12 +693,12 @@ func TestUpgrade_AlreadyUpgraded_Success(t *testing.T) {
 	randomizeTreeAndMirror(t, oldTree, mirror)
 	// Upgrade
 	require.NoError(t, oldTree.ndb.upgradeToFastCacheFromLeaves())
-	require.Equal(t, fastStorageVersionValue, oldTree.GetStorageVersion())
+	require.Equal(t, fastStorageVersionValue, oldTree.ndb.getStorageVersion())
 
 	// Test new tree from upgraded db
 	sut, err := NewMutableTree(db, 0)
 	require.NoError(t, err)
-	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
 }
 
 func TestUpgradeStorageToFastCache_DbError_Failure(t *testing.T) {
@@ -719,12 +719,12 @@ func TestUpgradeStorageToFastCache_DbError_Failure(t *testing.T) {
 
 func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *testing.T) {	
 	oldTree, mirror := setupTreeAndMirrorForUpgrade(t)
-	require.Equal(t, defaultStorageVersionValue, oldTree.GetStorageVersion())
+	require.Equal(t, defaultStorageVersionValue, oldTree.ndb.getStorageVersion())
 
 	sut, err := NewMutableTreeWithOpts(oldTree.ndb.db, 100, nil)
 	require.NoError(t, err)
 	require.NotNil(t, sut)
-	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
 
 	// Load version
 	version, err := sut.Load()
@@ -759,12 +759,12 @@ func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *
 
 func TestUpgradeStorageToFastCache_Integration_Upgraded_GetFast_Success(t *testing.T) {
 	oldTree, mirror := setupTreeAndMirrorForUpgrade(t)
-	require.Equal(t, defaultStorageVersionValue, oldTree.GetStorageVersion())
+	require.Equal(t, defaultStorageVersionValue, oldTree.ndb.getStorageVersion())
 
 	sut, err := NewMutableTreeWithOpts(oldTree.ndb.db, 100, nil)
 	require.NoError(t, err)
 	require.NotNil(t, sut)
-	require.Equal(t, fastStorageVersionValue, sut.GetStorageVersion())
+	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
 
 	// Lazy Load version
 	version, err := sut.LazyLoadVersion(1)
