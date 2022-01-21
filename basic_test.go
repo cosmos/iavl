@@ -38,7 +38,7 @@ func TestBasic(t *testing.T) {
 		key := []byte{0x00}
 		expected := ""
 
-		idx, val := tree.Get(key)
+		idx, val := tree.GetWithIndex(key)
 		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
@@ -49,7 +49,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %v", string(val))
 		}
 
-		val = tree.GetFast(key)
+		val = tree.Get(key)
 		if val != nil {
 			t.Errorf("Fast method - expected no value to exist")
 		}
@@ -63,7 +63,7 @@ func TestBasic(t *testing.T) {
 		key := []byte("1")
 		expected := "one"
 
-		idx, val := tree.Get(key)
+		idx, val := tree.GetWithIndex(key)
 		if val == nil {
 			t.Errorf("Expected value to exist")
 		}
@@ -74,7 +74,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %v", string(val))
 		}
 
-		val = tree.GetFast(key)
+		val = tree.Get(key)
 		if val == nil {
 			t.Errorf("Fast method - expected value to exist")
 		}
@@ -88,7 +88,7 @@ func TestBasic(t *testing.T) {
 		key := []byte("2")
 		expected := "TWO"
 
-		idx, val := tree.Get(key)
+		idx, val := tree.GetWithIndex(key)
 		if val == nil {
 			t.Errorf("Expected value to exist")
 		}
@@ -99,7 +99,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %v", string(val))
 		}
 
-		val = tree.GetFast(key)
+		val = tree.Get(key)
 		if val == nil {
 			t.Errorf("Fast method - expected value to exist")
 		}
@@ -113,7 +113,7 @@ func TestBasic(t *testing.T) {
 		key := []byte("4")
 		expected := ""
 
-		idx, val := tree.Get(key)
+		idx, val := tree.GetWithIndex(key)
 		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
@@ -124,7 +124,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %v", string(val))
 		}
 
-		val = tree.GetFast(key)
+		val = tree.Get(key)
 		if val != nil {
 			t.Errorf("Fast method - expected no value to exist")
 		}
@@ -138,7 +138,7 @@ func TestBasic(t *testing.T) {
 		key := []byte("6")
 		expected := ""
 
-		idx, val := tree.Get(key)
+		idx, val := tree.GetWithIndex(key)
 		if val != nil {
 			t.Errorf("Expected no value to exist")
 		}
@@ -149,7 +149,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %v", string(val))
 		}
 
-		val = tree.GetFast(key)
+		val = tree.Get(key)
 		if val != nil {
 			t.Errorf("Fast method - expected no value to exist")
 		}
@@ -307,7 +307,7 @@ func TestIntegration(t *testing.T) {
 		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
-		if val := tree.GetFast([]byte(r.key)); string(val) != r.value {
+		if val := tree.Get([]byte(r.key)); string(val) != r.value {
 			t.Error("wrong value")
 		}
 	}
@@ -325,7 +325,7 @@ func TestIntegration(t *testing.T) {
 			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
-			val := tree.GetFast([]byte(r.key))
+			val := tree.Get([]byte(r.key))
 			if string(val) != r.value {
 				t.Error("wrong value")
 			}
@@ -443,7 +443,7 @@ func TestPersistence(t *testing.T) {
 	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
-		t2value := t2.GetFast([]byte(key))
+		t2value := t2.Get([]byte(key))
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}

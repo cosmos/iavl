@@ -217,7 +217,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
-		val := tree.GetFast([]byte(iavlrand.RandStr(1)))
+		val := tree.Get([]byte(iavlrand.RandStr(1)))
 		require.NotNil(val)
 		require.NotEmpty(val)
 	}
@@ -266,7 +266,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
-		val := tree.GetFast([]byte(iavlrand.RandStr(1)))
+		val := tree.Get([]byte(iavlrand.RandStr(1)))
 		require.NotNil(val)
 		require.NotEmpty(val)
 	}
@@ -510,7 +510,7 @@ func TestVersionedTree(t *testing.T) {
 	val = tree.GetVersioned([]byte("key2"), 2)
 	require.Equal("val1", string(val))
 
-	val = tree.GetFast([]byte("key2"))
+	val = tree.Get([]byte("key2"))
 	require.Equal("val2", string(val))
 
 	// "key1"
@@ -526,7 +526,7 @@ func TestVersionedTree(t *testing.T) {
 	val = tree.GetVersioned([]byte("key1"), 4)
 	require.Nil(val)
 
-	val = tree.GetFast([]byte("key1"))
+	val = tree.Get([]byte("key1"))
 	require.Equal("val0", string(val))
 
 	// "key3"
@@ -565,10 +565,10 @@ func TestVersionedTree(t *testing.T) {
 
 	// But they should still exist in the latest version.
 
-	val = tree.GetFast([]byte("key2"))
+	val = tree.Get([]byte("key2"))
 	require.Equal("val2", string(val))
 
-	val = tree.GetFast([]byte("key3"))
+	val = tree.Get([]byte("key3"))
 	require.Equal("val1", string(val))
 
 	// Version 1 should still be available.
@@ -657,16 +657,16 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 
 	tree.DeleteVersion(2)
 
-	val := tree.GetFast([]byte("key0"))
+	val := tree.Get([]byte("key0"))
 	require.Equal(t, val, []byte("val2"))
 
-	val = tree.GetFast([]byte("key1"))
+	val = tree.Get([]byte("key1"))
 	require.Nil(t, val)
 
-	val = tree.GetFast([]byte("key2"))
+	val = tree.Get([]byte("key2"))
 	require.Equal(t, val, []byte("val2"))
 
-	val = tree.GetFast([]byte("key3"))
+	val = tree.Get([]byte("key3"))
 	require.Equal(t, val, []byte("val1"))
 
 	tree.DeleteVersion(1)
@@ -879,7 +879,7 @@ func TestVersionedCheckpoints(t *testing.T) {
 	// Make sure all keys exist at least once.
 	for _, ks := range keys {
 		for _, k := range ks {
-			val := tree.GetFast(k)
+			val := tree.Get(k)
 			require.NotEmpty(val)
 		}
 	}
@@ -1293,12 +1293,12 @@ func TestCopyValueSemantics(t *testing.T) {
 	val := []byte("v1")
 
 	tree.Set([]byte("k"), val)
-	v := tree.GetFast([]byte("k"))
+	v := tree.Get([]byte("k"))
 	require.Equal([]byte("v1"), v)
 
 	val[1] = '2'
 
-	val = tree.GetFast([]byte("k"))
+	val = tree.Get([]byte("k"))
 	require.Equal([]byte("v2"), val)
 }
 
@@ -1322,13 +1322,13 @@ func TestRollback(t *testing.T) {
 
 	require.Equal(int64(2), tree.Size())
 
-	val := tree.GetFast([]byte("r"))
+	val := tree.Get([]byte("r"))
 	require.Nil(val)
 
-	val = tree.GetFast([]byte("s"))
+	val = tree.Get([]byte("s"))
 	require.Nil(val)
 
-	val = tree.GetFast([]byte("t"))
+	val = tree.Get([]byte("t"))
 	require.Equal([]byte("v"), val)
 }
 
@@ -1353,7 +1353,7 @@ func TestLazyLoadVersion(t *testing.T) {
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions))
 
-	value := tree.GetFast([]byte(fmt.Sprintf("key_%d", maxVersions)))
+	value := tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions)))
 	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions)), "unexpected value")
 
 	// require the ability to lazy load an older version
@@ -1361,7 +1361,7 @@ func TestLazyLoadVersion(t *testing.T) {
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions-1))
 
-	value = tree.GetFast([]byte(fmt.Sprintf("key_%d", maxVersions-1)))
+	value = tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions-1)))
 	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions-1)), "unexpected value")
 
 	// require the inability to lazy load a non-valid version
@@ -1687,7 +1687,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	require.NoError(err, "LoadVersionForOverwriting should not fail")
 
 	for i := byte(0); i < 20; i++ {
-		v := tree.GetFast([]byte{i})
+		v := tree.Get([]byte{i})
 		require.Equal([]byte{i}, v)
 	}
 
@@ -1753,7 +1753,7 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	}
 
 	for i := byte(0); i < 20; i++ {
-		v := tree.GetFast([]byte{i})
+		v := tree.Get([]byte{i})
 		require.Equal([]byte{i}, v)
 	}
 }
