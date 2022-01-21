@@ -659,16 +659,6 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) []byte {
 	return nil
 }
 
-// GetUnsavedFastNodeAdditions returns unsaved FastNodes to add
-func (tree *MutableTree) GetUnsavedFastNodeAdditions() map[string]*FastNode {
-	return tree.unsavedFastNodeAdditions
-}
-
-// GetUnsavedFastNodeRemovals returns unsaved FastNodes to remove
-func (tree *MutableTree) GetUnsavedFastNodeRemovals() map[string]interface{} {
-	return tree.unsavedFastNodeRemovals
-}
-
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
@@ -752,6 +742,15 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 		return err
 	}
 	return nil
+}
+
+func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*FastNode {
+	return tree.unsavedFastNodeAdditions
+}
+
+// getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
+func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
+	return tree.unsavedFastNodeRemovals
 }
 
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *FastNode) {
