@@ -162,7 +162,7 @@ func (t *ImmutableTree) GetWithIndex(key []byte) (index int64, value []byte) {
 
 // Get returns the value of the specified key if it exists, or nil. 
 // The returned value must not be modified, since it may point to data stored within IAVL.
-// Get employs a more performant strategy than Get for retrieving the value.
+// Get potentially employs a more performant strategy than GetWithIndex for retrieving the value.
 func (t *ImmutableTree) Get(key []byte) []byte {
 	if t.root == nil {
 		return nil
@@ -191,21 +191,14 @@ func (t *ImmutableTree) Get(key []byte) []byte {
 		return result
 	}
 
-	// cache node is of different version, so read from the current tree
+	// cache node was updated later than the current tree. Use regular strategy for reading from the current tree
 	if fastNode.versionLastUpdatedAt > t.version {
 		debug("last updated version %d is too new for FastNode where tree is of version %d with key %X, falling back to regular IAVL logic\n", fastNode.versionLastUpdatedAt, t.version, key)
 		_, result := t.root.get(t, key)
 		return result
 	}
 
-	value := fastNode.value
-	if value == nil {
-		debug("nil value for FastNode with key %X , falling back to regular IAVL logic\n", key)
-		_, result := t.root.get(t, key)
-		return result
-	}
-
-	return value
+	return fastNode.value
 }
 
 // GetByIndex gets the key and value at the specified index.
@@ -217,7 +210,7 @@ func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte) {
 }
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,
-// since they may point to data stored within IAVL. Returns true if stopped by callnack, false otherwise
+// since they may point to data stored within IAVL. Returns true if stopped by callback, false otherwise
 func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) bool {
 	if t.root == nil {
 		return false
@@ -256,11 +249,6 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 		}
 		return false
 	})
-}
-
-// GetStorageVersion returns the version of the underlying storage.
-func (t *ImmutableTree) GetStorageVersion() (string) {
-	return t.ndb.getStorageVersion()
 }
 
 // IsFastCacheEnabled returns true if fast storage is enabled, false otherwise.
