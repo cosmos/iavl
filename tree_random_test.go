@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -333,20 +334,28 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	require.NoError(t, err)
 
 	var (
-		firstKey []byte
-		count    int
+		foundKeys []string
 	)
 	for ; iter.Valid(); iter.Next() {
-		count++
-		if firstKey == nil {
-			firstKey = iter.Key()
-		}
+		foundKeys = append(foundKeys, string(iter.Key()))
 	}
 	require.NoError(t, iter.Error())
-	require.EqualValues(t, 1, count, "Found %v database entries, expected 1", count)
+	require.EqualValues(t, 2, len(foundKeys), "Found %v database entries, expected 1", len(foundKeys)) // 1 for storage version and 1 for root
+
+	firstKey := foundKeys[0]
+	secondKey := foundKeys[1]
+
+	require.True(t, strings.HasPrefix(firstKey, metadataKeyFormat.Prefix()))
+	require.True(t, strings.HasPrefix(secondKey, rootKeyFormat.Prefix()))
+
+	require.Equal(t, string(metadataKeyFormat.KeyBytes([]byte(storageVersionKey))), firstKey, "Unexpected storage version key")
+
+	storageVersionValue, err := tree.ndb.db.Get([]byte(firstKey))
+	require.NoError(t, err)
+	require.Equal(t, []byte(fastStorageVersionValue), storageVersionValue)
 
 	var foundVersion int64
-	rootKeyFormat.Scan(firstKey, &foundVersion)
+	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
 	require.Equal(t, version, foundVersion, "Unexpected root version")
 }
 
