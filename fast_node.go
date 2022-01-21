@@ -47,9 +47,7 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 }
 
 func (node *FastNode) encodedSize() int {
-	n := 1 +
-		encodeVarintSize(node.versionLastUpdatedAt) +
-		encodeBytesSize(node.value)
+	n := encodeVarintSize(node.versionLastUpdatedAt) + encodeBytesSize(node.value)
 	return n
 }
 
