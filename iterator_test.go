@@ -24,11 +24,13 @@ func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 	t.Run("Iterator", func(t *testing.T) {
 		itr := NewIterator(start, end, ascending, nil)
 		performTest(t, itr)
+		require.ErrorIs(t, errIteratorNilTreeGiven, itr.Error())
 	})
 
 	t.Run("Fast Iterator", func(t *testing.T) {
 		itr := NewFastIterator(start, end, ascending, nil)
 		performTest(t, itr)
+		require.ErrorIs(t, errFastIteratorNilNdbGiven, itr.Error())
 	})
 }
 

@@ -19,6 +19,8 @@ type traversal struct {
 	delayedNodes *delayedNodes // delayed nodes to be traversed
 }
 
+var errIteratorNilTreeGiven = errors.New("iterator must be created with an immutable tree but the tree was nil")
+
 func (node *Node) newTraversal(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool) *traversal {
 	return &traversal{
 		tree:         tree,
@@ -178,7 +180,7 @@ func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Ite
 		iter.t = tree.root.newTraversal(tree, start, end, ascending, false, false)
 		iter.Next()
 	} else {
-		iter.err = errors.New("Iterator must be created with an immutable tree but it was mil")
+		iter.err = errIteratorNilTreeGiven
 	}
 	
 	return iter
