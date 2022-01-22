@@ -459,7 +459,7 @@ func (node *Node) traversePost(t *ImmutableTree, ascending bool, cb func(*Node) 
 
 func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool, cb func(*Node) bool) bool {
 	stop := false
-	t := node.newTraversal(tree, start, end, ascending, inclusive, post) // TODO: implement fast traversal
+	t := node.newTraversal(tree, start, end, ascending, inclusive, post)
 	for node2 := t.next(); node2 != nil; node2 = t.next() {
 		stop = cb(node2)
 		if stop {
