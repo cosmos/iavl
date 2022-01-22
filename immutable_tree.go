@@ -155,7 +155,7 @@ func (t *ImmutableTree) GetWithIndex(key []byte) (index int64, value []byte) {
 	return t.root.get(t, key)
 }
 
-// Get returns the value of the specified key if it exists, or nil. 
+// Get returns the value of the specified key if it exists, or nil.
 // The returned value must not be modified, since it may point to data stored within IAVL.
 // Get potentially employs a more performant strategy than GetWithIndex for retrieving the value.
 func (t *ImmutableTree) Get(key []byte) []byte {
@@ -217,7 +217,7 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) bool {
 		if fn(itr.Key(), itr.Value()) {
 			return true
 		}
-		
+
 	}
 	return false
 }

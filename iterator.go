@@ -182,7 +182,7 @@ func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Ite
 	} else {
 		iter.err = errIteratorNilTreeGiven
 	}
-	
+
 	return iter
 }
 
