@@ -179,7 +179,9 @@ func copyDB(src, dest string) error {
 		defer out.Close()
 
 		in, err := os.Open(filepath.Join(src, entry.Name()))
-		defer in.Close() // nolint
+		defer func ()  {
+			in.Close()
+		}()
 		if err != nil {
 			return err
 		}
