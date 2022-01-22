@@ -386,7 +386,7 @@ func TestVersionedTree(t *testing.T) {
 	// We start with empty database.
 	require.Equal(0, tree.ndb.size())
 	require.True(tree.IsEmpty())
-	require.False(tree.IsFastCacheEnabled())
+	require.False(tree.isFastCacheEnabled())
 
 	// version 0
 
