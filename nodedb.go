@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	int64Size      = 8
-	hashSize       = sha256.Size
-	genesisVersion = 1
+	int64Size         = 8
+	hashSize          = sha256.Size
+	genesisVersion    = 1
 	storageVersionKey = "storage_version"
 	// Using semantic versioning: https://semver.org/
 	defaultStorageVersionValue = "1.0.0"
-	fastStorageVersionValue = "1.1.0"
+	fastStorageVersionValue    = "1.1.0"
 )
 
 var (
@@ -60,7 +60,7 @@ type nodeDB struct {
 	batch          dbm.Batch        // Batched writing buffer.
 	opts           Options          // Options to customize for pruning/writing
 	versionReaders map[int64]uint32 // Number of active version readers
-	storageVersion string              // Storage version
+	storageVersion string           // Storage version
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
@@ -96,7 +96,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		fastNodeCacheSize:  cacheSize,
 		fastNodeCacheQueue: list.New(),
 		versionReaders:     make(map[int64]uint32, 8),
-		storageVersion: 	 string(storeVersion),
+		storageVersion:     string(storeVersion),
 	}
 }
 

@@ -29,11 +29,11 @@ var _ dbm.Iterator = &FastIterator{}
 
 func NewFastIterator(start, end []byte, ascending bool, ndb *nodeDB) *FastIterator {
 	iter := &FastIterator{
-		start:       start,
-		end:         end,
-		err:         nil,
-		ascending:   ascending,
-		ndb:         ndb,
+		start:        start,
+		end:          end,
+		err:          nil,
+		ascending:    ascending,
+		ndb:          ndb,
 		nextFastNode: nil,
 		fastIterator: nil,
 	}

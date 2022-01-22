@@ -187,7 +187,7 @@ func TestMutableTree_DeleteVersionsRange(t *testing.T) {
 
 		for _, count := range versions[:version] {
 			countStr := strconv.Itoa(int(count))
-			 value := tree.Get([]byte("key" + countStr))
+			value := tree.Get([]byte("key" + countStr))
 			require.Equal(string(value), "value"+countStr)
 		}
 	}
@@ -401,10 +401,9 @@ func TestMutableTree_SetSimple(t *testing.T) {
 	require.Equal(t, []byte(testVal1), fastValue)
 	require.Equal(t, []byte(testVal1), regularValue)
 
-	
 	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
-	
+
 	fastNodeAddition := fastNodeAdditions[testKey1]
 	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
 	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
@@ -440,7 +439,7 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 
 	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 2, len(fastNodeAdditions))
-	
+
 	fastNodeAddition := fastNodeAdditions[testKey1]
 	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
 	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
@@ -472,10 +471,9 @@ func TestMutableTree_SetOverwrite(t *testing.T) {
 	require.Equal(t, []byte(testVal2), fastValue)
 	require.Equal(t, []byte(testVal2), regularValue)
 
-	
 	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
-	
+
 	fastNodeAddition := fastNodeAdditions[testKey1]
 	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
 	require.Equal(t, []byte(testVal2), fastNodeAddition.value)
@@ -499,10 +497,9 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	require.Equal(t, []byte(testVal1), fastValue)
 	require.Equal(t, []byte(testVal1), regularValue)
 
-	
 	fastNodeAdditions := tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
-	
+
 	fastNodeAddition := fastNodeAdditions[testKey1]
 	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
 	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
@@ -533,10 +530,9 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	require.Equal(t, []byte(testVal1), fastValue)
 	require.Equal(t, []byte(testVal1), regularValue)
 
-	
 	fastNodeAdditions = tree.getUnsavedFastNodeAdditions()
 	require.Equal(t, 1, len(fastNodeAdditions))
-	
+
 	fastNodeAddition = fastNodeAdditions[testKey1]
 	require.Equal(t, []byte(testKey1), fastNodeAddition.key)
 	require.Equal(t, []byte(testVal1), fastNodeAddition.value)
@@ -610,7 +606,7 @@ func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	// Load
 	t2, err := NewMutableTree(mdb, 0)
 	require.NoError(t, err)
-	
+
 	_, err = t2.Load()
 	require.NoError(t, err)
 
@@ -677,7 +673,6 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, tree.isFastCacheEnabled())
 
-
 	mirror := make(map[string]string)
 	// Fill with some data
 	randomizeTreeAndMirror(t, tree, mirror)
@@ -702,7 +697,7 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	mirror := make(map[string]string)
 	// Fill with some data
 	randomizeTreeAndMirror(t, tree, mirror)
-	
+
 	// Enable fast storage
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
@@ -714,7 +709,7 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, enabled)
 	require.True(t, tree.isFastCacheEnabled())
-	
+
 }
 
 func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
@@ -770,7 +765,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	require.False(t, tree.isFastCacheEnabled())
 }
 
-func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testing.T) {	
+func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testing.T) {
 	// Setup
 	tree, mirror := setupTreeAndMirrorForUpgrade(t)
 
@@ -793,29 +788,29 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	require.True(t, sut.isFastCacheEnabled())
 
 	require.Equal(t, int64(1), version)
-	
+
 	// Test that upgraded mutable tree iterates as expected
-	t.Run("Mutable tree", func (t *testing.T)  {
+	t.Run("Mutable tree", func(t *testing.T) {
 		i := 0
-		sut.Iterate(func (k, v []byte) bool {
+		sut.Iterate(func(k, v []byte) bool {
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
-			return false	
+			return false
 		})
 	})
 
 	// Test that upgraded immutable tree iterates as expected
-	t.Run("Immutable tree", func (t *testing.T)  {
+	t.Run("Immutable tree", func(t *testing.T) {
 		immutableTree, err := sut.GetImmutable(sut.version)
 		require.NoError(t, err)
 
 		i := 0
-		immutableTree.Iterate(func (k, v []byte) bool {
+		immutableTree.Iterate(func(k, v []byte) bool {
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
-			return false	
+			return false
 		})
 	})
 }
@@ -844,14 +839,14 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 
 	require.Equal(t, int64(1), version)
 
-	t.Run("Mutable tree", func (t *testing.T)  {
+	t.Run("Mutable tree", func(t *testing.T) {
 		for _, kv := range mirror {
 			v := sut.Get([]byte(kv[0]))
 			require.Equal(t, []byte(kv[1]), v)
 		}
 	})
 
-	t.Run("Immutable tree", func (t *testing.T)  {
+	t.Run("Immutable tree", func(t *testing.T) {
 		immutableTree, err := sut.GetImmutable(sut.version)
 		require.NoError(t, err)
 

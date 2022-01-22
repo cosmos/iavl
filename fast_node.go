@@ -38,7 +38,7 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 	}
 
 	fastNode := &FastNode{
-		key: key,
+		key:                  key,
 		versionLastUpdatedAt: ver,
 		value:                val,
 	}

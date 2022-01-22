@@ -17,8 +17,8 @@ import (
 
 type iteratorTestConfig struct {
 	startByteToSet, endByteToSet byte
-	startIterate, endIterate []byte
-	ascending bool
+	startIterate, endIterate     []byte
+	ascending                    bool
 }
 
 func randstr(length int) string {
@@ -246,7 +246,7 @@ func getRandomKeyFrom(mirror map[string]string) string {
 
 func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *MutableTree) [][]string {
 	mirror := make([][]string, 0)
-	
+
 	startByteToSet := config.startByteToSet
 	endByteToSet := config.endByteToSet
 

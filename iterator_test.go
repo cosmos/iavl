@@ -11,7 +11,7 @@ import (
 func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 	var start, end []byte = []byte{'a'}, []byte{'c'}
 	ascending := true
-	
+
 	performTest := func(t *testing.T, itr dbm.Iterator) {
 		require.NotNil(t, itr)
 		require.False(t, itr.Valid())
@@ -37,10 +37,10 @@ func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 func TestIterator_Empty_Invalid(t *testing.T) {
 	config := &iteratorTestConfig{
 		startByteToSet: 'a',
-		endByteToSet: 'z',
-		startIterate: []byte("a"),
-		endIterate: []byte("a"),
-		ascending: true,
+		endByteToSet:   'z',
+		startIterate:   []byte("a"),
+		endIterate:     []byte("a"),
+		ascending:      true,
 	}
 
 	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
@@ -62,19 +62,19 @@ func TestIterator_Empty_Invalid(t *testing.T) {
 func TestIterator_Basic_Ranged_Ascending_Success(t *testing.T) {
 	config := &iteratorTestConfig{
 		startByteToSet: 'a',
-		endByteToSet: 'z',
-		startIterate: []byte("e"),
-		endIterate: []byte("w"),
-		ascending: true,
+		endByteToSet:   'z',
+		startIterate:   []byte("e"),
+		endIterate:     []byte("w"),
+		ascending:      true,
 	}
 
 	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
 		actualStart, actualEnd := itr.Domain()
 		require.Equal(t, config.startIterate, actualStart)
 		require.Equal(t, config.endIterate, actualEnd)
-	
+
 		require.NoError(t, itr.Error())
-	
+
 		assertIterator(t, itr, mirror, config.ascending)
 	}
 
@@ -94,19 +94,19 @@ func TestIterator_Basic_Ranged_Ascending_Success(t *testing.T) {
 func TestIterator_Basic_Ranged_Descending_Success(t *testing.T) {
 	config := &iteratorTestConfig{
 		startByteToSet: 'a',
-		endByteToSet: 'z',
-		startIterate: []byte("e"),
-		endIterate: []byte("w"),
-		ascending: false,
+		endByteToSet:   'z',
+		startIterate:   []byte("e"),
+		endIterate:     []byte("w"),
+		ascending:      false,
 	}
 
 	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
 		actualStart, actualEnd := itr.Domain()
 		require.Equal(t, config.startIterate, actualStart)
 		require.Equal(t, config.endIterate, actualEnd)
-	
+
 		require.NoError(t, itr.Error())
-	
+
 		assertIterator(t, itr, mirror, config.ascending)
 	}
 
@@ -126,22 +126,22 @@ func TestIterator_Basic_Ranged_Descending_Success(t *testing.T) {
 func TestIterator_Basic_Full_Ascending_Success(t *testing.T) {
 	config := &iteratorTestConfig{
 		startByteToSet: 'a',
-		endByteToSet: 'z',
-		startIterate: nil,
-		endIterate: nil,
-		ascending: true,
+		endByteToSet:   'z',
+		startIterate:   nil,
+		endIterate:     nil,
+		ascending:      true,
 	}
 
 	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
-		
+
 		require.Equal(t, 25, len(mirror))
-	
+
 		actualStart, actualEnd := itr.Domain()
 		require.Equal(t, config.startIterate, actualStart)
 		require.Equal(t, config.endIterate, actualEnd)
-	
+
 		require.NoError(t, itr.Error())
-	
+
 		assertIterator(t, itr, mirror, config.ascending)
 	}
 
@@ -161,10 +161,10 @@ func TestIterator_Basic_Full_Ascending_Success(t *testing.T) {
 func TestIterator_Basic_Full_Descending_Success(t *testing.T) {
 	config := &iteratorTestConfig{
 		startByteToSet: 'a',
-		endByteToSet: 'z',
-		startIterate: nil,
-		endIterate: nil,
-		ascending: false,
+		endByteToSet:   'z',
+		startIterate:   nil,
+		endIterate:     nil,
+		ascending:      false,
 	}
 
 	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
@@ -173,9 +173,9 @@ func TestIterator_Basic_Full_Descending_Success(t *testing.T) {
 		actualStart, actualEnd := itr.Domain()
 		require.Equal(t, config.startIterate, actualStart)
 		require.Equal(t, config.endIterate, actualEnd)
-	
+
 		require.NoError(t, itr.Error())
-	
+
 		assertIterator(t, itr, mirror, config.ascending)
 	}
 
@@ -195,17 +195,17 @@ func TestIterator_Basic_Full_Descending_Success(t *testing.T) {
 func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	config := &iteratorTestConfig{
 		startByteToSet: 'a',
-		endByteToSet: 'z',
-		startIterate: nil,
-		endIterate: nil,
-		ascending: false,
+		endByteToSet:   'z',
+		startIterate:   nil,
+		endIterate:     nil,
+		ascending:      false,
 	}
 
 	tree, mirror := getRandomizedTreeAndMirror(t)
 
 	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
-	
+
 	randomizeTreeAndMirror(t, tree, mirror)
 
 	_, _, err = tree.SaveVersion()
@@ -257,7 +257,7 @@ func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.I
 	tree, err := NewMutableTree(dbm.NewMemDB(), 0)
 	require.NoError(t, err)
 
-	mirror := setupMirrorForIterator(t,config, tree)
+	mirror := setupMirrorForIterator(t, config, tree)
 
 	itr := NewFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb)
 	return itr, mirror
