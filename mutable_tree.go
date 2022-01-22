@@ -163,7 +163,7 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 		return false
 	}
 
-	if t.IsFastCacheEnabled() {
+	if t.isFastCacheEnabled() {
 		// We need to ensure that we iterate over saved and unsaved state in order.
 		// The strategy is to sort unsaved nodes, the fast node on disk are already sorted.
 		// Then, we keep a pointer to both the unsaved and saved nodes, and iterate over them in order efficiently.
@@ -646,7 +646,7 @@ func (tree *MutableTree) Rollback() {
 // modified, since it may point to data stored within IAVL.
 func (tree *MutableTree) GetVersioned(key []byte, version int64) []byte {
 	if tree.VersionExists(version) {
-		if tree.IsFastCacheEnabled() {
+		if tree.isFastCacheEnabled() {
 			fastNode, _ := tree.ndb.GetFastNode(key)
 			if fastNode == nil && version == tree.ndb.latestVersion {
 				return nil
