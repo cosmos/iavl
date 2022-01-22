@@ -45,7 +45,7 @@ func BenchmarkTreeString(b *testing.B) {
 	sink = (interface{})(nil)
 }
 
-func TestNewNoDbChain_ChainVersionInDb_Success(t *testing.T) {
+func TestNewNoDbStorage_StorageVersionInDb_Success(t *testing.T) {
 	const expectedVersion = fastStorageVersionValue
 	
 	ctrl := gomock.NewController(t)
@@ -58,7 +58,7 @@ func TestNewNoDbChain_ChainVersionInDb_Success(t *testing.T) {
 	require.Equal(t, expectedVersion, ndb.storageVersion)
 }
 
-func TestNewNoDbChain_ErrorInConstructor_DefaultSet(t *testing.T) {
+func TestNewNoDbStorage_ErrorInConstructor_DefaultSet(t *testing.T) {
 	const expectedVersion = defaultStorageVersionValue
 	
 	ctrl := gomock.NewController(t)
@@ -71,7 +71,7 @@ func TestNewNoDbChain_ErrorInConstructor_DefaultSet(t *testing.T) {
 	require.Equal(t, expectedVersion, string(ndb.getStorageVersion()))
 }
 
-func TestNewNoDbChain_DoesNotExist_DefaultSet(t *testing.T) {
+func TestNewNoDbStorage_DoesNotExist_DefaultSet(t *testing.T) {
 	const expectedVersion = defaultStorageVersionValue
 	
 	ctrl := gomock.NewController(t)
@@ -84,7 +84,7 @@ func TestNewNoDbChain_DoesNotExist_DefaultSet(t *testing.T) {
 	require.Equal(t, expectedVersion, string(ndb.getStorageVersion()))
 }
 
-func TestSetChainVersion_Success(t *testing.T) {
+func TestSetStorageVersion_Success(t *testing.T) {
 	const expectedVersion = fastStorageVersionValue
 	
 	db := db.NewMemDB()
@@ -97,7 +97,7 @@ func TestSetChainVersion_Success(t *testing.T) {
 	require.Equal(t, expectedVersion, string(ndb.getStorageVersion()))
 }
 
-func TestSetChainVersion_Failure_OldKept(t *testing.T) {
+func TestSetStorageVersion_Failure_OldKept(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	
 	dbMock := mock.NewMockDB(ctrl)
