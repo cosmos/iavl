@@ -45,20 +45,10 @@ func NewMutableTree(db dbm.DB, cacheSize int) (*MutableTree, error) {
 
 // NewMutableTreeWithOpts returns a new tree with the specified options.
 func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTree, error) {
-	tree := newMutableTreeWithOpts(db, cacheSize, opts)
-
-	if err := tree.ndb.upgradeToFastCacheFromLeaves(); err != nil {
-		return nil, err
-	}
-	return tree, nil
-}
-
-// newMutableTreeWithOpts returns a mutable tree on the default storage version. Used for testing
-func newMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTree) {
 	ndb := newNodeDB(db, cacheSize, opts)
 	head := &ImmutableTree{ndb: ndb}
 
-	tree := &MutableTree{
+	return &MutableTree{
 		ImmutableTree:            head,
 		lastSaved:                head.clone(),
 		orphans:                  map[string]int64{},
@@ -67,8 +57,7 @@ func newMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		unsavedFastNodeAdditions: make(map[string]*FastNode),
 		unsavedFastNodeRemovals:  make(map[string]interface{}),
 		ndb:                      ndb,
-	}
-	return tree
+	}, nil
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
@@ -454,7 +443,7 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	defer tree.mtx.Unlock()
 
 	// Attempt to upgrade
-	if err := tree.ndb.upgradeToFastCacheFromLeaves(); err != nil {
+	if _, err := tree.enableFastStorageAndCommitIfNotEnabled(); err != nil {
 		return 0, err
 	}
 
@@ -498,7 +487,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	defer tree.mtx.Unlock()
 
 	// Attempt to upgrade
-	if err := tree.ndb.upgradeToFastCacheFromLeaves(); err != nil {
+	if _, err := tree.enableFastStorageAndCommitIfNotEnabled(); err != nil {
 		return 0, err
 	}
 
@@ -553,12 +542,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
-	err = tree.createFastNodesFromLatestTree(err, targetVersion, latestVersion)
-	if err != nil {
-		return latestVersion, err
-	}
-
-	if err = tree.ndb.Commit(); err != nil {
+	if err := tree.enableFastStorageAndCommitLocked(); err != nil {
 		return latestVersion, err
 	}
 
@@ -576,18 +560,46 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	return latestVersion, nil
 }
 
-func (tree *MutableTree) createFastNodesFromLatestTree(err error, targetVersion int64, latestVersion int64) error {
-	didInterruptFastNodesRestoration := tree.Iterate(func(key, value []byte) bool {
-		if err = tree.ndb.SaveFastNode(NewFastNode(key, value, tree.version)); err != nil {
-			debug("error saving fast node when restoring fast nodes: %v\n", err)
-			return true
+func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
+	if tree.ndb.isFastStorageEnabled() {
+		return false, nil
+	}
+
+	if err := tree.enableFastStorageAndCommit(); err != nil {
+		tree.ndb.storageVersion = defaultStorageVersionValue
+		return false, err
+	}
+	return true, nil
+}
+
+func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
+	return tree.enableFastStorageAndCommit()
+}
+
+func (tree *MutableTree) enableFastStorageAndCommit() error {
+	itr := tree.ImmutableTree.Iterator(nil, nil, true)
+	for ; itr.Valid(); itr.Next() {
+		if err := tree.ndb.SaveFastNode(NewFastNode(itr.Key(), itr.Value(), tree.version)); err != nil {
+			return err
 		}
+	}
 
-		return false
-	})
+	if err := itr.Error(); err != nil {
+		return err
+	}
 
-	if didInterruptFastNodesRestoration {
-		return errors.New("failed restoring fast node cache from latest live state")
+	if err := tree.ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue)); err != nil {
+		return err
+	}
+
+	if err := tree.ndb.setStorageVersionBatch(fastStorageVersionValue); err != nil {
+		return err
+	}
+
+	if err := tree.ndb.Commit(); err != nil {
+		return err
 	}
 	return nil
 }

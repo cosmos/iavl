@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"runtime"
+	"sort"
 	"strconv"
 	"testing"
 
@@ -667,64 +668,122 @@ func TestIterator_MutableTree_Invalid(t *testing.T) {
 	require.False(t, itr.Valid())
 }
 
-func TestUpgradeStorageToFastCache_LatestVersion_Success(t *testing.T) {
+func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	// Setup
 	db := db.NewMemDB()
-	oldTree := newMutableTreeWithOpts(db, 1000, nil)
+	tree, err := NewMutableTree(db, 1000)
+
+	// Default version when storage key does not exist in the db
+	require.NoError(t, err)
+	require.False(t, tree.IsFastCacheEnabled())
+
+
 	mirror := make(map[string]string)
 	// Fill with some data
-	randomizeTreeAndMirror(t, oldTree, mirror)
+	randomizeTreeAndMirror(t, tree, mirror)
 
-	require.True(t, oldTree.IsLatestTreeVersion())
-	require.Equal(t, defaultStorageVersionValue, oldTree.ndb.getStorageVersion())
-
-	// Test new tree from not upgraded db, should upgrade
-	sut, err := NewMutableTree(db, 0)
+	// Enable fast storage
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
-	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
+	require.True(t, enabled)
+
+	require.True(t, tree.IsFastCacheEnabled())
 }
 
-func TestUpgrade_AlreadyUpgraded_Success(t *testing.T) {
+func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	// Setup
 	db := db.NewMemDB()
-	oldTree := newMutableTreeWithOpts(db, 1000, nil)
+	tree, err := NewMutableTree(db, 1000)
+
+	// Default version when storage key does not exist in the db
+	require.NoError(t, err)
+	require.False(t, tree.IsFastCacheEnabled())
+
 	mirror := make(map[string]string)
 	// Fill with some data
-	randomizeTreeAndMirror(t, oldTree, mirror)
-	// Upgrade
-	require.NoError(t, oldTree.ndb.upgradeToFastCacheFromLeaves())
-	require.Equal(t, fastStorageVersionValue, oldTree.ndb.getStorageVersion())
-
-	// Test new tree from upgraded db
-	sut, err := NewMutableTree(db, 0)
+	randomizeTreeAndMirror(t, tree, mirror)
+	
+	// Enable fast storage
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
-	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
+	require.True(t, enabled)
+	require.True(t, tree.IsFastCacheEnabled())
+
+	// Test enabling fast storage when already enabled
+	enabled, err = tree.enableFastStorageAndCommitIfNotEnabled()
+	require.NoError(t, err)
+	require.False(t, enabled)
+	require.True(t, tree.IsFastCacheEnabled())
+	
 }
 
-func TestUpgradeStorageToFastCache_DbError_Failure(t *testing.T) {
+func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dbMock := mock.NewMockDB(ctrl)
 
-	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(defaultStorageVersionValue), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	// Setup fake reverse iterator db
+	db := db.NewMemDB()
+	db.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(defaultStorageVersionValue))
+	rItr, err := db.ReverseIterator(nil, nil)
+	require.NoError(t, err)
 
 	expectedError := errors.New("some db error")
 
-	dbMock.EXPECT().Iterator(gomock.Any(), gomock.Any()).Return(nil, expectedError).Times(1)
+	dbMock.EXPECT().Get(gomock.Any()).Return(nil, expectedError).Times(1)
+	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rItr, nil).Times(1)
 
 	tree, err := NewMutableTree(dbMock, 0)
-	require.Equal(t, expectedError, err)
-	require.Nil(t, tree)
+	require.Nil(t, err)
+	require.NotNil(t, tree)
+	require.False(t, tree.IsFastCacheEnabled())
 }
 
-func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *testing.T) {	
-	oldTree, mirror := setupTreeAndMirrorForUpgrade(t)
-	require.Equal(t, defaultStorageVersionValue, oldTree.ndb.getStorageVersion())
+func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
 
-	sut, err := NewMutableTreeWithOpts(oldTree.ndb.db, 100, nil)
+	// Setup fake reverse iterator db
+	db := db.NewMemDB()
+	db.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(defaultStorageVersionValue))
+	rItr, err := db.ReverseIterator(nil, nil)
 	require.NoError(t, err)
-	require.NotNil(t, sut)
-	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
+
+	expectedError := errors.New("some db error")
+
+	batchMock := mock.NewMockBatch(ctrl)
+
+	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rItr, nil).Times(1)
+
+	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
+
+	tree, err := NewMutableTree(dbMock, 0)
+	require.Nil(t, err)
+	require.NotNil(t, tree)
+	require.False(t, tree.IsFastCacheEnabled())
+
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+	require.ErrorIs(t, err, expectedError)
+	require.False(t, enabled)
+	require.False(t, tree.IsFastCacheEnabled())
+}
+
+func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testing.T) {	
+	// Setup
+	tree, mirror := setupTreeAndMirrorForUpgrade(t)
+
+	// Default version when storage key does not exist in the db
+	require.False(t, tree.IsFastCacheEnabled())
+	
+	// Enable fast storage
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+	require.NoError(t, err)
+	require.True(t, enabled)
+	require.True(t, tree.IsFastCacheEnabled())
+
+	sut, _ := NewMutableTree(tree.ndb.db, 1000)
 
 	// Load version
 	version, err := sut.Load()
@@ -734,7 +793,7 @@ func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *
 	// Test that upgraded mutable tree iterates as expected
 	t.Run("Mutable tree", func (t *testing.T)  {
 		i := 0
-		oldTree.Iterate(func (k, v []byte) bool {
+		sut.Iterate(func (k, v []byte) bool {
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -744,7 +803,7 @@ func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *
 
 	// Test that upgraded immutable tree iterates as expected
 	t.Run("Immutable tree", func (t *testing.T)  {
-		immutableTree, err := oldTree.GetImmutable(oldTree.version)
+		immutableTree, err := sut.GetImmutable(sut.version)
 		require.NoError(t, err)
 
 		i := 0
@@ -757,14 +816,20 @@ func TestUpgradeStorageToFastCache_Integration_Upgraded_FastIterator_Success(t *
 	})
 }
 
-func TestUpgradeStorageToFastCache_Integration_Upgraded_GetFast_Success(t *testing.T) {
-	oldTree, mirror := setupTreeAndMirrorForUpgrade(t)
-	require.Equal(t, defaultStorageVersionValue, oldTree.ndb.getStorageVersion())
+func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T) {
+	// Setup
+	tree, mirror := setupTreeAndMirrorForUpgrade(t)
 
-	sut, err := NewMutableTreeWithOpts(oldTree.ndb.db, 100, nil)
+	// Default version when storage key does not exist in the db
+	require.False(t, tree.IsFastCacheEnabled())
+	
+	// Enable fast storage
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
-	require.NotNil(t, sut)
-	require.Equal(t, fastStorageVersionValue, sut.ndb.getStorageVersion())
+	require.True(t, enabled)
+	require.True(t, tree.IsFastCacheEnabled())
+
+	sut, _ := NewMutableTree(tree.ndb.db, 1000)
 
 	// Lazy Load version
 	version, err := sut.LazyLoadVersion(1)
@@ -792,12 +857,13 @@ func TestUpgradeStorageToFastCache_Integration_Upgraded_GetFast_Success(t *testi
 func setupTreeAndMirrorForUpgrade(t *testing.T) (*MutableTree, [][]string) {
 	db := db.NewMemDB()
 
-	tree := newMutableTreeWithOpts(db, 0, nil)
+	tree, _ := NewMutableTree(db, 0)
 
+	const numEntries = 100
 	var keyPrefix, valPrefix string = "key", "val"
 
-	mirror := make([][]string, 0, 10)
-	for i := 0; i < 10; i++ {
+	mirror := make([][]string, 0, numEntries)
+	for i := 0; i < numEntries; i++ {
 		key := fmt.Sprintf("%s_%d", keyPrefix, i)
 		val := fmt.Sprintf("%s_%d", valPrefix, i)
 		mirror = append(mirror, []string{key, val})
@@ -808,9 +874,13 @@ func setupTreeAndMirrorForUpgrade(t *testing.T) (*MutableTree, [][]string) {
 	require.NoError(t, err)
 
 	// Delete fast nodes from database to mimic a version with no upgrade
-	for i := 0; i < 10; i++ {
+	for i := 0; i < numEntries; i++ {
 		key := fmt.Sprintf("%s_%d", keyPrefix, i)
 		require.NoError(t, db.Delete(fastKeyFormat.Key([]byte(key))))
 	}
+
+	sort.Slice(mirror, func(i, j int) bool {
+		return mirror[i][0] < mirror[j][0]
+	})
 	return tree, mirror
 }
