@@ -774,20 +774,24 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	// Setup
 	tree, mirror := setupTreeAndMirrorForUpgrade(t)
 
-	// Default version when storage key does not exist in the db
 	require.False(t, tree.IsFastCacheEnabled())
-	
-	// Enable fast storage
-	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+
+	// Should auto enable in save version
+	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
-	require.True(t, enabled)
+
 	require.True(t, tree.IsFastCacheEnabled())
 
 	sut, _ := NewMutableTree(tree.ndb.db, 1000)
 
-	// Load version
+	require.False(t, sut.IsFastCacheEnabled())
+
+	// Load version - should auto enable fast storage
 	version, err := sut.Load()
 	require.NoError(t, err)
+
+	require.True(t, sut.IsFastCacheEnabled())
+
 	require.Equal(t, int64(1), version)
 	
 	// Test that upgraded mutable tree iterates as expected
@@ -820,20 +824,24 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 	// Setup
 	tree, mirror := setupTreeAndMirrorForUpgrade(t)
 
-	// Default version when storage key does not exist in the db
 	require.False(t, tree.IsFastCacheEnabled())
-	
-	// Enable fast storage
-	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+
+	// Should auto enable in save version
+	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
-	require.True(t, enabled)
+
 	require.True(t, tree.IsFastCacheEnabled())
 
 	sut, _ := NewMutableTree(tree.ndb.db, 1000)
 
-	// Lazy Load version
+	require.False(t, sut.IsFastCacheEnabled())
+
+	// LazyLoadVersion - should auto enable fast storage
 	version, err := sut.LazyLoadVersion(1)
 	require.NoError(t, err)
+
+	require.True(t, sut.IsFastCacheEnabled())
+
 	require.Equal(t, int64(1), version)
 
 	t.Run("Mutable tree", func (t *testing.T)  {
@@ -869,9 +877,6 @@ func setupTreeAndMirrorForUpgrade(t *testing.T) (*MutableTree, [][]string) {
 		mirror = append(mirror, []string{key, val})
 		require.False(t, tree.Set([]byte(key), []byte(val)))
 	}
-
-	_, _, err := tree.SaveVersion()
-	require.NoError(t, err)
 
 	// Delete fast nodes from database to mimic a version with no upgrade
 	for i := 0; i < numEntries; i++ {
