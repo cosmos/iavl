@@ -60,7 +60,7 @@ type nodeDB struct {
 	batch          dbm.Batch        // Batched writing buffer.
 	opts           Options          // Options to customize for pruning/writing
 	versionReaders map[int64]uint32 // Number of active version readers
-	storageVersion string              // Chain version
+	storageVersion string              // Storage version
 
 	latestVersion  int64
 	nodeCache      map[string]*list.Element // Node cache.
