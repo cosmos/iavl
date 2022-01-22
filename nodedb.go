@@ -17,7 +17,7 @@ const (
 	int64Size      = 8
 	hashSize       = sha256.Size
 	genesisVersion = 1
-	storageVersionKey = "chain_version"
+	storageVersionKey = "storage_version"
 	// Using semantic versioning: https://semver.org/
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue = "1.1.0"
