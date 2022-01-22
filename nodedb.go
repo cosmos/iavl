@@ -113,7 +113,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 
 	// Check the cache.
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
-			// Already exists. Move to back of nodeCacheQueue.
+		// Already exists. Move to back of nodeCacheQueue.
 		ndb.nodeCacheQueue.MoveToBack(elem)
 		return elem.Value.(*Node)
 	}
@@ -425,7 +425,6 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 		if version <= fastNode.versionLastUpdatedAt {
 			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
-				debug("%v\n", err)
 				return err
 			}
 			ndb.uncacheFastNode(key)
@@ -435,10 +434,6 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 	if err != nil {
 		return err
-	}
-
-	for curVersion := version; curVersion <= ndb.latestVersion; curVersion++ {
-		ndb.uncacheFastNodesWithVersion(curVersion)
 	}
 
 	return nil
@@ -484,6 +479,7 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 					panic(err)
 				}
 				ndb.uncacheNode(hash)
+				ndb.uncacheFastNode(key)
 			} else {
 				ndb.saveOrphan(hash, from, predecessor)
 			}
@@ -492,8 +488,14 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		if err != nil {
 			return err
 		}
+	}
 
-		ndb.uncacheFastNodesWithVersion(version)
+	for key, elem := range ndb.fastNodeCache {
+		fastNode := elem.Value.(*FastNode)
+		if fastNode.versionLastUpdatedAt >= fromVersion && fastNode.versionLastUpdatedAt < toVersion {
+			ndb.fastNodeCacheQueue.Remove(elem)
+			delete(ndb.fastNodeCache, string(key))
+		}
 	}
 
 	// Delete the version root entries
@@ -786,15 +788,6 @@ func (ndb *nodeDB) uncacheFastNode(key []byte) {
 	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
 		ndb.fastNodeCacheQueue.Remove(elem)
 		delete(ndb.fastNodeCache, string(key))
-	}
-}
-
-func (ndb *nodeDB) uncacheFastNodesWithVersion(version int64) {
-	for key, elem := range ndb.fastNodeCache {
-		if elem.Value.(*FastNode).versionLastUpdatedAt == version {
-			ndb.fastNodeCacheQueue.Remove(elem)
-			delete(ndb.fastNodeCache, string(key))
-		}
 	}
 }
 
