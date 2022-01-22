@@ -218,35 +218,12 @@ func (ndb *nodeDB) setStorageVersion(newVersion string) error {
 	return nil
 }
 
-func (ndb *nodeDB) upgradeToFastCacheFromLeaves() error {
-	if ndb.isFastStorageEnabled() {
-		return nil
-	}
-
-	err := ndb.traverseNodes(func(hash []byte, node *Node) error {
-		if node.isLeaf() && node.version == ndb.getLatestVersion() {
-			fastNode := NewFastNode(node.key, node.value, node.version)
-			if err := ndb.saveFastNodeUnlocked(fastNode); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
-	if err != nil {
+func (ndb *nodeDB) setStorageVersionBatch(newVersion string) error {
+	if err := ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(newVersion)); err != nil {
 		return err
 	}
-
-	if err := ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue)); err != nil {
-		return err
-	}
-
-	if err = ndb.resetBatch(); err != nil {
-		return err
-	}
-
-	ndb.storageVersion = fastStorageVersionValue
-	return err
+	ndb.storageVersion = string(newVersion)
+	return nil
 }
 
 func (ndb *nodeDB) getStorageVersion() string {
