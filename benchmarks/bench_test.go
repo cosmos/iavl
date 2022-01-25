@@ -90,6 +90,7 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 }
 
 func runIterationFast(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+	require.True(b, t.IsFastCacheEnabled()) // to ensure that fast iterator is returned.
 	for i := 0; i < b.N; i++ {
 		itr := t.ImmutableTree.Iterator(nil, nil, false)
 		iterate(b, itr, expectedSize)

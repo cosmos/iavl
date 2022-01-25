@@ -224,7 +224,7 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) bool {
 
 // Iterator returns an iterator over the immutable tree.
 func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
-	if t.isFastCacheEnabled() {
+	if t.IsFastCacheEnabled() {
 		return NewFastIterator(start, end, ascending, t.ndb)
 	} else {
 		return NewIterator(start, end, ascending, t)
@@ -261,12 +261,13 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	})
 }
 
-func (t *ImmutableTree) isLatestTreeVersion() bool {
-	return t.version == t.ndb.getLatestVersion()
+// IsFastCacheEnabled returns true if fast cache is enabled, false otherwise.
+func (t *ImmutableTree) IsFastCacheEnabled() bool {
+	return t.isLatestTreeVersion() && t.ndb.isFastStorageEnabled()
 }
 
-func (t *ImmutableTree) isFastCacheEnabled() bool {
-	return t.isLatestTreeVersion() && t.ndb.isFastStorageEnabled()
+func (t *ImmutableTree) isLatestTreeVersion() bool {
+	return t.version == t.ndb.getLatestVersion()
 }
 
 // Clone creates a clone of the tree.
