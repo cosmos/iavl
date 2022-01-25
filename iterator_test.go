@@ -224,7 +224,7 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	}
 
 	sort.Slice(sortedMirror, func(i, j int) bool {
-		return sortedMirror[i][0] < sortedMirror[j][0]
+		return sortedMirror[i][0] > sortedMirror[j][0]
 	})
 
 	t.Run("Iterator", func(t *testing.T) {

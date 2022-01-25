@@ -278,16 +278,20 @@ func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *Muta
 
 // assertIterator confirms that the iterato returns the expected values desribed by mirror in the same order.
 // mirror is a slice containing slices of the form [key, value]. In other words, key at index 0 and value at index 1.
+// mirror should be sorted in either ascending or descending order depending on the value of ascending parameter.
 func assertIterator(t *testing.T, itr dbm.Iterator, mirror [][]string, ascending bool) {
-	startIdx, endIdx := 0, len(mirror)-1
+	startIdx, endIdx := 0, len(mirror)
 	increment := 1
+	mirrorIdx := startIdx
+
 	if !ascending {
-		startIdx, endIdx = endIdx, startIdx
+		startIdx = endIdx - 1
+		endIdx = -1
 		increment *= -1
 	}
 
-	for startIdx < endIdx {
-		nextExpectedPair := mirror[startIdx]
+	for startIdx != endIdx {
+		nextExpectedPair := mirror[mirrorIdx]
 
 		require.True(t, itr.Valid())
 		require.Equal(t, []byte(nextExpectedPair[0]), itr.Key())
@@ -296,6 +300,7 @@ func assertIterator(t *testing.T, itr dbm.Iterator, mirror [][]string, ascending
 		require.NoError(t, itr.Error())
 
 		startIdx += increment
+		mirrorIdx++
 	}
 }
 
