@@ -64,6 +64,7 @@ func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	}
 }
 
+// queries keys that are known to be in state
 func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
