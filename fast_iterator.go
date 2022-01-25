@@ -44,6 +44,7 @@ func NewFastIterator(start, end []byte, ascending bool, ndb *nodeDB) *FastIterat
 }
 
 // Domain implements dbm.Iterator.
+// Maps the underlying nodedb iterator domain, to the 'logical' keys involved.
 func (iter *FastIterator) Domain() ([]byte, []byte) {
 	if iter.fastIterator == nil {
 		return iter.start, iter.end
