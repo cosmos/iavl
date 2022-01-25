@@ -8,7 +8,9 @@ import (
 
 var errFastIteratorNilNdbGiven = errors.New("fast iterator must be created with a nodedb but it was nil")
 
-// Iterator is a dbm.Iterator for ImmutableTree
+// FastIterator is a dbm.Iterator for ImmutableTree
+// it iterates over the latest state via fast nodes, 
+// taking advantage of keys being located in sequence in the underlying database.
 type FastIterator struct {
 	start, end []byte
 
