@@ -39,6 +39,7 @@ func NewFastIterator(start, end []byte, ascending bool, ndb *nodeDB) *FastIterat
 		nextFastNode: nil,
 		fastIterator: nil,
 	}
+	// Move iterator before the first element
 	iter.Next()
 	return iter
 }

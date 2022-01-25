@@ -178,6 +178,7 @@ func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Ite
 
 	if iter.valid {
 		iter.t = tree.root.newTraversal(tree, start, end, ascending, false, false)
+		// Move iterator before the first element
 		iter.Next()
 	} else {
 		iter.err = errIteratorNilTreeGiven
