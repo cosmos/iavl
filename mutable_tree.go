@@ -163,78 +163,78 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 		return false
 	}
 
-	if t.IsFastCacheEnabled() {
-		// We need to ensure that we iterate over saved and unsaved state in order.
-		// The strategy is to sort unsaved nodes, the fast node on disk are already sorted.
-		// Then, we keep a pointer to both the unsaved and saved nodes, and iterate over them in order efficiently.
-		unsavedFastNodesToSort := make([]string, 0, len(t.unsavedFastNodeAdditions))
+	if !t.IsFastCacheEnabled() {
+		return t.ImmutableTree.Iterate(fn)
+	}
 
-		for _, fastNode := range t.unsavedFastNodeAdditions {
-			unsavedFastNodesToSort = append(unsavedFastNodesToSort, string(fastNode.key))
-		}
+	// We need to ensure that we iterate over saved and unsaved state in order.
+	// The strategy is to sort unsaved nodes, the fast node on disk are already sorted.
+	// Then, we keep a pointer to both the unsaved and saved nodes, and iterate over them in order efficiently.
+	unsavedFastNodesToSort := make([]string, 0, len(t.unsavedFastNodeAdditions))
 
-		sort.Strings(unsavedFastNodesToSort)
+	for _, fastNode := range t.unsavedFastNodeAdditions {
+		unsavedFastNodesToSort = append(unsavedFastNodesToSort, string(fastNode.key))
+	}
 
-		itr := t.ImmutableTree.Iterator(nil, nil, true)
+	sort.Strings(unsavedFastNodesToSort)
 
-		nextUnsavedIdx := 0
-		for itr.Valid() && nextUnsavedIdx < len(unsavedFastNodesToSort) {
-			diskKeyStr := string(itr.Key())
+	itr := t.ImmutableTree.Iterator(nil, nil, true)
 
-			if t.unsavedFastNodeRemovals[string(diskKeyStr)] != nil {
-				// If next fast node from disk is to be removed, skip it.
-				itr.Next()
-				continue
-			}
+	nextUnsavedIdx := 0
+	for itr.Valid() && nextUnsavedIdx < len(unsavedFastNodesToSort) {
+		diskKeyStr := string(itr.Key())
 
-			nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
-			nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey]
-
-			if diskKeyStr >= nextUnsavedKey {
-				// Unsaved node is next
-
-				if diskKeyStr == nextUnsavedKey {
-					// Unsaved update prevails over saved copy so we skip the copy from disk
-					itr.Next()
-				}
-
-				if fn(nextUnsavedNode.key, nextUnsavedNode.value) {
-					return true
-				}
-
-				nextUnsavedIdx++
-			} else {
-				// Disk node is next
-				if fn(itr.Key(), itr.Value()) {
-					return true
-				}
-
-				itr.Next()
-			}
-		}
-
-		// if only nodes on disk are left, we can just iterate
-		for itr.Valid() {
-			if fn(itr.Key(), itr.Value()) {
-				return true
-			}
+		if t.unsavedFastNodeRemovals[string(diskKeyStr)] != nil {
+			// If next fast node from disk is to be removed, skip it.
 			itr.Next()
+			continue
 		}
 
-		// if only unsaved nodes are left, we can just iterate
-		for ; nextUnsavedIdx < len(unsavedFastNodesToSort); nextUnsavedIdx++ {
-			nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
-			nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey]
+		nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
+		nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey]
+
+		if diskKeyStr >= nextUnsavedKey {
+			// Unsaved node is next
+
+			if diskKeyStr == nextUnsavedKey {
+				// Unsaved update prevails over saved copy so we skip the copy from disk
+				itr.Next()
+			}
 
 			if fn(nextUnsavedNode.key, nextUnsavedNode.value) {
 				return true
 			}
-		}
 
-		return false
+			nextUnsavedIdx++
+		} else {
+			// Disk node is next
+			if fn(itr.Key(), itr.Value()) {
+				return true
+			}
+
+			itr.Next()
+		}
 	}
 
-	return t.ImmutableTree.Iterate(fn)
+	// if only nodes on disk are left, we can just iterate
+	for itr.Valid() {
+		if fn(itr.Key(), itr.Value()) {
+			return true
+		}
+		itr.Next()
+	}
+
+	// if only unsaved nodes are left, we can just iterate
+	for ; nextUnsavedIdx < len(unsavedFastNodesToSort); nextUnsavedIdx++ {
+		nextUnsavedKey := unsavedFastNodesToSort[nextUnsavedIdx]
+		nextUnsavedNode := t.unsavedFastNodeAdditions[nextUnsavedKey]
+
+		if fn(nextUnsavedNode.key, nextUnsavedNode.value) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // Iterator is not supported and is therefore invalid for MutableTree. Get an ImmutableTree instead for a valid iterator.
@@ -577,26 +577,36 @@ func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
 }
 
 func (tree *MutableTree) enableFastStorageAndCommit() error {
+	debug("enabling fast storage, might take a while.")
+	var err error
+	defer func() {
+		if err != nil {
+			debug("failed to enable fast storage: %v\n", err)
+		} else {
+			debug("fast storage is enabled.")
+		}
+	}()
+
 	itr := tree.ImmutableTree.Iterator(nil, nil, true)
 	for ; itr.Valid(); itr.Next() {
-		if err := tree.ndb.SaveFastNode(NewFastNode(itr.Key(), itr.Value(), tree.version)); err != nil {
+		if err = tree.ndb.SaveFastNode(NewFastNode(itr.Key(), itr.Value(), tree.version)); err != nil {
 			return err
 		}
 	}
 
-	if err := itr.Error(); err != nil {
+	if err = itr.Error(); err != nil {
 		return err
 	}
 
-	if err := tree.ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue)); err != nil {
+	if err = tree.ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue)); err != nil {
 		return err
 	}
 
-	if err := tree.ndb.setStorageVersionBatch(fastStorageVersionValue); err != nil {
+	if err = tree.ndb.setStorageVersionBatch(fastStorageVersionValue); err != nil {
 		return err
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err = tree.ndb.Commit(); err != nil {
 		return err
 	}
 	return nil
