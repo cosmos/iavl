@@ -559,6 +559,7 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	return latestVersion, nil
 }
 
+// if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
 	if tree.ndb.isFastStorageEnabled() {
 		return false, nil
