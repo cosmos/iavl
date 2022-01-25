@@ -177,7 +177,7 @@ func (t *ImmutableTree) Get(key []byte) []byte {
 		// then the regular node is not in the tree either because fast node
 		// represents live state.
 		if t.version == t.ndb.latestVersion {
-			debug("latest version with no fast node for key: %X. The node must node exist, return nil. Tree version: %d\n", key, t.version)
+			debug("latest version with no fast node for key: %X. The node must not exist, return nil. Tree version: %d\n", key, t.version)
 			return nil
 		}
 
