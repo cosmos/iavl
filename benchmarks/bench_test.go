@@ -57,6 +57,7 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	}
 }
 
+// queries random keys against live state. Keys are almost certainly not in the tree.
 func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
