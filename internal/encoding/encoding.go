@@ -1,4 +1,4 @@
-package iavl
+package encoding
 
 import (
 	"bytes"
@@ -30,8 +30,8 @@ var uvarintPool = &sync.Pool{
 
 // decodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
 // of input bytes read.
-func decodeBytes(bz []byte) ([]byte, int, error) {
-	s, n, err := decodeUvarint(bz)
+func DecodeBytes(bz []byte) ([]byte, int, error) {
+	s, n, err := DecodeUvarint(bz)
 	if err != nil {
 		return nil, n, err
 	}
@@ -58,7 +58,7 @@ func decodeBytes(bz []byte) ([]byte, int, error) {
 
 // decodeUvarint decodes a varint-encoded unsigned integer from a byte slice, returning it and the
 // number of bytes decoded.
-func decodeUvarint(bz []byte) (uint64, int, error) {
+func DecodeUvarint(bz []byte) (uint64, int, error) {
 	u, n := binary.Uvarint(bz)
 	if n == 0 {
 		// buf too small
@@ -74,7 +74,7 @@ func decodeUvarint(bz []byte) (uint64, int, error) {
 
 // decodeVarint decodes a varint-encoded integer from a byte slice, returning it and the number of
 // bytes decoded.
-func decodeVarint(bz []byte) (int64, int, error) {
+func DecodeVarint(bz []byte) (int64, int, error) {
 	i, n := binary.Varint(bz)
 	if n == 0 {
 		return i, n, errors.New("buffer too small")
@@ -87,9 +87,9 @@ func decodeVarint(bz []byte) (int64, int, error) {
 	return i, n, nil
 }
 
-// encodeBytes writes a varint length-prefixed byte slice to the writer.
-func encodeBytes(w io.Writer, bz []byte) error {
-	err := encodeUvarint(w, uint64(len(bz)))
+// EncodeBytes writes a varint length-prefixed byte slice to the writer.
+func EncodeBytes(w io.Writer, bz []byte) error {
+	err := EncodeUvarint(w, uint64(len(bz)))
 	if err != nil {
 		return err
 	}
@@ -98,12 +98,12 @@ func encodeBytes(w io.Writer, bz []byte) error {
 }
 
 // encodeBytesSlice length-prefixes the byte slice and returns it.
-func encodeBytesSlice(bz []byte) ([]byte, error) {
+func EncodeBytesSlice(bz []byte) ([]byte, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	defer bufPool.Put(buf)
 
-	err := encodeBytes(buf, bz)
+	err := EncodeBytes(buf, bz)
 
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
@@ -112,12 +112,12 @@ func encodeBytesSlice(bz []byte) ([]byte, error) {
 }
 
 // encodeBytesSize returns the byte size of the given slice including length-prefixing.
-func encodeBytesSize(bz []byte) int {
-	return encodeUvarintSize(uint64(len(bz))) + len(bz)
+func EncodeBytesSize(bz []byte) int {
+	return EncodeUvarintSize(uint64(len(bz))) + len(bz)
 }
 
-// encodeUvarint writes a varint-encoded unsigned integer to an io.Writer.
-func encodeUvarint(w io.Writer, u uint64) error {
+// EncodeUvarint writes a varint-encoded unsigned integer to an io.Writer.
+func EncodeUvarint(w io.Writer, u uint64) error {
 	// See comment in encodeVarint
 	buf := uvarintPool.Get().(*[binary.MaxVarintLen64]byte)
 
@@ -129,16 +129,16 @@ func encodeUvarint(w io.Writer, u uint64) error {
 	return err
 }
 
-// encodeUvarintSize returns the byte size of the given integer as a varint.
-func encodeUvarintSize(u uint64) int {
+// EncodeUvarintSize returns the byte size of the given integer as a varint.
+func EncodeUvarintSize(u uint64) int {
 	if u == 0 {
 		return 1
 	}
 	return (bits.Len64(u) + 6) / 7
 }
 
-// encodeVarint writes a varint-encoded integer to an io.Writer.
-func encodeVarint(w io.Writer, i int64) error {
+// EncodeVarint writes a varint-encoded integer to an io.Writer.
+func EncodeVarint(w io.Writer, i int64) error {
 	// Use a pool here to reduce allocations.
 	//
 	// Though this allocates just 10 bytes on the stack, doing allocation for every calls
@@ -157,8 +157,8 @@ func encodeVarint(w io.Writer, i int64) error {
 	return err
 }
 
-// encodeVarintSize returns the byte size of the given integer as a varint.
-func encodeVarintSize(i int64) int {
+// EncodeVarintSize returns the byte size of the given integer as a varint.
+func EncodeVarintSize(i int64) int {
 	var buf [binary.MaxVarintLen64]byte
 	return binary.PutVarint(buf[:], i)
 }

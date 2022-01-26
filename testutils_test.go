@@ -9,23 +9,25 @@ import (
 
 	mrand "math/rand"
 
-	cmn "github.com/cosmos/iavl/common"
 	"github.com/stretchr/testify/require"
 	db "github.com/tendermint/tm-db"
+
+	"github.com/cosmos/iavl/internal/encoding"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 func randstr(length int) string {
-	return cmn.RandStr(length)
+	return iavlrand.RandStr(length)
 }
 
 func i2b(i int) []byte {
 	buf := new(bytes.Buffer)
-	encodeVarint(buf, int64(i))
+	encoding.EncodeVarint(buf, int64(i))
 	return buf.Bytes()
 }
 
 func b2i(bz []byte) int {
-	i, _, err := decodeVarint(bz)
+	i, _, err := encoding.DecodeVarint(bz)
 	if err != nil {
 		panic(err)
 	}
@@ -129,7 +131,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	value := []byte{}
 	for i := 0; i < 1000000; i++ {
-		t.Set(i2b(int(cmn.RandInt31())), value)
+		t.Set(i2b(int(iavlrand.RandInt31())), value)
 		if i > 990000 && i%1000 == 999 {
 			t.SaveVersion()
 		}
@@ -141,7 +143,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
-		ri := i2b(int(cmn.RandInt31()))
+		ri := i2b(int(iavlrand.RandInt31()))
 		t.Set(ri, value)
 		t.Remove(ri)
 		if i%100 == 99 {

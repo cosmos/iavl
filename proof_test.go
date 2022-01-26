@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	cmn "github.com/cosmos/iavl/common"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 	iavlproto "github.com/cosmos/iavl/proto"
 )
 
@@ -19,7 +19,7 @@ func TestTreeGetWithProof(t *testing.T) {
 	require := require.New(t)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
-		tree.Set(key, []byte(cmn.RandStr(8)))
+		tree.Set(key, []byte(iavlrand.RandStr(8)))
 	}
 	root := tree.WorkingHash()
 
@@ -64,7 +64,7 @@ func TestTreeKeyExistsProof(t *testing.T) {
 	// insert lots of info and store the bytes
 	allkeys := make([][]byte, 200)
 	for i := 0; i < 200; i++ {
-		key := cmn.RandStr(20)
+		key := iavlrand.RandStr(20)
 		value := "value_for_" + key
 		tree.Set([]byte(key), []byte(value))
 		allkeys[i] = []byte(key)
@@ -232,7 +232,7 @@ func verifyProof(t *testing.T, proof *RangeProof, root []byte) {
 
 	// Random mutations must not verify
 	for i := 0; i < 1e4; i++ {
-		badProofBytes := cmn.MutateByteSlice(proofBytes)
+		badProofBytes := MutateByteSlice(proofBytes)
 		badProof, err := decodeProof(badProofBytes)
 		if err != nil {
 			continue // couldn't even decode.
@@ -258,4 +258,27 @@ func flatten(bzz [][]byte) (res []byte) {
 		res = append(res, bz...)
 	}
 	return res
+}
+
+// Contract: !bytes.Equal(input, output) && len(input) >= len(output)
+func MutateByteSlice(bytez []byte) []byte {
+	// If bytez is empty, panic
+	if len(bytez) == 0 {
+		panic("Cannot mutate an empty bytez")
+	}
+
+	// Copy bytez
+	mBytez := make([]byte, len(bytez))
+	copy(mBytez, bytez)
+	bytez = mBytez
+
+	// Try a random mutation
+	switch iavlrand.RandInt() % 2 {
+	case 0: // Mutate a single byte
+		bytez[iavlrand.RandInt()%len(bytez)] += byte(iavlrand.RandInt()%255 + 1)
+	case 1: // Remove an arbitrary byte
+		pos := iavlrand.RandInt() % len(bytez)
+		bytez = append(bytez[:pos], bytez[pos+1:]...)
+	}
+	return bytez
 }
