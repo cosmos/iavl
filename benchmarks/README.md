@@ -53,5 +53,3 @@ sh <(curl -s https://raw.githubusercontent.com/baabeetaa/iavl/fix-bencharks/benc
 sh <(curl -s https://raw.githubusercontent.com/baabeetaa/iavl/fix-bencharks/benchmarks/setup/RUN_BENCHMARKS.sh) fix-bencharks baabeetaa && \
 cat ~/iavl/results.txt"
 ```
-
-The script will install leveldb and rocksdb from source then run the benchmarks.
