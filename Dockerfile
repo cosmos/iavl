@@ -7,7 +7,7 @@ ARG GOFLAGS=""
 ENV GOFLAGS=$GOFLAGS
 ENV GO111MODULE=on
 
-RUN pacman -Syyu leveldb rocksdb go base-devel
+RUN pacman -Syyu --noconfirm leveldb rocksdb go base-devel
 
 COPY . .
 
