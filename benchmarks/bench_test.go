@@ -175,8 +175,11 @@ func BenchmarkMedium(b *testing.B) {
 	benchmarks := []benchmark{
 		{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
-		// FIXME: this crashes on init! Either remove support, or make it work.
-		// {"cleveldb", 100000, 100, 16, 40},
+		{"cleveldb", 100000, 100, 16, 40},
+		// FIXME: idk why boltdb is too slow !?
+		// {"boltdb", 100000, 100, 16, 40},
+		{"rocksdb", 100000, 100, 16, 40},
+		{"badgerdb", 100000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -185,8 +188,10 @@ func BenchmarkSmall(b *testing.B) {
 	benchmarks := []benchmark{
 		{"memdb", 1000, 100, 4, 10},
 		{"goleveldb", 1000, 100, 4, 10},
-		// FIXME: this crashes on init! Either remove support, or make it work.
-		// {"cleveldb", 100000, 100, 16, 40},
+		{"cleveldb", 1000, 100, 4, 10},
+		{"boltdb", 1000, 100, 4, 10},
+		{"rocksdb", 1000, 100, 4, 10},
+		{"badgerdb", 1000, 100, 4, 10},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -195,8 +200,10 @@ func BenchmarkLarge(b *testing.B) {
 	benchmarks := []benchmark{
 		{"memdb", 1000000, 100, 16, 40},
 		{"goleveldb", 1000000, 100, 16, 40},
-		// FIXME: this crashes on init! Either remove support, or make it work.
-		// {"cleveldb", 100000, 100, 16, 40},
+		// FIXME: idk why boltdb is too slow !?
+		// {"boltdb", 1000000, 100, 16, 40},
+		{"rocksdb", 1000000, 100, 16, 40},
+		{"badgerdb", 1000000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -233,6 +240,10 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
+		if (bb.dbType == db.RocksDBBackend) || (bb.dbType == db.CLevelDBBackend) || (bb.dbType == db.BoltDBBackend) {
+			_ = os.Mkdir(dirName, 0755)
+		}
+
 		defer func() {
 			err := os.RemoveAll(dirName)
 			if err != nil {
