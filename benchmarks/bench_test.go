@@ -177,7 +177,7 @@ func BenchmarkMedium(b *testing.B) {
 		{"goleveldb", 100000, 100, 16, 40},
 		{"cleveldb", 100000, 100, 16, 40},
 		// FIXME: idk why boltdb is too slow !?
-		//{"boltdb", 100000, 100, 16, 40},
+		// {"boltdb", 100000, 100, 16, 40},
 		{"rocksdb", 100000, 100, 16, 40},
 		{"badgerdb", 100000, 100, 16, 40},
 	}
@@ -201,7 +201,7 @@ func BenchmarkLarge(b *testing.B) {
 		{"memdb", 1000000, 100, 16, 40},
 		{"goleveldb", 1000000, 100, 16, 40},
 		// FIXME: idk why boltdb is too slow !?
-		//{"boltdb", 1000000, 100, 16, 40},
+		// {"boltdb", 1000000, 100, 16, 40},
 		{"rocksdb", 1000000, 100, 16, 40},
 		{"badgerdb", 1000000, 100, 16, 40},
 	}
