@@ -148,7 +148,7 @@ func (t *ImmutableTree) Export() *Exporter {
 //
 // The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
 // It's neighbor has index 1 and so on.
-func (t *ImmutableTree) GetWithIndex(key []byte) (index int64, value []byte) {
+func (t *ImmutableTree) GetWithIndex(key []byte) (int64, []byte) {
 	if t.root == nil {
 		return 0, nil
 	}
@@ -201,6 +201,7 @@ func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte) {
 	if t.root == nil {
 		return nil, nil
 	}
+
 	return t.root.getByIndex(t, index)
 }
 
@@ -212,7 +213,7 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) bool {
 	}
 
 	itr := t.Iterator(nil, nil, true)
-
+	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
 			return true
@@ -262,8 +263,11 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 }
 
 // IsFastCacheEnabled returns true if fast cache is enabled, false otherwise.
+// For fast cache to be enabled, the following 2 conditions must be met:
+// 1. The tree is of the latest version.
+// 2. The underlying storage has been upgraded to fast cache
 func (t *ImmutableTree) IsFastCacheEnabled() bool {
-	return t.isLatestTreeVersion() && t.ndb.isFastStorageEnabled()
+	return t.isLatestTreeVersion() && t.ndb.hasUpgradedToFastStorage()
 }
 
 func (t *ImmutableTree) isLatestTreeVersion() bool {

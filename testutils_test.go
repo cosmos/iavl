@@ -273,8 +273,6 @@ func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *Muta
 			curByte--
 		}
 	}
-	_, _, err := tree.SaveVersion()
-	require.NoError(t, err)
 	return mirror
 }
 

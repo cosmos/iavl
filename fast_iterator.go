@@ -123,12 +123,11 @@ func (iter *FastIterator) Next() {
 
 // Close implements dbm.Iterator
 func (iter *FastIterator) Close() error {
-	iter.fastIterator = nil
-	iter.valid = false
-
 	if iter.fastIterator != nil {
 		iter.err = iter.fastIterator.Close()
 	}
+	iter.valid = false
+	iter.fastIterator = nil
 	return iter.err
 }
 

@@ -59,6 +59,7 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 
 // queries random keys against live state. Keys are almost certainly not in the tree.
 func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
+	require.True(b, t.IsFastCacheEnabled())
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
 		t.Get(q)
@@ -67,6 +68,7 @@ func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
 
 // queries keys that are known to be in state
 func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+	require.True(b, t.IsFastCacheEnabled()) // to ensure fast storage is enabled
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
@@ -75,22 +77,43 @@ func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 }
 
 func runQueriesSlow(b *testing.B, t *iavl.MutableTree, keyLen int) {
+	b.StopTimer()
+	// Save version to get an old immutable tree to query against,
+	// Fast storage is not enabled on old tree versions, allowing us to bench the desired behavior.
+	_, version, err := t.SaveVersion()
+	require.NoError(b, err)
+
+	itree, err := t.GetImmutable(version - 1)
+	require.NoError(b, err)
+	require.False(b, itree.IsFastCacheEnabled()) // to ensure fast storage is not enabled
+
+	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
-		t.GetWithIndex(q)
+		itree.GetWithIndex(q)
 	}
 }
 
 func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+	b.StopTimer()
+	// Save version to get an old immutable tree to query against,
+	// Fast storage is not enabled on old tree versions, allowing us to bench the desired behavior.
+	_, version, err := t.SaveVersion()
+	require.NoError(b, err)
+
+	itree, err := t.GetImmutable(version - 1)
+	require.NoError(b, err)
+	require.False(b, itree.IsFastCacheEnabled()) // to ensure fast storage is not enabled
+	b.StartTimer()
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
-		t.GetWithIndex(q)
+		itree.GetWithIndex(q)
 	}
 }
 
 func runIterationFast(b *testing.B, t *iavl.MutableTree, expectedSize int) {
-	require.True(b, t.IsFastCacheEnabled()) // to ensure that fast iterator is returned.
+	require.True(b, t.IsFastCacheEnabled()) // to ensure fast storage is enabled
 	for i := 0; i < b.N; i++ {
 		itr := t.ImmutableTree.Iterator(nil, nil, false)
 		iterate(b, itr, expectedSize)
@@ -100,7 +123,7 @@ func runIterationFast(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 
 func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	for i := 0; i < b.N; i++ {
-		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree)
+		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree) // create slow iterator directly
 		iterate(b, itr, expectedSize)
 		itr.Close()
 	}

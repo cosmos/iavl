@@ -715,18 +715,18 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dbMock := mock.NewMockDB(ctrl)
+	rIterMock := mock.NewMockIterator(ctrl)
 
-	// Setup fake reverse iterator db
-	db := db.NewMemDB()
-	db.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(defaultStorageVersionValue))
-	rItr, err := db.ReverseIterator(nil, nil)
-	require.NoError(t, err)
+	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
+	rIterMock.EXPECT().Valid().Return(true).Times(1)
+	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key([]byte(defaultStorageVersionValue)))
+	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	expectedError := errors.New("some db error")
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, expectedError).Times(1)
 	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
-	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rItr, nil).Times(1)
+	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	tree, err := NewMutableTree(dbMock, 0)
 	require.Nil(t, err)
@@ -737,12 +737,12 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dbMock := mock.NewMockDB(ctrl)
+	rIterMock := mock.NewMockIterator(ctrl)
 
-	// Setup fake reverse iterator db
-	db := db.NewMemDB()
-	db.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(defaultStorageVersionValue))
-	rItr, err := db.ReverseIterator(nil, nil)
-	require.NoError(t, err)
+	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
+	rIterMock.EXPECT().Valid().Return(true).Times(1)
+	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key([]byte(defaultStorageVersionValue)))
+	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	expectedError := errors.New("some db error")
 
@@ -750,7 +750,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
 	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
-	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rItr, nil).Times(1)
+	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
 
@@ -763,6 +763,140 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	require.ErrorIs(t, err, expectedError)
 	require.False(t, enabled)
 	require.False(t, tree.IsFastCacheEnabled())
+}
+
+func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
+	rIterMock := mock.NewMockIterator(ctrl)
+
+	// We are trying to test downgrade and re-upgrade protection
+	// We need to set up a state where latest fast storage version is equal to latest tree version
+	const latestFastStorageVersionOnDisk = 1
+	const latestTreeVersion = latestFastStorageVersionOnDisk
+
+	// Setup fake reverse iterator db to traverse root versions, called by ndb's getLatestVersion
+	expectedStorageVersion := []byte(fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(latestFastStorageVersionOnDisk))
+
+	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
+	rIterMock.EXPECT().Valid().Return(true).Times(1)
+	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key(latestTreeVersion))
+	rIterMock.EXPECT().Close().Return(nil).Times(1)
+
+	batchMock := mock.NewMockBatch(ctrl)
+
+	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
+
+	tree, err := NewMutableTree(dbMock, 0)
+	require.Nil(t, err)
+	require.NotNil(t, tree)
+
+	// Pretend that we called Load and have the latest state in the tree
+	tree.version = latestTreeVersion
+	require.Equal(t, tree.ndb.getLatestVersion(), int64(latestTreeVersion))
+
+	// Ensure that the right branch of enableFastStorageAndCommitIfNotEnabled will be triggered
+	require.True(t, tree.IsFastCacheEnabled())
+	require.False(t, tree.ndb.shouldForceFastStorageUpdate())
+
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+	require.NoError(t, err)
+	require.False(t, enabled)
+}
+
+func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_Success(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	dbMock := mock.NewMockDB(ctrl)
+	batchMock := mock.NewMockBatch(ctrl)
+	iterMock := mock.NewMockIterator(ctrl)
+	rIterMock := mock.NewMockIterator(ctrl)
+
+	// We are trying to test downgrade and re-upgrade protection
+	// We need to set up a state where latest fast storage version is of a lower version
+	// than tree version
+	const latestFastStorageVersionOnDisk = 1
+	const latestTreeVersion = latestFastStorageVersionOnDisk + 1
+
+	// Setup db for iterator and reverse iterator mocks
+	expectedStorageVersion := []byte(fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(latestFastStorageVersionOnDisk))
+
+	// Setup fake reverse iterator db to traverse root versions, called by ndb's getLatestVersion
+	// rItr, err := db.ReverseIterator(rootKeyFormat.Key(1), rootKeyFormat.Key(latestTreeVersion + 1))
+	// require.NoError(t, err)
+
+	// dbMock represents the underlying database under the hood of nodeDB
+	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
+	dbMock.EXPECT().NewBatch().Return(batchMock).Times(2)
+	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
+	startFormat := fastKeyFormat.Key()
+	endFormat := fastKeyFormat.Key()
+	endFormat[0]++
+	dbMock.EXPECT().Iterator(startFormat, endFormat).Return(iterMock, nil).Times(1)
+
+	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
+	rIterMock.EXPECT().Valid().Return(true).Times(1)
+	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key(latestTreeVersion))
+	rIterMock.EXPECT().Close().Return(nil).Times(1)
+
+	fastNodeKeyToDelete := []byte("some_key")
+
+	// batchMock represents a structure that receives all the updates related to
+	// upgrade and then commits them all in the end.
+	updatedExpectedStorageVersion := make([]byte, len(expectedStorageVersion))
+	copy(updatedExpectedStorageVersion, expectedStorageVersion)
+	updatedExpectedStorageVersion[len(updatedExpectedStorageVersion) - 1]++
+	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
+	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
+	batchMock.EXPECT().Write().Return(nil).Times(1)
+	batchMock.EXPECT().Close().Return(nil).Times(1)
+
+	// iterMock is used to mock the underlying db iterator behing fast iterator
+	// Here, we want to mock the behavior of deleting fast nodes from disk when
+	// force upgrade is detected.
+	iterMock.EXPECT().Valid().Return(true).Times(1)
+	iterMock.EXPECT().Error().Return(nil).Times(1)
+	iterMock.EXPECT().Key().Return(fastKeyFormat.Key(fastNodeKeyToDelete)).Times(1)
+	// encode value
+	var buf bytes.Buffer
+	testValue := "test_value"
+	buf.Grow(encodeVarintSize(int64(latestFastStorageVersionOnDisk)) + encodeBytesSize([]byte(testValue)))
+	err := encodeVarint(&buf, int64(latestFastStorageVersionOnDisk))
+	require.NoError(t, err)
+	err = encodeBytes(&buf, []byte(testValue))
+	require.NoError(t, err)
+	iterMock.EXPECT().Value().Return(buf.Bytes()).Times(1) // this is encoded as version 1 with value "2"
+	iterMock.EXPECT().Valid().Return(true).Times(1)
+	// Call Next at the end of loop iteration
+	iterMock.EXPECT().Next().Return().Times(1)
+	iterMock.EXPECT().Error().Return(nil).Times(1)
+	iterMock.EXPECT().Valid().Return(false).Times(1)
+	// Call Valid after first iteraton
+	iterMock.EXPECT().Valid().Return(false).Times(1)
+	iterMock.EXPECT().Close().Return(nil).Times(1)
+
+	tree, err := NewMutableTree(dbMock, 0)
+	require.Nil(t, err)
+	require.NotNil(t, tree)
+
+	// Pretend that we called Load and have the latest state in the tree
+	tree.version = latestTreeVersion
+	require.Equal(t, tree.ndb.getLatestVersion(), int64(latestTreeVersion))
+
+	// Ensure that the right branch of enableFastStorageAndCommitIfNotEnabled will be triggered
+	require.True(t, tree.IsFastCacheEnabled())
+	require.True(t, tree.ndb.shouldForceFastStorageUpdate())
+
+	// Actual method under test
+	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+	require.NoError(t, err)
+	require.True(t, enabled)
+
+	// Test that second time we call this, force upgrade does not happen
+	enabled, err = tree.enableFastStorageAndCommitIfNotEnabled()
+	require.NoError(t, err)
+	require.False(t, enabled)
 }
 
 func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testing.T) {

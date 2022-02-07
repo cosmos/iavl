@@ -7,6 +7,7 @@ import (
 	"math/rand"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -352,7 +353,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 
 	storageVersionValue, err := tree.ndb.db.Get([]byte(firstKey))
 	require.NoError(t, err)
-	require.Equal(t, []byte(fastStorageVersionValue), storageVersionValue)
+	require.Equal(t, fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(tree.ndb.getLatestVersion())), string(storageVersionValue))
 
 	var foundVersion int64
 	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)

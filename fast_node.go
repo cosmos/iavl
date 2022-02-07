@@ -12,7 +12,6 @@ type FastNode struct {
 	key                  []byte
 	versionLastUpdatedAt int64
 	value                []byte
-	// leafHash             []byte // TODO: Look into if this would help with proof stuff.
 }
 
 // NewFastNode returns a new fast node from a value and version.
@@ -34,7 +33,7 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 
 	val, _, cause := decodeBytes(buf)
 	if cause != nil {
-		return nil, errors.Wrap(cause, "decoding node.value")
+		return nil, errors.Wrap(cause, "decoding fastnode.value")
 	}
 
 	fastNode := &FastNode{
