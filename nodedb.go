@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -18,6 +20,12 @@ const (
 	hashSize          = sha256.Size
 	genesisVersion    = 1
 	storageVersionKey = "storage_version"
+	// We store latest saved version together with storage version delimited by the constant below.
+	// This delimiter is valid only if fast storage is enabled (i.e. storageVersion >= fastStorageVersionValue).
+	// The latest saved version is needed for protection against downgrade and re-upgrade. In such a case, it would
+	// be possible to observe mismatch between the latest version state and the fast nodes on disk.
+	// Therefore, we would like to detect that and overwrite fast nodes on disk with the latest version state.
+	fastStorageVersionDelimiter = "-"
 	// Using semantic versioning: https://semver.org/
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
@@ -52,6 +60,10 @@ var (
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
+)
+
+var(
+	errInvalidFastStorageVersion = fmt.Sprintf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 )
 
 type nodeDB struct {
@@ -139,7 +151,7 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 }
 
 func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
-	if !ndb.isFastStorageEnabled() {
+	if !ndb.hasUpgradedToFastStorage() {
 		return nil, errors.New("storage version is not fast")
 	}
 
@@ -210,19 +222,30 @@ func (ndb *nodeDB) SaveFastNode(node *FastNode) error {
 	return ndb.saveFastNodeUnlocked(node)
 }
 
-func (ndb *nodeDB) setStorageVersion(newVersion string) error {
-	if err := ndb.db.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(newVersion)); err != nil {
-		return err
-	}
-	ndb.storageVersion = string(newVersion)
-	return nil
-}
+// setFastStorageVersionToBatch sets storage version to fast where the version is
+// 1.1.0-<version of the current live state>. Returns error if storage version is incorrect or on
+// db error, nil otherwise. Requires changes to be comitted after to be persisted.
+func (ndb *nodeDB) setFastStorageVersionToBatch() error {
+	var newVersion string
+	if ndb.storageVersion >= fastStorageVersionValue {
+		// Storage version should be at index 0 and latest fast cache version at index 1
+		versions := strings.Split(ndb.storageVersion, fastStorageVersionDelimiter)
 
-func (ndb *nodeDB) setStorageVersionBatch(newVersion string) error {
+		if len(versions) > 2 {
+			return errors.New(errInvalidFastStorageVersion)
+		}
+
+		newVersion = versions[0]
+	} else {
+		newVersion = fastStorageVersionValue
+	}
+
+	newVersion += fastStorageVersionDelimiter + strconv.Itoa(int(ndb.getLatestVersion()))
+
 	if err := ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(newVersion)); err != nil {
 		return err
 	}
-	ndb.storageVersion = string(newVersion)
+	ndb.storageVersion = newVersion
 	return nil
 }
 
@@ -230,8 +253,24 @@ func (ndb *nodeDB) getStorageVersion() string {
 	return ndb.storageVersion
 }
 
-func (ndb *nodeDB) isFastStorageEnabled() bool {
+// Returns true if the upgrade to fast storage has occurred, false otherwise.
+func (ndb *nodeDB) hasUpgradedToFastStorage() bool {
 	return ndb.getStorageVersion() >= fastStorageVersionValue
+}
+
+// Returns true if the upgrade to fast storage has occurred but it does not match the live state, false otherwise.
+// When the live state is not matched, we must force reupgrade.
+// We determine this by checking the version of the live state and the version of the live state wheb
+// fast storage was updated on disk the last time.
+func (ndb *nodeDB) shouldForceFastStorageUpdate() bool {
+	versions := strings.Split(ndb.storageVersion, fastStorageVersionDelimiter)
+
+	if len(versions) == 2 {
+		if versions[1] != strconv.Itoa(int(ndb.getLatestVersion())) {
+			return true
+		}
+	}
+	return false
 }
 
 // SaveNode saves a FastNode to disk.

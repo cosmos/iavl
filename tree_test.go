@@ -1786,3 +1786,140 @@ func TestIterate_ImmutableTree_Version2(t *testing.T) {
 
 	assertImmutableMirrorIterate(t, immutableTree, mirror)
 }
+
+func TestGetByIndex_ImmutableTree(t *testing.T) {
+	tree, mirror := getRandomizedTreeAndMirror(t)
+	mirrorKeys := getSortedMirrorKeys(mirror)
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	immutableTree, err := tree.GetImmutable(1)
+	require.NoError(t, err)
+
+	require.True(t, immutableTree.IsFastCacheEnabled())
+
+	for index, expectedKey := range mirrorKeys {
+		expectedValue := mirror[expectedKey]
+
+		actualKey, actualValue := immutableTree.GetByIndex(int64(index))
+
+		require.Equal(t, expectedKey, string(actualKey))
+		require.Equal(t, expectedValue, string(actualValue))
+	}
+}
+
+func TestGetWithIndex_ImmutableTree(t *testing.T) {
+	tree, mirror := getRandomizedTreeAndMirror(t)
+	mirrorKeys := getSortedMirrorKeys(mirror)
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	immutableTree, err := tree.GetImmutable(1)
+	require.NoError(t, err)
+
+	require.True(t, immutableTree.IsFastCacheEnabled())
+
+	for expectedIndex, key := range mirrorKeys {
+		expectedValue := mirror[key]
+
+		actualIndex, actualValue := immutableTree.GetWithIndex([]byte(key))
+
+		require.Equal(t, expectedValue, string(actualValue))
+		require.Equal(t, int64(expectedIndex), actualIndex)
+	}
+}
+
+func Benchmark_GetWithIndex(b *testing.B) {
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(b, err)
+
+	const numKeyVals = 100000
+
+	t, err := NewMutableTree(db, numKeyVals)
+	require.NoError(b, err)
+
+	keys := make([][]byte, 0, numKeyVals)
+
+	for i := 0; i < numKeyVals; i++ {
+		key := randBytes(10)
+		keys = append(keys, key)
+		t.Set(key, randBytes(10))
+	}
+	_, _, err = t.SaveVersion()
+	require.NoError(b, err)
+
+	b.ReportAllocs()
+	runtime.GC()
+
+	b.Run("fast", func(sub *testing.B) {
+		require.True(b, t.IsFastCacheEnabled())
+		b.ResetTimer()
+		for i := 0; i < sub.N; i++ {
+			randKey := rand.Intn(numKeyVals)
+			t.GetWithIndex(keys[randKey])
+		}
+	})
+
+	b.Run("regular", func(sub *testing.B) {
+		// get non-latest version to force regular storage
+		_, latestVersion, err := t.SaveVersion()
+		require.NoError(b, err)
+
+		itree, err := t.GetImmutable(latestVersion - 1)
+		require.NoError(b, err)
+
+		require.False(b, itree.IsFastCacheEnabled())
+		b.ResetTimer()
+		for i := 0; i < sub.N; i++ {
+			randKey := rand.Intn(numKeyVals)
+			itree.GetWithIndex(keys[randKey])
+		}
+	})
+}
+
+func Benchmark_GetByIndex(b *testing.B) {
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(b, err)
+
+	const numKeyVals = 100000
+
+	t, err := NewMutableTree(db, numKeyVals)
+	require.NoError(b, err)
+
+	for i := 0; i < numKeyVals; i++ {
+		key := randBytes(10)
+		t.Set(key, randBytes(10))
+	}
+	_, _, err = t.SaveVersion()
+	require.NoError(b, err)
+
+	b.ReportAllocs()
+	runtime.GC()
+
+	b.Run("fast", func(sub *testing.B) {
+		require.True(b, t.IsFastCacheEnabled())
+		b.ResetTimer()
+		for i := 0; i < sub.N; i++ {
+			randIdx := rand.Intn(numKeyVals)
+			t.GetByIndex(int64(randIdx))
+		}
+	})
+
+	b.Run("regular", func(sub *testing.B) {
+		// get non-latest version to force regular storage
+		_, latestVersion, err := t.SaveVersion()
+		require.NoError(b, err)
+
+		itree, err := t.GetImmutable(latestVersion - 1)
+		require.NoError(b, err)
+
+		require.False(b, itree.IsFastCacheEnabled())
+		b.ResetTimer()
+		for i := 0; i < sub.N; i++ {
+			randIdx := rand.Intn(numKeyVals)
+			itree.GetByIndex(int64(randIdx))
+		}
+	})
+}
