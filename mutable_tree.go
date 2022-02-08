@@ -504,14 +504,21 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	return latestVersion, nil
 }
 
+// Returns true if the tree may be auto-upgraded, false otherwise
+// An example of when an upgrade may be performed is when we are enaling fast storage for the first time or
+// need to overwrite fast nodes due to mismatch with live state.
+func (tree *MutableTree) IsUpgradeable() bool {
+	return !tree.ndb.hasUpgradedToFastStorage() || tree.ndb.shouldForceFastStorageUpgrade()
+}
+
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
 // Checks whether the fast cache on disk matches latest live state. If not, deletes all existing fast nodes and repopulates them
 // from latest tree.
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
-	shouldForceUpdate := tree.ndb.shouldForceFastStorageUpdate()
-	isFastStorageEnabled := tree.ndb.hasUpgradedToFastStorage() 
+	shouldForceUpdate := tree.ndb.shouldForceFastStorageUpgrade()
+	isFastStorageEnabled := tree.ndb.hasUpgradedToFastStorage()
 
-	if  isFastStorageEnabled && !shouldForceUpdate {
+	if !tree.IsUpgradeable() {
 		return false, nil
 	}
 

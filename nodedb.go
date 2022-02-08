@@ -62,7 +62,7 @@ var (
 	rootKeyFormat = NewKeyFormat('r', int64Size) // r<version>
 )
 
-var(
+var (
 	errInvalidFastStorageVersion = fmt.Sprintf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 )
 
@@ -253,16 +253,16 @@ func (ndb *nodeDB) getStorageVersion() string {
 	return ndb.storageVersion
 }
 
-// Returns true if the upgrade to fast storage has occurred, false otherwise.
+// Returns true if the upgrade to latest storage version has been performed, false otherwise.
 func (ndb *nodeDB) hasUpgradedToFastStorage() bool {
 	return ndb.getStorageVersion() >= fastStorageVersionValue
 }
 
 // Returns true if the upgrade to fast storage has occurred but it does not match the live state, false otherwise.
 // When the live state is not matched, we must force reupgrade.
-// We determine this by checking the version of the live state and the version of the live state wheb
-// fast storage was updated on disk the last time.
-func (ndb *nodeDB) shouldForceFastStorageUpdate() bool {
+// We determine this by checking the version of the live state and the version of the live state when
+// latest storage was updated on disk the last time.
+func (ndb *nodeDB) shouldForceFastStorageUpgrade() bool {
 	versions := strings.Split(ndb.storageVersion, fastStorageVersionDelimiter)
 
 	if len(versions) == 2 {

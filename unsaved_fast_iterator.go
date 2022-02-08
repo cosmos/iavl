@@ -15,7 +15,7 @@ var (
 )
 
 // UnsavedFastIterator is a dbm.Iterator for ImmutableTree
-// it iterates over the latest state via fast nodes, 
+// it iterates over the latest state via fast nodes,
 // taking advantage of keys being located in sequence in the underlying database.
 type UnsavedFastIterator struct {
 	start, end []byte
@@ -31,7 +31,7 @@ type UnsavedFastIterator struct {
 	unsavedFastNodeAdditions map[string]*FastNode
 
 	unsavedFastNodeRemovals map[string]interface{}
-	
+
 	unsavedFastNodesToSort []string
 
 	nextKey []byte
@@ -48,18 +48,18 @@ var _ dbm.Iterator = &UnsavedFastIterator{}
 func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions map[string]*FastNode, unsavedFastNodeRemovals map[string]interface{}) *UnsavedFastIterator {
 
 	iter := &UnsavedFastIterator{
-		start:        start,
-		end:          end,
-		err:          nil,
-		ascending:    ascending,
-		ndb:          ndb,
+		start:                    start,
+		end:                      end,
+		err:                      nil,
+		ascending:                ascending,
+		ndb:                      ndb,
 		unsavedFastNodeAdditions: unsavedFastNodeAdditions,
-		unsavedFastNodeRemovals: unsavedFastNodeRemovals,
-		unsavedFastNodesToSort: make([]string, 0),
-		nextKey: nil,
-		nextVal: nil,
-		nextUnsavedNodeIdx: 0,
-		fastIterator: NewFastIterator(start, end, ascending, ndb),
+		unsavedFastNodeRemovals:  unsavedFastNodeRemovals,
+		unsavedFastNodesToSort:   make([]string, 0),
+		nextKey:                  nil,
+		nextVal:                  nil,
+		nextUnsavedNodeIdx:       0,
+		fastIterator:             NewFastIterator(start, end, ascending, ndb),
 	}
 
 	// We need to ensure that we iterate over saved and unsaved state in order.
@@ -78,7 +78,7 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 	}
 
 	sort.Slice(iter.unsavedFastNodesToSort, func(i, j int) bool {
-		if ascending{
+		if ascending {
 			return iter.unsavedFastNodesToSort[i] < iter.unsavedFastNodesToSort[j]
 		} else {
 			return iter.unsavedFastNodesToSort[i] > iter.unsavedFastNodesToSort[j]
@@ -206,7 +206,7 @@ func (iter *UnsavedFastIterator) Next() {
 	}
 
 	// if only unsaved nodes are left, we can just iterate
-	if iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort)  {
+	if iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 		nextUnsavedKey := iter.unsavedFastNodesToSort[iter.nextUnsavedNodeIdx]
 		nextUnsavedNode := iter.unsavedFastNodeAdditions[nextUnsavedKey]
 
