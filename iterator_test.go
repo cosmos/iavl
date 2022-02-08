@@ -227,7 +227,7 @@ func TestIterator_Basic_Full_Ascending_Success(t *testing.T) {
 	t.Run("Unsaved Fast Iterator", func(t *testing.T) {
 		itr, mirror := setupUnsavedFastIterator(t, config)
 		require.True(t, itr.Valid())
-		require.Equal(t, 25 - 25 / 4 + 1, len(mirror)) // to account for removals
+		require.Equal(t, 25-25/4+1, len(mirror)) // to account for removals
 		performTest(t, itr, mirror)
 	})
 }
@@ -267,7 +267,7 @@ func TestIterator_Basic_Full_Descending_Success(t *testing.T) {
 
 	t.Run("Unsaved Fast Iterator", func(t *testing.T) {
 		itr, mirror := setupUnsavedFastIterator(t, config)
-		require.Equal(t, 25 - 25 / 4 + 1, len(mirror)) // to account for removals
+		require.Equal(t, 25-25/4+1, len(mirror)) // to account for removals
 		require.True(t, itr.Valid())
 		performTest(t, itr, mirror)
 	})
@@ -393,7 +393,7 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 
 	if len(mergedMirror) > 0 {
 		// Remove random keys
-		for i := 0; i < len(mergedMirror) / 4; i++ {
+		for i := 0; i < len(mergedMirror)/4; i++ {
 			randIndex := rand.Intn(len(mergedMirror))
 			keyToRemove := mergedMirror[randIndex][0]
 

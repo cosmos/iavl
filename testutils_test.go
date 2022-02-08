@@ -283,7 +283,7 @@ func assertIterator(t *testing.T, itr db.Iterator, mirror [][]string, ascending 
 	increment := 1
 	mirrorIdx := startIdx
 
-        // flip the iteration order over mirror if descending
+	// flip the iteration order over mirror if descending
 	if !ascending {
 		startIdx = endIdx - 1
 		endIdx = -1

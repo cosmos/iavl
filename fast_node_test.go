@@ -29,9 +29,9 @@ func TestFastNode_encode_decode(t *testing.T) {
 		"nil":   {nil, "", true},
 		"empty": {&FastNode{}, "0000", false},
 		"inner": {&FastNode{
-			key:       []byte{0x4},
-			versionLastUpdatedAt:   1,
-			value: []byte{0x2},
+			key:                  []byte{0x4},
+			versionLastUpdatedAt: 1,
+			value:                []byte{0x2},
 		}, "020102", false},
 	}
 	for name, tc := range testcases {
