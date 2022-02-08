@@ -12,11 +12,16 @@ BRANCH=${1:-master}
 REPOUSER=${2:-tendermint}
 
 export PATH=$PATH:/usr/local/go/bin
-export PATH=$PATH:$HOME/go/bin
+export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+export GOROOT=/usr/local/go
 export GOPATH=$HOME/go
 
-go get -u github.com/${REPOUSER}/iavl
-cd ~/go/src/github.com/${REPOUSER}/iavl
+export CGO_CFLAGS="-I/usr/local/include"
+export CGO_LDFLAGS="-L/usr/local/lib -lleveldb -lrocksdb -lstdc++ -lm -lz -lbz2 -lsnappy -llz4 -lzstd"
+
+cd ~/
+git clone https://github.com/${REPOUSER}/iavl
+cd iavl
 git checkout ${BRANCH}
 
 make bench > results.txt
