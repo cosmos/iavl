@@ -123,7 +123,7 @@ func (iter *UnsavedFastIterator) Valid() bool {
 		}
 	}
 
-	return iter.fastIterator.Valid() || iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) || iter.nextKey != nil || iter.nextVal != nil
+	return iter.fastIterator.Valid() || iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) || (iter.nextKey != nil && iter.nextVal != nil)
 }
 
 // Key implements dbm.Iterator
@@ -137,6 +137,8 @@ func (iter *UnsavedFastIterator) Value() []byte {
 }
 
 // Next implements dbm.Iterator
+// Its effectively running the constant space overhead algorithm for streaming through sorted lists:
+// the sorted lists being underlying fast nodes & unsavedFastNodeChanges
 func (iter *UnsavedFastIterator) Next() {
 	if iter.ndb == nil {
 		iter.err = errFastIteratorNilNdbGiven
@@ -159,9 +161,9 @@ func (iter *UnsavedFastIterator) Next() {
 
 		var isUnsavedNext bool
 		if iter.ascending {
-			isUnsavedNext = bytes.Compare([]byte(diskKeyStr), []byte(nextUnsavedKey)) >= 0
+			isUnsavedNext = diskKeyStr >= nextUnsavedKey
 		} else {
-			isUnsavedNext = bytes.Compare([]byte(diskKeyStr), []byte(nextUnsavedKey)) <= 0
+			isUnsavedNext = diskKeyStr <= nextUnsavedKey
 		}
 
 		if isUnsavedNext {
