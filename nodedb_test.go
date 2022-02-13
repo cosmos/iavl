@@ -35,8 +35,7 @@ func BenchmarkTreeString(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		sink, err := tree.String()
-		require.NoError(b, err)
+		sink, _ = tree.String()
 		require.NotNil(b, sink)
 	}
 
