@@ -4,6 +4,12 @@
 
 ### Improvements
 
+- [\#468](https://github.com/cosmos/iavl/pull/468) Fast storage optimization for queries and iterations
+
+## 0.17.3 (December 1, 2021)
+
+### Improvements
+
 - [\#445](https://github.com/cosmos/iavl/pull/445) Bump github.com/tendermint/tendermint to v0.35.0
 
 ### Bug Fixes
