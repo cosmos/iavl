@@ -291,7 +291,6 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode) error {
 	if err := ndb.batch.Set(ndb.fastNodeKey(node.key), buf.Bytes()); err != nil {
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
-	debug("BATCH SAVE %X %p\n", node.key, node)
 	ndb.cacheFastNode(node)
 	return nil
 }
@@ -510,7 +509,6 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 			var from, to int64
 			orphanKeyFormat.Scan(key, &to, &from)
 			if err := ndb.batch.Delete(key); err != nil {
-				debug("%v\n", err)
 				return err
 			}
 			if from > predecessor {

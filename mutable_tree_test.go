@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/cosmos/iavl/internal/encoding"
 	"github.com/cosmos/iavl/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
@@ -865,10 +866,10 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	// encode value
 	var buf bytes.Buffer
 	testValue := "test_value"
-	buf.Grow(encodeVarintSize(int64(latestFastStorageVersionOnDisk)) + encodeBytesSize([]byte(testValue)))
-	err := encodeVarint(&buf, int64(latestFastStorageVersionOnDisk))
+	buf.Grow(encoding.EncodeVarintSize(int64(latestFastStorageVersionOnDisk)) + encoding.EncodeBytesSize([]byte(testValue)))
+	err := encoding.EncodeVarint(&buf, int64(latestFastStorageVersionOnDisk))
 	require.NoError(t, err)
-	err = encodeBytes(&buf, []byte(testValue))
+	err = encoding.EncodeBytes(&buf, []byte(testValue))
 	require.NoError(t, err)
 	iterMock.EXPECT().Value().Return(buf.Bytes()).Times(1) // this is encoded as version 1 with value "2"
 	iterMock.EXPECT().Valid().Return(true).Times(1)

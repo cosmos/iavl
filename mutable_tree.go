@@ -550,15 +550,7 @@ func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
 }
 
 func (tree *MutableTree) enableFastStorageAndCommit() error {
-	debug("enabling fast storage, might take a while.")
 	var err error
-	defer func() {
-		if err != nil {
-			debug("failed to enable fast storage: %v\n", err)
-		} else {
-			debug("fast storage is enabled.")
-		}
-	}()
 
 	itr := NewIterator(nil, nil, true, tree.ImmutableTree)
 	defer itr.Close()

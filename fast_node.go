@@ -1,8 +1,10 @@
 package iavl
 
 import (
-	"github.com/pkg/errors"
 	"io"
+
+	"github.com/cosmos/iavl/internal/encoding"
+	"github.com/pkg/errors"
 )
 
 // NOTE: This file favors int64 as opposed to int for size/counts.
@@ -25,13 +27,13 @@ func NewFastNode(key []byte, value []byte, version int64) *FastNode {
 
 // DeserializeFastNode constructs an *FastNode from an encoded byte slice.
 func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
-	ver, n, cause := decodeVarint(buf)
+	ver, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding fastnode.version")
 	}
 	buf = buf[n:]
 
-	val, _, cause := decodeBytes(buf)
+	val, _, cause := encoding.DecodeBytes(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding fastnode.value")
 	}
@@ -46,7 +48,7 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 }
 
 func (node *FastNode) encodedSize() int {
-	n := encodeVarintSize(node.versionLastUpdatedAt) + encodeBytesSize(node.value)
+	n := encoding.EncodeVarintSize(node.versionLastUpdatedAt) + encoding.EncodeBytesSize(node.value)
 	return n
 }
 
@@ -55,11 +57,11 @@ func (node *FastNode) writeBytes(w io.Writer) error {
 	if node == nil {
 		return errors.New("cannot write nil node")
 	}
-	cause := encodeVarint(w, node.versionLastUpdatedAt)
+	cause := encoding.EncodeVarint(w, node.versionLastUpdatedAt)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version last updated at")
 	}
-	cause = encodeBytes(w, node.value)
+	cause = encoding.EncodeBytes(w, node.value)
 	if cause != nil {
 		return errors.Wrap(cause, "writing value")
 	}
