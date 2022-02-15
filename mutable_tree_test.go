@@ -1008,7 +1008,7 @@ func setupTreeAndMirrorForUpgrade(t *testing.T) (*MutableTree, [][]string) {
 	tree, _ := NewMutableTree(db, 0)
 
 	const numEntries = 100
-	var keyPrefix, valPrefix string = "key", "val"
+	var keyPrefix, valPrefix = "key", "val"
 
 	mirror := make([][]string, 0, numEntries)
 	for i := 0; i < numEntries; i++ {

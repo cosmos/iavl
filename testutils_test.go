@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"math/rand"
-	mrand "math/rand"
 
 	"github.com/stretchr/testify/require"
 	db "github.com/tendermint/tm-db"
@@ -89,11 +88,7 @@ func P(n *Node) string {
 }
 
 func randBytes(length int) []byte {
-	key := make([]byte, length)
-	// math.rand.Read always returns err=nil
-	// we do not need cryptographic randomness for this test:
-	mrand.Read(key)
-	return key
+	return iavlrand.RandBytes(length)
 }
 
 type traverser struct {
@@ -230,7 +225,7 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 
 			isUpdated := tree.Set([]byte(key), value)
 			require.True(t, isUpdated)
-			mirror[string(key)] = string(value)
+			mirror[key] = string(value)
 		case 2:
 			if numberOfRemovals == 0 {
 				continue
@@ -242,7 +237,7 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			val, isRemoved := tree.Remove([]byte(key))
 			require.True(t, isRemoved)
 			require.NotNil(t, val)
-			delete(mirror, string(key))
+			delete(mirror, key)
 		default:
 			t.Error("Invalid randOp", randOp)
 		}

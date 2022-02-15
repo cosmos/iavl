@@ -88,6 +88,11 @@ func (t *ImmutableTree) getNonMembershipProof(key []byte) (*ics23.NonExistencePr
 
 // getNonMembershipProofFast using fast storage
 // invariant: fast storage is enabled
+// TODO: need further investigation if this is going to be more optimal
+// So far, benchmarks have been showing an improvement. However, it makes the proof asymptotically slower O(log(n)) -> O(n)
+// Need to test on an extremely large tree. It might be the case that the fast proofs are still faster than regular due to less
+// disk accesses even though they are asymptotically slower.
+// nolint: unused
 func (t *ImmutableTree) getNonMembershipProofFast(key []byte) (*ics23.NonExistenceProof, error) {
 	index := 0
 	var prevKey []byte = nil

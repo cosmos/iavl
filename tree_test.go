@@ -1229,13 +1229,13 @@ func TestOrphans(t *testing.T) {
 		for j := 1; j < NUMUPDATES; j++ {
 			tree.Set(randBytes(2), randBytes(2))
 		}
-		_, _, err := tree.SaveVersion()
+		_, _, err = tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not error")
 	}
 
 	idx := iavlrand.RandPerm(NUMVERSIONS - 2)
 	for _, v := range idx {
-		err := tree.DeleteVersion(int64(v + 1))
+		err = tree.DeleteVersion(int64(v + 1))
 		require.NoError(err, "DeleteVersion should not error")
 	}
 

@@ -225,9 +225,8 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) bool {
 func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
 	if t.IsFastCacheEnabled() {
 		return NewFastIterator(start, end, ascending, t.ndb)
-	} else {
-		return NewIterator(start, end, ascending, t)
 	}
+	return NewIterator(start, end, ascending, t)
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.

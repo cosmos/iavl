@@ -277,7 +277,7 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() bool {
 // SaveNode saves a FastNode to disk.
 func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode) error {
 	if node.key == nil {
-		return fmt.Errorf("FastNode cannot have a nil value for key")
+		return fmt.Errorf("cannot have FastNode with a nil value for key")
 	}
 
 	// Save node bytes to db.
@@ -441,7 +441,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 			}
 			ndb.uncacheNode(hash)
 		} else if toVersion >= version-1 {
-			if err := ndb.batch.Delete(key); err != nil {
+			if err = ndb.batch.Delete(key); err != nil {
 				return err
 			}
 		}
@@ -454,7 +454,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 	// Delete the version root entries
 	err = ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(int64(math.MaxInt64)), func(k, v []byte) error {
-		if err := ndb.batch.Delete(k); err != nil {
+		if err = ndb.batch.Delete(k); err != nil {
 			return err
 		}
 		return nil
@@ -467,6 +467,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	// Delete fast node entries
 	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
+		// nolint: govet
 		fastNode, err := DeserializeFastNode(key, v)
 
 		if err != nil {
@@ -543,7 +544,7 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		fastNode := elem.Value.(*FastNode)
 		if fastNode.versionLastUpdatedAt >= fromVersion && fastNode.versionLastUpdatedAt < toVersion {
 			ndb.fastNodeCacheQueue.Remove(elem)
-			delete(ndb.fastNodeCache, string(key))
+			delete(ndb.fastNodeCache, key)
 		}
 	}
 
@@ -723,7 +724,7 @@ func (ndb *nodeDB) getPreviousVersion(version int64) int64 {
 // deleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) error {
 	if checkLatestVersion && version == ndb.getLatestVersion() {
-		return errors.New("Tried to delete latest version")
+		return errors.New("tried to delete latest version")
 	}
 	if err := ndb.batch.Delete(ndb.rootKey(version)); err != nil {
 		return err
@@ -791,7 +792,7 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 
 // Get iterator for fast prefix and error, if any
 func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	var startFormatted, endFormatted []byte = nil, nil
+	var startFormatted, endFormatted []byte
 
 	if start != nil {
 		startFormatted = fastKeyFormat.KeyBytes(start)
