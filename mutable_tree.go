@@ -134,16 +134,16 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool) {
 
 // Get returns the value of the specified key if it exists, or nil otherwise.
 // The returned value must not be modified, since it may point to data stored within IAVL.
-func (t *MutableTree) Get(key []byte) []byte {
-	if t.root == nil {
+func (tree *MutableTree) Get(key []byte) []byte {
+	if tree.root == nil {
 		return nil
 	}
 
-	if fastNode, ok := t.unsavedFastNodeAdditions[string(key)]; ok {
+	if fastNode, ok := tree.unsavedFastNodeAdditions[string(key)]; ok {
 		return fastNode.value
 	}
 
-	return t.ImmutableTree.Get(key)
+	return tree.ImmutableTree.Get(key)
 }
 
 // Import returns an importer for tree nodes previously exported by ImmutableTree.Export(),
@@ -160,16 +160,16 @@ func (tree *MutableTree) Import(version int64) (*Importer, error) {
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,
 // since they may point to data stored within IAVL. Returns true if stopped by callnack, false otherwise
-func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
-	if t.root == nil {
+func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
+	if tree.root == nil {
 		return false
 	}
 
-	if !t.IsFastCacheEnabled() {
-		return t.ImmutableTree.Iterate(fn)
+	if !tree.IsFastCacheEnabled() {
+		return tree.ImmutableTree.Iterate(fn)
 	}
 
-	itr := NewUnsavedFastIterator(nil, nil, true, t.ndb, t.unsavedFastNodeAdditions, t.unsavedFastNodeRemovals)
+	itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
@@ -181,8 +181,8 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
-func (t *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
-	return NewUnsavedFastIterator(start, end, ascending, t.ndb, t.unsavedFastNodeAdditions, t.unsavedFastNodeRemovals)
+func (tree *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
+	return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
