@@ -95,7 +95,7 @@ func TestSetStorageVersion_Success(t *testing.T) {
 	err := ndb.setFastStorageVersionToBatch()
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion+fastStorageVersionDelimiter+strconv.Itoa(int(ndb.getLatestVersion())), string(ndb.getStorageVersion()))
-	ndb.batch.Write()
+	require.NoError(t, ndb.batch.Write())
 }
 
 func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
