@@ -882,16 +882,15 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
-func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
-	roots := map[int64][]byte{}
-
-	ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) error {
+func (ndb *nodeDB) getRoots() (roots map[int64][]byte, err error) {
+	roots = make(map[int64][]byte)
+	err = ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) error {
 		var version int64
 		rootKeyFormat.Scan(k, &version)
 		roots[version] = v
 		return nil
 	})
-	return roots, nil
+	return roots, err
 }
 
 // SaveRoot creates an entry on disk for the given root, so that it can be
