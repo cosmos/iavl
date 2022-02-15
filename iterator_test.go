@@ -286,7 +286,8 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	secondHalfConfig := *config
 	secondHalfConfig.startByteToSet = breakpointByte
 
-	firstHalfMirror := setupMirrorForIterator(t, &firstHalfConfig, tree)
+	// First half of the mirror
+	mirror := setupMirrorForIterator(t, &firstHalfConfig, tree)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
@@ -301,26 +302,25 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	require.Equal(t, 0, len(tree.unsavedFastNodeRemovals))
 
 	// Merge the two halves
-	var mergedMirror [][]string
 	if config.ascending {
-		mergedMirror = append(firstHalfMirror, secondHalfMirror...)
+		mirror = append(mirror, secondHalfMirror...)
 	} else {
-		mergedMirror = append(secondHalfMirror, firstHalfMirror...)
+		mirror = append(secondHalfMirror, mirror...)
 	}
 
-	if len(mergedMirror) > 0 {
+	if len(mirror) > 0 {
 		// Remove random keys
-		for i := 0; i < len(mergedMirror)/4; i++ {
-			randIndex := rand.Intn(len(mergedMirror))
-			keyToRemove := mergedMirror[randIndex][0]
+		for i := 0; i < len(mirror)/4; i++ {
+			randIndex := rand.Intn(len(mirror))
+			keyToRemove := mirror[randIndex][0]
 
 			_, removed := tree.Remove([]byte(keyToRemove))
 			require.True(t, removed)
 
-			mergedMirror = append(mergedMirror[:randIndex], mergedMirror[randIndex+1:]...)
+			mirror = append(mirror[:randIndex], mirror[randIndex+1:]...)
 		}
 	}
 
 	itr := NewUnsavedFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
-	return itr, mergedMirror
+	return itr, mirror
 }

@@ -202,8 +202,14 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 	}
 
 	for numberOfSets+numberOfRemovals+numberOfUpdates > 0 {
-		randOp := rand.Intn(2)
-		if randOp == 0 && numberOfSets > 0 {
+		randOp := rand.Intn(3)
+
+		switch randOp {
+		case 0:
+			if numberOfSets == 0 {
+				continue
+			}
+
 			numberOfSets--
 
 			key := randBytes(keyValLength)
@@ -212,7 +218,11 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			isUpdated := tree.Set(key, value)
 			require.False(t, isUpdated)
 			mirror[string(key)] = string(value)
-		} else if randOp == 1 && numberOfUpdates > 0 {
+		case 1:
+
+			if numberOfUpdates == 0 {
+				continue
+			}
 			numberOfUpdates--
 
 			key := getRandomKeyFrom(mirror)
@@ -221,7 +231,10 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			isUpdated := tree.Set([]byte(key), value)
 			require.True(t, isUpdated)
 			mirror[string(key)] = string(value)
-		} else if numberOfRemovals > 0 {
+		case 2:
+			if numberOfRemovals == 0 {
+				continue
+			}
 			numberOfRemovals--
 
 			key := getRandomKeyFrom(mirror)
@@ -230,6 +243,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			require.True(t, isRemoved)
 			require.NotNil(t, val)
 			delete(mirror, string(key))
+		default:
+			t.Error("Invalid randOp", randOp)
 		}
 	}
 }

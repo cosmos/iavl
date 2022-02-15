@@ -8,8 +8,8 @@ import (
 // Provides a fixed-width lexicographically sortable []byte key format
 type KeyFormat struct {
 	layout    []int
-	prefix    byte
 	length    int
+	prefix    byte
 	unbounded bool
 }
 
@@ -69,14 +69,19 @@ func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
 	n := 1
 	for i, s := range segments {
 		l := kf.layout[i]
-		if l == 0 {
+
+		switch l {
+		case 0:
 			// If the expected segment length is unbounded, increase it by `string length`
 			n += len(s)
-		} else if len(s) > l {
-			panic(fmt.Errorf("length of segment %X provided to KeyFormat.KeyBytes() is longer than the %d bytes "+
-				"required by layout for segment %d", s, l, i))
-		} else { // Otherwise increase n by the segment length
+		default:
+			if len(s) > l {
+				panic(fmt.Errorf("length of segment %X provided to KeyFormat.KeyBytes() is longer than the %d bytes "+
+					"required by layout for segment %d", s, l, i))
+			}
+			// Otherwise increase n by the segment length
 			n += l
+
 		}
 		// Big endian so pad on left if not given the full width for this segment
 		copy(key[n-len(s):n], s)

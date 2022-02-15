@@ -174,7 +174,7 @@ func openDB() (dbm.DB, error) {
 // trapSignal will listen for any OS signal and invokes a callback function to
 // perform any necessary cleanup.
 func trapSignal(cb func()) {
-	var sigCh = make(chan os.Signal)
+	var sigCh = make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGTERM)
 	signal.Notify(sigCh, syscall.SIGINT)
