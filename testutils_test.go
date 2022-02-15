@@ -19,8 +19,8 @@ import (
 )
 
 type iteratorTestConfig struct {
-	startByteToSet, endByteToSet byte
 	startIterate, endIterate     []byte
+	startByteToSet, endByteToSet byte
 	ascending                    bool
 }
 
