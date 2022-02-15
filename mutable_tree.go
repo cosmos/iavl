@@ -686,7 +686,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	} else {
 		logger.Debug("SAVE TREE %v\n", version)
-		tree.ndb.SaveBranch(tree.root)
+		if _, err := tree.ndb.SaveBranch(tree.root); err != nil {
+			return nil, 0, err
+		}
 		tree.ndb.SaveOrphans(version, tree.orphans)
 		if err := tree.ndb.SaveRoot(tree.root, version); err != nil {
 			return nil, 0, err
