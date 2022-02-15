@@ -225,7 +225,7 @@ func (ndb *nodeDB) SaveFastNode(node *FastNode) error {
 
 // setFastStorageVersionToBatch sets storage version to fast where the version is
 // 1.1.0-<version of the current live state>. Returns error if storage version is incorrect or on
-// db error, nil otherwise. Requires changes to be comitted after to be persisted.
+// db error, nil otherwise. Requires changes to be committed after to be persisted.
 func (ndb *nodeDB) setFastStorageVersionToBatch() error {
 	var newVersion string
 	if ndb.storageVersion >= fastStorageVersionValue {
