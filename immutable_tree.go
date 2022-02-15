@@ -183,13 +183,14 @@ func (t *ImmutableTree) Get(key []byte) []byte {
 		return result
 	}
 
-	// cache node was updated later than the current tree. Use regular strategy for reading from the current tree
-	if fastNode.versionLastUpdatedAt > t.version {
-		_, result := t.root.get(t, key)
-		return result
+	if fastNode.versionLastUpdatedAt <= t.version {
+		return fastNode.value
 	}
 
-	return fastNode.value
+	// Otherwise the cached node was updated later than the current tree. In this case,
+	// we need to use the regular stategy for reading from the current tree to avoid staleness.
+	_, result := t.root.get(t, key)
+	return result
 }
 
 // GetByIndex gets the key and value at the specified index.
