@@ -27,7 +27,7 @@ type FastIterator struct {
 	fastIterator dbm.Iterator
 }
 
-var _ dbm.Iterator = &FastIterator{}
+var _ dbm.Iterator = (*FastIterator)(nil)
 
 func NewFastIterator(start, end []byte, ascending bool, ndb *nodeDB) *FastIterator {
 	iter := &FastIterator{
@@ -72,11 +72,7 @@ func (iter *FastIterator) Domain() ([]byte, []byte) {
 
 // Valid implements dbm.Iterator.
 func (iter *FastIterator) Valid() bool {
-	if iter.fastIterator == nil || !iter.fastIterator.Valid() {
-		return false
-	}
-
-	return iter.valid
+	return iter.fastIterator != nil && iter.fastIterator.Valid() && iter.valid
 }
 
 // Key implements dbm.Iterator
