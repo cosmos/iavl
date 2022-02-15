@@ -165,25 +165,23 @@ type Iterator struct {
 	t *traversal
 }
 
-var _ dbm.Iterator = &Iterator{}
+var _ dbm.Iterator = (*Iterator)(nil)
 
 // Returns a new iterator over the immutable tree. If the tree is nil, the iterator will be invalid.
 func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Iterator {
 	iter := &Iterator{
 		start: start,
 		end:   end,
-		valid: tree != nil,
-		t:     nil,
 	}
 
-	if iter.valid {
+	if tree  == nil {
+		iter.err = errIteratorNilTreeGiven
+   	} else {
+		iter.valid = true
 		iter.t = tree.root.newTraversal(tree, start, end, ascending, false, false)
 		// Move iterator before the first element
 		iter.Next()
-	} else {
-		iter.err = errIteratorNilTreeGiven
-	}
-
+   	}
 	return iter
 }
 
@@ -237,10 +235,7 @@ func (iter *Iterator) Close() error {
 
 // Error implements dbm.Iterator
 func (iter *Iterator) Error() error {
-	if iter.err != nil {
-		return iter.err
-	}
-	return nil
+	return iter.err
 }
 
 // IsFast returnts true if iterator uses fast strategy
