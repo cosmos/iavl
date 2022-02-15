@@ -40,21 +40,21 @@ func TestBasic(t *testing.T) {
 
 		idx, val := tree.GetWithIndex(key)
 		if val != nil {
-			t.Errorf("Expected no value to exist")
+			t.Error("Expected no value to exist")
 		}
 		if idx != 0 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
 		if string(val) != expected {
-			t.Errorf("Unexpected value %v", string(val))
+			t.Errorf("Unexpected value %s", val)
 		}
 
 		val = tree.Get(key)
 		if val != nil {
-			t.Errorf("Fast method - expected no value to exist")
+			t.Error("Fast method - expected no value to exist")
 		}
 		if string(val) != expected {
-			t.Errorf("Fast method - Unexpected value %v", string(val))
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
@@ -65,21 +65,21 @@ func TestBasic(t *testing.T) {
 
 		idx, val := tree.GetWithIndex(key)
 		if val == nil {
-			t.Errorf("Expected value to exist")
+			t.Error("Expected value to exist")
 		}
 		if idx != 0 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
 		if string(val) != expected {
-			t.Errorf("Unexpected value %v", string(val))
+			t.Errorf("Unexpected value %s", val)
 		}
 
 		val = tree.Get(key)
 		if val == nil {
-			t.Errorf("Fast method - expected value to exist")
+			t.Error("Fast method - expected value to exist")
 		}
 		if string(val) != expected {
-			t.Errorf("Fast method - Unexpected value %v", string(val))
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
@@ -90,21 +90,21 @@ func TestBasic(t *testing.T) {
 
 		idx, val := tree.GetWithIndex(key)
 		if val == nil {
-			t.Errorf("Expected value to exist")
+			t.Error("Expected value to exist")
 		}
 		if idx != 1 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
 		if string(val) != expected {
-			t.Errorf("Unexpected value %v", string(val))
+			t.Errorf("Unexpected value %s", val)
 		}
 
 		val = tree.Get(key)
 		if val == nil {
-			t.Errorf("Fast method - expected value to exist")
+			t.Error("Fast method - expected value to exist")
 		}
 		if string(val) != expected {
-			t.Errorf("Fast method - Unexpected value %v", string(val))
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
@@ -115,21 +115,21 @@ func TestBasic(t *testing.T) {
 
 		idx, val := tree.GetWithIndex(key)
 		if val != nil {
-			t.Errorf("Expected no value to exist")
+			t.Error("Expected no value to exist")
 		}
 		if idx != 2 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
 		if string(val) != expected {
-			t.Errorf("Unexpected value %v", string(val))
+			t.Errorf("Unexpected value %s", val)
 		}
 
 		val = tree.Get(key)
 		if val != nil {
-			t.Errorf("Fast method - expected no value to exist")
+			t.Error("Fast method - expected no value to exist")
 		}
 		if string(val) != expected {
-			t.Errorf("Fast method - Unexpected value %v", string(val))
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
@@ -140,21 +140,21 @@ func TestBasic(t *testing.T) {
 
 		idx, val := tree.GetWithIndex(key)
 		if val != nil {
-			t.Errorf("Expected no value to exist")
+			t.Error("Expected no value to exist")
 		}
 		if idx != 3 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
 		if string(val) != expected {
-			t.Errorf("Unexpected value %v", string(val))
+			t.Errorf("Unexpected value %s", val)
 		}
 
 		val = tree.Get(key)
 		if val != nil {
-			t.Errorf("Fast method - expected no value to exist")
+			t.Error("Fast method - expected no value to exist")
 		}
 		if string(val) != expected {
-			t.Errorf("Fast method - Unexpected value %v", string(val))
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 }
