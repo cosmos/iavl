@@ -204,7 +204,6 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 	for numberOfSets+numberOfRemovals+numberOfUpdates > 0 {
 		randOp := rand.Intn(2)
 		if randOp == 0 && numberOfSets > 0 {
-
 			numberOfSets--
 
 			key := randBytes(keyValLength)
@@ -214,7 +213,6 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			require.False(t, isUpdated)
 			mirror[string(key)] = string(value)
 		} else if randOp == 1 && numberOfUpdates > 0 {
-
 			numberOfUpdates--
 
 			key := getRandomKeyFrom(mirror)
@@ -224,7 +222,6 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			require.True(t, isUpdated)
 			mirror[string(key)] = string(value)
 		} else if numberOfRemovals > 0 {
-
 			numberOfRemovals--
 
 			key := getRandomKeyFrom(mirror)
@@ -238,16 +235,14 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 }
 
 func getRandomKeyFrom(mirror map[string]string) string {
-	keys := make([]string, 0, len(mirror))
 	for k := range mirror {
-		keys = append(keys, k)
+		return k
 	}
-	key := keys[rand.Intn(len(keys))]
-	return key
+	panic("no keys in mirror")
 }
 
 func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *MutableTree) [][]string {
-	mirror := make([][]string, 0)
+	var mirror [][]string
 
 	startByteToSet := config.startByteToSet
 	endByteToSet := config.endByteToSet

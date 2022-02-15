@@ -43,19 +43,16 @@ type UnsavedFastIterator struct {
 	fastIterator dbm.Iterator
 }
 
-var _ dbm.Iterator = &UnsavedFastIterator{}
+var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
 
 func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions map[string]*FastNode, unsavedFastNodeRemovals map[string]interface{}) *UnsavedFastIterator {
-
 	iter := &UnsavedFastIterator{
 		start:                    start,
 		end:                      end,
-		err:                      nil,
 		ascending:                ascending,
 		ndb:                      ndb,
 		unsavedFastNodeAdditions: unsavedFastNodeAdditions,
 		unsavedFastNodeRemovals:  unsavedFastNodeRemovals,
-		unsavedFastNodesToSort:   make([]string, 0),
 		nextKey:                  nil,
 		nextVal:                  nil,
 		nextUnsavedNodeIdx:       0,

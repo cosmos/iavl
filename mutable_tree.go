@@ -170,12 +170,12 @@ func (t *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped b
 	}
 
 	itr := NewUnsavedFastIterator(nil, nil, true, t.ndb, t.unsavedFastNodeAdditions, t.unsavedFastNodeRemovals)
+	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
 			return true
 		}
 	}
-
 	return false
 }
 
@@ -530,6 +530,7 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		// Therefore, there might exist stale fast nodes on disk. As a result, to avoid persisting the stale state, it might
 		// be worth to delete the fast nodes from disk.
 		fastItr := NewFastIterator(nil, nil, true, tree.ndb)
+		defer fastItr.Close()
 		for ; fastItr.Valid(); fastItr.Next() {
 			if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
 				return false, err
@@ -570,10 +571,7 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	if err = tree.ndb.Commit(); err != nil {
-		return err
-	}
-	return nil
+	return tree.ndb.Commit()
 }
 
 // GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is
@@ -725,12 +723,7 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	if err := tree.saveFastNodeRemovals(); err != nil {
 		return err
 	}
-
-	if err := tree.ndb.setFastStorageVersionToBatch(); err != nil {
-		return err
-	}
-
-	return nil
+	return tree.ndb.setFastStorageVersionToBatch()
 }
 
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*FastNode {

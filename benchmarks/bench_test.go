@@ -108,7 +108,9 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
-		itree.GetWithIndex(q)
+		index, value := itree.GetWithIndex(q)
+		require.True(b, index >= 0, "the index must not be negative")
+		require.NotNil(b, value, "the value should exist")
 	}
 }
 
@@ -117,7 +119,7 @@ func runIterationFast(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	for i := 0; i < b.N; i++ {
 		itr := t.ImmutableTree.Iterator(nil, nil, false)
 		iterate(b, itr, expectedSize)
-		itr.Close()
+		require.Nil(b, itr.Close(), ".Close should not error out")
 	}
 }
 
@@ -125,7 +127,7 @@ func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	for i := 0; i < b.N; i++ {
 		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree) // create slow iterator directly
 		iterate(b, itr, expectedSize)
-		itr.Close()
+		require.Nil(b, itr.Close(), ".Close should not error out")
 	}
 }
 
@@ -137,8 +139,8 @@ func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
 		keyValuePairs = append(keyValuePairs, [][]byte{itr.Key(), itr.Value()})
 	}
 	b.StopTimer()
-	if len(keyValuePairs) != expectedSize {
-		b.Errorf("iteration count mismatch: %d != %d", len(keyValuePairs), expectedSize)
+	if g, w := len(keyValuePairs), expectedSize; g != w {
+		b.Errorf("iteration count mismatch: got=%d, want=%d", g, w)
 	} else {
 		b.Logf("completed %d iterations", len(keyValuePairs))
 	}

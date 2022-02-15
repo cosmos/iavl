@@ -138,7 +138,6 @@ func BenchmarkGetNonMembership(b *testing.B) {
 	}
 
 	b.Run("fast", func(b *testing.B) {
-
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
 			caseIdx := rand.Intn(len(cases))
@@ -154,7 +153,6 @@ func BenchmarkGetNonMembership(b *testing.B) {
 			b.StartTimer()
 			performTest(tree, allkeys, tc.loc)
 		}
-
 	})
 
 	b.Run("regular", func(b *testing.B) {
