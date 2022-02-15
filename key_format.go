@@ -38,16 +38,11 @@ func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 			panic("Only the last item in a key format can be 0")
 		}
 	}
-	unboundedSize := false
-	if len(layout) >= 1 {
-		unboundedSize = layout[len(layout)-1] == 0
-	}
-
 	return &KeyFormat{
 		prefix:    prefix,
 		layout:    layout,
 		length:    length,
-		unbounded: unboundedSize,
+		unbounded: len(layout) > 0 && layout[len(layout)-1] == 0,
 	}
 }
 
@@ -65,26 +60,22 @@ func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
 	}
 
 	if kf.unbounded {
-		lastSegmentLen := 0
 		if len(segments) > 0 {
-			lastSegmentLen += len(segments[len(segments)-1])
+			keyLen += len(segments[len(segments)-1])
 		}
-		keyLen += lastSegmentLen
 	}
 	key := make([]byte, keyLen)
 	key[0] = kf.prefix
 	n := 1
 	for i, s := range segments {
 		l := kf.layout[i]
-		if l > 0 && len(s) > l {
-			panic(fmt.Errorf("length of segment %X provided to KeyFormat.KeyBytes() is longer than the %d bytes "+
-				"required by layout for segment %d", s, l, i))
-		}
-		// if expected segment length is unbounded, increase it by `string length`
-		// otherwise increase it by segment length `l`
 		if l == 0 {
+			// If the expected segment length is unbounded, increase it by `string length`
 			n += len(s)
-		} else {
+		} else if len(s) > l {
+			panic(fmt.Errorf("length of segment %X provided to KeyFormat.KeyBytes() is longer than the %d bytes "+
+			"required by layout for segment %d", s, l, i))
+		} else { // Otherwise increase n by the segment length
 			n += l
 		}
 		// Big endian so pad on left if not given the full width for this segment
