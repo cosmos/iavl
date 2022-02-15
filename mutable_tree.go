@@ -531,7 +531,9 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		// be worth to delete the fast nodes from disk.
 		fastItr := NewFastIterator(nil, nil, true, tree.ndb)
 		for ; fastItr.Valid(); fastItr.Next() {
-			tree.ndb.DeleteFastNode(fastItr.Key())
+			if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
+				return false, err
+			}
 		}
 		fastItr.Close()
 	}
@@ -773,7 +775,9 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 	sort.Strings(keysToSort)
 
 	for _, key := range keysToSort {
-		tree.ndb.DeleteFastNode([]byte(key))
+		if err := tree.ndb.DeleteFastNode([]byte(key)); err != nil {
+			return err
+		}
 	}
 	return nil
 }
