@@ -378,14 +378,19 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 		runKnownQueriesSlow(sub, t, keys)
 	})
 	//
-	b.Run("iteration-fast", func(sub *testing.B) {
-		sub.ReportAllocs()
-		runIterationFast(sub, t, initSize)
-	})
-	b.Run("iteration-slow", func(sub *testing.B) {
-		sub.ReportAllocs()
-		runIterationSlow(sub, t, initSize)
-	})
+	// Iterations for BenchmarkLevelDBLargeData timeout bencher in CI so
+	// we must skip them.
+	if b.Name() != "BenchmarkLevelDBLargeData" {
+		b.Run("iteration-fast", func(sub *testing.B) {
+			sub.ReportAllocs()
+			runIterationFast(sub, t, initSize)
+		})
+		b.Run("iteration-slow", func(sub *testing.B) {
+			sub.ReportAllocs()
+			runIterationSlow(sub, t, initSize)
+		})
+	}
+
 	//
 	b.Run("update", func(sub *testing.B) {
 		sub.ReportAllocs()
