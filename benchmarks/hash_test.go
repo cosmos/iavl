@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/cosmos/iavl"
+	"github.com/stretchr/testify/require"
 
 	_ "crypto/sha256"
 
@@ -45,7 +46,8 @@ func benchHasher(b *testing.B, hash hash.Hash, size int) {
 	for i := 0; i < b.N; i++ {
 		hash.Reset()
 		// grab a slice of size bytes from random string
-		hash.Write(inputs[i : i+size])
+		_, err := hash.Write(inputs[i : i+size])
+		require.NoError(b, err)
 		hash.Sum(nil)
 	}
 }

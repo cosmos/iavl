@@ -77,30 +77,6 @@ func OpenDB(dir string) (dbm.DB, error) {
 	return db, nil
 }
 
-// nolint: deadcode
-func PrintDBStats(db dbm.DB) {
-	count := 0
-	prefix := map[string]int{}
-	itr, err := db.Iterator(nil, nil)
-	if err != nil {
-		panic(err)
-	}
-
-	defer itr.Close()
-	for ; itr.Valid(); itr.Next() {
-		key := string(itr.Key()[:1])
-		prefix[key]++
-		count++
-	}
-	if err := itr.Error(); err != nil {
-		panic(err)
-	}
-	fmt.Printf("DB contains %d entries\n", count)
-	for k, v := range prefix {
-		fmt.Printf("  %s: %d\n", k, v)
-	}
-}
-
 // ReadTree loads an iavl tree from the directory
 // If version is 0, load latest, otherwise, load named version
 // The prefix represents which iavl tree you want to read. The iaviwer will always set a prefix.
