@@ -215,11 +215,18 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	ndb.cacheNode(node)
 }
 
-// SaveNode saves a FastNode to disk.
+// SaveNode saves a FastNode to disk and add to cache.
 func (ndb *nodeDB) SaveFastNode(node *FastNode) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	return ndb.saveFastNodeUnlocked(node)
+	return ndb.saveFastNodeUnlocked(node, true)
+}
+
+// SaveNode saves a FastNode to disk without adding to cache.
+func (ndb *nodeDB) SaveFastNodeNoCache(node *FastNode) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	return ndb.saveFastNodeUnlocked(node, false)
 }
 
 // setFastStorageVersionToBatch sets storage version to fast where the version is
@@ -274,7 +281,7 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() bool {
 }
 
 // SaveNode saves a FastNode to disk.
-func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode) error {
+func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode, shouldAddToCache bool) error {
 	if node.key == nil {
 		return fmt.Errorf("FastNode cannot have a nil value for key")
 	}
@@ -290,8 +297,9 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode) error {
 	if err := ndb.batch.Set(ndb.fastNodeKey(node.key), buf.Bytes()); err != nil {
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
-	debug("BATCH SAVE %X %p\n", node.key, node)
-	ndb.cacheFastNode(node)
+	if shouldAddToCache {
+		ndb.cacheFastNode(node)
+	}
 	return nil
 }
 

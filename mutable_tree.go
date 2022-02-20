@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"runtime"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -528,11 +530,16 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		// Therefore, there might exist stale fast nodes on disk. As a result, to avoid persisting the stale state, it might
 		// be worth to delete the fast nodes from disk.
 		fastItr := NewFastIterator(nil, nil, true, tree.ndb)
+		defer fastItr.Close()
 		for ; fastItr.Valid(); fastItr.Next() {
-			tree.ndb.DeleteFastNode(fastItr.Key())
+			if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
+				return false, err
+			}
 		}
-		fastItr.Close()
 	}
+
+	// Force garbage collection before we proceed to enabling fast storage.
+	runtime.GC()
 
 	if err := tree.enableFastStorageAndCommit(); err != nil {
 		tree.ndb.storageVersion = defaultStorageVersionValue
@@ -558,10 +565,45 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		}
 	}()
 
+	// We start a new thread to keep on checking if we are above 4GB, and if so garbage collect.
+	// This thread only lasts during the fast node migration.
+	// This is done to keep RAM usage down.
+	done := make(chan struct{})
+	defer func() {
+		done <- struct{}{}
+		close(done)
+	}()
+
+	go func ()  {
+		timer := time.NewTimer(time.Second)
+		var m runtime.MemStats
+
+		for {
+			// Sample the current memory usage
+			runtime.ReadMemStats(&m)
+
+			if m.Alloc > 4 * 1024 * 1024 * 1024 {
+				// If we are using more than 4GB of memory, we should trigger garbage collection
+				// to free up some memory.
+				runtime.GC()
+			}
+
+			select {
+			case <-timer.C:
+				timer.Reset(time.Second)
+			case <-done:
+				if !timer.Stop() {
+					<-timer.C
+				}
+				return
+			}
+		}
+	}()
+
 	itr := NewIterator(nil, nil, true, tree.ImmutableTree)
 	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
-		if err = tree.ndb.SaveFastNode(NewFastNode(itr.Key(), itr.Value(), tree.version)); err != nil {
+		if err = tree.ndb.SaveFastNodeNoCache(NewFastNode(itr.Key(), itr.Value(), tree.version)); err != nil {
 			return err
 		}
 	}
