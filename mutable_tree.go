@@ -777,7 +777,6 @@ func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *FastNode) {
 	delete(tree.unsavedFastNodeRemovals, string(key))
 	tree.unsavedFastNodeAdditions[string(key)] = node
-	tree.ndb.cacheFastNode(node)
 }
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
@@ -798,7 +797,6 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
 	delete(tree.unsavedFastNodeAdditions, string(key))
 	tree.unsavedFastNodeRemovals[string(key)] = true
-	tree.ndb.uncacheFastNode(key)
 }
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
