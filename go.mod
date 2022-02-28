@@ -32,9 +32,9 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20200815110645-5c35d600f0ca // indirect
 	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
-	go.etcd.io/bbolt v1.3.5 // indirect
-	golang.org/x/net v0.0.0-20211005001312-d4b1ae081e3b // indirect
-	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c // indirect
+	go.etcd.io/bbolt v1.3.6 // indirect
+	golang.org/x/net v0.0.0-20211208012354-db4efeb81f4b // indirect
+	golang.org/x/sys v0.0.0-20220114195835-da31bd327af9 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
