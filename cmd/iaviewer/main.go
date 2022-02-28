@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/iavl"
 	dbm "github.com/tendermint/tm-db"
+
+	"github.com/cosmos/iavl"
 )
 
 // TODO: make this configurable?
