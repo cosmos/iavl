@@ -183,8 +183,11 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
-func (tree *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
-	return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+func (t *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
+	if t.IsFastCacheEnabled() {
+		return NewUnsavedFastIterator(start, end, ascending, t.ndb, t.unsavedFastNodeAdditions, t.unsavedFastNodeRemovals)
+	}
+	return t.ImmutableTree.Iterator(start, end, ascending)
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
@@ -777,6 +780,7 @@ func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *FastNode) {
 	delete(tree.unsavedFastNodeRemovals, string(key))
 	tree.unsavedFastNodeAdditions[string(key)] = node
+	tree.ndb.cacheFastNode(node)
 }
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
@@ -797,6 +801,7 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
 	delete(tree.unsavedFastNodeAdditions, string(key))
 	tree.unsavedFastNodeRemovals[string(key)] = true
+	tree.ndb.uncacheFastNode(key)
 }
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
