@@ -151,11 +151,12 @@ func (ndb *nodeDB) GetNode(hash []byte) *Node {
 }
 
 func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
 	if !ndb.hasUpgradedToFastStorage() {
 		return nil, errors.New("storage version is not fast")
 	}
+
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 
 	if len(key) == 0 {
 		return nil, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
@@ -232,9 +233,6 @@ func (ndb *nodeDB) SaveFastNodeNoCache(node *FastNode) error {
 // 1.1.0-<version of the current live state>. Returns error if storage version is incorrect or on
 // db error, nil otherwise. Requires changes to be comitted after to be persisted.
 func (ndb *nodeDB) setFastStorageVersionToBatch() error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	var newVersion string
 	if ndb.storageVersion >= fastStorageVersionValue {
 		// Storage version should be at index 0 and latest fast cache version at index 1
@@ -272,8 +270,6 @@ func (ndb *nodeDB) hasUpgradedToFastStorage() bool {
 // We determine this by checking the version of the live state and the version of the live state when
 // latest storage was updated on disk the last time.
 func (ndb *nodeDB) shouldForceFastStorageUpgrade() bool {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
 	versions := strings.Split(ndb.storageVersion, fastStorageVersionDelimiter)
 
 	if len(versions) == 2 {
@@ -285,7 +281,6 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() bool {
 }
 
 // SaveNode saves a FastNode to disk.
-// CONTRACT: the caller must serizlize access to this method through ndb.mtx.
 func (ndb *nodeDB) saveFastNodeUnlocked(node *FastNode, shouldAddToCache bool) error {
 	if node.key == nil {
 		return fmt.Errorf("FastNode cannot have a nil value for key")
@@ -440,6 +435,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 			if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
 				return err
 			}
+			ndb.uncacheNode(hash)
 		} else if toVersion >= version-1 {
 			if err := ndb.batch.Delete(key); err != nil {
 				return err
@@ -474,9 +470,10 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		}
 
 		if version <= fastNode.versionLastUpdatedAt {
-			if err := ndb.DeleteFastNode(fastNode.key); err != nil {
+			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
 				return err
 			}
+			ndb.uncacheFastNode(key)
 		}
 		return nil
 	})
@@ -562,8 +559,6 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 }
 
 func (ndb *nodeDB) DeleteFastNode(key []byte) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
@@ -835,7 +830,6 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 	}
 }
 
-// CONTRACT: the caller must serizlize access to this method through ndb.mtx.
 func (ndb *nodeDB) uncacheFastNode(key []byte) {
 	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
 		ndb.fastNodeCacheQueue.Remove(elem)
@@ -845,7 +839,6 @@ func (ndb *nodeDB) uncacheFastNode(key []byte) {
 
 // Add a node to the cache and pop the least recently used node if we've
 // reached the cache size limit.
-// CONTRACT: the caller must serizlize access to this method through ndb.mtx.
 func (ndb *nodeDB) cacheFastNode(node *FastNode) {
 	elem := ndb.fastNodeCacheQueue.PushBack(node)
 	ndb.fastNodeCache[string(node.key)] = elem
