@@ -559,6 +559,8 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 }
 
 func (ndb *nodeDB) DeleteFastNode(key []byte) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
