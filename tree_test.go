@@ -65,7 +65,10 @@ func TestVersionedRandomTree(t *testing.T) {
 		}
 		tree.SaveVersion()
 	}
-	require.Equal(versions, len(tree.ndb.roots()), "wrong number of roots")
+	roots, err := tree.ndb.getRoots()
+	require.NoError(err)
+
+	require.Equal(versions, len(roots), "wrong number of roots")
 	require.Equal(versions*keysPerVersion, len(tree.ndb.leafNodes()), "wrong number of nodes")
 
 	// Before deleting old versions, we should have equal or more nodes in the

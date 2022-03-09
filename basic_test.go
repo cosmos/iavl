@@ -108,7 +108,7 @@ func TestUnit(t *testing.T) {
 
 	expectHash := func(tree *ImmutableTree, hashCount int64) {
 		// ensure number of new hash calculations is as expected.
-		hash, count := tree.hashWithCount()
+		hash, count := tree.root.hashWithCount()
 		if count != hashCount {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
@@ -118,7 +118,7 @@ func TestUnit(t *testing.T) {
 			return false
 		})
 		// ensure that the new hash after nuking is the same as the old.
-		newHash, _ := tree.hashWithCount()
+		newHash, _ := tree.root.hashWithCount()
 		if !bytes.Equal(hash, newHash) {
 			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
 		}
