@@ -465,11 +465,3 @@ func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascend
 	}
 	return stop
 }
-
-// Only used in testing...
-func (node *Node) lmd(t *ImmutableTree) *Node {
-	if node.isLeaf() {
-		return node
-	}
-	return node.getLeftNode(t).lmd(t)
-}
