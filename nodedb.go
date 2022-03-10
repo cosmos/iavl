@@ -489,6 +489,7 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte)) {
 }
 
 // Traverse all keys.
+//nolint:unused
 func (ndb *nodeDB) traverse(fn func(key, value []byte)) {
 	ndb.traverseRange(nil, nil, fn)
 }
@@ -572,6 +573,7 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
+//nolint:unparam
 func (ndb *nodeDB) getRoots() (map[int64][]byte, error) {
 	roots := map[int64][]byte{}
 
@@ -632,6 +634,7 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 
 // Utility and test functions
 
+//nolint:unused
 func (ndb *nodeDB) leafNodes() []*Node {
 	leaves := []*Node{}
 
@@ -643,6 +646,7 @@ func (ndb *nodeDB) leafNodes() []*Node {
 	return leaves
 }
 
+//nolint:unused
 func (ndb *nodeDB) nodes() []*Node {
 	nodes := []*Node{}
 
@@ -652,6 +656,7 @@ func (ndb *nodeDB) nodes() []*Node {
 	return nodes
 }
 
+//nolint:unused
 func (ndb *nodeDB) orphans() [][]byte {
 	orphans := [][]byte{}
 
@@ -661,14 +666,10 @@ func (ndb *nodeDB) orphans() [][]byte {
 	return orphans
 }
 
-func (ndb *nodeDB) roots() map[int64][]byte {
-	roots, _ := ndb.getRoots()
-	return roots
-}
-
 // Not efficient.
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
+//nolint:unused
 func (ndb *nodeDB) size() int {
 	size := 0
 	ndb.traverse(func(k, v []byte) {
