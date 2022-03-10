@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-## 0.18.0 (March 1, 2022)
+## 0.18.0 (March 10, 2022)
 
 ### Breaking Changes
 - Bumped Tendermint to 0.35.1
