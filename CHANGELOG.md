@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improvements
+
+- [#483](https://github.com/cosmos/iavl/pull/483) Allow delete latest version.
+
 ## 0.18.0 (March 10, 2022)
 
 ### Breaking Changes

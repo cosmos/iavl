@@ -281,8 +281,8 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 	defer ndb.mtx.Unlock()
 
 	latest := ndb.getLatestVersion()
-	if latest < toVersion {
-		return errors.Errorf("cannot delete latest saved version (%d)", latest)
+	if latest+1 < toVersion {
+		return errors.Errorf("cannot delete future versions [%d..%d)", latest+1, toVersion)
 	}
 
 	predecessor := ndb.getPreviousVersion(fromVersion)
