@@ -525,7 +525,6 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 					panic(err)
 				}
 				ndb.uncacheNode(hash)
-				ndb.uncacheFastNode(key)
 			} else {
 				ndb.saveOrphan(hash, from, predecessor)
 			}
@@ -533,14 +532,6 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		})
 		if err != nil {
 			return err
-		}
-	}
-
-	for key, elem := range ndb.fastNodeCache {
-		fastNode := elem.Value.(*FastNode)
-		if fastNode.versionLastUpdatedAt >= fromVersion && fastNode.versionLastUpdatedAt < toVersion {
-			ndb.fastNodeCacheQueue.Remove(elem)
-			delete(ndb.fastNodeCache, string(key))
 		}
 	}
 
