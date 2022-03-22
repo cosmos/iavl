@@ -35,7 +35,7 @@ type MutableTree struct {
 	unsavedFastNodeRemovals  map[string]interface{} // FastNodes that have not yet been removed from disk
 	ndb                      *nodeDB
 
-	mtx sync.RWMutex // versions Read/write lock.
+	mtx sync.Mutex
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -68,8 +68,8 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
-	tree.mtx.RLock()
-	defer tree.mtx.RUnlock()
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 
 	if tree.allRootLoaded {
 		return tree.versions[version]
@@ -86,8 +86,8 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 
 // AvailableVersions returns all available versions in ascending order
 func (tree *MutableTree) AvailableVersions() []int {
-	tree.mtx.RLock()
-	defer tree.mtx.RUnlock()
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 
 	res := make([]int, 0, len(tree.versions))
 	for i, v := range tree.versions {
