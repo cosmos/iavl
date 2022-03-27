@@ -106,7 +106,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		nodeCacheSize:      cacheSize,
 		nodeCacheQueue:     list.New(),
 		fastNodeCache:      make(map[string]*list.Element),
-		fastNodeCacheSize:  cacheSize,
+		fastNodeCacheSize:  100000,
 		fastNodeCacheQueue: list.New(),
 		versionReaders:     make(map[int64]uint32, 8),
 		storageVersion:     string(storeVersion),
