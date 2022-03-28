@@ -68,7 +68,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	roots, err := tree.ndb.getRoots()
 	require.NoError(err)
 	require.Equal(versions, len(roots), "wrong number of roots")
-	
+
 	leafNodes, err := tree.ndb.leafNodes()
 	require.Nil(err)
 	require.Equal(versions*keysPerVersion, len(leafNodes), "wrong number of nodes")
