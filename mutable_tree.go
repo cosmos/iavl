@@ -183,11 +183,11 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
-func (t *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
-	if t.IsFastCacheEnabled() {
-		return NewUnsavedFastIterator(start, end, ascending, t.ndb, t.unsavedFastNodeAdditions, t.unsavedFastNodeRemovals)
+func (tree *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
+	if tree.IsFastCacheEnabled() {
+		return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 	}
-	return t.ImmutableTree.Iterator(start, end, ascending)
+	return tree.ImmutableTree.Iterator(start, end, ascending)
 }
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool) {
@@ -521,6 +521,7 @@ func (tree *MutableTree) IsUpgradeable() bool {
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
 // Checks whether the fast cache on disk matches latest live state. If not, deletes all existing fast nodes and repopulates them
 // from latest tree.
+// nolint: unparam
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
 	shouldForceUpdate := tree.ndb.shouldForceFastStorageUpgrade()
 	isFastStorageEnabled := tree.ndb.hasUpgradedToFastStorage()
@@ -768,11 +769,13 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return tree.ndb.setFastStorageVersionToBatch()
 }
 
+// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*FastNode {
 	return tree.unsavedFastNodeAdditions
 }
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
+// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 	return tree.unsavedFastNodeRemovals
 }

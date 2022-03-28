@@ -476,7 +476,6 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	// Delete fast node entries
 	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
-		// nolint: govet
 		fastNode, err := DeserializeFastNode(key, v)
 
 		if err != nil {
@@ -750,6 +749,7 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte) er
 }
 
 // Traverse all keys and return error if any, nil otherwise
+// nolint: unused
 func (ndb *nodeDB) traverse(fn func(key, value []byte) error) error {
 	return ndb.traverseRange(nil, nil, fn)
 }
@@ -885,7 +885,6 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
-//nolint:unparam
 func (ndb *nodeDB) getRoots() (roots map[int64][]byte, err error) {
 	roots = make(map[int64][]byte)
 	err = ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) error {
@@ -946,6 +945,7 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 
 // Utility and test functions
 
+// nolint: unused
 func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	leaves := []*Node{}
 
@@ -963,6 +963,7 @@ func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	return leaves, nil
 }
 
+// nolint: unused
 func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
@@ -978,6 +979,7 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 	return nodes, nil
 }
 
+// nolint: unused
 func (ndb *nodeDB) orphans() ([][]byte, error) {
 	orphans := [][]byte{}
 
