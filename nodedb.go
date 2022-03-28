@@ -899,6 +899,7 @@ func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
 	return ndb.db.Get(ndb.rootKey(version))
 }
 
+//nolint:unparam
 func (ndb *nodeDB) getRoots() (roots map[int64][]byte, err error) {
 	roots = make(map[int64][]byte)
 	err = ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) error {
@@ -1006,14 +1007,10 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 	return orphans, nil
 }
 
-func (ndb *nodeDB) roots() map[int64][]byte {
-	roots, _ := ndb.getRoots()
-	return roots
-}
-
 // Not efficient.
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
+//nolint:unused
 func (ndb *nodeDB) size() int {
 	size := 0
 	err := ndb.traverse(func(k, v []byte) error {

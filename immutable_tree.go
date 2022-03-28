@@ -89,12 +89,11 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 
 	// recurse on inner node
 	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
-	left := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder)
 	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
-
-	left = append(left, here)
-	left = append(left, right...)
-	return left
+	result := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder) // left
+	result = append(result, here)
+	result = append(result, right...)
+	return result
 }
 
 // Size returns the number of leaf nodes in the tree.
@@ -130,11 +129,6 @@ func (t *ImmutableTree) Has(key []byte) bool {
 func (t *ImmutableTree) Hash() []byte {
 	hash, _ := t.root.hashWithCount()
 	return hash
-}
-
-// hashWithCount returns the root hash and hash count.
-func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
-	return t.root.hashWithCount()
 }
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
@@ -282,6 +276,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 }
 
 // nodeSize is like Size, but includes inner nodes too.
+//nolint:unused
 func (t *ImmutableTree) nodeSize() int {
 	size := 0
 	t.root.traverse(t, true, func(n *Node) bool {

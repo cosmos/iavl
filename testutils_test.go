@@ -345,3 +345,10 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 		}
 	}
 }
+
+func (node *Node) lmd(t *ImmutableTree) *Node {
+	if node.isLeaf() {
+		return node
+	}
+	return node.getLeftNode(t).lmd(t)
+}

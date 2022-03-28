@@ -1,10 +1,8 @@
 package iavl
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 )
 
@@ -79,33 +77,6 @@ func cpIncr(bz []byte) (ret []byte) {
 		}
 	}
 	return []byte{0x00}
-}
-
-type byteslices [][]byte
-
-func (bz byteslices) Len() int {
-	return len(bz)
-}
-
-func (bz byteslices) Less(i, j int) bool {
-	switch bytes.Compare(bz[i], bz[j]) {
-	case -1:
-		return true
-	case 0, 1:
-		return false
-	default:
-		panic("should not happen")
-	}
-}
-
-func (bz byteslices) Swap(i, j int) {
-	bz[j], bz[i] = bz[i], bz[j]
-}
-
-func sortByteSlices(src [][]byte) [][]byte {
-	bzz := byteslices(src)
-	sort.Sort(bzz)
-	return bzz
 }
 
 // Colors: ------------------------------------------------
