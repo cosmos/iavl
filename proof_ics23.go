@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 
@@ -29,32 +28,7 @@ func (t *ImmutableTree) GetMembershipProof(key []byte) (*ics23.CommitmentProof, 
 GetNonMembershipProof will produce a CommitmentProof that the given key doesn't exist in the iavl tree.
 If the key exists in the tree, this will return an error.
 */
-func (t *ImmutableTree) GetNonMembershipProof(key []byte) (proof *ics23.CommitmentProof, err error) {
-	var nonexist *ics23.NonExistenceProof
-	// TODO: to investigate more and potentially enable fast storage
-	// introduced in: https://github.com/osmosis-labs/iavl/pull/12
-	// if t.IsFastCacheEnabled() {
-	// 	nonexist, err = t.getNonMembershipProofFast(key)
-	// } else {
-	// 	nonexist, err = t.getNonMembershipProof(key)
-	// }
-	nonexist, err = t.getNonMembershipProof(key)
-
-	if err != nil {
-		return nil, err
-	}
-
-	proof = &ics23.CommitmentProof{
-		Proof: &ics23.CommitmentProof_Nonexist{
-			Nonexist: nonexist,
-		},
-	}
-	return proof, nil
-}
-
-// getNonMembershipProof using regular strategy
-// invariant: fast storage is enabled
-func (t *ImmutableTree) getNonMembershipProof(key []byte) (*ics23.NonExistenceProof, error) {
+func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
 	// idx is one node right of what we want....
 	idx, val := t.GetWithIndex(key)
 	if val != nil {
@@ -83,62 +57,12 @@ func (t *ImmutableTree) getNonMembershipProof(key []byte) (*ics23.NonExistencePr
 		}
 	}
 
-	return nonexist, nil
-}
-
-// getNonMembershipProofFast using fast storage
-// invariant: fast storage is enabled
-// TODO: need further investigation if this is going to be more optimal
-// So far, benchmarks have been showing an improvement. However, it makes the proof asymptotically slower O(log(n)) -> O(n)
-// Need to test on an extremely large tree. It might be the case that the fast proofs are still faster than regular due to less
-// disk accesses even though they are asymptotically slower.
-// nolint: unused
-func (t *ImmutableTree) getNonMembershipProofFast(key []byte) (*ics23.NonExistenceProof, error) {
-	index := 0
-	var prevKey []byte = nil
-	var nextKey []byte = nil
-
-	done := false
-	itr := t.Iterator(nil, nil, true)
-	defer itr.Close()
-	for ; !done && itr.Valid(); itr.Next() {
-		switch bytes.Compare(itr.Key(), key) {
-		case -1:
-			index++
-			prevKey = itr.Key()
-		case 1:
-			nextKey = itr.Key()
-			done = true
-		default:
-			done = true
-		}
+	proof := &ics23.CommitmentProof{
+		Proof: &ics23.CommitmentProof_Nonexist{
+			Nonexist: nonexist,
+		},
 	}
-
-	// If next was not set, that means we found the key during iterations above
-	if done && nextKey == nil {
-		return nil, fmt.Errorf("cannot create NonExistanceProof when Key in State")
-	}
-
-	var err error
-	nonexist := &ics23.NonExistenceProof{
-		Key: key,
-	}
-
-	if prevKey != nil {
-		nonexist.Left, err = createExistenceProof(t, prevKey)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	if nextKey != nil {
-		nonexist.Right, err = createExistenceProof(t, nextKey)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return nonexist, nil
+	return proof, nil
 }
 
 func createExistenceProof(tree *ImmutableTree, key []byte) (*ics23.ExistenceProof, error) {
