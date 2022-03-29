@@ -577,7 +577,7 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		close(done)
 	}()
 
-	go func ()  {
+	go func() {
 		timer := time.NewTimer(time.Second)
 		var m runtime.MemStats
 
@@ -585,7 +585,7 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 			// Sample the current memory usage
 			runtime.ReadMemStats(&m)
 
-			if m.Alloc > 4 * 1024 * 1024 * 1024 {
+			if m.Alloc > 4*1024*1024*1024 {
 				// If we are using more than 4GB of memory, we should trigger garbage collection
 				// to free up some memory.
 				runtime.GC()

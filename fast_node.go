@@ -1,8 +1,10 @@
 package iavl
 
 import (
-	"github.com/pkg/errors"
 	"io"
+
+	"github.com/cosmos/iavl/cache"
+	"github.com/pkg/errors"
 )
 
 // NOTE: This file favors int64 as opposed to int for size/counts.
@@ -13,6 +15,8 @@ type FastNode struct {
 	versionLastUpdatedAt int64
 	value                []byte
 }
+
+var _ cache.Node = (*FastNode)(nil)
 
 // NewFastNode returns a new fast node from a value and version.
 func NewFastNode(key []byte, value []byte, version int64) *FastNode {
@@ -43,6 +47,10 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 	}
 
 	return fastNode, nil
+}
+
+func (fn *FastNode) GetKey() []byte {
+	return fn.key
 }
 
 func (node *FastNode) encodedSize() int {
