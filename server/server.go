@@ -78,7 +78,7 @@ func (s *IAVLServer) Get(_ context.Context, req *pb.GetRequest) (*pb.GetResponse
 	s.rwLock.RLock()
 	defer s.rwLock.RUnlock()
 
-	idx, value := s.tree.Get(req.Key)
+	idx, value := s.tree.GetWithIndex(req.Key)
 	return &pb.GetResponse{Index: idx, Value: value, NotFound: value == nil}, nil
 
 }
@@ -139,7 +139,7 @@ func (s *IAVLServer) GetVersioned(_ context.Context, req *pb.GetVersionedRequest
 		return nil, err
 	}
 
-	idx, value := iTree.Get(req.Key)
+	idx, value := iTree.GetWithIndex(req.Key)
 
 	return &pb.GetResponse{Index: idx, Value: value}, nil
 }

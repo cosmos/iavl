@@ -19,7 +19,6 @@ func randBytes(length int) []byte {
 	key := make([]byte, length)
 	// math.rand.Read always returns err=nil
 	// we do not need cryptographic randomness for this test:
-	//nolint:gosec
 	rand.Read(key)
 	return key
 }
@@ -57,18 +56,92 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	}
 }
 
-func runQueries(b *testing.B, t *iavl.MutableTree, keyLen int) {
+// queries random keys against live state. Keys are almost certainly not in the tree.
+func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
+	require.True(b, t.IsFastCacheEnabled())
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
 		t.Get(q)
 	}
 }
 
-func runKnownQueries(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+// queries keys that are known to be in state
+func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+	require.True(b, t.IsFastCacheEnabled()) // to ensure fast storage is enabled
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
 		t.Get(q)
+	}
+}
+
+func runQueriesSlow(b *testing.B, t *iavl.MutableTree, keyLen int) {
+	b.StopTimer()
+	// Save version to get an old immutable tree to query against,
+	// Fast storage is not enabled on old tree versions, allowing us to bench the desired behavior.
+	_, version, err := t.SaveVersion()
+	require.NoError(b, err)
+
+	itree, err := t.GetImmutable(version - 1)
+	require.NoError(b, err)
+	require.False(b, itree.IsFastCacheEnabled()) // to ensure fast storage is not enabled
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		q := randBytes(keyLen)
+		itree.GetWithIndex(q)
+	}
+}
+
+func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
+	b.StopTimer()
+	// Save version to get an old immutable tree to query against,
+	// Fast storage is not enabled on old tree versions, allowing us to bench the desired behavior.
+	_, version, err := t.SaveVersion()
+	require.NoError(b, err)
+
+	itree, err := t.GetImmutable(version - 1)
+	require.NoError(b, err)
+	require.False(b, itree.IsFastCacheEnabled()) // to ensure fast storage is not enabled
+	b.StartTimer()
+	l := int32(len(keys))
+	for i := 0; i < b.N; i++ {
+		q := keys[rand.Int31n(l)]
+		index, value := itree.GetWithIndex(q)
+		require.True(b, index >= 0, "the index must not be negative")
+		require.NotNil(b, value, "the value should exist")
+	}
+}
+
+func runIterationFast(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+	require.True(b, t.IsFastCacheEnabled()) // to ensure fast storage is enabled
+	for i := 0; i < b.N; i++ {
+		itr := t.ImmutableTree.Iterator(nil, nil, false)
+		iterate(b, itr, expectedSize)
+		require.Nil(b, itr.Close(), ".Close should not error out")
+	}
+}
+
+func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
+	for i := 0; i < b.N; i++ {
+		itr := iavl.NewIterator(nil, nil, false, t.ImmutableTree) // create slow iterator directly
+		iterate(b, itr, expectedSize)
+		require.Nil(b, itr.Close(), ".Close should not error out")
+	}
+}
+
+func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
+	b.StartTimer()
+	keyValuePairs := make([][][]byte, 0, expectedSize)
+	for i := 0; i < expectedSize && itr.Valid(); i++ {
+		itr.Next()
+		keyValuePairs = append(keyValuePairs, [][]byte{itr.Key(), itr.Value()})
+	}
+	b.StopTimer()
+	if g, w := len(keyValuePairs), expectedSize; g != w {
+		b.Errorf("iteration count mismatch: got=%d, want=%d", g, w)
+	} else {
+		b.Logf("completed %d iterations", len(keyValuePairs))
 	}
 }
 
@@ -132,7 +205,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 			data := randBytes(dataLen)
 
 			// perform query and write on check and then real
-			// check.Get(key)
+			// check.GetFast(key)
 			// check.Set(key, data)
 			real.Get(key)
 			real.Set(key, data)
@@ -175,11 +248,11 @@ func BenchmarkMedium(b *testing.B) {
 	benchmarks := []benchmark{
 		{"memdb", 100000, 100, 16, 40},
 		{"goleveldb", 100000, 100, 16, 40},
-		{"cleveldb", 100000, 100, 16, 40},
+		// {"cleveldb", 100000, 100, 16, 40},
 		// FIXME: idk why boltdb is too slow !?
 		// {"boltdb", 100000, 100, 16, 40},
-		{"rocksdb", 100000, 100, 16, 40},
-		{"badgerdb", 100000, 100, 16, 40},
+		// {"rocksdb", 100000, 100, 16, 40},
+		// {"badgerdb", 100000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -188,10 +261,10 @@ func BenchmarkSmall(b *testing.B) {
 	benchmarks := []benchmark{
 		{"memdb", 1000, 100, 4, 10},
 		{"goleveldb", 1000, 100, 4, 10},
-		{"cleveldb", 1000, 100, 4, 10},
-		{"boltdb", 1000, 100, 4, 10},
-		{"rocksdb", 1000, 100, 4, 10},
-		{"badgerdb", 1000, 100, 4, 10},
+		// {"cleveldb", 1000, 100, 4, 10},
+		// {"boltdb", 1000, 100, 4, 10},
+		// {"rocksdb", 1000, 100, 4, 10},
+		// {"badgerdb", 1000, 100, 4, 10},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -202,8 +275,8 @@ func BenchmarkLarge(b *testing.B) {
 		{"goleveldb", 1000000, 100, 16, 40},
 		// FIXME: idk why boltdb is too slow !?
 		// {"boltdb", 1000000, 100, 16, 40},
-		{"rocksdb", 1000000, 100, 16, 40},
-		{"badgerdb", 1000000, 100, 16, 40},
+		// {"rocksdb", 1000000, 100, 16, 40},
+		// {"badgerdb", 1000000, 100, 16, 40},
 	}
 	runBenchmarks(b, benchmarks)
 }
@@ -287,14 +360,38 @@ func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 
 	b.ResetTimer()
 
-	b.Run("query-miss", func(sub *testing.B) {
+	b.Run("query-no-in-tree-guarantee-fast", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runQueries(sub, t, keyLen)
+		runQueriesFast(sub, t, keyLen)
 	})
-	b.Run("query-hits", func(sub *testing.B) {
+	b.Run("query-no-in-tree-guarantee-slow", func(sub *testing.B) {
 		sub.ReportAllocs()
-		runKnownQueries(sub, t, keys)
+		runQueriesSlow(sub, t, keyLen)
 	})
+	//
+	b.Run("query-hits-fast", func(sub *testing.B) {
+		sub.ReportAllocs()
+		runKnownQueriesFast(sub, t, keys)
+	})
+	b.Run("query-hits-slow", func(sub *testing.B) {
+		sub.ReportAllocs()
+		runKnownQueriesSlow(sub, t, keys)
+	})
+	//
+	// Iterations for BenchmarkLevelDBLargeData timeout bencher in CI so
+	// we must skip them.
+	if b.Name() != "BenchmarkLevelDBLargeData" {
+		b.Run("iteration-fast", func(sub *testing.B) {
+			sub.ReportAllocs()
+			runIterationFast(sub, t, initSize)
+		})
+		b.Run("iteration-slow", func(sub *testing.B) {
+			sub.ReportAllocs()
+			runIterationSlow(sub, t, initSize)
+		})
+	}
+
+	//
 	b.Run("update", func(sub *testing.B) {
 		sub.ReportAllocs()
 		t = runUpdate(sub, t, dataLen, blockSize, keys)

@@ -5,6 +5,7 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
 
 	dbm "github.com/tendermint/tm-db"
 )
@@ -17,6 +18,8 @@ type traversal struct {
 	post         bool          // postorder traversal
 	delayedNodes *delayedNodes // delayed nodes to be traversed
 }
+
+var errIteratorNilTreeGiven = errors.New("iterator must be created with an immutable tree but the tree was nil")
 
 func (node *Node) newTraversal(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool) *traversal {
 	return &traversal{
@@ -157,22 +160,30 @@ type Iterator struct {
 
 	valid bool
 
+	err error
+
 	t *traversal
 }
 
-func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) *Iterator {
+var _ dbm.Iterator = (*Iterator)(nil)
+
+// Returns a new iterator over the immutable tree. If the tree is nil, the iterator will be invalid.
+func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Iterator {
 	iter := &Iterator{
 		start: start,
 		end:   end,
-		valid: true,
-		t:     t.root.newTraversal(t, start, end, ascending, false, false),
 	}
 
-	iter.Next()
+	if tree == nil {
+		iter.err = errIteratorNilTreeGiven
+	} else {
+		iter.valid = true
+		iter.t = tree.root.newTraversal(tree, start, end, ascending, false, false)
+		// Move iterator before the first element
+		iter.Next()
+	}
 	return iter
 }
-
-var _ dbm.Iterator = &Iterator{}
 
 // Domain implements dbm.Iterator.
 func (iter *Iterator) Domain() ([]byte, []byte) {
@@ -219,10 +230,15 @@ func (iter *Iterator) Next() {
 func (iter *Iterator) Close() error {
 	iter.t = nil
 	iter.valid = false
-	return nil
+	return iter.err
 }
 
 // Error implements dbm.Iterator
 func (iter *Iterator) Error() error {
-	return nil
+	return iter.err
+}
+
+// IsFast returnts true if iterator uses fast strategy
+func (iter *Iterator) IsFast() bool {
+	return false
 }

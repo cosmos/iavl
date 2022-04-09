@@ -35,71 +35,126 @@ func TestBasic(t *testing.T) {
 
 	// Test 0x00
 	{
-		idx, val := tree.Get([]byte{0x00})
+		key := []byte{0x00}
+		expected := ""
+
+		idx, val := tree.GetWithIndex(key)
 		if val != nil {
-			t.Errorf("Expected no value to exist")
+			t.Error("Expected no value to exist")
 		}
 		if idx != 0 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
-		if string(val) != "" {
-			t.Errorf("Unexpected value %v", string(val))
+		if string(val) != expected {
+			t.Errorf("Unexpected value %s", val)
+		}
+
+		val = tree.Get(key)
+		if val != nil {
+			t.Error("Fast method - expected no value to exist")
+		}
+		if string(val) != expected {
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
 	// Test "1"
 	{
-		idx, val := tree.Get([]byte("1"))
+		key := []byte("1")
+		expected := "one"
+
+		idx, val := tree.GetWithIndex(key)
 		if val == nil {
-			t.Errorf("Expected value to exist")
+			t.Error("Expected value to exist")
 		}
 		if idx != 0 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
-		if string(val) != "one" {
-			t.Errorf("Unexpected value %v", string(val))
+		if string(val) != expected {
+			t.Errorf("Unexpected value %s", val)
+		}
+
+		val = tree.Get(key)
+		if val == nil {
+			t.Error("Fast method - expected value to exist")
+		}
+		if string(val) != expected {
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
 	// Test "2"
 	{
-		idx, val := tree.Get([]byte("2"))
+		key := []byte("2")
+		expected := "TWO"
+
+		idx, val := tree.GetWithIndex(key)
 		if val == nil {
-			t.Errorf("Expected value to exist")
+			t.Error("Expected value to exist")
 		}
 		if idx != 1 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
-		if string(val) != "TWO" {
-			t.Errorf("Unexpected value %v", string(val))
+		if string(val) != expected {
+			t.Errorf("Unexpected value %s", val)
+		}
+
+		val = tree.Get(key)
+		if val == nil {
+			t.Error("Fast method - expected value to exist")
+		}
+		if string(val) != expected {
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
 	// Test "4"
 	{
-		idx, val := tree.Get([]byte("4"))
+		key := []byte("4")
+		expected := ""
+
+		idx, val := tree.GetWithIndex(key)
 		if val != nil {
-			t.Errorf("Expected no value to exist")
+			t.Error("Expected no value to exist")
 		}
 		if idx != 2 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
-		if string(val) != "" {
-			t.Errorf("Unexpected value %v", string(val))
+		if string(val) != expected {
+			t.Errorf("Unexpected value %s", val)
+		}
+
+		val = tree.Get(key)
+		if val != nil {
+			t.Error("Fast method - expected no value to exist")
+		}
+		if string(val) != expected {
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 
 	// Test "6"
 	{
-		idx, val := tree.Get([]byte("6"))
+		key := []byte("6")
+		expected := ""
+
+		idx, val := tree.GetWithIndex(key)
 		if val != nil {
-			t.Errorf("Expected no value to exist")
+			t.Error("Expected no value to exist")
 		}
 		if idx != 3 {
 			t.Errorf("Unexpected idx %x", idx)
 		}
-		if string(val) != "" {
-			t.Errorf("Unexpected value %v", string(val))
+		if string(val) != expected {
+			t.Errorf("Unexpected value %s", val)
+		}
+
+		val = tree.Get(key)
+		if val != nil {
+			t.Error("Fast method - expected no value to exist")
+		}
+		if string(val) != expected {
+			t.Errorf("Fast method - Unexpected value %s", val)
 		}
 	}
 }
@@ -252,7 +307,7 @@ func TestIntegration(t *testing.T) {
 		if has := tree.Has([]byte(randstr(12))); has {
 			t.Error("Table has extra key")
 		}
-		if _, val := tree.Get([]byte(r.key)); string(val) != r.value {
+		if val := tree.Get([]byte(r.key)); string(val) != r.value {
 			t.Error("wrong value")
 		}
 	}
@@ -270,7 +325,7 @@ func TestIntegration(t *testing.T) {
 			if has := tree.Has([]byte(randstr(12))); has {
 				t.Error("Table has extra key")
 			}
-			_, val := tree.Get([]byte(r.key))
+			val := tree.Get([]byte(r.key))
 			if string(val) != r.value {
 				t.Error("wrong value")
 			}
@@ -388,7 +443,7 @@ func TestPersistence(t *testing.T) {
 	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
-		_, t2value := t2.Get([]byte(key))
+		t2value := t2.Get([]byte(key))
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}

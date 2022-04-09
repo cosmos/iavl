@@ -19,6 +19,7 @@ import (
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
 
 	pb "github.com/cosmos/iavl/proto"
@@ -110,7 +111,7 @@ func startRPCGateway() error {
 		runtime.WithProtoErrorHandler(runtime.DefaultHTTPProtoErrorHandler),
 	)
 
-	dialOpts := []grpc.DialOption{grpc.WithInsecure(), grpc.WithBlock()}
+	dialOpts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock()}
 
 	err := pb.RegisterIAVLServiceHandlerFromEndpoint(
 		context.Background(), gatewayMux, *gRPCEndpoint, dialOpts,
@@ -174,7 +175,7 @@ func openDB() (dbm.DB, error) {
 // trapSignal will listen for any OS signal and invokes a callback function to
 // perform any necessary cleanup.
 func trapSignal(cb func()) {
-	var sigCh = make(chan os.Signal)
+	var sigCh = make(chan os.Signal, 1)
 
 	signal.Notify(sigCh, syscall.SIGTERM)
 	signal.Notify(sigCh, syscall.SIGINT)
