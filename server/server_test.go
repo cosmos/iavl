@@ -836,19 +836,19 @@ func (suite *ServerTestSuite) TestList() {
 func (suite *ServerTestSuite) TestAvailableVersions() {
 	res1, err := suite.server.GetAvailableVersions(context.Background(), nil)
 	suite.NoError(err)
-	oldVersions := res1.Versions
+	versions := res1.Versions
 
 	_, err = suite.server.SaveVersion(context.Background(), nil)
 	suite.NoError(err)
 
 	versionRes, err := suite.server.Version(context.Background(), nil)
 	suite.NoError(err)
-	newVersions := append(oldVersions, versionRes.Version)
+	versions = append(versions, versionRes.Version)
 
 	res2, err := suite.server.GetAvailableVersions(context.Background(), nil)
 	suite.NoError(err)
 
-	suite.Equal(res2.Versions, newVersions)
+	suite.Equal(res2.Versions, versions)
 
 }
 

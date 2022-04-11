@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"os"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -333,29 +335,39 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	require.NoError(t, err)
 
 	var (
-		firstKey []byte
-		count    int
+		foundKeys []string
 	)
 	for ; iter.Valid(); iter.Next() {
-		count++
-		if firstKey == nil {
-			firstKey = iter.Key()
-		}
+		foundKeys = append(foundKeys, string(iter.Key()))
 	}
 	require.NoError(t, iter.Error())
-	require.EqualValues(t, 1, count, "Found %v database entries, expected 1", count)
+	require.EqualValues(t, 2, len(foundKeys), "Found %v database entries, expected 1", len(foundKeys)) // 1 for storage version and 1 for root
+
+	firstKey := foundKeys[0]
+	secondKey := foundKeys[1]
+
+	require.True(t, strings.HasPrefix(firstKey, metadataKeyFormat.Prefix()))
+	require.True(t, strings.HasPrefix(secondKey, rootKeyFormat.Prefix()))
+
+	require.Equal(t, string(metadataKeyFormat.KeyBytes([]byte(storageVersionKey))), firstKey, "Unexpected storage version key")
+
+	storageVersionValue, err := tree.ndb.db.Get([]byte(firstKey))
+	require.NoError(t, err)
+	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(tree.ndb.getLatestVersion())), string(storageVersionValue))
 
 	var foundVersion int64
-	rootKeyFormat.Scan(firstKey, &foundVersion)
+	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
 	require.Equal(t, version, foundVersion, "Unexpected root version")
 }
 
 // Checks that the tree has the given number of orphan nodes.
 func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
 	count := 0
-	tree.ndb.traverseOrphans(func(k, v []byte) {
+	err := tree.ndb.traverseOrphans(func(k, v []byte) error {
 		count++
+		return nil
 	})
+	require.Nil(t, err)
 	require.EqualValues(t, expected, count, "Expected %v orphans, got %v", expected, count)
 }
 
@@ -389,9 +401,53 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	require.EqualValues(t, len(mirror), itree.Size())
 	require.EqualValues(t, len(mirror), iterated)
 	for key, value := range mirror {
-		_, actual := itree.Get([]byte(key))
+		actualFast := itree.Get([]byte(key))
+		require.Equal(t, value, string(actualFast))
+		_, actual := itree.GetWithIndex([]byte(key))
 		require.Equal(t, value, string(actual))
 	}
+
+	assertFastNodeCacheIsLive(t, tree, mirror, version)
+	assertFastNodeDiskIsLive(t, tree, mirror, version)
+}
+
+// Checks that fast node cache matches live state.
+func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
+	if tree.ndb.getLatestVersion() != version {
+		// The fast node cache check should only be done to the latest version
+		return
+	}
+
+	for key, cacheElem := range tree.ndb.fastNodeCache {
+		liveFastNode, ok := mirror[key]
+
+		require.True(t, ok, "cached fast node must be in the live tree")
+		require.Equal(t, liveFastNode, string(cacheElem.Value.(*FastNode).value), "cached fast node's value must be equal to live state value")
+	}
+}
+
+// Checks that fast nodes on disk match live state.
+func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
+	if tree.ndb.getLatestVersion() != version {
+		// The fast node disk check should only be done to the latest version
+		return
+	}
+
+	count := 0
+	err := tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
+		key := keyWithPrefix[1:]
+		count++
+		fastNode, err := DeserializeFastNode(key, v)
+		require.Nil(t, err)
+
+		mirrorVal := mirror[string(fastNode.key)]
+
+		require.NotNil(t, mirrorVal)
+		require.Equal(t, []byte(mirrorVal), fastNode.value)
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, len(mirror), count)
 }
 
 // Checks that all versions in the tree are present in the mirrors, and vice-versa.

@@ -9,8 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/cosmos/iavl"
 	dbm "github.com/tendermint/tm-db"
+
+	"github.com/cosmos/iavl"
 )
 
 // TODO: make this configurable?
@@ -77,7 +78,7 @@ func OpenDB(dir string) (dbm.DB, error) {
 	return db, nil
 }
 
-// nolint: unused,deadcode
+// nolint: deadcode
 func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}

@@ -3,6 +3,7 @@ package iavl
 
 import (
 	"bytes"
+	"sort"
 	"testing"
 
 	proto "github.com/gogo/protobuf/proto"
@@ -281,4 +282,32 @@ func MutateByteSlice(bytez []byte) []byte {
 		bytez = append(bytez[:pos], bytez[pos+1:]...)
 	}
 	return bytez
+}
+
+func sortByteSlices(src [][]byte) [][]byte {
+	bzz := byteslices(src)
+	sort.Sort(bzz)
+	return bzz
+}
+
+type byteslices [][]byte
+
+func (bz byteslices) Len() int {
+	return len(bz)
+}
+
+func (bz byteslices) Less(i, j int) bool {
+	switch bytes.Compare(bz[i], bz[j]) {
+	case -1:
+		return true
+	case 0, 1:
+		return false
+	default:
+		panic("should not happen")
+	}
+}
+
+//nolint:unused
+func (bz byteslices) Swap(i, j int) {
+	bz[j], bz[i] = bz[i], bz[j]
 }
