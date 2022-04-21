@@ -1,0 +1,277 @@
+cd benchmarks && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.18.0-7-gbdd4c07 -X github.com/cosmos/iavl.Commit=bdd4c07b0f339662634354a2e3e717b844b16c3a -X github.com/cosmos/iavl.Branch=pebble-benchmarks-look-its-fast-very-fast" -bench=RandomBytes . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.18.0-7-gbdd4c07 -X github.com/cosmos/iavl.Commit=bdd4c07b0f339662634354a2e3e717b844b16c3a -X github.com/cosmos/iavl.Branch=pebble-benchmarks-look-its-fast-very-fast" -tags boltdb,badgerdb,pebbledb -bench=Small . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.18.0-7-gbdd4c07 -X github.com/cosmos/iavl.Commit=bdd4c07b0f339662634354a2e3e717b844b16c3a -X github.com/cosmos/iavl.Branch=pebble-benchmarks-look-its-fast-very-fast" -tags boltdb,badgerdb,pebbledb -bench=Medium . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.18.0-7-gbdd4c07 -X github.com/cosmos/iavl.Commit=bdd4c07b0f339662634354a2e3e717b844b16c3a -X github.com/cosmos/iavl.Branch=pebble-benchmarks-look-its-fast-very-fast" -bench=BenchmarkMemKeySizes .
+iavl: 0.18.0-7-gbdd4c07
+git commit: bdd4c07b0f339662634354a2e3e717b844b16c3a
+git branch: pebble-benchmarks-look-its-fast-very-fast
+go version go1.18 darwin/arm64
+
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkRandomBytes/random-4-8         	56872261	        19.57 ns/op
+BenchmarkRandomBytes/random-16-8        	36250171	        31.99 ns/op
+BenchmarkRandomBytes/random-32-8        	25757359	        46.21 ns/op
+BenchmarkRandomBytes/random-100-8       	10940319	       110.7 ns/op
+BenchmarkRandomBytes/random-1000-8      	 1287330	       969.8 ns/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	7.718s
+iavl: 0.18.0-7-gbdd4c07
+git commit: bdd4c07b0f339662634354a2e3e717b844b16c3a
+git branch: pebble-benchmarks-look-its-fast-very-fast
+go version go1.18 darwin/arm64
+
+Init Tree took 1.10 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee-fast-8         	 5363943	       205.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee-slow-8         	 1237141	       979.8 ns/op	     392 B/op	       8 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-fast-8                         	22713739	        53.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-slow-8                         	  716198	      1692 ns/op	     585 B/op	      12 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/iteration-fast-8                          	    6553	    183535 ns/op	  152497 B/op	    2999 allocs/op
+--- BENCH: BenchmarkSmall/memdb-1000-100-4-10/iteration-fast-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/memdb-1000-100-4-10/iteration-slow-8                          	    1090	   1055290 ns/op	  821619 B/op	   15843 allocs/op
+--- BENCH: BenchmarkSmall/memdb-1000-100-4-10/iteration-slow-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/memdb-1000-100-4-10/update-8                                  	   82675	     17478 ns/op	   12119 B/op	     186 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/block-8                                   	     442	   4713837 ns/op	 2434688 B/op	   37779 allocs/op
+Init Tree took 0.70 MB
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee-fast-8     	 2870361	       430.6 ns/op	     120 B/op	       5 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee-slow-8     	  913627	      1251 ns/op	     517 B/op	      12 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-fast-8                     	21945666	        54.86 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-slow-8                     	  601617	      1944 ns/op	     795 B/op	      18 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-fast-8                      	    3267	    378553 ns/op	  168480 B/op	    4997 allocs/op
+--- BENCH: BenchmarkSmall/goleveldb-1000-100-4-10/iteration-fast-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-slow-8                      	     771	   1599833 ns/op	 1097384 B/op	   23740 allocs/op
+--- BENCH: BenchmarkSmall/goleveldb-1000-100-4-10/iteration-slow-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/goleveldb-1000-100-4-10/update-8                              	   29658	     56552 ns/op	   21153 B/op	     182 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/block-8                               	     163	  11787465 ns/op	 3688067 B/op	   36599 allocs/op
+Init Tree took 0.80 MB
+BenchmarkSmall/pebbledb-1000-100-16-40/query-no-in-tree-guarantee-fast-8     	 2005830	       589.2 ns/op	      56 B/op	       3 allocs/op
+BenchmarkSmall/pebbledb-1000-100-16-40/query-no-in-tree-guarantee-slow-8     	  862354	      1426 ns/op	     397 B/op	       8 allocs/op
+BenchmarkSmall/pebbledb-1000-100-16-40/query-hits-fast-8                     	22944074	        52.02 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/pebbledb-1000-100-16-40/query-hits-slow-8                     	  544862	      2211 ns/op	     579 B/op	      12 allocs/op
+BenchmarkSmall/pebbledb-1000-100-16-40/iteration-fast-8                      	    6553	    190408 ns/op	  184464 B/op	    2999 allocs/op
+--- BENCH: BenchmarkSmall/pebbledb-1000-100-16-40/iteration-fast-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/pebbledb-1000-100-16-40/iteration-slow-8                      	     616	   1869444 ns/op	  815493 B/op	   15811 allocs/op
+--- BENCH: BenchmarkSmall/pebbledb-1000-100-16-40/iteration-slow-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/pebbledb-1000-100-16-40/update-8                              	   13244	     94425 ns/op	    8864 B/op	     145 allocs/op
+BenchmarkSmall/pebbledb-1000-100-16-40/block-8                               	     100	  11436546 ns/op	 1296634 B/op	   23798 allocs/op
+Init Tree took 0.66 MB
+BenchmarkSmall/badgerdb-1000-100-4-10/query-no-in-tree-guarantee-fast-8      	 1522766	       908.0 ns/op	     423 B/op	       8 allocs/op
+BenchmarkSmall/badgerdb-1000-100-4-10/query-no-in-tree-guarantee-slow-8      	  751285	      1660 ns/op	     939 B/op	      16 allocs/op
+BenchmarkSmall/badgerdb-1000-100-4-10/query-hits-fast-8                      	22710675	        52.51 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/badgerdb-1000-100-4-10/query-hits-slow-8                      	  478357	      2432 ns/op	    1390 B/op	      23 allocs/op
+BenchmarkSmall/badgerdb-1000-100-4-10/iteration-fast-8                       	    2118	    516139 ns/op	  190911 B/op	    5897 allocs/op
+--- BENCH: BenchmarkSmall/badgerdb-1000-100-4-10/iteration-fast-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/badgerdb-1000-100-4-10/iteration-slow-8                       	     562	   2081795 ns/op	 1889662 B/op	   31684 allocs/op
+--- BENCH: BenchmarkSmall/badgerdb-1000-100-4-10/iteration-slow-8
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+    bench_test.go:144: completed 1000 iterations
+	... [output truncated]
+BenchmarkSmall/badgerdb-1000-100-4-10/update-8                               	   35347	     54152 ns/op	   35887 B/op	     498 allocs/op
+BenchmarkSmall/badgerdb-1000-100-4-10/block-8                                	     138	   9817823 ns/op	 6983670 B/op	   91995 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	53.451s
+iavl: 0.18.0-7-gbdd4c07
+git commit: bdd4c07b0f339662634354a2e3e717b844b16c3a
+git branch: pebble-benchmarks-look-its-fast-very-fast
+go version go1.18 darwin/arm64
+
+Init Tree took 115.11 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee-fast-8         	 1656320	       730.6 ns/op	      88 B/op	       3 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee-slow-8         	  244580	      5249 ns/op	     435 B/op	       8 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-fast-8                         	 4498152	       268.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-slow-8                         	  185742	      6416 ns/op	     631 B/op	      12 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/iteration-fast-8                          	      62	  20235304 ns/op	18400202 B/op	  299999 allocs/op
+--- BENCH: BenchmarkMedium/memdb-100000-100-16-40/iteration-fast-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+	... [output truncated]
+BenchmarkMedium/memdb-100000-100-16-40/iteration-slow-8                          	       3	 390333861 ns/op	88790984 B/op	 1599818 allocs/op
+--- BENCH: BenchmarkMedium/memdb-100000-100-16-40/iteration-slow-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+BenchmarkMedium/memdb-100000-100-16-40/update-8                                  	   16687	     78091 ns/op	   27602 B/op	     353 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/block-8                                   	     142	   8607250 ns/op	 2937050 B/op	   42465 allocs/op
+Init Tree took 66.96 MB
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-fast-8     	  686517	      1554 ns/op	     790 B/op	      15 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-slow-8     	  149077	      6956 ns/op	    1411 B/op	      24 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-fast-8                     	 4412912	       281.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-slow-8                     	  119514	      9750 ns/op	    2030 B/op	      35 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-fast-8                      	      40	  28561949 ns/op	29327020 B/op	  522984 allocs/op
+--- BENCH: BenchmarkMedium/goleveldb-100000-100-16-40/iteration-fast-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+	... [output truncated]
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-slow-8                      	       2	 820460708 ns/op	277094452 B/op	 4710654 allocs/op
+--- BENCH: BenchmarkMedium/goleveldb-100000-100-16-40/iteration-slow-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+BenchmarkMedium/goleveldb-100000-100-16-40/update-8                              	   10000	    207652 ns/op	   45435 B/op	     448 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/block-8                               	     100	  28567302 ns/op	 5500558 B/op	   57192 allocs/op
+Init Tree took 60.43 MB
+BenchmarkMedium/badgerdb-100000-100-16-40/query-no-in-tree-guarantee-fast-8      	  757576	      1677 ns/op	     464 B/op	       8 allocs/op
+BenchmarkMedium/badgerdb-100000-100-16-40/query-no-in-tree-guarantee-slow-8      	  223248	      5478 ns/op	    1080 B/op	      16 allocs/op
+BenchmarkMedium/badgerdb-100000-100-16-40/query-hits-fast-8                      	 4228440	       283.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/badgerdb-100000-100-16-40/query-hits-slow-8                      	  167875	      7922 ns/op	    1555 B/op	      23 allocs/op
+BenchmarkMedium/badgerdb-100000-100-16-40/iteration-fast-8                       	      16	  72841351 ns/op	27206043 B/op	  599955 allocs/op
+--- BENCH: BenchmarkMedium/badgerdb-100000-100-16-40/iteration-fast-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+	... [output truncated]
+BenchmarkMedium/badgerdb-100000-100-16-40/iteration-slow-8                       	       2	 537313792 ns/op	213614948 B/op	 3199869 allocs/op
+--- BENCH: BenchmarkMedium/badgerdb-100000-100-16-40/iteration-slow-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+BenchmarkMedium/badgerdb-100000-100-16-40/update-8                               	   10000	    106200 ns/op	   78652 B/op	     868 allocs/op
+BenchmarkMedium/badgerdb-100000-100-16-40/block-8                                	     100	  14630439 ns/op	 8414955 B/op	   98277 allocs/op
+Init Tree took 68.73 MB
+BenchmarkMedium/pebbledb-100000-100-16-40/query-no-in-tree-guarantee-fast-8      	  522502	      2651 ns/op	      72 B/op	       4 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-no-in-tree-guarantee-slow-8      	  162030	      7112 ns/op	     423 B/op	       9 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-hits-fast-8                      	 3636792	       319.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-hits-slow-8                      	  120369	      9047 ns/op	     606 B/op	      13 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/iteration-fast-8                       	      50	  24911606 ns/op	18400641 B/op	  300001 allocs/op
+--- BENCH: BenchmarkMedium/pebbledb-100000-100-16-40/iteration-fast-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+	... [output truncated]
+BenchmarkMedium/pebbledb-100000-100-16-40/iteration-slow-8                       	       2	 805789666 ns/op	85637312 B/op	 1800039 allocs/op
+--- BENCH: BenchmarkMedium/pebbledb-100000-100-16-40/iteration-slow-8
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+    bench_test.go:144: completed 100000 iterations
+BenchmarkMedium/pebbledb-100000-100-16-40/update-8                               	   10000	    242940 ns/op	   18931 B/op	     318 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/block-8                                	      68	  33015572 ns/op	 2035023 B/op	   35251 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	71.041s
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	0.425s
