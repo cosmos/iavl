@@ -47,8 +47,8 @@ lint:
 bench:
 	cd benchmarks && \
 		go test $(LDFLAGS) -bench=RandomBytes . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,boltdb,badgerdb -bench=Small . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,boltdb,badgerdb -bench=Medium . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Small . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Medium . && \
 		go test $(LDFLAGS) -bench=BenchmarkMemKeySizes .
 .PHONY: bench
 
@@ -56,9 +56,9 @@ bench:
 fullbench:
 	cd benchmarks && \
 		go test $(LDFLAGS) -bench=RandomBytes . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,boltdb,badgerdb -bench=Small . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,boltdb,badgerdb -bench=Medium . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,boltdb,badgerdb -timeout=30m -bench=Large . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Small . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Medium . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -timeout=30m -bench=Large . && \
 		go test $(LDFLAGS) -bench=Mem . && \
 		go test $(LDFLAGS) -timeout=60m -bench=LevelDB .
 .PHONY: fullbench
