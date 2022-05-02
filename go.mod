@@ -12,10 +12,10 @@ require (
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.1
-	github.com/tendermint/tendermint v0.35.3
+	github.com/tendermint/tendermint v0.35.4
 	github.com/tendermint/tm-db v0.6.6
-	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
-	google.golang.org/genproto v0.0.0-20211208223120-3a66f561d7aa
+	golang.org/x/crypto v0.0.0-20220411220226-7b82a4e95df4
+	google.golang.org/genproto v0.0.0-20220407144326-9054f6ed7bac
 	google.golang.org/grpc v1.46.0
 )
 
@@ -34,9 +34,9 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20200815110645-5c35d600f0ca // indirect
 	github.com/tecbot/gorocksdb v0.0.0-20191217155057-f0fad39f321c // indirect
 	go.etcd.io/bbolt v1.3.6 // indirect
-	golang.org/x/net v0.0.0-20211208012354-db4efeb81f4b // indirect
-	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/net v0.0.0-20220412020605-290c469a71a5 // indirect
+	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.7 // indirect
-	google.golang.org/protobuf v1.27.1 // indirect
+	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
