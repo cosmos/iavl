@@ -538,7 +538,7 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 			}
 			if from > predecessor {
 				if err := ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
-					panic(err)
+					return err
 				}
 				ndb.uncacheNode(hash)
 			} else {

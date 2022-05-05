@@ -133,7 +133,10 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	tree.addOrphans(orphaned)
+	err = tree.addOrphans(orphaned)
+	if err != nil {
+		return updated, err
+	}
 	return updated, nil
 }
 
@@ -195,7 +198,8 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterato
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {
 	if value == nil {
-		return nil, false, fmt.Errorf("attempt to store nil value at key '%s'", key)
+		// This is required to panic on nil values by a test.
+		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))
 	}
 
 	if tree.ImmutableTree.root == nil {
@@ -290,7 +294,10 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 		return nil, false, err
 	}
 
-	tree.addOrphans(orphaned)
+	err = tree.addOrphans(orphaned)
+	if err != nil {
+		return val, removed, err
+	}
 	return val, removed, nil
 }
 
@@ -1029,7 +1036,7 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node, error) {
 // TODO: optimize balance & rotate
 func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node, err error) {
 	if node.persisted {
-		panic("Unexpected balance() call on persisted node")
+		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
 	balance, err := node.calcBalance(tree.ImmutableTree)
 	if err != nil {
@@ -1119,15 +1126,16 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node, e
 	return node, nil
 }
 
-func (tree *MutableTree) addOrphans(orphans []*Node) {
+func (tree *MutableTree) addOrphans(orphans []*Node) error {
 	for _, node := range orphans {
 		if !node.persisted {
 			// We don't need to orphan nodes that were never persisted.
 			continue
 		}
 		if len(node.hash) == 0 {
-			panic("Expected to find node hash, but was empty")
+			return fmt.Errorf("expected to find node hash, but was empty")
 		}
 		tree.orphans[string(node.hash)] = node.version
 	}
+	return nil
 }

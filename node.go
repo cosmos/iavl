@@ -356,7 +356,7 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 		}
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
-			panic("Found an empty child hash")
+			return fmt.Errorf("found an empty child hash")
 		}
 		err = encoding.EncodeBytes(w, node.leftHash)
 		if err != nil {
@@ -434,7 +434,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		}
 	} else {
 		if node.leftHash == nil {
-			panic("node.leftHash was nil in writeBytes")
+			return fmt.Errorf("node.leftHash was nil in writeBytes")
 		}
 		cause = encoding.EncodeBytes(w, node.leftHash)
 		if cause != nil {
@@ -442,7 +442,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		}
 
 		if node.rightHash == nil {
-			panic("node.rightHash was nil in writeBytes")
+			return fmt.Errorf("node.rightHash was nil in writeBytes")
 		}
 		cause = encoding.EncodeBytes(w, node.rightHash)
 		if cause != nil {
