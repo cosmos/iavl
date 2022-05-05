@@ -245,10 +245,14 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 		leaves = rleaves
 
 		// Compute hash.
-		hash = (pathWithLeaf{
+		hash, err = (pathWithLeaf{
 			Path: path,
 			Leaf: nleaf,
 		}).computeRootHash()
+
+		if err != nil {
+			return nil, treeEnd, false, err
+		}
 
 		// If we don't have any leaves left, we're done.
 		if len(leaves) == 0 {

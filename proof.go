@@ -61,7 +61,7 @@ func (pin ProofInnerNode) stringIndented(indent string) string {
 		indent)
 }
 
-func (pin ProofInnerNode) Hash(childHash []byte) []byte {
+func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 	hasher := sha256.New()
 
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -92,14 +92,14 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 		}
 	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to hash ProofInnerNode: %v", err))
+		return nil, fmt.Errorf("Failed to hash ProofInnerNode: %v", err)
 	}
 
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return hasher.Sum(nil)
+	return hasher.Sum(nil), nil
 }
 
 // toProto converts the inner node proof to Protobuf, for use in ProofOps.
@@ -154,7 +154,7 @@ func (pln ProofLeafNode) stringIndented(indent string) string {
 		indent)
 }
 
-func (pln ProofLeafNode) Hash() []byte {
+func (pln ProofLeafNode) Hash() ([]byte, error) {
 	hasher := sha256.New()
 
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -175,15 +175,15 @@ func (pln ProofLeafNode) Hash() []byte {
 		err = encoding.EncodeBytes(buf, pln.ValueHash)
 	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to hash ProofLeafNode: %v", err))
+		err = fmt.Errorf("Failed to hash ProofLeafNode: %v", err)
 	}
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, err
 
 	}
 
-	return hasher.Sum(nil)
+	return hasher.Sum(nil), nil
 }
 
 // toProto converts the leaf node proof to Protobuf, for use in ProofOps.
