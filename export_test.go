@@ -75,20 +75,22 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 				index := r.Intn(len(keys))
 				key = keys[index]
 				keys = append(keys[:index], keys[index+1:]...)
-				_, removed := tree.Remove(key)
+				_, removed, err := tree.Remove(key)
+				require.NoError(t, err)
 				require.True(t, removed)
 
 			case len(keys) > 0 && r.Float64() <= updateRatio:
 				key = keys[r.Intn(len(keys))]
 				r.Read(value)
-				updated := tree.Set(key, value)
+				updated, err := tree.Set(key, value)
+				require.NoError(t, err)
 				require.True(t, updated)
 
 			default:
 				r.Read(key)
 				r.Read(value)
 				// If we get an update, set again
-				for tree.Set(key, value) {
+				for updated, err := tree.Set(key, value); updated && err == nil; {
 					key = make([]byte, keySize)
 					r.Read(key)
 				}
@@ -125,7 +127,9 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 		value := make([]byte, valueSize)
 		r.Read(key)
 		r.Read(value)
-		updated := tree.Set(key, value)
+		updated, err := tree.Set(key, value)
+		require.NoError(t, err)
+
 		if updated {
 			i--
 		}
@@ -211,8 +215,10 @@ func TestExporter_Import(t *testing.T) {
 			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
 
 			tree.Iterate(func(key, value []byte) bool {
-				index, _ := tree.GetWithIndex(key)
-				newIndex, newValue := newTree.GetWithIndex(key)
+				index, _, err := tree.GetWithIndex(key)
+				require.NoError(t, err)
+				newIndex, newValue, err := newTree.GetWithIndex(key)
+				require.NoError(t, err)
 				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
 				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
 				return false

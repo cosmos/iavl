@@ -145,59 +145,92 @@ func (node *Node) isLeaf() bool {
 }
 
 // Check if the node has a descendant with the given key.
-func (node *Node) has(t *ImmutableTree, key []byte) (has bool) {
+func (node *Node) has(t *ImmutableTree, key []byte) (has bool, err error) {
 	if bytes.Equal(node.key, key) {
-		return true
+		return true, nil
 	}
 	if node.isLeaf() {
-		return false
+		return false, nil
 	}
 	if bytes.Compare(key, node.key) < 0 {
-		return node.getLeftNode(t).has(t, key)
+		leftNode, err := node.getLeftNode(t)
+		if err != nil {
+			return false, err
+		}
+		return leftNode.has(t, key)
 	}
-	return node.getRightNode(t).has(t, key)
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return false, err
+	}
+
+	return rightNode.has(t, key)
 }
 
 // Get a key under the node.
 //
 // The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
 // It's neighbor has index 1 and so on.
-func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte) {
+func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte, err error) {
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
-			return 1, nil
+			return 1, nil, nil
 		case 1:
-			return 0, nil
+			return 0, nil, nil
 		default:
-			return 0, node.value
+			return 0, node.value, nil
 		}
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		return node.getLeftNode(t).get(t, key)
+		leftNode, err := node.getLeftNode(t)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		return leftNode.get(t, key)
 	}
-	rightNode := node.getRightNode(t)
-	index, value = rightNode.get(t, key)
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	index, value, err = rightNode.get(t, key)
+	if err != nil {
+		return 0, nil, err
+	}
+
 	index += node.size - rightNode.size
-	return index, value
+	return index, value, nil
 }
 
-func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value []byte) {
+func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value []byte, err error) {
 	if node.isLeaf() {
 		if index == 0 {
-			return node.key, node.value
+			return node.key, node.value, nil
 		}
-		return nil, nil
+		return nil, nil, nil
 	}
 	// TODO: could improve this by storing the
 	// sizes as well as left/right hash.
-	leftNode := node.getLeftNode(t)
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if index < leftNode.size {
 		return leftNode.getByIndex(t, index)
 	}
-	return node.getRightNode(t).getByIndex(t, index-leftNode.size)
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rightNode.getByIndex(t, index-leftNode.size)
 }
 
 // Computes the hash of the node without computing its descendants. Must be
@@ -419,28 +452,59 @@ func (node *Node) writeBytes(w io.Writer) error {
 	return nil
 }
 
-func (node *Node) getLeftNode(t *ImmutableTree) *Node {
+func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	if node.leftNode != nil {
-		return node.leftNode
+		return node.leftNode, nil
 	}
-	return t.ndb.GetNode(node.leftHash)
+	leftNode, err := t.ndb.GetNode(node.leftHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return leftNode, nil
 }
 
-func (node *Node) getRightNode(t *ImmutableTree) *Node {
+func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 	if node.rightNode != nil {
-		return node.rightNode
+		return node.rightNode, nil
 	}
-	return t.ndb.GetNode(node.rightHash)
+	rightNode, err := t.ndb.GetNode(node.rightHash)
+	if err != nil {
+		return nil, err
+	}
+
+	return rightNode, nil
 }
 
 // NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(t *ImmutableTree) {
-	node.height = maxInt8(node.getLeftNode(t).height, node.getRightNode(t).height) + 1
-	node.size = node.getLeftNode(t).size + node.getRightNode(t).size
+func (node *Node) calcHeightAndSize(t *ImmutableTree) error {
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		return err
+	}
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return err
+	}
+
+	node.height = maxInt8(leftNode.height, rightNode.height) + 1
+	node.size = leftNode.size + rightNode.size
+	return nil
 }
 
-func (node *Node) calcBalance(t *ImmutableTree) int {
-	return int(node.getLeftNode(t).height) - int(node.getRightNode(t).height)
+func (node *Node) calcBalance(t *ImmutableTree) (int, error) {
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		return 0, err
+	}
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return 0, err
+	}
+
+	return int(leftNode.height) - int(rightNode.height), nil
 }
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
@@ -461,7 +525,8 @@ func (node *Node) traversePost(t *ImmutableTree, ascending bool, cb func(*Node) 
 func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool, cb func(*Node) bool) bool {
 	stop := false
 	t := node.newTraversal(tree, start, end, ascending, inclusive, post)
-	for node2 := t.next(); node2 != nil; node2 = t.next() {
+	// TODO: figure out how to handle these errors
+	for node2, _ := t.next(); node2 != nil; node2, _ = t.next() {
 		stop = cb(node2)
 		if stop {
 			return stop

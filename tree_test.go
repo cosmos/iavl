@@ -148,20 +148,22 @@ func TestTreeHash(t *testing.T) {
 				index := r.Intn(len(keys))
 				key = keys[index]
 				keys = append(keys[:index], keys[index+1:]...)
-				_, removed := tree.Remove(key)
+				_, removed, err := tree.Remove(key)
+				require.NoError(t, err)
 				require.True(t, removed)
 
 			case len(keys) > 0 && r.Float64() <= updateRatio:
 				key = keys[r.Intn(len(keys))]
 				r.Read(value)
-				updated := tree.Set(key, value)
+				updated, err := tree.Set(key, value)
+				require.NoError(t, err)
 				require.True(t, updated)
 
 			default:
 				r.Read(key)
 				r.Read(value)
 				// If we get an update, set again
-				for tree.Set(key, value) {
+				for updated, err := tree.Set(key, value); err == nil && updated; {
 					key = make([]byte, keySize)
 					r.Read(key)
 				}
@@ -220,7 +222,8 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
-		val := tree.Get([]byte(iavlrand.RandStr(1)))
+		val, err := tree.Get([]byte(iavlrand.RandStr(1)))
+		require.NoError(err)
 		require.NotNil(val)
 		require.NotEmpty(val)
 	}
@@ -269,7 +272,8 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 
 	// Try getting random keys.
 	for i := 0; i < keysPerVersion; i++ {
-		val := tree.Get([]byte(iavlrand.RandStr(1)))
+		val, err := tree.Get([]byte(iavlrand.RandStr(1)))
+		require.NoError(err)
 		require.NotNil(val)
 		require.NotEmpty(val)
 	}
@@ -504,42 +508,54 @@ func TestVersionedTree(t *testing.T) {
 	tree.Set([]byte("key1"), []byte("val0"))
 
 	// "key2"
-	val := tree.GetVersioned([]byte("key2"), 0)
+	val, err := tree.GetVersioned([]byte("key2"), 0)
+	require.NoError(err)
 	require.Nil(val)
 
-	val = tree.GetVersioned([]byte("key2"), 1)
+	val, err = tree.GetVersioned([]byte("key2"), 1)
+	require.NoError(err)
 	require.Equal("val0", string(val))
 
-	val = tree.GetVersioned([]byte("key2"), 2)
+	val, err = tree.GetVersioned([]byte("key2"), 2)
+	require.NoError(err)
 	require.Equal("val1", string(val))
 
-	val = tree.Get([]byte("key2"))
+	val, err = tree.Get([]byte("key2"))
+	require.NoError(err)
 	require.Equal("val2", string(val))
 
 	// "key1"
-	val = tree.GetVersioned([]byte("key1"), 1)
+	val, err = tree.GetVersioned([]byte("key1"), 1)
+	require.NoError(err)
 	require.Equal("val0", string(val))
 
-	val = tree.GetVersioned([]byte("key1"), 2)
+	val, err = tree.GetVersioned([]byte("key1"), 2)
+	require.NoError(err)
 	require.Equal("val1", string(val))
 
-	val = tree.GetVersioned([]byte("key1"), 3)
+	val, err = tree.GetVersioned([]byte("key1"), 3)
+	require.NoError(err)
 	require.Nil(val)
 
-	val = tree.GetVersioned([]byte("key1"), 4)
+	val, err = tree.GetVersioned([]byte("key1"), 4)
+	require.NoError(err)
 	require.Nil(val)
 
-	val = tree.Get([]byte("key1"))
+	val, err = tree.Get([]byte("key1"))
+	require.NoError(err)
 	require.Equal("val0", string(val))
 
 	// "key3"
-	val = tree.GetVersioned([]byte("key3"), 0)
+	val, err = tree.GetVersioned([]byte("key3"), 0)
+	require.NoError(err)
 	require.Nil(val)
 
-	val = tree.GetVersioned([]byte("key3"), 2)
+	val, err = tree.GetVersioned([]byte("key3"), 2)
+	require.NoError(err)
 	require.Equal("val1", string(val))
 
-	val = tree.GetVersioned([]byte("key3"), 3)
+	val, err = tree.GetVersioned([]byte("key3"), 3)
+	require.NoError(err)
 	require.Equal("val1", string(val))
 
 	// Delete a version. After this the keys in that version should not be found.
@@ -560,26 +576,30 @@ func TestVersionedTree(t *testing.T) {
 
 	require.True(len(nodes5) < len(nodes4), "db should have shrunk after delete %d !< %d", len(nodes5), len(nodes4))
 
-	val = tree.GetVersioned([]byte("key2"), 2)
+	val, err = tree.GetVersioned([]byte("key2"), 2)
 	require.Nil(val)
 
-	val = tree.GetVersioned([]byte("key3"), 2)
+	val, err = tree.GetVersioned([]byte("key3"), 2)
 	require.Nil(val)
 
 	// But they should still exist in the latest version.
 
-	val = tree.Get([]byte("key2"))
+	val, err = tree.Get([]byte("key2"))
+	require.NoError(err)
 	require.Equal("val2", string(val))
 
-	val = tree.Get([]byte("key3"))
+	val, err = tree.Get([]byte("key3"))
+	require.NoError(err)
 	require.Equal("val1", string(val))
 
 	// Version 1 should still be available.
 
-	val = tree.GetVersioned([]byte("key1"), 1)
+	val, err = tree.GetVersioned([]byte("key1"), 1)
+	require.NoError(err)
 	require.Equal("val0", string(val))
 
-	val = tree.GetVersioned([]byte("key2"), 1)
+	val, err = tree.GetVersioned([]byte("key2"), 1)
+	require.NoError(err)
 	require.Equal("val0", string(val))
 }
 
@@ -660,16 +680,20 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 
 	tree.DeleteVersion(2)
 
-	val := tree.Get([]byte("key0"))
+	val, err := tree.Get([]byte("key0"))
+	require.NoError(t, err)
 	require.Equal(t, val, []byte("val2"))
 
-	val = tree.Get([]byte("key1"))
+	val, err = tree.Get([]byte("key1"))
+	require.NoError(t, err)
 	require.Nil(t, val)
 
-	val = tree.Get([]byte("key2"))
+	val, err = tree.Get([]byte("key2"))
+	require.NoError(t, err)
 	require.Equal(t, val, []byte("val2"))
 
-	val = tree.Get([]byte("key3"))
+	val, err = tree.Get([]byte("key3"))
+	require.NoError(t, err)
 	require.Equal(t, val, []byte("val1"))
 
 	tree.DeleteVersion(1)
@@ -700,7 +724,8 @@ func TestVersionedTreeSpecialCase(t *testing.T) {
 
 	tree.DeleteVersion(2)
 
-	val := tree.GetVersioned([]byte("key2"), 1)
+	val, err := tree.GetVersioned([]byte("key2"), 1)
+	require.NoError(err)
 	require.Equal("val0", string(val))
 }
 
@@ -729,7 +754,8 @@ func TestVersionedTreeSpecialCase2(t *testing.T) {
 
 	require.NoError(tree.DeleteVersion(2))
 
-	val := tree.GetVersioned([]byte("key2"), 1)
+	val, err := tree.GetVersioned([]byte("key2"), 1)
+	require.NoError(err)
 	require.Equal("val0", string(val))
 }
 
@@ -838,7 +864,8 @@ func TestVersionedTreeErrors(t *testing.T) {
 	require.Error(tree.DeleteVersion(1))
 
 	// Trying to get a key from a version which doesn't exist.
-	val := tree.GetVersioned([]byte("key"), 404)
+	val, err := tree.GetVersioned([]byte("key"), 404)
+	require.NoError(err)
 	require.Nil(val)
 
 	// Same thing with proof. We get an error because a proof couldn't be
@@ -882,7 +909,8 @@ func TestVersionedCheckpoints(t *testing.T) {
 	// Make sure all keys exist at least once.
 	for _, ks := range keys {
 		for _, k := range ks {
-			val := tree.Get(k)
+			val, err := tree.Get(k)
+			require.NoError(err)
 			require.NotEmpty(val)
 		}
 	}
@@ -891,7 +919,8 @@ func TestVersionedCheckpoints(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		if i%versionsPerCheckpoint != 0 {
 			for _, k := range keys[int64(i)] {
-				val := tree.GetVersioned(k, int64(i))
+				val, err := tree.GetVersioned(k, int64(i))
+				require.NoError(err)
 				require.Nil(val)
 			}
 		}
@@ -901,7 +930,8 @@ func TestVersionedCheckpoints(t *testing.T) {
 	for i := 1; i <= versions; i++ {
 		for _, k := range keys[int64(i)] {
 			if i%versionsPerCheckpoint == 0 {
-				val := tree.GetVersioned(k, int64(i))
+				val, err := tree.GetVersioned(k, int64(i))
+				require.NoError(err)
 				require.NotEmpty(val)
 			}
 		}
@@ -930,7 +960,7 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 	// checkpoint, which is version 10.
 	tree.DeleteVersion(1)
 
-	val := tree.GetVersioned(key, 2)
+	val, err := tree.GetVersioned(key, 2)
 	require.NotEmpty(val)
 	require.Equal([]byte("val1"), val)
 }
@@ -994,19 +1024,19 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	tree.Set([]byte("X"), []byte("New"))
 	tree.SaveVersion()
 
-	val := tree.GetVersioned([]byte("A"), 2)
+	val, err := tree.GetVersioned([]byte("A"), 2)
 	require.Nil(t, val)
 
-	val = tree.GetVersioned([]byte("A"), 1)
+	val, err = tree.GetVersioned([]byte("A"), 1)
 	require.NotEmpty(t, val)
 
 	tree.DeleteVersion(1)
 	tree.DeleteVersion(2)
 
-	val = tree.GetVersioned([]byte("A"), 2)
+	val, err = tree.GetVersioned([]byte("A"), 2)
 	require.Nil(t, val)
 
-	val = tree.GetVersioned([]byte("A"), 1)
+	val, err = tree.GetVersioned([]byte("A"), 1)
 	require.Nil(t, val)
 }
 
@@ -1296,12 +1326,13 @@ func TestCopyValueSemantics(t *testing.T) {
 	val := []byte("v1")
 
 	tree.Set([]byte("k"), val)
-	v := tree.Get([]byte("k"))
+	v, err := tree.Get([]byte("k"))
+	require.NoError(err)
 	require.Equal([]byte("v1"), v)
 
 	val[1] = '2'
 
-	val = tree.Get([]byte("k"))
+	val, err = tree.Get([]byte("k"))
 	require.Equal([]byte("v2"), val)
 }
 
@@ -1325,13 +1356,13 @@ func TestRollback(t *testing.T) {
 
 	require.Equal(int64(2), tree.Size())
 
-	val := tree.Get([]byte("r"))
+	val, err := tree.Get([]byte("r"))
 	require.Nil(val)
 
-	val = tree.Get([]byte("s"))
+	val, err = tree.Get([]byte("s"))
 	require.Nil(val)
 
-	val = tree.Get([]byte("t"))
+	val, err = tree.Get([]byte("t"))
 	require.Equal([]byte("v"), val)
 }
 
@@ -1356,7 +1387,8 @@ func TestLazyLoadVersion(t *testing.T) {
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions))
 
-	value := tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions)))
+	value, err := tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions)))
+	require.NoError(t, err)
 	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions)), "unexpected value")
 
 	// require the ability to lazy load an older version
@@ -1364,7 +1396,8 @@ func TestLazyLoadVersion(t *testing.T) {
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions-1))
 
-	value = tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions-1)))
+	value, err = tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions-1)))
+	require.NoError(t, err)
 	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions-1)), "unexpected value")
 
 	// require the inability to lazy load a non-valid version
@@ -1690,7 +1723,8 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	require.NoError(err, "LoadVersionForOverwriting should not fail")
 
 	for i := byte(0); i < 20; i++ {
-		v := tree.Get([]byte{i})
+		v, err := tree.Get([]byte{i})
+		require.NoError(err)
 		require.Equal([]byte{i}, v)
 	}
 
@@ -1756,7 +1790,8 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	}
 
 	for i := byte(0); i < 20; i++ {
-		v := tree.Get([]byte{i})
+		v, err := tree.Get([]byte{i})
+		require.NoError(err)
 		require.Equal([]byte{i}, v)
 	}
 }
@@ -1805,7 +1840,8 @@ func TestGetByIndex_ImmutableTree(t *testing.T) {
 	for index, expectedKey := range mirrorKeys {
 		expectedValue := mirror[expectedKey]
 
-		actualKey, actualValue := immutableTree.GetByIndex(int64(index))
+		actualKey, actualValue, err := immutableTree.GetByIndex(int64(index))
+		require.NoError(t, err)
 
 		require.Equal(t, expectedKey, string(actualKey))
 		require.Equal(t, expectedValue, string(actualValue))
@@ -1827,7 +1863,8 @@ func TestGetWithIndex_ImmutableTree(t *testing.T) {
 	for expectedIndex, key := range mirrorKeys {
 		expectedValue := mirror[key]
 
-		actualIndex, actualValue := immutableTree.GetWithIndex([]byte(key))
+		actualIndex, actualValue, err := immutableTree.GetWithIndex([]byte(key))
+		require.NoError(t, err)
 
 		require.Equal(t, expectedValue, string(actualValue))
 		require.Equal(t, int64(expectedIndex), actualIndex)

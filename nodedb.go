@@ -115,40 +115,40 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 
 // GetNode gets a node from memory or disk. If it is an inner node, it does not
 // load its children.
-func (ndb *nodeDB) GetNode(hash []byte) *Node {
+func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	if len(hash) == 0 {
-		panic("nodeDB.GetNode() requires hash")
+		return nil, fmt.Errorf("nodeDB.GetNode() requires hash")
 	}
 
 	// Check the cache.
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
 		// Already exists. Move to back of nodeCacheQueue.
 		ndb.nodeCacheQueue.MoveToBack(elem)
-		return elem.Value.(*Node)
+		return elem.Value.(*Node), nil
 	}
 
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(ndb.nodeKey(hash))
 	if err != nil {
-		panic(fmt.Sprintf("can't get node %X: %v", hash, err))
+		return nil, fmt.Errorf("can't get node %X: %v", hash, err)
 	}
 	if buf == nil {
-		panic(fmt.Sprintf("Value missing for hash %x corresponding to nodeKey %x", hash, ndb.nodeKey(hash)))
+		return nil, fmt.Errorf("Value missing for hash %x corresponding to nodeKey %x", hash, ndb.nodeKey(hash))
 	}
 
 	node, err := MakeNode(buf)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading Node. bytes: %x, error: %v", buf, err))
+		return nil, fmt.Errorf("Error reading Node. bytes: %x, error: %v", buf, err)
 	}
 
 	node.hash = hash
 	node.persisted = true
 	ndb.cacheNode(node)
 
-	return node
+	return node, nil
 }
 
 func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
@@ -578,7 +578,11 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 		return nil
 	}
 
-	node := ndb.GetNode(hash)
+	node, err := ndb.GetNode(hash)
+	if err != nil {
+		return err
+	}
+
 	if node.leftHash != nil {
 		if err := ndb.deleteNodesFrom(version, node.leftHash); err != nil {
 			return err

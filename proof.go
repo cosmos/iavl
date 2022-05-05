@@ -235,26 +235,47 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 	// already stored in the next ProofInnerNode in PathToLeaf.
 	if bytes.Compare(key, node.key) < 0 {
 		// left side
+		rightNode, err := node.getRightNode(t)
+		if err != nil {
+			return nil, err
+		}
+
 		pin := ProofInnerNode{
 			Height:  node.height,
 			Size:    node.size,
 			Version: node.version,
 			Left:    nil,
-			Right:   node.getRightNode(t).hash,
+			Right:   rightNode.hash,
 		}
 		*path = append(*path, pin)
-		n, err := node.getLeftNode(t).pathToLeaf(t, key, path)
+
+		leftNode, err := node.getLeftNode(t)
+		if err != nil {
+			return nil, err
+		}
+		n, err := leftNode.pathToLeaf(t, key, path)
 		return n, err
 	}
 	// right side
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		return nil, err
+	}
+
 	pin := ProofInnerNode{
 		Height:  node.height,
 		Size:    node.size,
 		Version: node.version,
-		Left:    node.getLeftNode(t).hash,
+		Left:    leftNode.hash,
 		Right:   nil,
 	}
 	*path = append(*path, pin)
-	n, err := node.getRightNode(t).pathToLeaf(t, key, path)
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := rightNode.pathToLeaf(t, key, path)
 	return n, err
 }

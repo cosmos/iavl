@@ -46,7 +46,8 @@ func TestGetMembership(t *testing.T) {
 			require.NoError(t, err, "Creating tree: %+v", err)
 
 			key := GetKey(allkeys, tc.loc)
-			val := tree.Get(key)
+			val, err := tree.Get(key)
+			require.NoError(t, err)
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 

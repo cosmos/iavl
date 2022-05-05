@@ -16,19 +16,23 @@ import (
 func TestBasic(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(t, err)
-	up := tree.Set([]byte("1"), []byte("one"))
+	up, err := tree.Set([]byte("1"), []byte("one"))
+	require.NoError(t, err)
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
-	up = tree.Set([]byte("2"), []byte("two"))
+	up, err = tree.Set([]byte("2"), []byte("two"))
+	require.NoError(t, err)
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
-	up = tree.Set([]byte("2"), []byte("TWO"))
+	up, err = tree.Set([]byte("2"), []byte("TWO"))
+	require.NoError(t, err)
 	if !up {
 		t.Error("Expected an update")
 	}
-	up = tree.Set([]byte("5"), []byte("five"))
+	up, err = tree.Set([]byte("5"), []byte("five"))
+	require.NoError(t, err)
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
@@ -38,7 +42,8 @@ func TestBasic(t *testing.T) {
 		key := []byte{0x00}
 		expected := ""
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val != nil {
 			t.Error("Expected no value to exist")
 		}
@@ -49,7 +54,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -63,7 +68,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("1")
 		expected := "one"
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val == nil {
 			t.Error("Expected value to exist")
 		}
@@ -74,7 +80,8 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
+		require.NoError(t, err)
 		if val == nil {
 			t.Error("Fast method - expected value to exist")
 		}
@@ -88,7 +95,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("2")
 		expected := "TWO"
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val == nil {
 			t.Error("Expected value to exist")
 		}
@@ -99,7 +107,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val == nil {
 			t.Error("Fast method - expected value to exist")
 		}
@@ -113,7 +121,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("4")
 		expected := ""
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val != nil {
 			t.Error("Expected no value to exist")
 		}
@@ -124,7 +133,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -138,7 +147,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("6")
 		expected := ""
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val != nil {
 			t.Error("Expected no value to exist")
 		}
@@ -149,7 +159,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -181,7 +191,8 @@ func TestUnit(t *testing.T) {
 
 	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
-		updated := tree.Set(i2b(i), []byte{})
+		updated, err := tree.Set(i2b(i), []byte{})
+		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
 		if updated || P(tree.root) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
@@ -194,7 +205,8 @@ func TestUnit(t *testing.T) {
 
 	expectRemove := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
-		value, removed := tree.Remove(i2b(i))
+		value, removed, err := tree.Remove(i2b(i))
+		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
 		if len(value) != 0 || !removed || P(tree.root) != repr {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
@@ -287,11 +299,13 @@ func TestIntegration(t *testing.T) {
 	for i := range records {
 		r := randomRecord()
 		records[i] = r
-		updated := tree.Set([]byte(r.key), []byte{})
+		updated, err := tree.Set([]byte(r.key), []byte{})
+		require.NoError(t, err)
 		if updated {
 			t.Error("should have not been updated")
 		}
-		updated = tree.Set([]byte(r.key), []byte(r.value))
+		updated, err = tree.Set([]byte(r.key), []byte(r.value))
+		require.NoError(t, err)
 		if !updated {
 			t.Error("should have been updated")
 		}
@@ -301,31 +315,49 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for _, r := range records {
-		if has := tree.Has([]byte(r.key)); !has {
+		has, err := tree.Has([]byte(r.key))
+		require.NoError(t, err)
+		if !has {
 			t.Error("Missing key", r.key)
 		}
-		if has := tree.Has([]byte(randstr(12))); has {
+
+		has, err = tree.Has([]byte(randstr(12)))
+		require.NoError(t, err)
+		if has {
 			t.Error("Table has extra key")
 		}
-		if val := tree.Get([]byte(r.key)); string(val) != r.value {
+
+		val, err := tree.Get([]byte(r.key))
+		require.NoError(t, err)
+		if string(val) != r.value {
 			t.Error("wrong value")
 		}
 	}
 
 	for i, x := range records {
-		if val, removed := tree.Remove([]byte(x.key)); !removed {
+		if val, removed, err := tree.Remove([]byte(x.key)); err != nil {
+			require.NoError(t, err)
+		} else if !removed {
 			t.Error("Wasn't removed")
 		} else if string(val) != x.value {
 			t.Error("Wrong value")
 		}
+		require.NoError(t, err)
 		for _, r := range records[i+1:] {
-			if has := tree.Has([]byte(r.key)); !has {
+			has, err := tree.Has([]byte(r.key))
+			require.NoError(t, err)
+			if !has {
 				t.Error("Missing key", r.key)
 			}
-			if has := tree.Has([]byte(randstr(12))); has {
+
+			has, err = tree.Has([]byte(randstr(12)))
+			require.NoError(t, err)
+			if has {
 				t.Error("Table has extra key")
 			}
-			val := tree.Get([]byte(r.key))
+
+			val, err := tree.Get([]byte(r.key))
+			require.NoError(t, err)
 			if string(val) != r.value {
 				t.Error("wrong value")
 			}
@@ -365,7 +397,8 @@ func TestIterateRange(t *testing.T) {
 
 	// insert all the data
 	for _, r := range records {
-		updated := tree.Set([]byte(r.key), []byte(r.value))
+		updated, err := tree.Set([]byte(r.key), []byte(r.value))
+		require.NoError(t, err)
 		if updated {
 			t.Error("should have not been updated")
 		}
@@ -443,7 +476,8 @@ func TestPersistence(t *testing.T) {
 	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
-		t2value := t2.Get([]byte(key))
+		t2value, err := t2.Get([]byte(key))
+		require.NoError(t, err)
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}

@@ -314,7 +314,8 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 			randIndex := rand.Intn(len(mirror))
 			keyToRemove := mirror[randIndex][0]
 
-			_, removed := tree.Remove([]byte(keyToRemove))
+			_, removed, err := tree.Remove([]byte(keyToRemove))
+			require.NoError(t, err)
 			require.True(t, removed)
 
 			mirror = append(mirror[:randIndex], mirror[randIndex+1:]...)

@@ -107,7 +107,8 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
-		index, value := itree.GetWithIndex(q)
+		index, value, err := itree.GetWithIndex(q)
+		require.NoError(b, err)
 		require.True(b, index >= 0, "the index must not be negative")
 		require.NotNil(b, value, "the value should exist")
 	}
