@@ -542,7 +542,9 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 				}
 				ndb.uncacheNode(hash)
 			} else {
-				ndb.saveOrphan(hash, from, predecessor)
+				if err := ndb.saveOrphan(hash, from, predecessor); err != nil {
+					return err
+				}
 			}
 			return nil
 		})
@@ -612,26 +614,31 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1
-func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) {
+func (ndb *nodeDB) SaveOrphans(version int64, orphans map[string]int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	toVersion := ndb.getPreviousVersion(version)
 	for hash, fromVersion := range orphans {
 		logger.Debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, hash)
-		ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
+		err := ndb.saveOrphan([]byte(hash), fromVersion, toVersion)
+		if err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 // Saves a single orphan to disk.
-func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) {
+func (ndb *nodeDB) saveOrphan(hash []byte, fromVersion, toVersion int64) error {
 	if fromVersion > toVersion {
-		panic(fmt.Sprintf("Orphan expires before it comes alive.  %d > %d", fromVersion, toVersion))
+		return fmt.Errorf("orphan expires before it comes alive.  %d > %d", fromVersion, toVersion)
 	}
 	key := ndb.orphanKey(fromVersion, toVersion, hash)
 	if err := ndb.batch.Set(key, hash); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 // deleteOrphans deletes orphaned nodes from disk, and the associated orphan
