@@ -532,7 +532,7 @@ func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascend
 	stop := false
 	t := node.newTraversal(tree, start, end, ascending, inclusive, post)
 	// TODO: figure out how to handle these errors
-	for node2, _ := t.next(); node2 != nil; node2, _ = t.next() {
+	for node2, err := t.next(); node2 != nil && err == nil; node2, err = t.next() {
 		stop = cb(node2)
 		if stop {
 			return stop

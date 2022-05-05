@@ -378,8 +378,10 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 
 		newNode := node.clone(version)
 		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
-		// TODO: handle this error
-		newNode.calcHeightAndSize(tree.ImmutableTree)
+		err = newNode.calcHeightAndSize(tree.ImmutableTree)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
 		newNode, err = tree.balance(newNode, orphans)
 		if err != nil {
 			return nil, nil, nil, nil, err

@@ -282,7 +282,7 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() (bool, error) {
 	if len(versions) == 2 {
 		latestVersion, err := ndb.getLatestVersion()
 		if err != nil {
-			// TODO: should be true or false?
+			// TODO: should be true or false as default? (removed panic here)
 			return false, err
 		}
 		if versions[1] != strconv.Itoa(int(latestVersion)) {
