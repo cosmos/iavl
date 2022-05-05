@@ -357,7 +357,9 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 
 	storageVersionValue, err := tree.ndb.db.Get([]byte(firstKey))
 	require.NoError(t, err)
-	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(tree.ndb.getLatestVersion())), string(storageVersionValue))
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), string(storageVersionValue))
 
 	var foundVersion int64
 	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
@@ -419,7 +421,9 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 
 // Checks that fast node cache matches live state.
 func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	if tree.ndb.getLatestVersion() != version {
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	if latestVersion != version {
 		// The fast node cache check should only be done to the latest version
 		return
 	}
@@ -434,13 +438,15 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 
 // Checks that fast nodes on disk match live state.
 func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	if tree.ndb.getLatestVersion() != version {
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	if latestVersion != version {
 		// The fast node disk check should only be done to the latest version
 		return
 	}
 
 	count := 0
-	err := tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
+	err = tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
 		count++
 		fastNode, err := DeserializeFastNode(key, v)

@@ -30,15 +30,15 @@ import (
 // the case.
 func Repair013Orphans(db dbm.DB) (uint64, error) {
 	ndb := newNodeDB(db, 0, &Options{Sync: true})
-	version := ndb.getLatestVersion()
+	version, err := ndb.getLatestVersion()
+	if err != nil {
+		return 0, err
+	}
 	if version == 0 {
 		return 0, errors.New("no versions found")
 	}
 
-	var (
-		repaired uint64
-		err      error
-	)
+	var repaired uint64
 	batch := db.NewBatch()
 	defer batch.Close()
 	err = ndb.traverseRange(orphanKeyFormat.Key(version), orphanKeyFormat.Key(int64(math.MaxInt64)), func(k, v []byte) error {

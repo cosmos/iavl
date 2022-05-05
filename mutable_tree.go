@@ -168,12 +168,17 @@ func (tree *MutableTree) Import(version int64) (*Importer, error) {
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,
 // since they may point to data stored within IAVL. Returns true if stopped by callnack, false otherwise
-func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
+func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool, err error) {
 	if tree.root == nil {
-		return false
+		return false, nil
 	}
 
-	if !tree.IsFastCacheEnabled() {
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	if err != nil {
+		return false, err
+	}
+
+	if !isFastCacheEnabled {
 		return tree.ImmutableTree.Iterate(fn)
 	}
 
@@ -181,17 +186,22 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
-			return true
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
-func (tree *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
-	if tree.IsFastCacheEnabled() {
-		return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	if err != nil {
+		return nil, err
+	}
+
+	if isFastCacheEnabled {
+		return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals), nil
 	}
 	return tree.ImmutableTree.Iterator(start, end, ascending)
 }
@@ -354,6 +364,9 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 			return nil, nil, nil, nil, err
 		}
 		newLeftHash, newLeftNode, newKey, value, err := tree.recursiveRemove(leftNode, key, orphans)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
 
 		if len(*orphans) == 0 {
 			return node.hash, node, nil, value, nil
@@ -380,7 +393,9 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 		return nil, nil, nil, nil, err
 	}
 	newRightHash, newRightNode, newKey, value, err := tree.recursiveRemove(rightNode, key, orphans)
-
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
 	if len(*orphans) == 0 {
 		return node.hash, node, nil, value, nil
 	}
@@ -416,7 +431,10 @@ func (tree *MutableTree) Load() (int64, error) {
 // performs a no-op. Otherwise, if the root does not exist, an error will be
 // returned.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
-	latestVersion := tree.ndb.getLatestVersion()
+	latestVersion, err := tree.ndb.getLatestVersion()
+	if err != nil {
+		return 0, err
+	}
 	if latestVersion < targetVersion {
 		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
 	}
@@ -578,8 +596,12 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 // Returns true if the tree may be auto-upgraded, false otherwise
 // An example of when an upgrade may be performed is when we are enaling fast storage for the first time or
 // need to overwrite fast nodes due to mismatch with live state.
-func (tree *MutableTree) IsUpgradeable() bool {
-	return !tree.ndb.hasUpgradedToFastStorage() || tree.ndb.shouldForceFastStorageUpgrade()
+func (tree *MutableTree) IsUpgradeable() (bool, error) {
+	shouldForce, err := tree.ndb.shouldForceFastStorageUpgrade()
+	if err != nil {
+		return false, err
+	}
+	return !tree.ndb.hasUpgradedToFastStorage() || shouldForce, nil
 }
 
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
@@ -587,10 +609,18 @@ func (tree *MutableTree) IsUpgradeable() bool {
 // from latest tree.
 // nolint: unparam
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
-	shouldForceUpdate := tree.ndb.shouldForceFastStorageUpgrade()
+	shouldForceUpdate, err := tree.ndb.shouldForceFastStorageUpgrade()
+	if err != nil {
+		return false, err
+	}
 	isFastStorageEnabled := tree.ndb.hasUpgradedToFastStorage()
 
-	if !tree.IsUpgradeable() {
+	isUpgradeable, err := tree.IsUpgradeable()
+	if err != nil {
+		return false, err
+	}
+
+	if !isUpgradeable {
 		return false, nil
 	}
 
@@ -731,7 +761,12 @@ func (tree *MutableTree) Rollback() {
 // modified, since it may point to data stored within IAVL.
 func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error) {
 	if tree.VersionExists(version) {
-		if tree.IsFastCacheEnabled() {
+		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+		if err != nil {
+			return nil, err
+		}
+
+		if isFastCacheEnabled {
 			fastNode, _ := tree.ndb.GetFastNode(key)
 			if fastNode == nil && version == tree.ndb.latestVersion {
 				return nil, nil

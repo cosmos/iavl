@@ -1835,7 +1835,9 @@ func TestGetByIndex_ImmutableTree(t *testing.T) {
 	immutableTree, err := tree.GetImmutable(1)
 	require.NoError(t, err)
 
-	require.True(t, immutableTree.IsFastCacheEnabled())
+	isFastCacheEnabled, err := immutableTree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
 
 	for index, expectedKey := range mirrorKeys {
 		expectedValue := mirror[expectedKey]
@@ -1858,7 +1860,9 @@ func TestGetWithIndex_ImmutableTree(t *testing.T) {
 	immutableTree, err := tree.GetImmutable(1)
 	require.NoError(t, err)
 
-	require.True(t, immutableTree.IsFastCacheEnabled())
+	isFastCacheEnabled, err := immutableTree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
 
 	for expectedIndex, key := range mirrorKeys {
 		expectedValue := mirror[key]
@@ -1894,7 +1898,9 @@ func Benchmark_GetWithIndex(b *testing.B) {
 	runtime.GC()
 
 	b.Run("fast", func(sub *testing.B) {
-		require.True(b, t.IsFastCacheEnabled())
+		isFastCacheEnabled, err := t.IsFastCacheEnabled()
+		require.NoError(b, err)
+		require.True(b, isFastCacheEnabled)
 		b.ResetTimer()
 		for i := 0; i < sub.N; i++ {
 			randKey := rand.Intn(numKeyVals)
@@ -1910,7 +1916,9 @@ func Benchmark_GetWithIndex(b *testing.B) {
 		itree, err := t.GetImmutable(latestVersion - 1)
 		require.NoError(b, err)
 
-		require.False(b, itree.IsFastCacheEnabled())
+		isFastCacheEnabled, err := itree.IsFastCacheEnabled()
+		require.NoError(b, err)
+		require.False(b, isFastCacheEnabled)
 		b.ResetTimer()
 		for i := 0; i < sub.N; i++ {
 			randKey := rand.Intn(numKeyVals)
@@ -1939,7 +1947,9 @@ func Benchmark_GetByIndex(b *testing.B) {
 	runtime.GC()
 
 	b.Run("fast", func(sub *testing.B) {
-		require.True(b, t.IsFastCacheEnabled())
+		isFastCacheEnabled, err := t.IsFastCacheEnabled()
+		require.NoError(b, err)
+		require.True(b, isFastCacheEnabled)
 		b.ResetTimer()
 		for i := 0; i < sub.N; i++ {
 			randIdx := rand.Intn(numKeyVals)
@@ -1955,7 +1965,10 @@ func Benchmark_GetByIndex(b *testing.B) {
 		itree, err := t.GetImmutable(latestVersion - 1)
 		require.NoError(b, err)
 
-		require.False(b, itree.IsFastCacheEnabled())
+		isFastCacheEnabled, err := itree.IsFastCacheEnabled()
+		require.NoError(b, err)
+		require.False(b, isFastCacheEnabled)
+
 		b.ResetTimer()
 		for i := 0; i < sub.N; i++ {
 			randIdx := rand.Intn(numKeyVals)

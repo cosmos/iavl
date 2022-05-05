@@ -218,28 +218,36 @@ func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte, err e
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,
 // since they may point to data stored within IAVL. Returns true if stopped by callback, false otherwise
-func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) bool {
+func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, error) {
 	if t.root == nil {
-		return false
+		return false, nil
 	}
 
-	itr := t.Iterator(nil, nil, true)
+	itr, err := t.Iterator(nil, nil, true)
 	defer itr.Close()
+	if err != nil {
+		return false, err
+	}
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
-			return true
+			return true, nil
 		}
 
 	}
-	return false
+	return false, nil
 }
 
 // Iterator returns an iterator over the immutable tree.
-func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterator {
-	if t.IsFastCacheEnabled() {
-		return NewFastIterator(start, end, ascending, t.ndb)
+func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	isFastCacheEnabled, err := t.IsFastCacheEnabled()
+	if err != nil {
+		return nil, err
 	}
-	return NewIterator(start, end, ascending, t)
+
+	if isFastCacheEnabled {
+		return NewFastIterator(start, end, ascending, t.ndb), nil
+	}
+	return NewIterator(start, end, ascending, t), nil
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
@@ -276,12 +284,20 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 // For fast cache to be enabled, the following 2 conditions must be met:
 // 1. The tree is of the latest version.
 // 2. The underlying storage has been upgraded to fast cache
-func (t *ImmutableTree) IsFastCacheEnabled() bool {
-	return t.isLatestTreeVersion() && t.ndb.hasUpgradedToFastStorage()
+func (t *ImmutableTree) IsFastCacheEnabled() (bool, error) {
+	isLatestTreeVersion, err := t.isLatestTreeVersion()
+	if err != nil {
+		return false, err
+	}
+	return isLatestTreeVersion && t.ndb.hasUpgradedToFastStorage(), nil
 }
 
-func (t *ImmutableTree) isLatestTreeVersion() bool {
-	return t.version == t.ndb.getLatestVersion()
+func (t *ImmutableTree) isLatestTreeVersion() (bool, error) {
+	latestVersion, err := t.ndb.getLatestVersion()
+	if err != nil {
+		return false, err
+	}
+	return t.version == latestVersion, nil
 }
 
 // Clone creates a clone of the tree.

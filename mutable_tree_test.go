@@ -699,8 +699,8 @@ func TestIterator_MutableTree_Invalid(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(t, err)
 
-	itr := tree.Iterator([]byte("a"), []byte("b"), true)
-
+	itr, err := tree.Iterator([]byte("a"), []byte("b"), true)
+	require.NoError(t, err)
 	require.NotNil(t, itr)
 	require.False(t, itr.Valid())
 }
@@ -711,21 +711,28 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	tree, err := NewMutableTree(db, 1000)
 
 	// Default version when storage key does not exist in the db
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 	require.NoError(t, err)
-	require.False(t, tree.IsFastCacheEnabled())
+	require.False(t, isFastCacheEnabled)
 
 	mirror := make(map[string]string)
 	// Fill with some data
 	randomizeTreeAndMirror(t, tree, mirror)
 
 	// Enable fast storage
-	require.True(t, tree.IsUpgradeable())
+	isUpgradeable, err := tree.IsUpgradeable()
+	require.True(t, isUpgradeable)
+	require.NoError(t, err)
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
 	require.True(t, enabled)
-	require.False(t, tree.IsUpgradeable())
+	isUpgradeable, err = tree.IsUpgradeable()
+	require.False(t, isUpgradeable)
+	require.NoError(t, err)
 
-	require.True(t, tree.IsFastCacheEnabled())
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
 }
 
 func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
@@ -735,25 +742,35 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 
 	// Default version when storage key does not exist in the db
 	require.NoError(t, err)
-	require.False(t, tree.IsFastCacheEnabled())
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
 
 	mirror := make(map[string]string)
 	// Fill with some data
 	randomizeTreeAndMirror(t, tree, mirror)
 
 	// Enable fast storage
-	require.True(t, tree.IsUpgradeable())
+	isUpgradeable, err := tree.IsUpgradeable()
+	require.True(t, isUpgradeable)
+	require.NoError(t, err)
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
 	require.True(t, enabled)
-	require.True(t, tree.IsFastCacheEnabled())
-	require.False(t, tree.IsUpgradeable())
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
+	isUpgradeable, err = tree.IsUpgradeable()
+	require.False(t, isUpgradeable)
+	require.NoError(t, err)
 
 	// Test enabling fast storage when already enabled
 	enabled, err = tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
 	require.False(t, enabled)
-	require.True(t, tree.IsFastCacheEnabled())
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
 
 }
 
@@ -776,7 +793,10 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	tree, err := NewMutableTree(dbMock, 0)
 	require.Nil(t, err)
 	require.NotNil(t, tree)
-	require.False(t, tree.IsFastCacheEnabled())
+
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
 }
 
 func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
@@ -802,12 +822,18 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	tree, err := NewMutableTree(dbMock, 0)
 	require.Nil(t, err)
 	require.NotNil(t, tree)
-	require.False(t, tree.IsFastCacheEnabled())
+
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
 
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.ErrorIs(t, err, expectedError)
 	require.False(t, enabled)
-	require.False(t, tree.IsFastCacheEnabled())
+
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
 }
 
 func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
@@ -840,11 +866,17 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 
 	// Pretend that we called Load and have the latest state in the tree
 	tree.version = latestTreeVersion
-	require.Equal(t, tree.ndb.getLatestVersion(), int64(latestTreeVersion))
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, latestVersion, int64(latestTreeVersion))
 
 	// Ensure that the right branch of enableFastStorageAndCommitIfNotEnabled will be triggered
-	require.True(t, tree.IsFastCacheEnabled())
-	require.False(t, tree.ndb.shouldForceFastStorageUpgrade())
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
+	shouldForce, err := tree.ndb.shouldForceFastStorageUpgrade()
+	require.False(t, shouldForce)
+	require.NoError(t, err)
 
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
@@ -927,11 +959,17 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// Pretend that we called Load and have the latest state in the tree
 	tree.version = latestTreeVersion
-	require.Equal(t, tree.ndb.getLatestVersion(), int64(latestTreeVersion))
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, latestVersion, int64(latestTreeVersion))
 
 	// Ensure that the right branch of enableFastStorageAndCommitIfNotEnabled will be triggered
-	require.True(t, tree.IsFastCacheEnabled())
-	require.True(t, tree.ndb.shouldForceFastStorageUpgrade())
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
+	shouldForce, err := tree.ndb.shouldForceFastStorageUpgrade()
+	require.True(t, shouldForce)
+	require.NoError(t, err)
 
 	// Actual method under test
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
@@ -948,26 +986,40 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	// Setup
 	tree, mirror := setupTreeAndMirrorForUpgrade(t)
 
-	require.False(t, tree.IsFastCacheEnabled())
-	require.True(t, tree.IsUpgradeable())
-
-	// Should auto enable in save version
-	_, _, err := tree.SaveVersion()
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
+	isUpgradeable, err := tree.IsUpgradeable()
+	require.True(t, isUpgradeable)
 	require.NoError(t, err)
 
-	require.True(t, tree.IsFastCacheEnabled())
-	require.False(t, tree.IsUpgradeable())
+	// Should auto enable in save version
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
+	isUpgradeable, err = tree.IsUpgradeable()
+	require.False(t, isUpgradeable)
+	require.NoError(t, err)
 
 	sut, _ := NewMutableTree(tree.ndb.db, 1000)
 
-	require.False(t, sut.IsFastCacheEnabled())
-	require.False(t, sut.IsUpgradeable()) // upgraded in save version
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
+	isUpgradeable, err = sut.IsUpgradeable()
+	require.False(t, isUpgradeable) // upgraded in save version
+	require.NoError(t, err)
 
 	// Load version - should auto enable fast storage
 	version, err := sut.Load()
 	require.NoError(t, err)
 
-	require.True(t, sut.IsFastCacheEnabled())
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
 
 	require.Equal(t, int64(1), version)
 
@@ -1001,26 +1053,40 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 	// Setup
 	tree, mirror := setupTreeAndMirrorForUpgrade(t)
 
-	require.False(t, tree.IsFastCacheEnabled())
-	require.True(t, tree.IsUpgradeable())
-
-	// Should auto enable in save version
-	_, _, err := tree.SaveVersion()
+	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
+	isUpgradeable, err := tree.IsUpgradeable()
+	require.True(t, isUpgradeable)
 	require.NoError(t, err)
 
-	require.True(t, tree.IsFastCacheEnabled())
-	require.False(t, tree.IsUpgradeable())
+	// Should auto enable in save version
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
+	isUpgradeable, err = tree.IsUpgradeable()
+	require.False(t, isUpgradeable)
+	require.NoError(t, err)
 
 	sut, _ := NewMutableTree(tree.ndb.db, 1000)
 
-	require.False(t, sut.IsFastCacheEnabled())
-	require.False(t, sut.IsUpgradeable()) // upgraded in save version
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.False(t, isFastCacheEnabled)
+	isUpgradeable, err = sut.IsUpgradeable()
+	require.False(t, isUpgradeable) // upgraded in save version
+	require.NoError(t, err)
 
 	// LazyLoadVersion - should auto enable fast storage
 	version, err := sut.LazyLoadVersion(1)
 	require.NoError(t, err)
 
-	require.True(t, sut.IsFastCacheEnabled())
+	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	require.NoError(t, err)
+	require.True(t, isFastCacheEnabled)
 
 	require.Equal(t, int64(1), version)
 
