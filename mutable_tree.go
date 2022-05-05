@@ -245,11 +245,14 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		node = node.clone(version)
 
 		if bytes.Compare(key, node.key) < 0 {
-			leftNode, err := node.getRightNode(tree.ImmutableTree)
+			leftNode, err := node.getLeftNode(tree.ImmutableTree)
 			if err != nil {
 				return nil, false, err
 			}
 			node.leftNode, updated, err = tree.recursiveSet(leftNode, key, value, orphans)
+			if err != nil {
+				return nil, updated, err
+			}
 			node.leftHash = nil // leftHash is yet unknown
 		} else {
 			rightNode, err := node.getRightNode(tree.ImmutableTree)
@@ -257,6 +260,9 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				return nil, false, err
 			}
 			node.rightNode, updated, err = tree.recursiveSet(rightNode, key, value, orphans)
+			if err != nil {
+				return nil, updated, err
+			}
 			node.rightHash = nil // rightHash is yet unknown
 		}
 
