@@ -189,15 +189,15 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 }
 
 // SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *Node) {
+func (ndb *nodeDB) SaveNode(node *Node) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	if node.hash == nil {
-		panic("Expected to find node.hash, but none found.")
+		return errors.New("Expected to find node.hash, but none found.")
 	}
 	if node.persisted {
-		panic("Shouldn't be calling save on an already persisted node.")
+		return errors.New("Shouldn't be calling save on an already persisted node.")
 	}
 
 	// Save node bytes to db.
@@ -205,15 +205,16 @@ func (ndb *nodeDB) SaveNode(node *Node) {
 	buf.Grow(node.encodedSize())
 
 	if err := node.writeBytes(&buf); err != nil {
-		panic(err)
+		return err
 	}
 
 	if err := ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes()); err != nil {
-		panic(err)
+		return err
 	}
 	logger.Debug("BATCH SAVE %X %p\n", node.hash, node)
 	node.persisted = true
 	ndb.cacheNode(node)
+	return nil
 }
 
 // SaveNode saves a FastNode to disk and add to cache.
@@ -350,7 +351,10 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, error) {
 	}
 
 	node._hash()
-	ndb.SaveNode(node)
+	err = ndb.SaveNode(node)
+	if err != nil {
+		return nil, err
+	}
 
 	// resetBatch only working on generate a genesis block
 	if node.version <= genesisVersion {
