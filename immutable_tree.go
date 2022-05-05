@@ -145,9 +145,9 @@ func (t *ImmutableTree) Has(key []byte) (bool, error) {
 }
 
 // Hash returns the root hash.
-func (t *ImmutableTree) Hash() []byte {
-	hash, _ := t.root.hashWithCount()
-	return hash
+func (t *ImmutableTree) Hash() ([]byte, error) {
+	hash, _, err := t.root.hashWithCount()
+	return hash, err
 }
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be

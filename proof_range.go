@@ -383,7 +383,11 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 	if t.root == nil {
 		return nil, nil, nil, nil
 	}
-	t.root.hashWithCount() // Ensure that all hashes are calculated.
+
+	_, _, err = t.root.hashWithCount() // Ensure that all hashes are calculated.
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	// Get the first key/value pair proof, which provides us with the left key.
 	path, left, err := t.root.PathToLeaf(t, keyStart)

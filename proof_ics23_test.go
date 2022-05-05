@@ -51,7 +51,8 @@ func TestGetMembership(t *testing.T) {
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
-			root := tree.Hash()
+			root, err := tree.Hash()
+			require.NoError(t, err)
 			valid := ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val)
 			if !valid {
 				require.NoError(t, err, "Membership Proof Invalid")
@@ -79,7 +80,8 @@ func TestGetNonMembership(t *testing.T) {
 		proof, err := tree.GetNonMembershipProof(key)
 		require.NoError(t, err, "Creating Proof: %+v", err)
 
-		root := tree.Hash()
+		root, err := tree.Hash()
+		require.NoError(t, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		if !valid {
 			require.NoError(t, err, "Non Membership Proof Invalid")
@@ -134,7 +136,8 @@ func BenchmarkGetNonMembership(b *testing.B) {
 		require.NoError(b, err, "Creating Proof: %+v", err)
 
 		b.StopTimer()
-		root := tree.Hash()
+		root, err := tree.Hash()
+		require.NoError(b, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		if !valid {
 			require.NoError(b, err, "Non Membership Proof Invalid")
@@ -214,7 +217,10 @@ func GenerateResult(size int, loc Where) (*Result, error) {
 	if len(proof.Leaves) != 1 {
 		return nil, fmt.Errorf("tree.GetWithProof returned %d leaves", len(proof.Leaves))
 	}
-	root := tree.Hash()
+	root, err := tree.Hash()
+	if err != nil {
+		return nil, err
+	}
 
 	res := &Result{
 		Key:      key,

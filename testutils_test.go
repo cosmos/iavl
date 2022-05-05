@@ -71,12 +71,15 @@ func N(l, r interface{}) *Node {
 }
 
 // Setup a deep node
-func T(n *Node) *MutableTree {
+func T(n *Node) (*MutableTree, error) {
 	t, _ := getTestTree(0)
 
-	n.hashWithCount()
+	_, _, err := n.hashWithCount()
+	if err != nil {
+		return nil, err
+	}
 	t.root = n
-	return t
+	return t, nil
 }
 
 // Convenience for simple printing of keys & tree structure

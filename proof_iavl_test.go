@@ -19,7 +19,8 @@ func TestProofOp(t *testing.T) {
 		key := []byte{ikey}
 		tree.Set(key, key)
 	}
-	root := tree.WorkingHash()
+	root, err := tree.WorkingHash()
+	require.NoError(t, err)
 
 	testcases := []struct {
 		key           byte

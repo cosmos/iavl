@@ -22,7 +22,8 @@ func TestTreeGetWithProof(t *testing.T) {
 		key := []byte{ikey}
 		tree.Set(key, []byte(iavlrand.RandStr(8)))
 	}
-	root := tree.WorkingHash()
+	root, err := tree.WorkingHash()
+	require.NoError(err)
 
 	key := []byte{0x32}
 	val, proof, err := tree.GetWithProof(key)
@@ -52,7 +53,8 @@ func TestTreeGetWithProof(t *testing.T) {
 func TestTreeKeyExistsProof(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(t, err)
-	root := tree.WorkingHash()
+	root, err := tree.WorkingHash()
+	require.NoError(t, err)
 
 	// should get false for proof with nil root
 	proof, keys, values, err := tree.getRangeProof([]byte("foo"), nil, 1)
@@ -71,7 +73,8 @@ func TestTreeKeyExistsProof(t *testing.T) {
 		allkeys[i] = []byte(key)
 	}
 	sortByteSlices(allkeys) // Sort all keys
-	root = tree.WorkingHash()
+	root, err = tree.WorkingHash()
+	require.NoError(t, err)
 
 	// query random key fails
 	proof, _, _, err = tree.getRangeProof([]byte("foo"), nil, 2)
@@ -125,7 +128,8 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 		key := []byte{ikey}
 		tree.Set(key, key)
 	}
-	root := tree.WorkingHash()
+	root, err := tree.WorkingHash()
+	require.NoError(err)
 
 	// For spacing:
 	T := 10

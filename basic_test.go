@@ -173,7 +173,8 @@ func TestUnit(t *testing.T) {
 
 	expectHash := func(tree *ImmutableTree, hashCount int64) {
 		// ensure number of new hash calculations is as expected.
-		hash, count := tree.root.hashWithCount()
+		hash, count, err := tree.root.hashWithCount()
+		require.NoError(t, err)
 		if count != hashCount {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
@@ -183,7 +184,8 @@ func TestUnit(t *testing.T) {
 			return false
 		})
 		// ensure that the new hash after nuking is the same as the old.
-		newHash, _ := tree.root.hashWithCount()
+		newHash, _, err := tree.root.hashWithCount()
+		require.NoError(t, err)
 		if !bytes.Equal(hash, newHash) {
 			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
 		}
@@ -220,35 +222,41 @@ func TestUnit(t *testing.T) {
 	// Test Set cases:
 
 	// Case 1:
-	t1 := T(N(4, 20))
+	t1, err := T(N(4, 20))
 
+	require.NoError(t, err)
 	expectSet(t1, 8, "((4 8) 20)", 3)
 	expectSet(t1, 25, "(4 (20 25))", 3)
 
-	t2 := T(N(4, N(20, 25)))
+	t2, err := T(N(4, N(20, 25)))
 
+	require.NoError(t, err)
 	expectSet(t2, 8, "((4 8) (20 25))", 3)
 	expectSet(t2, 30, "((4 20) (25 30))", 4)
 
-	t3 := T(N(N(1, 2), 6))
+	t3, err := T(N(N(1, 2), 6))
 
+	require.NoError(t, err)
 	expectSet(t3, 4, "((1 2) (4 6))", 4)
 	expectSet(t3, 8, "((1 2) (6 8))", 3)
 
-	t4 := T(N(N(1, 2), N(N(5, 6), N(7, 9))))
+	t4, err := T(N(N(1, 2), N(N(5, 6), N(7, 9))))
 
+	require.NoError(t, err)
 	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))", 5)
 	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))", 5)
 
 	// Test Remove cases:
 
-	t10 := T(N(N(1, 2), 3))
+	t10, err := T(N(N(1, 2), 3))
 
+	require.NoError(t, err)
 	expectRemove(t10, 2, "(1 3)", 1)
 	expectRemove(t10, 3, "(1 2)", 0)
 
-	t11 := T(N(N(N(1, 2), 3), N(4, 5)))
+	t11, err := T(N(N(N(1, 2), 3), N(4, 5)))
 
+	require.NoError(t, err)
 	expectRemove(t11, 4, "((1 2) (3 5))", 2)
 	expectRemove(t11, 3, "((1 2) (4 5))", 1)
 
@@ -509,7 +517,9 @@ func TestProof(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, value, value2)
 		if assert.NotNil(t, proof) {
-			verifyProof(t, proof, tree.WorkingHash())
+			hash, err := tree.WorkingHash()
+			require.NoError(t, err)
+			verifyProof(t, proof, hash)
 		}
 		return false
 	})
@@ -519,7 +529,9 @@ func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 100)
 	require.NoError(t, err)
-	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(tree.Hash()))
+	hash, err := tree.Hash()
+	require.NoError(t, err)
+	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	// should get false for proof with nil root
 	value, proof, err := tree.GetWithProof([]byte("foo"))
@@ -543,11 +555,14 @@ func TestTreeProof(t *testing.T) {
 	assert.Nil(t, value)
 	assert.NotNil(t, proof)
 	assert.NoError(t, err)
-	assert.NoError(t, proof.Verify(tree.Hash()))
+	hash, err = tree.Hash()
+	assert.NoError(t, err)
+	assert.NoError(t, proof.Verify(hash))
 	assert.NoError(t, proof.VerifyAbsence([]byte("foo")))
 
 	// valid proof for real keys
-	root := tree.WorkingHash()
+	root, err := tree.WorkingHash()
+	assert.NoError(t, err)
 	for _, key := range keys {
 		value, proof, err := tree.GetWithProof(key)
 		if assert.NoError(t, err) {

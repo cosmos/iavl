@@ -103,12 +103,12 @@ func (tree *MutableTree) AvailableVersions() []int {
 
 // Hash returns the hash of the latest saved version of the tree, as returned
 // by SaveVersion. If no versions have been saved, Hash returns nil.
-func (tree *MutableTree) Hash() []byte {
+func (tree *MutableTree) Hash() ([]byte, error) {
 	return tree.lastSaved.Hash()
 }
 
 // WorkingHash returns the hash of the current working tree.
-func (tree *MutableTree) WorkingHash() []byte {
+func (tree *MutableTree) WorkingHash() ([]byte, error) {
 	return tree.ImmutableTree.Hash()
 }
 
@@ -811,7 +811,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			existingHash = sha256.New().Sum(nil)
 		}
 
-		var newHash = tree.WorkingHash()
+		newHash, err := tree.WorkingHash()
+		if err != nil {
+			return nil, version, err
+		}
 
 		if bytes.Equal(existingHash, newHash) {
 			tree.version = version
@@ -867,7 +870,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.unsavedFastNodeAdditions = make(map[string]*FastNode)
 	tree.unsavedFastNodeRemovals = make(map[string]interface{})
 
-	return tree.Hash(), version, nil
+	hash, err := tree.Hash()
+	if err != nil {
+		return nil, version, err
+	}
+
+	return hash, version, nil
 }
 
 func (tree *MutableTree) saveFastNodeVersion() error {

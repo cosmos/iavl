@@ -210,7 +210,12 @@ func TestExporter_Import(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tree.Hash(), newTree.Hash(), "Tree hash mismatch")
+			treeHash, err := tree.Hash()
+			require.NoError(t, err)
+			newTreeHash, err := newTree.Hash()
+			require.NoError(t, err)
+
+			require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
 			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
 			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
 
