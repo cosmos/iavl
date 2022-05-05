@@ -235,23 +235,23 @@ func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value [
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
+func (node *Node) _hash() ([]byte, error) {
 	if node.hash != nil {
-		return node.hash
+		return node.hash, nil
 	}
 
 	h := sha256.New()
 	buf := new(bytes.Buffer)
 	if err := node.writeHashBytes(buf); err != nil {
-		panic(err)
+		return nil, err
 	}
 	_, err := h.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	node.hash = h.Sum(nil)
 
-	return node.hash
+	return node.hash, nil
 }
 
 // Hash the node and its descendants recursively. This usually mutates all

@@ -113,8 +113,12 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.size += node.rightNode.size
 	}
 
-	node._hash()
-	err := node.validate()
+	_, err := node._hash()
+	if err != nil {
+		return err
+	}
+
+	err = node.validate()
 	if err != nil {
 		return err
 	}

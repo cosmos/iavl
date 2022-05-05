@@ -32,7 +32,11 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		printNode(ndb, rightNode, indent+1)
 	}
 
-	hash := node._hash()
+	hash, err := node._hash()
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("%sh:%X\n", indentPrefix, hash)
 	if node.isLeaf() {
 		fmt.Printf("%s%X:%X (%v)\n", indentPrefix, node.key, node.value, node.height)

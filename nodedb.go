@@ -360,7 +360,11 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, error) {
 		return nil, err
 	}
 
-	node._hash()
+	_, err = node._hash()
+	if err != nil {
+		return nil, err
+	}
+
 	err = ndb.SaveNode(node)
 	if err != nil {
 		return nil, err
