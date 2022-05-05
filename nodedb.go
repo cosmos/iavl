@@ -194,10 +194,10 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	defer ndb.mtx.Unlock()
 
 	if node.hash == nil {
-		return errors.New("Expected to find node.hash, but none found.")
+		return fmt.Errorf("expected to find node.hash, but none found")
 	}
 	if node.persisted {
-		return errors.New("Shouldn't be calling save on an already persisted node.")
+		return fmt.Errorf("shouldn't be calling save on an already persisted node")
 	}
 
 	// Save node bytes to db.

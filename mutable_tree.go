@@ -195,7 +195,7 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) dbm.Iterato
 
 func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated bool, err error) {
 	if value == nil {
-		panic(fmt.Sprintf("Attempt to store nil value at key '%s'", key))
+		return nil, false, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
 
 	if tree.ImmutableTree.root == nil {
