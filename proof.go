@@ -175,7 +175,7 @@ func (pln ProofLeafNode) Hash() ([]byte, error) {
 		err = encoding.EncodeBytes(buf, pln.ValueHash)
 	}
 	if err != nil {
-		err = fmt.Errorf("Failed to hash ProofLeafNode: %v", err)
+		return nil, fmt.Errorf("failed to hash ProofLeafNode: %v", err)
 	}
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
