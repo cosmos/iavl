@@ -374,7 +374,7 @@ func RangeProofFromProto(pbProof *iavlproto.RangeProof) (RangeProof, error) {
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
 // If keyEnd-1 exists, no later leaves will be included.
-// If keyStart >= keyEnd and both not nil, panics.
+// If keyStart >= keyEnd and both not nil, errors out.
 // Limit is never exceeded.
 //nolint:unparam
 func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {

@@ -1319,9 +1319,8 @@ func TestNilValueSemantics(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(err)
 
-	require.Panics(func() {
-		tree.Set([]byte("k"), nil)
-	})
+	_, err = tree.Set([]byte("k"), nil)
+	require.Error(err)
 }
 
 func TestCopyValueSemantics(t *testing.T) {
