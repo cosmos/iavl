@@ -422,7 +422,11 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 	if newKey != nil {
 		newNode.key = newKey
 	}
-	newNode.calcHeightAndSize(tree.ImmutableTree)
+	err = newNode.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
 	newNode, err = tree.balance(newNode, orphans)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -1072,8 +1076,15 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 	newNode.rightHash, newNode.rightNode = node.hash, node
 	node.leftHash, node.leftNode = newNoderHash, newNoderCached
 
-	node.calcHeightAndSize(tree.ImmutableTree)
-	newNode.calcHeightAndSize(tree.ImmutableTree)
+	err = node.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = newNode.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return newNode, orphaned, nil
 }
@@ -1102,8 +1113,15 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node, error) {
 	newNode.leftHash, newNode.leftNode = node.hash, node
 	node.rightHash, node.rightNode = newNodelHash, newNodelCached
 
-	node.calcHeightAndSize(tree.ImmutableTree)
-	newNode.calcHeightAndSize(tree.ImmutableTree)
+	err = node.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = newNode.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	return newNode, orphaned, nil
 }
