@@ -379,7 +379,7 @@ func RangeProofFromProto(pbProof *iavlproto.RangeProof) (RangeProof, error) {
 //nolint:unparam
 func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
-		panic("If keyStart and keyEnd are present, need keyStart < keyEnd.")
+		return nil, nil, nil, fmt.Errorf("if keyStart and keyEnd are present, need keyStart < keyEnd")
 	}
 	if limit < 0 {
 		return nil, nil, nil, fmt.Errorf("limit must be greater or equal to 0 -- 0 means no limit")

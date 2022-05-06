@@ -143,7 +143,7 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 		pkeys []byte // proof keys, one byte per key.
 		vals  []byte // keys and values, one byte per key.
 		lidx  int64  // proof left index (index of first proof key).
-		pnc   bool   // does panic
+		err   bool   // does error
 	}{
 		{start: 0x0a, end: 0xf7, pkeys: keys[0:T], vals: keys[0:9], lidx: 0}, // #0
 		{start: 0x0a, end: 0xf8, pkeys: keys[0:T], vals: keys[0:T], lidx: 0}, // #1
@@ -163,11 +163,11 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 		{start: 0xf8, end: 0xff, pkeys: keys[9:T], vals: nil______, lidx: 9}, // #15
 		{start: 0x12, end: 0x20, pkeys: keys[1:3], vals: nil______, lidx: 1}, // #16
 		{start: 0x00, end: 0x09, pkeys: keys[0:1], vals: nil______, lidx: 0}, // #17
-		{start: 0xf7, end: 0x00, pnc: true},                                  // #18
-		{start: 0xf8, end: 0x00, pnc: true},                                  // #19
-		{start: 0x10, end: 0x10, pnc: true},                                  // #20
-		{start: 0x12, end: 0x12, pnc: true},                                  // #21
-		{start: 0xff, end: 0xf7, pnc: true},                                  // #22
+		{start: 0xf7, end: 0x00, err: true},                                  // #18
+		{start: 0xf8, end: 0x00, err: true},                                  // #19
+		{start: 0x10, end: 0x10, err: true},                                  // #20
+		{start: 0x12, end: 0x12, err: true},                                  // #21
+		{start: 0xff, end: 0xf7, err: true},                                  // #22
 	}
 
 	// fmt.Println("PRINT TREE")
@@ -179,35 +179,36 @@ func TestTreeKeyInRangeProofs(t *testing.T) {
 		start := []byte{c.start}
 		end := []byte{c.end}
 
-		if c.pnc {
-			require.Panics(func() { tree.GetRangeWithProof(start, end, 0) })
-			continue
-		}
-
 		// Compute range proof.
 		keys, values, proof, err := tree.GetRangeWithProof(start, end, 0)
-		require.NoError(err, "%+v", err)
-		require.Equal(c.pkeys, flatten(proof.Keys()))
-		require.Equal(c.vals, flatten(keys))
-		require.Equal(c.vals, flatten(values))
-		require.Equal(c.lidx, proof.LeftIndex())
 
-		// Verify that proof is valid.
-		err = proof.Verify(root)
-		require.NoError(err, "%+v", err)
-		verifyProof(t, proof, root)
+		if c.err {
+			require.Error(err, "%+v", err)
+		} else {
+			require.NoError(err, "%+v", err)
+			require.Equal(c.pkeys, flatten(proof.Keys()))
+			require.Equal(c.vals, flatten(keys))
+			require.Equal(c.vals, flatten(values))
+			require.Equal(c.lidx, proof.LeftIndex())
 
-		// Verify each value of pkeys.
-		for _, key := range c.pkeys {
-			err := proof.VerifyItem([]byte{key}, []byte{key})
-			require.NoError(err)
+			// Verify that proof is valid.
+			err = proof.Verify(root)
+			require.NoError(err, "%+v", err)
+			verifyProof(t, proof, root)
+
+			// Verify each value of pkeys.
+			for _, key := range c.pkeys {
+				err := proof.VerifyItem([]byte{key}, []byte{key})
+				require.NoError(err)
+			}
+
+			// Verify each value of vals.
+			for _, key := range c.vals {
+				err := proof.VerifyItem([]byte{key}, []byte{key})
+				require.NoError(err)
+			}
 		}
 
-		// Verify each value of vals.
-		for _, key := range c.vals {
-			err := proof.VerifyItem([]byte{key}, []byte{key})
-			require.NoError(err)
-		}
 	}
 }
 
