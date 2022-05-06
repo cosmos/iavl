@@ -954,7 +954,7 @@ func (ndb *nodeDB) getRoots() (roots map[int64][]byte, err error) {
 // loaded later.
 func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
-		panic("SaveRoot: root hash should not be empty")
+		return fmt.Errorf("saveRoot: root hash should not be empty")
 	}
 	return ndb.saveRoot(root.hash, version)
 }

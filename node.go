@@ -122,9 +122,9 @@ func (node *Node) String() string {
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone(version int64) *Node {
+func (node *Node) clone(version int64) (*Node, error) {
 	if node.isLeaf() {
-		panic("Attempt to copy a leaf node")
+		return nil, fmt.Errorf("attempt to copy a leaf node")
 	}
 	return &Node{
 		key:       node.key,
@@ -137,7 +137,7 @@ func (node *Node) clone(version int64) *Node {
 		rightHash: node.rightHash,
 		rightNode: node.rightNode,
 		persisted: false,
-	}
+	}, nil
 }
 
 func (node *Node) isLeaf() bool {

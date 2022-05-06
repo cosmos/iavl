@@ -256,7 +256,10 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		}
 	} else {
 		*orphans = append(*orphans, node)
-		node = node.clone(version)
+		node, err = node.clone(version)
+		if err != nil {
+			return nil, false, err
+		}
 
 		if bytes.Compare(key, node.key) < 0 {
 			leftNode, err := node.getLeftNode(tree.ImmutableTree)
@@ -376,7 +379,11 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 			return node.rightHash, node.rightNode, node.key, value, nil
 		}
 
-		newNode := node.clone(version)
+		newNode, err := node.clone(version)
+		if err != nil {
+			return nil, nil, nil, nil, err
+		}
+
 		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
 		err = newNode.calcHeightAndSize(tree.ImmutableTree)
 		if err != nil {
@@ -406,7 +413,11 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 		return node.leftHash, node.leftNode, nil, value, nil
 	}
 
-	newNode := node.clone(version)
+	newNode, err := node.clone(version)
+	if err != nil {
+		return nil, nil, nil, nil, err
+	}
+
 	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
 	if newKey != nil {
 		newNode.key = newKey
@@ -1041,13 +1052,21 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 	version := tree.version + 1
 
+	var err error
 	// TODO: optimize balance & rotate.
-	node = node.clone(version)
+	node, err = node.clone(version)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	orphaned, err := node.getLeftNode(tree.ImmutableTree)
 	if err != nil {
 		return nil, nil, err
 	}
-	newNode := orphaned.clone(version)
+	newNode, err := orphaned.clone(version)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	newNoderHash, newNoderCached := newNode.rightHash, newNode.rightNode
 	newNode.rightHash, newNode.rightNode = node.hash, node
@@ -1063,13 +1082,21 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node, error) {
 	version := tree.version + 1
 
+	var err error
 	// TODO: optimize balance & rotate.
-	node = node.clone(version)
+	node, err = node.clone(version)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	orphaned, err := node.getRightNode(tree.ImmutableTree)
 	if err != nil {
 		return nil, nil, err
 	}
-	newNode := orphaned.clone(version)
+	newNode, err := orphaned.clone(version)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	newNodelHash, newNodelCached := newNode.leftHash, newNode.leftNode
 	newNode.leftHash, newNode.leftNode = node.hash, node
