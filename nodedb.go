@@ -120,7 +120,7 @@ func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	defer ndb.mtx.Unlock()
 
 	if len(hash) == 0 {
-		return nil, fmt.Errorf("nodeDB.GetNode() requires hash")
+		return nil, ErrNodeMissingHash
 	}
 
 	// Check the cache.
@@ -194,10 +194,10 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	defer ndb.mtx.Unlock()
 
 	if node.hash == nil {
-		return fmt.Errorf("expected to find node.hash, but none found")
+		return ErrNodeMissingHash
 	}
 	if node.persisted {
-		return fmt.Errorf("shouldn't be calling save on an already persisted node")
+		return ErrNodeAlreadyPersisted
 	}
 
 	// Save node bytes to db.
@@ -954,7 +954,7 @@ func (ndb *nodeDB) getRoots() (roots map[int64][]byte, err error) {
 // loaded later.
 func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
-		return fmt.Errorf("saveRoot: root hash should not be empty")
+		return ErrRootMissingHash
 	}
 	return ndb.saveRoot(root.hash, version)
 }
@@ -1150,3 +1150,9 @@ func (ndb *nodeDB) String() (string, error) {
 
 	return "-" + "\n" + buf.String() + "-", nil
 }
+
+var (
+	ErrNodeMissingHash      = fmt.Errorf("node does not have a hash")
+	ErrNodeAlreadyPersisted = fmt.Errorf("shouldn't be calling save on an already persisted node")
+	ErrRootMissingHash      = fmt.Errorf("root hash must not be empty")
+)

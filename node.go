@@ -124,7 +124,7 @@ func (node *Node) String() string {
 // clone creates a shallow copy of a node with its hash set to nil.
 func (node *Node) clone(version int64) (*Node, error) {
 	if node.isLeaf() {
-		return nil, fmt.Errorf("attempt to copy a leaf node")
+		return nil, ErrCloneLeafNode
 	}
 	return &Node{
 		key:       node.key,
@@ -356,7 +356,7 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 		}
 	} else {
 		if node.leftHash == nil || node.rightHash == nil {
-			return fmt.Errorf("found an empty child hash")
+			return ErrEmptyChildHash
 		}
 		err = encoding.EncodeBytes(w, node.leftHash)
 		if err != nil {
@@ -440,7 +440,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		}
 	} else {
 		if node.leftHash == nil {
-			return fmt.Errorf("node.leftHash was nil in writeBytes")
+			return ErrLeftHashIsNil
 		}
 		cause = encoding.EncodeBytes(w, node.leftHash)
 		if cause != nil {
@@ -448,7 +448,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		}
 
 		if node.rightHash == nil {
-			return fmt.Errorf("node.rightHash was nil in writeBytes")
+			return ErrRightHashIsNil
 		}
 		cause = encoding.EncodeBytes(w, node.rightHash)
 		if cause != nil {
@@ -540,3 +540,10 @@ func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascend
 	}
 	return stop
 }
+
+var (
+	ErrCloneLeafNode  = fmt.Errorf("attempt to copy a leaf node")
+	ErrEmptyChildHash = fmt.Errorf("found an empty child hash")
+	ErrLeftHashIsNil  = fmt.Errorf("node.leftHash was nil in writeBytes")
+	ErrRightHashIsNil = fmt.Errorf("node.rightHash was nil in writeBytes")
+)
