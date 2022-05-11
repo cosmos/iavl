@@ -10,16 +10,13 @@
 ### Improvements
 
 - [\#468](https://github.com/cosmos/iavl/pull/468) Fast storage optimization for queries and iterations
-
-## 0.17.3 (December 1, 2021)
-
-### Improvements
-
-- [\#445](https://github.com/cosmos/iavl/pull/445) Bump github.com/tendermint/tendermint to v0.35.0
 - [\#452](https://github.com/cosmos/iavl/pull/452) Optimization: remove unnecessary (*bytes.Buffer).Reset right after creating buffer.
+- [\#445](https://github.com/cosmos/iavl/pull/445) Bump github.com/tendermint/tendermint to v0.35.0
 - [\#453](https://github.com/cosmos/iavl/pull/453),[\#456](https://github.com/cosmos/iavl/pull/456) Optimization: buffer reuse
 - [\#474](https://github.com/cosmos/iavl/pull/474) bump github.com/confio/ics23 to v0.7
 - [\#475](https://github.com/cosmos/iavl/pull/475) Use go v1.17
+
+## 0.17.3 (December 1, 2021)
 
 ### Bug Fixes
 
