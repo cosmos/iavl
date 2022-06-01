@@ -30,18 +30,26 @@ If the key exists in the tree, this will return an error.
 */
 func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
 	// idx is one node right of what we want....
-	idx, val := t.GetWithIndex(key)
+	var err error
+	idx, val, err := t.GetWithIndex(key)
+	if err != nil {
+		return nil, err
+	}
+
 	if val != nil {
 		return nil, fmt.Errorf("cannot create NonExistanceProof when Key in State")
 	}
 
-	var err error
 	nonexist := &ics23.NonExistenceProof{
 		Key: key,
 	}
 
 	if idx >= 1 {
-		leftkey, _ := t.GetByIndex(idx - 1)
+		leftkey, _, err := t.GetByIndex(idx - 1)
+		if err != nil {
+			return nil, err
+		}
+
 		nonexist.Left, err = createExistenceProof(t, leftkey)
 		if err != nil {
 			return nil, err
@@ -49,7 +57,11 @@ func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProo
 	}
 
 	// this will be nil if nothing right of the queried key
-	rightkey, _ := t.GetByIndex(idx)
+	rightkey, _, err := t.GetByIndex(idx)
+	if err != nil {
+		return nil, err
+	}
+
 	if rightkey != nil {
 		nonexist.Right, err = createExistenceProof(t, rightkey)
 		if err != nil {

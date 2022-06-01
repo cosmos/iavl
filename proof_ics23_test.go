@@ -46,11 +46,13 @@ func TestGetMembership(t *testing.T) {
 			require.NoError(t, err, "Creating tree: %+v", err)
 
 			key := GetKey(allkeys, tc.loc)
-			val := tree.Get(key)
+			val, err := tree.Get(key)
+			require.NoError(t, err)
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
-			root := tree.Hash()
+			root, err := tree.Hash()
+			require.NoError(t, err)
 			valid := ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val)
 			if !valid {
 				require.NoError(t, err, "Membership Proof Invalid")
@@ -78,7 +80,8 @@ func TestGetNonMembership(t *testing.T) {
 		proof, err := tree.GetNonMembershipProof(key)
 		require.NoError(t, err, "Creating Proof: %+v", err)
 
-		root := tree.Hash()
+		root, err := tree.Hash()
+		require.NoError(t, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		if !valid {
 			require.NoError(t, err, "Non Membership Proof Invalid")
@@ -94,7 +97,9 @@ func TestGetNonMembership(t *testing.T) {
 			_, _, err = tree.SaveVersion()
 			require.NoError(t, err)
 
-			require.True(t, tree.IsFastCacheEnabled())
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(t, err)
+			require.True(t, isFastCacheEnabled)
 
 			performTest(tree, allkeys, tc.loc)
 		})
@@ -102,7 +107,9 @@ func TestGetNonMembership(t *testing.T) {
 		t.Run("regular-"+name, func(t *testing.T) {
 			tree, allkeys, err := BuildTree(tc.size, 0)
 			require.NoError(t, err, "Creating tree: %+v", err)
-			require.False(t, tree.IsFastCacheEnabled())
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(t, err)
+			require.False(t, isFastCacheEnabled)
 
 			performTest(tree, allkeys, tc.loc)
 		})
@@ -129,7 +136,8 @@ func BenchmarkGetNonMembership(b *testing.B) {
 		require.NoError(b, err, "Creating Proof: %+v", err)
 
 		b.StopTimer()
-		root := tree.Hash()
+		root, err := tree.Hash()
+		require.NoError(b, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		if !valid {
 			require.NoError(b, err, "Non Membership Proof Invalid")
@@ -149,7 +157,9 @@ func BenchmarkGetNonMembership(b *testing.B) {
 			_, _, err = tree.SaveVersion()
 			require.NoError(b, err)
 
-			require.True(b, tree.IsFastCacheEnabled())
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(b, err)
+			require.True(b, isFastCacheEnabled)
 			b.StartTimer()
 			performTest(tree, allkeys, tc.loc)
 		}
@@ -163,7 +173,9 @@ func BenchmarkGetNonMembership(b *testing.B) {
 
 			tree, allkeys, err := BuildTree(tc.size, 100000)
 			require.NoError(b, err, "Creating tree: %+v", err)
-			require.False(b, tree.IsFastCacheEnabled())
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(b, err)
+			require.False(b, isFastCacheEnabled)
 
 			b.StartTimer()
 			performTest(tree, allkeys, tc.loc)
@@ -205,7 +217,10 @@ func GenerateResult(size int, loc Where) (*Result, error) {
 	if len(proof.Leaves) != 1 {
 		return nil, fmt.Errorf("tree.GetWithProof returned %d leaves", len(proof.Leaves))
 	}
-	root := tree.Hash()
+	root, err := tree.Hash()
+	if err != nil {
+		return nil, err
+	}
 
 	res := &Result{
 		Key:      key,

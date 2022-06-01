@@ -16,19 +16,23 @@ import (
 func TestBasic(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(t, err)
-	up := tree.Set([]byte("1"), []byte("one"))
+	up, err := tree.Set([]byte("1"), []byte("one"))
+	require.NoError(t, err)
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
-	up = tree.Set([]byte("2"), []byte("two"))
+	up, err = tree.Set([]byte("2"), []byte("two"))
+	require.NoError(t, err)
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
-	up = tree.Set([]byte("2"), []byte("TWO"))
+	up, err = tree.Set([]byte("2"), []byte("TWO"))
+	require.NoError(t, err)
 	if !up {
 		t.Error("Expected an update")
 	}
-	up = tree.Set([]byte("5"), []byte("five"))
+	up, err = tree.Set([]byte("5"), []byte("five"))
+	require.NoError(t, err)
 	if up {
 		t.Error("Did not expect an update (should have been create)")
 	}
@@ -38,7 +42,8 @@ func TestBasic(t *testing.T) {
 		key := []byte{0x00}
 		expected := ""
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val != nil {
 			t.Error("Expected no value to exist")
 		}
@@ -49,7 +54,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -63,7 +68,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("1")
 		expected := "one"
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val == nil {
 			t.Error("Expected value to exist")
 		}
@@ -74,7 +80,8 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
+		require.NoError(t, err)
 		if val == nil {
 			t.Error("Fast method - expected value to exist")
 		}
@@ -88,7 +95,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("2")
 		expected := "TWO"
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val == nil {
 			t.Error("Expected value to exist")
 		}
@@ -99,7 +107,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val == nil {
 			t.Error("Fast method - expected value to exist")
 		}
@@ -113,7 +121,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("4")
 		expected := ""
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val != nil {
 			t.Error("Expected no value to exist")
 		}
@@ -124,7 +133,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -138,7 +147,8 @@ func TestBasic(t *testing.T) {
 		key := []byte("6")
 		expected := ""
 
-		idx, val := tree.GetWithIndex(key)
+		idx, val, err := tree.GetWithIndex(key)
+		require.NoError(t, err)
 		if val != nil {
 			t.Error("Expected no value to exist")
 		}
@@ -149,7 +159,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val = tree.Get(key)
+		val, err = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -163,7 +173,8 @@ func TestUnit(t *testing.T) {
 
 	expectHash := func(tree *ImmutableTree, hashCount int64) {
 		// ensure number of new hash calculations is as expected.
-		hash, count := tree.root.hashWithCount()
+		hash, count, err := tree.root.hashWithCount()
+		require.NoError(t, err)
 		if count != hashCount {
 			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
 		}
@@ -173,7 +184,8 @@ func TestUnit(t *testing.T) {
 			return false
 		})
 		// ensure that the new hash after nuking is the same as the old.
-		newHash, _ := tree.root.hashWithCount()
+		newHash, _, err := tree.root.hashWithCount()
+		require.NoError(t, err)
 		if !bytes.Equal(hash, newHash) {
 			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
 		}
@@ -181,7 +193,8 @@ func TestUnit(t *testing.T) {
 
 	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
-		updated := tree.Set(i2b(i), []byte{})
+		updated, err := tree.Set(i2b(i), []byte{})
+		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
 		if updated || P(tree.root) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
@@ -194,7 +207,8 @@ func TestUnit(t *testing.T) {
 
 	expectRemove := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		origNode := tree.root
-		value, removed := tree.Remove(i2b(i))
+		value, removed, err := tree.Remove(i2b(i))
+		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
 		if len(value) != 0 || !removed || P(tree.root) != repr {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
@@ -208,35 +222,41 @@ func TestUnit(t *testing.T) {
 	// Test Set cases:
 
 	// Case 1:
-	t1 := T(N(4, 20))
+	t1, err := T(N(4, 20))
 
+	require.NoError(t, err)
 	expectSet(t1, 8, "((4 8) 20)", 3)
 	expectSet(t1, 25, "(4 (20 25))", 3)
 
-	t2 := T(N(4, N(20, 25)))
+	t2, err := T(N(4, N(20, 25)))
 
+	require.NoError(t, err)
 	expectSet(t2, 8, "((4 8) (20 25))", 3)
 	expectSet(t2, 30, "((4 20) (25 30))", 4)
 
-	t3 := T(N(N(1, 2), 6))
+	t3, err := T(N(N(1, 2), 6))
 
+	require.NoError(t, err)
 	expectSet(t3, 4, "((1 2) (4 6))", 4)
 	expectSet(t3, 8, "((1 2) (6 8))", 3)
 
-	t4 := T(N(N(1, 2), N(N(5, 6), N(7, 9))))
+	t4, err := T(N(N(1, 2), N(N(5, 6), N(7, 9))))
 
+	require.NoError(t, err)
 	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))", 5)
 	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))", 5)
 
 	// Test Remove cases:
 
-	t10 := T(N(N(1, 2), 3))
+	t10, err := T(N(N(1, 2), 3))
 
+	require.NoError(t, err)
 	expectRemove(t10, 2, "(1 3)", 1)
 	expectRemove(t10, 3, "(1 2)", 0)
 
-	t11 := T(N(N(N(1, 2), 3), N(4, 5)))
+	t11, err := T(N(N(N(1, 2), 3), N(4, 5)))
 
+	require.NoError(t, err)
 	expectRemove(t11, 4, "((1 2) (3 5))", 2)
 	expectRemove(t11, 3, "((1 2) (4 5))", 1)
 
@@ -287,11 +307,13 @@ func TestIntegration(t *testing.T) {
 	for i := range records {
 		r := randomRecord()
 		records[i] = r
-		updated := tree.Set([]byte(r.key), []byte{})
+		updated, err := tree.Set([]byte(r.key), []byte{})
+		require.NoError(t, err)
 		if updated {
 			t.Error("should have not been updated")
 		}
-		updated = tree.Set([]byte(r.key), []byte(r.value))
+		updated, err = tree.Set([]byte(r.key), []byte(r.value))
+		require.NoError(t, err)
 		if !updated {
 			t.Error("should have been updated")
 		}
@@ -301,31 +323,49 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for _, r := range records {
-		if has := tree.Has([]byte(r.key)); !has {
+		has, err := tree.Has([]byte(r.key))
+		require.NoError(t, err)
+		if !has {
 			t.Error("Missing key", r.key)
 		}
-		if has := tree.Has([]byte(randstr(12))); has {
+
+		has, err = tree.Has([]byte(randstr(12)))
+		require.NoError(t, err)
+		if has {
 			t.Error("Table has extra key")
 		}
-		if val := tree.Get([]byte(r.key)); string(val) != r.value {
+
+		val, err := tree.Get([]byte(r.key))
+		require.NoError(t, err)
+		if string(val) != r.value {
 			t.Error("wrong value")
 		}
 	}
 
 	for i, x := range records {
-		if val, removed := tree.Remove([]byte(x.key)); !removed {
+		if val, removed, err := tree.Remove([]byte(x.key)); err != nil {
+			require.NoError(t, err)
+		} else if !removed {
 			t.Error("Wasn't removed")
 		} else if string(val) != x.value {
 			t.Error("Wrong value")
 		}
+		require.NoError(t, err)
 		for _, r := range records[i+1:] {
-			if has := tree.Has([]byte(r.key)); !has {
+			has, err := tree.Has([]byte(r.key))
+			require.NoError(t, err)
+			if !has {
 				t.Error("Missing key", r.key)
 			}
-			if has := tree.Has([]byte(randstr(12))); has {
+
+			has, err = tree.Has([]byte(randstr(12)))
+			require.NoError(t, err)
+			if has {
 				t.Error("Table has extra key")
 			}
-			val := tree.Get([]byte(r.key))
+
+			val, err := tree.Get([]byte(r.key))
+			require.NoError(t, err)
 			if string(val) != r.value {
 				t.Error("wrong value")
 			}
@@ -365,7 +405,8 @@ func TestIterateRange(t *testing.T) {
 
 	// insert all the data
 	for _, r := range records {
-		updated := tree.Set([]byte(r.key), []byte(r.value))
+		updated, err := tree.Set([]byte(r.key), []byte(r.value))
+		require.NoError(t, err)
 		if updated {
 			t.Error("should have not been updated")
 		}
@@ -443,7 +484,8 @@ func TestPersistence(t *testing.T) {
 	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
-		t2value := t2.Get([]byte(key))
+		t2value, err := t2.Get([]byte(key))
+		require.NoError(t, err)
 		if string(t2value) != value {
 			t.Fatalf("Invalid value. Expected %v, got %v", value, t2value)
 		}
@@ -475,7 +517,9 @@ func TestProof(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, value, value2)
 		if assert.NotNil(t, proof) {
-			verifyProof(t, proof, tree.WorkingHash())
+			hash, err := tree.WorkingHash()
+			require.NoError(t, err)
+			verifyProof(t, proof, hash)
 		}
 		return false
 	})
@@ -485,7 +529,9 @@ func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 100)
 	require.NoError(t, err)
-	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(tree.Hash()))
+	hash, err := tree.Hash()
+	require.NoError(t, err)
+	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	// should get false for proof with nil root
 	value, proof, err := tree.GetWithProof([]byte("foo"))
@@ -509,11 +555,14 @@ func TestTreeProof(t *testing.T) {
 	assert.Nil(t, value)
 	assert.NotNil(t, proof)
 	assert.NoError(t, err)
-	assert.NoError(t, proof.Verify(tree.Hash()))
+	hash, err = tree.Hash()
+	assert.NoError(t, err)
+	assert.NoError(t, proof.Verify(hash))
 	assert.NoError(t, proof.VerifyAbsence([]byte("foo")))
 
 	// valid proof for real keys
-	root := tree.WorkingHash()
+	root, err := tree.WorkingHash()
+	assert.NoError(t, err)
 	for _, key := range keys {
 		value, proof, err := tree.GetWithProof(key)
 		if assert.NoError(t, err) {

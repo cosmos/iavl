@@ -27,8 +27,11 @@ func (pwl pathWithLeaf) StringIndented(indent string) string {
 
 // `computeRootHash` computes the root hash with leaf node.
 // Does not verify the root hash.
-func (pwl pathWithLeaf) computeRootHash() []byte {
-	leafHash := pwl.Leaf.Hash()
+func (pwl pathWithLeaf) computeRootHash() ([]byte, error) {
+	leafHash, err := pwl.Leaf.Hash()
+	if err != nil {
+		return nil, err
+	}
 	return pwl.Path.computeRootHash(leafHash)
 }
 
@@ -64,13 +67,17 @@ func (pl PathToLeaf) stringIndented(indent string) string {
 
 // `computeRootHash` computes the root hash assuming some leaf hash.
 // Does not verify the root hash.
-func (pl PathToLeaf) computeRootHash(leafHash []byte) []byte {
+func (pl PathToLeaf) computeRootHash(leafHash []byte) ([]byte, error) {
+	var err error
 	hash := leafHash
 	for i := len(pl) - 1; i >= 0; i-- {
 		pin := pl[i]
-		hash = pin.Hash(hash)
+		hash, err = pin.Hash(hash)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return hash
+	return hash, nil
 }
 
 func (pl PathToLeaf) isLeftmost() bool {

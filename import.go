@@ -113,8 +113,12 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.size += node.rightNode.size
 	}
 
-	node._hash()
-	err := node.validate()
+	_, err := node._hash()
+	if err != nil {
+		return err
+	}
+
+	err = node.validate()
 	if err != nil {
 		return err
 	}
@@ -168,11 +172,11 @@ func (i *Importer) Commit() error {
 	switch len(i.stack) {
 	case 0:
 		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{}); err != nil {
-			panic(err)
+			return err
 		}
 	case 1:
 		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash); err != nil {
-			panic(err)
+			return err
 		}
 	default:
 		return errors.Errorf("invalid node structure, found stack size %v when committing",

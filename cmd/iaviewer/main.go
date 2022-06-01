@@ -47,7 +47,12 @@ func main() {
 	switch args[0] {
 	case "data":
 		PrintKeys(tree)
-		fmt.Printf("Hash: %X\n", tree.Hash())
+		hash, err := tree.Hash()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error hashing tree: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
 	case "shape":
 		PrintShape(tree)
@@ -157,7 +162,8 @@ func encodeID(id []byte) string {
 
 func PrintShape(tree *iavl.MutableTree) {
 	// shape := tree.RenderShape("  ", nil)
-	shape := tree.RenderShape("  ", nodeEncoder)
+	//TODO: handle this error
+	shape, _ := tree.RenderShape("  ", nodeEncoder)
 	fmt.Println(strings.Join(shape, "\n"))
 }
 

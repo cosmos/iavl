@@ -245,10 +245,14 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 		leaves = rleaves
 
 		// Compute hash.
-		hash = (pathWithLeaf{
+		hash, err = (pathWithLeaf{
 			Path: path,
 			Leaf: nleaf,
 		}).computeRootHash()
+
+		if err != nil {
+			return nil, treeEnd, false, err
+		}
 
 		// If we don't have any leaves left, we're done.
 		if len(leaves) == 0 {
@@ -370,20 +374,24 @@ func RangeProofFromProto(pbProof *iavlproto.RangeProof) (RangeProof, error) {
 // If keyStart or keyEnd don't exist, the leaf before keyStart
 // or after keyEnd will also be included, but not be included in values.
 // If keyEnd-1 exists, no later leaves will be included.
-// If keyStart >= keyEnd and both not nil, panics.
+// If keyStart >= keyEnd and both not nil, errors out.
 // Limit is never exceeded.
 //nolint:unparam
 func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
-		panic("if keyStart and keyEnd are present, need keyStart < keyEnd.")
+		return nil, nil, nil, fmt.Errorf("if keyStart and keyEnd are present, need keyStart < keyEnd")
 	}
 	if limit < 0 {
-		panic("limit must be greater or equal to 0 -- 0 means no limit")
+		return nil, nil, nil, fmt.Errorf("limit must be greater or equal to 0 -- 0 means no limit")
 	}
 	if t.root == nil {
 		return nil, nil, nil, nil
 	}
-	t.root.hashWithCount() // Ensure that all hashes are calculated.
+
+	_, _, err = t.root.hashWithCount() // Ensure that all hashes are calculated.
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	// Get the first key/value pair proof, which provides us with the left key.
 	path, left, err := t.root.PathToLeaf(t, keyStart)

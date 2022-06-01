@@ -61,7 +61,7 @@ func (pin ProofInnerNode) stringIndented(indent string) string {
 		indent)
 }
 
-func (pin ProofInnerNode) Hash(childHash []byte) []byte {
+func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 	hasher := sha256.New()
 
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -92,14 +92,14 @@ func (pin ProofInnerNode) Hash(childHash []byte) []byte {
 		}
 	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to hash ProofInnerNode: %v", err))
+		return nil, fmt.Errorf("Failed to hash ProofInnerNode: %v", err)
 	}
 
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return hasher.Sum(nil)
+	return hasher.Sum(nil), nil
 }
 
 // toProto converts the inner node proof to Protobuf, for use in ProofOps.
@@ -154,7 +154,7 @@ func (pln ProofLeafNode) stringIndented(indent string) string {
 		indent)
 }
 
-func (pln ProofLeafNode) Hash() []byte {
+func (pln ProofLeafNode) Hash() ([]byte, error) {
 	hasher := sha256.New()
 
 	buf := bufPool.Get().(*bytes.Buffer)
@@ -175,15 +175,15 @@ func (pln ProofLeafNode) Hash() []byte {
 		err = encoding.EncodeBytes(buf, pln.ValueHash)
 	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to hash ProofLeafNode: %v", err))
+		return nil, fmt.Errorf("failed to hash ProofLeafNode: %v", err)
 	}
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
-		panic(err)
+		return nil, err
 
 	}
 
-	return hasher.Sum(nil)
+	return hasher.Sum(nil), nil
 }
 
 // toProto converts the leaf node proof to Protobuf, for use in ProofOps.
@@ -235,26 +235,47 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 	// already stored in the next ProofInnerNode in PathToLeaf.
 	if bytes.Compare(key, node.key) < 0 {
 		// left side
+		rightNode, err := node.getRightNode(t)
+		if err != nil {
+			return nil, err
+		}
+
 		pin := ProofInnerNode{
 			Height:  node.height,
 			Size:    node.size,
 			Version: node.version,
 			Left:    nil,
-			Right:   node.getRightNode(t).hash,
+			Right:   rightNode.hash,
 		}
 		*path = append(*path, pin)
-		n, err := node.getLeftNode(t).pathToLeaf(t, key, path)
+
+		leftNode, err := node.getLeftNode(t)
+		if err != nil {
+			return nil, err
+		}
+		n, err := leftNode.pathToLeaf(t, key, path)
 		return n, err
 	}
 	// right side
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		return nil, err
+	}
+
 	pin := ProofInnerNode{
 		Height:  node.height,
 		Size:    node.size,
 		Version: node.version,
-		Left:    node.getLeftNode(t).hash,
+		Left:    leftNode.hash,
 		Right:   nil,
 	}
 	*path = append(*path, pin)
-	n, err := node.getRightNode(t).pathToLeaf(t, key, path)
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return nil, err
+	}
+
+	n, err := rightNode.pathToLeaf(t, key, path)
 	return n, err
 }

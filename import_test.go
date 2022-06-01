@@ -164,7 +164,8 @@ func TestImporter_Close(t *testing.T) {
 	require.NoError(t, err)
 
 	importer.Close()
-	has := tree.Has([]byte("key"))
+	has, err := tree.Has([]byte("key"))
+	require.NoError(t, err)
 	require.False(t, has)
 
 	importer.Close()
@@ -181,7 +182,8 @@ func TestImporter_Commit(t *testing.T) {
 
 	err = importer.Commit()
 	require.NoError(t, err)
-	has := tree.Has([]byte("key"))
+	has, err := tree.Has([]byte("key"))
+	require.NoError(t, err)
 	require.True(t, has)
 }
 

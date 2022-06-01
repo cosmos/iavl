@@ -71,12 +71,15 @@ func N(l, r interface{}) *Node {
 }
 
 // Setup a deep node
-func T(n *Node) *MutableTree {
+func T(n *Node) (*MutableTree, error) {
 	t, _ := getTestTree(0)
 
-	n.hashWithCount()
+	_, _, err := n.hashWithCount()
+	if err != nil {
+		return nil, err
+	}
 	t.root = n
-	return t
+	return t, nil
 }
 
 // Convenience for simple printing of keys & tree structure
@@ -189,7 +192,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 		key := randBytes(keyValLength)
 		value := randBytes(keyValLength)
 
-		isUpdated := tree.Set(key, value)
+		isUpdated, err := tree.Set(key, value)
+		require.NoError(t, err)
 		require.False(t, isUpdated)
 		mirror[string(key)] = string(value)
 
@@ -210,7 +214,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			key := randBytes(keyValLength)
 			value := randBytes(keyValLength)
 
-			isUpdated := tree.Set(key, value)
+			isUpdated, err := tree.Set(key, value)
+			require.NoError(t, err)
 			require.False(t, isUpdated)
 			mirror[string(key)] = string(value)
 		case 1:
@@ -223,7 +228,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			key := getRandomKeyFrom(mirror)
 			value := randBytes(keyValLength)
 
-			isUpdated := tree.Set([]byte(key), value)
+			isUpdated, err := tree.Set([]byte(key), value)
+			require.NoError(t, err)
 			require.True(t, isUpdated)
 			mirror[key] = string(value)
 		case 2:
@@ -234,7 +240,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 
 			key := getRandomKeyFrom(mirror)
 
-			val, isRemoved := tree.Remove([]byte(key))
+			val, isRemoved, err := tree.Remove([]byte(key))
+			require.NoError(t, err)
 			require.True(t, isRemoved)
 			require.NotNil(t, val)
 			delete(mirror, key)
@@ -269,7 +276,8 @@ func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *Muta
 			mirror = append(mirror, []string{string(curByte), string(value)})
 		}
 
-		isUpdated := tree.Set([]byte{curByte}, value)
+		isUpdated, err := tree.Set([]byte{curByte}, value)
+		require.NoError(t, err)
 		require.False(t, isUpdated)
 
 		if config.ascending {
@@ -350,5 +358,9 @@ func (node *Node) lmd(t *ImmutableTree) *Node {
 	if node.isLeaf() {
 		return node
 	}
-	return node.getLeftNode(t).lmd(t)
+
+	// TODO: Should handle this error?
+	leftNode, _ := node.getLeftNode(t)
+
+	return leftNode.lmd(t)
 }

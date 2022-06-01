@@ -12,7 +12,7 @@ func PrintTree(tree *ImmutableTree) {
 	printNode(ndb, root, 0)
 }
 
-func printNode(ndb *nodeDB, node *Node, indent int) {
+func printNode(ndb *nodeDB, node *Node, indent int) error {
 	indentPrefix := ""
 	for i := 0; i < indent; i++ {
 		indentPrefix += "    "
@@ -20,16 +20,23 @@ func printNode(ndb *nodeDB, node *Node, indent int) {
 
 	if node == nil {
 		fmt.Printf("%s<nil>\n", indentPrefix)
-		return
+		return nil
 	}
 	if node.rightNode != nil {
 		printNode(ndb, node.rightNode, indent+1)
 	} else if node.rightHash != nil {
-		rightNode := ndb.GetNode(node.rightHash)
+		rightNode, err := ndb.GetNode(node.rightHash)
+		if err != nil {
+			return err
+		}
 		printNode(ndb, rightNode, indent+1)
 	}
 
-	hash := node._hash()
+	hash, err := node._hash()
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("%sh:%X\n", indentPrefix, hash)
 	if node.isLeaf() {
 		fmt.Printf("%s%X:%X (%v)\n", indentPrefix, node.key, node.value, node.height)
@@ -38,10 +45,13 @@ func printNode(ndb *nodeDB, node *Node, indent int) {
 	if node.leftNode != nil {
 		printNode(ndb, node.leftNode, indent+1)
 	} else if node.leftHash != nil {
-		leftNode := ndb.GetNode(node.leftHash)
+		leftNode, err := ndb.GetNode(node.leftHash)
+		if err != nil {
+			return err
+		}
 		printNode(ndb, leftNode, indent+1)
 	}
-
+	return nil
 }
 
 func maxInt8(a, b int8) int8 {

@@ -182,7 +182,9 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	err = tree.DeleteVersion(1)
 	require.NoError(t, err)
 
-	immutableTree, err := tree.GetImmutable(tree.ndb.getLatestVersion())
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	immutableTree, err := tree.GetImmutable(latestVersion)
 	require.NoError(t, err)
 
 	// sort mirror for assertion
@@ -252,7 +254,9 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Itera
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	immutableTree, err := tree.GetImmutable(tree.ndb.getLatestVersion())
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	immutableTree, err := tree.GetImmutable(latestVersion)
 	require.NoError(t, err)
 
 	itr := NewIterator(config.startIterate, config.endIterate, config.ascending, immutableTree)
@@ -314,7 +318,8 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 			randIndex := rand.Intn(len(mirror))
 			keyToRemove := mirror[randIndex][0]
 
-			_, removed := tree.Remove([]byte(keyToRemove))
+			_, removed, err := tree.Remove([]byte(keyToRemove))
+			require.NoError(t, err)
 			require.True(t, removed)
 
 			mirror = append(mirror[:randIndex], mirror[randIndex+1:]...)

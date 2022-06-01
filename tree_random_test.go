@@ -122,24 +122,27 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 				index := r.Intn(len(mirrorKeys))
 				key := mirrorKeys[index]
 				mirrorKeys = append(mirrorKeys[:index], mirrorKeys[index+1:]...)
-				_, removed := tree.Remove([]byte(key))
+				_, removed, err := tree.Remove([]byte(key))
+				require.NoError(t, err)
 				require.True(t, removed)
 				delete(mirror, key)
 
 			case len(mirror) > 0 && r.Float64() < updateRatio:
 				key := mirrorKeys[r.Intn(len(mirrorKeys))]
 				value := randString(valueSize)
-				updated := tree.Set([]byte(key), []byte(value))
+				updated, err := tree.Set([]byte(key), []byte(value))
+				require.NoError(t, err)
 				require.True(t, updated)
 				mirror[key] = value
 
 			default:
 				key := randString(keySize)
 				value := randString(valueSize)
-				for tree.Has([]byte(key)) {
+				for has, err := tree.Has([]byte(key)); has && err == nil; {
 					key = randString(keySize)
 				}
-				updated := tree.Set([]byte(key), []byte(value))
+				updated, err := tree.Set([]byte(key), []byte(value))
+				require.NoError(t, err)
 				require.False(t, updated)
 				mirror[key] = value
 				mirrorKeys = append(mirrorKeys, key)
@@ -316,7 +319,8 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		return false
 	})
 	for _, key := range keys {
-		_, removed := tree.Remove(key)
+		_, removed, err := tree.Remove(key)
+		require.NoError(t, err)
 		require.True(t, removed)
 	}
 	_, _, err = tree.SaveVersion()
@@ -353,7 +357,9 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 
 	storageVersionValue, err := tree.ndb.db.Get([]byte(firstKey))
 	require.NoError(t, err)
-	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(tree.ndb.getLatestVersion())), string(storageVersionValue))
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), string(storageVersionValue))
 
 	var foundVersion int64
 	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
@@ -401,9 +407,11 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	require.EqualValues(t, len(mirror), itree.Size())
 	require.EqualValues(t, len(mirror), iterated)
 	for key, value := range mirror {
-		actualFast := itree.Get([]byte(key))
+		actualFast, err := itree.Get([]byte(key))
+		require.NoError(t, err)
 		require.Equal(t, value, string(actualFast))
-		_, actual := itree.GetWithIndex([]byte(key))
+		_, actual, err := itree.GetWithIndex([]byte(key))
+		require.NoError(t, err)
 		require.Equal(t, value, string(actual))
 	}
 
@@ -413,7 +421,9 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 
 // Checks that fast node cache matches live state.
 func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	if tree.ndb.getLatestVersion() != version {
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	if latestVersion != version {
 		// The fast node cache check should only be done to the latest version
 		return
 	}
@@ -428,13 +438,15 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 
 // Checks that fast nodes on disk match live state.
 func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	if tree.ndb.getLatestVersion() != version {
+	latestVersion, err := tree.ndb.getLatestVersion()
+	require.NoError(t, err)
+	if latestVersion != version {
 		// The fast node disk check should only be done to the latest version
 		return
 	}
 
 	count := 0
-	err := tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
+	err = tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
 		count++
 		fastNode, err := DeserializeFastNode(key, v)
