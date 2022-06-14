@@ -56,7 +56,7 @@ func BenchmarkRemove(b *testing.B) {
 		})
 	}
 
-	randSeed := 49872768940 // For deterministic tests
+	randSeed := 498727689 // For deterministic tests
 	r := rand.New(rand.NewSource(int64(randSeed)))
 
 	for i := 0; i < b.N; i++ {
