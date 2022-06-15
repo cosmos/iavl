@@ -1983,68 +1983,51 @@ func Benchmark_GetByIndex(b *testing.B) {
 	})
 }
 
-func TestNodeCacheStatisic(b *testing.T) {
+func TestNodeCacheStatisic(t *testing.T) {
 	db, err := db.NewDB("test", db.MemDBBackend, "")
-	require.NoError(b, err)
+	require.NoError(t, err)
+	const numKeyVals = 100000
+	testcases := map[string]struct {
+		cacheSize              int
+		expectFastCacheHitCnt  int
+		expectFastCacheMissCnt int
+		expectCacheHitCnt      int
+		expectCacheMissCnt     int
+	}{
+		"with_cache":    {numKeyVals, numKeyVals, 0, 1, 0},
+		"without_cache": {0, 0, numKeyVals, 0, 1},
+	}
 
-	// with cache enable
-	b.Run("with_cache", func(sub *testing.T) {
-		const numKeyVals = 100000
+	for name, tc := range testcases {
+		funcT := func(sub *testing.T) {
 
-		stat := &Statistics{}
-		opts := &Options{Stat: stat}
-		t, err := NewMutableTreeWithOpts(db, numKeyVals, opts)
-		require.NoError(b, err)
+			stat := &Statistics{}
+			opts := &Options{Stat: stat}
+			mt, err := NewMutableTreeWithOpts(db, tc.cacheSize, opts)
+			require.NoError(t, err)
 
-		for i := 0; i < numKeyVals; i++ {
-			key := []byte(strconv.Itoa(i))
-			_, err := t.Set(key, randBytes(10))
-			require.NoError(b, err)
+			for i := 0; i < numKeyVals; i++ {
+				key := []byte(strconv.Itoa(i))
+				_, err := mt.Set(key, randBytes(10))
+				require.NoError(t, err)
+			}
+			_, ver, _ := mt.SaveVersion()
+			it, err := mt.GetImmutable(ver)
+			require.NoError(t, err)
+
+			for i := 0; i < numKeyVals; i++ {
+				key := []byte(strconv.Itoa(i))
+				val, err := it.Get(key)
+				require.NoError(t, err)
+				require.NotNil(t, val)
+				require.NotEmpty(t, val)
+			}
+			require.Equal(t, tc.expectFastCacheHitCnt, int(opts.Stat.GetFastCacheHitCnt()))
+			require.Equal(t, tc.expectFastCacheMissCnt, int(opts.Stat.GetFastCacheMissCnt()))
+			require.Equal(t, tc.expectCacheHitCnt, int(opts.Stat.GetCacheHitCnt()))
+			require.Equal(t, tc.expectCacheMissCnt, int(opts.Stat.GetCacheMissCnt()))
 		}
-		_, ver, _ := t.SaveVersion()
-		it, err := t.GetImmutable(ver)
-		require.NoError(b, err)
+		t.Run(name, funcT)
+	}
 
-		for i := 0; i < numKeyVals; i++ {
-			key := []byte(strconv.Itoa(i))
-			val, err := it.Get(key)
-			require.NoError(b, err)
-			require.NotNil(b, val)
-			require.NotEmpty(b, val)
-		}
-		require.Equal(b, numKeyVals, int(opts.Stat.GetFastCacheHitCnt()))
-		require.Equal(b, 0, int(opts.Stat.GetFastCacheMissCnt()))
-		require.Equal(b, 1, int(opts.Stat.GetCacheHitCnt()))
-	})
-
-	// without cache
-	b.Run("without_cache", func(sub *testing.T) {
-		const numKeyVals = 100000
-
-		stat := &Statistics{}
-		opts := &Options{Stat: stat}
-		t, err := NewMutableTreeWithOpts(db, 0, opts)
-		require.NoError(b, err)
-
-		for i := 0; i < numKeyVals; i++ {
-			key := []byte(strconv.Itoa(i))
-			_, err := t.Set(key, randBytes(10))
-			require.NoError(b, err)
-		}
-		_, ver, _ := t.SaveVersion()
-		it, err := t.GetImmutable(ver)
-		require.NoError(b, err)
-
-		for i := 0; i < numKeyVals; i++ {
-			key := []byte(strconv.Itoa(i))
-			val, err := it.Get(key)
-			require.NoError(b, err)
-			require.NotNil(b, val)
-			require.NotEmpty(b, val)
-		}
-
-		require.Equal(b, 0, int(opts.Stat.GetFastCacheHitCnt()))
-		require.Equal(b, numKeyVals, int(opts.Stat.GetFastCacheMissCnt()))
-		require.Equal(b, 1, int(opts.Stat.GetCacheMissCnt()))
-	})
 }
