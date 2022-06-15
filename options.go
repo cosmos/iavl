@@ -4,11 +4,17 @@ import "sync/atomic"
 
 // Statisc about db runtime state
 type Statistics struct {
-	// Each time GetNode and GetFastNode operation hit cache
+	// Each time GetNode operation hit cache
 	cacheHitCnt uint64
 
 	// Each time GetNode and GetFastNode operation miss cache
 	cacheMissCnt uint64
+
+	// Each time GetFastNode operation hit cache
+	fastCacheHitCnt uint64
+
+	// Each time GetFastNode operation miss cache
+	fastCacheMissCnt uint64
 }
 
 func (stat *Statistics) IncCacheHitCnt() {
@@ -19,6 +25,14 @@ func (stat *Statistics) IncCacheMissCnt() {
 	atomic.AddUint64(&stat.cacheMissCnt, 1)
 }
 
+func (stat *Statistics) IncFastCacheHitCnt() {
+	atomic.AddUint64(&stat.fastCacheHitCnt, 1)
+}
+
+func (stat *Statistics) IncFastCacheMissCnt() {
+	atomic.AddUint64(&stat.fastCacheMissCnt, 1)
+}
+
 func (stat *Statistics) GetCacheHitCnt() uint64 {
 	return atomic.LoadUint64(&stat.cacheHitCnt)
 }
@@ -27,9 +41,19 @@ func (stat *Statistics) GetCacheMissCnt() uint64 {
 	return atomic.LoadUint64(&stat.cacheMissCnt)
 }
 
+func (stat *Statistics) GetFastCacheHitCnt() uint64 {
+	return atomic.LoadUint64(&stat.fastCacheHitCnt)
+}
+
+func (stat *Statistics) GetFastCacheMissCnt() uint64 {
+	return atomic.LoadUint64(&stat.fastCacheMissCnt)
+}
+
 func (stat *Statistics) Reset() {
 	atomic.StoreUint64(&stat.cacheHitCnt, 0)
 	atomic.StoreUint64(&stat.cacheMissCnt, 0)
+	atomic.StoreUint64(&stat.fastCacheHitCnt, 0)
+	atomic.StoreUint64(&stat.fastCacheMissCnt, 0)
 }
 
 // Options define tree options.
