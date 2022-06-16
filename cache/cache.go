@@ -10,6 +10,8 @@ type Node interface {
 }
 
 // Cache is an in-memory structure to persist nodes for quick access.
+// Please see lruCache for more details about why we need a custom
+// cache implementation.
 type Cache interface {
 	// Adds node to cache. If full and had to remove the oldest element,
 	// returns the oldest, otherwise nil.
@@ -30,6 +32,15 @@ type Cache interface {
 }
 
 // lruCache is an LRU cache implementation.
+// The motivation for using a custom cache implementation is to
+// allow for a custom limit policy.
+//
+// Currently, the cache limit is implemented in terms of the
+// number of nodes which is not intuitive to configure.
+// Instead, we are planning to add a byte limit.
+// The alternative implementations do not allow for
+// customization and the ability to estimate the byte
+// size of the cache.
 type lruCache struct {
 	dict       map[string]*list.Element // FastNode cache.
 	cacheLimit int                      // FastNode cache size limit in elements.
