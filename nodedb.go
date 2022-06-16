@@ -125,9 +125,16 @@ func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 
 	// Check the cache.
 	if elem, ok := ndb.nodeCache[string(hash)]; ok {
+		if ndb.opts.Stat != nil {
+			ndb.opts.Stat.IncCacheHitCnt()
+		}
 		// Already exists. Move to back of nodeCacheQueue.
 		ndb.nodeCacheQueue.MoveToBack(elem)
 		return elem.Value.(*Node), nil
+	}
+
+	if ndb.opts.Stat != nil {
+		ndb.opts.Stat.IncCacheMissCnt()
 	}
 
 	// Doesn't exist, load.
@@ -165,9 +172,16 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 
 	// Check the cache.
 	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+		if ndb.opts.Stat != nil {
+			ndb.opts.Stat.IncFastCacheHitCnt()
+		}
 		// Already exists. Move to back of fastNodeCacheQueue.
 		ndb.fastNodeCacheQueue.MoveToBack(elem)
 		return elem.Value.(*FastNode), nil
+	}
+
+	if ndb.opts.Stat != nil {
+		ndb.opts.Stat.IncFastCacheMissCnt()
 	}
 
 	// Doesn't exist, load.

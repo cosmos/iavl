@@ -1982,3 +1982,52 @@ func Benchmark_GetByIndex(b *testing.B) {
 		}
 	})
 }
+
+func TestNodeCacheStatisic(t *testing.T) {
+	db, err := db.NewDB("test", db.MemDBBackend, "")
+	require.NoError(t, err)
+	const numKeyVals = 100000
+	testcases := map[string]struct {
+		cacheSize              int
+		expectFastCacheHitCnt  int
+		expectFastCacheMissCnt int
+		expectCacheHitCnt      int
+		expectCacheMissCnt     int
+	}{
+		"with_cache":    {numKeyVals, numKeyVals, 0, 1, 0},
+		"without_cache": {0, 0, numKeyVals, 0, 1},
+	}
+
+	for name, tc := range testcases {
+		funcT := func(sub *testing.T) {
+
+			stat := &Statistics{}
+			opts := &Options{Stat: stat}
+			mt, err := NewMutableTreeWithOpts(db, tc.cacheSize, opts)
+			require.NoError(t, err)
+
+			for i := 0; i < numKeyVals; i++ {
+				key := []byte(strconv.Itoa(i))
+				_, err := mt.Set(key, randBytes(10))
+				require.NoError(t, err)
+			}
+			_, ver, _ := mt.SaveVersion()
+			it, err := mt.GetImmutable(ver)
+			require.NoError(t, err)
+
+			for i := 0; i < numKeyVals; i++ {
+				key := []byte(strconv.Itoa(i))
+				val, err := it.Get(key)
+				require.NoError(t, err)
+				require.NotNil(t, val)
+				require.NotEmpty(t, val)
+			}
+			require.Equal(t, tc.expectFastCacheHitCnt, int(opts.Stat.GetFastCacheHitCnt()))
+			require.Equal(t, tc.expectFastCacheMissCnt, int(opts.Stat.GetFastCacheMissCnt()))
+			require.Equal(t, tc.expectCacheHitCnt, int(opts.Stat.GetCacheHitCnt()))
+			require.Equal(t, tc.expectCacheMissCnt, int(opts.Stat.GetCacheMissCnt()))
+		}
+		t.Run(name, funcT)
+	}
+
+}
