@@ -1994,8 +1994,20 @@ func TestNodeCacheStatisic(t *testing.T) {
 		expectCacheHitCnt      int
 		expectCacheMissCnt     int
 	}{
-		"with_cache":    {numKeyVals, numKeyVals, 0, 1, 0},
-		"without_cache": {0, 0, numKeyVals, 0, 1},
+		"with_cache": {
+			cacheSize:              numKeyVals,
+			expectFastCacheHitCnt:  numKeyVals,
+			expectFastCacheMissCnt: 0,
+			expectCacheHitCnt:      1,
+			expectCacheMissCnt:     0,
+		},
+		"without_cache": {
+			cacheSize:              0,
+			expectFastCacheHitCnt:  0,
+			expectFastCacheMissCnt: numKeyVals,
+			expectCacheHitCnt:      0,
+			expectCacheMissCnt:     1,
+		},
 	}
 
 	for name, tc := range testcases {
