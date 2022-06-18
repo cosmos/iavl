@@ -1,6 +1,10 @@
 package iavl
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+
+	"github.com/dgraph-io/ristretto"
+)
 
 // Statisc about db runtime state
 type Statistics struct {
@@ -69,6 +73,10 @@ type Options struct {
 
 	// When Stat is not nil, statistical logic needs to be executed
 	Stat *Statistics
+
+	NodeCacheConfig *ristretto.Config
+
+	FastNodeCacheConfig *ristretto.Config
 }
 
 // DefaultOptions returns the default options for IAVL.

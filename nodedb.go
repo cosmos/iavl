@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/cosmos/iavl/internal/logger"
+	"github.com/dgraph-io/ristretto"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -80,9 +81,7 @@ type nodeDB struct {
 	nodeCacheSize  int                      // Node cache size limit in elements.
 	nodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
 
-	fastNodeCache      map[string]*list.Element // FastNode cache.
-	fastNodeCacheSize  int                      // FastNode cache size limit in elements.
-	fastNodeCacheQueue *list.List               // LRU queue of cache elements. Used for deletion.
+	fastNodeCache *ristretto.Cache
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -97,19 +96,23 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		storeVersion = []byte(defaultStorageVersionValue)
 	}
 
+	fastNodeCache, err := ristretto.NewCache(&ristretto.Config{
+		NumCounters: 1e7,     // number of keys to track frequency of (10M).
+		MaxCost:     1 << 27, // maximum cost of cache (approx 130MB).
+		BufferItems: 64,      // number of keys per Get buffer.
+	})
+
 	return &nodeDB{
-		db:                 db,
-		batch:              db.NewBatch(),
-		opts:               *opts,
-		latestVersion:      0, // initially invalid
-		nodeCache:          make(map[string]*list.Element),
-		nodeCacheSize:      cacheSize,
-		nodeCacheQueue:     list.New(),
-		fastNodeCache:      make(map[string]*list.Element),
-		fastNodeCacheSize:  100000,
-		fastNodeCacheQueue: list.New(),
-		versionReaders:     make(map[int64]uint32, 8),
-		storageVersion:     string(storeVersion),
+		db:             db,
+		batch:          db.NewBatch(),
+		opts:           *opts,
+		latestVersion:  0, // initially invalid
+		nodeCache:      make(map[string]*list.Element),
+		nodeCacheSize:  cacheSize,
+		nodeCacheQueue: list.New(),
+		fastNodeCache:  fastNodeCache,
+		versionReaders: make(map[int64]uint32, 8),
+		storageVersion: string(storeVersion),
 	}
 }
 
@@ -170,14 +173,11 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 		return nil, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
 	}
 
-	// Check the cache.
-	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+	if elem, ok := ndb.fastNodeCache.Get(key); ok {
 		if ndb.opts.Stat != nil {
 			ndb.opts.Stat.IncFastCacheHitCnt()
 		}
-		// Already exists. Move to back of fastNodeCacheQueue.
-		ndb.fastNodeCacheQueue.MoveToBack(elem)
-		return elem.Value.(*FastNode), nil
+		return elem.(*FastNode), nil
 	}
 
 	if ndb.opts.Stat != nil {
@@ -905,23 +905,20 @@ func (ndb *nodeDB) cacheNode(node *Node) {
 }
 
 func (ndb *nodeDB) uncacheFastNode(key []byte) {
-	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
-		ndb.fastNodeCacheQueue.Remove(elem)
-		delete(ndb.fastNodeCache, string(key))
-	}
+	ndb.fastNodeCache.Del(key)
 }
 
 // Add a node to the cache and pop the least recently used node if we've
 // reached the cache size limit.
 func (ndb *nodeDB) cacheFastNode(node *FastNode) {
-	elem := ndb.fastNodeCacheQueue.PushBack(node)
-	ndb.fastNodeCache[string(node.key)] = elem
+	// We value the most recent items the most. Therefore, the higher
+	// the earlier the version, the higher the cost.
+	// const weightVersion float64 = 0.7
+	// const weightSize float64 = 0.3
 
-	if ndb.fastNodeCacheQueue.Len() > ndb.fastNodeCacheSize {
-		oldest := ndb.fastNodeCacheQueue.Front()
-		key := ndb.fastNodeCacheQueue.Remove(oldest).(*FastNode).key
-		delete(ndb.fastNodeCache, string(key))
-	}
+	// cost := int64(weightVersion*float64((ndb.latestVersion-node.versionLastUpdatedAt)) + weightSize*float64(len(node.key)+len(node.value)))
+
+	ndb.fastNodeCache.Set(node.key, node, 0)
 }
 
 // Write to disk.

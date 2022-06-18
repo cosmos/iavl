@@ -415,25 +415,7 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 		require.Equal(t, value, string(actual))
 	}
 
-	assertFastNodeCacheIsLive(t, tree, mirror, version)
 	assertFastNodeDiskIsLive(t, tree, mirror, version)
-}
-
-// Checks that fast node cache matches live state.
-func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	latestVersion, err := tree.ndb.getLatestVersion()
-	require.NoError(t, err)
-	if latestVersion != version {
-		// The fast node cache check should only be done to the latest version
-		return
-	}
-
-	for key, cacheElem := range tree.ndb.fastNodeCache {
-		liveFastNode, ok := mirror[key]
-
-		require.True(t, ok, "cached fast node must be in the live tree")
-		require.Equal(t, liveFastNode, string(cacheElem.Value.(*FastNode).value), "cached fast node's value must be equal to live state value")
-	}
 }
 
 // Checks that fast nodes on disk match live state.
