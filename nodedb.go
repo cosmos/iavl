@@ -911,13 +911,6 @@ func (ndb *nodeDB) uncacheFastNode(key []byte) {
 // Add a node to the cache and pop the least recently used node if we've
 // reached the cache size limit.
 func (ndb *nodeDB) cacheFastNode(node *FastNode) {
-	// We value the most recent items the most. Therefore, the higher
-	// the earlier the version, the higher the cost.
-	// const weightVersion float64 = 0.7
-	// const weightSize float64 = 0.3
-
-	// cost := int64(weightVersion*float64((ndb.latestVersion-node.versionLastUpdatedAt)) + weightSize*float64(len(node.key)+len(node.value)))
-
 	ndb.fastNodeCache.Set(node.key, node, 0)
 }
 
