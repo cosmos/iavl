@@ -30,7 +30,7 @@ type cacheOp struct {
 
 type testcase struct {
 	setup               func(cache.Cache)
-	cacheLimit          int
+	cacheMax            int
 	cacheOps            []cacheOp
 	expectedNodeIndexes []int // contents of the cache once test case completes represent by indexes in testNodes
 }
@@ -61,8 +61,8 @@ var (
 
 func Test_Cache_Add(t *testing.T) {
 	testcases := map[string]testcase{
-		"add 1 node with 1 limit - added": {
-			cacheLimit: 1,
+		"add 1 node with 1 max - added": {
+			cacheMax: 1,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -71,8 +71,8 @@ func Test_Cache_Add(t *testing.T) {
 			},
 			expectedNodeIndexes: []int{0},
 		},
-		"add 1 node twice, cache limit 2 - only one added": {
-			cacheLimit: 2,
+		"add 1 node twice, cache max 2 - only one added": {
+			cacheMax: 2,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -85,8 +85,8 @@ func Test_Cache_Add(t *testing.T) {
 			},
 			expectedNodeIndexes: []int{0},
 		},
-		"add 1 node with 0 limit - not added and return itself": {
-			cacheLimit: 0,
+		"add 1 node with 0 max - not added and return itself": {
+			cacheMax: 0,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -94,8 +94,8 @@ func Test_Cache_Add(t *testing.T) {
 				},
 			},
 		},
-		"add 3 nodes with 1 limit - first 2 removed": {
-			cacheLimit: 1,
+		"add 3 nodes with 1 max - first 2 removed": {
+			cacheMax: 1,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -112,8 +112,8 @@ func Test_Cache_Add(t *testing.T) {
 			},
 			expectedNodeIndexes: []int{2},
 		},
-		"add 3 nodes with 2 limit - first removed": {
-			cacheLimit: 2,
+		"add 3 nodes with 2 max - first removed": {
+			cacheMax: 2,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -130,8 +130,8 @@ func Test_Cache_Add(t *testing.T) {
 			},
 			expectedNodeIndexes: []int{1, 2},
 		},
-		"add 3 nodes with 10 limit - non removed": {
-			cacheLimit: 10,
+		"add 3 nodes with 10 max - non removed": {
+			cacheMax: 10,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -152,7 +152,7 @@ func Test_Cache_Add(t *testing.T) {
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			cache := cache.New(tc.cacheLimit)
+			cache := cache.New(tc.cacheMax)
 
 			expectedCurSize := 0
 
@@ -181,8 +181,8 @@ func Test_Cache_Add(t *testing.T) {
 
 func Test_Cache_Remove(t *testing.T) {
 	testcases := map[string]testcase{
-		"remove non-existent key, cache limit 0 - nil returned": {
-			cacheLimit: 0,
+		"remove non-existent key, cache max 0 - nil returned": {
+			cacheMax: 0,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -190,12 +190,12 @@ func Test_Cache_Remove(t *testing.T) {
 				},
 			},
 		},
-		"remove non-existent key, cache limit 1 - nil returned": {
+		"remove non-existent key, cache max 1 - nil returned": {
 			setup: func(c cache.Cache) {
 				require.Nil(t, c.Add(testNodes[1]))
 				require.Equal(t, 1, c.Len())
 			},
-			cacheLimit: 1,
+			cacheMax: 1,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -204,12 +204,12 @@ func Test_Cache_Remove(t *testing.T) {
 			},
 			expectedNodeIndexes: []int{1},
 		},
-		"remove existent key, cache limit 1 - removed": {
+		"remove existent key, cache max 1 - removed": {
 			setup: func(c cache.Cache) {
 				require.Nil(t, c.Add(testNodes[0]))
 				require.Equal(t, 1, c.Len())
 			},
-			cacheLimit: 1,
+			cacheMax: 1,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -217,12 +217,12 @@ func Test_Cache_Remove(t *testing.T) {
 				},
 			},
 		},
-		"remove twice, cache limit 1 - removed first time, then nil": {
+		"remove twice, cache max 1 - removed first time, then nil": {
 			setup: func(c cache.Cache) {
 				require.Nil(t, c.Add(testNodes[0]))
 				require.Equal(t, 1, c.Len())
 			},
-			cacheLimit: 1,
+			cacheMax: 1,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   0,
@@ -234,14 +234,14 @@ func Test_Cache_Remove(t *testing.T) {
 				},
 			},
 		},
-		"remove all, cache limit 3": {
+		"remove all, cache max 3": {
 			setup: func(c cache.Cache) {
 				require.Nil(t, c.Add(testNodes[0]))
 				require.Nil(t, c.Add(testNodes[1]))
 				require.Nil(t, c.Add(testNodes[2]))
 				require.Equal(t, 3, c.Len())
 			},
-			cacheLimit: 3,
+			cacheMax: 3,
 			cacheOps: []cacheOp{
 				{
 					testNodexIdx:   2,
@@ -261,7 +261,7 @@ func Test_Cache_Remove(t *testing.T) {
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			cache := cache.New(tc.cacheLimit)
+			cache := cache.New(tc.cacheMax)
 
 			if tc.setup != nil {
 				tc.setup(cache)

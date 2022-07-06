@@ -10,25 +10,25 @@ import (
 func BenchmarkAdd(b *testing.B) {
 	b.ReportAllocs()
 	testcases := map[string]struct {
-		cacheLimit int
-		keySize    int
+		cacheMax int
+		keySize  int
 	}{
-		"small - limit: 10K, key size - 10b": {
-			cacheLimit: 10000,
-			keySize:    10,
+		"small - max: 10K, key size - 10b": {
+			cacheMax: 10000,
+			keySize:  10,
 		},
-		"med - limit: 100K, key size 20b": {
-			cacheLimit: 100000,
-			keySize:    20,
+		"med - max: 100K, key size 20b": {
+			cacheMax: 100000,
+			keySize:  20,
 		},
-		"large - limit: 1M, key size 30b": {
-			cacheLimit: 1000000,
-			keySize:    30,
+		"large - max: 1M, key size 30b": {
+			cacheMax: 1000000,
+			keySize:  30,
 		},
 	}
 
 	for name, tc := range testcases {
-		cache := cache.New(tc.cacheLimit)
+		cache := cache.New(tc.cacheMax)
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				_ = cache.Add(&testNode{

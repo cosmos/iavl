@@ -30,7 +30,7 @@ const (
 	// Using semantic versioning: https://semver.org/
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
-	fastNodeCacheLimit         = 100000
+	fastNodeCacheSize          = 100000
 )
 
 var (
@@ -98,7 +98,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		opts:           *opts,
 		latestVersion:  0, // initially invalid
 		nodeCache:      cache.New(cacheSize),
-		fastNodeCache:  cache.New(fastNodeCacheLimit),
+		fastNodeCache:  cache.New(fastNodeCacheSize),
 		versionReaders: make(map[int64]uint32, 8),
 		storageVersion: string(storeVersion),
 	}

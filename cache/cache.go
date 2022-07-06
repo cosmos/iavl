@@ -34,27 +34,27 @@ type Cache interface {
 
 // lruCache is an LRU cache implementation.
 // The motivation for using a custom cache implementation is to
-// allow for a custom limit policy.
+// allow for a custom max policy.
 //
-// Currently, the cache limit is implemented in terms of the
+// Currently, the cache maximum is implemented in terms of the
 // number of nodes which is not intuitive to configure.
-// Instead, we are planning to add a byte limit.
+// Instead, we are planning to add a byte maximum.
 // The alternative implementations do not allow for
 // customization and the ability to estimate the byte
 // size of the cache.
 type lruCache struct {
-	dict       map[string]*list.Element // FastNode cache.
-	cacheLimit int                      // FastNode cache size limit in elements.
-	ll         *list.List               // LRU queue of cache elements. Used for deletion.
+	dict            map[string]*list.Element // FastNode cache.
+	maxElementCount int                      // FastNode the maximum number of nodes in the cache.
+	ll              *list.List               // LRU queue of cache elements. Used for deletion.
 }
 
 var _ Cache = (*lruCache)(nil)
 
-func New(cacheLimit int) Cache {
+func New(maxElementCount int) Cache {
 	return &lruCache{
-		dict:       make(map[string]*list.Element),
-		cacheLimit: cacheLimit,
-		ll:         list.New(),
+		dict:            make(map[string]*list.Element),
+		maxElementCount: maxElementCount,
+		ll:              list.New(),
 	}
 }
 
@@ -69,7 +69,7 @@ func (c *lruCache) Add(node Node) Node {
 	elem := c.ll.PushFront(node)
 	c.dict[string(node.GetKey())] = elem
 
-	if c.ll.Len() > c.cacheLimit {
+	if c.ll.Len() > c.maxElementCount {
 		oldest := c.ll.Back()
 
 		return c.remove(oldest)
