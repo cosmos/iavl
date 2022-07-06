@@ -15,6 +15,7 @@ type Node interface {
 type Cache interface {
 	// Adds node to cache. If full and had to remove the oldest element,
 	// returns the oldest, otherwise nil.
+	// CONTRACT: node can never be nil. Otherwise, cache panics.
 	Add(node Node) Node
 
 	// Returns Node for the key, if exists. nil otherwise.
