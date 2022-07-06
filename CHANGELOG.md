@@ -2,15 +2,24 @@
 
 ## Unreleased
 
+### Breaking Changes
+
+- [\514](https://github.com/cosmos/iavl/pull/514) Downgrade Tendermint to 0.34.x
+
+### Improvements
+
+- [\514](https://github.com/cosmos/iavl/pull/514) Use Go v1.18
+
 ## 0.18.0 (March 10, 2022)
 
 ### Breaking Changes
+
 - Bumped Tendermint to 0.35.1
 
 ### Improvements
 
 - [\#468](https://github.com/cosmos/iavl/pull/468) Fast storage optimization for queries and iterations
-- [\#452](https://github.com/cosmos/iavl/pull/452) Optimization: remove unnecessary (*bytes.Buffer).Reset right after creating buffer.
+- [\#452](https://github.com/cosmos/iavl/pull/452) Optimization: remove unnecessary (\*bytes.Buffer).Reset right after creating buffer.
 - [\#445](https://github.com/cosmos/iavl/pull/445) Bump github.com/tendermint/tendermint to v0.35.0
 - [\#453](https://github.com/cosmos/iavl/pull/453),[\#456](https://github.com/cosmos/iavl/pull/456) Optimization: buffer reuse
 - [\#474](https://github.com/cosmos/iavl/pull/474) bump github.com/confio/ics23 to v0.7
