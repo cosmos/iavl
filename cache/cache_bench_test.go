@@ -31,8 +31,12 @@ func BenchmarkAdd(b *testing.B) {
 		cache := cache.New(tc.cacheMax)
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
+				b.StopTimer()
+				key := randBytes(tc.keySize)
+				b.StartTimer()
+
 				_ = cache.Add(&testNode{
-					key: randBytes(tc.keySize),
+					key: key,
 				})
 			}
 		})
@@ -42,7 +46,6 @@ func BenchmarkAdd(b *testing.B) {
 func BenchmarkRemove(b *testing.B) {
 	b.ReportAllocs()
 
-	b.StopTimer()
 	cache := cache.New(1000)
 	existentKeyMirror := [][]byte{}
 	// Populate cache
@@ -58,10 +61,9 @@ func BenchmarkRemove(b *testing.B) {
 
 	randSeed := 498727689 // For deterministic tests
 	r := rand.New(rand.NewSource(int64(randSeed)))
-
+	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		key := existentKeyMirror[r.Intn(len(existentKeyMirror))]
-		b.ResetTimer()
 		_ = cache.Remove(key)
 	}
 }
