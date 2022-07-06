@@ -88,7 +88,7 @@ func runQueriesSlow(b *testing.B, t *iavl.MutableTree, keyLen int) {
 
 	itree, err := t.GetImmutable(version - 1)
 	require.NoError(b, err)
-	isFastCacheEnabled, err := t.IsFastCacheEnabled() // to ensure fast storage is enabled
+	isFastCacheEnabled, err := itree.IsFastCacheEnabled() // to ensure fast storage is enabled
 	require.NoError(b, err)
 	require.False(b, isFastCacheEnabled) // to ensure fast storage is not enabled
 
@@ -108,7 +108,7 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 
 	itree, err := t.GetImmutable(version - 1)
 	require.NoError(b, err)
-	isFastCacheEnabled, err := t.IsFastCacheEnabled() // to ensure fast storage is not enabled
+	isFastCacheEnabled, err := itree.IsFastCacheEnabled() // to ensure fast storage is not enabled
 	require.NoError(b, err)
 	require.False(b, isFastCacheEnabled)
 	b.StartTimer()
