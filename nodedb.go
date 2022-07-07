@@ -75,9 +75,9 @@ type nodeDB struct {
 	opts           Options          // Options to customize for pruning/writing
 	versionReaders map[int64]uint32 // Number of active version readers
 	storageVersion string           // Storage version
-	latestVersion  int64
-	nodeCache      cache.Cache
-	fastNodeCache  cache.Cache
+	latestVersion  int64            // Latest version of nodeDB.
+	nodeCache      cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
+	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
