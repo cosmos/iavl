@@ -1984,8 +1984,6 @@ func Benchmark_GetByIndex(b *testing.B) {
 }
 
 func TestNodeCacheStatisic(t *testing.T) {
-	db, err := db.NewDB("test", db.MemDBBackend, "")
-	require.NoError(t, err)
 	const numKeyVals = 100000
 	testcases := map[string]struct {
 		cacheSize              int
@@ -2003,18 +2001,20 @@ func TestNodeCacheStatisic(t *testing.T) {
 		},
 		"without_cache": {
 			cacheSize:              0,
-			expectFastCacheHitCnt:  0,
-			expectFastCacheMissCnt: numKeyVals,
+			expectFastCacheHitCnt:  100000, // this value is hardcoded in nodedb for fast cache.
+			expectFastCacheMissCnt: 0,
 			expectCacheHitCnt:      0,
 			expectCacheMissCnt:     1,
 		},
 	}
 
 	for name, tc := range testcases {
-		funcT := func(sub *testing.T) {
-
+		tc := tc
+		t.Run(name, func(sub *testing.T) {
 			stat := &Statistics{}
 			opts := &Options{Stat: stat}
+			db, err := db.NewDB("test", db.MemDBBackend, "")
+			require.NoError(t, err)
 			mt, err := NewMutableTreeWithOpts(db, tc.cacheSize, opts)
 			require.NoError(t, err)
 
@@ -2038,8 +2038,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 			require.Equal(t, tc.expectFastCacheMissCnt, int(opts.Stat.GetFastCacheMissCnt()))
 			require.Equal(t, tc.expectCacheHitCnt, int(opts.Stat.GetCacheHitCnt()))
 			require.Equal(t, tc.expectCacheMissCnt, int(opts.Stat.GetCacheMissCnt()))
-		}
-		t.Run(name, funcT)
+		})
 	}
 
 }
