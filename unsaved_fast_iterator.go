@@ -6,8 +6,6 @@ import (
 	"sort"
 
 	dbm "github.com/tendermint/tm-db"
-
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 var (
@@ -63,7 +61,7 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 			continue
 		}
 
-		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, ibytes.UnsafeBytesToStr(fastNode.key))
+		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, unsafeToStr(fastNode.key))
 	}
 
 	sort.Slice(iter.unsavedFastNodesToSort, func(i, j int) bool {
@@ -134,7 +132,7 @@ func (iter *UnsavedFastIterator) Next() {
 		return
 	}
 
-	diskKeyStr := ibytes.UnsafeBytesToStr(iter.fastIterator.Key())
+	diskKeyStr := unsafeToStr(iter.fastIterator.Key())
 	if iter.fastIterator.Valid() && iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 
 		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {

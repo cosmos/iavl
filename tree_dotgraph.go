@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"text/template"
-
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 type graphEdge struct {
@@ -58,12 +56,12 @@ func WriteDOTGraph(w io.Writer, tree *ImmutableTree, paths []PathToLeaf) {
 		}
 		shortHash := graphNode.Hash[:7]
 
-		graphNode.Label = mkLabel(ibytes.UnsafeBytesToStr(node.key), 16, "sans-serif")
+		graphNode.Label = mkLabel(unsafeToStr(node.key), 16, "sans-serif")
 		graphNode.Label += mkLabel(shortHash, 10, "monospace")
 		graphNode.Label += mkLabel(fmt.Sprintf("version=%d", node.version), 10, "monospace")
 
 		if node.value != nil {
-			graphNode.Label += mkLabel(ibytes.UnsafeBytesToStr(node.value), 10, "sans-serif")
+			graphNode.Label += mkLabel(unsafeToStr(node.value), 10, "sans-serif")
 		}
 
 		if node.height == 0 {
