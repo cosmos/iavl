@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cosmos/iavl/internal/logger"
 	"github.com/pkg/errors"
-
 	dbm "github.com/tendermint/tm-db"
 
-	"github.com/cosmos/iavl/internal/logger"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
@@ -147,7 +147,7 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	if fastNode, ok := tree.unsavedFastNodeAdditions[string(key)]; ok {
+	if fastNode, ok := tree.unsavedFastNodeAdditions[ibytes.UnsafeBytesToStr(key)]; ok {
 		return fastNode.value, nil
 	}
 
@@ -916,8 +916,9 @@ func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 }
 
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *FastNode) {
-	delete(tree.unsavedFastNodeRemovals, string(key))
-	tree.unsavedFastNodeAdditions[string(key)] = node
+	skey := ibytes.UnsafeBytesToStr(key)
+	delete(tree.unsavedFastNodeRemovals, skey)
+	tree.unsavedFastNodeAdditions[skey] = node
 }
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
@@ -936,8 +937,9 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 }
 
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
-	delete(tree.unsavedFastNodeAdditions, string(key))
-	tree.unsavedFastNodeRemovals[string(key)] = true
+	skey := ibytes.UnsafeBytesToStr(key)
+	delete(tree.unsavedFastNodeAdditions, skey)
+	tree.unsavedFastNodeRemovals[skey] = true
 }
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
@@ -948,7 +950,7 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 	sort.Strings(keysToSort)
 
 	for _, key := range keysToSort {
-		if err := tree.ndb.DeleteFastNode([]byte(key)); err != nil {
+		if err := tree.ndb.DeleteFastNode(ibytes.UnsafeStrToBytes(key)); err != nil {
 			return err
 		}
 	}
@@ -1228,7 +1230,7 @@ func (tree *MutableTree) addOrphans(orphans []*Node) error {
 		if len(node.hash) == 0 {
 			return fmt.Errorf("expected to find node hash, but was empty")
 		}
-		tree.orphans[string(node.hash)] = node.version
+		tree.orphans[ibytes.UnsafeBytesToStr(node.hash)] = node.version
 	}
 	return nil
 }

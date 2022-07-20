@@ -11,9 +11,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cosmos/iavl/internal/logger"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
+
+	ibytes "github.com/cosmos/iavl/internal/bytes"
+	"github.com/cosmos/iavl/internal/logger"
 )
 
 const (
@@ -91,7 +93,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		opts = &o
 	}
 
-	storeVersion, err := db.Get(metadataKeyFormat.Key([]byte(storageVersionKey)))
+	storeVersion, err := db.Get(metadataKeyFormat.Key(ibytes.UnsafeStrToBytes(storageVersionKey)))
 
 	if err != nil || storeVersion == nil {
 		storeVersion = []byte(defaultStorageVersionValue)
@@ -124,7 +126,7 @@ func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	}
 
 	// Check the cache.
-	if elem, ok := ndb.nodeCache[string(hash)]; ok {
+	if elem, ok := ndb.nodeCache[ibytes.UnsafeBytesToStr(hash)]; ok {
 		if ndb.opts.Stat != nil {
 			ndb.opts.Stat.IncCacheHitCnt()
 		}
@@ -171,7 +173,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*FastNode, error) {
 	}
 
 	// Check the cache.
-	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+	if elem, ok := ndb.fastNodeCache[ibytes.UnsafeBytesToStr(key)]; ok {
 		if ndb.opts.Stat != nil {
 			ndb.opts.Stat.IncFastCacheHitCnt()
 		}
@@ -885,9 +887,10 @@ func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Itera
 }
 
 func (ndb *nodeDB) uncacheNode(hash []byte) {
-	if elem, ok := ndb.nodeCache[string(hash)]; ok {
+	key := ibytes.UnsafeBytesToStr(hash)
+	if elem, ok := ndb.nodeCache[key]; ok {
 		ndb.nodeCacheQueue.Remove(elem)
-		delete(ndb.nodeCache, string(hash))
+		delete(ndb.nodeCache, key)
 	}
 }
 
@@ -895,19 +898,20 @@ func (ndb *nodeDB) uncacheNode(hash []byte) {
 // reached the cache size limit.
 func (ndb *nodeDB) cacheNode(node *Node) {
 	elem := ndb.nodeCacheQueue.PushBack(node)
-	ndb.nodeCache[string(node.hash)] = elem
+	ndb.nodeCache[ibytes.UnsafeBytesToStr(node.hash)] = elem
 
 	if ndb.nodeCacheQueue.Len() > ndb.nodeCacheSize {
 		oldest := ndb.nodeCacheQueue.Front()
 		hash := ndb.nodeCacheQueue.Remove(oldest).(*Node).hash
-		delete(ndb.nodeCache, string(hash))
+		delete(ndb.nodeCache, ibytes.UnsafeBytesToStr(hash))
 	}
 }
 
 func (ndb *nodeDB) uncacheFastNode(key []byte) {
-	if elem, ok := ndb.fastNodeCache[string(key)]; ok {
+	skey := ibytes.UnsafeBytesToStr(key)
+	if elem, ok := ndb.fastNodeCache[skey]; ok {
 		ndb.fastNodeCacheQueue.Remove(elem)
-		delete(ndb.fastNodeCache, string(key))
+		delete(ndb.fastNodeCache, skey)
 	}
 }
 
@@ -915,12 +919,12 @@ func (ndb *nodeDB) uncacheFastNode(key []byte) {
 // reached the cache size limit.
 func (ndb *nodeDB) cacheFastNode(node *FastNode) {
 	elem := ndb.fastNodeCacheQueue.PushBack(node)
-	ndb.fastNodeCache[string(node.key)] = elem
+	ndb.fastNodeCache[ibytes.UnsafeBytesToStr(node.key)] = elem
 
 	if ndb.fastNodeCacheQueue.Len() > ndb.fastNodeCacheSize {
 		oldest := ndb.fastNodeCacheQueue.Front()
 		key := ndb.fastNodeCacheQueue.Remove(oldest).(*FastNode).key
-		delete(ndb.fastNodeCache, string(key))
+		delete(ndb.fastNodeCache, ibytes.UnsafeBytesToStr(key))
 	}
 }
 
