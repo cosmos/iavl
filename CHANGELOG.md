@@ -2,12 +2,16 @@
 
 ## Unreleased
 
+### Improvements
+
+- [#525](https://github.com/cosmos/iavl/pull/525) Optimization: use fast unsafe bytes->string convertion.
+
 ## 0.19.0 (July 6, 2022)
 
 ### Breaking Changes
 
 - [\514](https://github.com/cosmos/iavl/pull/514) Downgrade Tendermint to 0.34.x
-- [\500](https://github.com/cosmos/iavl/pull/500) Return errors instead of panicking. 
+- [\500](https://github.com/cosmos/iavl/pull/500) Return errors instead of panicking.
 
 ### Improvements
 
