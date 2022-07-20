@@ -18,6 +18,14 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
+var (
+	tKey1 = []byte("k1")
+	tVal1 = []byte("v1")
+
+	tKey2 = []byte("k2")
+	tVal2 = []byte("v2")
+)
+
 func setupMutableTree(t *testing.T) *MutableTree {
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 0)
@@ -47,6 +55,47 @@ func TestDelete(t *testing.T) {
 	k1Value, _, err = tree.GetVersionedWithProof([]byte("k1"), version)
 	require.Nil(t, err)
 	require.Equal(t, 0, bytes.Compare([]byte("Fred"), k1Value))
+}
+
+func TestGetRemove(t *testing.T) {
+	require := require.New(t)
+	tree := setupMutableTree(t)
+	testGet := func(exists bool) {
+		v, err := tree.Get(tKey1)
+		require.NoError(err)
+		if exists {
+			require.Equal(tVal1, v, "key should exist")
+		} else {
+			require.Nil(v, "key should not exist")
+		}
+	}
+
+	testGet(false)
+
+	ok, err := tree.Set(tKey1, tVal1)
+	require.NoError(err)
+	require.False(ok, "new key set: nothing to update")
+
+	// add second key to avoid tree.root removal
+	ok, err = tree.Set(tKey2, tVal2)
+	require.NoError(err)
+	require.False(ok, "new key set: nothing to update")
+
+	testGet(true)
+
+	// Save to tree.ImmutableTree
+	_, version, err := tree.SaveVersion()
+	require.NoError(err)
+	require.Equal(int64(1), version)
+
+	testGet(true)
+
+	v, ok, err := tree.Remove(tKey1)
+	require.NoError(err)
+	require.True(ok, "key should be removed")
+	require.Equal(tVal1, v, "key should exist")
+
+	testGet(false)
 }
 
 func TestTraverse(t *testing.T) {
