@@ -149,6 +149,10 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	if fastNode, ok := tree.unsavedFastNodeAdditions[unsafeToStr(key)]; ok {
 		return fastNode.value, nil
 	}
+	// check if node was deleted
+	if _, ok := tree.unsavedFastNodeRemovals[string(key)]; ok {
+		return nil, nil
+	}
 
 	return tree.ImmutableTree.Get(key)
 }
@@ -176,7 +180,6 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 	if err != nil {
 		return false, err
 	}
-
 	if !isFastCacheEnabled {
 		return tree.ImmutableTree.Iterate(fn)
 	}
