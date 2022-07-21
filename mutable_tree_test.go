@@ -18,10 +18,23 @@ import (
 	db "github.com/tendermint/tm-db"
 )
 
-func TestDelete(t *testing.T) {
+var (
+	tKey1 = []byte("k1")
+	tVal1 = []byte("v1")
+
+	tKey2 = []byte("k2")
+	tVal2 = []byte("v2")
+)
+
+func setupMutableTree(t *testing.T) *MutableTree {
 	memDB := db.NewMemDB()
 	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
+	return tree
+}
+
+func TestDelete(t *testing.T) {
+	tree := setupMutableTree(t)
 
 	tree.set([]byte("k1"), []byte("Fred"))
 	hash, version, err := tree.SaveVersion()
@@ -35,7 +48,7 @@ func TestDelete(t *testing.T) {
 	require.Nil(t, k1Value)
 
 	key := tree.ndb.rootKey(version)
-	err = memDB.Set(key, hash)
+	err = tree.ndb.db.Set(key, hash)
 	require.NoError(t, err)
 	tree.versions[version] = true
 
@@ -44,10 +57,49 @@ func TestDelete(t *testing.T) {
 	require.Equal(t, 0, bytes.Compare([]byte("Fred"), k1Value))
 }
 
+func TestGetRemove(t *testing.T) {
+	require := require.New(t)
+	tree := setupMutableTree(t)
+	testGet := func(exists bool) {
+		v, err := tree.Get(tKey1)
+		require.NoError(err)
+		if exists {
+			require.Equal(tVal1, v, "key should exist")
+		} else {
+			require.Nil(v, "key should not exist")
+		}
+	}
+
+	testGet(false)
+
+	ok, err := tree.Set(tKey1, tVal1)
+	require.NoError(err)
+	require.False(ok, "new key set: nothing to update")
+
+	// add second key to avoid tree.root removal
+	ok, err = tree.Set(tKey2, tVal2)
+	require.NoError(err)
+	require.False(ok, "new key set: nothing to update")
+
+	testGet(true)
+
+	// Save to tree.ImmutableTree
+	_, version, err := tree.SaveVersion()
+	require.NoError(err)
+	require.Equal(int64(1), version)
+
+	testGet(true)
+
+	v, ok, err := tree.Remove(tKey1)
+	require.NoError(err)
+	require.True(ok, "key should be removed")
+	require.Equal(tVal1, v, "key should exist")
+
+	testGet(false)
+}
+
 func TestTraverse(t *testing.T) {
-	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0)
-	require.NoError(t, err)
+	tree := setupMutableTree(t)
 
 	for i := 0; i < 6; i++ {
 		tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
@@ -57,9 +109,7 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestMutableTree_DeleteVersions(t *testing.T) {
-	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0)
-	require.NoError(t, err)
+	tree := setupMutableTree(t)
 
 	type entry struct {
 		key   []byte
@@ -77,7 +127,7 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 			v := randBytes(10)
 
 			entries[j] = entry{k, v}
-			_, err = tree.Set(k, v)
+			_, err := tree.Set(k, v)
 			require.NoError(t, err)
 		}
 
@@ -115,9 +165,7 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 }
 
 func TestMutableTree_LoadVersion_Empty(t *testing.T) {
-	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0)
-	require.NoError(t, err)
+	tree := setupMutableTree(t)
 
 	version, err := tree.LoadVersion(0)
 	require.NoError(t, err)
@@ -154,7 +202,6 @@ func TestMutableTree_DeleteVersionsRange(t *testing.T) {
 	mdb := db.NewMemDB()
 	tree, err := NewMutableTree(mdb, 0)
 	require.NoError(err)
-
 	const maxLength = 100
 	const fromLength = 10
 
@@ -272,9 +319,7 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 }
 
 func TestMutableTree_SetInitialVersion(t *testing.T) {
-	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0)
-	require.NoError(t, err)
+	tree := setupMutableTree(t)
 	tree.SetInitialVersion(9)
 
 	tree.Set([]byte("a"), []byte{0x01})
@@ -423,9 +468,7 @@ func TestMutableTree_SetSimple(t *testing.T) {
 }
 
 func TestMutableTree_SetTwoKeys(t *testing.T) {
-	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 0)
-	require.NoError(t, err)
+	tree := setupMutableTree(t)
 
 	const testKey1 = "a"
 	const testVal1 = "test"
@@ -470,10 +513,7 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 }
 
 func TestMutableTree_SetOverwrite(t *testing.T) {
-	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 0)
-	require.NoError(t, err)
-
+	tree := setupMutableTree(t)
 	const testKey1 = "a"
 	const testVal1 = "test"
 	const testVal2 = "test2"
@@ -503,10 +543,7 @@ func TestMutableTree_SetOverwrite(t *testing.T) {
 }
 
 func TestMutableTree_SetRemoveSet(t *testing.T) {
-	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 0)
-	require.NoError(t, err)
-
+	tree := setupMutableTree(t)
 	const testKey1 = "a"
 	const testVal1 = "test"
 
@@ -709,6 +746,7 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	// Setup
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 1000)
+	require.NoError(t, err)
 
 	// Default version when storage key does not exist in the db
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
@@ -739,9 +777,9 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	// Setup
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 1000)
+	require.NoError(t, err)
 
 	// Default version when storage key does not exist in the db
-	require.NoError(t, err)
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
