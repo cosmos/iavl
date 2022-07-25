@@ -10,6 +10,7 @@ import (
 	"io"
 	"math"
 
+	"github.com/cosmos/iavl/cache"
 	"github.com/pkg/errors"
 
 	"github.com/cosmos/iavl/internal/encoding"
@@ -29,6 +30,8 @@ type Node struct {
 	height    int8
 	persisted bool
 }
+
+var _ cache.Node = (*Node)(nil)
 
 // NewNode returns a new node from a key, value and version.
 func NewNode(key []byte, value []byte, version int64) *Node {
@@ -105,6 +108,10 @@ func MakeNode(buf []byte) (*Node, error) {
 		node.rightHash = rightHash
 	}
 	return node, nil
+}
+
+func (n *Node) GetKey() []byte {
+	return n.hash
 }
 
 // String returns a string representation of the node.
