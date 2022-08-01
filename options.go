@@ -18,18 +18,30 @@ type Statistics struct {
 }
 
 func (stat *Statistics) IncCacheHitCnt() {
+	if stat == nil {
+		return
+	}
 	atomic.AddUint64(&stat.cacheHitCnt, 1)
 }
 
 func (stat *Statistics) IncCacheMissCnt() {
+	if stat == nil {
+		return
+	}
 	atomic.AddUint64(&stat.cacheMissCnt, 1)
 }
 
 func (stat *Statistics) IncFastCacheHitCnt() {
+	if stat == nil {
+		return
+	}
 	atomic.AddUint64(&stat.fastCacheHitCnt, 1)
 }
 
 func (stat *Statistics) IncFastCacheMissCnt() {
+	if stat == nil {
+		return
+	}
 	atomic.AddUint64(&stat.fastCacheMissCnt, 1)
 }
 
