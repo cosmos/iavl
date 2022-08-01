@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improvements
+
+- [#506](https://github.com/cosmos/iavl/pull/506) Implement cache abstraction.
+
 ### Bug Fixes
 
 - [#524](https://github.com/cosmos/iavl/pull/524) Fix: `MutableTree.Get`.
