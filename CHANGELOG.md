@@ -4,7 +4,7 @@
 
 ### Improvements
 
-- [#525](https://github.com/cosmos/iavl/pull/525) Optimization: use fast unsafe bytes->string convertion.
+- [#525](https://github.com/cosmos/iavl/pull/525) Optimization: use fast unsafe bytes->string conversion.
 
 ### Bug Fixes
 
