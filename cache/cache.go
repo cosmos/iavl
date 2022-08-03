@@ -61,7 +61,8 @@ func New(maxElementCount int) Cache {
 }
 
 func (c *lruCache) Add(node Node) Node {
-	if e, exists := c.dict[ibytes.UnsafeBytesToStr(node.GetKey())]; exists {
+	keyStr := ibytes.UnsafeBytesToStr(node.GetKey())
+	if e, exists := c.dict[keyStr]; exists {
 		c.ll.MoveToFront(e)
 		old := e.Value
 		e.Value = node
@@ -69,11 +70,10 @@ func (c *lruCache) Add(node Node) Node {
 	}
 
 	elem := c.ll.PushFront(node)
-	c.dict[ibytes.UnsafeBytesToStr(node.GetKey())] = elem
+	c.dict[keyStr] = elem
 
 	if c.ll.Len() > c.maxElementCount {
 		oldest := c.ll.Back()
-
 		return c.remove(oldest)
 	}
 	return nil
