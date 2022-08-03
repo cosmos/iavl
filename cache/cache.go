@@ -2,6 +2,8 @@ package cache
 
 import (
 	"container/list"
+
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 // Node represents a node eligible for caching.
@@ -59,7 +61,8 @@ func New(maxElementCount int) Cache {
 }
 
 func (c *lruCache) Add(node Node) Node {
-	if e, exists := c.dict[string(node.GetKey())]; exists {
+	keyStr := ibytes.UnsafeBytesToStr(node.GetKey())
+	if e, exists := c.dict[keyStr]; exists {
 		c.ll.MoveToFront(e)
 		old := e.Value
 		e.Value = node
@@ -67,18 +70,17 @@ func (c *lruCache) Add(node Node) Node {
 	}
 
 	elem := c.ll.PushFront(node)
-	c.dict[string(node.GetKey())] = elem
+	c.dict[keyStr] = elem
 
 	if c.ll.Len() > c.maxElementCount {
 		oldest := c.ll.Back()
-
 		return c.remove(oldest)
 	}
 	return nil
 }
 
 func (nc *lruCache) Get(key []byte) Node {
-	if ele, hit := nc.dict[string(key)]; hit {
+	if ele, hit := nc.dict[ibytes.UnsafeBytesToStr(key)]; hit {
 		nc.ll.MoveToFront(ele)
 		return ele.Value.(Node)
 	}
@@ -86,7 +88,7 @@ func (nc *lruCache) Get(key []byte) Node {
 }
 
 func (c *lruCache) Has(key []byte) bool {
-	_, exists := c.dict[string(key)]
+	_, exists := c.dict[ibytes.UnsafeBytesToStr(key)]
 	return exists
 }
 
@@ -95,7 +97,7 @@ func (nc *lruCache) Len() int {
 }
 
 func (c *lruCache) Remove(key []byte) Node {
-	if elem, exists := c.dict[string(key)]; exists {
+	if elem, exists := c.dict[ibytes.UnsafeBytesToStr(key)]; exists {
 		return c.remove(elem)
 	}
 	return nil
@@ -103,6 +105,6 @@ func (c *lruCache) Remove(key []byte) Node {
 
 func (c *lruCache) remove(e *list.Element) Node {
 	removed := c.ll.Remove(e).(Node)
-	delete(c.dict, string(removed.GetKey()))
+	delete(c.dict, ibytes.UnsafeBytesToStr(removed.GetKey()))
 	return removed
 }

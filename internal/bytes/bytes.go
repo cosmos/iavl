@@ -35,11 +35,13 @@ func (bz *HexBytes) UnmarshalJSON(data []byte) error {
 	if len(data) < 2 || data[0] != '"' || data[len(data)-1] != '"' {
 		return fmt.Errorf("invalid hex string: %s", data)
 	}
-	bz2, err := hex.DecodeString(string(data[1 : len(data)-1]))
+	data = data[1 : len(data)-1]
+	dest := make([]byte, hex.DecodedLen(len(data)))
+	_, err := hex.Decode(dest, data)
 	if err != nil {
 		return err
 	}
-	*bz = bz2
+	*bz = dest
 	return nil
 }
 

@@ -12,6 +12,7 @@ import (
 	dbm "github.com/tendermint/tm-db"
 
 	"github.com/cosmos/iavl"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 // TODO: make this configurable?
@@ -94,7 +95,7 @@ func PrintDBStats(db dbm.DB) {
 
 	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
-		key := string(itr.Key()[:1])
+		key := ibytes.UnsafeBytesToStr(itr.Key()[:1])
 		prefix[key]++
 		count++
 	}

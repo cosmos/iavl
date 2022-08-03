@@ -10,10 +10,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/cosmos/iavl/cache"
-	"github.com/cosmos/iavl/internal/logger"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
+
+	"github.com/cosmos/iavl/cache"
+	"github.com/cosmos/iavl/internal/logger"
 )
 
 const (
@@ -86,7 +87,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		opts = &o
 	}
 
-	storeVersion, err := db.Get(metadataKeyFormat.Key([]byte(storageVersionKey)))
+	storeVersion, err := db.Get(metadataKeyFormat.Key(unsafeToBz(storageVersionKey)))
 
 	if err != nil || storeVersion == nil {
 		storeVersion = []byte(defaultStorageVersionValue)

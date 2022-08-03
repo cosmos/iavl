@@ -18,29 +18,19 @@ var (
 // it iterates over the latest state via fast nodes,
 // taking advantage of keys being located in sequence in the underlying database.
 type UnsavedFastIterator struct {
-	start, end []byte
-
-	valid bool
-
-	ascending bool
-
-	err error
-
-	ndb *nodeDB
-
-	unsavedFastNodeAdditions map[string]*FastNode
-
-	unsavedFastNodeRemovals map[string]interface{}
-
-	unsavedFastNodesToSort []string
-
-	nextKey []byte
-
-	nextVal []byte
-
-	nextUnsavedNodeIdx int
-
+	start, end   []byte
+	valid        bool
+	ascending    bool
+	err          error
+	ndb          *nodeDB
+	nextKey      []byte
+	nextVal      []byte
 	fastIterator dbm.Iterator
+
+	nextUnsavedNodeIdx       int
+	unsavedFastNodeAdditions map[string]*FastNode
+	unsavedFastNodeRemovals  map[string]interface{}
+	unsavedFastNodesToSort   []string
 }
 
 var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
@@ -71,7 +61,7 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 			continue
 		}
 
-		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, string(fastNode.key))
+		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, unsafeToStr(fastNode.key))
 	}
 
 	sort.Slice(iter.unsavedFastNodesToSort, func(i, j int) bool {
@@ -142,8 +132,8 @@ func (iter *UnsavedFastIterator) Next() {
 		return
 	}
 
+	diskKeyStr := unsafeToStr(iter.fastIterator.Key())
 	if iter.fastIterator.Valid() && iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
-		diskKeyStr := string(iter.fastIterator.Key())
 
 		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {
 			// If next fast node from disk is to be removed, skip it.
@@ -186,7 +176,7 @@ func (iter *UnsavedFastIterator) Next() {
 
 	// if only nodes on disk are left, we return them
 	if iter.fastIterator.Valid() {
-		if iter.unsavedFastNodeRemovals[string(iter.fastIterator.Key())] != nil {
+		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {
 			// If next fast node from disk is to be removed, skip it.
 			iter.fastIterator.Next()
 			iter.Next()
