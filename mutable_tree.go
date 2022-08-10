@@ -15,6 +15,7 @@ import (
 	"github.com/cosmos/iavl/internal/logger"
 )
 
+// commitGap after upgrade/delete commitGap FastNodes when commit the batch
 var commitGap uint64 = 10000000
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
