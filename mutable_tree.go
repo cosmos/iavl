@@ -15,6 +15,8 @@ import (
 	"github.com/cosmos/iavl/internal/logger"
 )
 
+var commitGap uint64 = 10000000
+
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = errors.New("version does not exist")
 
@@ -627,12 +629,6 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 // from latest tree.
 // nolint: unparam
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
-	shouldForceUpdate, err := tree.ndb.shouldForceFastStorageUpgrade()
-	if err != nil {
-		return false, err
-	}
-	isFastStorageEnabled := tree.ndb.hasUpgradedToFastStorage()
-
 	isUpgradeable, err := tree.IsUpgradeable()
 	if err != nil {
 		return false, err
@@ -642,17 +638,27 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		return false, nil
 	}
 
-	if isFastStorageEnabled && shouldForceUpdate {
-		// If there is a mismatch between which fast nodes are on disk and the live state due to temporary
-		// downgrade and subsequent re-upgrade, we cannot know for sure which fast nodes have been removed while downgraded,
-		// Therefore, there might exist stale fast nodes on disk. As a result, to avoid persisting the stale state, it might
-		// be worth to delete the fast nodes from disk.
-		fastItr := NewFastIterator(nil, nil, true, tree.ndb)
-		defer fastItr.Close()
-		for ; fastItr.Valid(); fastItr.Next() {
-			if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
+	// If there is a mismatch between which fast nodes are on disk and the live state due to temporary
+	// downgrade and subsequent re-upgrade, we cannot know for sure which fast nodes have been removed while downgraded,
+	// Therefore, there might exist stale fast nodes on disk. As a result, to avoid persisting the stale state, it might
+	// be worth to delete the fast nodes from disk.
+	fastItr := NewFastIterator(nil, nil, true, tree.ndb)
+	defer fastItr.Close()
+	var deletedFastNodes uint64
+	for ; fastItr.Valid(); fastItr.Next() {
+		deletedFastNodes++
+		if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
+			return false, err
+		}
+		if deletedFastNodes%commitGap == 0 {
+			if err := tree.ndb.Commit(); err != nil {
 				return false, err
 			}
+		}
+	}
+	if deletedFastNodes%commitGap != 0 {
+		if err := tree.ndb.Commit(); err != nil {
+			return false, err
 		}
 	}
 
@@ -712,9 +718,14 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 
 	itr := NewIterator(nil, nil, true, tree.ImmutableTree)
 	defer itr.Close()
+	var upgradedFastNodes uint64
 	for ; itr.Valid(); itr.Next() {
+		upgradedFastNodes++
 		if err = tree.ndb.SaveFastNodeNoCache(NewFastNode(itr.Key(), itr.Value(), tree.version)); err != nil {
 			return err
+		}
+		if upgradedFastNodes%commitGap == 0 {
+			tree.ndb.Commit()
 		}
 	}
 
