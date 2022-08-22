@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/pkg/errors"
-	dbm "github.com/tendermint/tm-db"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/internal/logger"
@@ -1008,6 +1008,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 // Not efficient.
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
+//
 //nolint:unused
 func (ndb *nodeDB) size() int {
 	size := 0

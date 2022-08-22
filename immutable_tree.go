@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
@@ -311,6 +311,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 }
 
 // nodeSize is like Size, but includes inner nodes too.
+//
 //nolint:unused
 func (t *ImmutableTree) nodeSize() int {
 	size := 0

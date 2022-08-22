@@ -3,8 +3,8 @@ package iavl
 import (
 	"math"
 
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/pkg/errors"
-	dbm "github.com/tendermint/tm-db"
 )
 
 // Repair013Orphans repairs incorrect orphan entries written by IAVL 0.13 pruning. To use it, close
