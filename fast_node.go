@@ -54,21 +54,21 @@ func (fn *FastNode) GetKey() []byte {
 	return fn.key
 }
 
-func (node *FastNode) encodedSize() int {
-	n := encoding.EncodeVarintSize(node.versionLastUpdatedAt) + encoding.EncodeBytesSize(node.value)
+func (fn *FastNode) encodedSize() int {
+	n := encoding.EncodeVarintSize(fn.versionLastUpdatedAt) + encoding.EncodeBytesSize(fn.value)
 	return n
 }
 
 // writeBytes writes the FastNode as a serialized byte slice to the supplied io.Writer.
-func (node *FastNode) writeBytes(w io.Writer) error {
-	if node == nil {
+func (fn *FastNode) writeBytes(w io.Writer) error {
+	if fn == nil {
 		return errors.New("cannot write nil node")
 	}
-	cause := encoding.EncodeVarint(w, node.versionLastUpdatedAt)
+	cause := encoding.EncodeVarint(w, fn.versionLastUpdatedAt)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version last updated at")
 	}
-	cause = encoding.EncodeBytes(w, node.value)
+	cause = encoding.EncodeBytes(w, fn.value)
 	if cause != nil {
 		return errors.Wrap(cause, "writing value")
 	}
