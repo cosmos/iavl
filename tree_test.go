@@ -19,9 +19,11 @@ import (
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
-var testLevelDB bool
-var testFuzzIterations int
-var random *iavlrand.Rand
+var (
+	testLevelDB        bool
+	testFuzzIterations int
+	random             *iavlrand.Rand
+)
 
 func SetupTest() {
 	random = iavlrand.NewRand()
@@ -2040,5 +2042,4 @@ func TestNodeCacheStatisic(t *testing.T) {
 			require.Equal(t, tc.expectCacheMissCnt, int(opts.Stat.GetCacheMissCnt()))
 		})
 	}
-
 }

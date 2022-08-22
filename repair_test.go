@@ -169,7 +169,7 @@ func copyDB(src, dest string) error {
 	if err != nil {
 		return err
 	}
-	err = os.MkdirAll(dest, 0777)
+	err = os.MkdirAll(dest, 0o777)
 	if err != nil {
 		return err
 	}

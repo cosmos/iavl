@@ -232,7 +232,6 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 		if fn(itr.Key(), itr.Value()) {
 			return true, nil
 		}
-
 	}
 	return false, nil
 }

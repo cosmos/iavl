@@ -295,7 +295,7 @@ func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err 
 var sink interface{}
 
 func BenchmarkConvertLeafOp(b *testing.B) {
-	var versions = []int64{
+	versions := []int64{
 		0,
 		1,
 		100,
