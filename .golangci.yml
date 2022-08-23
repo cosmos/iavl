@@ -10,12 +10,11 @@ linters:
     - deadcode
     - depguard
     - dogsled
-    # - errcheck
+    - errcheck
     - exportloopref
     - goconst
     - gocritic
-    - gofmt
-    - goimports
+    - gofumpt
     - gosec
     - gosimple
     - govet
@@ -32,7 +31,6 @@ linters:
     - unconvert
     - unparam
     - unused
-    # - wsl
 
 issues:
   exclude-rules:
