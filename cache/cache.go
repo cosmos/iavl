@@ -79,9 +79,9 @@ func (c *lruCache) Add(node Node) Node {
 	return nil
 }
 
-func (nc *lruCache) Get(key []byte) Node {
-	if ele, hit := nc.dict[ibytes.UnsafeBytesToStr(key)]; hit {
-		nc.ll.MoveToFront(ele)
+func (c *lruCache) Get(key []byte) Node {
+	if ele, hit := c.dict[ibytes.UnsafeBytesToStr(key)]; hit {
+		c.ll.MoveToFront(ele)
 		return ele.Value.(Node)
 	}
 	return nil
@@ -92,8 +92,8 @@ func (c *lruCache) Has(key []byte) bool {
 	return exists
 }
 
-func (nc *lruCache) Len() int {
-	return nc.ll.Len()
+func (c *lruCache) Len() int {
+	return c.ll.Len()
 }
 
 func (c *lruCache) Remove(key []byte) Node {
