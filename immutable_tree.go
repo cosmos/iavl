@@ -224,10 +224,11 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 	}
 
 	itr, err := t.Iterator(nil, nil, true)
-	defer itr.Close()
 	if err != nil {
 		return false, err
 	}
+	defer itr.Close()
+
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
 			return true, nil

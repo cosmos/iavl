@@ -92,7 +92,7 @@ func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("Failed to hash ProofInnerNode: %v", err)
+		return nil, fmt.Errorf("failed to hash ProofInnerNode: %v", err)
 	}
 
 	_, err = hasher.Write(buf.Bytes())

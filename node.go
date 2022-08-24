@@ -109,8 +109,8 @@ func MakeNode(buf []byte) (*Node, error) {
 	return node, nil
 }
 
-func (n *Node) GetKey() []byte {
-	return n.hash
+func (node *Node) GetKey() []byte {
+	return node.hash
 }
 
 // String returns a string representation of the node.
