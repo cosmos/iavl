@@ -12,9 +12,9 @@ import (
 	"strconv"
 	"testing"
 
+	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db"
 
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
