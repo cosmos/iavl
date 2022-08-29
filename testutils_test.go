@@ -84,7 +84,7 @@ func T(n *Node) (*MutableTree, error) {
 
 // Convenience for simple printing of keys & tree structure
 func P(n *Node) string {
-	if n.height == 0 {
+	if n.subtreeHeight == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
 	}
 	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))

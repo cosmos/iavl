@@ -1089,12 +1089,12 @@ func (ndb *nodeDB) String() (string, error) {
 			buf.WriteByte('\n')
 		case node == nil:
 			fmt.Fprintf(buf, "%s%40x: <nil>\n", nodeKeyFormat.Prefix(), hash)
-		case node.value == nil && node.height > 0:
+		case node.value == nil && node.subtreeHeight > 0:
 			fmt.Fprintf(buf, "%s%40x: %s   %-16s h=%d version=%d\n",
-				nodeKeyFormat.Prefix(), hash, node.key, "", node.height, node.version)
+				nodeKeyFormat.Prefix(), hash, node.key, "", node.subtreeHeight, node.version)
 		default:
 			fmt.Fprintf(buf, "%s%40x: %s = %-16s h=%d version=%d\n",
-				nodeKeyFormat.Prefix(), hash, node.key, node.value, node.height, node.version)
+				nodeKeyFormat.Prefix(), hash, node.key, node.value, node.subtreeHeight, node.version)
 		}
 		index++
 		return nil

@@ -236,21 +236,21 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		switch bytes.Compare(key, node.key) {
 		case -1:
 			return &Node{
-				key:       node.key,
-				height:    1,
-				size:      2,
-				leftNode:  NewNode(key, value, version),
-				rightNode: node,
-				version:   version,
+				key:           node.key,
+				subtreeHeight: 1,
+				size:          2,
+				leftNode:      NewNode(key, value, version),
+				rightNode:     node,
+				version:       version,
 			}, false, nil
 		case 1:
 			return &Node{
-				key:       key,
-				height:    1,
-				size:      2,
-				leftNode:  node,
-				rightNode: NewNode(key, value, version),
-				version:   version,
+				key:           key,
+				subtreeHeight: 1,
+				size:          2,
+				leftNode:      node,
+				rightNode:     NewNode(key, value, version),
+				version:       version,
 			}, false, nil
 		default:
 			*orphans = append(*orphans, node)

@@ -78,10 +78,10 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	}
 
 	node := &Node{
-		key:     exportNode.Key,
-		value:   exportNode.Value,
-		version: exportNode.Version,
-		height:  exportNode.Height,
+		key:           exportNode.Key,
+		value:         exportNode.Value,
+		version:       exportNode.Version,
+		subtreeHeight: exportNode.Height,
 	}
 
 	// We build the tree from the bottom-left up. The stack is used to store unresolved left
@@ -93,17 +93,17 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
 	switch {
-	case stackSize >= 2 && i.stack[stackSize-1].height < node.height && i.stack[stackSize-2].height < node.height:
+	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-2]
 		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
 		node.rightHash = node.rightNode.hash
-	case stackSize >= 1 && i.stack[stackSize-1].height < node.height:
+	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-1]
 		node.leftHash = node.leftNode.hash
 	}
 
-	if node.height == 0 {
+	if node.subtreeHeight == 0 {
 		node.size = 1
 	}
 	if node.leftNode != nil {
