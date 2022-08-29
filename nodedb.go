@@ -491,7 +491,6 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
 		fastNode, err := fastnode.DeserializeNode(key, v)
-
 		if err != nil {
 			return err
 		}
