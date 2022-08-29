@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sort"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 var (

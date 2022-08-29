@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 type traversal struct {
