@@ -1,4 +1,4 @@
-package iavl
+package fastnode
 
 import (
 	"bytes"
@@ -6,18 +6,20 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 func TestFastNode_encodedSize(t *testing.T) {
 	fastNode := &FastNode{
-		key:                  randBytes(10),
+		key:                  iavlrand.RandBytes(10),
 		versionLastUpdatedAt: 1,
-		value:                randBytes(20),
+		value:                iavlrand.RandBytes(20),
 	}
 
 	expectedSize := 1 + len(fastNode.value) + 1
 
-	require.Equal(t, expectedSize, fastNode.encodedSize())
+	require.Equal(t, expectedSize, fastNode.EncodedSize())
 }
 
 func TestFastNode_encode_decode(t *testing.T) {
@@ -38,7 +40,7 @@ func TestFastNode_encode_decode(t *testing.T) {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := tc.node.writeBytes(&buf)
+			err := tc.node.WriteBytes(&buf)
 			if tc.expectError {
 				require.Error(t, err)
 				return

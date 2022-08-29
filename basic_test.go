@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	db "github.com/cosmos/cosmos-db"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -273,8 +274,8 @@ func TestRemove(t *testing.T) {
 	keys := make([][]byte, size)
 	l := int32(len(keys))
 	for i := 0; i < size; i++ {
-		key := randBytes(keyLen)
-		t1.Set(key, randBytes(dataLen))
+		key := iavlrand.RandBytes(keyLen)
+		t1.Set(key, iavlrand.RandBytes(dataLen))
 		keys[i] = key
 	}
 

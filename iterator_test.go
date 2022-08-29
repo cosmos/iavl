@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/iavl/fastnode"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,7 +36,7 @@ func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 	})
 
 	t.Run("Unsaved Fast Iterator", func(t *testing.T) {
-		itr := NewUnsavedFastIterator(start, end, ascending, nil, map[string]*FastNode{}, map[string]interface{}{})
+		itr := NewUnsavedFastIterator(start, end, ascending, nil, map[string]*fastnode.FastNode{}, map[string]interface{}{})
 		performTest(t, itr)
 		require.ErrorIs(t, errFastIteratorNilNdbGiven, itr.Error())
 	})

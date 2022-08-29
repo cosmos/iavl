@@ -197,8 +197,8 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		return result, err
 	}
 
-	if fastNode.versionLastUpdatedAt <= t.version {
-		return fastNode.value, nil
+	if fastNode.GetVersionLastUpdatedAt() <= t.version {
+		return fastNode.GetValue(), nil
 	}
 
 	// Otherwise the cached node was updated later than the current tree. In this case,

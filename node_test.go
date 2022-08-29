@@ -8,19 +8,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 func TestNode_encodedSize(t *testing.T) {
 	node := &Node{
-		key:       randBytes(10),
-		value:     randBytes(10),
+		key:       iavlrand.RandBytes(10),
+		value:     iavlrand.RandBytes(10),
 		version:   1,
 		height:    0,
 		size:      100,
-		hash:      randBytes(20),
-		leftHash:  randBytes(20),
+		hash:      iavlrand.RandBytes(20),
+		leftHash:  iavlrand.RandBytes(20),
 		leftNode:  nil,
-		rightHash: randBytes(20),
+		rightHash: iavlrand.RandBytes(20),
 		rightNode: nil,
 		persisted: false,
 	}
@@ -133,13 +135,13 @@ func TestNode_validate(t *testing.T) {
 
 func BenchmarkNode_encodedSize(b *testing.B) {
 	node := &Node{
-		key:       randBytes(25),
-		value:     randBytes(100),
+		key:       iavlrand.RandBytes(25),
+		value:     iavlrand.RandBytes(100),
 		version:   rand.Int63n(10000000),
 		height:    1,
 		size:      rand.Int63n(10000000),
-		leftHash:  randBytes(20),
-		rightHash: randBytes(20),
+		leftHash:  iavlrand.RandBytes(20),
+		rightHash: iavlrand.RandBytes(20),
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -150,13 +152,13 @@ func BenchmarkNode_encodedSize(b *testing.B) {
 
 func BenchmarkNode_WriteBytes(b *testing.B) {
 	node := &Node{
-		key:       randBytes(25),
-		value:     randBytes(100),
+		key:       iavlrand.RandBytes(25),
+		value:     iavlrand.RandBytes(100),
 		version:   rand.Int63n(10000000),
 		height:    1,
 		size:      rand.Int63n(10000000),
-		leftHash:  randBytes(20),
-		rightHash: randBytes(20),
+		leftHash:  iavlrand.RandBytes(20),
+		rightHash: iavlrand.RandBytes(20),
 	}
 	b.ResetTimer()
 	b.Run("NoPreAllocate", func(sub *testing.B) {

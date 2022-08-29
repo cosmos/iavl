@@ -90,10 +90,6 @@ func P(n *Node) string {
 	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
 }
 
-func randBytes(length int) []byte {
-	return iavlrand.RandBytes(length)
-}
-
 type traverser struct {
 	first string
 	last  string
@@ -189,8 +185,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 	numberOfRemovals := numberOfSets / 4
 
 	for numberOfSets > numberOfRemovals*3 {
-		key := randBytes(keyValLength)
-		value := randBytes(keyValLength)
+		key := iavlrand.RandBytes(keyValLength)
+		value := iavlrand.RandBytes(keyValLength)
 
 		isUpdated, err := tree.Set(key, value)
 		require.NoError(t, err)
@@ -211,8 +207,8 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 
 			numberOfSets--
 
-			key := randBytes(keyValLength)
-			value := randBytes(keyValLength)
+			key := iavlrand.RandBytes(keyValLength)
+			value := iavlrand.RandBytes(keyValLength)
 
 			isUpdated, err := tree.Set(key, value)
 			require.NoError(t, err)
@@ -226,7 +222,7 @@ func randomizeTreeAndMirror(t *testing.T, tree *MutableTree, mirror map[string]s
 			numberOfUpdates--
 
 			key := getRandomKeyFrom(mirror)
-			value := randBytes(keyValLength)
+			value := iavlrand.RandBytes(keyValLength)
 
 			isUpdated, err := tree.Set([]byte(key), value)
 			require.NoError(t, err)
@@ -270,7 +266,7 @@ func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *Muta
 
 	curByte := startByteToSet
 	for curByte != endByteToSet {
-		value := randBytes(5)
+		value := iavlrand.RandBytes(5)
 
 		if (config.startIterate == nil || curByte >= config.startIterate[0]) && (config.endIterate == nil || curByte < config.endIterate[0]) {
 			mirror = append(mirror, []string{string(curByte), string(value)})
