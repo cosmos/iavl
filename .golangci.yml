@@ -10,7 +10,7 @@ linters:
     - deadcode
     - depguard
     - dogsled
-    - errcheck
+    # - errcheck
     - exportloopref
     - goconst
     - gocritic
@@ -21,7 +21,7 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    - nolintlint
+    # - nolintlint
     - prealloc
     - revive
     - staticcheck
