@@ -433,7 +433,7 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 	for k, v := range mirror {
 		require.True(t, tree.ndb.fastNodeCache.Has([]byte(k)), "cached fast node must be in live tree")
 		mirrorNode := tree.ndb.fastNodeCache.Get([]byte(k))
-		require.Equal(t, []byte(v), mirrorNode.(*fastnode.FastNode).GetValue(), "cached fast node's value must be equal to live state value")
+		require.Equal(t, []byte(v), mirrorNode.(*fastnode.Node).GetValue(), "cached fast node's value must be equal to live state value")
 	}
 }
 
@@ -450,7 +450,7 @@ func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string
 	err = tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
 		count++
-		fastNode, err := fastnode.DeserializeFastNode(key, v)
+		fastNode, err := fastnode.DeserializeNode(key, v)
 		require.Nil(t, err)
 
 		mirrorVal := mirror[string(fastNode.GetKey())]

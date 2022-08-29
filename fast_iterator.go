@@ -24,7 +24,7 @@ type FastIterator struct {
 
 	ndb *nodeDB
 
-	nextFastNode *fastnode.FastNode
+	nextFastNode *fastnode.Node
 
 	fastIterator dbm.Iterator
 }
@@ -114,7 +114,7 @@ func (iter *FastIterator) Next() {
 
 	iter.valid = iter.valid && iter.fastIterator.Valid()
 	if iter.valid {
-		iter.nextFastNode, iter.err = fastnode.DeserializeFastNode(iter.fastIterator.Key()[1:], iter.fastIterator.Value())
+		iter.nextFastNode, iter.err = fastnode.DeserializeNode(iter.fastIterator.Key()[1:], iter.fastIterator.Value())
 		iter.valid = iter.err == nil
 	}
 }

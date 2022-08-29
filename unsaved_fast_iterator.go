@@ -29,14 +29,14 @@ type UnsavedFastIterator struct {
 	fastIterator dbm.Iterator
 
 	nextUnsavedNodeIdx       int
-	unsavedFastNodeAdditions map[string]*fastnode.FastNode
+	unsavedFastNodeAdditions map[string]*fastnode.Node
 	unsavedFastNodeRemovals  map[string]interface{}
 	unsavedFastNodesToSort   []string
 }
 
 var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
 
-func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions map[string]*fastnode.FastNode, unsavedFastNodeRemovals map[string]interface{}) *UnsavedFastIterator {
+func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions map[string]*fastnode.Node, unsavedFastNodeRemovals map[string]interface{}) *UnsavedFastIterator {
 	iter := &UnsavedFastIterator{
 		start:                    start,
 		end:                      end,

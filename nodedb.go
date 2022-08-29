@@ -146,7 +146,7 @@ func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	return node, nil
 }
 
-func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.FastNode, error) {
+func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 	if !ndb.hasUpgradedToFastStorage() {
 		return nil, errors.New("storage version is not fast")
 	}
@@ -160,7 +160,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.FastNode, error) {
 
 	if cachedFastNode := ndb.fastNodeCache.Get(key); cachedFastNode != nil {
 		ndb.opts.Stat.IncFastCacheHitCnt()
-		return cachedFastNode.(*fastnode.FastNode), nil
+		return cachedFastNode.(*fastnode.Node), nil
 	}
 
 	ndb.opts.Stat.IncFastCacheMissCnt()
@@ -174,7 +174,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.FastNode, error) {
 		return nil, nil
 	}
 
-	fastNode, err := fastnode.DeserializeFastNode(key, buf)
+	fastNode, err := fastnode.DeserializeNode(key, buf)
 	if err != nil {
 		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
 	}
@@ -213,14 +213,14 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 }
 
 // SaveNode saves a FastNode to disk and add to cache.
-func (ndb *nodeDB) SaveFastNode(node *fastnode.FastNode) error {
+func (ndb *nodeDB) SaveFastNode(node *fastnode.Node) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	return ndb.saveFastNodeUnlocked(node, true)
 }
 
 // SaveNode saves a FastNode to disk without adding to cache.
-func (ndb *nodeDB) SaveFastNodeNoCache(node *fastnode.FastNode) error {
+func (ndb *nodeDB) SaveFastNodeNoCache(node *fastnode.Node) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	return ndb.saveFastNodeUnlocked(node, false)
@@ -288,7 +288,7 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() (bool, error) {
 }
 
 // SaveNode saves a FastNode to disk.
-func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.FastNode, shouldAddToCache bool) error {
+func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bool) error {
 	if node.GetKey() == nil {
 		return fmt.Errorf("cannot have FastNode with a nil value for key")
 	}
@@ -492,7 +492,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	// Delete fast node entries
 	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
-		fastNode, err := fastnode.DeserializeFastNode(key, v)
+		fastNode, err := fastnode.DeserializeNode(key, v)
 
 		if err != nil {
 			return err

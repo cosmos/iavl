@@ -11,7 +11,7 @@ import (
 )
 
 func TestFastNode_encodedSize(t *testing.T) {
-	fastNode := &FastNode{
+	fastNode := &Node{
 		key:                  iavlrand.RandBytes(10),
 		versionLastUpdatedAt: 1,
 		value:                iavlrand.RandBytes(20),
@@ -24,13 +24,13 @@ func TestFastNode_encodedSize(t *testing.T) {
 
 func TestFastNode_encode_decode(t *testing.T) {
 	testcases := map[string]struct {
-		node        *FastNode
+		node        *Node
 		expectHex   string
 		expectError bool
 	}{
 		"nil":   {nil, "", true},
-		"empty": {&FastNode{}, "0000", false},
-		"inner": {&FastNode{
+		"empty": {&Node{}, "0000", false},
+		"inner": {&Node{
 			key:                  []byte{0x4},
 			versionLastUpdatedAt: 1,
 			value:                []byte{0x2},
@@ -48,7 +48,7 @@ func TestFastNode_encode_decode(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expectHex, hex.EncodeToString(buf.Bytes()))
 
-			node, err := DeserializeFastNode(tc.node.key, buf.Bytes())
+			node, err := DeserializeNode(tc.node.key, buf.Bytes())
 			require.NoError(t, err)
 			// since value and leafHash are always decoded to []byte{} we augment the expected struct here
 			if tc.node.value == nil {
