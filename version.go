@@ -33,5 +33,6 @@ func GetVersionInfo() VersionInfo {
 		Version,
 		Commit,
 		Branch,
-		fmt.Sprintf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH)}
+		fmt.Sprintf("go version %s %s/%s\n", runtime.Version(), runtime.GOOS, runtime.GOARCH),
+	}
 }

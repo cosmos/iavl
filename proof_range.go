@@ -172,7 +172,6 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 		return errors.New("absence not proved by right leaf (need another leaf?)")
 	}
 	return errors.New("absence not proved by right leaf")
-
 }
 
 // Verify that proof is valid.
@@ -231,15 +230,14 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 	// Start from the left path and prove each leaf.
 
 	// shared across recursive calls
-	var leaves = proof.Leaves
-	var innersq = proof.InnerNodes
+	leaves := proof.Leaves
+	innersq := proof.InnerNodes
 	var COMPUTEHASH func(path PathToLeaf, rightmost bool) (hash []byte, treeEnd bool, done bool, err error)
 
 	// rightmost: is the root a rightmost child of the tree?
 	// treeEnd: true iff the last leaf is the last item of the tree.
 	// Returns the (possibly intermediate, possibly root) hash.
 	COMPUTEHASH = func(path PathToLeaf, rightmost bool) (hash []byte, treeEnd bool, done bool, err error) {
-
 		// Pop next leaf.
 		nleaf, rleaves := leaves[0], leaves[1:]
 		leaves = rleaves
@@ -377,7 +375,7 @@ func RangeProofFromProto(pbProof *iavlproto.RangeProof) (RangeProof, error) {
 // If keyStart >= keyEnd and both not nil, errors out.
 // Limit is never exceeded.
 //
-
+//nolint:unparam
 func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof *RangeProof, keys, values [][]byte, err error) {
 	if keyStart != nil && keyEnd != nil && bytes.Compare(keyStart, keyEnd) >= 0 {
 		return nil, nil, nil, fmt.Errorf("if keyStart and keyEnd are present, need keyStart < keyEnd")
@@ -410,7 +408,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 	}
 
 	h := sha256.Sum256(left.value)
-	var leaves = []ProofLeafNode{
+	leaves := []ProofLeafNode{
 		{
 			Key:       left.key,
 			ValueHash: h[:],
@@ -438,14 +436,13 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 
 	// Traverse starting from afterLeft, until keyEnd or the next leaf
 	// after keyEnd.
-	var allPathToLeafs = []PathToLeaf(nil)
-	var currentPathToLeaf = PathToLeaf(nil)
-	var leafCount = 1 // from left above.
-	var pathCount = 0
+	allPathToLeafs := []PathToLeaf(nil)
+	currentPathToLeaf := PathToLeaf(nil)
+	leafCount := 1 // from left above.
+	pathCount := 0
 
 	t.root.traverseInRange(t, afterLeft, nil, true, false, false,
 		func(node *Node) (stop bool) {
-
 			// Track when we diverge from path, or when we've exhausted path,
 			// since the first allPathToLeafs shouldn't include it.
 			if pathCount != -1 {
@@ -565,8 +562,8 @@ func (tree *MutableTree) GetVersionedWithProof(key []byte, version int64) ([]byt
 // GetVersionedRangeWithProof gets key/value pairs within the specified range
 // and limit.
 func (tree *MutableTree) GetVersionedRangeWithProof(startKey, endKey []byte, limit int, version int64) (
-	keys, values [][]byte, proof *RangeProof, err error) {
-
+	keys, values [][]byte, proof *RangeProof, err error,
+) {
 	if tree.VersionExists(version) {
 		t, err := tree.GetImmutable(version)
 		if err != nil {

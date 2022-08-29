@@ -43,7 +43,6 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	t.Hash()
 
 	_, version, err := t.SaveVersion()
-
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
 	}
