@@ -45,19 +45,17 @@ const (
 
 var _ cache.Node = (*testNode)(nil)
 
-var (
-	testNodes = []cache.Node{
-		&testNode{
-			key: []byte(fmt.Sprintf("%s%d", testKey, 1)),
-		},
-		&testNode{
-			key: []byte(fmt.Sprintf("%s%d", testKey, 2)),
-		},
-		&testNode{
-			key: []byte(fmt.Sprintf("%s%d", testKey, 3)),
-		},
-	}
-)
+var testNodes = []cache.Node{
+	&testNode{
+		key: []byte(fmt.Sprintf("%s%d", testKey, 1)),
+	},
+	&testNode{
+		key: []byte(fmt.Sprintf("%s%d", testKey, 2)),
+	},
+	&testNode{
+		key: []byte(fmt.Sprintf("%s%d", testKey, 3)),
+	},
+}
 
 func Test_Cache_Add(t *testing.T) {
 	testcases := map[string]testcase{

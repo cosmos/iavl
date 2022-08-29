@@ -11,7 +11,7 @@ import (
 )
 
 func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
-	var start, end = []byte{'a'}, []byte{'c'}
+	start, end := []byte{'a'}, []byte{'c'}
 	ascending := true
 
 	performTest := func(t *testing.T, itr dbm.Iterator) {
@@ -43,7 +43,7 @@ func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 }
 
 func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
-	var start, end = []byte{'a'}, []byte{'c'}
+	start, end := []byte{'a'}, []byte{'c'}
 	ascending := true
 
 	performTest := func(t *testing.T, itr dbm.Iterator) {

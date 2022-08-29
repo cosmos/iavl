@@ -1,0 +1,496 @@
+make all --print-data-base --no-builtin-variables --no-builtin-rules --question
+# GNU Make 3.81
+# Copyright (C) 2006  Free Software Foundation, Inc.
+# This is free software; see the source for copying conditions.
+# There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A
+# PARTICULAR PURPOSE.
+
+# This program built for i386-apple-darwin11.3.0
+ 
+
+# Make data base, printed on Mon Aug 29 14:13:19 2022
+
+# Variables
+
+# automatic
+<D = $(patsubst %/,%,$(dir $<))
+# automatic
+?F = $(notdir $?)
+# environment
+ELECTRON_NO_ATTACH_CONSOLE = 1
+# environment
+LC_CTYPE = UTF-8
+# makefile (from `Makefile', line 5)
+DOCKER_BUF := docker run -v /Users/markobaricevic/code/CoTend/iavl:/workspace --workdir /workspace bufbuild/buf
+# automatic
+?D = $(patsubst %/,%,$(dir $?))
+# automatic
+@D = $(patsubst %/,%,$(dir $@))
+# automatic
+@F = $(notdir $@)
+# makefile
+CURDIR := /Users/markobaricevic/code/CoTend/iavl
+# makefile
+SHELL = /bin/sh
+# environment
+VSCODE_NLS_CONFIG = {"locale":"en-gb","availableLanguages":{},"_languagePackSupport":true}
+# environment
+_ = /usr/bin/make
+# environment
+STARSHIP_SESSION_KEY = 1383313761181482
+# environment
+WARP_IS_LOCAL_SHELL_SESSION = 1
+# makefile (from `Makefile', line 2)
+VERSION := 0.19.1-13-g1c64d73
+# environment
+__CFBundleIdentifier = com.microsoft.VSCode
+# environment
+INFOPATH = /opt/homebrew/share/info:
+# environment
+WASMER_DIR = /Users/markobaricevic/.wasmer
+# environment
+VSCODE_CWD = /Users/markobaricevic/code/CoTend/iavl
+# environment
+GOPROXY = https://proxy.golang.org,direct
+# environment
+WARP_USE_SSH_WRAPPER = 1
+# environment
+PATH = /Users/markobaricevic/.wasmer/bin:/Users/markobaricevic/google-cloud-sdk/bin:/opt/homebrew/opt/icu4c/sbin:/opt/homebrew/opt/icu4c/bin:/opt/homebrew/opt/openssl@1.1/bin:/usr/local/opt/llvm/bin:/Users/markobaricevic/.yarn/bin:/Users/markobaricevic/.config/yarn/global/node_modules/.bin:/Users/markobaricevic/.local/share/solana/install/active_release/bin:/Users/markobaricevic/.radicle/bin:/Users/markobaricevic/.gem/ruby/2.6.0/bin:/Users/markobaricevic/code/rust/sol/solana/bin:/usr/local/opt/coreutils/libexec/gnubin:/Users/markobaricevic/Desktop/flutter/flutter/bin:/opt/homebrew/bin:/opt/homebrew/sbin:/Users/markobaricevic/.local/share/solana/install/active_release/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/go/bin:/Library/Apple/usr/bin:/Users/markobaricevic/.cargo/bin:/Users/markobaricevic/go/bin:/Users/markobaricevic/code/flutter/flutter/bin:/Users/markobaricevic/.wasmer/globals/wapm_packages/.bin
+# environment
+LSCOLORS = Gxfxcxdxbxegedabagacad
+# makefile (from `Makefile', line 1)
+MAKEFILE_LIST :=  Makefile
+# makefile (from `Makefile', line 6)
+DOCKER := /usr/local/bin/docker
+# environment
+GOPATH = /Users/markobaricevic/go
+# environment
+LaunchInstanceID = 675C28F7-B527-48A3-97E9-B38E4094AB67
+# environment
+ELECTRON_RUN_AS_NODE = 1
+# makefile (from `Makefile', line 3)
+COMMIT := 75e10a3a26d5e3d5bf9b0288cf8e4fae481b049e
+# default
+.FEATURES := target-specific order-only second-expansion else-if archives jobserver check-symlink
+# makefile (from `Makefile', line 10)
+CMDFLAGS := -ldflags -X TENDERMINT_IAVL_COLORS_ON=on 
+# environment
+SSH_AUTH_SOCK = /private/tmp/com.apple.launchd.RCEAZGuNgP/Listeners
+# automatic
+%F = $(notdir $%)
+# environment
+PWD = /Users/markobaricevic/code/CoTend/iavl
+# environment
+WARP_PS1 = $(/opt/homebrew/bin/starship prompt --terminal-width="$COLUMNS" --keymap="${KEYMAP:-}" --status="$STARSHIP_CMD_STATUS" --pipestatus="${STARSHIP_PIPE_STATUS[*]}" --cmd-duration="${STARSHIP_DURATION:-}" --jobs="$STARSHIP_JOBS_COUNT")
+# environment
+HOMEBREW_CELLAR = /opt/homebrew/Cellar
+# environment
+ORIGINAL_XDG_CURRENT_DESKTOP = undefined
+# environment
+MANPATH = /opt/homebrew/share/man::
+# environment
+GOMODCACHE = /Users/markobaricevic/go/pkg/mod
+# environment
+HOME = /Users/markobaricevic
+# environment
+LD_LIBRARY_PATH = /usr/local/lib
+# default
+MAKEFILEPATH := /Applications/Xcode.app/Contents/Developer/Makefiles
+# environment
+VSCODE_CLI = 1
+# environment
+VSCODE_CODE_CACHE_PATH = /Users/markobaricevic/Library/Application Support/Code/CachedData/e4503b30fc78200f846c62cf8091b76ff5547662
+# environment
+LOGNAME = markobaricevic
+# environment
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+# environment
+ZSH = /Users/markobaricevic/.oh-my-zsh
+# environment
+VSCODE_HANDLES_UNCAUGHT_ERRORS = true
+# automatic
+^D = $(patsubst %/,%,$(dir $^))
+# environment
+XPC_FLAGS = 0x0
+# environment
+COLORTERM = truecolor
+# default
+MAKE = $(MAKE_COMMAND)
+# default
+MAKECMDGOALS := all
+# environment
+SHLVL = 3
+# environment
+WASMER_CACHE_DIR = /Users/markobaricevic/.wasmer/cache
+# default
+MAKE_VERSION := 3.81
+# environment
+USER = markobaricevic
+# makefile
+.DEFAULT_GOAL := all
+# environment
+LESS = -R
+# automatic
+%D = $(patsubst %/,%,$(dir $%))
+# default
+MAKE_COMMAND := /Applications/Xcode.app/Contents/Developer/usr/bin/make
+# environment
+TERM_PROGRAM = WarpTerminal
+# default
+.VARIABLES := 
+# environment
+TMPDIR = /var/folders/z4/d83jb36s32xgrcmxmq8576500000gn/T/
+# automatic
+*F = $(notdir $*)
+# environment
+VSCODE_IPC_HOOK = /Users/markobaricevic/Library/Application Support/Code/1.70.2-main.sock
+# environment
+MallocNanoZone = 0
+# makefile
+MAKEFLAGS = Rrqp
+# environment
+MFLAGS = -Rrqp
+# automatic
+*D = $(patsubst %/,%,$(dir $*))
+# environment
+TERM_PROGRAM_VERSION = v0.2022.08.16.10.16.stable_02
+# environment
+XPC_SERVICE_NAME = application.com.microsoft.VSCode.52464459.52464465.1C907C5C-97F6-4897-9DC1-E7E73038D5ED
+# environment
+HOMEBREW_PREFIX = /opt/homebrew
+# automatic
++D = $(patsubst %/,%,$(dir $+))
+# makefile (from `Makefile', line 7)
+HTTPS_GIT := https://github.com/cosmos/iavl.git
+# automatic
++F = $(notdir $+)
+# environment
+HOMEBREW_REPOSITORY = /opt/homebrew
+# makefile (from `Makefile', line 9)
+PDFFLAGS := -pdf --nodefraction=0.1
+# makefile (from `Makefile', line 11)
+LDFLAGS := -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-13-g1c64d73 -X github.com/cosmos/iavl.Commit=75e10a3a26d5e3d5bf9b0288cf8e4fae481b049e -X github.com/cosmos/iavl.Branch=master"
+# environment
+__CF_USER_TEXT_ENCODING = 0x1F5:0x0:0x0
+# environment
+COMMAND_MODE = unix2003
+# default
+MAKEFILES := 
+# automatic
+<F = $(notdir $<)
+# makefile (from `Makefile', line 4)
+BRANCH = $(shell git rev-parse --abbrev-ref HEAD)
+# environment
+PAGER = less
+# environment
+LC_ALL = C
+# environment
+CONDA_CHANGEPS1 = false
+# environment
+VSCODE_AMD_ENTRYPOINT = vs/workbench/api/node/extensionHostProcess
+# environment
+SECURITYSESSIONID = 186b1
+# automatic
+^F = $(notdir $^)
+# default
+SUFFIXES := 
+# makefile (from `Makefile', line 1)
+GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
+# default
+.INCLUDE_DIRS = /usr/local/include
+# environment
+MAKELEVEL := 0
+# environment
+GPG_TTY = /dev/ttys003
+# environment
+LANG = C
+# environment
+TERM = xterm-256color
+# environment
+VSCODE_PID = 13201
+# environment
+STARSHIP_SHELL = zsh
+# variable set hash-table stats:
+# Load=99/1024=10%, Rehash=0, Collisions=9/141=6%
+
+# Pattern-specific Variable Values
+
+# No pattern-specific variable values.
+
+# Directories
+
+# . (device 16777231, inode 1740745): 70 files, no impossibilities.
+
+# 70 files, no impossibilities in 1 directories.
+
+# Implicit Rules
+
+# No implicit rules.
+
+# Files
+
+proto-lint:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 116):
+	@$(DOCKER_BUF) check lint --error-format=json
+	
+
+# Not a target:
+protobuf:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+all: lint test install tools
+#  Phony target (prerequisite of .PHONY).
+#  Command-line target.
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/2=0%
+
+proto-gen:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 124):
+	@echo "Generating Protobuf files"
+	$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace tendermintdev/sdk-proto-gen:master sh scripts/protocgen.sh
+	
+
+.PHONY: install test tools format lint bench fullbench profile explorecpu exploremem delve all tools check check_tools tooks-clean lint test tools install delve exploremem explorecpu profile fullbench bench proto-gen proto-lint proto-check-breaking proto-lint proto-check-breaking proto-gen-d
+ 
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+check_tools:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 98):
+	@# https://stackoverflow.com/a/25668869
+	@echo "Found tools: $(foreach tool,$(notdir $(GOTOOLS)),\
+	$(if $(shell which $(tool)),$(tool),$(error "No $(tool) in PATH")))"
+	
+
+# Not a target:
+.SUFFIXES:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+format:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 35):
+	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
+	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -format
+	
+
+# Not a target:
+Makefile:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-29 14:12:56
+#  File has been updated.
+#  Successfully updated.
+# variable set hash-table stats:
+# Load=0/32=0%, Rehash=0, Collisions=0/0=0%
+
+test:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 26):
+	@echo "--> Running go test"
+	@go test ./... $(LDFLAGS) -v --race
+	
+
+fullbench:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 56):
+	cd benchmarks && \
+	go test $(LDFLAGS) -run=NOTEST -bench=RandomBytes . && \
+	go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Small . && \
+	go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Medium . && \
+	go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -timeout=30m -bench=Large . && \
+	go test $(LDFLAGS) -run=NOTEST -bench=Mem . && \
+	go test $(LDFLAGS) -run=NOTEST -timeout=60m -bench=LevelDB .
+	
+
+# Not a target:
+.DEFAULT:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+delve:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 85):
+	dlv test ./benchmarks -- -test.bench=.
+	
+
+bench:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 48):
+	cd benchmarks && \
+	go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Small . && \
+	go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Medium . && \
+	go test $(LDFLAGS) -run=NOTEST -bench=RandomBytes .
+	
+
+proto-gen-d:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+lint:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  Implicit/static pattern stem: `'
+#  File does not exist.
+#  File has been updated.
+#  Needs to be updated (-q is set).
+# automatic
+# @ := lint
+# automatic
+# % := 
+# automatic
+# * := 
+# automatic
+# + := 
+# automatic
+# | := 
+# automatic
+# < := 
+# automatic
+# ^ := 
+# automatic
+# ? := 
+# variable set hash-table stats:
+# Load=8/32=25%, Rehash=0, Collisions=1/10=10%
+#  commands to execute (from `Makefile', line 41):
+	@echo "--> Running linter"
+	@golangci-lint run
+	@go mod verify
+	
+
+profile:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 67):
+	cd benchmarks && \
+	go test $(LDFLAGS) -bench=Mem -cpuprofile=cpu.out -memprofile=mem.out . && \
+	go tool pprof ${PDFFLAGS} benchmarks.test cpu.out > cpu.pdf && \
+	go tool pprof --alloc_space ${PDFFLAGS} benchmarks.test mem.out > mem_space.pdf && \
+	go tool pprof --alloc_objects ${PDFFLAGS} benchmarks.test mem.out > mem_obj.pdf
+	
+
+explorecpu:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 75):
+	cd benchmarks && \
+	go tool pprof benchmarks.test cpu.out
+	
+
+tooks-clean:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+tools-clean:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 104):
+	rm -f $(CERTSTRAP) $(PROTOBUF) $(GOX) $(GOODMAN)
+	rm -rf /usr/local/include/google/protobuf
+	rm -f /usr/local/bin/protoc
+	
+
+exploremem:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 80):
+	cd benchmarks && \
+	go tool pprof --alloc_objects benchmarks.test mem.out
+	
+
+check: check_tools
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+
+tools: protobuf
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 31):
+	go get -v $(GOTOOLS)
+	
+
+proto-check-breaking:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 120):
+	@$(DOCKER_BUF) check breaking --against-input $(HTTPS_GIT)#branch=master
+	
+
+install:
+#  Phony target (prerequisite of .PHONY).
+#  Implicit rule search has not been done.
+#  File does not exist.
+#  File has not been updated.
+#  commands to execute (from `Makefile', line 17):
+	go install ./cmd/iaviewer
+	go install ./cmd/iavlserver
+	
+
+# files hash-table stats:
+# Load=25/1024=2%, Rehash=0, Collisions=0/98=0%
+# VPATH Search Paths
+
+# No `vpath' search paths.
+
+# No general (`VPATH' variable) search path.
+
+# # of strings in strcache: 1
+# # of strcache buffers: 1
+# strcache size: total = 4096 / max = 4096 / min = 4096 / avg = 4096
+# strcache free: total = 4087 / max = 4087 / min = 4087 / avg = 4087
+
+# Finished Make data base on Mon Aug 29 14:13:19 2022
+
+ 
