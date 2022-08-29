@@ -809,7 +809,6 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.True(t, isFastCacheEnabled)
-
 }
 
 func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
@@ -1154,7 +1153,7 @@ func setupTreeAndMirrorForUpgrade(t *testing.T) (*MutableTree, [][]string) {
 	tree, _ := NewMutableTree(db, 0)
 
 	const numEntries = 100
-	var keyPrefix, valPrefix = "key", "val"
+	keyPrefix, valPrefix := "key", "val"
 
 	mirror := make([][]string, 0, numEntries)
 	for i := 0; i < numEntries; i++ {

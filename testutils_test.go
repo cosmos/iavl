@@ -4,11 +4,10 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"sort"
 	"testing"
-
-	"math/rand"
 
 	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"

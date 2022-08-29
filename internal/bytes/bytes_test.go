@@ -25,7 +25,6 @@ func TestMarshal(t *testing.T) {
 
 // Test that the hex encoding works.
 func TestJSONMarshal(t *testing.T) {
-
 	type TestStruct struct {
 		B1 []byte
 		B2 HexBytes

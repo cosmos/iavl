@@ -338,9 +338,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	iter, err := tree.ndb.db.Iterator(nil, nil)
 	require.NoError(t, err)
 
-	var (
-		foundKeys []string
-	)
+	var foundKeys []string
 	for ; iter.Valid(); iter.Next() {
 		foundKeys = append(foundKeys, string(iter.Key()))
 	}
