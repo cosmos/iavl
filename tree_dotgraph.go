@@ -64,7 +64,7 @@ func WriteDOTGraph(w io.Writer, tree *ImmutableTree, paths []PathToLeaf) {
 			graphNode.Label += mkLabel(unsafeToStr(node.value), 10, "sans-serif")
 		}
 
-		if node.height == 0 {
+		if node.subtreeHeight == 0 {
 			graphNode.Attrs["fillcolor"] = "lightgrey"
 			graphNode.Attrs["style"] = "filled"
 		}

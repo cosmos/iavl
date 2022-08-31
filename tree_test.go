@@ -1263,7 +1263,7 @@ func TestOrphans(t *testing.T) {
 
 	for i := 0; i < NUMVERSIONS; i++ {
 		for j := 1; j < NUMUPDATES; j++ {
-			tree.Set(randBytes(2), randBytes(2))
+			tree.Set(iavlrand.RandBytes(2), iavlrand.RandBytes(2))
 		}
 		_, _, err = tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not error")
@@ -1895,9 +1895,9 @@ func Benchmark_GetWithIndex(b *testing.B) {
 	keys := make([][]byte, 0, numKeyVals)
 
 	for i := 0; i < numKeyVals; i++ {
-		key := randBytes(10)
+		key := iavlrand.RandBytes(10)
 		keys = append(keys, key)
-		t.Set(key, randBytes(10))
+		t.Set(key, iavlrand.RandBytes(10))
 	}
 	_, _, err = t.SaveVersion()
 	require.NoError(b, err)
@@ -1945,8 +1945,8 @@ func Benchmark_GetByIndex(b *testing.B) {
 	require.NoError(b, err)
 
 	for i := 0; i < numKeyVals; i++ {
-		key := randBytes(10)
-		t.Set(key, randBytes(10))
+		key := iavlrand.RandBytes(10)
+		t.Set(key, iavlrand.RandBytes(10))
 	}
 	_, _, err = t.SaveVersion()
 	require.NoError(b, err)
@@ -2022,7 +2022,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 
 			for i := 0; i < numKeyVals; i++ {
 				key := []byte(strconv.Itoa(i))
-				_, err := mt.Set(key, randBytes(10))
+				_, err := mt.Set(key, iavlrand.RandBytes(10))
 				require.NoError(t, err)
 			}
 			_, ver, _ := mt.SaveVersion()

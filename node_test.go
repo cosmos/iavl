@@ -8,28 +8,30 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 func TestNode_encodedSize(t *testing.T) {
 	node := &Node{
-		key:       randBytes(10),
-		value:     randBytes(10),
-		version:   1,
-		height:    0,
-		size:      100,
-		hash:      randBytes(20),
-		leftHash:  randBytes(20),
-		leftNode:  nil,
-		rightHash: randBytes(20),
-		rightNode: nil,
-		persisted: false,
+		key:           iavlrand.RandBytes(10),
+		value:         iavlrand.RandBytes(10),
+		version:       1,
+		subtreeHeight: 0,
+		size:          100,
+		hash:          iavlrand.RandBytes(20),
+		leftHash:      iavlrand.RandBytes(20),
+		leftNode:      nil,
+		rightHash:     iavlrand.RandBytes(20),
+		rightNode:     nil,
+		persisted:     false,
 	}
 
 	// leaf node
 	require.Equal(t, 26, node.encodedSize())
 
 	// non-leaf node
-	node.height = 1
+	node.subtreeHeight = 1
 	require.Equal(t, 57, node.encodedSize())
 }
 
@@ -42,19 +44,19 @@ func TestNode_encode_decode(t *testing.T) {
 		"nil":   {nil, "", true},
 		"empty": {&Node{}, "0000000000", false},
 		"inner": {&Node{
-			height:    3,
-			version:   2,
-			size:      7,
-			key:       []byte("key"),
-			leftHash:  []byte{0x70, 0x80, 0x90, 0xa0},
-			rightHash: []byte{0x10, 0x20, 0x30, 0x40},
+			subtreeHeight: 3,
+			version:       2,
+			size:          7,
+			key:           []byte("key"),
+			leftHash:      []byte{0x70, 0x80, 0x90, 0xa0},
+			rightHash:     []byte{0x10, 0x20, 0x30, 0x40},
 		}, "060e04036b657904708090a00410203040", false},
 		"leaf": {&Node{
-			height:  0,
-			version: 3,
-			size:    1,
-			key:     []byte("key"),
-			value:   []byte("value"),
+			subtreeHeight: 0,
+			version:       3,
+			size:          1,
+			key:           []byte("key"),
+			value:         []byte("value"),
 		}, "000206036b65790576616c7565", false},
 	}
 	for name, tc := range testcases {
@@ -75,7 +77,7 @@ func TestNode_encode_decode(t *testing.T) {
 			if tc.node.key == nil {
 				tc.node.key = []byte{}
 			}
-			if tc.node.value == nil && tc.node.height == 0 {
+			if tc.node.value == nil && tc.node.subtreeHeight == 0 {
 				tc.node.value = []byte{}
 			}
 			require.Equal(t, tc.node, node)
@@ -108,14 +110,14 @@ func TestNode_validate(t *testing.T) {
 		"leaf with left child":   {&Node{key: k, value: v, version: 1, size: 1, leftNode: c}, false},
 		"leaf with right hash":   {&Node{key: k, value: v, version: 1, size: 1, rightNode: c}, false},
 		"leaf with right child":  {&Node{key: k, value: v, version: 1, size: 1, rightNode: c}, false},
-		"inner":                  {&Node{key: k, version: 1, size: 1, height: 1, leftHash: h, rightHash: h}, true},
-		"inner with nil key":     {&Node{key: nil, value: v, version: 1, size: 1, height: 1, leftHash: h, rightHash: h}, false},
-		"inner with value":       {&Node{key: k, value: v, version: 1, size: 1, height: 1, leftHash: h, rightHash: h}, false},
-		"inner with empty value": {&Node{key: k, value: []byte{}, version: 1, size: 1, height: 1, leftHash: h, rightHash: h}, false},
-		"inner with left child":  {&Node{key: k, version: 1, size: 1, height: 1, leftHash: h}, true},
-		"inner with right child": {&Node{key: k, version: 1, size: 1, height: 1, rightHash: h}, true},
-		"inner with no child":    {&Node{key: k, version: 1, size: 1, height: 1}, false},
-		"inner with height 0":    {&Node{key: k, version: 1, size: 1, height: 0, leftHash: h, rightHash: h}, false},
+		"inner":                  {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, true},
+		"inner with nil key":     {&Node{key: nil, value: v, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, false},
+		"inner with value":       {&Node{key: k, value: v, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, false},
+		"inner with empty value": {&Node{key: k, value: []byte{}, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, false},
+		"inner with left child":  {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, leftHash: h}, true},
+		"inner with right child": {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, rightHash: h}, true},
+		"inner with no child":    {&Node{key: k, version: 1, size: 1, subtreeHeight: 1}, false},
+		"inner with height 0":    {&Node{key: k, version: 1, size: 1, subtreeHeight: 0, leftHash: h, rightHash: h}, false},
 	}
 
 	for desc, tc := range testcases {
@@ -133,13 +135,13 @@ func TestNode_validate(t *testing.T) {
 
 func BenchmarkNode_encodedSize(b *testing.B) {
 	node := &Node{
-		key:       randBytes(25),
-		value:     randBytes(100),
-		version:   rand.Int63n(10000000),
-		height:    1,
-		size:      rand.Int63n(10000000),
-		leftHash:  randBytes(20),
-		rightHash: randBytes(20),
+		key:           iavlrand.RandBytes(25),
+		value:         iavlrand.RandBytes(100),
+		version:       rand.Int63n(10000000),
+		subtreeHeight: 1,
+		size:          rand.Int63n(10000000),
+		leftHash:      iavlrand.RandBytes(20),
+		rightHash:     iavlrand.RandBytes(20),
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -150,13 +152,13 @@ func BenchmarkNode_encodedSize(b *testing.B) {
 
 func BenchmarkNode_WriteBytes(b *testing.B) {
 	node := &Node{
-		key:       randBytes(25),
-		value:     randBytes(100),
-		version:   rand.Int63n(10000000),
-		height:    1,
-		size:      rand.Int63n(10000000),
-		leftHash:  randBytes(20),
-		rightHash: randBytes(20),
+		key:           iavlrand.RandBytes(25),
+		value:         iavlrand.RandBytes(100),
+		version:       rand.Int63n(10000000),
+		subtreeHeight: 1,
+		size:          rand.Int63n(10000000),
+		leftHash:      iavlrand.RandBytes(20),
+		rightHash:     iavlrand.RandBytes(20),
 	}
 	b.ResetTimer()
 	b.Run("NoPreAllocate", func(sub *testing.B) {
