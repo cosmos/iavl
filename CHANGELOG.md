@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Improvements
+
+- [#538](https://github.com/cosmos/iavl/pull/538) Use cosmos-db instead of tm-db
+- [#537](https://github.com/cosmos/iavl/pull/537) Add a gitpod development environment so it is easy to work with all supported databases
+
+
+**Linting and cleanup**
+
+- [#542](https://github.com/cosmos/iavl/pull/542) Move keyformat and fastnode to specific folders
+- [#535](https://github.com/cosmos/iavl/pull/535) Lint the iavl repository in ci
+- [#536](https://github.com/cosmos/iavl/pull/536) Make iavl satisfy golangci-lint conditions
+- [#540](https://github.com/cosmos/iavl/pull/540) Configure golangci-lint
+- [#543](https://github.com/cosmos/iavl/pull/543) Disable a few linters, and further cleanup
+
 ## 0.19.1 (August 3, 2022)
 
 ### Improvements
