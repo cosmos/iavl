@@ -1,4 +1,4 @@
-name: Test
+name: Benchmarks
 on:
   push:
     branches:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  Test:
+  Benchmarks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
