@@ -8,6 +8,7 @@ on:
 jobs:
   Benchmarks:
     runs-on: ubuntu-latest
+    container: ghcr.io/notional-labs/cosmos
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
