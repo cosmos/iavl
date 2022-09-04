@@ -8,6 +8,12 @@
 - [#537](https://github.com/cosmos/iavl/pull/537) Add a gitpod development environment so it is easy to work with all supported databases
 
 
+**breaking changes**
+- removal of boltdb
+- removal of badgerdb
+- removal of remotedb
+
+
 **Linting and cleanup**
 
 - [#542](https://github.com/cosmos/iavl/pull/542) Move keyformat and fastnode to specific folders
