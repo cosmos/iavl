@@ -5,13 +5,6 @@
 ### Improvements
 
 - [#538](https://github.com/cosmos/iavl/pull/538) Use cosmos-db instead of tm-db
-- [#537](https://github.com/cosmos/iavl/pull/537) Add a gitpod development environment so it is easy to work with all supported databases
-
-
-**breaking changes compared to tm-db**
-- removal of boltdb
-- removal of badgerdb
-- removal of remotedb
 
 
 **Linting and cleanup**
