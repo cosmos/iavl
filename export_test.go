@@ -176,7 +176,7 @@ func TestExporter(t *testing.T) {
 
 func TestExporter_Import(t *testing.T) {
 	testcases := map[string]*ImmutableTree{
-		"empty tree": NewImmutableTree(db.NewMemDB(), 0),
+		"empty tree": NewImmutableTree(db.NewMemDB(), 0, false),
 		"basic tree": setupExportTreeBasic(t),
 	}
 	if !testing.Short() {
