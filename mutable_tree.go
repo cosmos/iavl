@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	"runtime"
-	"sort"
-	"sync"
-	"time"
-
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/pkg/errors"
+	"sort"
+	"sync"
 
 	"github.com/cosmos/iavl/fastnode"
 	"github.com/cosmos/iavl/internal/logger"
 )
+
+// commitGap after upgrade/delete commitGap FastNodes when commit the batch
+var commitGap uint64 = 5000000
 
 // ErrVersionDoesNotExist is returned if a requested version does not exist.
 var ErrVersionDoesNotExist = errors.New("version does not exist")
@@ -628,12 +628,6 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 // from latest tree.
 // nolint: unparam
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
-	shouldForceUpdate, err := tree.ndb.shouldForceFastStorageUpgrade()
-	if err != nil {
-		return false, err
-	}
-	isFastStorageEnabled := tree.ndb.hasUpgradedToFastStorage()
-
 	isUpgradeable, err := tree.IsUpgradeable()
 	if err != nil {
 		return false, err
@@ -643,22 +637,29 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		return false, nil
 	}
 
-	if isFastStorageEnabled && shouldForceUpdate {
-		// If there is a mismatch between which fast nodes are on disk and the live state due to temporary
-		// downgrade and subsequent re-upgrade, we cannot know for sure which fast nodes have been removed while downgraded,
-		// Therefore, there might exist stale fast nodes on disk. As a result, to avoid persisting the stale state, it might
-		// be worth to delete the fast nodes from disk.
-		fastItr := NewFastIterator(nil, nil, true, tree.ndb)
-		defer fastItr.Close()
-		for ; fastItr.Valid(); fastItr.Next() {
-			if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
+	// If there is a mismatch between which fast nodes are on disk and the live state due to temporary
+	// downgrade and subsequent re-upgrade, we cannot know for sure which fast nodes have been removed while downgraded,
+	// Therefore, there might exist stale fast nodes on disk. As a result, to avoid persisting the stale state, it might
+	// be worth to delete the fast nodes from disk.
+	fastItr := NewFastIterator(nil, nil, true, tree.ndb)
+	defer fastItr.Close()
+	var deletedFastNodes uint64
+	for ; fastItr.Valid(); fastItr.Next() {
+		deletedFastNodes++
+		if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
+			return false, err
+		}
+		if deletedFastNodes%commitGap == 0 {
+			if err := tree.ndb.Commit(); err != nil {
 				return false, err
 			}
 		}
 	}
-
-	// Force garbage collection before we proceed to enabling fast storage.
-	runtime.GC()
+	if deletedFastNodes%commitGap != 0 {
+		if err := tree.ndb.Commit(); err != nil {
+			return false, err
+		}
+	}
 
 	if err := tree.enableFastStorageAndCommit(); err != nil {
 		tree.ndb.storageVersion = defaultStorageVersionValue
@@ -676,46 +677,16 @@ func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
 func (tree *MutableTree) enableFastStorageAndCommit() error {
 	var err error
 
-	// We start a new thread to keep on checking if we are above 4GB, and if so garbage collect.
-	// This thread only lasts during the fast node migration.
-	// This is done to keep RAM usage down.
-	done := make(chan struct{})
-	defer func() {
-		done <- struct{}{}
-		close(done)
-	}()
-
-	go func() {
-		timer := time.NewTimer(time.Second)
-		var m runtime.MemStats
-
-		for {
-			// Sample the current memory usage
-			runtime.ReadMemStats(&m)
-
-			if m.Alloc > 4*1024*1024*1024 {
-				// If we are using more than 4GB of memory, we should trigger garbage collection
-				// to free up some memory.
-				runtime.GC()
-			}
-
-			select {
-			case <-timer.C:
-				timer.Reset(time.Second)
-			case <-done:
-				if !timer.Stop() {
-					<-timer.C
-				}
-				return
-			}
-		}
-	}()
-
 	itr := NewIterator(nil, nil, true, tree.ImmutableTree)
 	defer itr.Close()
+	var upgradedFastNodes uint64
 	for ; itr.Valid(); itr.Next() {
+		upgradedFastNodes++
 		if err = tree.ndb.SaveFastNodeNoCache(fastnode.NewNode(itr.Key(), itr.Value(), tree.version)); err != nil {
 			return err
+		}
+		if upgradedFastNodes%commitGap == 0 {
+			tree.ndb.Commit()
 		}
 	}
 
