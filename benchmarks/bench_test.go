@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -339,7 +340,18 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 		)
 		if bb.dbType != "nodb" {
 			d, err = db.NewDB("test", bb.dbType, dirName)
-			require.NoError(b, err)
+
+			if err != nil {
+				if strings.Contains(err.Error(), "unknown db_backend") {
+					// As an exception to run benchmarks: if the error is about cleveldb, or rocksdb,
+					// it requires a tag "cleveldb" to link the database at runtime, so instead just
+					// log the error instead of failing.
+					b.Logf("%+v\n", err)
+					continue
+				} else {
+					require.NoError(b, err)
+				}
+			}
 			defer d.Close()
 		}
 		b.Run(prefix, func(sub *testing.B) {
