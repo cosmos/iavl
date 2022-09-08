@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/cosmos/iavl/fastnode"
 	"runtime"
 	"sort"
 	"strconv"
@@ -1207,10 +1208,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
 
-			node := NewFastNode([]byte(key), []byte(valStale), 100)
+			node := fastnode.NewNode([]byte(key), []byte(valStale), 100)
 			var buf bytes.Buffer
-			buf.Grow(node.encodedSize())
-			err := node.writeBytes(&buf)
+			buf.Grow(node.EncodedSize())
+			err := node.WriteBytes(&buf)
 			require.NoError(t, err)
 			err = ndb.db.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
 			require.NoError(t, err)
