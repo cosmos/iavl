@@ -1,4 +1,4 @@
-package iavl
+package fastnode
 
 import (
 	"io"
@@ -11,25 +11,25 @@ import (
 // NOTE: This file favors int64 as opposed to int for size/counts.
 // The Tree on the other hand favors int.  This is intentional.
 
-type FastNode struct {
+type Node struct {
 	key                  []byte
 	versionLastUpdatedAt int64
 	value                []byte
 }
 
-var _ cache.Node = (*FastNode)(nil)
+var _ cache.Node = (*Node)(nil)
 
-// NewFastNode returns a new fast node from a value and version.
-func NewFastNode(key []byte, value []byte, version int64) *FastNode {
-	return &FastNode{
+// NewNode returns a new fast node from a value and version.
+func NewNode(key []byte, value []byte, version int64) *Node {
+	return &Node{
 		key:                  key,
 		versionLastUpdatedAt: version,
 		value:                value,
 	}
 }
 
-// DeserializeFastNode constructs an *FastNode from an encoded byte slice.
-func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
+// DeserializeNode constructs an *FastNode from an encoded byte slice.
+func DeserializeNode(key []byte, buf []byte) (*Node, error) {
 	ver, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
 		return nil, errors.Wrap(cause, "decoding fastnode.version")
@@ -41,7 +41,7 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 		return nil, errors.Wrap(cause, "decoding fastnode.value")
 	}
 
-	fastNode := &FastNode{
+	fastNode := &Node{
 		key:                  key,
 		versionLastUpdatedAt: ver,
 		value:                val,
@@ -50,25 +50,33 @@ func DeserializeFastNode(key []byte, buf []byte) (*FastNode, error) {
 	return fastNode, nil
 }
 
-func (fn *FastNode) GetKey() []byte {
+func (fn *Node) GetKey() []byte {
 	return fn.key
 }
 
-func (node *FastNode) encodedSize() int {
-	n := encoding.EncodeVarintSize(node.versionLastUpdatedAt) + encoding.EncodeBytesSize(node.value)
+func (fn *Node) EncodedSize() int {
+	n := encoding.EncodeVarintSize(fn.versionLastUpdatedAt) + encoding.EncodeBytesSize(fn.value)
 	return n
 }
 
-// writeBytes writes the FastNode as a serialized byte slice to the supplied io.Writer.
-func (node *FastNode) writeBytes(w io.Writer) error {
-	if node == nil {
+func (fn *Node) GetValue() []byte {
+	return fn.value
+}
+
+func (fn *Node) GetVersionLastUpdatedAt() int64 {
+	return fn.versionLastUpdatedAt
+}
+
+// WriteBytes writes the FastNode as a serialized byte slice to the supplied io.Writer.
+func (fn *Node) WriteBytes(w io.Writer) error {
+	if fn == nil {
 		return errors.New("cannot write nil node")
 	}
-	cause := encoding.EncodeVarint(w, node.versionLastUpdatedAt)
+	cause := encoding.EncodeVarint(w, fn.versionLastUpdatedAt)
 	if cause != nil {
 		return errors.Wrap(cause, "writing version last updated at")
 	}
-	cause = encoding.EncodeBytes(w, node.value)
+	cause = encoding.EncodeBytes(w, fn.value)
 	if cause != nil {
 		return errors.Wrap(cause, "writing value")
 	}

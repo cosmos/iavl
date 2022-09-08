@@ -13,7 +13,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	db "github.com/tendermint/tm-db"
+	db "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/iavl/fastnode"
 )
 
 func TestRandomOperations(t *testing.T) {
@@ -338,9 +339,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	iter, err := tree.ndb.db.Iterator(nil, nil)
 	require.NoError(t, err)
 
-	var (
-		foundKeys []string
-	)
+	var foundKeys []string
 	for ; iter.Valid(); iter.Next() {
 		foundKeys = append(foundKeys, string(iter.Key()))
 	}
@@ -432,7 +431,7 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 	for k, v := range mirror {
 		require.True(t, tree.ndb.fastNodeCache.Has([]byte(k)), "cached fast node must be in live tree")
 		mirrorNode := tree.ndb.fastNodeCache.Get([]byte(k))
-		require.Equal(t, []byte(v), mirrorNode.(*FastNode).value, "cached fast node's value must be equal to live state value")
+		require.Equal(t, []byte(v), mirrorNode.(*fastnode.Node).GetValue(), "cached fast node's value must be equal to live state value")
 	}
 }
 
@@ -449,13 +448,13 @@ func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string
 	err = tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
 		key := keyWithPrefix[1:]
 		count++
-		fastNode, err := DeserializeFastNode(key, v)
+		fastNode, err := fastnode.DeserializeNode(key, v)
 		require.Nil(t, err)
 
-		mirrorVal := mirror[string(fastNode.key)]
+		mirrorVal := mirror[string(fastNode.GetKey())]
 
 		require.NotNil(t, mirrorVal)
-		require.Equal(t, []byte(mirrorVal), fastNode.value)
+		require.Equal(t, []byte(mirrorVal), fastNode.GetValue())
 		return nil
 	})
 	require.NoError(t, err)

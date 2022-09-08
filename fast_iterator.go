@@ -3,7 +3,9 @@ package iavl
 import (
 	"errors"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
+
+	"github.com/cosmos/iavl/fastnode"
 )
 
 var errFastIteratorNilNdbGiven = errors.New("fast iterator must be created with a nodedb but it was nil")
@@ -22,7 +24,7 @@ type FastIterator struct {
 
 	ndb *nodeDB
 
-	nextFastNode *FastNode
+	nextFastNode *fastnode.Node
 
 	fastIterator dbm.Iterator
 }
@@ -78,7 +80,7 @@ func (iter *FastIterator) Valid() bool {
 // Key implements dbm.Iterator
 func (iter *FastIterator) Key() []byte {
 	if iter.valid {
-		return iter.nextFastNode.key
+		return iter.nextFastNode.GetKey()
 	}
 	return nil
 }
@@ -86,7 +88,7 @@ func (iter *FastIterator) Key() []byte {
 // Value implements dbm.Iterator
 func (iter *FastIterator) Value() []byte {
 	if iter.valid {
-		return iter.nextFastNode.value
+		return iter.nextFastNode.GetValue()
 	}
 	return nil
 }
@@ -112,7 +114,7 @@ func (iter *FastIterator) Next() {
 
 	iter.valid = iter.valid && iter.fastIterator.Valid()
 	if iter.valid {
-		iter.nextFastNode, iter.err = DeserializeFastNode(iter.fastIterator.Key()[1:], iter.fastIterator.Value())
+		iter.nextFastNode, iter.err = fastnode.DeserializeNode(iter.fastIterator.Key()[1:], iter.fastIterator.Value())
 		iter.valid = iter.err == nil
 	}
 }

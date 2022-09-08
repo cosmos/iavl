@@ -8,9 +8,10 @@ import (
 	"sort"
 	"testing"
 
+	db "github.com/cosmos/cosmos-db"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db"
 )
 
 func TestBasic(t *testing.T) {
@@ -170,7 +171,6 @@ func TestBasic(t *testing.T) {
 }
 
 func TestUnit(t *testing.T) {
-
 	expectHash := func(tree *ImmutableTree, hashCount int64) {
 		// ensure number of new hash calculations is as expected.
 		hash, count, err := tree.root.hashWithCount()
@@ -259,7 +259,6 @@ func TestUnit(t *testing.T) {
 	require.NoError(t, err)
 	expectRemove(t11, 4, "((1 2) (3 5))", 2)
 	expectRemove(t11, 3, "((1 2) (4 5))", 1)
-
 }
 
 func TestRemove(t *testing.T) {
@@ -273,8 +272,8 @@ func TestRemove(t *testing.T) {
 	keys := make([][]byte, size)
 	l := int32(len(keys))
 	for i := 0; i < size; i++ {
-		key := randBytes(keyLen)
-		t1.Set(key, randBytes(dataLen))
+		key := iavlrand.RandBytes(keyLen)
+		t1.Set(key, iavlrand.RandBytes(dataLen))
 		keys[i] = key
 	}
 
@@ -290,7 +289,6 @@ func TestRemove(t *testing.T) {
 }
 
 func TestIntegration(t *testing.T) {
-
 	type record struct {
 		key   string
 		value string
@@ -493,7 +491,6 @@ func TestPersistence(t *testing.T) {
 }
 
 func TestProof(t *testing.T) {
-
 	// Construct some random tree
 	tree, err := getTestTree(100)
 	require.NoError(t, err)

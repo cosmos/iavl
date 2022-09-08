@@ -10,7 +10,7 @@ import (
 	ics23 "github.com/confio/ics23/go"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/tendermint/tm-db"
+	db "github.com/cosmos/cosmos-db"
 )
 
 func TestConvertExistence(t *testing.T) {
@@ -295,7 +295,7 @@ func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err 
 var sink interface{}
 
 func BenchmarkConvertLeafOp(b *testing.B) {
-	var versions = []int64{
+	versions := []int64{
 		0,
 		1,
 		100,

@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
+	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto"
-	db "github.com/tendermint/tm-db"
 )
 
 func TestProofOp(t *testing.T) {

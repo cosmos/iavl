@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
@@ -133,7 +133,7 @@ func (t *ImmutableTree) Height() int8 {
 	if t.root == nil {
 		return 0
 	}
-	return t.root.height
+	return t.root.subtreeHeight
 }
 
 // Has returns whether or not a key exists.
@@ -197,8 +197,8 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		return result, err
 	}
 
-	if fastNode.versionLastUpdatedAt <= t.version {
-		return fastNode.value, nil
+	if fastNode.GetVersionLastUpdatedAt() <= t.version {
+		return fastNode.GetValue(), nil
 	}
 
 	// Otherwise the cached node was updated later than the current tree. In this case,
@@ -224,15 +224,15 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 	}
 
 	itr, err := t.Iterator(nil, nil, true)
-	defer itr.Close()
 	if err != nil {
 		return false, err
 	}
+	defer itr.Close()
+
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
 			return true, nil
 		}
-
 	}
 	return false, nil
 }
@@ -258,7 +258,7 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 		return false
 	}
 	return t.root.traverseInRange(t, start, end, ascending, false, false, func(node *Node) bool {
-		if node.height == 0 {
+		if node.subtreeHeight == 0 {
 			return fn(node.key, node.value)
 		}
 		return false
@@ -273,7 +273,7 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 		return false
 	}
 	return t.root.traverseInRange(t, start, end, ascending, true, false, func(node *Node) bool {
-		if node.height == 0 {
+		if node.subtreeHeight == 0 {
 			return fn(node.key, node.value, node.version)
 		}
 		return false
@@ -311,6 +311,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 }
 
 // nodeSize is like Size, but includes inner nodes too.
+//
 //nolint:unused
 func (t *ImmutableTree) nodeSize() int {
 	size := 0
