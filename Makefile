@@ -43,6 +43,10 @@ lint:
 	@echo "--> Running linter"
 	@go run $(golangci_lint_cmd) run --timeout=10m
 
+lint-fix:
+	@echo "--> Running linter"
+	@go run $(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
+
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
 	cd benchmarks && \
