@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/cosmos/iavl/fastnode"
 	"runtime"
 	"sort"
 	"strconv"
 	"testing"
+
+	"github.com/cosmos/iavl/fastnode"
 
 	"github.com/cosmos/iavl/internal/encoding"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
@@ -1204,7 +1205,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {
-		var keyPrefix = "key"
+		keyPrefix := "key"
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
 
@@ -1257,7 +1258,7 @@ func setupTreeAndMirrorForUpgrade(t *testing.T, numEntries int) (*MutableTree, [
 
 	tree, _ := NewMutableTree(db, 0)
 
-	var keyPrefix, valPrefix = "key", "val"
+	keyPrefix, valPrefix := "key", "val"
 
 	mirror := make([][]string, 0, numEntries)
 	for i := 0; i < numEntries; i++ {

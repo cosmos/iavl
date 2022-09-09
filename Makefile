@@ -32,38 +32,37 @@ tools:
 .PHONY: tools
 
 format:
-	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
-	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -format
+	@go install mvdan.cc/gofumpt@latest
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	find . -name '*.go' -type f -not -path "*.git*" -not -name "*.pb.go" -not -name "*pb_test.go"  | xargs gofumpt -w -l
+	golangci-lint run --fix
 .PHONY: format
 
 # look into .golangci.yml for enabling / disabling linters
-golangci_lint_cmd=github.com/golangci/golangci-lint/cmd/golangci-lint
-
 lint:
 	@echo "--> Running linter"
-	@go run $(golangci_lint_cmd) run --timeout=10m
-
-lint-fix:
-	@echo "--> Running linter"
-	@go run $(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
+	@golangci-lint run
+	@go mod verify
+.PHONY: lint
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
 	cd benchmarks && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Small . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Medium . && \
-		go test $(LDFLAGS) -run=NOTEST -bench=RandomBytes .
+		go test $(LDFLAGS) -bench=RandomBytes . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Small . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Medium . && \
+		go test $(LDFLAGS) -bench=BenchmarkMemKeySizes .
 .PHONY: bench
 
 # fullbench is extra tests needing lots of memory and to run locally
 fullbench:
 	cd benchmarks && \
-		go test $(LDFLAGS) -run=NOTEST -bench=RandomBytes . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Small . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Medium . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -timeout=30m -bench=Large . && \
-		go test $(LDFLAGS) -run=NOTEST -bench=Mem . && \
-		go test $(LDFLAGS) -run=NOTEST -timeout=60m -bench=LevelDB .
+		go test $(LDFLAGS) -bench=RandomBytes . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Small . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -bench=Medium . && \
+		go test $(LDFLAGS) -tags boltdb,badgerdb,pebbledb -timeout=30m -bench=Large . && \
+		go test $(LDFLAGS) -bench=Mem . && \
+		go test $(LDFLAGS) -timeout=60m -bench=LevelDB .
 .PHONY: fullbench
 
 # note that this just profiles the in-memory version, not persistence
@@ -114,9 +113,6 @@ tools-clean:
 # Non Go tools
 ###
 
-protoVer=0.10.0
-protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
-
 .PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench proto-gen proto-lint proto-check-breaking
 
 proto-lint:
@@ -129,5 +125,5 @@ proto-check-breaking:
 
 proto-gen:
 	@echo "Generating Protobuf files"
-	$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName) sh scripts/protocgen.sh
+	$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace tendermintdev/sdk-proto-gen:master sh scripts/protocgen.sh
 .PHONY: proto-gen-d
