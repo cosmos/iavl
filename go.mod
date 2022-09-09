@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/confio/ics23/go v0.7.0
 	github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0
-	github.com/gogo/protobuf v1.3.2
+	github.com/cosmos/gogoproto v1.4.1
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.49.0
 	github.com/pkg/errors v0.9.1
@@ -66,6 +66,7 @@ require (
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2 // indirect

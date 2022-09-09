@@ -43,6 +43,10 @@ lint:
 	@echo "--> Running linter"
 	@go run $(golangci_lint_cmd) run --timeout=10m
 
+lint-fix:
+	@echo "--> Running linter"
+	@go run $(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
+
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
 	cd benchmarks && \
@@ -110,6 +114,9 @@ tools-clean:
 # Non Go tools
 ###
 
+protoVer=0.10.0
+protoImageName=ghcr.io/cosmos/proto-builder:$(protoVer)
+
 .PHONY: lint test tools install delve exploremem explorecpu profile fullbench bench proto-gen proto-lint proto-check-breaking
 
 proto-lint:
@@ -122,5 +129,5 @@ proto-check-breaking:
 
 proto-gen:
 	@echo "Generating Protobuf files"
-	$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace tendermintdev/sdk-proto-gen:master sh scripts/protocgen.sh
+	$(DOCKER) run --rm -v $(CURDIR):/workspace --workdir /workspace $(protoImageName) sh scripts/protocgen.sh
 .PHONY: proto-gen-d
