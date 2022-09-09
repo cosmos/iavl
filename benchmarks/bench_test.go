@@ -152,7 +152,7 @@ func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
 	b.StopTimer()
 	if g, w := len(keyValuePairs), expectedSize; g != w {
 		b.Errorf("iteration count mismatch: got=%d, want=%d", g, w)
-	} else {
+	} else if testing.Verbose() {
 		b.Logf("completed %d iterations", len(keyValuePairs))
 	}
 }
