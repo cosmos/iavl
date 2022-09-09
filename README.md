@@ -9,9 +9,11 @@
 ![Test](https://github.com/cosmos/iavl/workflows/Test/badge.svg?branch=master)
 [![Discord chat](https://img.shields.io/discord/669268347736686612.svg)](https://discord.gg/AzefAFd)
 
-**Note: Requires Go 1.17+**
+**Note: Requires Go 1.18+**
 
 A versioned, snapshottable (immutable) AVL+ tree for persistent data.
+
+[Benchmarks](https://dashboard.bencher.orijtech.com/graphs?repo=https%3A%2F%2Fgithub.com%2Fcosmos%2Fiavl.git)
 
 The purpose of this data structure is to provide persistent storage for key-value pairs (say to store account balances) such that a deterministic merkle root hash can be computed. The tree is balanced using a variant of the [AVL algorithm](http://en.wikipedia.org/wiki/AVL_tree) so all operations are O(log(n)).
 
