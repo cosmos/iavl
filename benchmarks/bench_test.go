@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -151,7 +152,7 @@ func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
 	b.StopTimer()
 	if g, w := len(keyValuePairs), expectedSize; g != w {
 		b.Errorf("iteration count mismatch: got=%d, want=%d", g, w)
-	} else {
+	} else if testing.Verbose() {
 		b.Logf("completed %d iterations", len(keyValuePairs))
 	}
 }
@@ -339,7 +340,18 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 		)
 		if bb.dbType != "nodb" {
 			d, err = db.NewDB("test", bb.dbType, dirName)
-			require.NoError(b, err)
+
+			if err != nil {
+				if strings.Contains(err.Error(), "unknown db_backend") {
+					// As an exception to run benchmarks: if the error is about cleveldb, or rocksdb,
+					// it requires a tag "cleveldb" to link the database at runtime, so instead just
+					// log the error instead of failing.
+					b.Logf("%+v\n", err)
+					continue
+				} else {
+					require.NoError(b, err)
+				}
+			}
 			defer d.Close()
 		}
 		b.Run(prefix, func(sub *testing.B) {

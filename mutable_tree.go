@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
-	dbm "github.com/cosmos/cosmos-db"
-	"github.com/pkg/errors"
 	"sort"
 	"sync"
+
+	dbm "github.com/cosmos/cosmos-db"
+	"github.com/pkg/errors"
 
 	"github.com/cosmos/iavl/fastnode"
 	"github.com/cosmos/iavl/internal/logger"
