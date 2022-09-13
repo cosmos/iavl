@@ -1318,7 +1318,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
-	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
 
@@ -1327,7 +1327,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
-	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
 
@@ -1336,7 +1336,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
-	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
 
@@ -1345,7 +1345,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
-	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
 
@@ -1405,7 +1405,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
-	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
+	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
 
