@@ -1418,7 +1418,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
 
-	// Test that upgraded mutable tree iterates as expected
+	// Test that the mutable tree iterates as expected
 	t.Run("Mutable tree", func(t *testing.T) {
 		i := 0
 		sut.Iterate(func(k, v []byte) bool {
@@ -1429,7 +1429,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 		})
 	})
 
-	// Test that upgraded immutable tree iterates as expected
+	// Test that the immutable tree iterates as expected
 	t.Run("Immutable tree", func(t *testing.T) {
 		immutableTree, err := sut.GetImmutable(sut.version)
 		require.NoError(t, err)
