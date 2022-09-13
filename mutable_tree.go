@@ -507,8 +507,9 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	tree.versions[targetVersion] = true
 
 	iTree := &ImmutableTree{
-		ndb:     tree.ndb,
-		version: targetVersion,
+		ndb:                    tree.ndb,
+		version:                targetVersion,
+		skipFastStorageUpgrade: tree.skipFastStorageUpgrade,
 	}
 	if len(rootHash) > 0 {
 		// If rootHash is empty then root of tree should be nil
@@ -582,8 +583,9 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	t := &ImmutableTree{
-		ndb:     tree.ndb,
-		version: latestVersion,
+		ndb:                    tree.ndb,
+		version:                latestVersion,
+		skipFastStorageUpgrade: tree.skipFastStorageUpgrade,
 	}
 
 	if len(latestRoot) != 0 {
@@ -745,8 +747,9 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 	if len(rootHash) == 0 {
 		tree.versions[version] = true
 		return &ImmutableTree{
-			ndb:     tree.ndb,
-			version: version,
+			ndb:                    tree.ndb,
+			version:                version,
+			skipFastStorageUpgrade: tree.skipFastStorageUpgrade,
 		}, nil
 	}
 	tree.versions[version] = true
@@ -756,9 +759,10 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 		return nil, err
 	}
 	return &ImmutableTree{
-		root:    root,
-		ndb:     tree.ndb,
-		version: version,
+		root:                   root,
+		ndb:                    tree.ndb,
+		version:                version,
+		skipFastStorageUpgrade: tree.skipFastStorageUpgrade,
 	}, nil
 }
 
@@ -768,7 +772,11 @@ func (tree *MutableTree) Rollback() {
 	if tree.version > 0 {
 		tree.ImmutableTree = tree.lastSaved.clone()
 	} else {
-		tree.ImmutableTree = &ImmutableTree{ndb: tree.ndb, version: 0}
+		tree.ImmutableTree = &ImmutableTree{
+			ndb:                    tree.ndb,
+			version:                0,
+			skipFastStorageUpgrade: tree.skipFastStorageUpgrade,
+		}
 	}
 	tree.orphans = map[string]int64{}
 	if !tree.skipFastStorageUpgrade {
