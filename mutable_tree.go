@@ -5,13 +5,12 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"sort"
-	"sync"
 
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/pkg/errors"
-
 	"github.com/cosmos/iavl/fastnode"
 	"github.com/cosmos/iavl/internal/logger"
+	"github.com/pkg/errors"
+	"github.com/sasha-s/go-deadlock"
 )
 
 // commitGap after upgrade/delete commitGap FastNodes when commit the batch
@@ -35,10 +34,11 @@ type MutableTree struct {
 	versions                 map[int64]bool            // The previous, saved versions of the tree.
 	allRootLoaded            bool                      // Whether all roots are loaded or not(by LazyLoadVersion)
 	unsavedFastNodeAdditions map[string]*fastnode.Node // FastNodes that have not yet been saved to disk
-	unsavedFastNodeRemovals  map[string]interface{}    // FastNodes that have not yet been removed from disk
+	unsavedFastNodeRemovals  map[string]struct{}       // FastNodes that have not yet been removed from disk
 	ndb                      *nodeDB
 
-	mtx sync.Mutex
+	mtx        deadlock.Mutex
+	unsavedMtx deadlock.RWMutex
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -58,7 +58,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) (*MutableTr
 		versions:                 map[int64]bool{},
 		allRootLoaded:            false,
 		unsavedFastNodeAdditions: make(map[string]*fastnode.Node),
-		unsavedFastNodeRemovals:  make(map[string]interface{}),
+		unsavedFastNodeRemovals:  make(map[string]struct{}),
 		ndb:                      ndb,
 	}, nil
 }
@@ -148,6 +148,8 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
+	tree.unsavedMtx.RLock()
+	defer tree.unsavedMtx.RUnlock()
 	if fastNode, ok := tree.unsavedFastNodeAdditions[unsafeToStr(key)]; ok {
 		return fastNode.GetValue(), nil
 	}
@@ -186,7 +188,7 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 		return tree.ImmutableTree.Iterate(fn)
 	}
 
-	itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+	itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals, &tree.unsavedMtx)
 	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
@@ -205,7 +207,7 @@ func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterat
 	}
 
 	if isFastCacheEnabled {
-		return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals), nil
+		return NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals, &tree.unsavedMtx), nil
 	}
 	return tree.ImmutableTree.Iterator(start, end, ascending)
 }
@@ -745,7 +747,7 @@ func (tree *MutableTree) Rollback() {
 	}
 	tree.orphans = map[string]int64{}
 	tree.unsavedFastNodeAdditions = map[string]*fastnode.Node{}
-	tree.unsavedFastNodeRemovals = map[string]interface{}{}
+	tree.unsavedFastNodeRemovals = map[string]struct{}{}
 }
 
 // GetVersioned gets the value at the specified key and version. The returned value must not be
@@ -859,7 +861,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.lastSaved = tree.ImmutableTree.clone()
 	tree.orphans = map[string]int64{}
 	tree.unsavedFastNodeAdditions = make(map[string]*fastnode.Node)
-	tree.unsavedFastNodeRemovals = make(map[string]interface{})
+	tree.unsavedFastNodeRemovals = make(map[string]struct{})
 
 	hash, err := tree.Hash()
 	if err != nil {
@@ -886,17 +888,21 @@ func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
 // nolint: unused
-func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
+func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]struct{} {
 	return tree.unsavedFastNodeRemovals
 }
 
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
+	tree.unsavedMtx.Lock()
 	skey := unsafeToStr(key)
 	delete(tree.unsavedFastNodeRemovals, skey)
 	tree.unsavedFastNodeAdditions[skey] = node
+	tree.unsavedMtx.Unlock()
 }
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
+	tree.unsavedMtx.RLock()
+	defer tree.unsavedMtx.RUnlock()
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeAdditions))
 	for key := range tree.unsavedFastNodeAdditions {
 		keysToSort = append(keysToSort, key)
@@ -912,12 +918,16 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 }
 
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
+	tree.unsavedMtx.Lock()
+	defer tree.unsavedMtx.Unlock()
 	skey := unsafeToStr(key)
 	delete(tree.unsavedFastNodeAdditions, skey)
-	tree.unsavedFastNodeRemovals[skey] = true
+	tree.unsavedFastNodeRemovals[skey] = struct{}{}
 }
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
+	tree.unsavedMtx.Lock()
+	defer tree.unsavedMtx.Unlock()
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeRemovals))
 	for key := range tree.unsavedFastNodeRemovals {
 		keysToSort = append(keysToSort, key)

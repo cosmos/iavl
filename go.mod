@@ -9,10 +9,13 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.49.0
 	github.com/pkg/errors v0.9.1
+	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/stretchr/testify v1.8.0
 	github.com/tendermint/tendermint v0.34.21
 	golang.org/x/crypto v0.0.0-20220722155217-630584e8d5aa
 )
+
+require github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 
 require (
 	4d63.com/gochecknoglobals v0.1.0 // indirect

@@ -7,6 +7,7 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl/fastnode"
+	"github.com/sasha-s/go-deadlock"
 )
 
 var (
@@ -30,13 +31,15 @@ type UnsavedFastIterator struct {
 
 	nextUnsavedNodeIdx       int
 	unsavedFastNodeAdditions map[string]*fastnode.Node
-	unsavedFastNodeRemovals  map[string]interface{}
+	unsavedFastNodeRemovals  map[string]struct{}
 	unsavedFastNodesToSort   []string
+
+	unsavedMtx *deadlock.RWMutex
 }
 
 var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
 
-func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions map[string]*fastnode.Node, unsavedFastNodeRemovals map[string]interface{}) *UnsavedFastIterator {
+func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions map[string]*fastnode.Node, unsavedFastNodeRemovals map[string]struct{}, mtx *deadlock.RWMutex) *UnsavedFastIterator {
 	iter := &UnsavedFastIterator{
 		start:                    start,
 		end:                      end,
@@ -48,7 +51,10 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 		nextVal:                  nil,
 		nextUnsavedNodeIdx:       0,
 		fastIterator:             NewFastIterator(start, end, ascending, ndb),
+		unsavedMtx:               mtx,
 	}
+
+	iter.unsavedMtx.Lock()
 
 	// We need to ensure that we iterate over saved and unsaved state in order.
 	// The strategy is to sort unsaved nodes, the fast node on disk are already sorted.
@@ -72,6 +78,8 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 		return iter.unsavedFastNodesToSort[i] > iter.unsavedFastNodesToSort[j]
 	})
 
+	iter.unsavedMtx.Unlock()
+
 	if iter.ndb == nil {
 		iter.err = errFastIteratorNilNdbGiven
 		iter.valid = false
@@ -89,7 +97,6 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 		iter.valid = false
 		return iter
 	}
-
 	// Move to the first elemenet
 	iter.Next()
 
@@ -133,10 +140,12 @@ func (iter *UnsavedFastIterator) Next() {
 		return
 	}
 
+	iter.unsavedMtx.RLock()
 	diskKeyStr := unsafeToStr(iter.fastIterator.Key())
 	if iter.fastIterator.Valid() && iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 
-		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {
+		if _, ok := iter.unsavedFastNodeRemovals[diskKeyStr]; ok {
+			iter.unsavedMtx.RUnlock()
 			// If next fast node from disk is to be removed, skip it.
 			iter.fastIterator.Next()
 			iter.Next()
@@ -158,6 +167,7 @@ func (iter *UnsavedFastIterator) Next() {
 
 			if diskKeyStr == nextUnsavedKey {
 				// Unsaved update prevails over saved copy so we skip the copy from disk
+				iter.unsavedMtx.RUnlock()
 				iter.fastIterator.Next()
 			}
 
@@ -165,20 +175,25 @@ func (iter *UnsavedFastIterator) Next() {
 			iter.nextVal = nextUnsavedNode.GetValue()
 
 			iter.nextUnsavedNodeIdx++
+			if diskKeyStr != nextUnsavedKey {
+				iter.unsavedMtx.RUnlock()
+			}
 			return
 		}
 		// Disk node is next
 		iter.nextKey = iter.fastIterator.Key()
 		iter.nextVal = iter.fastIterator.Value()
 
+		iter.unsavedMtx.RUnlock()
 		iter.fastIterator.Next()
 		return
 	}
 
 	// if only nodes on disk are left, we return them
 	if iter.fastIterator.Valid() {
-		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {
+		if _, ok := iter.unsavedFastNodeRemovals[diskKeyStr]; ok {
 			// If next fast node from disk is to be removed, skip it.
+			iter.unsavedMtx.RUnlock()
 			iter.fastIterator.Next()
 			iter.Next()
 			return
@@ -186,6 +201,7 @@ func (iter *UnsavedFastIterator) Next() {
 
 		iter.nextKey = iter.fastIterator.Key()
 		iter.nextVal = iter.fastIterator.Value()
+		iter.unsavedMtx.RUnlock()
 
 		iter.fastIterator.Next()
 		return
@@ -193,6 +209,7 @@ func (iter *UnsavedFastIterator) Next() {
 
 	// if only unsaved nodes are left, we can just iterate
 	if iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
+
 		nextUnsavedKey := iter.unsavedFastNodesToSort[iter.nextUnsavedNodeIdx]
 		nextUnsavedNode := iter.unsavedFastNodeAdditions[nextUnsavedKey]
 
@@ -200,9 +217,11 @@ func (iter *UnsavedFastIterator) Next() {
 		iter.nextVal = nextUnsavedNode.GetValue()
 
 		iter.nextUnsavedNodeIdx++
+		iter.unsavedMtx.RUnlock()
 		return
 	}
 
+	iter.unsavedMtx.RUnlock()
 	iter.nextKey = nil
 	iter.nextVal = nil
 }

@@ -4,18 +4,19 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/cosmos/iavl/fastnode"
 	"runtime"
 	"sort"
 	"strconv"
 	"testing"
 
+	"github.com/cosmos/iavl/fastnode"
 	"github.com/cosmos/iavl/internal/encoding"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/cosmos/iavl/mock"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tendermint/tendermint/libs/rand"
 
 	db "github.com/cosmos/cosmos-db"
 )
@@ -33,6 +34,56 @@ func setupMutableTree(t *testing.T) *MutableTree {
 	tree, err := NewMutableTree(memDB, 0)
 	require.NoError(t, err)
 	return tree
+
+}
+
+func TestIterateConcurrency(t *testing.T) {
+	tree, err := getTestTree(0)
+	require.NoError(t, err)
+
+	for i := 0; i < 100; i++ {
+		go func() {
+			for j := 0; j < 1000000; j++ {
+				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
+			}
+		}()
+		tree.Iterate(func(key []byte, value []byte) bool {
+			return false
+		})
+	}
+}
+
+// TestConcurrency throws "fatal error: concurrent map iteration and map write" and
+// also sometimes "fatal error: concurrent map writes"
+func TestIteratorConcurrency(t *testing.T) {
+	tree := setupMutableTree(t)
+
+	tree.LoadVersion(0)
+	// So much slower
+	for i := 0; i < 10; i++ {
+		go func() {
+			for j := 0; j < 100000; j++ {
+				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
+			}
+		}()
+		itr, _ := tree.Iterator(nil, nil, true)
+		for ; itr.Valid(); itr.Next() {
+		}
+	}
+}
+
+func TestNewIteratorConcurrency(t *testing.T) {
+	tree := setupMutableTree(t)
+	for i := 0; i < 100; i++ {
+		go func() {
+			for j := 0; j < 1000000; j++ {
+				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
+			}
+		}()
+		it := NewIterator(nil, nil, true, tree.ImmutableTree)
+		for ; it.Valid(); it.Next() {
+		}
+	}
 }
 
 func TestDelete(t *testing.T) {
