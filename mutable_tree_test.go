@@ -9,8 +9,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/cosmos/iavl/fastnode"
-
 	"github.com/cosmos/iavl/internal/encoding"
 	"github.com/cosmos/iavl/mock"
 	"github.com/golang/mock/gomock"
@@ -1209,10 +1207,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
 
-			node := fastnode.NewNode([]byte(key), []byte(valStale), 100)
+			node := NewFastNode([]byte(key), []byte(valStale), 100)
 			var buf bytes.Buffer
-			buf.Grow(node.EncodedSize())
-			err := node.WriteBytes(&buf)
+			buf.Grow(node.encodedSize())
+			err := node.writeBytes(&buf)
 			require.NoError(t, err)
 			err = ndb.db.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
 			require.NoError(t, err)
