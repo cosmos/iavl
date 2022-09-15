@@ -6,10 +6,10 @@
 
 - [#538](https://github.com/cosmos/iavl/pull/538) Use cosmos-db instead of tm-db
 
-
-**Linting and cleanup**
+### Breaking changes
 
 - [#542](https://github.com/cosmos/iavl/pull/542) Move keyformat and fastnode to specific folders
+
 
 ## 0.19.1 (August 3, 2022)
 
