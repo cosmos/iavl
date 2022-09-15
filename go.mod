@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/confio/ics23/go v0.7.0
 	github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0
-	github.com/cosmos/gogoproto v1.4.1
+	github.com/cosmos/gogoproto v1.4.2
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.49.0
 	github.com/pkg/errors v0.9.1
@@ -187,7 +187,7 @@ require (
 	golang.org/x/sys v0.0.0-20220817070843-5a390386f1f2 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.12 // indirect
-	google.golang.org/protobuf v1.28.0 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.66.6 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
