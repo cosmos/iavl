@@ -855,6 +855,12 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
+	iterMock := mock.NewMockIterator(ctrl)
+	dbMock.EXPECT().Iterator(gomock.Any(), gomock.Any()).Return(iterMock, nil)
+	iterMock.EXPECT().Error()
+	iterMock.EXPECT().Valid().Times(2)
+	iterMock.EXPECT().Close()
+
 	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
 
 	tree, err := NewMutableTree(dbMock, 0, false)
@@ -943,7 +949,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(2)
+	dbMock.EXPECT().NewBatch().Return(batchMock).Times(3)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -964,8 +970,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	updatedExpectedStorageVersion[len(updatedExpectedStorageVersion)-1]++
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
-	batchMock.EXPECT().Write().Return(nil).Times(1)
-	batchMock.EXPECT().Close().Return(nil).Times(1)
+	batchMock.EXPECT().Write().Return(nil).Times(2)
+	batchMock.EXPECT().Close().Return(nil).Times(2)
 
 	// iterMock is used to mock the underlying db iterator behing fast iterator
 	// Here, we want to mock the behavior of deleting fast nodes from disk when
@@ -1148,7 +1154,104 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 	})
 }
 
-func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade bool) (*MutableTree, [][]string) {
+func TestUpgradeStorageToFast_Success(t *testing.T) {
+	tmpCommitGap := commitGap
+	commitGap = 1000
+	defer func() {
+		commitGap = tmpCommitGap
+	}()
+
+	type fields struct {
+		nodeCount int
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{"less than commit gap", fields{nodeCount: 100}},
+		{"equal to commit gap", fields{nodeCount: int(commitGap)}},
+		{"great than commit gap", fields{nodeCount: int(commitGap) + 100}},
+		{"two times commit gap", fields{nodeCount: int(commitGap) * 2}},
+		{"two times plus commit gap", fields{nodeCount: int(commitGap)*2 + 1}},
+	}
+
+	for _, tt := range tests {
+		tree, mirror := setupTreeAndMirrorForUpgrade(t, tt.fields.nodeCount)
+		enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+		require.Nil(t, err)
+		require.True(t, enabled)
+		t.Run(tt.name, func(t *testing.T) {
+			i := 0
+			iter := NewFastIterator(nil, nil, true, tree.ndb)
+			for ; iter.Valid(); iter.Next() {
+				require.Equal(t, []byte(mirror[i][0]), iter.Key())
+				require.Equal(t, []byte(mirror[i][1]), iter.Value())
+				i++
+			}
+			require.Equal(t, len(mirror), i)
+		})
+	}
+}
+
+func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
+	// we delete fast node, in case of deadlock. we should limit the stale count lower than chBufferSize(64)
+	tmpCommitGap := commitGap
+	commitGap = 5
+	defer func() {
+		commitGap = tmpCommitGap
+	}()
+
+	valStale := "val_stale"
+	addStaleKey := func(ndb *nodeDB, staleCount int) {
+		var keyPrefix = "key"
+		for i := 0; i < staleCount; i++ {
+			key := fmt.Sprintf("%s_%d", keyPrefix, i)
+
+			node := NewFastNode([]byte(key), []byte(valStale), 100)
+			var buf bytes.Buffer
+			buf.Grow(node.encodedSize())
+			err := node.writeBytes(&buf)
+			require.NoError(t, err)
+			err = ndb.db.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
+			require.NoError(t, err)
+		}
+	}
+	type fields struct {
+		nodeCount  int
+		staleCount int
+	}
+
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{"stale less than commit gap", fields{nodeCount: 100, staleCount: 4}},
+		{"stale equal to commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)}},
+		{"stale great than commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap)*2 - 1}},
+		{"stale twice commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap) * 2}},
+		{"stale great than twice commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)*2 + 1}},
+	}
+
+	for _, tt := range tests {
+		tree, mirror := setupTreeAndMirrorForUpgrade(t, tt.fields.nodeCount)
+		addStaleKey(tree.ndb, tt.fields.staleCount)
+		enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
+		require.Nil(t, err)
+		require.True(t, enabled)
+		t.Run(tt.name, func(t *testing.T) {
+			i := 0
+			iter := NewFastIterator(nil, nil, true, tree.ndb)
+			for ; iter.Valid(); iter.Next() {
+				require.Equal(t, []byte(mirror[i][0]), iter.Key())
+				require.Equal(t, []byte(mirror[i][1]), iter.Value())
+				i++
+			}
+			require.Equal(t, len(mirror), i)
+		})
+	}
+}
+
+func setupTreeAndMirrorForUpgrade(t *testing.T, numEntries int) (*MutableTree, [][]string) {
 	db := db.NewMemDB()
 
 	tree, _ := NewMutableTree(db, 0, skipFastStorageUpgrade)
