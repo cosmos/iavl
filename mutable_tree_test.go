@@ -1176,7 +1176,7 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tree, mirror := setupTreeAndMirrorForUpgrade(t, tt.fields.nodeCount)
+		tree, mirror := setupTreeAndMirror(t, tt.fields.nodeCount, false)
 		enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 		require.Nil(t, err)
 		require.True(t, enabled)
@@ -1233,7 +1233,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		tree, mirror := setupTreeAndMirrorForUpgrade(t, tt.fields.nodeCount)
+		tree, mirror := setupTreeAndMirror(t, tt.fields.nodeCount, false)
 		addStaleKey(tree.ndb, tt.fields.staleCount)
 		enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 		require.Nil(t, err)
@@ -1251,7 +1251,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 	}
 }
 
-func setupTreeAndMirrorForUpgrade(t *testing.T, numEntries int) (*MutableTree, [][]string) {
+func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade bool) (*MutableTree, [][]string) {
 	db := db.NewMemDB()
 
 	tree, _ := NewMutableTree(db, 0, skipFastStorageUpgrade)
