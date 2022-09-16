@@ -14,28 +14,31 @@ import (
 // Returned key/value byte slices must not be modified, since they may point to data located inside
 // IAVL which would also be modified.
 type ImmutableTree struct {
-	root    *Node
-	ndb     *nodeDB
-	version int64
+	root                   *Node
+	ndb                    *nodeDB
+	version                int64
+	skipFastStorageUpgrade bool
 }
 
 // NewImmutableTree creates both in-memory and persistent instances
-func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
+func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool) *ImmutableTree {
 	if db == nil {
 		// In-memory Tree.
 		return &ImmutableTree{}
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize, nil),
+		ndb:                    newNodeDB(db, cacheSize, nil),
+		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }
 
 // NewImmutableTreeWithOpts creates an ImmutableTree with the given options.
-func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) *ImmutableTree {
+func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool) *ImmutableTree {
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize, opts),
+		ndb:                    newNodeDB(db, cacheSize, opts),
+		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }
 
@@ -172,36 +175,40 @@ func (t *ImmutableTree) GetWithIndex(key []byte) (int64, []byte, error) {
 // Get returns the value of the specified key if it exists, or nil.
 // The returned value must not be modified, since it may point to data stored within IAVL.
 // Get potentially employs a more performant strategy than GetWithIndex for retrieving the value.
+// If tree.skipFastStorageUpgrade is true, this will work almost the same as GetWithIndex.
 func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 	if t.root == nil {
 		return nil, nil
 	}
 
-	// attempt to get a FastNode directly from db/cache.
-	// if call fails, fall back to the original IAVL logic in place.
-	fastNode, err := t.ndb.GetFastNode(key)
-	if err != nil {
-		_, result, err := t.root.get(t, key)
-		return result, err
-	}
-
-	if fastNode == nil {
-		// If the tree is of the latest version and fast node is not in the tree
-		// then the regular node is not in the tree either because fast node
-		// represents live state.
-		if t.version == t.ndb.latestVersion {
-			return nil, nil
+	if !t.skipFastStorageUpgrade {
+		// attempt to get a FastNode directly from db/cache.
+		// if call fails, fall back to the original IAVL logic in place.
+		fastNode, err := t.ndb.GetFastNode(key)
+		if err != nil {
+			_, result, err := t.root.get(t, key)
+			return result, err
 		}
 
-		_, result, err := t.root.get(t, key)
-		return result, err
+		if fastNode == nil {
+			// If the tree is of the latest version and fast node is not in the tree
+			// then the regular node is not in the tree either because fast node
+			// represents live state.
+			if t.version == t.ndb.latestVersion {
+				return nil, nil
+			}
+
+			_, result, err := t.root.get(t, key)
+			return result, err
+		}
+
+		if fastNode.versionLastUpdatedAt <= t.version {
+			return fastNode.value, nil
+		}
 	}
 
-	if fastNode.versionLastUpdatedAt <= t.version {
-		return fastNode.value, nil
-	}
-
-	// Otherwise the cached node was updated later than the current tree. In this case,
+	// otherwise skipFastStorageUpgrade is true or
+	// the cached node was updated later than the current tree. In this case,
 	// we need to use the regular stategy for reading from the current tree to avoid staleness.
 	_, result, err := t.root.get(t, key)
 	return result, err
@@ -239,13 +246,15 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 
 // Iterator returns an iterator over the immutable tree.
 func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
-	isFastCacheEnabled, err := t.IsFastCacheEnabled()
-	if err != nil {
-		return nil, err
-	}
+	if !t.skipFastStorageUpgrade {
+		isFastCacheEnabled, err := t.IsFastCacheEnabled()
+		if err != nil {
+			return nil, err
+		}
 
-	if isFastCacheEnabled {
-		return NewFastIterator(start, end, ascending, t.ndb), nil
+		if isFastCacheEnabled {
+			return NewFastIterator(start, end, ascending, t.ndb), nil
+		}
 	}
 	return NewIterator(start, end, ascending, t), nil
 }
@@ -311,6 +320,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 }
 
 // nodeSize is like Size, but includes inner nodes too.
+//
 //nolint:unused
 func (t *ImmutableTree) nodeSize() int {
 	size := 0
