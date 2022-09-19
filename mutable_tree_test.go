@@ -37,16 +37,16 @@ func setupMutableTree(t *testing.T, skipFastStorageUpgrade bool) *MutableTree {
 	return tree
 }
 
-// TestIterateConcurrency throws "fatal error: concurrent map writes" when fast node is enable
+// TestIterateConcurrency throws "fatal error: concurrent map writes" when fast node is enabled
 func TestIterateConcurrency(t *testing.T) {
 	tree := setupMutableTree(t, true)
 
 	for i := 0; i < 100; i++ {
-		go func() {
+		go func(i int) {
 			for j := 0; j < 1000000; j++ {
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}
-		}()
+		}(i)
 		tree.Iterate(func(key []byte, value []byte) bool {
 			return false
 		})
@@ -54,33 +54,33 @@ func TestIterateConcurrency(t *testing.T) {
 }
 
 // TestConcurrency throws "fatal error: concurrent map iteration and map write" and
-// also sometimes "fatal error: concurrent map writes" when fast node is enable
+// also sometimes "fatal error: concurrent map writes" when fast node is enabled
 func TestIteratorConcurrency(t *testing.T) {
 	tree := setupMutableTree(t, true)
 
 	tree.LoadVersion(0)
 	// So much slower
 	for i := 0; i < 100; i++ {
-		go func() {
+		go func(i int) {
 			for j := 0; j < 100000; j++ {
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}
-		}()
+		}(i)
 		itr, _ := tree.Iterator(nil, nil, true)
 		for ; itr.Valid(); itr.Next() {
 		}
 	}
 }
 
-// TestNewIteratorConcurrency throws "fatal error: concurrent map writes" when fast node is enable
+// TestNewIteratorConcurrency throws "fatal error: concurrent map writes" when fast node is enabled
 func TestNewIteratorConcurrency(t *testing.T) {
 	tree := setupMutableTree(t, true)
 	for i := 0; i < 100; i++ {
-		go func() {
+		go func(i int) {
 			for j := 0; j < 1000000; j++ {
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}
-		}()
+		}(i)
 		it := NewIterator(nil, nil, true, tree.ImmutableTree)
 		for ; it.Valid(); it.Next() {
 		}
