@@ -183,6 +183,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 
 // SaveNode saves a node to disk.
 func (ndb *nodeDB) SaveNode(node *Node) error {
+	fmt.Printf("savenode %s %X %X \n", node.key, node.value, node.hash[:5])
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 

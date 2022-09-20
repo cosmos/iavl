@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	dbm "github.com/cosmos/cosmos-db"
@@ -65,30 +66,31 @@ type NodeEncoder func(id []byte, depth int, isLeaf bool) string
 
 // defaultNodeEncoder can encode any node unless the client overrides it
 func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
-	prefix := "- "
+	prefix := " internal "
 	if isLeaf {
-		prefix = "* "
+		prefix = " leaf "
 	}
 	if len(id) == 0 {
-		return fmt.Sprintf("%s<nil>", prefix)
+		return fmt.Sprintf("%s<nil>\n", prefix)
 	}
-	return fmt.Sprintf("%s%X", prefix, id)
+	return fmt.Sprintf("%s%X\n", prefix, id)
 }
 
 func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder func([]byte, int, bool) string) ([]string, error) {
-	prefix := strings.Repeat(indent, depth)
+	prefix := strconv.Itoa(depth)
 	// handle nil
 	if node == nil {
 		return []string{fmt.Sprintf("%s<nil>", prefix)}, nil
 	}
 	// handle leaf
 	if node.isLeaf() {
-		here := fmt.Sprintf("%s%s", prefix, encoder(node.key, depth, true))
+		here := fmt.Sprintf("%s %X %d %s", prefix, node.hash, node.value, encoder(node.key, depth, true))
 		return []string{here}, nil
 	}
 
 	// recurse on inner node
-	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
+
+	here := fmt.Sprintf("%s %X %d %s", prefix, node.key, node.value, encoder(node.hash, depth, false))
 
 	rightNode, err := node.getRightNode(t)
 	if err != nil {

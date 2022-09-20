@@ -20,6 +20,7 @@ import (
 type Node struct {
 	key                 []byte
 	value               []byte
+	path                []byte
 	hash                []byte
 	leftHash            []byte
 	rightHash           []byte
@@ -254,6 +255,8 @@ func (node *Node) _hash() ([]byte, error) {
 		return nil, err
 	}
 	_, err := h.Write(buf.Bytes())
+	fmt.Printf("%X ", buf)
+
 	if err != nil {
 		return nil, err
 	}
