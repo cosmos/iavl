@@ -46,7 +46,7 @@ func TestIterateConcurrency(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		go func(i int) {
-			for j := 0; j < 1000000; j++ {
+			for j := 0; j < 100000; j++ {
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}
 		}(i)
@@ -86,7 +86,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 	tree := setupMutableTree(t, true)
 	for i := 0; i < 100; i++ {
 		go func(i int) {
-			for j := 0; j < 1000000; j++ {
+			for j := 0; j < 100000; j++ {
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}
 		}(i)
