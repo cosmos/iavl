@@ -1,21 +1,21 @@
 package iavl
 
-var right = uint64(1) << uint64(63)
-
 type Path struct {
 	Depth uint8
+	// the depth of the node counting from root, or the number of directions to take
+	// to get to the node from root
 
-	// the binary representation of  indicate the directions to the node from root
+	// the binary representation of Directions shows the directions to the node from root
 	// 1 means right direction and 0 means left direction
-	// for example 9 (......00000001001)
-	//
+	// for example Path with Depth = 4 and Directions = 13 (.......1101)
+	// means that we have to take 4 directions from the root that is right, left, right, right
 	Directions uint64
 }
 
 func (p Path) MakePathToRightChild() Path {
 	return Path{
 		Depth:      p.Depth + 1,
-		Directions: p.Directions | (right >> p.Depth),
+		Directions: p.Directions | (1 << p.Depth),
 	}
 }
 
