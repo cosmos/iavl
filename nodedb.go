@@ -39,7 +39,7 @@ const (
 var (
 	// All node keys are prefixed with the byte 'n'. This ensures no collision is
 	// possible with the other keys, and makes them easier to traverse. They are indexed by the node hash.
-	nodeKeyFormat = keyformat.NewKeyFormat('n', hashSize) // n<hash>
+	nodeKeyFormat = keyformat.NewKeyFormat('n', int64Size, 7) // n<version><path in tree>
 
 	// Orphans are keyed in the database by their expected lifetime.
 	// The first number represents the *last* version at which the orphan needs
@@ -338,6 +338,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, error) {
 
 	var err error
 	if node.leftNode != nil {
+		node.leftNode.path = node.PathToLeftChild()
 		node.leftHash, err = ndb.SaveBranch(node.leftNode)
 	}
 
@@ -346,6 +347,7 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, error) {
 	}
 
 	if node.rightNode != nil {
+		node.rightNode.path = node.PathToRightChild()
 		node.rightHash, err = ndb.SaveBranch(node.rightNode)
 	}
 

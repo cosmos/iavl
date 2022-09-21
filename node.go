@@ -18,17 +18,20 @@ import (
 
 // Node represents a node in a Tree.
 type Node struct {
-	key           []byte
-	value         []byte
-	hash          []byte
-	leftHash      []byte
-	rightHash     []byte
-	version       int64
-	size          int64
-	leftNode      *Node
-	rightNode     *Node
-	subtreeHeight int8
-	persisted     bool
+	key                 []byte
+	value               []byte
+	hash                []byte
+	path                Path
+	leftHash            []byte
+	rightHash           []byte
+	left_child_version  int64
+	right_child_version int64
+	version             int64
+	size                int64
+	leftNode            *Node
+	rightNode           *Node
+	subtreeHeight       int8
+	persisted           bool
 }
 
 var _ cache.Node = (*Node)(nil)
@@ -109,6 +112,20 @@ func MakeNode(buf []byte) (*Node, error) {
 	return node, nil
 }
 
+func (node *Node) PathToRightChild() Path {
+	return Path{
+		Depth:      node.path.Depth + 1,
+		Directions: node.path.Directions | (right >> node.path.Depth),
+	}
+}
+
+func (node *Node) PathToLeftChild() Path {
+	return Path{
+		Depth:      node.path.Depth + 1,
+		Directions: node.path.Directions,
+	}
+}
+
 func (node *Node) GetKey() []byte {
 	return node.hash
 }
@@ -172,6 +189,14 @@ func (node *Node) has(t *ImmutableTree, key []byte) (has bool, err error) {
 	}
 
 	return rightNode.has(t, key)
+}
+
+func (node *Node) MakePathForLeftNode() {
+	node.leftNode.path = node.path.MakePathToLeftChild()
+}
+
+func (node *Node) MakePathForRightNode() {
+	node.rightNode.path = node.path.MakePathToRightChild()
 }
 
 // Get a key under the node.
