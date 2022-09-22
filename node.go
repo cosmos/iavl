@@ -19,20 +19,19 @@ import (
 
 // Node represents a node in a Tree.
 type Node struct {
-	key                 []byte
-	value               []byte
-	hash                []byte
-	path                Path
-	leftHash            []byte
-	rightHash           []byte
-	left_child_version  int64
-	right_child_version int64
-	version             int64
-	size                int64
-	leftNode            *Node
-	rightNode           *Node
-	subtreeHeight       int8
-	persisted           bool
+	key                []byte
+	value              []byte
+	hash               []byte
+	path               Path
+	dbKey              []byte
+	left_child_db_key  []byte
+	right_child_db_key []byte
+	version            int64
+	size               int64
+	leftNode           *Node
+	rightNode          *Node
+	subtreeHeight      int8
+	persisted          bool
 }
 
 var _ cache.Node = (*Node)(nil)
@@ -81,11 +80,18 @@ func MakeNode(buf []byte) (*Node, error) {
 	}
 	buf = buf[n:]
 
+	hash, n, cause := encoding.DecodeBytes(buf)
+	if cause != nil {
+		return nil, errors.Wrap(cause, "decoding node.hash")
+	}
+	buf = buf[:n]
+
 	node := &Node{
 		subtreeHeight: int8(height),
 		size:          size,
 		version:       ver,
 		key:           key,
+		hash:          hash,
 	}
 
 	// Read node body.
@@ -97,18 +103,18 @@ func MakeNode(buf []byte) (*Node, error) {
 		}
 		node.value = val
 	} else { // Read children.
-		leftHash, n, cause := encoding.DecodeBytes(buf)
+		left_child_db_key, n, cause := encoding.DecodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "deocding node.leftHash")
 		}
 		buf = buf[n:]
 
-		rightHash, _, cause := encoding.DecodeBytes(buf)
+		right_child_db_key, _, cause := encoding.DecodeBytes(buf)
 		if cause != nil {
 			return nil, errors.Wrap(cause, "decoding node.rightHash")
 		}
-		node.leftHash = leftHash
-		node.rightHash = rightHash
+		node.left_child_db_key = left_child_db_key
+		node.right_child_db_key = right_child_db_key
 	}
 	return node, nil
 }
