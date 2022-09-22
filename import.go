@@ -134,7 +134,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 
-	if err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy); err != nil {
+	if err = i.batch.Set(i.tree.ndb.nodeKey(node.GetKey()), bytesCopy); err != nil {
 		return err
 	}
 

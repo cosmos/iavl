@@ -6,6 +6,7 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"math"
@@ -115,7 +116,7 @@ func MakeNode(buf []byte) (*Node, error) {
 func (node *Node) PathToRightChild() Path {
 	return Path{
 		Depth:      node.path.Depth + 1,
-		Directions: node.path.Directions | (right >> node.path.Depth),
+		Directions: node.path.Directions | (1 << node.path.Depth),
 	}
 }
 
@@ -127,7 +128,13 @@ func (node *Node) PathToLeftChild() Path {
 }
 
 func (node *Node) GetKey() []byte {
-	return node.hash
+	k := make([]byte, 17)
+
+	binary.BigEndian.PutUint64(k, uint64(node.version))
+	k[8] = node.path.Depth
+	binary.BigEndian.PutUint64(k, node.path.Directions)
+
+	return node.path.Bytes()
 }
 
 // String returns a string representation of the node.

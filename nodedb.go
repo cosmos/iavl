@@ -704,8 +704,8 @@ func (ndb *nodeDB) deleteOrphans(version int64) error {
 	})
 }
 
-func (ndb *nodeDB) nodeKey(hash []byte) []byte {
-	return nodeKeyFormat.KeyBytes(hash)
+func (ndb *nodeDB) nodeKey(key []byte) []byte {
+	return nodeKeyFormat.KeyBytes(key)
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {

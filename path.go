@@ -1,5 +1,9 @@
 package iavl
 
+import (
+	"encoding/binary"
+)
+
 type Path struct {
 	Depth uint8
 	// the depth of the node counting from root, or the number of directions to take
@@ -26,6 +30,10 @@ func (p Path) MakePathToLeftChild() Path {
 	}
 }
 
-func (p Path) Bytes() {
+func (p Path) Bytes() []byte {
+	b := make([]byte, 9)
 
+	b[0] = p.Depth
+	binary.BigEndian.PutUint64(b[1:], p.Directions)
+	return b
 }
