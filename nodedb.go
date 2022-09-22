@@ -107,16 +107,16 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 
 // GetNode gets a node from memory or disk. If it is an inner node, it does not
 // load its children.
-func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
+func (ndb *nodeDB) GetNode(key []byte) (*Node, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
-	if len(hash) == 0 {
+	if len(key) == 0 {
 		return nil, ErrNodeMissingHash
 	}
 
 	// Check the cache.
-	if cachedNode := ndb.nodeCache.Get(hash); cachedNode != nil {
+	if cachedNode := ndb.nodeCache.Get(key); cachedNode != nil {
 		ndb.opts.Stat.IncCacheHitCnt()
 		return cachedNode.(*Node), nil
 	}
@@ -124,12 +124,12 @@ func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	ndb.opts.Stat.IncCacheMissCnt()
 
 	// Doesn't exist, load.
-	buf, err := ndb.db.Get(ndb.nodeKey(hash))
+	buf, err := ndb.db.Get(ndb.nodeKey(key))
 	if err != nil {
-		return nil, fmt.Errorf("can't get node %X: %v", hash, err)
+		return nil, fmt.Errorf("can't get node %X: %v", key, err)
 	}
 	if buf == nil {
-		return nil, fmt.Errorf("Value missing for hash %x corresponding to nodeKey %x", hash, ndb.nodeKey(hash))
+		return nil, fmt.Errorf("Value missing for hash %x corresponding to nodeKey %x", key, ndb.nodeKey(key))
 	}
 
 	node, err := MakeNode(buf)
@@ -137,7 +137,6 @@ func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 		return nil, fmt.Errorf("Error reading Node. bytes: %x, error: %v", buf, err)
 	}
 
-	node.hash = hash
 	node.persisted = true
 	ndb.nodeCache.Add(node)
 
@@ -201,7 +200,7 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		return err
 	}
 
-	if err := ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes()); err != nil {
+	if err := ndb.batch.Set(ndb.nodeKey(node.GetKey()), buf.Bytes()); err != nil {
 		return err
 	}
 	logger.Debug("BATCH SAVE %X %p\n", node.hash, node)
@@ -308,9 +307,9 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 	return nil
 }
 
-// Has checks if a hash exists in the database.
-func (ndb *nodeDB) Has(hash []byte) (bool, error) {
-	key := ndb.nodeKey(hash)
+// Has checks if a node coresponding to a key exists in the database.
+func (ndb *nodeDB) Has(dbKey []byte) (bool, error) {
+	key := ndb.nodeKey(dbKey)
 
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(key, nil)
@@ -596,12 +595,12 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 
 // deleteNodesFrom deletes the given node and any descendants that have versions after the given
 // (inclusive). It is mainly used via LoadVersionForOverwriting, to delete the current version.
-func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
-	if len(hash) == 0 {
+func (ndb *nodeDB) deleteNodesFrom(version int64, dbKey []byte) error {
+	if len(dbKey) == 0 {
 		return nil
 	}
 
-	node, err := ndb.GetNode(hash)
+	node, err := ndb.GetNode(dbKey)
 	if err != nil {
 		return err
 	}
@@ -618,11 +617,11 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 	}
 
 	if node.version >= version {
-		if err := ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
+		if err := ndb.batch.Delete(ndb.nodeKey(dbKey)); err != nil {
 			return err
 		}
 
-		ndb.nodeCache.Remove(hash)
+		ndb.nodeCache.Remove(dbKey)
 	}
 
 	return nil
