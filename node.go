@@ -6,7 +6,6 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math"
@@ -148,13 +147,7 @@ func (node *Node) PathToLeftChild() Path {
 }
 
 func (node *Node) GetKey() []byte {
-	k := make([]byte, 17)
-
-	binary.BigEndian.PutUint64(k, uint64(node.version))
-	k[8] = node.path.Depth
-	binary.BigEndian.PutUint64(k, node.path.Directions)
-
-	return node.path.Bytes()
+	return node.dbKey
 }
 
 // String returns a string representation of the node.
