@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -71,6 +72,12 @@ func OpenDB(dir string) (dbm.DB, error) {
 	default:
 		return nil, fmt.Errorf("database directory must end with .db")
 	}
+
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: doesn't work on windows!
 	cut := strings.LastIndex(dir, "/")
 	if cut == -1 {
