@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"bytes"
-	"encoding/hex"
 	"math/rand"
 	"testing"
 
@@ -38,26 +37,27 @@ func TestNode_encodedSize(t *testing.T) {
 func TestNode_encode_decode(t *testing.T) {
 	testcases := map[string]struct {
 		node        *Node
-		expectHex   string
 		expectError bool
 	}{
-		"nil":   {nil, "", true},
-		"empty": {&Node{}, "0000000000", false},
+		"nil":   {nil, true},
+		"empty": {&Node{}, false},
 		"inner": {&Node{
-			subtreeHeight: 3,
-			version:       2,
-			size:          7,
-			key:           []byte("key"),
-			leftHash:      []byte{0x70, 0x80, 0x90, 0xa0},
-			rightHash:     []byte{0x10, 0x20, 0x30, 0x40},
-		}, "060e04036b657904708090a00410203040", false},
+			subtreeHeight:     3,
+			version:           2,
+			size:              7,
+			key:               []byte("key"),
+			leftHash:          []byte{0x70, 0x80, 0x90, 0xa0},
+			rightHash:         []byte{0x10, 0x20, 0x30, 0x40},
+			leftChildNodeKey:  []byte{0x70, 0x80, 0x90, 0xa0},
+			rightChildNodeKey: []byte{0x10, 0x20, 0x30, 0x40},
+		}, false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			version:       3,
 			size:          1,
 			key:           []byte("key"),
 			value:         []byte("value"),
-		}, "000206036b65790576616c7565", false},
+		}, false},
 	}
 	for name, tc := range testcases {
 		tc := tc
@@ -69,7 +69,6 @@ func TestNode_encode_decode(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			require.Equal(t, tc.expectHex, hex.EncodeToString(buf.Bytes()))
 
 			node, err := MakeNode(buf.Bytes())
 			require.NoError(t, err)
@@ -79,6 +78,9 @@ func TestNode_encode_decode(t *testing.T) {
 			}
 			if tc.node.value == nil && tc.node.subtreeHeight == 0 {
 				tc.node.value = []byte{}
+			}
+			if tc.node.nodeKey == nil {
+				tc.node.nodeKey = []byte{}
 			}
 			require.Equal(t, tc.node, node)
 		})

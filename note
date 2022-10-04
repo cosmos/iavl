@@ -1,0 +1,102 @@
+node.go :
+- add nodeKey, path, leftchilddbkey rightchilddbkey
+- MakeNode() unmarshal leftChildNodeKey, rightChildNodeKey after lefthash and righthash
+- GetKey() return node.dbkey instead of node.hash
+- clone() clone node.leftChildNodeKey and node.rightChildNodeKey
+- validate() validate leftChildNodeKey and rightChildNodeKey
+- encodedSize() + size of leftKey and rightKey
+- writeBytes() marshal leftKey and rightKey after lefthash and righthash
+- String() blablabla
+
+nodedb.go :
+- GetNode(hash []byte) -> GetNode(key []byte) should takes new dbkey instead of hash
+ GetNode() used by 
+ - deleteNodesFrom
+ - getleft and right node
+ - remove // recursiveRemove -> tree.ndb.GetNode(newRootHash) *
+ - LazyLoadVersion // iTree.root, err = tree.ndb.GetNode(rootHash)
+
+ - LoadVersion // t.root, err = tree.ndb.GetNode(latestRoot)
+ - GetImmutable // 	root, err := tree.ndb.GetNode(rootHash)
+node.hash used to set by the hash passed in, not anymore
+ndb.nodeCache.Add(node) node here is a pointer so were good
+- SaveNode(node *Node) 
+ use node.GetKey instead of node.hash
+- Has(nodeKey []byte) 
+used by some of the tests
+- SaveBranch(node *Node) now set path for node recursively, set dbkey for node and use dbkey instead of hash
+- deleteNodesFrom(version int64, nodeKey []byte)
+ used by
+ - DeleteVersionsFrom
+
+ 
+
+
+
+
+
+
+should I set store path ? idk I guess no for now
+
+why they set hash ? 
+
+they set store in balance
+
+make sure dkey is set
+
+
+	z
+ x		z
+a x  
+
+
+ z	
+a z
+
+
+if there no hash re calculation then the node is nil
+
+after save version all pointer to left and right node is nil
+
+
+				z
+			 x		z
+		       a2   x   	     z1   z2
+		    a1   a2
+
+
+return pointer to node de save branch tinh hash moi
+no persisted -> tinh lai hash moi va nodeKey moi khi save branch
+can phai tinh hash moi vi left hash or right hash thay doi save branch se call den node nay
+ko can tinh nodekey moi vi non persisted va co tra ve pointer
+left child nodekey or right child nodekey cung thay doi
+clone new version
+
+
+Key: a, Value: [1], Version: 1, Height: 0 
+Key: b, Value: [2], Version: 1, Height: 0 
+Key: c, Value: [3], Version: 1, Height: 0 ////
+Key: c, Value: [], Version: 1, Height: 1  ////
+Key: b, Value: [], Version: 2, Height: 2  ////
+Key: c, Value: [255], Version: 2, Height: 0 
+Key: d, Value: [4], Version: 2, Height: 0 
+Key: d, Value: [], Version: 2, Height: 1 
+Key: x, Value: [255], Version: 1, Height: 0 
+Key: z, Value: [255], Version: 1, Height: 0 
+Key: z, Value: [], Version: 1, Height: 1 
+Key: x, Value: [], Version: 2, Height: 2 ////
+Key: c, Value: [], Version: 2, Height: 3 ////
+
+
+
+Key: a, Value: [1], Version: 1, Height: 0 
+Key: b, Value: [2], Version: 1, Height: 0 
+Key: b, Value: [], Version: 2, Height: 1 
+Key: c, Value: [255], Version: 2, Height: 0 
+Key: d, Value: [4], Version: 2, Height: 0 
+Key: d, Value: [], Version: 2, Height: 1 
+Key: c, Value: [], Version: 2, Height: 2 
+Key: x, Value: [255], Version: 1, Height: 0 
+Key: z, Value: [255], Version: 1, Height: 0 
+Key: z, Value: [], Version: 1, Height: 1 
+Key: x, Value: [], Version: 2, Height: 3 

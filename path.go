@@ -16,6 +16,13 @@ type Path struct {
 	Directions uint64
 }
 
+func NewRootPath() Path {
+	return Path{
+		Depth:      0,
+		Directions: 0,
+	}
+}
+
 func (p Path) MakePathToRightChild() Path {
 	return Path{
 		Depth:      p.Depth + 1,

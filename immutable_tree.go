@@ -93,15 +93,15 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 	// recurse on inner node
 	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
 
-	rightNode, err := node.getRightNode(t)
-	if err != nil {
-		return nil, err
-	}
+	rightNode := node.rightNode
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	leftNode, err := node.getLeftNode(t)
-	if err != nil {
-		return nil, err
-	}
+	leftNode := node.leftNode
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	right, err := t.renderNode(rightNode, indent, depth+1, encoder)
 	if err != nil {

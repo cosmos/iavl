@@ -14,14 +14,6 @@ import (
 	"github.com/cosmos/iavl/mock"
 )
 
-func BenchmarkNodeKey(b *testing.B) {
-	ndb := &nodeDB{}
-	hashes := makeHashes(b, 2432325)
-	for i := 0; i < b.N; i++ {
-		ndb.nodeKey(hashes[i])
-	}
-}
-
 func BenchmarkOrphanKey(b *testing.B) {
 	ndb := &nodeDB{}
 	hashes := makeHashes(b, 2432325)

@@ -169,11 +169,17 @@ func format(a interface{}) []byte {
 		return formatUint64(uint64(v))
 	case int:
 		return formatUint64(uint64(v))
+	case uint8:
+		return formatUint8(v)
 	case []byte:
 		return v
 	default:
 		panic(fmt.Errorf("keyFormat format() does not support formatting value of type %T: %v", a, a))
 	}
+}
+
+func formatUint8(v uint8) []byte {
+	return []byte{v}
 }
 
 func formatUint64(v uint64) []byte {

@@ -173,9 +173,9 @@ Before `RotateRight(node8)`:
 After `RotateRight(node8)`:
 ```
          |---9
-     |---8
+     |---8 call SaveNode(*node)
      |   |   |---7
-     |   |---6
+     |   |---6(P)
      |       |---5
 4'---|
      |   |---1

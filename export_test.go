@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -10,6 +11,25 @@ import (
 
 	db "github.com/cosmos/cosmos-db"
 )
+
+func printNodes(t *MutableTree) {
+	actual := []ExportNode{}
+	exporter := t.Export()
+	defer exporter.Close()
+	for {
+		node, err := exporter.Next()
+		if err == ExportDone {
+			break
+		}
+		actual = append(actual, *node)
+	}
+
+	for _, i := range actual {
+		fmt.Printf("Key: %s, Value: %d, Version: %d, Height: %d \n", i.Key, i.Value, i.Version, i.Height)
+	}
+
+	fmt.Println("==================")
+}
 
 // setupExportTreeBasic sets up a basic tree with a handful of
 // create/update/delete operations over a few versions.
@@ -172,6 +192,11 @@ func TestExporter(t *testing.T) {
 	}
 
 	assert.Equal(t, expect, actual)
+	// fmt.Println(tree.RenderShape(" ", defaultNodeEncoder))
+
+	// for _, i := range actual {
+	// 	fmt.Printf("Key: %s, Value: %d, Version: %d, Height: %d \n", i.Key, i.Value, i.Version, i.Height)
+	// }
 }
 
 func TestExporter_Import(t *testing.T) {

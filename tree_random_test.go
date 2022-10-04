@@ -21,16 +21,16 @@ func TestRandomOperations(t *testing.T) {
 	// In short mode (specifically, when running in CI with the race detector),
 	// we only run the first couple of seeds.
 	seeds := []int64{
-		498727689,
+		// 498727689,
 		756509998,
-		480459882,
-		324736440,
-		581827344,
-		470870060,
-		390970079,
-		846023066,
-		518638291,
-		957382170,
+		// 480459882,
+		// 324736440,
+		// 581827344,
+		// 470870060,
+		// 390970079,
+		// 846023066,
+		// 518638291,
+		// 957382170,
 	}
 
 	for i, seed := range seeds {

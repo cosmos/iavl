@@ -7,11 +7,9 @@ import (
 	"runtime"
 	"sort"
 	"strconv"
-	"sync"
 	"testing"
 
 	"github.com/cosmos/iavl/fastnode"
-	"github.com/tendermint/tendermint/libs/rand"
 
 	"github.com/cosmos/iavl/internal/encoding"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
@@ -29,88 +27,17 @@ var (
 
 	tKey2 = []byte("k2")
 	tVal2 = []byte("v2")
-	// FIXME: enlarge maxIterator to 100000
-	maxIterator = 100
 )
 
-func setupMutableTree(t *testing.T, skipFastStorageUpgrade bool) *MutableTree {
+func setupMutableTree(t *testing.T) *MutableTree {
 	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0, skipFastStorageUpgrade)
+	tree, err := NewMutableTree(memDB, 0, false)
 	require.NoError(t, err)
 	return tree
 }
 
-// TestIterateConcurrency throws "fatal error: concurrent map writes" when fast node is enabled
-func TestIterateConcurrency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-	tree := setupMutableTree(t, true)
-	wg := new(sync.WaitGroup)
-	for i := 0; i < 100; i++ {
-		for j := 0; j < maxIterator; j++ {
-			wg.Add(1)
-			go func(i, j int) {
-				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
-			}(i, j)
-		}
-		tree.Iterate(func(key []byte, value []byte) bool {
-			return false
-		})
-	}
-	wg.Wait()
-}
-
-// TestConcurrency throws "fatal error: concurrent map iteration and map write" and
-// also sometimes "fatal error: concurrent map writes" when fast node is enabled
-func TestIteratorConcurrency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-	tree := setupMutableTree(t, true)
-	tree.LoadVersion(0)
-	// So much slower
-	wg := new(sync.WaitGroup)
-	for i := 0; i < 100; i++ {
-		for j := 0; j < maxIterator; j++ {
-			wg.Add(1)
-			go func(i, j int) {
-				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
-			}(i, j)
-		}
-		itr, _ := tree.Iterator(nil, nil, true)
-		for ; itr.Valid(); itr.Next() {
-		}
-	}
-	wg.Wait()
-}
-
-// TestNewIteratorConcurrency throws "fatal error: concurrent map writes" when fast node is enabled
-func TestNewIteratorConcurrency(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping test in short mode.")
-	}
-	tree := setupMutableTree(t, true)
-	for i := 0; i < 100; i++ {
-		wg := new(sync.WaitGroup)
-		it := NewIterator(nil, nil, true, tree.ImmutableTree)
-		for j := 0; j < maxIterator; j++ {
-			wg.Add(1)
-			go func(i, j int) {
-				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
-			}(i, j)
-		}
-		for ; it.Valid(); it.Next() {
-		}
-		wg.Wait()
-	}
-}
-
 func TestDelete(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 
 	tree.set([]byte("k1"), []byte("Fred"))
 	hash, version, err := tree.SaveVersion()
@@ -135,7 +62,7 @@ func TestDelete(t *testing.T) {
 
 func TestGetRemove(t *testing.T) {
 	require := require.New(t)
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 	testGet := func(exists bool) {
 		v, err := tree.Get(tKey1)
 		require.NoError(err)
@@ -175,7 +102,7 @@ func TestGetRemove(t *testing.T) {
 }
 
 func TestTraverse(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 
 	for i := 0; i < 6; i++ {
 		tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
@@ -185,7 +112,7 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestMutableTree_DeleteVersions(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 
 	type entry struct {
 		key   []byte
@@ -241,7 +168,7 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 }
 
 func TestMutableTree_LoadVersion_Empty(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 
 	version, err := tree.LoadVersion(0)
 	require.NoError(t, err)
@@ -395,7 +322,7 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 }
 
 func TestMutableTree_SetInitialVersion(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 	tree.SetInitialVersion(9)
 
 	tree.Set([]byte("a"), []byte{0x01})
@@ -544,7 +471,7 @@ func TestMutableTree_SetSimple(t *testing.T) {
 }
 
 func TestMutableTree_SetTwoKeys(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 
 	const testKey1 = "a"
 	const testVal1 = "test"
@@ -589,7 +516,7 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 }
 
 func TestMutableTree_SetOverwrite(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 	const testKey1 = "a"
 	const testVal1 = "test"
 	const testVal2 = "test2"
@@ -619,7 +546,7 @@ func TestMutableTree_SetOverwrite(t *testing.T) {
 }
 
 func TestMutableTree_SetRemoveSet(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(t)
 	const testKey1 = "a"
 	const testVal1 = "test"
 

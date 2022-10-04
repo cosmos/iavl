@@ -42,6 +42,10 @@ type MutableTree struct {
 	mtx sync.Mutex
 }
 
+func NewRootNodeKeyWithVersion(version int64) []byte {
+	return nodeKeyFormat.Key(version, make([]byte, 9))
+}
+
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool) (*MutableTree, error) {
 	return NewMutableTreeWithOpts(db, cacheSize, nil, skipFastStorageUpgrade)
@@ -339,7 +343,7 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 		return nil, nil, false, nil
 	}
 	orphaned = tree.prepareOrphansSlice()
-	newRootHash, newRoot, _, value, err := tree.recursiveRemove(tree.root, key, &orphaned)
+	newRootHash, _, newRoot, _, value, err := tree.recursiveRemove(tree.root, key, &orphaned)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -350,10 +354,12 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 	tree.addUnsavedRemoval(key)
 
 	if newRoot == nil && newRootHash != nil {
-		tree.root, err = tree.ndb.GetNode(newRootHash)
+		nodeKey := NewRootNodeKeyWithVersion(tree.version + 1) // tree.version + 1 == tree.root.version
+		tree.root, err = tree.ndb.GetNode(nodeKey)
 		if err != nil {
 			return nil, nil, false, err
 		}
+		tree.root.hash = newRootHash
 	} else {
 		tree.root = newRoot
 	}
@@ -367,90 +373,92 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
 // - the orphaned nodes.
-func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Node) (newHash []byte, newSelf *Node, newKey []byte, newValue []byte, err error) {
+func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Node) (newHash []byte, newNodeKey []byte, newSelf *Node, newKey []byte, value []byte, err error) {
 	version := tree.version + 1
 
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			*orphans = append(*orphans, node)
-			return nil, nil, nil, node.value, nil
+			return nil, nil, nil, nil, node.value, nil
 		}
-		return node.hash, node, nil, nil, nil
+		return node.hash, node.nodeKey, node, nil, nil, nil
 	}
 
 	// node.key < key; we go to the left to find the key:
 	if bytes.Compare(key, node.key) < 0 {
 		leftNode, err := node.getLeftNode(tree.ImmutableTree)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
-		newLeftHash, newLeftNode, newKey, value, err := tree.recursiveRemove(leftNode, key, orphans)
+		newLeftHash, newLeftNodeKey, newLeftNode, newKey, value, err := tree.recursiveRemove(leftNode, key, orphans)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
+		// if the node removed is not in this branch
 		if len(*orphans) == 0 {
-			return node.hash, node, nil, value, nil
+			return node.hash, node.nodeKey, node, nil, nil, nil
 		}
 		*orphans = append(*orphans, node)
 		if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-			return node.rightHash, node.rightNode, node.key, value, nil
+			// this node become exactly its right node if
+			return node.rightHash, node.rightChildNodeKey, node.rightNode, node.key, value, nil
 		}
 
 		newNode, err := node.clone(version)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
-		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
+		newNode.leftHash, newNode.leftNode, newNode.leftChildNodeKey = newLeftHash, newLeftNode, newLeftNodeKey
 		err = newNode.calcHeightAndSize(tree.ImmutableTree)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 		newNode, err = tree.balance(newNode, orphans)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, nil, nil, nil, err
 		}
 
-		return newNode.hash, newNode, newKey, value, nil
+		return newNode.hash, newNode.nodeKey, newNode, newKey, value, nil
 	}
 	// node.key >= key; either found or look to the right:
 	rightNode, err := node.getRightNode(tree.ImmutableTree)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
-	newRightHash, newRightNode, newKey, value, err := tree.recursiveRemove(rightNode, key, orphans)
+	newRightHash, newRightNodeKey, newRightNode, newKey, value, err := tree.recursiveRemove(rightNode, key, orphans)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	if len(*orphans) == 0 {
-		return node.hash, node, nil, value, nil
+		return node.hash, node.nodeKey, node, nil, value, nil
 	}
 	*orphans = append(*orphans, node)
 	if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-		return node.leftHash, node.leftNode, nil, value, nil
+		return node.leftHash, node.leftChildNodeKey, node.leftNode, nil, value, nil
 	}
 
 	newNode, err := node.clone(version)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
-	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
+	newNode.rightHash, newNode.rightNode, newNode.rightChildNodeKey = newRightHash, newRightNode, newRightNodeKey
 	if newKey != nil {
 		newNode.key = newKey
 	}
 	err = newNode.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	newNode, err = tree.balance(newNode, orphans)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
-	return newNode.hash, newNode, nil, value, nil
+	return newNode.hash, newNode.nodeKey, newNode, nil, value, nil
 }
 
 // Load the latest versioned tree from disk.
@@ -514,10 +522,12 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 	if len(rootHash) > 0 {
 		// If rootHash is empty then root of tree should be nil
 		// This makes `LazyLoadVersion` to do the same thing as `LoadVersion`
-		iTree.root, err = tree.ndb.GetNode(rootHash)
+		nodeKey := NewRootNodeKeyWithVersion(targetVersion)
+		iTree.root, err = tree.ndb.GetNode(nodeKey)
 		if err != nil {
 			return 0, err
 		}
+		iTree.root.hash = rootHash
 	}
 
 	tree.orphans = map[string]int64{}
@@ -589,10 +599,12 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	}
 
 	if len(latestRoot) != 0 {
-		t.root, err = tree.ndb.GetNode(latestRoot)
+		nodeKey := NewRootNodeKeyWithVersion(latestVersion)
+		t.root, err = tree.ndb.GetNode(nodeKey)
 		if err != nil {
 			return 0, err
 		}
+		t.root.hash = latestRoot
 	}
 
 	tree.orphans = map[string]int64{}
@@ -754,10 +766,13 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 	}
 	tree.versions[version] = true
 
-	root, err := tree.ndb.GetNode(rootHash)
+	nodeKey := NewRootNodeKeyWithVersion(version)
+	root, err := tree.ndb.GetNode(nodeKey)
 	if err != nil {
 		return nil, err
 	}
+	root.hash = rootHash
+
 	return &ImmutableTree{
 		root:                   root,
 		ndb:                    tree.ndb,
@@ -869,7 +884,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	} else {
 		logger.Debug("SAVE TREE %v\n", version)
-		if _, err := tree.ndb.SaveBranch(tree.root); err != nil {
+		if _, _, err := tree.ndb.SaveBranch(tree.root); err != nil {
 			return nil, 0, err
 		}
 		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
@@ -1077,6 +1092,7 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 
 	var err error
 	// TODO: optimize balance & rotate.
+	// node that rotateRight
 	node, err = node.clone(version)
 	if err != nil {
 		return nil, nil, err
@@ -1086,14 +1102,15 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+	// node that got removed
 	newNode, err := orphaned.clone(version)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	newNoderHash, newNoderCached := newNode.rightHash, newNode.rightNode
+	newNoderHash, newNoderCached, newNodeRightChildNodeKey := newNode.rightHash, newNode.rightNode, newNode.rightChildNodeKey
 	newNode.rightHash, newNode.rightNode = node.hash, node
-	node.leftHash, node.leftNode = newNoderHash, newNoderCached
+	node.leftHash, node.leftNode, node.leftChildNodeKey = newNoderHash, newNoderCached, newNodeRightChildNodeKey
 
 	err = node.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {
@@ -1128,9 +1145,9 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node, error) {
 		return nil, nil, err
 	}
 
-	newNodelHash, newNodelCached := newNode.leftHash, newNode.leftNode
+	newNodelHash, newNodelCached, newNodeLeftChildNodeKey := newNode.leftHash, newNode.leftNode, newNode.leftChildNodeKey
 	newNode.leftHash, newNode.leftNode = node.hash, node
-	node.rightHash, node.rightNode = newNodelHash, newNodelCached
+	node.rightHash, node.rightNode, node.rightChildNodeKey = newNodelHash, newNodelCached, newNodeLeftChildNodeKey
 
 	err = node.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {

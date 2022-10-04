@@ -465,7 +465,7 @@ func TestPersistence(t *testing.T) {
 
 	// Create some random key value pairs
 	records := make(map[string]string)
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < 8; i++ {
 		records[randstr(20)] = randstr(20)
 	}
 
@@ -480,7 +480,8 @@ func TestPersistence(t *testing.T) {
 	// Load a tree
 	t2, err := NewMutableTree(db, 0, false)
 	require.NoError(t, err)
-	t2.Load()
+	_, err = t2.Load()
+	require.NoError(t, err)
 	for key, value := range records {
 		t2value, err := t2.Get([]byte(key))
 		require.NoError(t, err)
