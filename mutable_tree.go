@@ -42,9 +42,9 @@ type MutableTree struct {
 	mtx sync.Mutex
 }
 
-func NewRootNodeKeyWithVersion2(version int64) []byte {
-	return nodeKeyFormat.Key(version, make([]byte, 9))
-}
+// func NewRootNodeKeyWithVersion2(version int64) []byte {
+// 	return nodeKeyFormat.Key(version, make([]byte, 9))
+// }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool) (*MutableTree, error) {

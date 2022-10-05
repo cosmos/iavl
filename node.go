@@ -21,7 +21,6 @@ type Node struct {
 	key               []byte
 	value             []byte
 	hash              []byte
-	path              Path
 	nodeKey           []byte
 	leftChildNodeKey  []byte
 	rightChildNodeKey []byte
@@ -138,20 +137,6 @@ func MakeNode(buf []byte) (*Node, error) {
 	return node, nil
 }
 
-func (node *Node) PathToRightChild() Path {
-	return Path{
-		Depth:      node.path.Depth + 1,
-		Directions: node.path.Directions | (1 << node.path.Depth),
-	}
-}
-
-func (node *Node) PathToLeftChild() Path {
-	return Path{
-		Depth:      node.path.Depth + 1,
-		Directions: node.path.Directions,
-	}
-}
-
 func (node *Node) GetKey() []byte {
 	return node.nodeKey
 }
@@ -220,20 +205,8 @@ func (node *Node) has(t *ImmutableTree, key []byte) (has bool, err error) {
 	return rightNode.has(t, key)
 }
 
-func (node *Node) MakePathForLeftNode() {
-	node.leftNode.path = node.path.MakePathToLeftChild()
-}
-
-func (node *Node) MakePathForRightNode() {
-	node.rightNode.path = node.path.MakePathToRightChild()
-}
-
-func (node *Node) SetNodeKeyForNode() {
-	node.nodeKey = nodeKeyFormat.Key(node.version, node.path.Bytes())
-}
-
-func NodeKey(version int64, path Path) []byte {
-	return nodeKeyFormat.Key(version, path.Bytes())
+func (node *Node) SetNodeKeyForNode(savingOrder uint64) {
+	node.nodeKey = nodeKeyFormat.Key(savingOrder)
 }
 
 // Get a key under the node.

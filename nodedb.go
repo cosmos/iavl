@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"sort"
@@ -22,9 +23,10 @@ import (
 const (
 	int64Size         = 8
 	hashSize          = sha256.Size
-	nodeKeySize       = 18
+	nodeKeySize       = 9
 	genesisVersion    = 1
 	storageVersionKey = "storage_version"
+	savingNonceKey    = "saving_nonce"
 	// We store latest saved version together with storage version delimited by the constant below.
 	// This delimiter is valid only if fast storage is enabled (i.e. storageVersion >= fastStorageVersionValue).
 	// The latest saved version is needed for protection against downgrade and re-upgrade. In such a case, it would
@@ -40,7 +42,7 @@ const (
 var (
 	// All node keys are prefixed with the byte 'n'. This ensures no collision is
 	// possible with the other keys, and makes them easier to traverse. They are indexed by the node hash.
-	nodeKeyFormat = keyformat.NewKeyFormat('n', int64Size, int64Size+1) // n<version><path in tree>
+	nodeKeyFormat = keyformat.NewKeyFormat('n', int64Size) // n<version><path in tree>
 
 	// Orphans are keyed in the database by their expected lifetime.
 	// The first number represents the *last* version at which the orphan needs
@@ -66,6 +68,8 @@ var (
 
 	// Root nodes are indexed separately by their version
 	rootKeyFormat = keyformat.NewKeyFormat('r', int64Size) // r<version>
+
+	savingNonceFormat = keyformat.NewKeyFormat('s', 0)
 )
 
 var errInvalidFastStorageVersion = fmt.Sprintf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
@@ -80,6 +84,15 @@ type nodeDB struct {
 	latestVersion  int64            // Latest version of nodeDB.
 	nodeCache      cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
+	savingNonce    uint64
+}
+
+func (ndb *nodeDB) incrementSavingNonce() {
+	ndb.savingNonce += 1
+	savingNonceBz := make([]byte, 8)
+	binary.BigEndian.PutUint16(savingNonceBz, uint16(ndb.savingNonce))
+
+	ndb.db.Set(savingNonceFormat.Key(unsafeToBz(savingNonceKey)), savingNonceBz)
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -94,6 +107,15 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		storeVersion = []byte(defaultStorageVersionValue)
 	}
 
+	savingNonceBz, err := db.Get(savingNonceFormat.Key(unsafeToBz(savingNonceKey)))
+
+	var savingNonce uint64
+	if err != nil || savingNonceBz == nil {
+		savingNonce = 0
+	} else {
+		savingNonce = binary.BigEndian.Uint64(savingNonceBz)
+	}
+
 	return &nodeDB{
 		db:             db,
 		batch:          db.NewBatch(),
@@ -103,6 +125,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		fastNodeCache:  cache.New(fastNodeCacheSize),
 		versionReaders: make(map[int64]uint32, 8),
 		storageVersion: string(storeVersion),
+		savingNonce:    savingNonce,
 	}
 }
 
@@ -342,7 +365,6 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, []byte, error) {
 
 	var err error
 	if node.leftNode != nil {
-		node.leftNode.path = node.PathToLeftChild()
 		// fmt.Printf("%d %08b\n", node.leftNode.path.Depth, node.leftNode.path.Directions)
 		node.leftHash, node.leftChildNodeKey, err = ndb.SaveBranch(node.leftNode)
 	}
@@ -352,12 +374,12 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, []byte, error) {
 	}
 
 	if node.rightNode != nil {
-		node.rightNode.path = node.PathToRightChild()
 		// fmt.Printf("%d %08b\n", node.rightNode.path.Depth, node.rightNode.path.Directions)
 		node.rightHash, node.rightChildNodeKey, err = ndb.SaveBranch(node.rightNode)
 	}
 
-	node.SetNodeKeyForNode()
+	node.SetNodeKeyForNode(ndb.savingNonce)
+	ndb.incrementSavingNonce()
 	// fmt.Println(node.nodeKey)
 	if err != nil {
 		return nil, nil, err
