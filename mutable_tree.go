@@ -257,9 +257,6 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 
 		switch bytes.Compare(key, node.key) {
 		case -1:
-			if bytes.Equal(key, evilKey) {
-				fmt.Println("case -1")
-			}
 			return &Node{
 				key:           node.key,
 				subtreeHeight: 1,
@@ -269,10 +266,6 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				version:       version,
 			}, false, nil
 		case 1:
-			if bytes.Equal(key, evilKey) {
-				fmt.Println("case 1")
-				fmt.Println(node.String())
-			}
 			return &Node{
 				key:           key,
 				subtreeHeight: 1,
@@ -335,7 +328,6 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 	val, orphaned, removed, err := tree.remove(key)
 	if err != nil {
-		fmt.Println("s")
 		return nil, false, err
 	}
 
@@ -368,7 +360,6 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 
 		tree.root, err = tree.ndb.GetNode(newNodeKey)
 		if err != nil {
-			fmt.Println("s")
 			return nil, nil, false, err
 		}
 		tree.root.hash = newRootHash
@@ -414,9 +405,6 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 		*orphans = append(*orphans, node)
 		if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
 			// this node become exactly its right node if
-			if node.rightHash != nil && node.rightNode == nil {
-				fmt.Println(node.rightHash, value, "value")
-			}
 			return node.rightHash, node.rightChildNodeKey, node.rightNode, node.key, value, nil
 		}
 
@@ -435,9 +423,6 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 			return nil, nil, nil, nil, nil, err
 		}
 
-		if newNode.hash != nil && newNode == nil {
-			fmt.Println(newNode.hash)
-		}
 		return newNode.hash, newNode.nodeKey, newNode, newKey, value, nil
 	}
 	// node.key >= key; either found or look to the right:
@@ -454,9 +439,6 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 	}
 	*orphans = append(*orphans, node)
 	if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-		if node.leftHash != nil && node.leftNode == nil {
-			fmt.Println(node.leftHash, value, "value")
-		}
 		return node.leftHash, node.leftChildNodeKey, node.leftNode, nil, value, nil
 	}
 
@@ -479,9 +461,6 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 		return nil, nil, nil, nil, nil, err
 	}
 
-	if newNode.hash != nil && newNode == nil {
-		fmt.Println(newNode.hash)
-	}
 	return newNode.hash, newNode.nodeKey, newNode, nil, value, nil
 }
 
