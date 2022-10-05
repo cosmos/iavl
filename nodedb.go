@@ -22,6 +22,7 @@ import (
 const (
 	int64Size         = 8
 	hashSize          = sha256.Size
+	nodeKeySize       = 18
 	genesisVersion    = 1
 	storageVersionKey = "storage_version"
 	// We store latest saved version together with storage version delimited by the constant below.
@@ -185,6 +186,10 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 func (ndb *nodeDB) SaveNode(node *Node) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+
+	if bytes.Equal(node.key, evilKey) {
+		fmt.Println("save evil node")
+	}
 
 	if node.hash == nil {
 		return ErrNodeMissingHash
@@ -433,11 +438,11 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return nil
 	}
 
-	root := NewRootNodeKeyWithVersion(latest)
+	rootHash, rootNodeKey, err := ndb.getRoot(latest)
 	if err != nil {
 		return err
 	}
-	if root == nil {
+	if rootHash == nil {
 		return errors.Errorf("root for version %v not found", latest)
 	}
 
@@ -449,7 +454,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 	// First, delete all active nodes in the current (latest) version whose node version is after
 	// the given version.
-	err = ndb.deleteNodesFrom(version, root)
+	err = ndb.deleteNodesFrom(version, rootNodeKey)
 	if err != nil {
 		return err
 	}
@@ -893,16 +898,23 @@ func (ndb *nodeDB) HasRoot(version int64) (bool, error) {
 	return ndb.db.Has(ndb.rootKey(version))
 }
 
-func (ndb *nodeDB) getRoot(version int64) ([]byte, error) {
-	return ndb.db.Get(ndb.rootKey(version))
+/// hmmmmm
+func (ndb *nodeDB) getRoot(version int64) (hash []byte, nodeKey []byte, err error) {
+	rootRecord, err := ndb.db.Get(ndb.rootKey(version))
+	if err != nil {
+		return nil, nil, err
+	}
+	hash, nodeKey = DecodeRootRecord(rootRecord)
+	return hash, nodeKey, nil
 }
 
-func (ndb *nodeDB) getRoots() (roots map[int64][]byte, err error) {
-	roots = make(map[int64][]byte)
+func (ndb *nodeDB) getRoots() (roots map[int64][2][]byte, err error) {
+	roots = make(map[int64][2][]byte)
 	err = ndb.traversePrefix(rootKeyFormat.Key(), func(k, v []byte) error {
 		var version int64
 		rootKeyFormat.Scan(k, &version)
-		roots[version] = v
+		rootHash, rootNodeKey := DecodeRootRecord(v)
+		roots[version] = [2][]byte{rootHash, rootNodeKey}
 		return nil
 	})
 	return roots, err
@@ -914,15 +926,31 @@ func (ndb *nodeDB) SaveRoot(root *Node, version int64) error {
 	if len(root.hash) == 0 {
 		return ErrRootMissingHash
 	}
-	return ndb.saveRoot(root.hash, version)
+	return ndb.saveRoot(root.hash, root.nodeKey, version)
 }
 
 // SaveEmptyRoot creates an entry on disk for an empty root.
 func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
-	return ndb.saveRoot([]byte{}, version)
+	return ndb.saveRoot([]byte{}, []byte{}, version)
 }
 
-func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
+// RootRecord join a root's hash and nodekey, this joined []byte is save in the entry for that root
+func RootRecord(hash []byte, nodeKey []byte) []byte {
+	bz := make([]byte, hashSize+nodeKeySize)
+	copy(bz[:32], hash)
+	copy(bz[32:], nodeKey)
+	return bz
+}
+
+func DecodeRootRecord(rootRecord []byte) (hash []byte, nodeKey []byte) {
+	if len(rootRecord) != hashSize+nodeKeySize {
+		return nil, nil
+	}
+	return rootRecord[:32], rootRecord[32:]
+
+}
+
+func (ndb *nodeDB) saveRoot(hash []byte, nodeKey []byte, version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -935,7 +963,7 @@ func (ndb *nodeDB) saveRoot(hash []byte, version int64) error {
 		return fmt.Errorf("must save consecutive versions; expected %d, got %d", latest+1, version)
 	}
 
-	if err := ndb.batch.Set(ndb.rootKey(version), hash); err != nil {
+	if err := ndb.batch.Set(ndb.rootKey(version), RootRecord(hash, nodeKey)); err != nil {
 		return err
 	}
 

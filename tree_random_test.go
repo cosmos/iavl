@@ -321,6 +321,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	})
 	for _, key := range keys {
 		_, removed, err := tree.Remove(key)
+		// fmt.Println(key)
 		require.NoError(t, err)
 		require.True(t, removed)
 	}

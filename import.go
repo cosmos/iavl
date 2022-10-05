@@ -175,7 +175,7 @@ func (i *Importer) Commit() error {
 			return err
 		}
 	case 1:
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash); err != nil {
+		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), RootRecord(i.stack[0].hash, i.stack[0].nodeKey)); err != nil {
 			return err
 		}
 	default:
