@@ -338,7 +338,6 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 
 // Has checks if a node coresponding to a key exists in the database.
 func (ndb *nodeDB) Has(nodeKey []byte) (bool, error) {
-
 	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
 		exists, err := ldb.DB().Has(nodeKey, nil)
 		if err != nil {
@@ -920,7 +919,7 @@ func (ndb *nodeDB) HasRoot(version int64) (bool, error) {
 	return ndb.db.Has(ndb.rootKey(version))
 }
 
-/// hmmmmm
+// / hmmmmm
 func (ndb *nodeDB) getRoot(version int64) (hash []byte, nodeKey []byte, err error) {
 	rootRecord, err := ndb.db.Get(ndb.rootKey(version))
 	if err != nil {
@@ -972,7 +971,6 @@ func DecodeRootRecord(rootRecord []byte) (hash []byte, nodeKey []byte) {
 		return []byte{}, []byte{}
 	}
 	return rootRecord[:32], rootRecord[32:]
-
 }
 
 func (ndb *nodeDB) saveRoot(hash []byte, nodeKey []byte, version int64) error {
