@@ -7,10 +7,9 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - deadcode
     - depguard
     - dogsled
-    # - errcheck
+    - errcheck
     - exportloopref
     - goconst
     - gocritic
@@ -21,16 +20,21 @@ linters:
     - ineffassign
     - misspell
     - nakedret
-    # - nolintlint
+    - nolintlint
     - prealloc
     - revive
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
+
+linters-settings:
+  nolintlint:
+    allow-leading-space: true
+    require-explanation: false
+    require-specific: true
 
 issues:
   exclude-rules:
@@ -43,6 +47,9 @@ issues:
     - text: "don't use an underscore in package name"
       linters:
         - golint
+    - text: "should be written without leading space as"
+      linters:
+        - nolintlint
     - text: "ST1003:"
       linters:
         - stylecheck
@@ -58,15 +65,3 @@ issues:
 
   max-issues-per-linter: 10000
   max-same-issues: 10000
-
-linters-settings:
-  dogsled:
-    max-blank-identifiers: 3
-  maligned:
-    # print struct with more effective memory layout or not, false by default
-    suggest-new: true
-  nolintlint:
-    allow-unused: false
-    allow-leading-space: true
-    require-explanation: false
-    require-specific: false

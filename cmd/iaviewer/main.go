@@ -91,7 +91,6 @@ func OpenDB(dir string) (dbm.DB, error) {
 	return db, nil
 }
 
-// nolint: deadcode
 func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
@@ -138,7 +137,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 
 func PrintKeys(tree *iavl.MutableTree) {
 	fmt.Println("Printing all keys with hashed values (to detect diff)")
-	tree.Iterate(func(key []byte, value []byte) bool {
+	tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
 		printKey := parseWeaveKey(key)
 		digest := sha256.Sum256(value)
 		fmt.Printf("  %s\n    %X\n", printKey, digest)
