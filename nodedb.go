@@ -958,6 +958,9 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 
 // RootRecord join a root's hash and nodekey, this joined []byte is save in the entry for that root
 func RootRecord(hash []byte, nodeKey []byte) []byte {
+	if len(hash) == 0 || len(nodeKey) == 0 {
+		return []byte{}
+	}
 	bz := make([]byte, hashSize+nodeKeySize)
 	copy(bz[:32], hash)
 	copy(bz[32:], nodeKey)
@@ -966,7 +969,7 @@ func RootRecord(hash []byte, nodeKey []byte) []byte {
 
 func DecodeRootRecord(rootRecord []byte) (hash []byte, nodeKey []byte) {
 	if len(rootRecord) != hashSize+nodeKeySize {
-		return nil, nil
+		return []byte{}, []byte{}
 	}
 	return rootRecord[:32], rootRecord[32:]
 

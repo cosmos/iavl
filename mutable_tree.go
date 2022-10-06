@@ -759,6 +759,7 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 
 	tree.mtx.Lock()
 	defer tree.mtx.Unlock()
+	fmt.Println(rootHash)
 	if len(rootHash) == 0 {
 		tree.versions[version] = true
 		return &ImmutableTree{
@@ -878,6 +879,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		// There can still be orphans, for example if the root is the node being
 		// removed.
 		logger.Debug("SAVE EMPTY TREE %v\n", version)
+		fmt.Println("save empty")
 		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
 			return nil, 0, err
 		}
