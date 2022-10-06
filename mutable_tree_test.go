@@ -1278,7 +1278,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {
-		var keyPrefix = "key"
+		keyPrefix := "key"
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
 
@@ -1331,7 +1331,7 @@ func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade boo
 
 	tree, _ := NewMutableTree(db, 0, skipFastStorageUpgrade)
 
-	var keyPrefix, valPrefix = "key", "val"
+	keyPrefix, valPrefix := "key", "val"
 
 	mirror := make([][]string, 0, numEntries)
 	for i := 0; i < numEntries; i++ {

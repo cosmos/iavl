@@ -696,7 +696,10 @@ func (ndb *nodeDB) deleteOrphans(version int64) error {
 			ndb.nodeCache.Remove(hash)
 		} else {
 			logger.Debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
-			ndb.saveOrphan(hash, fromVersion, predecessor)
+			err := ndb.saveOrphan(hash, fromVersion, predecessor)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
