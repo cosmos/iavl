@@ -88,7 +88,7 @@ type nodeDB struct {
 }
 
 func (ndb *nodeDB) incrementSavingNonce() {
-	ndb.savingNonce += 1
+	ndb.savingNonce++
 	savingNonceBz := make([]byte, 8)
 	binary.BigEndian.PutUint16(savingNonceBz, uint16(ndb.savingNonce))
 

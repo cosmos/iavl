@@ -36,7 +36,7 @@ type Node struct {
 
 var _ cache.Node = (*Node)(nil)
 
-var dmm = []byte{226, 95, 219, 92, 42, 16, 81, 37, 50, 22, 7, 121, 82, 211, 57, 104, 2, 130, 61, 76, 80, 124, 97, 236, 13, 231, 44, 35, 206, 183, 207, 214}
+var dmm = []byte{226, 95, 219, 92, 42, 16, 81, 37, 50, 22, 7, 121, 82, 211, 57, 104, 2, 130, 61, 76, 80, 124, 97, 236, 13, 231, 44, 35, 206, 183, 207, 214} //nolint:unused,deadcode // remove if this is just for testing :)
 
 // NewNode returns a new node from a key, value and version.
 func NewNode(key []byte, value []byte, version int64) *Node {
