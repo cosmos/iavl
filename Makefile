@@ -22,9 +22,14 @@ else
 endif
 .PHONY: install
 
+test-short:
+	@echo "--> Running go test"
+	@go test ./... $(LDFLAGS) -v --race --short
+.PHONY: test-short
+
 test:
 	@echo "--> Running go test"
-	@go test ./... $(LDFLAGS) -v --race
+	@go test ./... $(LDFLAGS) -v 
 .PHONY: test
 
 tools:
