@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	db "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl"
 	"github.com/stretchr/testify/require"
 	"github.com/tendermint/tendermint/crypto/tmhash"
+	db "github.com/tendermint/tm-db"
 )
 
 func TestProofFogery(t *testing.T) {
