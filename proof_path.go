@@ -67,6 +67,7 @@ func (pl PathToLeaf) stringIndented(indent string) string {
 
 // `computeRootHash` computes the root hash assuming some leaf hash.
 // Does not verify the root hash.
+// Contract: Caller must verify that the roothash is correct by calling `.verify()`.
 func (pl PathToLeaf) computeRootHash(leafHash []byte) ([]byte, error) {
 	var err error
 	hash := leafHash

@@ -32,6 +32,8 @@ var (
 )
 
 //----------------------------------------
+// ProofInnerNode
+// Contract: Left and Right can never both be set. Will result in a empty `[]` roothash
 
 type ProofInnerNode struct {
 	Height  int8   `json:"height"`
@@ -76,6 +78,10 @@ func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 		err = encoding.EncodeVarint(buf, pin.Version)
 	}
 
+	if len(pin.Left) > 0 && len(pin.Right) > 0 {
+		return nil, errors.New("both left and right child hashes are set")
+	}
+
 	if len(pin.Left) == 0 {
 		if err == nil {
 			err = encoding.EncodeBytes(buf, childHash)
@@ -91,6 +97,7 @@ func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 			err = encoding.EncodeBytes(buf, childHash)
 		}
 	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash ProofInnerNode: %v", err)
 	}
