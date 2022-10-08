@@ -47,10 +47,6 @@
 - [\#474](https://github.com/cosmos/iavl/pull/474) bump github.com/confio/ics23 to v0.7
 - [\#475](https://github.com/cosmos/iavl/pull/475) Use go v1.17
 
-## 0.17.3 (October 8, 2022)
-
-- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set. 
-
 ## 0.17.3 (December 1, 2021)
 
 ### Bug Fixes
