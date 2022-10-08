@@ -2,8 +2,7 @@ package iavl
 
 import (
 	"context"
-
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by

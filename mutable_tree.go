@@ -3,12 +3,12 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
 
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/pkg/errors"
 
 	"github.com/cosmos/iavl/fastnode"
 	"github.com/cosmos/iavl/internal/logger"
@@ -983,10 +983,10 @@ func (tree *MutableTree) deleteVersion(version int64) error {
 		return errors.New("version must be greater than 0")
 	}
 	if version == tree.version {
-		return errors.Errorf("cannot delete latest saved version (%d)", version)
+		return fmt.Errorf("cannot delete latest saved version (%d)", version)
 	}
 	if !tree.VersionExists(version) {
-		return errors.Wrap(ErrVersionDoesNotExist, "")
+		return ErrVersionDoesNotExist
 	}
 	if err := tree.ndb.DeleteVersion(version, true); err != nil {
 		return err

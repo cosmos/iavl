@@ -1,10 +1,10 @@
 package iavl
 
 import (
+	"errors"
 	"fmt"
 
 	proto "github.com/cosmos/gogoproto/proto"
-	"github.com/pkg/errors"
 	"github.com/tendermint/tendermint/crypto/merkle"
 	tmmerkle "github.com/tendermint/tendermint/proto/tendermint/crypto"
 
@@ -40,7 +40,7 @@ func NewValueOp(key []byte, proof *RangeProof) ValueOp {
 
 func ValueOpDecoder(pop tmmerkle.ProofOp) (merkle.ProofOperator, error) {
 	if pop.Type != ProofOpIAVLValue {
-		return nil, errors.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
+		return nil, fmt.Errorf("unexpected ProofOp.Type; got %v, want %v", pop.Type, ProofOpIAVLValue)
 	}
 	// Strip the varint length prefix, used for backwards compatibility with Amino.
 	bz, n, err := encoding.DecodeBytes(pop.Data)
@@ -95,14 +95,14 @@ func (op ValueOp) Run(args [][]byte) ([][]byte, error) {
 	root := op.Proof.ComputeRootHash()
 	err := op.Proof.Verify(root)
 	if err != nil {
-		return nil, errors.Wrap(err, "computing root hash")
+		return nil, fmt.Errorf("computing root hash, %w", err)
 	}
 	// XXX What is the encoding for keys?
 	// We should decode the key depending on whether it's a string or hex,
 	// maybe based on quotes and 0x prefix?
 	err = op.Proof.VerifyItem(op.key, value)
 	if err != nil {
-		return nil, errors.Wrap(err, "verifying value")
+		return nil, fmt.Errorf("verifying value, %w", err)
 	}
 	return [][]byte{root}, nil
 }
