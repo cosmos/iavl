@@ -10,10 +10,10 @@ import (
 // especially since callers may export several IAVL stores in parallel (e.g. the Cosmos SDK).
 const exportBufferSize = 32
 
-// ExportDone is returned by Exporter.Next() when all items have been exported.
+// ErrorExportDone is returned by Exporter.Next() when all items have been exported.
 //
 //nolint:revive
-var ExportDone = errors.New("export is complete") //nolint:golint
+var ErrorExportDone = errors.New("export is complete") //nolint:golint
 
 // ExportNode contains exported node data.
 type ExportNode struct {
@@ -74,7 +74,7 @@ func (e *Exporter) Next() (*ExportNode, error) {
 	if exportNode, ok := <-e.ch; ok {
 		return exportNode, nil
 	}
-	return nil, ExportDone
+	return nil, ErrorExportDone
 }
 
 // Close closes the exporter. It is safe to call multiple times.

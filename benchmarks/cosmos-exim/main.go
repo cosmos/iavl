@@ -131,7 +131,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 		defer exporter.Close()
 		for {
 			node, err := exporter.Next()
-			if err == iavl.ExportDone {
+			if err == iavl.ErrorExportDone {
 				break
 			} else if err != nil {
 				return 0, nil, err
