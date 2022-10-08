@@ -223,7 +223,7 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 		return nil, false, fmt.Errorf("no leaves, %w", ErrInvalidProof)
 	}
 	if len(proof.InnerNodes)+1 != len(proof.Leaves) {
-		return nil, false, fmt.Errorf("InnerNodes vs Leaves length mismatch, leaves should be 1 more, %w", ErrInvalidProof) //nolint:revive
+		return nil, false, fmt.Errorf("InnerNodes vs Leaves length mismatch, leaves should be 1 more, %w", ErrInvalidProof)
 	}
 
 	// Start from the left path and prove each leaf.
