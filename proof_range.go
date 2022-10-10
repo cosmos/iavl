@@ -95,13 +95,16 @@ func (proof *RangeProof) VerifyItem(key, value []byte) error {
 	if proof == nil {
 		return fmt.Errorf("proof is nil, %w", ErrInvalidProof)
 	}
+
 	if !proof.rootVerified {
 		return errors.New("must call Verify(root) first")
 	}
+
 	leaves := proof.Leaves
 	i := sort.Search(len(leaves), func(i int) bool {
 		return bytes.Compare(key, leaves[i].Key) <= 0
 	})
+
 	if i >= len(leaves) || !bytes.Equal(leaves[i].Key, key) {
 		return fmt.Errorf("leaf key not found in proof, %w", ErrInvalidProof)
 	}
@@ -205,7 +208,9 @@ func (proof *RangeProof) ComputeRootHash() []byte {
 	if proof == nil {
 		return nil
 	}
+
 	rootHash, _ := proof.computeRootHash()
+
 	return rootHash
 }
 
@@ -280,9 +285,11 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 			if err != nil {
 				return nil, treeEnd, false, fmt.Errorf("recursive COMPUTEHASH call, %w", err)
 			}
+
 			if !bytes.Equal(derivedRoot, lpath.Right) {
 				return nil, treeEnd, false, fmt.Errorf("intermediate root hash %X doesn't match, got %X, %w", lpath.Right, derivedRoot, ErrInvalidRoot)
 			}
+
 			if done {
 				return hash, treeEnd, true, nil
 			}
