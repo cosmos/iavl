@@ -3,11 +3,10 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
-
-	"github.com/pkg/errors"
 
 	iavlproto "github.com/cosmos/iavl/proto"
 )
@@ -94,7 +93,7 @@ func (proof *RangeProof) LeftIndex() int64 {
 // Does not assume that the proof itself is valid, call Verify() first.
 func (proof *RangeProof) VerifyItem(key, value []byte) error {
 	if proof == nil {
-		return errors.Wrap(ErrInvalidProof, "proof is nil")
+		return fmt.Errorf("proof is nil, %w", ErrInvalidProof)
 	}
 
 	if !proof.rootVerified {
@@ -107,13 +106,13 @@ func (proof *RangeProof) VerifyItem(key, value []byte) error {
 	})
 
 	if i >= len(leaves) || !bytes.Equal(leaves[i].Key, key) {
-		return errors.Wrap(ErrInvalidProof, "leaf key not found in proof")
+		return fmt.Errorf("leaf key not found in proof, %w", ErrInvalidProof)
 	}
 
 	h := sha256.Sum256(value)
 	valueHash := h[:]
 	if !bytes.Equal(leaves[i].ValueHash, valueHash) {
-		return errors.Wrap(ErrInvalidProof, "leaf value hash not same")
+		return fmt.Errorf("leaf value hash not same, %w", ErrInvalidProof)
 	}
 
 	return nil
@@ -124,7 +123,7 @@ func (proof *RangeProof) VerifyItem(key, value []byte) error {
 // For that, use Verify(root).
 func (proof *RangeProof) VerifyAbsence(key []byte) error {
 	if proof == nil {
-		return errors.Wrap(ErrInvalidProof, "proof is nil")
+		return fmt.Errorf("proof is nil, %w", ErrInvalidProof)
 	}
 	if !proof.rootVerified {
 		return errors.New("must call Verify(root) first")
@@ -180,7 +179,7 @@ func (proof *RangeProof) VerifyAbsence(key []byte) error {
 // Verify that proof is valid.
 func (proof *RangeProof) Verify(root []byte) error {
 	if proof == nil {
-		return errors.Wrap(ErrInvalidProof, "proof is nil")
+		return fmt.Errorf("proof is nil, %w", ErrInvalidProof)
 	}
 	err := proof.verify(root)
 	return err
@@ -196,7 +195,7 @@ func (proof *RangeProof) verify(root []byte) (err error) {
 		rootHash = derivedHash
 	}
 	if !bytes.Equal(rootHash, root) {
-		return errors.Wrap(ErrInvalidRoot, "root hash doesn't match")
+		return fmt.Errorf("root hash doesn't match, %w", ErrInvalidRoot)
 	}
 	proof.rootVerified = true
 	return nil
@@ -226,10 +225,10 @@ func (proof *RangeProof) computeRootHash() (rootHash []byte, err error) {
 
 func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err error) {
 	if len(proof.Leaves) == 0 {
-		return nil, false, errors.Wrap(ErrInvalidProof, "no leaves")
+		return nil, false, fmt.Errorf("no leaves, %w", ErrInvalidProof)
 	}
 	if len(proof.InnerNodes)+1 != len(proof.Leaves) {
-		return nil, false, errors.Wrap(ErrInvalidProof, "InnerNodes vs Leaves length mismatch, leaves should be 1 more.") //nolint:revive
+		return nil, false, fmt.Errorf("InnerNodes vs Leaves length mismatch, leaves should be 1 more, %w", ErrInvalidProof)
 	}
 
 	// Start from the left path and prove each leaf.
@@ -284,11 +283,11 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 			// Recursively verify inners against remaining leaves.
 			derivedRoot, treeEnd, done, err := COMPUTEHASH(inners, rightmost && rpath.isRightmost())
 			if err != nil {
-				return nil, treeEnd, false, errors.Wrap(err, "recursive COMPUTEHASH call")
+				return nil, treeEnd, false, fmt.Errorf("recursive COMPUTEHASH call, %w", err)
 			}
 
 			if !bytes.Equal(derivedRoot, lpath.Right) {
-				return nil, treeEnd, false, errors.Wrapf(ErrInvalidRoot, "intermediate root hash %X doesn't match, got %X", lpath.Right, derivedRoot)
+				return nil, treeEnd, false, fmt.Errorf("intermediate root hash %X doesn't match, got %X, %w", lpath.Right, derivedRoot, ErrInvalidRoot)
 			}
 
 			if done {
@@ -306,9 +305,9 @@ func (proof *RangeProof) _computeRootHash() (rootHash []byte, treeEnd bool, err 
 	path := proof.LeftPath
 	rootHash, treeEnd, done, err := COMPUTEHASH(path, true)
 	if err != nil {
-		return nil, treeEnd, errors.Wrap(err, "root COMPUTEHASH call")
+		return nil, treeEnd, fmt.Errorf("root COMPUTEHASH call, %w", err)
 	} else if !done {
-		return nil, treeEnd, errors.Wrap(ErrInvalidProof, "left over leaves -- malformed proof")
+		return nil, treeEnd, fmt.Errorf("left over leaves -- malformed proof, %w", ErrInvalidProof)
 	}
 
 	// Ok!
@@ -538,7 +537,7 @@ func (t *ImmutableTree) getRangeProof(keyStart, keyEnd []byte, limit int) (proof
 func (t *ImmutableTree) GetWithProof(key []byte) (value []byte, proof *RangeProof, err error) {
 	proof, _, values, err := t.getRangeProof(key, cpIncr(key), 2)
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "constructing range proof")
+		return nil, nil, fmt.Errorf("constructing range proof, %w", err)
 	}
 	if len(values) > 0 && bytes.Equal(proof.Leaves[0].Key, key) {
 		return values[0], proof, nil
@@ -563,7 +562,7 @@ func (tree *MutableTree) GetVersionedWithProof(key []byte, version int64) ([]byt
 
 		return t.GetWithProof(key)
 	}
-	return nil, nil, errors.Wrap(ErrVersionDoesNotExist, "")
+	return nil, nil, ErrVersionDoesNotExist
 }
 
 // GetVersionedRangeWithProof gets key/value pairs within the specified range
@@ -578,5 +577,5 @@ func (tree *MutableTree) GetVersionedRangeWithProof(startKey, endKey []byte, lim
 		}
 		return t.GetRangeWithProof(startKey, endKey, limit)
 	}
-	return nil, nil, nil, errors.Wrap(ErrVersionDoesNotExist, "")
+	return nil, nil, nil, ErrVersionDoesNotExist
 }
