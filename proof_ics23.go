@@ -78,14 +78,14 @@ func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProo
 }
 
 func createExistenceProof(tree *ImmutableTree, key []byte) (*ics23.ExistenceProof, error) {
-	value, proof, err := tree.GetWithProof(key)
+	proof, node, err := tree.root.PathToLeaf(tree, key)
 	if err != nil {
 		return nil, err
 	}
-	if value == nil {
+	if node == nil {
 		return nil, fmt.Errorf("cannot create ExistanceProof when Key not in State")
 	}
-	return convertExistenceProof(proof, key, value)
+	return convertExistenceProof(proof, key, node.value)
 }
 
 // convertExistenceProof will convert the given proof into a valid
@@ -93,15 +93,12 @@ func createExistenceProof(tree *ImmutableTree, key []byte) (*ics23.ExistenceProo
 //
 // This is the simplest case of the range proof and we will focus on
 // demoing compatibility here
-func convertExistenceProof(p *RangeProof, key, value []byte) (*ics23.ExistenceProof, error) {
-	if len(p.Leaves) != 1 {
-		return nil, fmt.Errorf("existence proof requires RangeProof to have exactly one leaf")
-	}
+func convertExistenceProof(p PathToLeaf, key, value []byte) (*ics23.ExistenceProof, error) {
 	return &ics23.ExistenceProof{
 		Key:   key,
 		Value: value,
-		Leaf:  convertLeafOp(p.Leaves[0].Version),
-		Path:  convertInnerOps(p.LeftPath),
+		Leaf:  convertLeafOp(p[0].Version),
+		Path:  convertInnerOps(p),
 	}, nil
 }
 

@@ -17,7 +17,7 @@ func TestConvertExistence(t *testing.T) {
 	proof, err := GenerateResult(200, Middle)
 	require.NoError(t, err)
 
-	converted, err := convertExistenceProof(proof.Proof, proof.Key, proof.Value)
+	converted, err := convertExistenceProof(proof.Proof.LeftPath, proof.Key, proof.Value)
 	require.NoError(t, err)
 
 	calc, err := converted.Calculate()
