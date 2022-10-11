@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"sort"
 	"testing"
@@ -17,13 +16,13 @@ func TestConvertExistence(t *testing.T) {
 	proof, err := GenerateResult(200, Middle)
 	require.NoError(t, err)
 
-	converted, err := convertExistenceProof(proof.Proof.LeftPath, proof.Key, proof.Value)
+	converted, err := convertExistenceProof(proof.path, proof.node)
 	require.NoError(t, err)
 
 	calc, err := converted.Calculate()
 	require.NoError(t, err)
 
-	require.Equal(t, []byte(calc), proof.RootHash, "Calculated: %X\nExpected:   %X", calc, proof.RootHash)
+	require.Equal(t, []byte(calc), proof.rootHash, "Calculated: %X\nExpected:   %X", calc, proof.rootHash)
 }
 
 func TestGetMembership(t *testing.T) {
@@ -187,10 +186,9 @@ func BenchmarkGetNonMembership(b *testing.B) {
 
 // Result is the result of one match
 type Result struct {
-	Key      []byte
-	Value    []byte
-	Proof    *RangeProof
-	RootHash []byte
+	node     *Node
+	path     PathToLeaf
+	rootHash []byte
 }
 
 // GenerateResult makes a tree of size and returns a range proof for one random element
@@ -207,26 +205,20 @@ func GenerateResult(size int, loc Where) (*Result, error) {
 	}
 	key := GetKey(allkeys, loc)
 
-	value, proof, err := tree.GetWithProof(key)
+	path, node, err := tree.root.DirPathToLeaf(tree.ImmutableTree, key, true)
 	if err != nil {
 		return nil, err
 	}
-	if value == nil {
-		return nil, fmt.Errorf("tree.GetWithProof returned nil value")
-	}
-	if len(proof.Leaves) != 1 {
-		return nil, fmt.Errorf("tree.GetWithProof returned %d leaves", len(proof.Leaves))
-	}
+
 	root, err := tree.Hash()
 	if err != nil {
 		return nil, err
 	}
 
 	res := &Result{
-		Key:      key,
-		Value:    value,
-		Proof:    proof,
-		RootHash: root,
+		node:     node,
+		path:     path,
+		rootHash: root,
 	}
 	return res, nil
 }

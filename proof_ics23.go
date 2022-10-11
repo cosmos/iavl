@@ -12,7 +12,7 @@ GetMembershipProof will produce a CommitmentProof that the given key (and querie
 If the key doesn't exist in the tree, this will return an error.
 */
 func (t *ImmutableTree) GetMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
-	exist, err := createExistenceProof(t, key)
+	exist, err := createExistenceProof(t, key, true)
 	if err != nil {
 		return nil, err
 	}
@@ -29,63 +29,39 @@ GetNonMembershipProof will produce a CommitmentProof that the given key doesn't 
 If the key exists in the tree, this will return an error.
 */
 func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProof, error) {
-	// idx is one node right of what we want....
-	var err error
-	idx, val, err := t.GetWithIndex(key)
-	if err != nil {
-		return nil, err
-	}
+	left, err := createExistenceProof(t, key, true)
 
-	if val != nil {
+	if err == nil {
 		return nil, fmt.Errorf("cannot create NonExistanceProof when Key in State")
-	}
-
-	nonexist := &ics23.NonExistenceProof{
-		Key: key,
-	}
-
-	if idx >= 1 {
-		leftkey, _, err := t.GetByIndex(idx - 1)
-		if err != nil {
-			return nil, err
-		}
-
-		nonexist.Left, err = createExistenceProof(t, leftkey)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// this will be nil if nothing right of the queried key
-	rightkey, _, err := t.GetByIndex(idx)
-	if err != nil {
+	} else if err != ErrKeyNotExist {
 		return nil, err
 	}
 
-	if rightkey != nil {
-		nonexist.Right, err = createExistenceProof(t, rightkey)
-		if err != nil {
-			return nil, err
-		}
+	right, err := createExistenceProof(t, key, false)
+
+	if err == nil {
+		return nil, fmt.Errorf("cannot create NonExistanceProof when Key in State")
+	} else if err != ErrKeyNotExist {
+		return nil, err
 	}
 
-	proof := &ics23.CommitmentProof{
+	return &ics23.CommitmentProof{
 		Proof: &ics23.CommitmentProof_Nonexist{
-			Nonexist: nonexist,
+			Nonexist: &ics23.NonExistenceProof{
+				Key:   key,
+				Left:  left,
+				Right: right,
+			},
 		},
-	}
-	return proof, nil
+	}, nil
 }
 
-func createExistenceProof(tree *ImmutableTree, key []byte) (*ics23.ExistenceProof, error) {
-	proof, node, err := tree.root.PathToLeaf(tree, key)
+func createExistenceProof(tree *ImmutableTree, key []byte, leftMost bool) (*ics23.ExistenceProof, error) {
+	proof, node, err := tree.root.DirPathToLeaf(tree, key, leftMost)
 	if err != nil {
 		return nil, err
 	}
-	if node == nil {
-		return nil, fmt.Errorf("cannot create ExistanceProof when Key not in State")
-	}
-	return convertExistenceProof(proof, key, node.value)
+	return convertExistenceProof(proof, node)
 }
 
 // convertExistenceProof will convert the given proof into a valid
@@ -93,11 +69,11 @@ func createExistenceProof(tree *ImmutableTree, key []byte) (*ics23.ExistenceProo
 //
 // This is the simplest case of the range proof and we will focus on
 // demoing compatibility here
-func convertExistenceProof(p PathToLeaf, key, value []byte) (*ics23.ExistenceProof, error) {
+func convertExistenceProof(p PathToLeaf, node *Node) (*ics23.ExistenceProof, error) {
 	return &ics23.ExistenceProof{
-		Key:   key,
-		Value: value,
-		Leaf:  convertLeafOp(p[0].Version),
+		Key:   node.key,
+		Value: node.value,
+		Leaf:  convertLeafOp(node.version),
 		Path:  convertInnerOps(p),
 	}, nil
 }

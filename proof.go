@@ -28,6 +28,9 @@ var (
 
 	// ErrInvalidRoot is returned when the root passed in does not match the proof's.
 	ErrInvalidRoot = fmt.Errorf("invalid root")
+
+	// ErrKeyNotExist is returned if the key is not in the tree.
+	ErrKeyNotExist = fmt.Errorf("key does not exist")
 )
 
 //----------------------------------------
@@ -219,26 +222,34 @@ func proofLeafNodeFromProto(pbLeaf *iavlproto.ProofLeafNode) (ProofLeafNode, err
 // a path to the least item.
 func (node *Node) PathToLeaf(t *ImmutableTree, key []byte) (PathToLeaf, *Node, error) {
 	path := new(PathToLeaf)
-	val, err := node.pathToLeaf(t, key, path)
+	val, err := node.pathToLeaf(t, key, true, path)
+	return *path, val, err
+}
+
+// DirPathToLeaf returns the path to the next leaf in a given direction.
+func (node *Node) DirPathToLeaf(t *ImmutableTree, key []byte, leftMost bool) (PathToLeaf, *Node, error) {
+	path := new(PathToLeaf)
+	val, err := node.pathToLeaf(t, key, leftMost, path)
 	return *path, val, err
 }
 
 // pathToLeaf is a helper which recursively constructs the PathToLeaf.
 // As an optimization the already constructed path is passed in as an argument
 // and is shared among recursive calls.
-func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*Node, error) {
+func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, leftMost bool, path *PathToLeaf) (*Node, error) {
 	if node.subtreeHeight == 0 {
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
-		return node, errors.New("key does not exist")
+		return node, ErrKeyNotExist
 	}
 
 	// Note that we do not store the left child in the ProofInnerNode when we're going to add the
 	// left node as part of the path, similarly we don't store the right child info when going down
 	// the right child node. This is done as an optimization since the child info is going to be
 	// already stored in the next ProofInnerNode in PathToLeaf.
-	if bytes.Compare(key, node.key) < 0 {
+	result := bytes.Compare(key, node.key)
+	if (leftMost && result < 0) || (!leftMost && result >= 0) {
 		// left side
 		rightNode, err := node.getRightNode(t)
 		if err != nil {
@@ -258,7 +269,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		if err != nil {
 			return nil, err
 		}
-		n, err := leftNode.pathToLeaf(t, key, path)
+		n, err := leftNode.pathToLeaf(t, key, leftMost, path)
 		return n, err
 	}
 	// right side
@@ -281,6 +292,6 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		return nil, err
 	}
 
-	n, err := rightNode.pathToLeaf(t, key, path)
+	n, err := rightNode.pathToLeaf(t, key, leftMost, path)
 	return n, err
 }
