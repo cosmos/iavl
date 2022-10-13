@@ -122,12 +122,12 @@ func BenchmarkGetNonMembership(b *testing.B) {
 		require.NoError(b, err, "Creating Proof: %+v", err)
 
 		b.StopTimer()
+		_, _, err = tree.SaveVersion()
+		require.NoError(b, err)
 		root, err := tree.Hash()
 		require.NoError(b, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
-		if !valid {
-			require.NoError(b, err, "Non Membership Proof Invalid")
-		}
+		require.True(b, valid)
 		b.StartTimer()
 	}
 
