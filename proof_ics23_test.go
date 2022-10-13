@@ -12,19 +12,6 @@ import (
 	db "github.com/cosmos/cosmos-db"
 )
 
-func TestConvertExistence(t *testing.T) {
-	proof, err := GenerateResult(200, Middle)
-	require.NoError(t, err)
-
-	converted, err := convertExistenceProof(proof.path, proof.node)
-	require.NoError(t, err)
-
-	calc, err := converted.Calculate()
-	require.NoError(t, err)
-
-	require.Equal(t, []byte(calc), proof.rootHash, "Calculated: %X\nExpected:   %X", calc, proof.rootHash)
-}
-
 func TestGetMembership(t *testing.T) {
 	cases := map[string]struct {
 		size int
@@ -50,12 +37,12 @@ func TestGetMembership(t *testing.T) {
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
+			_, _, err = tree.SaveVersion()
+			require.NoError(t, err)
 			root, err := tree.Hash()
 			require.NoError(t, err)
 			valid := ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val)
-			if !valid {
-				require.NoError(t, err, "Membership Proof Invalid")
-			}
+			require.True(t, valid, "Membership Proof Invalid")
 		})
 	}
 }
@@ -79,12 +66,12 @@ func TestGetNonMembership(t *testing.T) {
 		proof, err := tree.GetNonMembershipProof(key)
 		require.NoError(t, err, "Creating Proof: %+v", err)
 
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
 		root, err := tree.Hash()
 		require.NoError(t, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
-		if !valid {
-			require.NoError(t, err, "Non Membership Proof Invalid")
-		}
+		require.True(t, valid, "Non Membership Proof Invalid")
 	}
 
 	for name, tc := range cases {
@@ -183,45 +170,6 @@ func BenchmarkGetNonMembership(b *testing.B) {
 }
 
 // Test Helpers
-
-// Result is the result of one match
-type Result struct {
-	node     *Node
-	path     PathToLeaf
-	rootHash []byte
-}
-
-// GenerateResult makes a tree of size and returns a range proof for one random element
-//
-// returns a range proof and the root hash of the tree
-func GenerateResult(size int, loc Where) (*Result, error) {
-	tree, allkeys, err := BuildTree(size, 0)
-	if err != nil {
-		return nil, err
-	}
-	_, _, err = tree.SaveVersion()
-	if err != nil {
-		return nil, err
-	}
-	key := GetKey(allkeys, loc)
-
-	path, node, err := tree.root.DirPathToLeaf(tree.ImmutableTree, key, true)
-	if err != nil {
-		return nil, err
-	}
-
-	root, err := tree.Hash()
-	if err != nil {
-		return nil, err
-	}
-
-	res := &Result{
-		node:     node,
-		path:     path,
-		rootHash: root,
-	}
-	return res, nil
-}
 
 // Where selects a location for a key - Left, Right, or Middle
 type Where int

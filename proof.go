@@ -5,12 +5,10 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	hexbytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/internal/encoding"
-	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 var bufPool = &sync.Pool{
@@ -28,9 +26,6 @@ var (
 
 	// ErrInvalidRoot is returned when the root passed in does not match the proof's.
 	ErrInvalidRoot = fmt.Errorf("invalid root")
-
-	// ErrKeyNotExist is returned if the key is not in the tree.
-	ErrKeyNotExist = fmt.Errorf("key does not exist")
 )
 
 //----------------------------------------
@@ -111,34 +106,6 @@ func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 	return hasher.Sum(nil), nil
 }
 
-// toProto converts the inner node proof to Protobuf, for use in ProofOps.
-func (pin ProofInnerNode) toProto() *iavlproto.ProofInnerNode {
-	return &iavlproto.ProofInnerNode{
-		Height:  int32(pin.Height),
-		Size_:   pin.Size,
-		Version: pin.Version,
-		Left:    pin.Left,
-		Right:   pin.Right,
-	}
-}
-
-// proofInnerNodeFromProto converts a Protobuf ProofInnerNode to a ProofInnerNode.
-func proofInnerNodeFromProto(pbInner *iavlproto.ProofInnerNode) (ProofInnerNode, error) {
-	if pbInner == nil {
-		return ProofInnerNode{}, errors.New("inner node cannot be nil")
-	}
-	if pbInner.Height > math.MaxInt8 || pbInner.Height < math.MinInt8 {
-		return ProofInnerNode{}, fmt.Errorf("height must fit inside an int8, got %v", pbInner.Height)
-	}
-	return ProofInnerNode{
-		Height:  int8(pbInner.Height),
-		Size:    pbInner.Size_,
-		Version: pbInner.Version,
-		Left:    pbInner.Left,
-		Right:   pbInner.Right,
-	}, nil
-}
-
 //----------------------------------------
 
 type ProofLeafNode struct {
@@ -194,27 +161,6 @@ func (pln ProofLeafNode) Hash() ([]byte, error) {
 	return hasher.Sum(nil), nil
 }
 
-// toProto converts the leaf node proof to Protobuf, for use in ProofOps.
-func (pln ProofLeafNode) toProto() *iavlproto.ProofLeafNode {
-	return &iavlproto.ProofLeafNode{
-		Key:       pln.Key,
-		ValueHash: pln.ValueHash,
-		Version:   pln.Version,
-	}
-}
-
-// proofLeafNodeFromProto converts a Protobuf ProofLeadNode to a ProofLeafNode.
-func proofLeafNodeFromProto(pbLeaf *iavlproto.ProofLeafNode) (ProofLeafNode, error) {
-	if pbLeaf == nil {
-		return ProofLeafNode{}, errors.New("leaf node cannot be nil")
-	}
-	return ProofLeafNode{
-		Key:       pbLeaf.Key,
-		ValueHash: pbLeaf.ValueHash,
-		Version:   pbLeaf.Version,
-	}, nil
-}
-
 //----------------------------------------
 
 // If the key does not exist, returns the path to the next leaf left of key (w/
@@ -222,34 +168,26 @@ func proofLeafNodeFromProto(pbLeaf *iavlproto.ProofLeafNode) (ProofLeafNode, err
 // a path to the least item.
 func (node *Node) PathToLeaf(t *ImmutableTree, key []byte) (PathToLeaf, *Node, error) {
 	path := new(PathToLeaf)
-	val, err := node.pathToLeaf(t, key, true, path)
-	return *path, val, err
-}
-
-// DirPathToLeaf returns the path to the next leaf in a given direction.
-func (node *Node) DirPathToLeaf(t *ImmutableTree, key []byte, leftMost bool) (PathToLeaf, *Node, error) {
-	path := new(PathToLeaf)
-	val, err := node.pathToLeaf(t, key, leftMost, path)
+	val, err := node.pathToLeaf(t, key, path)
 	return *path, val, err
 }
 
 // pathToLeaf is a helper which recursively constructs the PathToLeaf.
 // As an optimization the already constructed path is passed in as an argument
 // and is shared among recursive calls.
-func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, leftMost bool, path *PathToLeaf) (*Node, error) {
+func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*Node, error) {
 	if node.subtreeHeight == 0 {
 		if bytes.Equal(node.key, key) {
 			return node, nil
 		}
-		return node, ErrKeyNotExist
+		return node, errors.New("key does not exist")
 	}
 
 	// Note that we do not store the left child in the ProofInnerNode when we're going to add the
 	// left node as part of the path, similarly we don't store the right child info when going down
 	// the right child node. This is done as an optimization since the child info is going to be
 	// already stored in the next ProofInnerNode in PathToLeaf.
-	result := bytes.Compare(key, node.key)
-	if (leftMost && result < 0) || (!leftMost && result >= 0) {
+	if bytes.Compare(key, node.key) < 0 {
 		// left side
 		rightNode, err := node.getRightNode(t)
 		if err != nil {
@@ -269,7 +207,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, leftMost bool, path *
 		if err != nil {
 			return nil, err
 		}
-		n, err := leftNode.pathToLeaf(t, key, leftMost, path)
+		n, err := leftNode.pathToLeaf(t, key, path)
 		return n, err
 	}
 	// right side
@@ -292,6 +230,6 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, leftMost bool, path *
 		return nil, err
 	}
 
-	n, err := rightNode.pathToLeaf(t, key, leftMost, path)
+	n, err := rightNode.pathToLeaf(t, key, path)
 	return n, err
 }
