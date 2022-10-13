@@ -37,9 +37,7 @@ func TestGetMembership(t *testing.T) {
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
-			_, _, err = tree.SaveVersion()
-			require.NoError(t, err)
-			root, err := tree.Hash()
+			root, err := tree.WorkingHash()
 			require.NoError(t, err)
 			valid := ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val)
 			require.True(t, valid, "Membership Proof Invalid")
@@ -66,9 +64,7 @@ func TestGetNonMembership(t *testing.T) {
 		proof, err := tree.GetNonMembershipProof(key)
 		require.NoError(t, err, "Creating Proof: %+v", err)
 
-		_, _, err = tree.SaveVersion()
-		require.NoError(t, err)
-		root, err := tree.Hash()
+		root, err := tree.WorkingHash()
 		require.NoError(t, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		require.True(t, valid, "Non Membership Proof Invalid")
@@ -122,9 +118,7 @@ func BenchmarkGetNonMembership(b *testing.B) {
 		require.NoError(b, err, "Creating Proof: %+v", err)
 
 		b.StopTimer()
-		_, _, err = tree.SaveVersion()
-		require.NoError(b, err)
-		root, err := tree.Hash()
+		root, err := tree.WorkingHash()
 		require.NoError(b, err)
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		require.True(b, valid)
