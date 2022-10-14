@@ -179,16 +179,12 @@ func convertVarIntToBytes(orig int64, buf [binary.MaxVarintLen64]byte) []byte {
 	return buf[:n]
 }
 
-// GetWithProof gets the proof for the given key.
-func (t *ImmutableTree) GetWithProof(key []byte) (*ics23.CommitmentProof, error) {
+// GetProof gets the proof for the given key.
+func (t *ImmutableTree) GetProof(key []byte, isExist bool) (*ics23.CommitmentProof, error) {
 	if t.root == nil {
 		return nil, fmt.Errorf("cannot generate the proof with nil root")
 	}
-	value, err := t.Get(key)
-	if err != nil {
-		return nil, err
-	}
-	if value != nil {
+	if isExist {
 		return t.GetMembershipProof(key)
 	}
 	return t.GetNonMembershipProof(key)
@@ -202,14 +198,14 @@ func (t *ImmutableTree) VerifyProof(proof *ics23.CommitmentProof, key []byte) (b
 	return t.VerifyNonMembership(proof, key)
 }
 
-// GetVersionedWithProof gets the proof for the given key at the specified version.
-func (tree *MutableTree) GetVersionedWithProof(key []byte, version int64) (*ics23.CommitmentProof, error) {
+// GetVersionedProof gets the proof for the given key at the specified version.
+func (tree *MutableTree) GetVersionedProof(key []byte, isExist bool, version int64) (*ics23.CommitmentProof, error) {
 	if tree.VersionExists(version) {
 		t, err := tree.GetImmutable(version)
 		if err != nil {
 			return nil, err
 		}
-		return t.GetWithProof(key)
+		return t.GetProof(key, isExist)
 	}
 	return nil, ErrVersionDoesNotExist
 }

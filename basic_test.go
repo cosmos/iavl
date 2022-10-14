@@ -535,7 +535,7 @@ func TestTreeProof(t *testing.T) {
 	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	// should get false for proof with nil root
-	_, err = tree.GetWithProof([]byte("foo"))
+	_, err = tree.GetProof([]byte("foo"), true)
 	require.Error(t, err)
 
 	// insert lots of info and store the bytes
