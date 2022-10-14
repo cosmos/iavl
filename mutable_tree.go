@@ -194,11 +194,13 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 		return tree.ImmutableTree.Iterate(fn)
 	}
 
-	itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
-	defer itr.Close()
-	for ; itr.Valid(); itr.Next() {
-		if fn(itr.Key(), itr.Value()) {
-			return true, nil
+	if !tree.skipFastStorageUpgrade {
+		itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+		defer itr.Close()
+		for ; itr.Valid(); itr.Next() {
+			if fn(itr.Key(), itr.Value()) {
+				return true, nil
+			}
 		}
 	}
 	return false, nil
@@ -347,7 +349,9 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 		return nil, nil, false, nil
 	}
 
-	tree.addUnsavedRemoval(key)
+	if !tree.skipFastStorageUpgrade {
+		tree.addUnsavedRemoval(key)
+	}
 
 	if newRoot == nil && newRootHash != nil {
 		tree.root, err = tree.ndb.GetNode(newRootHash)
