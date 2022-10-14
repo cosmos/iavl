@@ -194,13 +194,11 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 		return tree.ImmutableTree.Iterate(fn)
 	}
 
-	if !tree.skipFastStorageUpgrade {
-		itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
-		defer itr.Close()
-		for ; itr.Valid(); itr.Next() {
-			if fn(itr.Key(), itr.Value()) {
-				return true, nil
-			}
+	itr := NewUnsavedFastIterator(nil, nil, true, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
+	defer itr.Close()
+	for ; itr.Valid(); itr.Next() {
+		if fn(itr.Key(), itr.Value()) {
+			return true, nil
 		}
 	}
 	return false, nil
