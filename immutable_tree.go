@@ -320,31 +320,3 @@ func (t *ImmutableTree) nodeSize() int {
 	})
 	return size
 }
-
-func (tree *ImmutableTree) GetIAVLNodeCacheHitCnt() uint64 {
-	if tree.ndb.opts.Stat == nil {
-		return 0
-	}
-	return tree.ndb.opts.Stat.GetCacheHitCnt()
-}
-
-func (tree *ImmutableTree) GetIAVLNodeCacheMissCnt() uint64 {
-	if tree.ndb.opts.Stat == nil {
-		return 0
-	}
-	return tree.ndb.opts.Stat.GetCacheMissCnt()
-}
-
-func (tree *ImmutableTree) GetIAVLNodeFastCacheHitCnt() uint64 {
-	if tree.ndb.opts.Stat == nil {
-		return 0
-	}
-	return tree.ndb.opts.Stat.GetFastCacheHitCnt()
-}
-
-func (tree *ImmutableTree) GetIAVLNodeFastCacheMissCnt() uint64 {
-	if tree.ndb.opts.Stat == nil {
-		return 0
-	}
-	return tree.ndb.opts.Stat.GetFastCacheMissCnt()
-}
