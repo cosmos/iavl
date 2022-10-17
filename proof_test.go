@@ -12,7 +12,7 @@ import (
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
-func TestTreeGetWithProof(t *testing.T) {
+func TestTreeGetProof(t *testing.T) {
 	require := require.New(t)
 	tree, err := getTestTree(0)
 	require.NoError(err)
