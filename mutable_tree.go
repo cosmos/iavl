@@ -1236,3 +1236,31 @@ func (tree *MutableTree) addOrphans(orphans []*Node) error {
 	}
 	return nil
 }
+
+func (tree *MutableTree) GetIAVLNodeCacheHitCnt() uint64 {
+	if tree.ndb.opts.Stat == nil {
+		return 0
+	}
+	return tree.ndb.opts.Stat.GetCacheHitCnt()
+}
+
+func (tree *MutableTree) GetIAVLNodeCacheMissCnt() uint64 {
+	if tree.ndb.opts.Stat == nil {
+		return 0
+	}
+	return tree.ndb.opts.Stat.GetCacheMissCnt()
+}
+
+func (tree *MutableTree) GetIAVLNodeFastCacheHitCnt() uint64 {
+	if tree.ndb.opts.Stat == nil {
+		return 0
+	}
+	return tree.ndb.opts.Stat.GetFastCacheHitCnt()
+}
+
+func (tree *MutableTree) GetIAVLNodeFastCacheMissCnt() uint64 {
+	if tree.ndb.opts.Stat == nil {
+		return 0
+	}
+	return tree.ndb.opts.Stat.GetFastCacheMissCnt()
+}
