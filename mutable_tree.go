@@ -346,7 +346,7 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 		return nil, nil, false, nil
 	}
 	orphaned = tree.prepareOrphansSlice()
-	newRootHash, newRoot, _, value, err := tree.recursiveRemove(tree.root, key, &orphaned)
+	newRootHash, _, newRoot, _, value, err := tree.recursiveRemove(tree.root, key, &orphaned)
 	if err != nil {
 		return nil, nil, false, err
 	}
@@ -376,90 +376,96 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
 // - the orphaned nodes.
-func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Node) (newHash []byte, newSelf *Node, newKey []byte, newValue []byte, err error) {
+func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Node) (newHash []byte, newNodeKey int64, newSelf *Node, newKey []byte, newValue []byte, err error) {
 	version := tree.version + 1
 
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			*orphans = append(*orphans, node)
-			return nil, nil, nil, node.value, nil
+			return nil, 0, nil, nil, node.value, nil
 		}
-		return node.hash, node, nil, nil, nil
+		return node.hash, node.nodeKey, node, nil, nil, nil
 	}
 
 	// node.key < key; we go to the left to find the key:
 	if bytes.Compare(key, node.key) < 0 {
 		leftNode, err := node.getLeftNode(tree.ImmutableTree)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
-		newLeftHash, newLeftNode, newKey, value, err := tree.recursiveRemove(leftNode, key, orphans)
+		newLeftHash, newLeftNodeKey, newLeftNode, newKey, value, err := tree.recursiveRemove(leftNode, key, orphans)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 
 		if len(*orphans) == 0 {
-			return node.hash, node, nil, value, nil
+			return node.hash, node.nodeKey, node, nil, value, nil
 		}
 		*orphans = append(*orphans, node)
 		if newLeftHash == nil && newLeftNode == nil { // left node held value, was removed
-			return node.rightHash, node.rightNode, node.key, value, nil
+			return node.rightHash, node.rightNodeKey, node.rightNode, node.key, value, nil
 		}
 
-		newNode, err := node.clone(version)
+		if node.persisted {
+			node.nodeKey = tree.IncreaseNonce()
+		}
+		node, err = node.clone(version)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 
-		newNode.leftHash, newNode.leftNode = newLeftHash, newLeftNode
-		err = newNode.calcHeightAndSize(tree.ImmutableTree)
+		node.leftHash, node.leftNodeKey, node.leftNode = newLeftHash, newLeftNodeKey, newLeftNode
+		err = node.calcHeightAndSize(tree.ImmutableTree)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
-		newNode, err = tree.balance(newNode, orphans)
+		node, err = tree.balance(node, orphans)
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, 0, nil, nil, nil, err
 		}
 
-		return newNode.hash, newNode, newKey, value, nil
+		return node.hash, node.nodeKey, node, newKey, value, nil
 	}
 	// node.key >= key; either found or look to the right:
 	rightNode, err := node.getRightNode(tree.ImmutableTree)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, 0, nil, nil, nil, err
 	}
-	newRightHash, newRightNode, newKey, value, err := tree.recursiveRemove(rightNode, key, orphans)
+	newRightHash, newRightNodeKey, newRightNode, newKey, value, err := tree.recursiveRemove(rightNode, key, orphans)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, 0, nil, nil, nil, err
 	}
 	if len(*orphans) == 0 {
-		return node.hash, node, nil, value, nil
+		return node.hash, node.nodeKey, node, nil, value, nil
 	}
 	*orphans = append(*orphans, node)
 	if newRightHash == nil && newRightNode == nil { // right node held value, was removed
-		return node.leftHash, node.leftNode, nil, value, nil
+		return node.leftHash, node.nodeKey, node.leftNode, nil, value, nil
 	}
 
-	newNode, err := node.clone(version)
+	if node.persisted {
+		node.nodeKey = tree.IncreaseNonce()
+	}
+	node, err = node.clone(version)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, 0, nil, nil, nil, err
 	}
 
-	newNode.rightHash, newNode.rightNode = newRightHash, newRightNode
+	node.rightHash, node.rightNodeKey, node.rightNode = newRightHash, newRightNodeKey, newRightNode
 	if newKey != nil {
-		newNode.key = newKey
+		node.key = newKey
 	}
-	err = newNode.calcHeightAndSize(tree.ImmutableTree)
+	err = node.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, 0, nil, nil, nil, err
 	}
 
-	newNode, err = tree.balance(newNode, orphans)
+	node, err = tree.balance(node, orphans)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, 0, nil, nil, nil, err
 	}
 
-	return newNode.hash, newNode, nil, value, nil
+	return node.hash, node.nodeKey, node, nil, value, nil
 }
 
 // Load the latest versioned tree from disk.

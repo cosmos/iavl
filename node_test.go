@@ -42,7 +42,7 @@ func TestNode_encode_decode(t *testing.T) {
 		expectError bool
 	}{
 		"nil":   {nil, "", true},
-		"empty": {&Node{}, "0000000000", false},
+		"empty": {&Node{}, "000000000000", false},
 		"inner": {&Node{
 			subtreeHeight: 3,
 			version:       2,
@@ -50,14 +50,18 @@ func TestNode_encode_decode(t *testing.T) {
 			key:           []byte("key"),
 			leftHash:      []byte{0x70, 0x80, 0x90, 0xa0},
 			rightHash:     []byte{0x10, 0x20, 0x30, 0x40},
-		}, "060e04036b657904708090a00410203040", false},
+			nodeKey:       1,
+			leftNodeKey:   2,
+			rightNodeKey:  3,
+		}, "060e0402036b657904708090a004041020304006", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			version:       3,
 			size:          1,
 			key:           []byte("key"),
 			value:         []byte("value"),
-		}, "000206036b65790576616c7565", false},
+			nodeKey:       4,
+		}, "00020608036b65790576616c7565", false},
 	}
 	for name, tc := range testcases {
 		tc := tc
