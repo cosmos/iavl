@@ -331,48 +331,48 @@ func (ndb *nodeDB) Has(hash []byte) (bool, error) {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 // TODO refactor, maybe use hashWithCount() but provide a callback.
-func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, error) {
+func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, int64, error) {
 	if node.persisted {
-		return node.hash, nil
+		return node.hash, node.nodeKey, nil
 	}
 
 	var err error
 	if node.leftNode != nil {
-		node.leftHash, err = ndb.SaveBranch(node.leftNode)
+		node.leftHash, node.leftNodeKey, err = ndb.SaveBranch(node.leftNode)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if node.rightNode != nil {
-		node.rightHash, err = ndb.SaveBranch(node.rightNode)
+		node.rightHash, node.rightNodeKey, err = ndb.SaveBranch(node.rightNode)
 	}
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	_, err = node._hash()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	err = ndb.SaveNode(node)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	// resetBatch only working on generate a genesis block
 	if node.version <= genesisVersion {
 		if err = ndb.resetBatch(); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	node.leftNode = nil
 	node.rightNode = nil
 
-	return node.hash, nil
+	return node.hash, node.nodeKey, nil
 }
 
 // resetBatch reset the db batch, keep low memory used

@@ -230,7 +230,7 @@ func (tree *MutableTree) set(key []byte, value []byte) (orphans []*Node, updated
 		if !tree.skipFastStorageUpgrade {
 			tree.addUnsavedAddition(key, fastnode.NewNode(key, value, tree.version+1))
 		}
-		tree.ImmutableTree.root = NewNode(key, value, tree.version+1)
+		tree.ImmutableTree.root = NewNode(key, value, tree.version+1, tree.IncreaseNonce())
 		return nil, updated, nil
 	}
 
@@ -255,9 +255,10 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				key:           node.key,
 				subtreeHeight: 1,
 				size:          2,
-				leftNode:      NewNode(key, value, version),
+				nodeKey:       tree.IncreaseNonce(),
 				rightNode:     node,
 				version:       version,
+				leftNode:      NewNode(key, value, version, tree.IncreaseNonce()),
 			}, false, nil
 		case 1:
 			return &Node{
@@ -265,16 +266,21 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				subtreeHeight: 1,
 				size:          2,
 				leftNode:      node,
-				rightNode:     NewNode(key, value, version),
+				nodeKey:       tree.IncreaseNonce(),
 				version:       version,
+				rightNode:     NewNode(key, value, version, tree.IncreaseNonce()),
 			}, false, nil
 		default:
 			*orphans = append(*orphans, node)
-			return NewNode(key, value, version), true, nil
+			return NewNode(key, value, version, tree.IncreaseNonce()), true, nil
 		}
 	} else {
 		*orphans = append(*orphans, node)
+		if node.persisted {
+			node.nodeKey = tree.IncreaseNonce()
+		}
 		node, err = node.clone(version)
+
 		if err != nil {
 			return nil, false, err
 		}
@@ -289,6 +295,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				return nil, updated, err
 			}
 			node.leftHash = nil // leftHash is yet unknown
+			node.leftNodeKey = 0
 		} else {
 			rightNode, err := node.getRightNode(tree.ImmutableTree)
 			if err != nil {
@@ -299,6 +306,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 				return nil, updated, err
 			}
 			node.rightHash = nil // rightHash is yet unknown
+			node.rightNodeKey = 0
 		}
 
 		if updated {
@@ -308,7 +316,6 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		if err != nil {
 			return nil, false, err
 		}
-
 		newNode, err := tree.balance(node, orphans)
 		if err != nil {
 			return nil, false, err
@@ -874,7 +881,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	} else {
 		logger.Debug("SAVE TREE %v\n", version)
-		if _, err := tree.ndb.SaveBranch(tree.root); err != nil {
+		if _, _, err := tree.ndb.SaveBranch(tree.root); err != nil {
 			return nil, 0, err
 		}
 		if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
@@ -1096,9 +1103,9 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 		return nil, nil, err
 	}
 
-	newNoderHash, newNoderCached := newNode.rightHash, newNode.rightNode
-	newNode.rightHash, newNode.rightNode = node.hash, node
-	node.leftHash, node.leftNode = newNoderHash, newNoderCached
+	node.nodeKey, newNode.nodeKey = newNode.nodeKey, node.nodeKey
+	node.leftHash, node.leftNodeKey, node.leftNode = newNode.rightHash, newNode.rightNodeKey, newNode.rightNode
+	newNode.rightNode = node
 
 	err = node.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {
@@ -1133,9 +1140,9 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node, error) {
 		return nil, nil, err
 	}
 
-	newNodelHash, newNodelCached := newNode.leftHash, newNode.leftNode
-	newNode.leftHash, newNode.leftNode = node.hash, node
-	node.rightHash, node.rightNode = newNodelHash, newNodelCached
+	node.nodeKey, newNode.nodeKey = newNode.nodeKey, node.nodeKey
+	node.rightHash, node.rightNodeKey, node.rightNode = newNode.leftHash, newNode.leftNodeKey, newNode.leftNode
+	newNode.leftNode = node
 
 	err = node.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {
@@ -1189,6 +1196,7 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node, e
 			return nil, err
 		}
 		node.leftHash = nil
+		node.leftNodeKey = 0
 		node.leftNode, leftOrphaned, err = tree.rotateLeft(left)
 		if err != nil {
 			return nil, err
@@ -1228,6 +1236,7 @@ func (tree *MutableTree) balance(node *Node, orphans *[]*Node) (newSelf *Node, e
 			return nil, err
 		}
 		node.rightHash = nil
+		node.rightNodeKey = 0
 		node.rightNode, rightOrphaned, err = tree.rotateRight(right)
 		if err != nil {
 			return nil, err
