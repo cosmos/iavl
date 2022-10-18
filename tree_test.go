@@ -874,7 +874,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 
 	// Same thing with proof. We get an error because a proof couldn't be
 	// constructed.
-	_, err = tree.GetVersionedProof([]byte("key"), true, 404)
+	_, err = tree.GetVersionedProof([]byte("key"), 404)
 	require.Error(err)
 }
 
@@ -1217,14 +1217,14 @@ func TestVersionedTreeProofs(t *testing.T) {
 	iTree, err := tree.GetImmutable(1)
 	require.NoError(err)
 
-	proof, err := tree.GetVersionedProof([]byte("k2"), true, 1)
+	proof, err := tree.GetVersionedProof([]byte("k2"), 1)
 	require.NoError(err)
 	require.EqualValues(proof.GetExist().Value, []byte("v1"))
 	res, err := iTree.VerifyProof(proof, []byte("k2"))
 	require.NoError(err)
 	require.True(res)
 
-	proof, err = tree.GetVersionedProof([]byte("k4"), false, 1)
+	proof, err = tree.GetVersionedProof([]byte("k4"), 1)
 	require.NoError(err)
 	require.EqualValues(proof.GetNonexist().Key, []byte("k4"))
 	res, err = iTree.VerifyProof(proof, []byte("k4"))
@@ -1233,14 +1233,14 @@ func TestVersionedTreeProofs(t *testing.T) {
 
 	iTree, err = tree.GetImmutable(2)
 	require.NoError(err)
-	proof, err = tree.GetVersionedProof([]byte("k2"), true, 2)
+	proof, err = tree.GetVersionedProof([]byte("k2"), 2)
 	require.NoError(err)
 	require.EqualValues(proof.GetExist().Value, []byte("v2"))
 	res, err = iTree.VerifyProof(proof, []byte("k2"))
 	require.NoError(err)
 	require.True(res)
 
-	proof, err = tree.GetVersionedProof([]byte("k1"), true, 2)
+	proof, err = tree.GetVersionedProof([]byte("k1"), 2)
 	require.NoError(err)
 	require.EqualValues(proof.GetExist().Value, []byte("v1"))
 	res, err = iTree.VerifyProof(proof, []byte("k1"))
@@ -1249,7 +1249,7 @@ func TestVersionedTreeProofs(t *testing.T) {
 
 	iTree, err = tree.GetImmutable(3)
 	require.NoError(err)
-	proof, err = tree.GetVersionedProof([]byte("k2"), false, 3)
+	proof, err = tree.GetVersionedProof([]byte("k2"), 3)
 	require.NoError(err)
 	require.EqualValues(proof.GetNonexist().Key, []byte("k2"))
 	res, err = iTree.VerifyProof(proof, []byte("k2"))
@@ -1316,7 +1316,7 @@ func TestVersionedTreeHash(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(err)
 
-	proof, err := tree.GetVersionedProof([]byte("I"), true, 2)
+	proof, err := tree.GetVersionedProof([]byte("I"), 2)
 	require.NoError(err)
 	require.EqualValues([]byte("F"), proof.GetExist().Value)
 	iTree, err := tree.GetImmutable(2)

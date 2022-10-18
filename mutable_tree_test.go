@@ -120,7 +120,7 @@ func TestDelete(t *testing.T) {
 
 	require.NoError(t, tree.DeleteVersion(version))
 
-	proof, err := tree.GetVersionedProof([]byte("k1"), true, version)
+	proof, err := tree.GetVersionedProof([]byte("k1"), version)
 	require.EqualError(t, err, ErrVersionDoesNotExist.Error())
 	require.Nil(t, proof)
 
@@ -129,7 +129,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, err)
 	tree.versions[version] = true
 
-	proof, err = tree.GetVersionedProof([]byte("k1"), true, version)
+	proof, err = tree.GetVersionedProof([]byte("k1"), version)
 	require.Nil(t, err)
 	require.Equal(t, 0, bytes.Compare([]byte("Fred"), proof.GetExist().Value))
 }

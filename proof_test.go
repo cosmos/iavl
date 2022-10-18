@@ -45,7 +45,7 @@ func TestTreeKeyExistsProof(t *testing.T) {
 	require.NoError(t, err)
 
 	// should get error
-	_, err = tree.GetProof([]byte("foo"), true)
+	_, err = tree.GetProof([]byte("foo"))
 	assert.Error(t, err)
 
 	// insert lots of info and store the bytes
