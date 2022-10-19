@@ -5,12 +5,10 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"math"
 	"sync"
 
 	hexbytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/internal/encoding"
-	iavlproto "github.com/cosmos/iavl/proto"
 )
 
 var bufPool = &sync.Pool{
@@ -108,34 +106,6 @@ func (pin ProofInnerNode) Hash(childHash []byte) ([]byte, error) {
 	return hasher.Sum(nil), nil
 }
 
-// toProto converts the inner node proof to Protobuf, for use in ProofOps.
-func (pin ProofInnerNode) toProto() *iavlproto.ProofInnerNode {
-	return &iavlproto.ProofInnerNode{
-		Height:  int32(pin.Height),
-		Size_:   pin.Size,
-		Version: pin.Version,
-		Left:    pin.Left,
-		Right:   pin.Right,
-	}
-}
-
-// proofInnerNodeFromProto converts a Protobuf ProofInnerNode to a ProofInnerNode.
-func proofInnerNodeFromProto(pbInner *iavlproto.ProofInnerNode) (ProofInnerNode, error) {
-	if pbInner == nil {
-		return ProofInnerNode{}, errors.New("inner node cannot be nil")
-	}
-	if pbInner.Height > math.MaxInt8 || pbInner.Height < math.MinInt8 {
-		return ProofInnerNode{}, fmt.Errorf("height must fit inside an int8, got %v", pbInner.Height)
-	}
-	return ProofInnerNode{
-		Height:  int8(pbInner.Height),
-		Size:    pbInner.Size_,
-		Version: pbInner.Version,
-		Left:    pbInner.Left,
-		Right:   pbInner.Right,
-	}, nil
-}
-
 //----------------------------------------
 
 type ProofLeafNode struct {
@@ -189,27 +159,6 @@ func (pln ProofLeafNode) Hash() ([]byte, error) {
 	}
 
 	return hasher.Sum(nil), nil
-}
-
-// toProto converts the leaf node proof to Protobuf, for use in ProofOps.
-func (pln ProofLeafNode) toProto() *iavlproto.ProofLeafNode {
-	return &iavlproto.ProofLeafNode{
-		Key:       pln.Key,
-		ValueHash: pln.ValueHash,
-		Version:   pln.Version,
-	}
-}
-
-// proofLeafNodeFromProto converts a Protobuf ProofLeadNode to a ProofLeafNode.
-func proofLeafNodeFromProto(pbLeaf *iavlproto.ProofLeafNode) (ProofLeafNode, error) {
-	if pbLeaf == nil {
-		return ProofLeafNode{}, errors.New("leaf node cannot be nil")
-	}
-	return ProofLeafNode{
-		Key:       pbLeaf.Key,
-		ValueHash: pbLeaf.ValueHash,
-		Version:   pbLeaf.Version,
-	}, nil
 }
 
 //----------------------------------------
