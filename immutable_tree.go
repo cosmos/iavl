@@ -17,6 +17,7 @@ type ImmutableTree struct {
 	root                   *Node
 	ndb                    *nodeDB
 	version                int64
+	nonce                  int64
 	skipFastStorageUpgrade bool
 }
 
@@ -129,6 +130,12 @@ func (t *ImmutableTree) Size() int64 {
 // Version returns the version of the tree.
 func (t *ImmutableTree) Version() int64 {
 	return t.version
+}
+
+// IncreaseNonce increases the nonce by 1 and returns.
+func (t *ImmutableTree) IncreaseNonce() int64 {
+	t.nonce++
+	return t.nonce
 }
 
 // Height returns the height of the tree.
@@ -316,6 +323,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 		root:    t.root,
 		ndb:     t.ndb,
 		version: t.version,
+		nonce:   t.nonce,
 	}
 }
 

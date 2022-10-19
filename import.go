@@ -92,6 +92,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// We don't modify the stack until we've verified the built node, to avoid leaving the
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
+	node.nodeKey = i.tree.IncreaseNonce()
 	switch {
 	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-2]
@@ -108,9 +109,11 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	}
 	if node.leftNode != nil {
 		node.size += node.leftNode.size
+		node.leftNodeKey = node.leftNode.nodeKey
 	}
 	if node.rightNode != nil {
 		node.size += node.rightNode.size
+		node.rightNodeKey = node.rightNode.nodeKey
 	}
 
 	_, err := node._hash()

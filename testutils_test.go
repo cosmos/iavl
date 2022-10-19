@@ -51,12 +51,12 @@ func N(l, r interface{}) *Node {
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
 	} else {
-		left = NewNode(i2b(l.(int)), nil, 0)
+		left = NewNode(i2b(l.(int)), nil, 0, 0)
 	}
 	if _, ok := r.(*Node); ok {
 		right = r.(*Node)
 	} else {
-		right = NewNode(i2b(r.(int)), nil, 0)
+		right = NewNode(i2b(r.(int)), nil, 0, 0)
 	}
 
 	n := &Node{
