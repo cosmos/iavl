@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- [#586](https://github.com/cosmos/iavl/pull/586) Remove the `RangeProof` and refactor the ics23_proof to use the internal methods.
+
+## 0.19.3 (October 8, 2022)
+
+- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set. 
+## 0.19.2 (October 6, 2022)
+
+- [#547](https://github.com/cosmos/iavl/pull/547) Implement `skipFastStorageUpgrade` in order to skip fast storage upgrade and usage. 
+- [#531](https://github.com/cosmos/iavl/pull/531) Upgrade to fast storage in batches. 
+
 ## 0.19.1 (August 3, 2022)
 
 ### Improvements

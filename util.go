@@ -9,7 +9,7 @@ import (
 // PrintTree prints the whole tree in an indented form.
 func PrintTree(tree *ImmutableTree) {
 	ndb, root := tree.ndb, tree.root
-	printNode(ndb, root, 0)
+	printNode(ndb, root, 0) //nolint:errcheck
 }
 
 func printNode(ndb *nodeDB, node *Node, indent int) error {
@@ -23,13 +23,13 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		return nil
 	}
 	if node.rightNode != nil {
-		printNode(ndb, node.rightNode, indent+1)
+		printNode(ndb, node.rightNode, indent+1) //nolint:errcheck
 	} else if node.rightHash != nil {
 		rightNode, err := ndb.GetNode(node.rightHash)
 		if err != nil {
 			return err
 		}
-		printNode(ndb, rightNode, indent+1)
+		printNode(ndb, rightNode, indent+1) //nolint:errcheck
 	}
 
 	hash, err := node._hash()
@@ -43,13 +43,19 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 	}
 
 	if node.leftNode != nil {
-		printNode(ndb, node.leftNode, indent+1)
+		err := printNode(ndb, node.leftNode, indent+1)
+		if err != nil {
+			return err
+		}
 	} else if node.leftHash != nil {
 		leftNode, err := ndb.GetNode(node.leftHash)
 		if err != nil {
 			return err
 		}
-		printNode(ndb, leftNode, indent+1)
+		err = printNode(ndb, leftNode, indent+1)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -59,34 +65,6 @@ func maxInt8(a, b int8) int8 {
 		return a
 	}
 	return b
-}
-
-func cp(bz []byte) (ret []byte) {
-	ret = make([]byte, len(bz))
-	copy(ret, bz)
-	return ret
-}
-
-// Returns a slice of the same length (big endian)
-// except incremented by one.
-// Appends 0x00 if bz is all 0xFF.
-// CONTRACT: len(bz) > 0
-func cpIncr(bz []byte) (ret []byte) {
-	ret = cp(bz)
-	for i := len(bz) - 1; i >= 0; i-- {
-		if ret[i] < byte(0xFF) {
-			ret[i]++
-			return
-		}
-		ret[i] = byte(0x00)
-		if i == 0 {
-			// here, the original bz is all 0xFF, so we keep the original and append 0x00
-			// instead of returning all 0x00
-			ret = cp(bz)
-			return append(ret, 0x00)
-		}
-	}
-	return []byte{0x00}
 }
 
 // Colors: ------------------------------------------------

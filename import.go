@@ -2,8 +2,8 @@ package iavl
 
 import (
 	"bytes"
-
-	"github.com/pkg/errors"
+	"errors"
+	"fmt"
 
 	db "github.com/cosmos/cosmos-db"
 )
@@ -38,7 +38,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		return nil, errors.New("imported version cannot be negative")
 	}
 	if tree.ndb.latestVersion > 0 {
-		return nil, errors.Errorf("found database at version %d, must be 0", tree.ndb.latestVersion)
+		return nil, fmt.Errorf("found database at version %d, must be 0", tree.ndb.latestVersion)
 	}
 	if !tree.IsEmpty() {
 		return nil, errors.New("tree must be empty")
@@ -73,7 +73,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return errors.New("node cannot be nil")
 	}
 	if exportNode.Version > i.version {
-		return errors.Errorf("node version %v can't be greater than import version %v",
+		return fmt.Errorf("node version %v can't be greater than import version %v",
 			exportNode.Version, i.version)
 	}
 
@@ -179,7 +179,7 @@ func (i *Importer) Commit() error {
 			return err
 		}
 	default:
-		return errors.Errorf("invalid node structure, found stack size %v when committing",
+		return fmt.Errorf("invalid node structure, found stack size %v when committing",
 			len(i.stack))
 	}
 

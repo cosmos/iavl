@@ -1,11 +1,12 @@
 package fastnode
 
 import (
+	"errors"
+	"fmt"
 	"io"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/internal/encoding"
-	"github.com/pkg/errors"
 )
 
 // NOTE: This file favors int64 as opposed to int for size/counts.
@@ -32,13 +33,13 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 func DeserializeNode(key []byte, buf []byte) (*Node, error) {
 	ver, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
-		return nil, errors.Wrap(cause, "decoding fastnode.version")
+		return nil, fmt.Errorf("decoding fastnode.version, %w", cause)
 	}
 	buf = buf[n:]
 
 	val, _, cause := encoding.DecodeBytes(buf)
 	if cause != nil {
-		return nil, errors.Wrap(cause, "decoding fastnode.value")
+		return nil, fmt.Errorf("decoding fastnode.value, %w", cause)
 	}
 
 	fastNode := &Node{
@@ -74,11 +75,11 @@ func (fn *Node) WriteBytes(w io.Writer) error {
 	}
 	cause := encoding.EncodeVarint(w, fn.versionLastUpdatedAt)
 	if cause != nil {
-		return errors.Wrap(cause, "writing version last updated at")
+		return fmt.Errorf("writing version last updated at, %w", cause)
 	}
 	cause = encoding.EncodeBytes(w, fn.value)
 	if cause != nil {
-		return errors.Wrap(cause, "writing value")
+		return fmt.Errorf("writing value, %w", cause)
 	}
 	return nil
 }

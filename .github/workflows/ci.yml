@@ -26,9 +26,5 @@ jobs:
       - name: test & coverage report creation
         run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
-          go test ./... -mod=readonly -timeout 5m
-          GOARCH=386 go test ./... -mod=readonly -timeout 5m
-      - uses: codecov/codecov-action@v3.1.0
-        with:
-          file: ./coverage.txt
-          fail_ci_if_error: true
+          go test ./... -mod=readonly -timeout 8m
+          GOARCH=386 go test ./... -mod=readonly -timeout 8m

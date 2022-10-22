@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -11,7 +12,6 @@ import (
 	"sync"
 
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/pkg/errors"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
@@ -403,7 +403,7 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	defer ndb.mtx.Unlock()
 
 	if ndb.versionReaders[version] > 0 {
-		return errors.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
+		return fmt.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
 	}
 
 	err := ndb.deleteOrphans(version)
@@ -432,12 +432,12 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return err
 	}
 	if root == nil {
-		return errors.Errorf("root for version %v not found", latest)
+		return fmt.Errorf("root for version %v not found", latest)
 	}
 
 	for v, r := range ndb.versionReaders {
 		if v >= version && r != 0 {
-			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
+			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
 
@@ -528,7 +528,7 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		return err
 	}
 	if latest < toVersion {
-		return errors.Errorf("cannot delete latest saved version (%d)", latest)
+		return fmt.Errorf("cannot delete latest saved version (%d)", latest)
 	}
 
 	predecessor, err := ndb.getPreviousVersion(fromVersion)
@@ -538,7 +538,7 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 
 	for v, r := range ndb.versionReaders {
 		if v < toVersion && v > predecessor && r != 0 {
-			return errors.Errorf("unable to delete version %v with %v active readers", v, r)
+			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
 
@@ -696,7 +696,10 @@ func (ndb *nodeDB) deleteOrphans(version int64) error {
 			ndb.nodeCache.Remove(hash)
 		} else {
 			logger.Debug("MOVE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, fromVersion, toVersion, hash)
-			ndb.saveOrphan(hash, fromVersion, predecessor)
+			err := ndb.saveOrphan(hash, fromVersion, predecessor)
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -874,7 +877,7 @@ func (ndb *nodeDB) Commit() error {
 		err = ndb.batch.Write()
 	}
 	if err != nil {
-		return errors.Wrap(err, "failed to write batch")
+		return fmt.Errorf("failed to write batch, %w", err)
 	}
 
 	ndb.batch.Close()

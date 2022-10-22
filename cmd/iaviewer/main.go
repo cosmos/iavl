@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -71,6 +72,12 @@ func OpenDB(dir string) (dbm.DB, error) {
 	default:
 		return nil, fmt.Errorf("database directory must end with .db")
 	}
+
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: doesn't work on windows!
 	cut := strings.LastIndex(dir, "/")
 	if cut == -1 {
@@ -84,7 +91,6 @@ func OpenDB(dir string) (dbm.DB, error) {
 	return db, nil
 }
 
-// nolint: deadcode
 func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
@@ -131,7 +137,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 
 func PrintKeys(tree *iavl.MutableTree) {
 	fmt.Println("Printing all keys with hashed values (to detect diff)")
-	tree.Iterate(func(key []byte, value []byte) bool {
+	tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
 		printKey := parseWeaveKey(key)
 		digest := sha256.Sum256(value)
 		fmt.Printf("  %s\n    %X\n", printKey, digest)
