@@ -24,8 +24,8 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 	}
 	if node.rightNode != nil {
 		printNode(ndb, node.rightNode, indent+1) //nolint:errcheck
-	} else if node.rightHash != nil {
-		rightNode, err := ndb.GetNode(node.rightHash)
+	} else if node.rightNodeKey != 0 {
+		rightNode, err := ndb.GetNode(node.rightNodeKey)
 		if err != nil {
 			return err
 		}
@@ -47,8 +47,8 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		if err != nil {
 			return err
 		}
-	} else if node.leftHash != nil {
-		leftNode, err := ndb.GetNode(node.leftHash)
+	} else if node.leftNodeKey != 0 {
+		leftNode, err := ndb.GetNode(node.leftNodeKey)
 		if err != nil {
 			return err
 		}

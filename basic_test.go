@@ -192,31 +192,31 @@ func TestUnit(t *testing.T) {
 	}
 
 	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
-		origNode := tree.root
+		tree.SaveVersion()
 		updated, err := tree.Set(i2b(i), []byte{})
 		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
-		if updated || P(tree.root) != repr {
+		if updated || P(tree.root, tree.ImmutableTree) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
-				i, P(origNode), repr, P(tree.root), updated)
+				i, P(tree.lastSaved.root, tree.lastSaved), repr, P(tree.root, tree.ImmutableTree), updated)
 		}
 		// ensure hash calculation requirements
 		expectHash(tree.ImmutableTree, hashCount)
-		tree.root = origNode
+		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 
 	expectRemove := func(tree *MutableTree, i int, repr string, hashCount int64) {
-		origNode := tree.root
+		tree.SaveVersion()
 		value, removed, err := tree.Remove(i2b(i))
 		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
-		if len(value) != 0 || !removed || P(tree.root) != repr {
+		if len(value) != 0 || !removed || P(tree.root, tree.ImmutableTree) != repr {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
-				i, P(origNode), repr, P(tree.root), value, removed)
+				i, P(tree.lastSaved.root, tree.lastSaved), repr, P(tree.root, tree.ImmutableTree), value, removed)
 		}
 		// ensure hash calculation requirements
 		expectHash(tree.ImmutableTree, hashCount)
-		tree.root = origNode
+		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 
 	// Test Set cases:

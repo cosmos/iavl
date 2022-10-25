@@ -51,19 +51,22 @@ func N(l, r interface{}) *Node {
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
 	} else {
-		left = NewNode(i2b(l.(int)), nil, 0, 0)
+		left = NewNode(i2b(l.(int)), nil, 0, int64(rand.Intn(100000)))
 	}
 	if _, ok := r.(*Node); ok {
 		right = r.(*Node)
 	} else {
-		right = NewNode(i2b(r.(int)), nil, 0, 0)
+		right = NewNode(i2b(r.(int)), nil, 0, int64(rand.Intn(100000)))
 	}
 
 	n := &Node{
-		key:       right.lmd(nil).key,
-		value:     nil,
-		leftNode:  left,
-		rightNode: right,
+		key:          right.lmd(nil).key,
+		value:        nil,
+		nodeKey:      int64(rand.Intn(100000)),
+		leftNode:     left,
+		leftNodeKey:  left.nodeKey,
+		rightNode:    right,
+		rightNodeKey: right.nodeKey,
 	}
 	n.calcHeightAndSize(nil)
 	return n
@@ -82,11 +85,13 @@ func T(n *Node) (*MutableTree, error) {
 }
 
 // Convenience for simple printing of keys & tree structure
-func P(n *Node) string {
+func P(n *Node, t *ImmutableTree) string {
 	if n.subtreeHeight == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
 	}
-	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
+	leftNode, _ := n.getLeftNode(t)
+	rightNode, _ := n.getRightNode(t)
+	return fmt.Sprintf("(%v %v)", P(leftNode, t), P(rightNode, t))
 }
 
 type traverser struct {
@@ -301,6 +306,9 @@ func assertIterator(t *testing.T, itr db.Iterator, mirror [][]string, ascending 
 	for startIdx != endIdx {
 		nextExpectedPair := mirror[mirrorIdx]
 
+		if !itr.Valid() {
+			t.Log(itr)
+		}
 		require.True(t, itr.Valid())
 		require.Equal(t, []byte(nextExpectedPair[0]), itr.Key())
 		require.Equal(t, []byte(nextExpectedPair[1]), itr.Value())

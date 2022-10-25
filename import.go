@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	db "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/iavl/internal/encoding"
 )
 
 // maxBatchSize is the maximum size of the import batch before flushing it to the database
@@ -137,7 +138,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 
-	if err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy); err != nil {
+	if err = i.batch.Set(i.tree.ndb.nodeKey(node.nodeKey), bytesCopy); err != nil {
 		return err
 	}
 
@@ -154,9 +155,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 
 	// Update the stack now that we know there were no errors
 	switch {
-	case node.leftHash != nil && node.rightHash != nil:
+	case node.leftNode != nil && node.rightNode != nil:
 		i.stack = i.stack[:stackSize-2]
-	case node.leftHash != nil || node.rightHash != nil:
+	case node.leftNode != nil || node.rightNode != nil:
 		i.stack = i.stack[:stackSize-1]
 	}
 	i.stack = append(i.stack, node)
@@ -174,11 +175,20 @@ func (i *Importer) Commit() error {
 
 	switch len(i.stack) {
 	case 0:
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{}); err != nil {
+		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{0, 0}); err != nil {
 			return err
 		}
 	case 1:
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash); err != nil {
+		buf := new(bytes.Buffer)
+		err := encoding.EncodeVarint(buf, i.stack[0].nodeKey)
+		if err != nil {
+			return err
+		}
+		err = encoding.EncodeVarint(buf, i.tree.nonce)
+		if err != nil {
+			return err
+		}
+		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), buf.Bytes()); err != nil {
 			return err
 		}
 	default:

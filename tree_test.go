@@ -1747,7 +1747,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	}
 
 	for _, n := range removedNodes {
-		has, _ := tree.ndb.Has(n.hash)
+		has, _ := tree.ndb.Has(n.nodeKey)
 		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
 	}
 
@@ -1802,7 +1802,7 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	_, err = tree.LoadVersionForOverwriting(1)
 	require.NoError(err)
 	for _, n := range removedNodes {
-		has, err := tree.ndb.Has(n.hash)
+		has, err := tree.ndb.Has(n.nodeKey)
 		require.NoError(err)
 		require.False(has, "LoadVersionForOverwriting should remove useless nodes")
 	}

@@ -29,7 +29,7 @@ type cacheOp struct {
 }
 
 type testcase struct {
-	setup               func(cache.Cache)
+	setup               func(cache.Cache[[]byte])
 	cacheMax            int
 	cacheOps            []cacheOp
 	expectedNodeIndexes []int // contents of the cache once test case completes represent by indexes in testNodes
@@ -43,9 +43,9 @@ const (
 	testKey = "key"
 )
 
-var _ cache.Node = (*testNode)(nil)
+var _ cache.Node[[]byte] = (*testNode)(nil)
 
-var testNodes = []cache.Node{
+var testNodes = []cache.Node[[]byte]{
 	&testNode{
 		key: []byte(fmt.Sprintf("%s%d", testKey, 1)),
 	},
@@ -150,7 +150,7 @@ func Test_Cache_Add(t *testing.T) {
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			cache := cache.New(tc.cacheMax)
+			cache := cache.New[string, []byte](tc.cacheMax)
 
 			expectedCurSize := 0
 
@@ -189,7 +189,7 @@ func Test_Cache_Remove(t *testing.T) {
 			},
 		},
 		"remove non-existent key, cache max 1 - nil returned": {
-			setup: func(c cache.Cache) {
+			setup: func(c cache.Cache[[]byte]) {
 				require.Nil(t, c.Add(testNodes[1]))
 				require.Equal(t, 1, c.Len())
 			},
@@ -203,7 +203,7 @@ func Test_Cache_Remove(t *testing.T) {
 			expectedNodeIndexes: []int{1},
 		},
 		"remove existent key, cache max 1 - removed": {
-			setup: func(c cache.Cache) {
+			setup: func(c cache.Cache[[]byte]) {
 				require.Nil(t, c.Add(testNodes[0]))
 				require.Equal(t, 1, c.Len())
 			},
@@ -216,7 +216,7 @@ func Test_Cache_Remove(t *testing.T) {
 			},
 		},
 		"remove twice, cache max 1 - removed first time, then nil": {
-			setup: func(c cache.Cache) {
+			setup: func(c cache.Cache[[]byte]) {
 				require.Nil(t, c.Add(testNodes[0]))
 				require.Equal(t, 1, c.Len())
 			},
@@ -233,7 +233,7 @@ func Test_Cache_Remove(t *testing.T) {
 			},
 		},
 		"remove all, cache max 3": {
-			setup: func(c cache.Cache) {
+			setup: func(c cache.Cache[[]byte]) {
 				require.Nil(t, c.Add(testNodes[0]))
 				require.Nil(t, c.Add(testNodes[1]))
 				require.Nil(t, c.Add(testNodes[2]))
@@ -259,7 +259,7 @@ func Test_Cache_Remove(t *testing.T) {
 
 	for name, tc := range testcases {
 		t.Run(name, func(t *testing.T) {
-			cache := cache.New(tc.cacheMax)
+			cache := cache.New[string, []byte](tc.cacheMax)
 
 			if tc.setup != nil {
 				tc.setup(cache)
@@ -290,7 +290,7 @@ func Test_Cache_Remove(t *testing.T) {
 	}
 }
 
-func validateCacheContentsAfterTest(t *testing.T, tc testcase, cache cache.Cache) {
+func validateCacheContentsAfterTest(t *testing.T, tc testcase, cache cache.Cache[[]byte]) {
 	require.Equal(t, len(tc.expectedNodeIndexes), cache.Len())
 	for _, idx := range tc.expectedNodeIndexes {
 		expectedNode := testNodes[idx]
