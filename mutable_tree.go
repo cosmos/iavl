@@ -281,13 +281,12 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		if node.persisted {
 			*orphans = append(*orphans, node)
 			node, err = node.clone(version)
+			if err != nil {
+				return nil, false, err
+			}
 			node.nodeKey = tree.IncreaseNonce()
 		}
 		node.hash = nil
-
-		if err != nil {
-			return nil, false, err
-		}
 
 		if bytes.Compare(key, node.key) < 0 {
 			leftNode, err := node.getLeftNode(tree.ImmutableTree)
@@ -416,13 +415,12 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 
 		if node.persisted {
 			node, err = node.clone(version)
+			if err != nil {
+				return nil, 0, nil, nil, nil, err
+			}
 			node.nodeKey = tree.IncreaseNonce()
 		}
 		node.hash = nil
-
-		if err != nil {
-			return nil, 0, nil, nil, nil, err
-		}
 
 		node.leftHash, node.leftNodeKey, node.leftNode = newLeftHash, newLeftNodeKey, newLeftNode
 		err = node.calcHeightAndSize(tree.ImmutableTree)
@@ -457,12 +455,12 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Nod
 
 	if node.persisted {
 		node, err = node.clone(version)
+		if err != nil {
+			return nil, 0, nil, nil, nil, err
+		}
 		node.nodeKey = tree.IncreaseNonce()
 	}
 	node.hash = nil
-	if err != nil {
-		return nil, 0, nil, nil, nil, err
-	}
 
 	node.rightHash, node.rightNodeKey, node.rightNode = newRightHash, newRightNodeKey, newRightNode
 	if newKey != nil {
@@ -1113,10 +1111,10 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, *Node, error) {
 	// TODO: optimize balance & rotate.
 	if node.persisted {
 		node, err = node.clone(version)
+		if err != nil {
+			return nil, nil, err
+		}
 		node.nodeKey = tree.IncreaseNonce()
-	}
-	if err != nil {
-		return nil, nil, err
 	}
 
 	orphaned, err := node.getLeftNode(tree.ImmutableTree)
@@ -1158,10 +1156,10 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, *Node, error) {
 	// TODO: optimize balance & rotate.
 	if node.persisted {
 		node, err = node.clone(version)
+		if err != nil {
+			return nil, nil, err
+		}
 		node.nodeKey = tree.IncreaseNonce()
-	}
-	if err != nil {
-		return nil, nil, err
 	}
 
 	orphaned, err := node.getRightNode(tree.ImmutableTree)

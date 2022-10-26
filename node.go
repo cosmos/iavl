@@ -175,9 +175,6 @@ func (node *Node) clone(version int64) (*Node, error) {
 }
 
 func (node *Node) isLeaf() bool {
-	if node == nil {
-		return false
-	}
 	return node.subtreeHeight == 0
 }
 
