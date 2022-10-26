@@ -728,7 +728,7 @@ func (ndb *nodeDB) deleteOrphans(version int64) error {
 }
 
 func (ndb *nodeDB) nodeKey(nodeKey int64) []byte {
-	return nodeKeyFormat.Key(nodeKey)
+	return nodeKeyFormat.NodeKey(nodeKey)
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
@@ -1091,7 +1091,6 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 		if err != nil {
 			return err
 		}
-		nodeKeyFormat.Scan(key, &node.hash)
 		nodes = append(nodes, node)
 		return nil
 	})

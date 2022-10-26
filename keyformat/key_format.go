@@ -3,6 +3,7 @@ package keyformat
 import (
 	"encoding/binary"
 	"fmt"
+	"strconv"
 )
 
 // Provides a fixed-width lexicographically sortable []byte key format
@@ -103,6 +104,10 @@ func (kf *KeyFormat) Key(args ...interface{}) []byte {
 		segments[i] = format(a)
 	}
 	return kf.KeyBytes(segments...)
+}
+
+func (kf *KeyFormat) NodeKey(nodeKey int64) []byte {
+	return []byte(kf.Prefix() + strconv.FormatInt(nodeKey, 16))
 }
 
 // Reads out the bytes associated with each segment of the key format from key.
