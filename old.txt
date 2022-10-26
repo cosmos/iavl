@@ -1,0 +1,93 @@
+cd benchmarks && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -tags pebbledb -run=NOTEST -bench=Small . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -tags pebbledb -run=NOTEST -bench=Medium . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -run=NOTEST -bench=RandomBytes .
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 1.05 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee-fast-10         	 4254630	       278.7 ns/op	      64 B/op	       3 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee-slow-10         	  994048	      1234 ns/op	     353 B/op	       7 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-fast-10                         	21435747	        55.55 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-slow-10                         	  569137	      2210 ns/op	     538 B/op	      10 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/iteration-fast-10                          	    5400	    215129 ns/op	  197338 B/op	    3933 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/iteration-slow-10                          	     892	   1321741 ns/op	  757600 B/op	   13849 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/update-10                                  	   67554	     19965 ns/op	   11836 B/op	     175 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/block-10                                   	     379	   5331803 ns/op	 2299597 B/op	   34867 allocs/op
+Init Tree took 0.64 MB
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee-fast-10     	 2785492	       423.6 ns/op	     120 B/op	       6 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee-slow-10     	  806004	      1394 ns/op	     510 B/op	      11 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-fast-10                     	21759808	        55.52 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-slow-10                     	  485287	      2367 ns/op	     748 B/op	      16 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-fast-10                      	    3182	    398092 ns/op	  168480 B/op	    4997 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-slow-10                      	     716	   1662411 ns/op	 1033865 B/op	   21760 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/update-10                              	   48868	     28604 ns/op	   20609 B/op	     174 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/block-10                               	     259	   7071594 ns/op	 4217051 B/op	   41130 allocs/op
+Init Tree took 0.59 MB
+BenchmarkSmall/pebbledb-1000-100-4-10/query-no-in-tree-guarantee-fast-10      	 1985797	       601.4 ns/op	      32 B/op	       3 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/query-no-in-tree-guarantee-slow-10      	  771817	      1540 ns/op	     392 B/op	       8 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/query-hits-fast-10                      	21377370	        55.96 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/query-hits-slow-10                      	  458890	      2553 ns/op	     570 B/op	      12 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/iteration-fast-10                       	    5971	    202635 ns/op	  168482 B/op	    4997 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/iteration-slow-10                       	     594	   1972339 ns/op	  796620 B/op	   15826 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/update-10                               	   45457	     26758 ns/op	    8902 B/op	     159 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/block-10                                	     254	   7712233 ns/op	 1675162 B/op	   32154 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	37.085s
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 110.30 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee-fast-10         	 1207822	      1074 ns/op	      88 B/op	       3 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee-slow-10         	  167943	      6655 ns/op	     408 B/op	       7 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-fast-10                         	 3463942	       364.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-slow-10                         	  129064	      8764 ns/op	     582 B/op	      10 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/iteration-fast-10                          	      54	  23646489 ns/op	23197334 B/op	  399937 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/iteration-slow-10                          	       2	 504280666 ns/op	82430804 B/op	 1400058 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/update-10                                  	   13309	     94021 ns/op	   26828 B/op	     334 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/block-10                                   	     100	  10219856 ns/op	 2809047 B/op	   38615 allocs/op
+Init Tree took 62.19 MB
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-fast-10     	  673094	      1814 ns/op	     790 B/op	      15 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-slow-10     	  132567	      8171 ns/op	    1387 B/op	      23 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-fast-10                     	 3868173	       330.1 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-slow-10                     	  102346	     11356 ns/op	    1982 B/op	      33 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-fast-10                      	      36	  28681700 ns/op	29327029 B/op	  522984 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-slow-10                      	       2	1004739146 ns/op	271134068 B/op	 4506069 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/update-10                              	   10000	    111728 ns/op	   43508 B/op	     410 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/block-10                               	     100	  14101207 ns/op	 4968622 B/op	   49635 allocs/op
+Init Tree took 63.61 MB
+BenchmarkMedium/pebbledb-100000-100-16-40/query-no-in-tree-guarantee-fast-10      	  379069	      2989 ns/op	      56 B/op	       3 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-no-in-tree-guarantee-slow-10      	  145378	      7785 ns/op	     459 B/op	       8 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-hits-fast-10                      	 4616788	       265.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-hits-slow-10                      	  100681	     11855 ns/op	     655 B/op	      12 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/iteration-fast-10                       	      43	  31809304 ns/op	25601554 B/op	  500002 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/iteration-slow-10                       	       2	1083850771 ns/op	92053940 B/op	 1600125 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/update-10                               	   10000	    136568 ns/op	   19183 B/op	     295 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/block-10                                	     100	  17514140 ns/op	 2037116 B/op	   31424 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	47.420s
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkRandomBytes/random-4-10         	62232829	        19.41 ns/op
+BenchmarkRandomBytes/random-16-10        	37822077	        31.14 ns/op
+BenchmarkRandomBytes/random-32-10        	25932068	        46.33 ns/op
+BenchmarkRandomBytes/random-100-10       	10837314	       111.0 ns/op
+BenchmarkRandomBytes/random-1000-10      	 1309744	       917.7 ns/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	8.139s

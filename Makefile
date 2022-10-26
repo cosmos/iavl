@@ -55,8 +55,8 @@ lint-fix:
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
 	cd benchmarks && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Small . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Medium . && \
+		go test $(LDFLAGS) -tags pebbledb -run=NOTEST -bench=Small . && \
+		go test $(LDFLAGS) -tags pebbledb -run=NOTEST -bench=Medium . && \
 		go test $(LDFLAGS) -run=NOTEST -bench=RandomBytes .
 .PHONY: bench
 
@@ -64,9 +64,9 @@ bench:
 fullbench:
 	cd benchmarks && \
 		go test $(LDFLAGS) -run=NOTEST -bench=RandomBytes . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Small . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -bench=Medium . && \
-		go test $(LDFLAGS) -tags cleveldb,rocksdb,pebbledb -run=NOTEST -timeout=30m -bench=Large . && \
+		go test $(LDFLAGS) -tags pebbledb -run=NOTEST -bench=Small . && \
+		go test $(LDFLAGS) -tags pebbledb -run=NOTEST -bench=Medium . && \
+		go test $(LDFLAGS) -tags pebbledb -run=NOTEST -timeout=30m -bench=Large . && \
 		go test $(LDFLAGS) -run=NOTEST -bench=Mem . && \
 		go test $(LDFLAGS) -run=NOTEST -timeout=60m -bench=LevelDB .
 .PHONY: fullbench

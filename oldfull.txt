@@ -1,0 +1,263 @@
+cd benchmarks && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -run=NOTEST -bench=RandomBytes . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -tags pebbledb -run=NOTEST -bench=Small . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -tags pebbledb -run=NOTEST -bench=Medium . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -tags pebbledb -run=NOTEST -timeout=30m -bench=Large . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -run=NOTEST -bench=Mem . && \
+		go test -ldflags "-X github.com/cosmos/iavl.Version=0.19.1-38-g48d631a -X github.com/cosmos/iavl.Commit=48d631ac4c72ca185dcb210f2d9acbd150a2fe83 -X github.com/cosmos/iavl.Branch=master" -run=NOTEST -timeout=60m -bench=LevelDB .
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkRandomBytes/random-4-10         	61883521	        19.17 ns/op
+BenchmarkRandomBytes/random-16-10        	37864794	        31.02 ns/op
+BenchmarkRandomBytes/random-32-10        	25594608	        46.81 ns/op
+BenchmarkRandomBytes/random-100-10       	10654208	       113.3 ns/op
+BenchmarkRandomBytes/random-1000-10      	 1319468	       911.4 ns/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	8.152s
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 1.06 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee-fast-10         	 4325745	       272.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-no-in-tree-guarantee-slow-10         	 1000000	      1205 ns/op	     353 B/op	       7 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-fast-10                         	21933782	        54.88 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/query-hits-slow-10                         	  561072	      2168 ns/op	     539 B/op	      10 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/iteration-fast-10                          	    5456	    211028 ns/op	  197343 B/op	    3933 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/iteration-slow-10                          	     907	   1326914 ns/op	  757600 B/op	   13849 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/update-10                                  	   66213	     20400 ns/op	   11829 B/op	     175 allocs/op
+BenchmarkSmall/memdb-1000-100-4-10/block-10                                   	     399	   5873197 ns/op	 2325099 B/op	   35174 allocs/op
+Init Tree took 0.64 MB
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee-fast-10     	 2772379	       450.7 ns/op	     120 B/op	       6 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-no-in-tree-guarantee-slow-10     	  925568	      1385 ns/op	     505 B/op	      11 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-fast-10                     	21796038	        55.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/query-hits-slow-10                     	  502767	      2380 ns/op	     747 B/op	      16 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-fast-10                      	    3078	    407296 ns/op	  168480 B/op	    4997 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/iteration-slow-10                      	     700	   1664701 ns/op	 1033035 B/op	   21740 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/update-10                              	   44522	     31564 ns/op	   20698 B/op	     173 allocs/op
+BenchmarkSmall/goleveldb-1000-100-4-10/block-10                               	     249	   7203328 ns/op	 4156070 B/op	   40594 allocs/op
+Init Tree took 0.59 MB
+BenchmarkSmall/pebbledb-1000-100-4-10/query-no-in-tree-guarantee-fast-10      	 1960567	       608.1 ns/op	      32 B/op	       3 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/query-no-in-tree-guarantee-slow-10      	  738168	      1572 ns/op	     388 B/op	       8 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/query-hits-fast-10                      	21246112	        57.07 ns/op	       0 B/op	       0 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/query-hits-slow-10                      	  455102	      2610 ns/op	     569 B/op	      12 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/iteration-fast-10                       	    6115	    205566 ns/op	  168482 B/op	    4997 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/iteration-slow-10                       	     568	   2066962 ns/op	  797416 B/op	   15842 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/update-10                               	   49866	     26711 ns/op	    8940 B/op	     161 allocs/op
+BenchmarkSmall/pebbledb-1000-100-4-10/block-10                                	     247	   7924039 ns/op	 1662002 B/op	   31993 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	37.717s
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 110.30 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee-fast-10         	  869042	      1164 ns/op	      88 B/op	       3 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-no-in-tree-guarantee-slow-10         	  183187	      6341 ns/op	     407 B/op	       7 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-fast-10                         	 3633231	       321.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/query-hits-slow-10                         	  137732	      8798 ns/op	     582 B/op	      10 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/iteration-fast-10                          	      55	  22465099 ns/op	23197133 B/op	  399935 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/iteration-slow-10                          	       3	 500819000 ns/op	82391776 B/op	 1399843 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/update-10                                  	   13470	     95709 ns/op	   26891 B/op	     333 allocs/op
+BenchmarkMedium/memdb-100000-100-16-40/block-10                                   	     128	  10772909 ns/op	 2841601 B/op	   40337 allocs/op
+Init Tree took 62.46 MB
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-fast-10     	  735937	      1649 ns/op	     790 B/op	      15 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-slow-10     	  144325	      8988 ns/op	    1383 B/op	      23 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-fast-10                     	 3598688	       380.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/query-hits-slow-10                     	  101817	     12058 ns/op	    1972 B/op	      33 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-fast-10                      	      37	  29636622 ns/op	29327014 B/op	  522983 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/iteration-slow-10                      	       2	 924703396 ns/op	270053284 B/op	 4506669 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/update-10                              	   10000	    111525 ns/op	   43187 B/op	     410 allocs/op
+BenchmarkMedium/goleveldb-100000-100-16-40/block-10                               	     100	  13575677 ns/op	 5027121 B/op	   49995 allocs/op
+Init Tree took 63.57 MB
+BenchmarkMedium/pebbledb-100000-100-16-40/query-no-in-tree-guarantee-fast-10      	  522781	      2630 ns/op	      56 B/op	       3 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-no-in-tree-guarantee-slow-10      	  154956	      7889 ns/op	     451 B/op	       8 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-hits-fast-10                      	 3568638	       289.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/query-hits-slow-10                      	  106981	     11307 ns/op	     657 B/op	      12 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/iteration-fast-10                       	      43	  29485441 ns/op	25600941 B/op	  500000 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/iteration-slow-10                       	       2	 842475020 ns/op	92050868 B/op	 1600114 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/update-10                               	   10000	    115414 ns/op	   18765 B/op	     294 allocs/op
+BenchmarkMedium/pebbledb-100000-100-16-40/block-10                                	     100	  15014350 ns/op	 2027105 B/op	   31376 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	48.873s
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 953.77 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkLarge/memdb-1000000-100-16-40/query-no-in-tree-guarantee-fast-10         	  501888	      2062 ns/op	      88 B/op	       3 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/query-no-in-tree-guarantee-slow-10         	  106647	     10462 ns/op	     555 B/op	      10 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/query-hits-fast-10                         	  462570	      2647 ns/op	     210 B/op	       4 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/query-hits-slow-10                         	   95832	     11755 ns/op	     614 B/op	      11 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/iteration-fast-10                          	       5	 272221208 ns/op	232003545 B/op	 3999990 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/iteration-slow-10                          	       1	6815592792 ns/op	699041128 B/op	11784324 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/update-10                                  	    9420	    160775 ns/op	   33257 B/op	     419 allocs/op
+BenchmarkLarge/memdb-1000000-100-16-40/block-10                                   	      57	  20268914 ns/op	 3555211 B/op	   45004 allocs/op
+Init Tree took 391.79 MB
+BenchmarkLarge/goleveldb-1000000-100-16-40/query-no-in-tree-guarantee-fast-10     	  252739	      4533 ns/op	     993 B/op	      19 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/query-no-in-tree-guarantee-slow-10     	   65318	     16460 ns/op	    3257 B/op	      44 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/query-hits-fast-10                     	  236800	      4536 ns/op	    1045 B/op	      19 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/query-hits-slow-10                     	   67604	     16570 ns/op	    3192 B/op	      42 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/iteration-fast-10                      	       3	 395125180 ns/op	297375872 B/op	 5311982 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/iteration-slow-10                      	       1	9026810333 ns/op	2667202640 B/op	35337631 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/update-10                              	   10000	    197699 ns/op	   77745 B/op	     649 allocs/op
+BenchmarkLarge/goleveldb-1000000-100-16-40/block-10                               	      48	  26131244 ns/op	11190156 B/op	   90273 allocs/op
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 37.93 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-no-in-tree-guarantee-fast-10         	  676100	      1630 ns/op	     936 B/op	      15 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-no-in-tree-guarantee-slow-10         	  191454	      6328 ns/op	    1448 B/op	      23 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-hits-fast-10                         	 8599332	       139.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-hits-slow-10                         	  128534	      9096 ns/op	    2048 B/op	      32 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/iteration-fast-10                          	      57	  18680928 ns/op	25094827 B/op	  274171 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/iteration-slow-10                          	       3	 378179583 ns/op	141003725 B/op	 2185593 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/update-10                                  	   12751	    110920 ns/op	   41673 B/op	     406 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/block-10                                   	      96	  13115685 ns/op	 4921822 B/op	   52330 allocs/op
+Init Tree took 81.17 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-no-in-tree-guarantee-fast-10        	  289849	      4076 ns/op	    2066 B/op	      19 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-no-in-tree-guarantee-slow-10        	  159139	      7520 ns/op	    2479 B/op	      25 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-hits-fast-10                        	 8146484	       181.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-hits-slow-10                        	  115784	     11008 ns/op	    3532 B/op	      35 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/iteration-fast-10                         	      18	  73044968 ns/op	125756960 B/op	  437913 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/iteration-slow-10                         	       3	 498060527 ns/op	245868536 B/op	 2369819 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/update-10                                 	   10000	    141077 ns/op	   63367 B/op	     497 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/block-10                                  	      61	  22741074 ns/op	10018026 B/op	   76495 allocs/op
+Init Tree took 536.19 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-no-in-tree-guarantee-fast-10       	   94171	     12165 ns/op	   14594 B/op	      25 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-no-in-tree-guarantee-slow-10       	   61764	     16323 ns/op	   13045 B/op	      29 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-hits-fast-10                       	 7306761	       157.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-hits-slow-10                       	   51020	     23266 ns/op	   18585 B/op	      42 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/iteration-fast-10                        	       3	 347536847 ns/op	1064748312 B/op	  708362 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/iteration-slow-10                        	       1	1034055750 ns/op	1191422512 B/op	 2409254 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/update-10                                	   10000	   1501367 ns/op	  231950 B/op	     640 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/block-10                                 	       1	1726603583 ns/op	59963200 B/op	  164008 allocs/op
+Init Tree took 5361.46 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-no-in-tree-guarantee-fast-10      	    2220	    461975 ns/op	  323087 B/op	      50 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-no-in-tree-guarantee-slow-10      	    1128	    920743 ns/op	  824570 B/op	     206 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-hits-fast-10                      	 8863005	       119.6 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-hits-slow-10                      	    1389	    822983 ns/op	  791529 B/op	     194 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/iteration-fast-10                       	       1	16074722584 ns/op	16157764512 B/op	 1018527 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/iteration-slow-10                       	       1	18000164084 ns/op	27729827640 B/op	 5630281 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/update-10                               	     675	   4805438 ns/op	 3819776 B/op	     732 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/block-10                                	       1	1873226750 ns/op	733453592 B/op	   99140 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	799.721s
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	0.308s
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 62.47 MB
+goos: darwin
+goarch: arm64
+pkg: github.com/cosmos/iavl/benchmarks
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/query-no-in-tree-guarantee-fast-10         	  667400	      1681 ns/op	     790 B/op	      15 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/query-no-in-tree-guarantee-slow-10         	  134926	      7994 ns/op	    1378 B/op	      23 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/query-hits-fast-10                         	 4287702	       283.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/query-hits-slow-10                         	  104665	     11547 ns/op	    1974 B/op	      33 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/iteration-fast-10                          	      38	  31840510 ns/op	29327026 B/op	  522984 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/iteration-slow-10                          	       2	 931389208 ns/op	269726020 B/op	 4505220 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/update-10                                  	   10000	    224944 ns/op	   65283 B/op	     643 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-5-16-40/block-10                                   	     999	   1303220 ns/op	  335556 B/op	    3487 allocs/op
+Init Tree took 62.34 MB
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/query-no-in-tree-guarantee-fast-10        	  688882	      1695 ns/op	     790 B/op	      15 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/query-no-in-tree-guarantee-slow-10        	  145447	      8021 ns/op	    1376 B/op	      23 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/query-hits-fast-10                        	 4241625	       289.8 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/query-hits-slow-10                        	  110031	     11336 ns/op	    1982 B/op	      33 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/iteration-fast-10                         	      39	  31765362 ns/op	29327039 B/op	  522985 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/iteration-slow-10                         	       2	 880855396 ns/op	271226828 B/op	 4506398 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/update-10                                 	   10000	    146305 ns/op	   53342 B/op	     496 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-25-16-40/block-10                                  	     225	   4637385 ns/op	 1401339 B/op	   14675 allocs/op
+Init Tree took 62.27 MB
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-fast-10       	  637812	      1820 ns/op	     790 B/op	      15 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/query-no-in-tree-guarantee-slow-10       	  144030	      8216 ns/op	    1378 B/op	      23 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/query-hits-fast-10                       	 4307055	       266.0 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/query-hits-slow-10                       	  110874	     11575 ns/op	    1979 B/op	      33 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/iteration-fast-10                        	      39	  29997766 ns/op	29327028 B/op	  522984 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/iteration-slow-10                        	       2	 857937604 ns/op	270301508 B/op	 4504511 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/update-10                                	   10000	    104631 ns/op	   43040 B/op	     409 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-100-16-40/block-10                                 	     100	  14553221 ns/op	 5072128 B/op	   50233 allocs/op
+Init Tree took 62.41 MB
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/query-no-in-tree-guarantee-fast-10       	  720631	      1584 ns/op	     789 B/op	      15 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/query-no-in-tree-guarantee-slow-10       	  151588	      7474 ns/op	    1395 B/op	      23 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/query-hits-fast-10                       	 4274240	       247.4 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/query-hits-slow-10                       	  108849	     10234 ns/op	    1992 B/op	      33 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/iteration-fast-10                        	      38	  27723103 ns/op	29327027 B/op	  522984 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/iteration-slow-10                        	       2	 819935480 ns/op	272090372 B/op	 4506768 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/update-10                                	   18070	    110283 ns/op	   49920 B/op	     482 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-400-16-40/block-10                                 	      25	  54311845 ns/op	22170531 B/op	  223468 allocs/op
+Init Tree took 62.51 MB
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/query-no-in-tree-guarantee-fast-10      	  730251	      1521 ns/op	     790 B/op	      15 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/query-no-in-tree-guarantee-slow-10      	  161299	      7269 ns/op	    1382 B/op	      23 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/query-hits-fast-10                      	 4975908	       250.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/query-hits-slow-10                      	  108516	     10345 ns/op	    1979 B/op	      33 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/iteration-fast-10                       	      38	  28177346 ns/op	29327026 B/op	  522984 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/iteration-slow-10                       	       2	 866217771 ns/op	270522444 B/op	 4506001 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/update-10                               	   25652	     69671 ns/op	   36441 B/op	     329 allocs/op
+BenchmarkLevelDBBatchSizes/goleveldb-100000-2000-16-40/block-10                                	       5	 282998867 ns/op	132003430 B/op	 1213315 allocs/op
+iavl: 0.19.1-38-g48d631a
+git commit: 48d631ac4c72ca185dcb210f2d9acbd150a2fe83
+git branch: master
+go version go1.19.2 darwin/arm64
+
+Init Tree took 38.04 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-no-in-tree-guarantee-fast-10        	  646033	      1710 ns/op	     936 B/op	      15 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-no-in-tree-guarantee-slow-10        	  180403	      6777 ns/op	    1464 B/op	      23 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-hits-fast-10                        	 6061276	       181.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/query-hits-slow-10                        	  126224	      9400 ns/op	    2060 B/op	      32 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/iteration-fast-10                         	      57	  18730276 ns/op	25094825 B/op	  274171 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/iteration-slow-10                         	       3	 376882611 ns/op	140982754 B/op	 2185411 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/update-10                                 	   12730	    112408 ns/op	   41693 B/op	     405 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100/block-10                                  	     100	  13521372 ns/op	 4940056 B/op	   52646 allocs/op
+Init Tree took 81.20 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-no-in-tree-guarantee-fast-10       	  261908	      4023 ns/op	    2065 B/op	      19 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-no-in-tree-guarantee-slow-10       	  152906	      7700 ns/op	    2477 B/op	      24 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-hits-fast-10                       	 8211598	       148.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/query-hits-slow-10                       	  109630	     10692 ns/op	    3535 B/op	      35 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/iteration-fast-10                        	      19	  70225862 ns/op	125667160 B/op	  437915 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/iteration-slow-10                        	       3	 479833347 ns/op	245874840 B/op	 2369756 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/update-10                                	   10000	    140670 ns/op	   63335 B/op	     500 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-1000/block-10                                 	      56	  23186231 ns/op	 9603450 B/op	   75416 allocs/op
+Init Tree took 536.10 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-no-in-tree-guarantee-fast-10      	   91722	     12648 ns/op	   14857 B/op	      25 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-no-in-tree-guarantee-slow-10      	   60754	     17079 ns/op	   13607 B/op	      30 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-hits-fast-10                      	 6213138	       193.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/query-hits-slow-10                      	   49610	     22861 ns/op	   18598 B/op	      42 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/iteration-fast-10                       	       4	 328357917 ns/op	1060909550 B/op	  708118 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/iteration-slow-10                       	       1	1020130042 ns/op	1194436424 B/op	 2411608 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/update-10                               	   10000	   1445060 ns/op	  226301 B/op	     627 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-10000/block-10                                	      49	 201821255 ns/op	34636638 B/op	   88829 allocs/op
+Init Tree took 5354.05 MB
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-no-in-tree-guarantee-fast-10     	    2200	    513671 ns/op	  327851 B/op	      50 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-no-in-tree-guarantee-slow-10     	     621	   1617012 ns/op	 1127092 B/op	     287 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-hits-fast-10                     	 7405597	       191.7 ns/op	       0 B/op	       0 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/query-hits-slow-10                     	    1111	   1134171 ns/op	  937626 B/op	     233 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/iteration-fast-10                      	       1	16518355167 ns/op	16137895544 B/op	 1014017 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/iteration-slow-10                      	       1	19549626333 ns/op	26704454808 B/op	 5543137 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/update-10                              	     806	   6253561 ns/op	 4362432 B/op	     815 allocs/op
+BenchmarkLevelDBLargeData/goleveldb-50000-100-32-100000/block-10                               	       1	1768818500 ns/op	663384568 B/op	   99087 allocs/op
+PASS
+ok  	github.com/cosmos/iavl/benchmarks	799.230s
