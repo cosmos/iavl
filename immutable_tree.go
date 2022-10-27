@@ -313,9 +313,10 @@ func (t *ImmutableTree) isLatestTreeVersion() (bool, error) {
 // Used internally by MutableTree.
 func (t *ImmutableTree) clone() *ImmutableTree {
 	return &ImmutableTree{
-		root:    t.root,
-		ndb:     t.ndb,
-		version: t.version,
+		root:                   t.root,
+		ndb:                    t.ndb,
+		version:                t.version,
+		skipFastStorageUpgrade: t.skipFastStorageUpgrade,
 	}
 }
 
