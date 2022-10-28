@@ -306,9 +306,6 @@ func assertIterator(t *testing.T, itr db.Iterator, mirror [][]string, ascending 
 	for startIdx != endIdx {
 		nextExpectedPair := mirror[mirrorIdx]
 
-		if !itr.Valid() {
-			t.Log(itr)
-		}
 		require.True(t, itr.Valid())
 		require.Equal(t, []byte(nextExpectedPair[0]), itr.Key())
 		require.Equal(t, []byte(nextExpectedPair[1]), itr.Value())
