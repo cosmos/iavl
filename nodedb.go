@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -133,7 +134,7 @@ func (ndb *nodeDB) GetNode(nodeKey int64) (*Node, error) {
 		return nil, fmt.Errorf("Value missing for key %d corresponding to nodeKey %x", nodeKey, ndb.nodeKey(nodeKey))
 	}
 
-	node, err := MakeNode(buf)
+	node, err := MakeNode(nodeKey, buf)
 	if err != nil {
 		return nil, fmt.Errorf("error reading Node. bytes: %x, error: %v", buf, err)
 	}
@@ -143,7 +144,6 @@ func (ndb *nodeDB) GetNode(nodeKey int64) (*Node, error) {
 		return nil, fmt.Errorf("error getting hash. error: %v", err)
 	}
 
-	node.nodeKey = nodeKey
 	node.persisted = true
 	ndb.nodeCache.Add(node)
 
@@ -657,7 +657,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[int64]int64) error {
 		if err != nil {
 			return err
 		}
-		logger.Debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, buf.Bytes())
+		logger.Debug("SAVEORPHAN %v-%v %d\n", fromVersion, toVersion, nodeKey)
 		err = ndb.saveOrphan(buf.Bytes(), fromVersion, toVersion)
 		if err != nil {
 			return err
@@ -728,7 +728,7 @@ func (ndb *nodeDB) deleteOrphans(version int64) error {
 }
 
 func (ndb *nodeDB) nodeKey(nodeKey int64) []byte {
-	return nodeKeyFormat.Key(nodeKey)
+	return nodeKeyFormat.NodeKey(nodeKey)
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
@@ -929,7 +929,8 @@ func (ndb *nodeDB) getRoot(version int64) (int64, int64, error) {
 func (ndb *nodeDB) getRoots() (roots map[int64]struct {
 	rootKey int64
 	nonce   int64
-}, err error) {
+}, err error,
+) {
 	roots = make(map[int64]struct {
 		rootKey int64
 		nonce   int64
@@ -1087,11 +1088,11 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	nodes := []*Node{}
 
 	err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
-		node, err := MakeNode(value)
+		nodeKey := int64(binary.BigEndian.Uint64(key[1:]))
+		node, err := MakeNode(nodeKey, value)
 		if err != nil {
 			return err
 		}
-		nodeKeyFormat.Scan(key, &node.hash)
 		nodes = append(nodes, node)
 		return nil
 	})

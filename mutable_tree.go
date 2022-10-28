@@ -247,33 +247,36 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 		if !tree.skipFastStorageUpgrade {
 			tree.addUnsavedAddition(key, fastnode.NewNode(key, value, version))
 		}
-
+		nonce := node.nodeKey
+		if node.persisted {
+			nonce = tree.IncreaseNonce()
+		} else {
+			node.nodeKey = tree.IncreaseNonce()
+		}
 		switch bytes.Compare(key, node.key) {
 		case -1:
 			return &Node{
 				key:           node.key,
 				subtreeHeight: 1,
 				size:          2,
-				nodeKey:       tree.IncreaseNonce(),
+				nodeKey:       nonce,
+				leftNode:      NewNode(key, value, version, tree.IncreaseNonce()),
 				rightNode:     node,
 				version:       version,
-				leftNode:      NewNode(key, value, version, tree.IncreaseNonce()),
 			}, false, nil
 		case 1:
 			return &Node{
 				key:           key,
 				subtreeHeight: 1,
 				size:          2,
+				nodeKey:       nonce,
 				leftNode:      node,
-				nodeKey:       tree.IncreaseNonce(),
-				version:       version,
 				rightNode:     NewNode(key, value, version, tree.IncreaseNonce()),
+				version:       version,
 			}, false, nil
 		default:
-			nonce := node.nodeKey
 			if node.persisted {
 				*orphans = append(*orphans, node)
-				nonce = tree.IncreaseNonce()
 			}
 			return NewNode(key, value, version, nonce), true, nil
 		}

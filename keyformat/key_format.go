@@ -105,6 +105,13 @@ func (kf *KeyFormat) Key(args ...interface{}) []byte {
 	return kf.KeyBytes(segments...)
 }
 
+func (kf *KeyFormat) NodeKey(nodeKey int64) []byte {
+	b := make([]byte, 9)
+	b[0] = kf.prefix
+	binary.BigEndian.PutUint64(b[1:], uint64(nodeKey))
+	return b
+}
+
 // Reads out the bytes associated with each segment of the key format from key.
 func (kf *KeyFormat) ScanBytes(key []byte) [][]byte {
 	segments := make([][]byte, len(kf.layout))
