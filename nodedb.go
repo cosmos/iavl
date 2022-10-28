@@ -929,7 +929,8 @@ func (ndb *nodeDB) getRoot(version int64) (int64, int64, error) {
 func (ndb *nodeDB) getRoots() (roots map[int64]struct {
 	rootKey int64
 	nonce   int64
-}, err error) {
+}, err error,
+) {
 	roots = make(map[int64]struct {
 		rootKey int64
 		nonce   int64
