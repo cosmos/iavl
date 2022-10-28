@@ -1,11 +1,8 @@
 package keyformat
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
-
-	"github.com/cosmos/iavl/internal/encoding"
 )
 
 // Provides a fixed-width lexicographically sortable []byte key format
@@ -109,10 +106,10 @@ func (kf *KeyFormat) Key(args ...interface{}) []byte {
 }
 
 func (kf *KeyFormat) NodeKey(nodeKey int64) []byte {
-	buf := new(bytes.Buffer)
-	buf.WriteByte(kf.prefix)
-	encoding.EncodeVarint(buf, nodeKey)
-	return buf.Bytes()
+	b := make([]byte, 9)
+	b[0] = kf.prefix
+	binary.BigEndian.PutUint64(b[1:], uint64(nodeKey))
+	return b
 }
 
 // Reads out the bytes associated with each segment of the key format from key.

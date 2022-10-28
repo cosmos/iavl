@@ -308,7 +308,7 @@ func BenchmarkLevelDBLargeData(b *testing.B) {
 		{"goleveldb", 50000, 100, 32, 100},
 		{"goleveldb", 50000, 100, 32, 1000},
 		{"goleveldb", 50000, 100, 32, 10000},
-		{"goleveldb", 50000, 100, 32, 100000},
+		// {"goleveldb", 50000, 100, 32, 100000},
 	}
 	runBenchmarks(b, benchmarks)
 }

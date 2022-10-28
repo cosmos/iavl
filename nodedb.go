@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math"
@@ -1086,10 +1087,7 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	nodes := []*Node{}
 
 	err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
-		nodeKey, _, err := encoding.DecodeVarint(key[1:])
-		if err != nil {
-			return err
-		}
+		nodeKey := int64(binary.BigEndian.Uint64(key[1:]))
 		node, err := MakeNode(nodeKey, value)
 		if err != nil {
 			return err
