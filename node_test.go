@@ -29,11 +29,11 @@ func TestNode_encodedSize(t *testing.T) {
 	}
 
 	// leaf node
-	require.Equal(t, 27, node.encodedSize())
+	require.Equal(t, 26, node.encodedSize())
 
 	// non-leaf node
 	node.subtreeHeight = 1
-	require.Equal(t, 20, node.encodedSize())
+	require.Equal(t, 19, node.encodedSize())
 }
 
 func TestNode_encode_decode(t *testing.T) {
@@ -43,7 +43,7 @@ func TestNode_encode_decode(t *testing.T) {
 		expectError bool
 	}{
 		"nil":   {nil, "", true},
-		"empty": {&Node{}, "000000000000", false},
+		"empty": {&Node{}, "0000000000", false},
 		"inner": {&Node{
 			subtreeHeight: 3,
 			version:       2,
@@ -54,7 +54,7 @@ func TestNode_encode_decode(t *testing.T) {
 			nodeKey:       1,
 			leftNodeKey:   2,
 			rightNodeKey:  3,
-		}, "060e0402036b65790404708090a0060410203040", false},
+		}, "060e04036b65790404708090a0060410203040", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			version:       3,
@@ -62,7 +62,7 @@ func TestNode_encode_decode(t *testing.T) {
 			key:           []byte("key"),
 			value:         []byte("value"),
 			nodeKey:       4,
-		}, "00020608036b65790576616c7565", false},
+		}, "000206036b65790576616c7565", false},
 	}
 	for name, tc := range testcases {
 		tc := tc
@@ -76,7 +76,7 @@ func TestNode_encode_decode(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expectHex, hex.EncodeToString(buf.Bytes()))
 
-			node, err := MakeNode(buf.Bytes())
+			node, err := MakeNode(tc.node.nodeKey, buf.Bytes())
 			require.NoError(t, err)
 			// since key and value is always decoded to []byte{} we augment the expected struct here
 			if tc.node.key == nil {

@@ -133,7 +133,7 @@ func (ndb *nodeDB) GetNode(nodeKey int64) (*Node, error) {
 		return nil, fmt.Errorf("Value missing for key %d corresponding to nodeKey %x", nodeKey, ndb.nodeKey(nodeKey))
 	}
 
-	node, err := MakeNode(buf)
+	node, err := MakeNode(nodeKey, buf)
 	if err != nil {
 		return nil, fmt.Errorf("error reading Node. bytes: %x, error: %v", buf, err)
 	}
@@ -143,7 +143,6 @@ func (ndb *nodeDB) GetNode(nodeKey int64) (*Node, error) {
 		return nil, fmt.Errorf("error getting hash. error: %v", err)
 	}
 
-	node.nodeKey = nodeKey
 	node.persisted = true
 	ndb.nodeCache.Add(node)
 
@@ -657,7 +656,7 @@ func (ndb *nodeDB) SaveOrphans(version int64, orphans map[int64]int64) error {
 		if err != nil {
 			return err
 		}
-		logger.Debug("SAVEORPHAN %v-%v %X\n", fromVersion, toVersion, buf.Bytes())
+		logger.Debug("SAVEORPHAN %v-%v %d\n", fromVersion, toVersion, nodeKey)
 		err = ndb.saveOrphan(buf.Bytes(), fromVersion, toVersion)
 		if err != nil {
 			return err
@@ -1087,7 +1086,11 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	nodes := []*Node{}
 
 	err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
-		node, err := MakeNode(value)
+		nodeKey, _, err := encoding.DecodeVarint(key[1:])
+		if err != nil {
+			return err
+		}
+		node, err := MakeNode(nodeKey, value)
 		if err != nil {
 			return err
 		}

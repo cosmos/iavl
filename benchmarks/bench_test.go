@@ -280,7 +280,7 @@ func BenchmarkSmall(b *testing.B) {
 
 func BenchmarkLarge(b *testing.B) {
 	benchmarks := []benchmark{
-		{"memdb", 1000000, 100, 16, 40},
+		// {"memdb", 1000000, 100, 16, 40},
 		{"goleveldb", 1000000, 100, 16, 40},
 		// FIXME: idk why boltdb is too slow !?
 		// {"boltdb", 1000000, 100, 16, 40},

@@ -52,7 +52,7 @@ func NewNode(key []byte, value []byte, version, nodeKey int64) *Node {
 //
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (*Node, error) {
+func MakeNode(nodeKey int64, buf []byte) (*Node, error) {
 	// Read node header (height, size, version, nodeKey, key).
 	height, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
@@ -72,12 +72,6 @@ func MakeNode(buf []byte) (*Node, error) {
 	ver, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
 		return nil, fmt.Errorf("decoding node.version, %w", cause)
-	}
-	buf = buf[n:]
-
-	nodeKey, n, cause := encoding.DecodeVarint(buf)
-	if cause != nil {
-		return nil, fmt.Errorf("decoding node.nodeKey, %w", cause)
 	}
 	buf = buf[n:]
 
@@ -433,7 +427,6 @@ func (node *Node) encodedSize() int {
 	n := 1 +
 		encoding.EncodeVarintSize(node.size) +
 		encoding.EncodeVarintSize(node.version) +
-		encoding.EncodeVarintSize(node.nodeKey) +
 		encoding.EncodeBytesSize(node.key)
 	if node.isLeaf() {
 		n += encoding.EncodeBytesSize(node.value)
@@ -465,10 +458,6 @@ func (node *Node) writeBytes(w io.Writer) error {
 	}
 
 	// Unlike writeHashBytes, nodeKey and key are written for inner nodes.
-	cause = encoding.EncodeVarint(w, node.nodeKey)
-	if cause != nil {
-		return fmt.Errorf("writing nodeKey, %w", cause)
-	}
 	cause = encoding.EncodeBytes(w, node.key)
 	if cause != nil {
 		return fmt.Errorf("writing key, %w", cause)
