@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/cosmos/iavl/fastnode"
-	"github.com/tendermint/tendermint/libs/rand"
 
 	"github.com/cosmos/iavl/internal/encoding"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
@@ -52,7 +51,7 @@ func TestIterateConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
+				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
 			}(i, j)
 		}
 		tree.Iterate(func(key []byte, value []byte) bool {
@@ -77,7 +76,7 @@ func TestIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
+				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
 			}(i, j)
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
@@ -100,7 +99,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
+				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
 			}(i, j)
 		}
 		for ; it.Valid(); it.Next() {
