@@ -11,6 +11,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/fastnode"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/internal/logger"
 )
 
@@ -151,7 +152,7 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	}
 
 	if !tree.skipFastStorageUpgrade {
-		if fastNode, ok := tree.unsavedFastNodeAdditions[unsafeToStr(key)]; ok {
+		if fastNode, ok := tree.unsavedFastNodeAdditions[ibytes.UnsafeBytesToStr(key)]; ok {
 			return fastNode.GetValue(), nil
 		}
 		// check if node was deleted
@@ -939,7 +940,7 @@ func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 }
 
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
-	skey := unsafeToStr(key)
+	skey := ibytes.UnsafeBytesToStr(key)
 	delete(tree.unsavedFastNodeRemovals, skey)
 	tree.unsavedFastNodeAdditions[skey] = node
 }
@@ -960,7 +961,7 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 }
 
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
-	skey := unsafeToStr(key)
+	skey := ibytes.UnsafeBytesToStr(key)
 	delete(tree.unsavedFastNodeAdditions, skey)
 	tree.unsavedFastNodeRemovals[skey] = true
 }
@@ -973,7 +974,7 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 	sort.Strings(keysToSort)
 
 	for _, key := range keysToSort {
-		if err := tree.ndb.DeleteFastNode(unsafeToBz(key)); err != nil {
+		if err := tree.ndb.DeleteFastNode(ibytes.UnsafeStrToBytes(key)); err != nil {
 			return err
 		}
 	}
@@ -1253,7 +1254,7 @@ func (tree *MutableTree) addOrphans(orphans []*Node) error {
 		if len(node.hash) == 0 {
 			return fmt.Errorf("expected to find node hash, but was empty")
 		}
-		tree.orphans[unsafeToStr(node.hash)] = node.version
+		tree.orphans[ibytes.UnsafeBytesToStr(node.hash)] = node.version
 	}
 	return nil
 }
