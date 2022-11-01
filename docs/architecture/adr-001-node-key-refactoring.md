@@ -46,8 +46,8 @@ New tree structure
 ```go
 type MutableTree struct {
 	*ImmutableTree                                    
-	lastSaved                *ImmutableTree           
-    nonce                    int64                    // new field to track the current ID
+	lastSaved                *ImmutableTree
+	nonce                    int64                    // new field to track the current ID
 	orphans                  map[int64]int64          // will remove
 	versions                 map[int64]bool           
 	allRootLoaded            bool                     
