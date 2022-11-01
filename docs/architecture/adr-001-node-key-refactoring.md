@@ -65,7 +65,7 @@ type MutableTree struct {
 
 ### Migration
 
-We can migrate nodes one by one through iterating the version.
+We can migrate nodes one by one by iterating the version.
 
 - Iterate the version in order, and get the root node for the specific version.
 - Iterate the tree and assign the `nodeKey` to nodes which the node version equals. 
@@ -74,15 +74,20 @@ We will implement the `Import` functionality for the original version.
 
 ### Positive
 
-Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements. Also it can reduce the node size in the storage.
+Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements. Also, it can reduce the node size in the storage.
 
 Removing orphans also provides performance improvements including memory and storage saving. Also, it makes it easy to rollback the tree. Because we will keep the sequenced segment IDs for the specific version, and we can remove all nodes for which the `nodeKey` is greater than the specified integer value.
 
 ### Negative
 
-It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete the `version`, `leftHash` and `rightHash` fields in the node and reduce the key size.
+It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete the `version`, `leftHash`, and `rightHash` fields in the node and reduce the key size.
 
-It can't delete the old nodes for the specific version due to removing orphans. But it makes `rollback` easier and it makes it possible to remove old nodes through `import` and `export` functionalities. The `export` will restruct the tree to make node IDs to a sequenced segment like (1 ... node_sieze).
+It can't delete the old nodes for the specific version due to removing orphans. We introduce a new way to prune old versions.
+
+For example, when a user wants to prune the previous 500 versions every 1000 blocks
+- We assume the pruning is completed for `n`th version and the last nonce of `n`th version is `x`.
+- We iterate the tree from the `n+501`th root node and pick only nodes which the nodeKey is in `[(n+1)th version first nonce, (n+500)th version the last nonce]`.
+- For those nodes, we re-assign the nodeKey from `x+1` in order.
 
 ## References
 
