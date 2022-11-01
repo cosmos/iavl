@@ -17,6 +17,7 @@ The `orphans` are used to manage the removed nodes in the current version and al
 ## Decision
 
 - Use the sequenced integer ID as a node key like `bigendian(nodeKey)` format.
+- Remove the `leftHash` and `rightHash` fields, and instead store `hash` field.
 - Remove the `version` field from the node structure.
 - Remove the `orphans` from the tree.
 
@@ -26,10 +27,10 @@ New node structure
 type Node struct {
 	key           []byte
 	value         []byte
-	hash          []byte
-	leftHash      []byte
-	rightHash     []byte
-	nodeKey       int64     // new field, use as a key
+	hash          []byte    // keep this field
+	leftHash      []byte    // will remove
+	rightHash     []byte    // will remove
+	nodeKey       int64     // new field, use as a node key
 	leftNodeKey   int64     // new field, need to store
 	rightNodeKey  int64     // new field, need to store
 	version       int64     // will remove
@@ -64,13 +65,13 @@ type MutableTree struct {
 
 ### Positive
 
-Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements.
+Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements. Also it can reduce the node size in the storage.
 
 Removing orphans also provides performance improvements including memory and storage saving. Also, it makes it easy to rollback the tree. Because we will keep the sequenced segment IDs for the specific version, and we can remove all nodes for which the `nodeKey` is greater than the specified integer value.
 
 ### Negative
 
-It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete the `version` in the node and reduce the key size.
+It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete the `version`, `leftHash` and `rightHash` fields in the node and reduce the key size.
 
 It can't delete the old nodes for the specific version due to removing orphans. But it makes `rollback` easier and it makes it possible to remove old nodes through `import` and `export` functionalities. The `export` will restruct the tree to make node IDs to a sequenced segment like (1 ... node_sieze).
 
