@@ -63,6 +63,15 @@ type MutableTree struct {
 
 ## Consequences
 
+### Migration
+
+We can migrate nodes one by one through iterating the version.
+
+- Iterate the version in order, and get the root node for the specific version.
+- Iterate the tree and assign the `nodeKey` to nodes which the node version equals. 
+
+We will implement the `Import` functionality for the original version.
+
 ### Positive
 
 Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements. Also it can reduce the node size in the storage.
