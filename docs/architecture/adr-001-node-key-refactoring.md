@@ -27,12 +27,12 @@ New node structure
 type Node struct {
 	key           []byte
 	value         []byte
-	hash          []byte    // keep this field
+	hash          []byte    // keep this field in the storage
 	leftHash      []byte    // will remove
 	rightHash     []byte    // will remove
 	nodeKey       int64     // new field, use as a node key
-	leftNodeKey   int64     // new field, need to store
-	rightNodeKey  int64     // new field, need to store
+	leftNodeKey   int64     // new field, need to store in the storage
+	rightNodeKey  int64     // new field, need to store in the storage
 	version       int64     // will remove
 	size          int64
 	leftNode      *Node
