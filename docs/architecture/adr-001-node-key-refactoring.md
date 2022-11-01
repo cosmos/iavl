@@ -21,8 +21,9 @@ The `orphans` are used to manage node removal in the current design and allow de
 
 - Use the sequenced integer ID as a node key like `bigendian(nodeKey)` format.
 - Remove the `leftHash` and `rightHash` fields, and instead store `hash` field.
-- Remove the `version` field from the node structure.
 - Remove the `orphans` from the tree.
+
+Theoretically, we can also remove the `version` field in the node structure but it leads to breaking the ics23 proof mechanism. We will revisit it later.
 
 New node structure
 
@@ -31,12 +32,10 @@ type Node struct {
 	key           []byte
 	value         []byte
 	hash          []byte    // keep this field in the storage
-	leftHash      []byte    // will remove
-	rightHash     []byte    // will remove
 	nodeKey       int64     // new field, use as a node key
 	leftNodeKey   int64     // new field, need to store in the storage
 	rightNodeKey  int64     // new field, need to store in the storage
-	version       int64     // will remove
+	version       int64
 	size          int64
 	leftNode      *Node
 	rightNode     *Node
@@ -52,7 +51,6 @@ type MutableTree struct {
 	*ImmutableTree                                    
 	lastSaved                *ImmutableTree
 	nonce                    int64                    // new field to track the current ID
-	orphans                  map[int64]int64          // will remove
 	versions                 map[int64]bool           
 	allRootLoaded            bool                     
 	unsavedFastNodeAdditions map[string]*fastnode.Node
@@ -64,8 +62,6 @@ type MutableTree struct {
 }
 ```
 
-## Consequences
-
 ### Migration
 
 We can migrate nodes one by one by iterating the version.
@@ -75,6 +71,17 @@ We can migrate nodes one by one by iterating the version.
 
 We will implement the `Import` functionality for the original version.
 
+### Pruning
+
+We introduce a new way to prune old versions.
+
+For example, when a user wants to prune the previous 500 versions every 1000 blocks
+- We assume the pruning is completed for `n`th version and the last nonce of `n`th version is `x`.
+- We iterate the tree from the `n+501`th root node and pick only nodes which the nodeKey is in `[(n+1)th version first nonce, (n+500)th version the last nonce]`.
+- We can delete missing nodes instantly or re-assign the nodeKey from `x+1` in order for those nodes. Re-assign should be done after stopping the node but it can lead to improving the data locality.
+
+## Consequences
+
 ### Positive
 
 Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements. Also, it can reduce the node size in the storage.
@@ -83,14 +90,9 @@ Removing orphans also provides performance improvements including memory and sto
 
 ### Negative
 
-It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete the `version`, `leftHash`, and `rightHash` fields in the node and reduce the key size.
+It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete`leftHash` and `rightHash` fields in the node and reduce the key size.
 
-It can't delete the old nodes for the specific version due to removing orphans. We introduce a new way to prune old versions.
-
-For example, when a user wants to prune the previous 500 versions every 1000 blocks
-- We assume the pruning is completed for `n`th version and the last nonce of `n`th version is `x`.
-- We iterate the tree from the `n+501`th root node and pick only nodes which the nodeKey is in `[(n+1)th version first nonce, (n+500)th version the last nonce]`.
-- For those nodes, we re-assign the nodeKey from `x+1` in order.
+It can't delete the old nodes for the specific version due to removing orphans. 
 
 ## References
 
