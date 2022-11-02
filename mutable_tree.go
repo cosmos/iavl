@@ -649,7 +649,7 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return !tree.skipFastStorageUpgrade && (!tree.ndb.hasUpgradedToFastStorage() || shouldForce), nil
+	return !tree.skipFastStorageUpgrade && (tree.ndb.hasUpgradedToFastStorage() || shouldForce), nil
 }
 
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
