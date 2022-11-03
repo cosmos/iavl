@@ -19,11 +19,10 @@ The `orphans` are used to manage node removal in the current design and allow de
 
 ## Decision
 
-- Use the sequenced integer ID as a node key like `bigendian(nodeKey)` format.
+- Use the version and the sequenced integer ID as a node key like `bigendian(version) | bigendian(nonce)` format. 
+- Remove the `version` field from node body writes.
 - Remove the `leftHash` and `rightHash` fields, and instead store `hash` field.
 - Remove the `orphans` from the tree.
-
-Theoretically, we can also remove the `version` field in the node structure but it leads to breaking the ics23 proof mechanism. We will revisit it later.
 
 New node structure
 
@@ -32,10 +31,10 @@ type Node struct {
 	key           []byte
 	value         []byte
 	hash          []byte    // keep this field in the storage
-	nodeKey       int64     // new field, use as a node key
+	nonce         int64     // new field, the sequenced integer ID within the specific version
 	leftNodeKey   int64     // new field, need to store in the storage
 	rightNodeKey  int64     // new field, need to store in the storage
-	version       int64
+	version       int64     
 	size          int64
 	leftNode      *Node
 	rightNode     *Node
@@ -50,7 +49,7 @@ New tree structure
 type MutableTree struct {
 	*ImmutableTree                                    
 	lastSaved                *ImmutableTree
-	nonce                    int64                    // new field to track the current ID
+	nonce                    int64                    // new field to track the integer ID of the current version
 	versions                 map[int64]bool           
 	allRootLoaded            bool                     
 	unsavedFastNodeAdditions map[string]*fastnode.Node
@@ -76,23 +75,22 @@ We will implement the `Import` functionality for the original version.
 We introduce a new way to prune old versions.
 
 For example, when a user wants to prune the previous 500 versions every 1000 blocks
-- We assume the pruning is completed for `n`th version and the last nonce of `n`th version is `x`.
-- We iterate the tree from the `n+501`th root node and pick only nodes which the nodeKey is in `[(n+1)th version first nonce, (n+500)th version the last nonce]`.
-- We can delete missing nodes instantly or re-assign the nodeKey from `x+1` in order for those nodes. Re-assign should be done after stopping the node but it can lead to improving the data locality.
+- We iterate the tree based on the `n+501`th root and pick only nodes which the version is in `[(n+1), (n+500)]`.
+- We can delete missing nodes (which don't appear in the above traversing) instantly or re-assign the nonce in order for those nodes. Re-assign should be done after stopping the node but it can lead to improving the data locality.
 
 ## Consequences
 
 ### Positive
 
-Using the sequenced integer ID, we take advantage of data locality in the bTree and it leads to performance improvements. Also, it can reduce the node size in the storage.
+Using the version and the sequenced integer ID, we take advantage of data locality in the LSM tree. Since we commit the sorted data, it can reduce compactions and makes easy to find the key. Also, it can reduce the key and node size in the storage.
 
-Removing orphans also provides performance improvements including memory and storage saving. Also, it makes it easy to rollback the tree. Because we will keep the sequenced segment IDs for the specific version, and we can remove all nodes for which the `nodeKey` is greater than the specified integer value.
+Removing orphans also provides performance improvements including memory and storage saving. Also, it makes it easy to rollback the tree. Because we can remove all nodes for which the `nodeKey` is greater than the specified version.
 
 ### Negative
 
 It requires extra storage to store the node because it should keep `leftNodeKey` and `rightNodeKey` to iterate the tree. Instead, we can delete`leftHash` and `rightHash` fields in the node and reduce the key size.
 
-It can't delete the old nodes for the specific version due to removing orphans. 
+Remvoing old nodes for the specific version requires some extra iterations due to removing orphans. 
 
 ## References
 
