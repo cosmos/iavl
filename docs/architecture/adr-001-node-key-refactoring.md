@@ -27,17 +27,21 @@ The `orphans` are used to manage node removal in the current design and allow de
 New node structure
 
 ```go
+type NodeKey struct {
+    version int64
+    nonce int32
+}
+
 type Node struct {
 	key           []byte
 	value         []byte
-	hash          []byte    // keep this field in the storage
-	nonce         int64     // new field, the sequenced integer ID within the specific version
-	leftNodeKey   int64     // new field, need to store in the storage
-	rightNodeKey  int64     // new field, need to store in the storage
-	version       int64     
-	size          int64
+	hash          []byte    // keep it in the storage instead of leftHash and rightHash
+	nodeKey       NodeKey   // new field, the key in the storage
+	leftNodeKey   NodeKey   // new field, need to store in the storage
+	rightNodeKey  NodeKey   // new field, need to store in the storage
 	leftNode      *Node
 	rightNode     *Node
+    size          int64
 	subtreeHeight int8
 	persisted     bool
 }
@@ -49,7 +53,6 @@ New tree structure
 type MutableTree struct {
 	*ImmutableTree                                    
 	lastSaved                *ImmutableTree
-	nonce                    int64                    // new field to track the integer ID of the current version
 	versions                 map[int64]bool           
 	allRootLoaded            bool                     
 	unsavedFastNodeAdditions map[string]*fastnode.Node
@@ -60,6 +63,8 @@ type MutableTree struct {
 	mtx sync.Mutex
 }
 ```
+
+We will restruct the nonce when save the current version. It will reduce unnecessary checks in CRUD operations of the tree and keep sorted the order of insertion in the LSM tree.
 
 ### Migration
 
