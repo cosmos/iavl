@@ -12,7 +12,7 @@ Proposed
 
 The original key format of IAVL nodes is a hash of the node. It does not take advantage of data locality on disk. Nodes are stored in random locations on disk due to the random hash value, so it needs to scan the disk to find the corresponding node which can be very inefficient.
 
-The `orphans` are used to manage node removal in the current design and allow deletion of removed nodes for the specific version from the disk through the `DeleteVersion` API. It needs to track every time when updating the tree and also requires extra storage to store `orphans`, but there are not many use cases of `DeleteVersion`. There are two use cases:
+The `orphans` are used to manage node removal in the current design and allow deletion of removed nodes for the specific version from the disk through the `DeleteVersion` API. It needs to track every time when updating the tree and also requires extra storage to store `orphans`. But there are only 2 use cases for `DeleteVersion`:
 
 1. Rollback of the tree to a previous version
 2. Remove unnecessary old nodes
