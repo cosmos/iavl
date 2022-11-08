@@ -64,7 +64,7 @@ type MutableTree struct {
 }
 ```
 
-We will restruct the nonce when save the current version. It will reduce unnecessary checks in CRUD operations of the tree and keep sorted the order of insertion in the LSM tree.
+We will assign the nonce in order when save the current version in `SaveBranch`. It will reduce unnecessary checks in CRUD operations of the tree and keep sorted the order of insertion in the LSM tree.
 
 ### Migration
 
