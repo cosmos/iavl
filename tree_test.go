@@ -366,7 +366,7 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.False(tree.VersionExists(3))
 
 	tree.Set([]byte("k"), []byte("v"))
-	require.EqualValues(5, tree.root.version)
+	require.EqualValues(5, tree.root.nodeKey.version)
 
 	// Now reload the tree.
 
@@ -1732,7 +1732,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
 	for _, n := range nodes {
-		if n.version > 1 {
+		if n.nodeKey.version > 1 {
 			removedNodes = append(removedNodes, n)
 		}
 	}
@@ -1788,7 +1788,7 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
 	for _, n := range nodes {
-		if n.version > 1 {
+		if n.nodeKey.version > 1 {
 			removedNodes = append(removedNodes, n)
 		}
 	}

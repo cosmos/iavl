@@ -112,7 +112,7 @@ func (t *ImmutableTree) createExistenceProof(key []byte) (*ics23.ExistenceProof,
 	return &ics23.ExistenceProof{
 		Key:   node.key,
 		Value: node.value,
-		Leaf:  convertLeafOp(node.version),
+		Leaf:  convertLeafOp(node.nodeKey.version),
 		Path:  convertInnerOps(path),
 	}, err
 }

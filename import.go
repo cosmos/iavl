@@ -81,7 +81,6 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	node := &Node{
 		key:           exportNode.Key,
 		value:         exportNode.Value,
-		version:       exportNode.Version,
 		subtreeHeight: exportNode.Height,
 	}
 
@@ -93,16 +92,16 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// We don't modify the stack until we've verified the built node, to avoid leaving the
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
-	node.nodeKey = i.tree.IncreaseNonce()
+	node.nodeKey = &NodeKey{
+		version: exportNode.Version,
+		nonce:   0,
+	}
 	switch {
 	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-2]
-		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
-		node.rightHash = node.rightNode.hash
 	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-1]
-		node.leftHash = node.leftNode.hash
 	}
 
 	if node.subtreeHeight == 0 {
@@ -117,7 +116,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.rightNodeKey = node.rightNode.nodeKey
 	}
 
-	_, err := node._hash()
+	_, err := node._hash(exportNode.Version)
 	if err != nil {
 		return err
 	}
@@ -138,7 +137,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 
-	if err = i.batch.Set(i.tree.ndb.nodeKey(node.nodeKey), bytesCopy); err != nil {
+	if err = i.batch.Set(i.tree.ndb.nodeKey(node.GetKey()), bytesCopy); err != nil {
 		return err
 	}
 
@@ -180,11 +179,11 @@ func (i *Importer) Commit() error {
 		}
 	case 1:
 		buf := new(bytes.Buffer)
-		err := encoding.EncodeVarint(buf, i.stack[0].nodeKey)
+		err := encoding.EncodeVarint(buf, i.stack[0].nodeKey.version)
 		if err != nil {
 			return err
 		}
-		err = encoding.EncodeVarint(buf, i.tree.nonce)
+		err = encoding.EncodeVarint32(buf, i.stack[0].nodeKey.nonce)
 		if err != nil {
 			return err
 		}

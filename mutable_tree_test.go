@@ -125,13 +125,8 @@ func TestDelete(t *testing.T) {
 	require.EqualError(t, err, ErrVersionDoesNotExist.Error())
 	require.Nil(t, proof)
 
-	buf := new(bytes.Buffer)
-	err = encoding.EncodeVarint(buf, rootNodeKey)
-	require.NoError(t, err)
-	err = encoding.EncodeVarint(buf, tree.nonce)
-	require.NoError(t, err)
 	key := tree.ndb.rootKey(version)
-	err = tree.ndb.db.Set(key, buf.Bytes())
+	err = tree.ndb.db.Set(key, rootNodeKey)
 	require.NoError(t, err)
 	tree.versions[version] = true
 

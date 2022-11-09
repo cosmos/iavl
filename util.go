@@ -24,7 +24,7 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 	}
 	if node.rightNode != nil {
 		printNode(ndb, node.rightNode, indent+1) //nolint:errcheck
-	} else if node.rightNodeKey != 0 {
+	} else if node.rightNodeKey != nil {
 		rightNode, err := ndb.GetNode(node.rightNodeKey)
 		if err != nil {
 			return err
@@ -32,7 +32,7 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		printNode(ndb, rightNode, indent+1) //nolint:errcheck
 	}
 
-	hash, err := node._hash()
+	hash, err := node._hash(node.nodeKey.version)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		if err != nil {
 			return err
 		}
-	} else if node.leftNodeKey != 0 {
+	} else if node.leftNodeKey != nil {
 		leftNode, err := ndb.GetNode(node.leftNodeKey)
 		if err != nil {
 			return err

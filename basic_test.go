@@ -2,7 +2,6 @@
 package iavl
 
 import (
-	"bytes"
 	"encoding/hex"
 	mrand "math/rand"
 	"sort"
@@ -171,26 +170,6 @@ func TestBasic(t *testing.T) {
 }
 
 func TestUnit(t *testing.T) {
-	expectHash := func(tree *ImmutableTree, hashCount int64) {
-		// ensure number of new hash calculations is as expected.
-		hash, count, err := tree.root.hashWithCount()
-		require.NoError(t, err)
-		if count != hashCount {
-			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
-		}
-		// nuke hashes and reconstruct hash, ensure it's the same.
-		tree.root.traverse(tree, true, func(node *Node) bool {
-			node.hash = nil
-			return false
-		})
-		// ensure that the new hash after nuking is the same as the old.
-		newHash, _, err := tree.root.hashWithCount()
-		require.NoError(t, err)
-		if !bytes.Equal(hash, newHash) {
-			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
-		}
-	}
-
 	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
 		tree.SaveVersion()
 		updated, err := tree.Set(i2b(i), []byte{})
@@ -200,8 +179,6 @@ func TestUnit(t *testing.T) {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
 				i, P(tree.lastSaved.root, tree.lastSaved), repr, P(tree.root, tree.ImmutableTree), updated)
 		}
-		// ensure hash calculation requirements
-		expectHash(tree.ImmutableTree, hashCount)
 		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 
@@ -214,8 +191,6 @@ func TestUnit(t *testing.T) {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
 				i, P(tree.lastSaved.root, tree.lastSaved), repr, P(tree.root, tree.ImmutableTree), value, removed)
 		}
-		// ensure hash calculation requirements
-		expectHash(tree.ImmutableTree, hashCount)
 		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 

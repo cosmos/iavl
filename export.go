@@ -53,7 +53,7 @@ func (e *Exporter) export(ctx context.Context) {
 		exportNode := &ExportNode{
 			Key:     node.key,
 			Value:   node.value,
-			Version: node.version,
+			Version: node.nodeKey.version,
 			Height:  node.subtreeHeight,
 		}
 

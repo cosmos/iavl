@@ -197,7 +197,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 		pin := ProofInnerNode{
 			Height:  node.subtreeHeight,
 			Size:    node.size,
-			Version: node.version,
+			Version: node.nodeKey.version,
 			Left:    nil,
 			Right:   rightNode.hash,
 		}
@@ -219,7 +219,7 @@ func (node *Node) pathToLeaf(t *ImmutableTree, key []byte, path *PathToLeaf) (*N
 	pin := ProofInnerNode{
 		Height:  node.subtreeHeight,
 		Size:    node.size,
-		Version: node.version,
+		Version: node.nodeKey.version,
 		Left:    leftNode.hash,
 		Right:   nil,
 	}

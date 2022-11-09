@@ -28,7 +28,7 @@ func BenchmarkAdd(b *testing.B) {
 	}
 
 	for name, tc := range testcases {
-		cache := cache.New[string, []byte](tc.cacheMax)
+		cache := cache.New(tc.cacheMax)
 		b.Run(name, func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				b.StopTimer()
@@ -46,7 +46,7 @@ func BenchmarkAdd(b *testing.B) {
 func BenchmarkRemove(b *testing.B) {
 	b.ReportAllocs()
 
-	cache := cache.New[string, []byte](1000)
+	cache := cache.New(1000)
 	existentKeyMirror := [][]byte{}
 	// Populate cache
 	for i := 0; i < 50; i++ {
