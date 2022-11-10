@@ -22,8 +22,7 @@ The `orphans` are used to manage node removal in the current design and allow th
 - Use the version and the sequenced integer ID as a node key like `bigendian(version) | bigendian(nonce)` format. 
 - Remove the `version` field from node body writes.
 - Remove the `leftHash` and `rightHash` fields, and instead store `hash` field in the node body.
-- Separate the `orphans` from the tree CRUD operations, and refactor the orphan store like `bigendian(to_version) | bigendian(from_version) -> nonce`.
-- Remove the `root` store and prefix identifier which is used to identify the root, node, and orphan.
+- Separate the `orphans` from the tree CRUD operations, and refactor the orphan store like `bigendian(to_version) | bigendian(from_version) | bigendian(nonce)`.
 
 New node structure
 
