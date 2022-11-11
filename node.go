@@ -25,8 +25,8 @@ type NodeKey struct {
 
 func (nk *NodeKey) GetKey() []byte {
 	b := make([]byte, 12)
-	binary.LittleEndian.PutUint64(b, uint64(nk.version))
-	binary.LittleEndian.PutUint32(b[8:], uint32(nk.nonce))
+	binary.BigEndian.PutUint64(b, uint64(nk.version))
+	binary.BigEndian.PutUint32(b[8:], uint32(nk.nonce))
 	return b
 }
 
@@ -61,7 +61,7 @@ func NewNode(key []byte, value []byte) *Node {
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
 func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
-	// Read node header (height, size, version, nodeKey, key).
+	// Read node header (height, size, key).
 	height, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
 		return nil, fmt.Errorf("decoding node.height, %w", cause)
@@ -98,11 +98,12 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 			return nil, fmt.Errorf("decoding node.value, %w", cause)
 		}
 		node.value = val
+		// ensure take the hash for the leaf node
 		node._hash(node.nodeKey.version)
 	} else { // Read children.
 		node.hash, n, cause = encoding.DecodeBytes(buf)
 		if cause != nil {
-			return nil, fmt.Errorf("decoding node.value, %w", cause)
+			return nil, fmt.Errorf("decoding node.hash, %w", cause)
 		}
 		buf = buf[n:]
 
@@ -452,11 +453,8 @@ func (node *Node) writeBytes(w io.Writer) error {
 	if cause != nil {
 		return fmt.Errorf("writing size, %w", cause)
 	}
-	if cause != nil {
-		return fmt.Errorf("writing version, %w", cause)
-	}
 
-	// Unlike writeHashBytes, nodeKey and key are written for inner nodes.
+	// Unlike writeHashByte, key is written for inner nodes.
 	cause = encoding.EncodeBytes(w, node.key)
 	if cause != nil {
 		return fmt.Errorf("writing key, %w", cause)

@@ -176,6 +176,10 @@ func format(a interface{}) []byte {
 		return formatUint64(uint64(v))
 	case int:
 		return formatUint64(uint64(v))
+	case uint32:
+		return formatUint32(v)
+	case int32:
+		return formatUint32(uint32(v))
 	case []byte:
 		return v
 	default:
@@ -186,5 +190,11 @@ func format(a interface{}) []byte {
 func formatUint64(v uint64) []byte {
 	bs := make([]byte, 8)
 	binary.BigEndian.PutUint64(bs, v)
+	return bs
+}
+
+func formatUint32(v uint32) []byte {
+	bs := make([]byte, 4)
+	binary.BigEndian.PutUint32(bs, v)
 	return bs
 }
