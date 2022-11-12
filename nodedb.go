@@ -420,7 +420,7 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 }
 
 // DeleteVersionsFrom permanently deletes all tree versions from the given version upwards.
-func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
+func (ndb *nodeDB) DeleteVersionsFrom(version int64, fastMode bool) error {
 	latest, err := ndb.getLatestVersion()
 	if err != nil {
 		return err
@@ -444,9 +444,11 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 	// First, delete all active nodes in the current (latest) version whose node version is after
 	// the given version.
-	err = ndb.deleteNodesFrom(version, root)
-	if err != nil {
-		return err
+	if !fastMode {
+		err = ndb.deleteNodesFrom(version, root)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Next, delete orphans:

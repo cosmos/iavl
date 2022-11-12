@@ -616,12 +616,22 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 // LoadVersionForOverwriting attempts to load a tree at a previously committed
 // version, or the latest version below it. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
-	latestVersion, err := tree.LoadVersion(targetVersion)
+	return tree.LoadVersionForOverwritingWithMode(targetVersion, false)
+}
+
+func (tree *MutableTree) LoadVersionForOverwritingWithMode(targetVersion int64, fastMode bool) (int64, error) {
+	var latestVersion int64
+	var err error
+	if !fastMode {
+		latestVersion, err = tree.LoadVersion(targetVersion)
+	} else {
+		latestVersion, err = tree.LazyLoadVersion(targetVersion)
+	}
 	if err != nil {
 		return latestVersion, err
 	}
 
-	if err = tree.ndb.DeleteVersionsFrom(targetVersion + 1); err != nil {
+	if err = tree.ndb.DeleteVersionsFrom(targetVersion+1, fastMode); err != nil {
 		return latestVersion, err
 	}
 
