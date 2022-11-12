@@ -449,31 +449,48 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64, fastMode bool) error {
 		if err != nil {
 			return err
 		}
+		// Next, delete orphans:
+		// - Delete orphan entries *and referred nodes* with fromVersion >= version
+		// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
+		err = ndb.traverseOrphans(func(key, hash []byte) error {
+			var fromVersion, toVersion int64
+			orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
+
+			if fromVersion >= version {
+				if err = ndb.batch.Delete(key); err != nil {
+					return err
+				}
+				if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
+					return err
+				}
+				ndb.nodeCache.Remove(hash)
+			} else if toVersion >= version-1 {
+				if err = ndb.batch.Delete(key); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	} else {
+		err = ndb.traverseOrphansVersion(version-1, func(key, hash []byte) error {
+			var fromVersion, toVersion int64
+			orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
+			if fromVersion >= version {
+				if err = ndb.batch.Delete(key); err != nil {
+					return err
+				}
+				if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
+					return err
+				}
+				ndb.nodeCache.Remove(hash)
+			} else if toVersion >= version-1 {
+				if err = ndb.batch.Delete(key); err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	}
-
-	// Next, delete orphans:
-	// - Delete orphan entries *and referred nodes* with fromVersion >= version
-	// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
-	err = ndb.traverseOrphans(func(key, hash []byte) error {
-		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-
-		if fromVersion >= version {
-			if err = ndb.batch.Delete(key); err != nil {
-				return err
-			}
-			if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
-				return err
-			}
-			ndb.nodeCache.Remove(hash)
-		} else if toVersion >= version-1 {
-			if err = ndb.batch.Delete(key); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-
 	if err != nil {
 		return err
 	}
