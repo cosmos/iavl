@@ -293,3 +293,66 @@ func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	require.Nil(tb, err, "Expected .SaveVersion to succeed")
 	return tree
 }
+
+func TestDeleteVersion(t *testing.T) {
+	v := []byte("value")
+
+	var version int64 = 100
+	testCases := []struct {
+		name     string
+		v        int64
+		fastMode bool
+	}{
+		{
+			"delete from version without fast mode",
+			version,
+			false,
+		},
+		{
+			"delete from version -1 without fast mode",
+			version - 1,
+			false,
+		},
+		{
+			"enable fast mode",
+			version,
+			true,
+		},
+	}
+	for _, tc := range testCases {
+		db := db.NewMemDB()
+		ndb := newNodeDB(db, 0, nil)
+		leftNode := NewNode([]byte("left_key"), v, version-1)
+		rightNode := NewNode([]byte("right_key"), v, version-1)
+		node := NewNode([]byte("key"), v, version)
+		node.leftNode = leftNode
+		node.rightNode = rightNode
+		node.subtreeHeight = 1
+		node.size = 2
+		hash, err := ndb.SaveBranch(node)
+		require.NoError(t, err)
+		err = ndb.Commit()
+		require.NoError(t, err)
+		key := ndb.rootKey(version)
+		err = ndb.db.Set(key, hash)
+		require.NoError(t, err)
+		err = ndb.DeleteVersionsFrom(tc.v, tc.fastMode)
+		require.NoError(t, err)
+		err = ndb.Commit()
+		require.NoError(t, err)
+		bz, err := ndb.db.Get(ndb.nodeKey(hash))
+		require.NoError(t, err)
+		leftBz, err := ndb.db.Get(ndb.nodeKey(leftNode.hash))
+		require.NoError(t, err)
+		if !tc.fastMode {
+			if tc.v <= version {
+				require.Empty(t, bz)
+			}
+			if tc.v < version {
+				require.Empty(t, leftBz)
+			} else {
+				require.NotEmpty(t, leftBz)
+			}
+		}
+	}
+}
