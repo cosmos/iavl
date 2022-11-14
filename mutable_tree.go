@@ -639,6 +639,8 @@ func (tree *MutableTree) LoadVersionForOverwritingWithMode(targetVersion int64, 
 		if err := tree.enableFastStorageAndCommitLocked(); err != nil {
 			return latestVersion, err
 		}
+	} else if err = tree.ndb.Commit(); err != nil {
+		return latestVersion, err
 	}
 
 	tree.ndb.resetLatestVersion(latestVersion)
