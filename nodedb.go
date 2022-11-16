@@ -508,24 +508,29 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64, fastMode bool) error {
 	}
 
 	// Delete fast node entries
-	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
-		key := keyWithPrefix[1:]
-		fastNode, err := fastnode.DeserializeNode(key, v)
+	// Delete step will be skipped with enable fastMode
+	// with the assumption that the rollback happens offline
+	// since fast nodes will be reinforced when next start up
+	if !fastMode {
+		err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
+			key := keyWithPrefix[1:]
+			fastNode, err := fastnode.DeserializeNode(key, v)
+			if err != nil {
+				return err
+			}
+
+			if version <= fastNode.GetVersionLastUpdatedAt() {
+				if err = ndb.batch.Delete(keyWithPrefix); err != nil {
+					return err
+				}
+				ndb.fastNodeCache.Remove(key)
+			}
+			return nil
+		})
+
 		if err != nil {
 			return err
 		}
-
-		if version <= fastNode.GetVersionLastUpdatedAt() {
-			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
-				return err
-			}
-			ndb.fastNodeCache.Remove(key)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
 	}
 
 	return nil
