@@ -444,6 +444,24 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64, fastMode bool) error {
 
 	// First, delete all active nodes in the current (latest) version whose node version is after
 	// the given version.
+	traverseInnerFunc := func(key, hash []byte) error {
+		var fromVersion, toVersion int64
+		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
+		if fromVersion >= version {
+			if err = ndb.batch.Delete(key); err != nil {
+				return err
+			}
+			if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
+				return err
+			}
+			ndb.nodeCache.Remove(hash)
+		} else if toVersion >= version-1 {
+			if err = ndb.batch.Delete(key); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	if !fastMode {
 		err = ndb.deleteNodesFrom(version, root)
 		if err != nil {
@@ -452,44 +470,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64, fastMode bool) error {
 		// Next, delete orphans:
 		// - Delete orphan entries *and referred nodes* with fromVersion >= version
 		// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
-		err = ndb.traverseOrphans(func(key, hash []byte) error {
-			var fromVersion, toVersion int64
-			orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-
-			if fromVersion >= version {
-				if err = ndb.batch.Delete(key); err != nil {
-					return err
-				}
-				if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
-					return err
-				}
-				ndb.nodeCache.Remove(hash)
-			} else if toVersion >= version-1 {
-				if err = ndb.batch.Delete(key); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		err = ndb.traverseOrphans(traverseInnerFunc)
 	} else {
-		err = ndb.traverseOrphansVersion(version-1, func(key, hash []byte) error {
-			var fromVersion, toVersion int64
-			orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
-			if fromVersion >= version {
-				if err = ndb.batch.Delete(key); err != nil {
-					return err
-				}
-				if err = ndb.batch.Delete(ndb.nodeKey(hash)); err != nil {
-					return err
-				}
-				ndb.nodeCache.Remove(hash)
-			} else if toVersion >= version-1 {
-				if err = ndb.batch.Delete(key); err != nil {
-					return err
-				}
-			}
-			return nil
-		})
+		err = ndb.traverseOrphansVersion(version-1, traverseInnerFunc)
 	}
 	if err != nil {
 		return err
