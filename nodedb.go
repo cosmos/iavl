@@ -472,6 +472,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64, offlineRollback bool) error
 		// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
 		err = ndb.traverseOrphans(traverseInnerFunc)
 	} else {
+		// toVersion in orphan records is current version-1
 		err = ndb.traverseOrphansVersion(version-1, traverseInnerFunc)
 	}
 	if err != nil {
