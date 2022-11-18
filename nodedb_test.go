@@ -294,6 +294,30 @@ func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	return tree
 }
 
+type customBatch struct {
+	db.Batch
+	DeleteCount int
+}
+
+func (b *customBatch) Delete(key []byte) error {
+	b.DeleteCount += 1
+	return b.Batch.Delete(key)
+}
+
+type customMemDB struct {
+	*db.MemDB
+	LastBatch *customBatch
+}
+
+func (db *customMemDB) NewBatch() db.Batch {
+	if db.LastBatch != nil {
+		db.LastBatch.Batch = db.MemDB.NewBatch()
+	} else {
+		db.LastBatch = &customBatch{db.MemDB.NewBatch(), 0}
+	}
+	return db.LastBatch
+}
+
 func TestDeleteVersion(t *testing.T) {
 	v := []byte("value")
 
@@ -302,25 +326,32 @@ func TestDeleteVersion(t *testing.T) {
 		name         string
 		v            int64
 		fastRollback bool
+		delCount     int
 	}{
 		{
 			"delete from version without fast rollback",
 			version,
 			false,
+			2,
 		},
 		{
 			"delete from version -1 without fast rollback",
 			version - 1,
 			false,
+			4,
 		},
 		{
 			"enable fast rollback",
-			version,
+			version - 1,
 			true,
+			1,
 		},
 	}
 	for _, tc := range testCases {
-		db := db.NewMemDB()
+		db := &customMemDB{
+			MemDB:     db.NewMemDB(),
+			LastBatch: nil,
+		}
 		ndb := newNodeDB(db, 0, nil)
 		leftNode := NewNode([]byte("left_key"), v, version-1)
 		rightNode := NewNode([]byte("right_key"), v, version-1)
@@ -353,6 +384,10 @@ func TestDeleteVersion(t *testing.T) {
 			} else {
 				require.NotEmpty(t, leftBz)
 			}
+		} else {
+			require.NotEmpty(t, bz)
+			require.NotEmpty(t, leftBz)
 		}
+		require.Equal(t, tc.delCount, db.LastBatch.DeleteCount, "Delete call count mismatch")
 	}
 }
