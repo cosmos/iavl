@@ -323,25 +323,25 @@ func TestDeleteVersion(t *testing.T) {
 
 	var version int64 = 100
 	testCases := []struct {
-		name         string
-		v            int64
-		fastRollback bool
-		delCount     int
+		name            string
+		v               int64
+		offlineRollback bool
+		delCount        int
 	}{
 		{
-			"delete from version without fast rollback",
+			"delete from version without offline rollback",
 			version,
 			false,
 			2,
 		},
 		{
-			"delete from version -1 without fast rollback",
+			"delete from version -1 without offline rollback",
 			version - 1,
 			false,
 			4,
 		},
 		{
-			"enable fast rollback",
+			"enable offline rollback",
 			version - 1,
 			true,
 			1,
@@ -367,7 +367,7 @@ func TestDeleteVersion(t *testing.T) {
 		key := ndb.rootKey(version)
 		err = ndb.db.Set(key, hash)
 		require.NoError(t, err)
-		err = ndb.DeleteVersionsFrom(tc.v, tc.fastRollback)
+		err = ndb.DeleteVersionsFrom(tc.v, tc.offlineRollback)
 		require.NoError(t, err)
 		err = ndb.Commit()
 		require.NoError(t, err)
@@ -375,7 +375,7 @@ func TestDeleteVersion(t *testing.T) {
 		require.NoError(t, err)
 		leftBz, err := ndb.db.Get(ndb.nodeKey(leftNode.hash))
 		require.NoError(t, err)
-		if !tc.fastRollback {
+		if !tc.offlineRollback {
 			if tc.v <= version {
 				require.Empty(t, bz)
 			}
