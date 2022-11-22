@@ -637,7 +637,7 @@ func (tree *MutableTree) LoadVersionForOverwritingWithMode(targetVersion int64, 
 		return latestVersion, err
 	}
 
-	if !tree.skipFastStorageUpgrade {
+	if !tree.skipFastStorageUpgrade && !offlineRollback {
 		if err := tree.enableFastStorageAndCommitLocked(); err != nil {
 			return latestVersion, err
 		}
