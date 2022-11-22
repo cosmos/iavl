@@ -6,11 +6,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	dbm "github.com/cosmos/cosmos-db"
+
 	"github.com/cosmos/iavl"
-	dbm "github.com/tendermint/tm-db"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 // TODO: make this configurable?
@@ -46,7 +49,12 @@ func main() {
 	switch args[0] {
 	case "data":
 		PrintKeys(tree)
-		fmt.Printf("Hash: %X\n", tree.Hash())
+		hash, err := tree.Hash()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error hashing tree: %s\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
 	case "shape":
 		PrintShape(tree)
@@ -64,6 +72,12 @@ func OpenDB(dir string) (dbm.DB, error) {
 	default:
 		return nil, fmt.Errorf("database directory must end with .db")
 	}
+
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: doesn't work on windows!
 	cut := strings.LastIndex(dir, "/")
 	if cut == -1 {
@@ -77,7 +91,6 @@ func OpenDB(dir string) (dbm.DB, error) {
 	return db, nil
 }
 
-// nolint: unused,deadcode
 func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
@@ -88,7 +101,7 @@ func PrintDBStats(db dbm.DB) {
 
 	defer itr.Close()
 	for ; itr.Valid(); itr.Next() {
-		key := string(itr.Key()[:1])
+		key := ibytes.UnsafeBytesToStr(itr.Key()[:1])
 		prefix[key]++
 		count++
 	}
@@ -113,7 +126,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
-	tree, err := iavl.NewMutableTree(db, DefaultCacheSize)
+	tree, err := iavl.NewMutableTree(db, DefaultCacheSize, false)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +137,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 
 func PrintKeys(tree *iavl.MutableTree) {
 	fmt.Println("Printing all keys with hashed values (to detect diff)")
-	tree.Iterate(func(key []byte, value []byte) bool {
+	tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
 		printKey := parseWeaveKey(key)
 		digest := sha256.Sum256(value)
 		fmt.Printf("  %s\n    %X\n", printKey, digest)
@@ -156,7 +169,8 @@ func encodeID(id []byte) string {
 
 func PrintShape(tree *iavl.MutableTree) {
 	// shape := tree.RenderShape("  ", nil)
-	shape := tree.RenderShape("  ", nodeEncoder)
+	// TODO: handle this error
+	shape, _ := tree.RenderShape("  ", nodeEncoder)
 	fmt.Println(strings.Join(shape, "\n"))
 }
 

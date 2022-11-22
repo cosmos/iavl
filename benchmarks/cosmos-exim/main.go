@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 
+	tmdb "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl"
-	tmdb "github.com/tendermint/tm-db"
 )
 
 // stores is the list of stores in the CosmosHub database
@@ -91,7 +90,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	tree, err := iavl.NewMutableTree(tmdb.NewPrefixDB(ldb, []byte("s/k:main/")), 0)
+	tree, err := iavl.NewMutableTree(tmdb.NewPrefixDB(ldb, []byte("s/k:main/")), 0, false)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -106,7 +105,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 	totalStats := Stats{}
 	for _, name := range stores {
 		db := tmdb.NewPrefixDB(ldb, []byte("s/k:"+name+"/"))
-		tree, err := iavl.NewMutableTree(db, 0)
+		tree, err := iavl.NewMutableTree(db, 0, false)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -132,7 +131,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 		defer exporter.Close()
 		for {
 			node, err := exporter.Next()
-			if err == iavl.ExportDone {
+			if err == iavl.ErrorExportDone {
 				break
 			} else if err != nil {
 				return 0, nil, err
@@ -158,7 +157,7 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 	totalStats := Stats{}
 
 	for _, name := range stores {
-		tempdir, err := ioutil.TempDir("", name)
+		tempdir, err := os.MkdirTemp("", name)
 		if err != nil {
 			return err
 		}
@@ -171,7 +170,7 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		if err != nil {
 			return err
 		}
-		newTree, err := iavl.NewMutableTree(newDB, 0)
+		newTree, err := iavl.NewMutableTree(newDB, 0, false)
 		if err != nil {
 			return err
 		}

@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"sort"
 	"testing"
@@ -10,21 +9,8 @@ import (
 	ics23 "github.com/confio/ics23/go"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/tendermint/tm-db"
+	db "github.com/cosmos/cosmos-db"
 )
-
-func TestConvertExistence(t *testing.T) {
-	proof, err := GenerateResult(200, Middle)
-	require.NoError(t, err)
-
-	converted, err := convertExistenceProof(proof.Proof, proof.Key, proof.Value)
-	require.NoError(t, err)
-
-	calc, err := converted.Calculate()
-	require.NoError(t, err)
-
-	require.Equal(t, []byte(calc), proof.RootHash, "Calculated: %X\nExpected:   %X", calc, proof.RootHash)
-}
 
 func TestGetMembership(t *testing.T) {
 	cases := map[string]struct {
@@ -42,19 +28,19 @@ func TestGetMembership(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			tree, allkeys, err := BuildTree(tc.size)
+			tree, allkeys, err := BuildTree(tc.size, 0)
 			require.NoError(t, err, "Creating tree: %+v", err)
 
 			key := GetKey(allkeys, tc.loc)
-			_, val := tree.Get(key)
+			val, err := tree.Get(key)
+			require.NoError(t, err)
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
-			root := tree.Hash()
+			root, err := tree.WorkingHash()
+			require.NoError(t, err)
 			valid := ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val)
-			if !valid {
-				require.NoError(t, err, "Membership Proof Invalid")
-			}
+			require.True(t, valid, "Membership Proof Invalid")
 		})
 	}
 }
@@ -72,66 +58,112 @@ func TestGetNonMembership(t *testing.T) {
 		"big right":    {size: 5431, loc: Right},
 	}
 
+	performTest := func(tree *MutableTree, allKeys [][]byte, loc Where) {
+		key := GetNonKey(allKeys, loc)
+
+		proof, err := tree.GetNonMembershipProof(key)
+		require.NoError(t, err, "Creating Proof: %+v", err)
+
+		root, err := tree.WorkingHash()
+		require.NoError(t, err)
+		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
+		require.True(t, valid, "Non Membership Proof Invalid")
+	}
+
 	for name, tc := range cases {
 		tc := tc
-		t.Run(name, func(t *testing.T) {
-			tree, allkeys, err := BuildTree(tc.size)
+		t.Run("fast-"+name, func(t *testing.T) {
+			tree, allkeys, err := BuildTree(tc.size, 0)
 			require.NoError(t, err, "Creating tree: %+v", err)
+			// Save version to enable fast cache
+			_, _, err = tree.SaveVersion()
+			require.NoError(t, err)
 
-			key := GetNonKey(allkeys, tc.loc)
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(t, err)
+			require.True(t, isFastCacheEnabled)
 
-			proof, err := tree.GetNonMembershipProof(key)
-			require.NoError(t, err, "Creating Proof: %+v", err)
+			performTest(tree, allkeys, tc.loc)
+		})
 
-			root := tree.Hash()
-			valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
-			if !valid {
-				require.NoError(t, err, "Non Membership Proof Invalid")
-			}
+		t.Run("regular-"+name, func(t *testing.T) {
+			tree, allkeys, err := BuildTree(tc.size, 0)
+			require.NoError(t, err, "Creating tree: %+v", err)
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(t, err)
+			require.False(t, isFastCacheEnabled)
+
+			performTest(tree, allkeys, tc.loc)
 		})
 	}
 }
 
+func BenchmarkGetNonMembership(b *testing.B) {
+	cases := []struct {
+		size int
+		loc  Where
+	}{
+		{size: 100, loc: Left},
+		{size: 100, loc: Middle},
+		{size: 100, loc: Right},
+		{size: 5431, loc: Left},
+		{size: 5431, loc: Middle},
+		{size: 5431, loc: Right},
+	}
+
+	performTest := func(tree *MutableTree, allKeys [][]byte, loc Where) {
+		key := GetNonKey(allKeys, loc)
+
+		proof, err := tree.GetNonMembershipProof(key)
+		require.NoError(b, err, "Creating Proof: %+v", err)
+
+		b.StopTimer()
+		root, err := tree.WorkingHash()
+		require.NoError(b, err)
+		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
+		require.True(b, valid)
+		b.StartTimer()
+	}
+
+	b.Run("fast", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			caseIdx := rand.Intn(len(cases))
+			tc := cases[caseIdx]
+
+			tree, allkeys, err := BuildTree(tc.size, 100000)
+			require.NoError(b, err, "Creating tree: %+v", err)
+			// Save version to enable fast cache
+			_, _, err = tree.SaveVersion()
+			require.NoError(b, err)
+
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(b, err)
+			require.True(b, isFastCacheEnabled)
+			b.StartTimer()
+			performTest(tree, allkeys, tc.loc)
+		}
+	})
+
+	b.Run("regular", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			caseIdx := rand.Intn(len(cases))
+			tc := cases[caseIdx]
+
+			tree, allkeys, err := BuildTree(tc.size, 100000)
+			require.NoError(b, err, "Creating tree: %+v", err)
+			isFastCacheEnabled, err := tree.IsFastCacheEnabled()
+			require.NoError(b, err)
+			require.False(b, isFastCacheEnabled)
+
+			b.StartTimer()
+			performTest(tree, allkeys, tc.loc)
+		}
+	})
+}
+
 // Test Helpers
-
-// Result is the result of one match
-type Result struct {
-	Key      []byte
-	Value    []byte
-	Proof    *RangeProof
-	RootHash []byte
-}
-
-// GenerateResult makes a tree of size and returns a range proof for one random element
-//
-// returns a range proof and the root hash of the tree
-func GenerateResult(size int, loc Where) (*Result, error) {
-	tree, allkeys, err := BuildTree(size)
-	if err != nil {
-		return nil, err
-	}
-	key := GetKey(allkeys, loc)
-
-	value, proof, err := tree.GetWithProof(key)
-	if err != nil {
-		return nil, err
-	}
-	if value == nil {
-		return nil, fmt.Errorf("tree.GetWithProof returned nil value")
-	}
-	if len(proof.Leaves) != 1 {
-		return nil, fmt.Errorf("tree.GetWithProof returned %d leaves", len(proof.Leaves))
-	}
-	root := tree.Hash()
-
-	res := &Result{
-		Key:      key,
-		Value:    value,
-		Proof:    proof,
-		RootHash: root,
-	}
-	return res, nil
-}
 
 // Where selects a location for a key - Left, Right, or Middle
 type Where int
@@ -172,8 +204,8 @@ func GetNonKey(allkeys [][]byte, loc Where) []byte {
 
 // BuildTree creates random key/values and stores in tree
 // returns a list of all keys in sorted order
-func BuildTree(size int) (itree *ImmutableTree, keys [][]byte, err error) {
-	tree, _ := NewMutableTree(db.NewMemDB(), 0)
+func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err error) {
+	tree, _ := NewMutableTree(db.NewMemDB(), cacheSize, false)
 
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)
@@ -189,7 +221,7 @@ func BuildTree(size int) (itree *ImmutableTree, keys [][]byte, err error) {
 		return bytes.Compare(keys[i], keys[j]) < 0
 	})
 
-	return tree.ImmutableTree, keys, nil
+	return tree, keys, nil
 }
 
 // sink is kept as a global to ensure that value checks and assignments to it can't be
@@ -197,7 +229,7 @@ func BuildTree(size int) (itree *ImmutableTree, keys [][]byte, err error) {
 var sink interface{}
 
 func BenchmarkConvertLeafOp(b *testing.B) {
-	var versions = []int64{
+	versions := []int64{
 		0,
 		1,
 		100,
