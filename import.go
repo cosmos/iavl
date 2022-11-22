@@ -152,7 +152,8 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	case node.leftHash != nil || node.rightHash != nil:
 		i.stack = i.stack[:stackSize-1]
 	}
-	i.stack = append(i.stack, node)
+	// Only hash\height\size of the node will be used after it be pushed into the stack.
+	i.stack = append(i.stack, &Node{hash: node.hash, height: node.height, size: node.size})
 
 	return nil
 }
