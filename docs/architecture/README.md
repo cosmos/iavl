@@ -20,5 +20,3 @@ If recorded decisions turned out to be lacking, convene a discussion, record the
 and then modify the code to match.
 
 ## ADR Table of Contents
-
-- [ADR 001: Flush Version](./adr-001-flush-version.md)

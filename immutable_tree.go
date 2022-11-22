@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
@@ -14,35 +14,38 @@ import (
 // Returned key/value byte slices must not be modified, since they may point to data located inside
 // IAVL which would also be modified.
 type ImmutableTree struct {
-	root    *Node
-	ndb     *nodeDB
-	version int64
+	root                   *Node
+	ndb                    *nodeDB
+	version                int64
+	skipFastStorageUpgrade bool
 }
 
 // NewImmutableTree creates both in-memory and persistent instances
-func NewImmutableTree(db dbm.DB, cacheSize int) *ImmutableTree {
+func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool) *ImmutableTree {
 	if db == nil {
 		// In-memory Tree.
 		return &ImmutableTree{}
 	}
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize, nil),
+		ndb:                    newNodeDB(db, cacheSize, nil),
+		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }
 
 // NewImmutableTreeWithOpts creates an ImmutableTree with the given options.
-func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options) *ImmutableTree {
+func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool) *ImmutableTree {
 	return &ImmutableTree{
 		// NodeDB-backed Tree.
-		ndb: newNodeDB(db, cacheSize, opts),
+		ndb:                    newNodeDB(db, cacheSize, opts),
+		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }
 
 // String returns a string representation of Tree.
 func (t *ImmutableTree) String() string {
 	leaves := []string{}
-	t.Iterate(func(key []byte, val []byte) (stop bool) {
+	t.Iterate(func(key []byte, val []byte) (stop bool) { //nolint:errcheck
 		leaves = append(leaves, fmt.Sprintf("%x: %x", key, val))
 		return false
 	})
@@ -51,7 +54,7 @@ func (t *ImmutableTree) String() string {
 
 // RenderShape provides a nested tree shape, ident is prepended in each level
 // Returns an array of strings, one per line, to join with "\n" or display otherwise
-func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) []string {
+func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) ([]string, error) {
 	if encoder == nil {
 		encoder = defaultNodeEncoder
 	}
@@ -75,25 +78,44 @@ func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
 	return fmt.Sprintf("%s%X", prefix, id)
 }
 
-func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder func([]byte, int, bool) string) []string {
+func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder func([]byte, int, bool) string) ([]string, error) {
 	prefix := strings.Repeat(indent, depth)
 	// handle nil
 	if node == nil {
-		return []string{fmt.Sprintf("%s<nil>", prefix)}
+		return []string{fmt.Sprintf("%s<nil>", prefix)}, nil
 	}
 	// handle leaf
 	if node.isLeaf() {
 		here := fmt.Sprintf("%s%s", prefix, encoder(node.key, depth, true))
-		return []string{here}
+		return []string{here}, nil
 	}
 
 	// recurse on inner node
 	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
-	left := t.renderNode(node.getLeftNode(t), indent, depth+1, encoder)
-	right := t.renderNode(node.getRightNode(t), indent, depth+1, encoder)
-	result := append(left, here)
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return nil, err
+	}
+
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		return nil, err
+	}
+
+	right, err := t.renderNode(rightNode, indent, depth+1, encoder)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := t.renderNode(leftNode, indent, depth+1, encoder) // left
+	if err != nil {
+		return nil, err
+	}
+
+	result = append(result, here)
 	result = append(result, right...)
-	return result
+	return result, nil
 }
 
 // Size returns the number of leaf nodes in the tree.
@@ -114,26 +136,21 @@ func (t *ImmutableTree) Height() int8 {
 	if t.root == nil {
 		return 0
 	}
-	return t.root.height
+	return t.root.subtreeHeight
 }
 
 // Has returns whether or not a key exists.
-func (t *ImmutableTree) Has(key []byte) bool {
+func (t *ImmutableTree) Has(key []byte) (bool, error) {
 	if t.root == nil {
-		return false
+		return false, nil
 	}
 	return t.root.has(t, key)
 }
 
 // Hash returns the root hash.
-func (t *ImmutableTree) Hash() []byte {
-	hash, _ := t.root.hashWithCount()
-	return hash
-}
-
-// hashWithCount returns the root hash and hash count.
-func (t *ImmutableTree) hashWithCount() ([]byte, int64) {
-	return t.root.hashWithCount()
+func (t *ImmutableTree) Hash() ([]byte, error) {
+	hash, _, err := t.root.hashWithCount()
+	return hash, err
 }
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
@@ -142,36 +159,104 @@ func (t *ImmutableTree) Export() *Exporter {
 	return newExporter(t)
 }
 
-// Get returns the index and value of the specified key if it exists, or nil and the next index
+// GetWithIndex returns the index and value of the specified key if it exists, or nil and the next index
 // otherwise. The returned value must not be modified, since it may point to data stored within
 // IAVL.
-func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
+//
+// The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
+// It's neighbor has index 1 and so on.
+func (t *ImmutableTree) GetWithIndex(key []byte) (int64, []byte, error) {
 	if t.root == nil {
-		return 0, nil
+		return 0, nil, nil
 	}
 	return t.root.get(t, key)
 }
 
-// GetByIndex gets the key and value at the specified index.
-func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte) {
+// Get returns the value of the specified key if it exists, or nil.
+// The returned value must not be modified, since it may point to data stored within IAVL.
+// Get potentially employs a more performant strategy than GetWithIndex for retrieving the value.
+// If tree.skipFastStorageUpgrade is true, this will work almost the same as GetWithIndex.
+func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 	if t.root == nil {
 		return nil, nil
 	}
+
+	if !t.skipFastStorageUpgrade {
+		// attempt to get a FastNode directly from db/cache.
+		// if call fails, fall back to the original IAVL logic in place.
+		fastNode, err := t.ndb.GetFastNode(key)
+		if err != nil {
+			_, result, err := t.root.get(t, key)
+			return result, err
+		}
+
+		if fastNode == nil {
+			// If the tree is of the latest version and fast node is not in the tree
+			// then the regular node is not in the tree either because fast node
+			// represents live state.
+			if t.version == t.ndb.latestVersion {
+				return nil, nil
+			}
+
+			_, result, err := t.root.get(t, key)
+			return result, err
+		}
+
+		if fastNode.GetVersionLastUpdatedAt() <= t.version {
+			return fastNode.GetValue(), nil
+		}
+	}
+
+	// otherwise skipFastStorageUpgrade is true or
+	// the cached node was updated later than the current tree. In this case,
+	// we need to use the regular stategy for reading from the current tree to avoid staleness.
+	_, result, err := t.root.get(t, key)
+	return result, err
+}
+
+// GetByIndex gets the key and value at the specified index.
+func (t *ImmutableTree) GetByIndex(index int64) (key []byte, value []byte, err error) {
+	if t.root == nil {
+		return nil, nil, nil
+	}
+
 	return t.root.getByIndex(t, index)
 }
 
-// Iterate iterates over all keys of the tree, in order. The keys and values must not be modified,
-// since they may point to data stored within IAVL.
-func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (stopped bool) {
+// Iterate iterates over all keys of the tree. The keys and values must not be modified,
+// since they may point to data stored within IAVL. Returns true if stopped by callback, false otherwise
+func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, error) {
 	if t.root == nil {
-		return false
+		return false, nil
 	}
-	return t.root.traverse(t, true, func(node *Node) bool {
-		if node.height == 0 {
-			return fn(node.key, node.value)
+
+	itr, err := t.Iterator(nil, nil, true)
+	if err != nil {
+		return false, err
+	}
+	defer itr.Close()
+
+	for ; itr.Valid(); itr.Next() {
+		if fn(itr.Key(), itr.Value()) {
+			return true, nil
 		}
-		return false
-	})
+	}
+	return false, nil
+}
+
+// Iterator returns an iterator over the immutable tree.
+func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+	if !t.skipFastStorageUpgrade {
+		isFastCacheEnabled, err := t.IsFastCacheEnabled()
+		if err != nil {
+			return nil, err
+		}
+
+		if isFastCacheEnabled {
+			return NewFastIterator(start, end, ascending, t.ndb), nil
+		}
+	}
+	return NewIterator(start, end, ascending, t), nil
 }
 
 // IterateRange makes a callback for all nodes with key between start and end non-inclusive.
@@ -182,7 +267,7 @@ func (t *ImmutableTree) IterateRange(start, end []byte, ascending bool, fn func(
 		return false
 	}
 	return t.root.traverseInRange(t, start, end, ascending, false, false, func(node *Node) bool {
-		if node.height == 0 {
+		if node.subtreeHeight == 0 {
 			return fn(node.key, node.value)
 		}
 		return false
@@ -197,24 +282,47 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 		return false
 	}
 	return t.root.traverseInRange(t, start, end, ascending, true, false, func(node *Node) bool {
-		if node.height == 0 {
+		if node.subtreeHeight == 0 {
 			return fn(node.key, node.value, node.version)
 		}
 		return false
 	})
 }
 
+// IsFastCacheEnabled returns true if fast cache is enabled, false otherwise.
+// For fast cache to be enabled, the following 2 conditions must be met:
+// 1. The tree is of the latest version.
+// 2. The underlying storage has been upgraded to fast cache
+func (t *ImmutableTree) IsFastCacheEnabled() (bool, error) {
+	isLatestTreeVersion, err := t.isLatestTreeVersion()
+	if err != nil {
+		return false, err
+	}
+	return isLatestTreeVersion && t.ndb.hasUpgradedToFastStorage(), nil
+}
+
+func (t *ImmutableTree) isLatestTreeVersion() (bool, error) {
+	latestVersion, err := t.ndb.getLatestVersion()
+	if err != nil {
+		return false, err
+	}
+	return t.version == latestVersion, nil
+}
+
 // Clone creates a clone of the tree.
 // Used internally by MutableTree.
 func (t *ImmutableTree) clone() *ImmutableTree {
 	return &ImmutableTree{
-		root:    t.root,
-		ndb:     t.ndb,
-		version: t.version,
+		root:                   t.root,
+		ndb:                    t.ndb,
+		version:                t.version,
+		skipFastStorageUpgrade: t.skipFastStorageUpgrade,
 	}
 }
 
 // nodeSize is like Size, but includes inner nodes too.
+//
+//nolint:unused
 func (t *ImmutableTree) nodeSize() int {
 	size := 0
 	t.root.traverse(t, true, func(n *Node) bool {

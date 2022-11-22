@@ -2,10 +2,10 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 
-	"github.com/pkg/errors"
-
-	db "github.com/tendermint/tm-db"
+	db "github.com/cosmos/cosmos-db"
 )
 
 // maxBatchSize is the maximum size of the import batch before flushing it to the database
@@ -38,7 +38,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		return nil, errors.New("imported version cannot be negative")
 	}
 	if tree.ndb.latestVersion > 0 {
-		return nil, errors.Errorf("found database at version %d, must be 0", tree.ndb.latestVersion)
+		return nil, fmt.Errorf("found database at version %d, must be 0", tree.ndb.latestVersion)
 	}
 	if !tree.IsEmpty() {
 		return nil, errors.New("tree must be empty")
@@ -73,15 +73,15 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return errors.New("node cannot be nil")
 	}
 	if exportNode.Version > i.version {
-		return errors.Errorf("node version %v can't be greater than import version %v",
+		return fmt.Errorf("node version %v can't be greater than import version %v",
 			exportNode.Version, i.version)
 	}
 
 	node := &Node{
-		key:     exportNode.Key,
-		value:   exportNode.Value,
-		version: exportNode.Version,
-		height:  exportNode.Height,
+		key:           exportNode.Key,
+		value:         exportNode.Value,
+		version:       exportNode.Version,
+		subtreeHeight: exportNode.Height,
 	}
 
 	// We build the tree from the bottom-left up. The stack is used to store unresolved left
@@ -93,17 +93,17 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
 	switch {
-	case stackSize >= 2 && i.stack[stackSize-1].height < node.height && i.stack[stackSize-2].height < node.height:
+	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-2]
 		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
 		node.rightHash = node.rightNode.hash
-	case stackSize >= 1 && i.stack[stackSize-1].height < node.height:
+	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-1]
 		node.leftHash = node.leftNode.hash
 	}
 
-	if node.height == 0 {
+	if node.subtreeHeight == 0 {
 		node.size = 1
 	}
 	if node.leftNode != nil {
@@ -113,8 +113,12 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.size += node.rightNode.size
 	}
 
-	node._hash()
-	err := node.validate()
+	_, err := node._hash()
+	if err != nil {
+		return err
+	}
+
+	err = node.validate()
 	if err != nil {
 		return err
 	}
@@ -169,14 +173,14 @@ func (i *Importer) Commit() error {
 	switch len(i.stack) {
 	case 0:
 		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{}); err != nil {
-			panic(err)
+			return err
 		}
 	case 1:
 		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash); err != nil {
-			panic(err)
+			return err
 		}
 	default:
-		return errors.Errorf("invalid node structure, found stack size %v when committing",
+		return fmt.Errorf("invalid node structure, found stack size %v when committing",
 			len(i.stack))
 	}
 

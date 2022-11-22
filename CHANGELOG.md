@@ -2,9 +2,59 @@
 
 ## Unreleased
 
+- [#586](https://github.com/cosmos/iavl/pull/586) Remove the `RangeProof` and refactor the ics23_proof to use the internal methods.
+
+## 0.19.4 (October 28, 2022)
+
+ - [#599](https://github.com/cosmos/iavl/pull/599) Populate ImmutableTree creation in copy function with missing field
+ - [#589](https://github.com/cosmos/iavl/pull/589) Wrap `tree.addUnsavedRemoval()` with missing `if !tree.skipFastStorageUpgrade` statement
+
+## 0.19.3 (October 8, 2022)
+
+- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set. 
+## 0.19.2 (October 6, 2022)
+
+- [#547](https://github.com/cosmos/iavl/pull/547) Implement `skipFastStorageUpgrade` in order to skip fast storage upgrade and usage. 
+- [#531](https://github.com/cosmos/iavl/pull/531) Upgrade to fast storage in batches. 
+
+## 0.19.1 (August 3, 2022)
+
 ### Improvements
 
+- [#525](https://github.com/cosmos/iavl/pull/525) Optimization: use fast unsafe bytes->string conversion.
+- [#506](https://github.com/cosmos/iavl/pull/506) Implement cache abstraction.
+
+### Bug Fixes
+
+- [#524](https://github.com/cosmos/iavl/pull/524) Fix: `MutableTree.Get`.
+
+## 0.19.0 (July 6, 2022)
+
+### Breaking Changes
+
+- [#514](https://github.com/cosmos/iavl/pull/514) Downgrade Tendermint to 0.34.x
+- [#500](https://github.com/cosmos/iavl/pull/500) Return errors instead of panicking.
+
+### Improvements
+
+- [#514](https://github.com/cosmos/iavl/pull/514) Use Go v1.18
+
+## 0.18.0 (March 10, 2022)
+
+### Breaking Changes
+
+- Bumped Tendermint to 0.35.1
+
+### Improvements
+
+- [\#468](https://github.com/cosmos/iavl/pull/468) Fast storage optimization for queries and iterations
+- [\#452](https://github.com/cosmos/iavl/pull/452) Optimization: remove unnecessary (\*bytes.Buffer).Reset right after creating buffer.
 - [\#445](https://github.com/cosmos/iavl/pull/445) Bump github.com/tendermint/tendermint to v0.35.0
+- [\#453](https://github.com/cosmos/iavl/pull/453),[\#456](https://github.com/cosmos/iavl/pull/456) Optimization: buffer reuse
+- [\#474](https://github.com/cosmos/iavl/pull/474) bump github.com/confio/ics23 to v0.7
+- [\#475](https://github.com/cosmos/iavl/pull/475) Use go v1.17
+
+## 0.17.3 (December 1, 2021)
 
 ### Bug Fixes
 

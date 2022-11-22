@@ -12,3 +12,7 @@ cpu*.out
 mem*.out
 cpu*.pdf
 mem*.pdf
+
+# IDE files
+.idea/*
+.vscode/*

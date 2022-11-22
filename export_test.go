@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/tendermint/tm-db"
+	db "github.com/cosmos/cosmos-db"
 )
 
 // setupExportTreeBasic sets up a basic tree with a handful of
 // create/update/delete operations over a few versions.
 func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
-	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
 
 	tree.Set([]byte("x"), []byte{255})
@@ -52,14 +52,14 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 		keySize   = 16
 		valueSize = 16
 
-		versions    = 32   // number of versions to generate
-		versionOps  = 4096 // number of operations (create/update/delete) per version
+		versions    = 8    // number of versions to generate
+		versionOps  = 1024 // number of operations (create/update/delete) per version
 		updateRatio = 0.4  // ratio of updates out of all operations
 		deleteRatio = 0.2  // ratio of deletes out of all operations
 	)
 
 	r := rand.New(rand.NewSource(randSeed))
-	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
 
 	var version int64
@@ -75,20 +75,22 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 				index := r.Intn(len(keys))
 				key = keys[index]
 				keys = append(keys[:index], keys[index+1:]...)
-				_, removed := tree.Remove(key)
+				_, removed, err := tree.Remove(key)
+				require.NoError(t, err)
 				require.True(t, removed)
 
 			case len(keys) > 0 && r.Float64() <= updateRatio:
 				key = keys[r.Intn(len(keys))]
 				r.Read(value)
-				updated := tree.Set(key, value)
+				updated, err := tree.Set(key, value)
+				require.NoError(t, err)
 				require.True(t, updated)
 
 			default:
 				r.Read(key)
 				r.Read(value)
 				// If we get an update, set again
-				for tree.Set(key, value) {
+				for updated, err := tree.Set(key, value); updated && err == nil; {
 					key = make([]byte, keySize)
 					r.Read(key)
 				}
@@ -117,7 +119,7 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 	)
 
 	r := rand.New(rand.NewSource(randSeed))
-	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
 
 	for i := 0; i < treeSize; i++ {
@@ -125,7 +127,9 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 		value := make([]byte, valueSize)
 		r.Read(key)
 		r.Read(value)
-		updated := tree.Set(key, value)
+		updated, err := tree.Set(key, value)
+		require.NoError(t, err)
+
 		if updated {
 			i--
 		}
@@ -160,7 +164,7 @@ func TestExporter(t *testing.T) {
 	defer exporter.Close()
 	for {
 		node, err := exporter.Next()
-		if err == ExportDone {
+		if err == ErrorExportDone {
 			break
 		}
 		require.NoError(t, err)
@@ -172,7 +176,7 @@ func TestExporter(t *testing.T) {
 
 func TestExporter_Import(t *testing.T) {
 	testcases := map[string]*ImmutableTree{
-		"empty tree": NewImmutableTree(db.NewMemDB(), 0),
+		"empty tree": NewImmutableTree(db.NewMemDB(), 0, false),
 		"basic tree": setupExportTreeBasic(t),
 	}
 	if !testing.Short() {
@@ -188,7 +192,7 @@ func TestExporter_Import(t *testing.T) {
 			exporter := tree.Export()
 			defer exporter.Close()
 
-			newTree, err := NewMutableTree(db.NewMemDB(), 0)
+			newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
 			require.NoError(t, err)
 			importer, err := newTree.Import(tree.Version())
 			require.NoError(t, err)
@@ -196,7 +200,7 @@ func TestExporter_Import(t *testing.T) {
 
 			for {
 				item, err := exporter.Next()
-				if err == ExportDone {
+				if err == ErrorExportDone {
 					err = importer.Commit()
 					require.NoError(t, err)
 					break
@@ -206,13 +210,20 @@ func TestExporter_Import(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.Equal(t, tree.Hash(), newTree.Hash(), "Tree hash mismatch")
+			treeHash, err := tree.Hash()
+			require.NoError(t, err)
+			newTreeHash, err := newTree.Hash()
+			require.NoError(t, err)
+
+			require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
 			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
 			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
 
 			tree.Iterate(func(key, value []byte) bool {
-				index, _ := tree.Get(key)
-				newIndex, newValue := newTree.Get(key)
+				index, _, err := tree.GetWithIndex(key)
+				require.NoError(t, err)
+				newIndex, newValue, err := newTree.GetWithIndex(key)
+				require.NoError(t, err)
 				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
 				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
 				return false
@@ -232,12 +243,12 @@ func TestExporter_Close(t *testing.T) {
 	exporter.Close()
 	node, err = exporter.Next()
 	require.Error(t, err)
-	require.Equal(t, ExportDone, err)
+	require.Equal(t, ErrorExportDone, err)
 	require.Nil(t, node)
 
 	node, err = exporter.Next()
 	require.Error(t, err)
-	require.Equal(t, ExportDone, err)
+	require.Equal(t, ErrorExportDone, err)
 	require.Nil(t, node)
 
 	exporter.Close()
@@ -245,7 +256,7 @@ func TestExporter_Close(t *testing.T) {
 }
 
 func TestExporter_DeleteVersionErrors(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
 
 	tree.Set([]byte("a"), []byte{1})
@@ -283,7 +294,7 @@ func BenchmarkExport(b *testing.B) {
 		exporter := tree.Export()
 		for {
 			_, err := exporter.Next()
-			if err == ExportDone {
+			if err == ErrorExportDone {
 				break
 			} else if err != nil {
 				b.Error(err)
