@@ -3,7 +3,6 @@ package iavl
 import (
 	"context"
 	"errors"
-	"fmt"
 )
 
 // exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by
@@ -13,6 +12,12 @@ const exportBufferSize = 32
 
 // ErrorExportDone is returned by Exporter.Next() when all items have been exported.
 var ErrorExportDone = errors.New("export is complete")
+
+// ErrorTreeNil is a rare occurance, but it is a clear error
+var ErrorTreeNil = errors.New("iavl/export newExporter failed to create because tree is nil")
+
+// ErrorTreeNodeDbNil encountered when chains introduce a store without initializing data
+var ErrorTreeNodeDbNil = errors.New("iavl/export newExporter failed to create because tree.ndb is nil")
 
 // ExportNode contains exported node data.
 type ExportNode struct {
@@ -34,14 +39,13 @@ type Exporter struct {
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func newExporter(tree *ImmutableTree) *Exporter {
+func newExporter(tree *ImmutableTree) (*Exporter, error) {
 	if tree == nil {
-		return nil
+		return nil, ErrorTreeNil
 	}
 	// CV Prevent crash on incrVersionReaders if tree.ndb == nil
 	if tree.ndb == nil {
-		fmt.Printf("iavl/export newExporter failed to create because tree.ndb is nil\n")
-		return nil
+		return nil, ErrorTreeNodeDbNil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -54,7 +58,7 @@ func newExporter(tree *ImmutableTree) *Exporter {
 	tree.ndb.incrVersionReaders(tree.version)
 	go exporter.export(ctx)
 
-	return exporter
+	return exporter, nil
 }
 
 // export exports nodes
