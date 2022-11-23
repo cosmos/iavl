@@ -36,11 +36,11 @@ func TestNode_encodedSize(t *testing.T) {
 	}
 
 	// leaf node
-	require.Equal(t, 26, node.encodedSize())
+	require.Equal(t, 25, node.encodedSize())
 
 	// non-leaf node
 	node.subtreeHeight = 1
-	require.Equal(t, 19, node.encodedSize())
+	require.Equal(t, 39, node.encodedSize())
 }
 
 func TestNode_encode_decode(t *testing.T) {
@@ -49,8 +49,7 @@ func TestNode_encode_decode(t *testing.T) {
 		expectHex   string
 		expectError bool
 	}{
-		"nil":   {nil, "", true},
-		"empty": {&Node{}, "0000000000", false},
+		"nil": {nil, "", true},
 		"inner": {&Node{
 			subtreeHeight: 3,
 			size:          7,
@@ -67,7 +66,8 @@ func TestNode_encode_decode(t *testing.T) {
 				version: 1,
 				nonce:   3,
 			},
-		}, "060e04036b65790404708090a0060410203040", false},
+			hash: []byte{0x70, 0x80, 0x90, 0xa0},
+		}, "060e036b657904708090a002040206", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			size:          1,
@@ -77,7 +77,8 @@ func TestNode_encode_decode(t *testing.T) {
 				version: 3,
 				nonce:   4,
 			},
-		}, "000206036b65790576616c7565", false},
+			hash: []byte{0x7f, 0x68, 0x90, 0xca, 0x16, 0xde, 0xa6, 0xe8, 0x89, 0x3d, 0x96, 0xf0, 0xa3, 0xd, 0xa, 0x14, 0xe5, 0x55, 0x59, 0xfc, 0x9b, 0x83, 0x4, 0x91, 0xe3, 0xd2, 0x45, 0x1c, 0x81, 0xf6, 0xd1, 0xe},
+		}, "0002036b65790576616c7565", false},
 	}
 	for name, tc := range testcases {
 		tc := tc
@@ -119,11 +120,11 @@ func TestNode_validate(t *testing.T) {
 		valid bool
 	}{
 		"nil node":                 {nil, false},
-		"leaf":                     {&Node{key: k, value: v, size: 1}, true},
+		"leaf":                     {&Node{key: k, value: v, nodeKey: nk, size: 1}, true},
 		"leaf with nil key":        {&Node{key: nil, value: v, size: 1}, false},
-		"leaf with empty key":      {&Node{key: []byte{}, value: v, size: 1}, true},
+		"leaf with empty key":      {&Node{key: []byte{}, value: v, nodeKey: nk, size: 1}, true},
 		"leaf with nil value":      {&Node{key: k, value: nil, size: 1}, false},
-		"leaf with empty value":    {&Node{key: k, value: []byte{}, size: 1}, true},
+		"leaf with empty value":    {&Node{key: k, value: []byte{}, nodeKey: nk, size: 1}, true},
 		"leaf with version 0":      {&Node{key: k, value: v, size: 1}, false},
 		"leaf with version -1":     {&Node{key: k, value: v, size: 1}, false},
 		"leaf with size 0":         {&Node{key: k, value: v, size: 0}, false},
@@ -133,12 +134,12 @@ func TestNode_validate(t *testing.T) {
 		"leaf with left child":     {&Node{key: k, value: v, size: 1, leftNode: c}, false},
 		"leaf with right node key": {&Node{key: k, value: v, size: 1, rightNodeKey: nk}, false},
 		"leaf with right child":    {&Node{key: k, value: v, size: 1, rightNode: c}, false},
-		"inner":                    {&Node{key: k, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, true},
+		"inner":                    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk, rightNodeKey: nk}, true},
 		"inner with nil key":       {&Node{key: nil, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
 		"inner with value":         {&Node{key: k, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
 		"inner with empty value":   {&Node{key: k, value: []byte{}, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
-		"inner with left child":    {&Node{key: k, size: 1, subtreeHeight: 1, leftNodeKey: nk}, true},
-		"inner with right child":   {&Node{key: k, size: 1, subtreeHeight: 1, rightNodeKey: nk}, true},
+		"inner with left child":    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk}, false},
+		"inner with right child":   {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, rightNodeKey: nk}, false},
 		"inner with no child":      {&Node{key: k, size: 1, subtreeHeight: 1}, false},
 		"inner with height 0":      {&Node{key: k, size: 1, subtreeHeight: 0, leftNodeKey: nk, rightNodeKey: nk}, false},
 	}

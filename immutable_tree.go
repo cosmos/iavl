@@ -322,10 +322,5 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 //
 //nolint:unused
 func (t *ImmutableTree) nodeSize() int {
-	size := 0
-	t.root.traverse(t, true, func(n *Node) bool {
-		size++
-		return false
-	})
-	return size
+	return int(t.root.size*2 - 1)
 }

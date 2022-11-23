@@ -158,6 +158,10 @@ func scan(a interface{}, value []byte) {
 		*v = int64(binary.BigEndian.Uint64(value))
 	case *uint64:
 		*v = binary.BigEndian.Uint64(value)
+	case *uint32:
+		*v = binary.BigEndian.Uint32(value)
+	case *int32:
+		*v = int32(binary.BigEndian.Uint32(value))
 	case *[]byte:
 		*v = value
 	default:

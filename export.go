@@ -17,7 +17,7 @@ var ErrorExportDone = errors.New("export is complete")
 type ExportNode struct {
 	Key     []byte
 	Value   []byte
-	Version int64
+	NodeKey *NodeKey
 	Height  int8
 }
 
@@ -53,7 +53,7 @@ func (e *Exporter) export(ctx context.Context) {
 		exportNode := &ExportNode{
 			Key:     node.key,
 			Value:   node.value,
-			Version: node.nodeKey.version,
+			NodeKey: node.nodeKey,
 			Height:  node.subtreeHeight,
 		}
 

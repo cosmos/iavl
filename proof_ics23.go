@@ -108,11 +108,15 @@ func (t *ImmutableTree) createExistenceProof(key []byte) (*ics23.ExistenceProof,
 	if err != nil {
 		return nil, err
 	}
-	path, node, err := t.root.PathToLeaf(t, key)
+	path, node, err := t.root.PathToLeaf(t, key, t.version+1)
+	nodeVersion := t.version + 1
+	if node.nodeKey != nil {
+		nodeVersion = node.nodeKey.version
+	}
 	return &ics23.ExistenceProof{
 		Key:   node.key,
 		Value: node.value,
-		Leaf:  convertLeafOp(node.nodeKey.version),
+		Leaf:  convertLeafOp(nodeVersion),
 		Path:  convertInnerOps(path),
 	}, err
 }

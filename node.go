@@ -152,23 +152,39 @@ func (node *Node) GetKey() []byte {
 
 // String returns a string representation of the node.
 func (node *Node) String() string {
-	hashstr := "<no hash>"
-	if len(node.hash) > 0 {
-		hashstr = fmt.Sprintf("%X", node.hash)
+	child := ""
+	if node.leftNode != nil && node.leftNode.nodeKey != nil {
+		child += fmt.Sprintf("{left %d, %d}", node.leftNode.nodeKey.version, node.leftNode.nodeKey.nonce)
+	}
+	if node.rightNode != nil && node.rightNode.nodeKey != nil {
+		child += fmt.Sprintf("{right %d, %d}", node.rightNode.nodeKey.version, node.rightNode.nodeKey.nonce)
 	}
 	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s",
 		ColoredBytes(node.key, Green, Blue),
 		ColoredBytes(node.value, Cyan, Blue),
 		node.nodeKey, node.leftNodeKey, node.rightNodeKey,
-		node.size, node.subtreeHeight,
-		hashstr)
+		node.size, node.subtreeHeight, child)
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone() (*Node, error) {
+func (node *Node) clone(t *ImmutableTree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, ErrCloneLeafNode
 	}
+
+	// ensure get children
+	var err error
+	if node.nodeKey != nil {
+		node.leftNode, err = node.getLeftNode(t)
+		if err != nil {
+			return nil, err
+		}
+		node.rightNode, err = node.getRightNode(t)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return &Node{
 		key:           node.key,
 		subtreeHeight: node.subtreeHeight,
@@ -330,6 +346,12 @@ func (node *Node) validate() error {
 	}
 	if node.key == nil {
 		return errors.New("key cannot be nil")
+	}
+	if node.nodeKey == nil {
+		return errors.New("nodeKey cannot be nil")
+	}
+	if node.nodeKey.version <= 0 {
+		return errors.New("version must be greater than 0")
 	}
 	if node.subtreeHeight < 0 {
 		return errors.New("height cannot be less than 0")
@@ -505,7 +527,6 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	node.leftNode = leftNode
 	return leftNode, nil
 }
 
@@ -517,7 +538,6 @@ func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	node.rightNode = rightNode
 	return rightNode, nil
 }
 
