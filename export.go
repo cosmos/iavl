@@ -2,8 +2,9 @@ package iavl
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
+	"errors"
 )
 
 // exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by
@@ -39,11 +40,11 @@ type Exporter struct {
 // NewExporter creates a new Exporter. Callers must call Close() when done.
 func newExporter(tree *ImmutableTree) (*Exporter, error) {
 	if tree == nil {
-		return nil, errors.Wrap(ErrNotInitalizedTree, "tree is nil")
+		return nil, fmt.Errorf("tree is nil: %w", ErrNotInitalizedTree)
 	}
 	// CV Prevent crash on incrVersionReaders if tree.ndb == nil
 	if tree.ndb == nil {
-		return nil, errors.Wrap(ErrNotInitalizedTree, "tree.ndb is nil")
+		return nil, fmt.Errorf("tree.ndb is nil: %w", ErrNotInitalizedTree)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
