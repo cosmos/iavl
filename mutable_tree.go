@@ -910,12 +910,6 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 	return nil
 }
 
-func (tree *MutableTree) addUnsavedRemoval(key []byte) {
-	skey := ibytes.UnsafeBytesToStr(key)
-	delete(tree.unsavedFastNodeAdditions, skey)
-	tree.unsavedFastNodeRemovals[skey] = true
-}
-
 func (tree *MutableTree) saveFastNodeRemovals() error {
 	keysToSort := make([]string, 0, len(tree.unsavedFastNodeRemovals))
 	for key := range tree.unsavedFastNodeRemovals {
