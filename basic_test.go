@@ -470,7 +470,7 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1, err := NewMutableTree(db, 0, false)
+	t1, err := NewMutableTree(db, 0)
 	require.NoError(t, err)
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
@@ -478,7 +478,7 @@ func TestPersistence(t *testing.T) {
 	t1.SaveVersion()
 
 	// Load a tree
-	t2, err := NewMutableTree(db, 0, false)
+	t2, err := NewMutableTree(db, 0)
 	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
@@ -528,7 +528,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	tree, err := NewMutableTree(db, 100, false)
+	tree, err := NewMutableTree(db, 100)
 	require.NoError(t, err)
 	hash, err := tree.Hash()
 	require.NoError(t, err)

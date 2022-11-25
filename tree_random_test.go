@@ -83,7 +83,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options, false)
+		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options)
 		require.NoError(t, err)
 		version, err = tree.Load()
 		require.NoError(t, err)
