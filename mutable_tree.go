@@ -1170,7 +1170,7 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-// getNewNodes gets orphaned nodes by the changes of the working tree.
+// getOrphans gets orphaned nodes by the changes of the working tree.
 func (tree *MutableTree) getOrphans() []*NodeKey {
 	prevRoot := tree.lastSaved.root
 	orphans := make([]*NodeKey, 0)

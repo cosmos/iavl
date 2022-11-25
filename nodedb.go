@@ -528,40 +528,6 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	return nil
 }
 
-// deleteNodesFrom deletes the given node and any descendants that have versions after the given
-// (inclusive). It is mainly used via LoadVersionForOverwriting, to delete the current version.
-func (ndb *nodeDB) deleteNodesFrom(nk *NodeKey) error {
-	if nk == nil {
-		return nil
-	}
-
-	node, err := ndb.GetNode(nk)
-	if err != nil {
-		return err
-	}
-
-	if node.leftNodeKey != nil {
-		if err := ndb.deleteNodesFrom(node.leftNodeKey); err != nil {
-			return err
-		}
-	}
-	if node.rightNodeKey != nil {
-		if err := ndb.deleteNodesFrom(node.rightNodeKey); err != nil {
-			return err
-		}
-	}
-
-	if node.nodeKey.version >= nk.version {
-		if err := ndb.batch.Delete(ndb.nodeKey(nk)); err != nil {
-			return err
-		}
-
-		ndb.nodeCache.Remove(nk.GetKey())
-	}
-
-	return nil
-}
-
 // Saves orphaned nodes to disk under a special prefix.
 // version: the new version being saved.
 // orphans: the orphan nodes created since version-1

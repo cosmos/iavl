@@ -99,7 +99,10 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 		}
 		node.value = val
 		// ensure take the hash for the leaf node
-		node._hash(node.nodeKey.version)
+		if _, err := node._hash(node.nodeKey.version); err != nil {
+			return nil, fmt.Errorf("calculating hash error: %v", err)
+		}
+
 	} else { // Read children.
 		node.hash, n, cause = encoding.DecodeBytes(buf)
 		if cause != nil {
@@ -573,7 +576,6 @@ func (node *Node) calcBalance(t *ImmutableTree) (int, error) {
 }
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
-// nolint: unparam
 func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, false, func(node *Node) bool {
 		return cb(node)
