@@ -170,7 +170,7 @@ func (node *Node) String() string {
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone(t *ImmutableTree) (*Node, error) {
+func (node *Node) clone(tree *MutableTree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, ErrCloneLeafNode
 	}
@@ -178,11 +178,12 @@ func (node *Node) clone(t *ImmutableTree) (*Node, error) {
 	// ensure get children
 	var err error
 	if node.nodeKey != nil {
-		node.leftNode, err = node.getLeftNode(t)
+		tree.orphans = append(tree.orphans, node.nodeKey)
+		node.leftNode, err = node.getLeftNode(tree.ImmutableTree)
 		if err != nil {
 			return nil, err
 		}
-		node.rightNode, err = node.getRightNode(t)
+		node.rightNode, err = node.getRightNode(tree.ImmutableTree)
 		if err != nil {
 			return nil, err
 		}
