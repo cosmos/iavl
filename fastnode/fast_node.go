@@ -18,7 +18,7 @@ type Node struct {
 	value                []byte
 }
 
-var _ cache.Node[[]byte] = (*Node)(nil)
+var _ cache.Node = (*Node)(nil)
 
 // NewNode returns a new fast node from a value and version.
 func NewNode(key []byte, value []byte, version int64) *Node {

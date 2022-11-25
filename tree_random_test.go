@@ -350,7 +350,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	secondKey := foundKeys[1]
 
 	require.True(t, strings.HasPrefix(firstKey, metadataKeyFormat.Prefix()))
-	require.True(t, strings.HasPrefix(secondKey, rootKeyFormat.Prefix()))
+	require.True(t, strings.HasPrefix(secondKey, versionKeyFormat.Prefix()))
 
 	require.Equal(t, string(metadataKeyFormat.KeyBytes([]byte(storageVersionKey))), firstKey, "Unexpected storage version key")
 
@@ -361,7 +361,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), string(storageVersionValue))
 
 	var foundVersion int64
-	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
+	versionKeyFormat.Scan([]byte(secondKey), &foundVersion)
 	require.Equal(t, version, foundVersion, "Unexpected root version")
 }
 

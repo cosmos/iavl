@@ -14,19 +14,10 @@ import (
 	"github.com/cosmos/iavl/mock"
 )
 
-func BenchmarkNodeKey(b *testing.B) {
-	ndb := &nodeDB{}
-	keys := makeNodeKeys(b, 2432325)
-	for i := 0; i < b.N; i++ {
-		ndb.nodeKey(keys[i])
-	}
-}
-
 func BenchmarkOrphanKey(b *testing.B) {
 	ndb := &nodeDB{}
-	hashes := makeHashes(b, 2432325)
 	for i := 0; i < b.N; i++ {
-		ndb.orphanKey(1234, 1239, hashes[i])
+		ndb.orphanKey(1234, &NodeKey{version: 1239, nonce: int32(i)})
 	}
 }
 
@@ -116,7 +107,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key(expectedFastCacheVersion)).Times(1)
+	rIterMock.EXPECT().Key().Return(versionKeyFormat.Key(expectedFastCacheVersion)).Times(1)
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
@@ -259,17 +250,6 @@ func TestIsFastStorageEnabled_False(t *testing.T) {
 	shouldForce, err := ndb.shouldForceFastStorageUpgrade()
 	require.False(t, shouldForce)
 	require.NoError(t, err)
-}
-
-func makeNodeKeys(b *testing.B, seed int64) []int64 {
-	b.StopTimer()
-	rnd := rand.NewSource(seed)
-	keys := make([]int64, b.N)
-	for i := 0; i < b.N; i++ {
-		keys[i] = int64(rnd.Int63())
-	}
-	b.StartTimer()
-	return keys
 }
 
 func makeHashes(b *testing.B, seed int64) [][]byte {

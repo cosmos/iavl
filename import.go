@@ -73,15 +73,15 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	if exportNode == nil {
 		return errors.New("node cannot be nil")
 	}
-	if exportNode.Version > i.version {
+	if exportNode.NodeKey.version > i.version {
 		return fmt.Errorf("node version %v can't be greater than import version %v",
-			exportNode.Version, i.version)
+			exportNode.NodeKey.version, i.version)
 	}
 
 	node := &Node{
 		key:           exportNode.Key,
 		value:         exportNode.Value,
-		version:       exportNode.Version,
+		nodeKey:       exportNode.NodeKey,
 		subtreeHeight: exportNode.Height,
 	}
 
@@ -93,16 +93,12 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// We don't modify the stack until we've verified the built node, to avoid leaving the
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
-	node.nodeKey = i.tree.IncreaseNonce()
 	switch {
 	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-2]
-		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
-		node.rightHash = node.rightNode.hash
 	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-1]
-		node.leftHash = node.leftNode.hash
 	}
 
 	if node.subtreeHeight == 0 {
@@ -117,7 +113,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.rightNodeKey = node.rightNode.nodeKey
 	}
 
-	_, err := node._hash()
+	_, err := node._hash(exportNode.NodeKey.version)
 	if err != nil {
 		return err
 	}
@@ -175,20 +171,15 @@ func (i *Importer) Commit() error {
 
 	switch len(i.stack) {
 	case 0:
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{0, 0}); err != nil {
+		if err := i.batch.Set(i.tree.ndb.versionKey(i.version), []byte{0}); err != nil {
 			return err
 		}
 	case 1:
 		buf := new(bytes.Buffer)
-		err := encoding.EncodeVarint(buf, i.stack[0].nodeKey)
-		if err != nil {
+		if err := encoding.EncodeVarint(buf, i.stack[0].nodeKey.version); err != nil {
 			return err
 		}
-		err = encoding.EncodeVarint(buf, i.tree.nonce)
-		if err != nil {
-			return err
-		}
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), buf.Bytes()); err != nil {
+		if err := i.batch.Set(i.tree.ndb.versionKey(i.version), buf.Bytes()); err != nil {
 			return err
 		}
 	default:

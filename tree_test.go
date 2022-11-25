@@ -67,7 +67,7 @@ func TestVersionedRandomTree(t *testing.T) {
 		}
 		tree.SaveVersion()
 	}
-	roots, err := tree.ndb.getRoots()
+	roots, err := tree.ndb.getVersions()
 	require.NoError(err)
 	require.Equal(versions, len(roots), "wrong number of roots")
 
@@ -366,7 +366,6 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.False(tree.VersionExists(3))
 
 	tree.Set([]byte("k"), []byte("v"))
-	require.EqualValues(5, tree.root.version)
 
 	// Now reload the tree.
 
@@ -1284,7 +1283,8 @@ func TestOrphans(t *testing.T) {
 
 	err = tree.ndb.traverseOrphans(func(k, v []byte) error {
 		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
+		var dummy int32
+		orphanKeyFormat.Scan(k, &toVersion, &dummy, &fromVersion)
 		require.True(fromVersion == int64(1) || toVersion == int64(99), fmt.Sprintf(`Unexpected orphan key exists: %v with fromVersion = %d and toVersion = %d.\n 
 			Any orphan remaining in db should have either fromVersion == 1 or toVersion == 99. Since Version 1 and 99 are only versions in db`, k, fromVersion, toVersion))
 		return nil
@@ -1351,6 +1351,7 @@ func TestCopyValueSemantics(t *testing.T) {
 	val[1] = '2'
 
 	val, err = tree.Get([]byte("k"))
+	require.NoError(err)
 	require.Equal([]byte("v2"), val)
 }
 
@@ -1732,7 +1733,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
 	for _, n := range nodes {
-		if n.version > 1 {
+		if n.nodeKey.version > 1 {
 			removedNodes = append(removedNodes, n)
 		}
 	}
@@ -1788,7 +1789,7 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
 	for _, n := range nodes {
-		if n.version > 1 {
+		if n.nodeKey.version > 1 {
 			removedNodes = append(removedNodes, n)
 		}
 	}
@@ -2008,8 +2009,8 @@ func TestNodeCacheStatisic(t *testing.T) {
 			cacheSize:              numKeyVals,
 			expectFastCacheHitCnt:  numKeyVals,
 			expectFastCacheMissCnt: 0,
-			expectCacheHitCnt:      1,
-			expectCacheMissCnt:     0,
+			expectCacheHitCnt:      0,
+			expectCacheMissCnt:     1,
 		},
 		"without_cache": {
 			cacheSize:              0,

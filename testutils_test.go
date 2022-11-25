@@ -51,22 +51,19 @@ func N(l, r interface{}) *Node {
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
 	} else {
-		left = NewNode(i2b(l.(int)), nil, 0, int64(rand.Intn(100000)))
+		left = NewNode(i2b(l.(int)), nil)
 	}
 	if _, ok := r.(*Node); ok {
 		right = r.(*Node)
 	} else {
-		right = NewNode(i2b(r.(int)), nil, 0, int64(rand.Intn(100000)))
+		right = NewNode(i2b(r.(int)), nil)
 	}
 
 	n := &Node{
-		key:          right.lmd(nil).key,
-		value:        nil,
-		nodeKey:      int64(rand.Intn(100000)),
-		leftNode:     left,
-		leftNodeKey:  left.nodeKey,
-		rightNode:    right,
-		rightNodeKey: right.nodeKey,
+		key:       right.lmd(nil).key,
+		value:     nil,
+		leftNode:  left,
+		rightNode: right,
 	}
 	n.calcHeightAndSize(nil)
 	return n
@@ -76,7 +73,7 @@ func N(l, r interface{}) *Node {
 func T(n *Node) (*MutableTree, error) {
 	t, _ := getTestTree(0)
 
-	_, _, err := n.hashWithCount()
+	_, err := n.hashWithCount(t.version + 1)
 	if err != nil {
 		return nil, err
 	}

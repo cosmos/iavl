@@ -45,7 +45,7 @@ func WriteDOTGraph(w io.Writer, tree *ImmutableTree, paths []PathToLeaf) {
 	ctx := &graphContext{}
 
 	// TODO: handle error
-	tree.root.hashWithCount() //nolint:errcheck
+	tree.root.hashWithCount(tree.version + 1) //nolint:errcheck
 	tree.root.traverse(tree, true, func(node *Node) bool {
 		graphNode := &graphNode{
 			Attrs: map[string]string{},
@@ -58,7 +58,7 @@ func WriteDOTGraph(w io.Writer, tree *ImmutableTree, paths []PathToLeaf) {
 
 		graphNode.Label = mkLabel(unsafeToStr(node.key), 16, "sans-serif")
 		graphNode.Label += mkLabel(shortHash, 10, "monospace")
-		graphNode.Label += mkLabel(fmt.Sprintf("version=%d", node.version), 10, "monospace")
+		graphNode.Label += mkLabel(fmt.Sprintf("nodeKey=%v", node.nodeKey), 10, "monospace")
 
 		if node.value != nil {
 			graphNode.Label += mkLabel(unsafeToStr(node.value), 10, "sans-serif")

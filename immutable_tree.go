@@ -17,7 +17,6 @@ type ImmutableTree struct {
 	root                   *Node
 	ndb                    *nodeDB
 	version                int64
-	nonce                  int64
 	skipFastStorageUpgrade bool
 }
 
@@ -132,12 +131,6 @@ func (t *ImmutableTree) Version() int64 {
 	return t.version
 }
 
-// IncreaseNonce increases the nonce by 1 and returns.
-func (t *ImmutableTree) IncreaseNonce() int64 {
-	t.nonce++
-	return t.nonce
-}
-
 // Height returns the height of the tree.
 func (t *ImmutableTree) Height() int8 {
 	if t.root == nil {
@@ -156,8 +149,7 @@ func (t *ImmutableTree) Has(key []byte) (bool, error) {
 
 // Hash returns the root hash.
 func (t *ImmutableTree) Hash() ([]byte, error) {
-	hash, _, err := t.root.hashWithCount()
-	return hash, err
+	return t.root.hashWithCount(t.version + 1)
 }
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
@@ -290,7 +282,7 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	}
 	return t.root.traverseInRange(t, start, end, ascending, true, false, func(node *Node) bool {
 		if node.subtreeHeight == 0 {
-			return fn(node.key, node.value, node.version)
+			return fn(node.key, node.value, node.nodeKey.version)
 		}
 		return false
 	})
@@ -323,7 +315,6 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 		root:    t.root,
 		ndb:     t.ndb,
 		version: t.version,
-		nonce:   t.nonce,
 	}
 }
 
@@ -331,10 +322,5 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 //
 //nolint:unused
 func (t *ImmutableTree) nodeSize() int {
-	size := 0
-	t.root.traverse(t, true, func(n *Node) bool {
-		size++
-		return false
-	})
-	return size
+	return int(t.root.size*2 - 1)
 }

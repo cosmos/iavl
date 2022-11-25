@@ -158,6 +158,10 @@ func scan(a interface{}, value []byte) {
 		*v = int64(binary.BigEndian.Uint64(value))
 	case *uint64:
 		*v = binary.BigEndian.Uint64(value)
+	case *uint32:
+		*v = binary.BigEndian.Uint32(value)
+	case *int32:
+		*v = int32(binary.BigEndian.Uint32(value))
 	case *[]byte:
 		*v = value
 	default:
@@ -176,6 +180,10 @@ func format(a interface{}) []byte {
 		return formatUint64(uint64(v))
 	case int:
 		return formatUint64(uint64(v))
+	case uint32:
+		return formatUint32(v)
+	case int32:
+		return formatUint32(uint32(v))
 	case []byte:
 		return v
 	default:
@@ -186,5 +194,11 @@ func format(a interface{}) []byte {
 func formatUint64(v uint64) []byte {
 	bs := make([]byte, 8)
 	binary.BigEndian.PutUint64(bs, v)
+	return bs
+}
+
+func formatUint32(v uint32) []byte {
+	bs := make([]byte, 4)
+	binary.BigEndian.PutUint32(bs, v)
 	return bs
 }

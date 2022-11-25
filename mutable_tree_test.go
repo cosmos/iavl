@@ -50,7 +50,7 @@ func TestIterateConcurrency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		for j := 0; j < maxIterator; j++ {
 			wg.Add(1)
-			func(i, j int) {
+			go func(i, j int) {
 				defer wg.Done()
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}(i, j)
@@ -75,7 +75,7 @@ func TestIteratorConcurrency(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		for j := 0; j < maxIterator; j++ {
 			wg.Add(1)
-			func(i, j int) {
+			go func(i, j int) {
 				defer wg.Done()
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}(i, j)
@@ -98,7 +98,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 		it := NewIterator(nil, nil, true, tree.ImmutableTree)
 		for j := 0; j < maxIterator; j++ {
 			wg.Add(1)
-			func(i, j int) {
+			go func(i, j int) {
 				defer wg.Done()
 				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), rand.Bytes(1))
 			}(i, j)
@@ -114,7 +114,6 @@ func TestDelete(t *testing.T) {
 
 	tree.set([]byte("k1"), []byte("Fred"))
 	_, version, err := tree.SaveVersion()
-	rootNodeKey := tree.root.GetKey()
 	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
@@ -125,14 +124,9 @@ func TestDelete(t *testing.T) {
 	require.EqualError(t, err, ErrVersionDoesNotExist.Error())
 	require.Nil(t, proof)
 
-	buf := new(bytes.Buffer)
-	err = encoding.EncodeVarint(buf, rootNodeKey)
+	err = tree.ndb.SaveRoot(version, version)
 	require.NoError(t, err)
-	err = encoding.EncodeVarint(buf, tree.nonce)
-	require.NoError(t, err)
-	key := tree.ndb.rootKey(version)
-	err = tree.ndb.db.Set(key, buf.Bytes())
-	require.NoError(t, err)
+	require.NoError(t, tree.ndb.Commit())
 	tree.versions[version] = true
 
 	proof, err = tree.GetVersionedProof([]byte("k1"), version)
@@ -901,7 +895,7 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key([]byte(defaultStorageVersionValue)))
+	rIterMock.EXPECT().Key().Return(versionKeyFormat.Key([]byte(defaultStorageVersionValue)))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	expectedError := errors.New("some db error")
@@ -926,7 +920,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key([]byte(defaultStorageVersionValue)))
+	rIterMock.EXPECT().Key().Return(versionKeyFormat.Key([]byte(defaultStorageVersionValue)))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	expectedError := errors.New("some db error")
@@ -977,7 +971,7 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key(latestTreeVersion))
+	rIterMock.EXPECT().Key().Return(versionKeyFormat.Key(latestTreeVersion))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	batchMock := mock.NewMockBatch(ctrl)
@@ -1040,7 +1034,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key(latestTreeVersion))
+	rIterMock.EXPECT().Key().Return(versionKeyFormat.Key(latestTreeVersion))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	fastNodeKeyToDelete := []byte("some_key")
