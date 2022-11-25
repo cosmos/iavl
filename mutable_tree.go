@@ -31,7 +31,7 @@ type MutableTree struct {
 	*ImmutableTree                                     // The current, working tree.
 	lastSaved                *ImmutableTree            // The most recently saved tree.
 	nonce                    int32                     // To track the nonce in the SaveVersion.
-	orphanedLeaves           []*NodeKey                // Leaves removed by updates of working tree.
+	orphans                  []*NodeKey                // Nodes removed by updates of working tree.
 	versions                 map[int64]bool            // The previous, saved versions of the tree.
 	allRootLoaded            bool                      // Whether all roots are loaded or not(by LazyLoadVersion)
 	unsavedFastNodeAdditions map[string]*fastnode.Node // FastNodes that have not yet been saved to disk
@@ -55,7 +55,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastSto
 	return &MutableTree{
 		ImmutableTree:            head,
 		lastSaved:                head.clone(),
-		orphanedLeaves:           []*NodeKey{},
+		orphans:                  []*NodeKey{},
 		versions:                 map[int64]bool{},
 		allRootLoaded:            false,
 		unsavedFastNodeAdditions: make(map[string]*fastnode.Node),
@@ -257,12 +257,12 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 			}, false, nil
 		default:
 			if node.nodeKey != nil {
-				tree.orphanedLeaves = append(tree.orphanedLeaves, node.nodeKey)
+				tree.orphans = append(tree.orphans, node.nodeKey)
 			}
 			return NewNode(key, value), true, nil
 		}
 	} else {
-		node, err = node.clone(tree.ImmutableTree)
+		node, err = node.clone(tree)
 		if err != nil {
 			return nil, false, err
 		}
@@ -328,14 +328,14 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			if node.nodeKey != nil {
-				tree.orphanedLeaves = append(tree.orphanedLeaves, node.nodeKey)
+				tree.orphans = append(tree.orphans, node.nodeKey)
 			}
 			return nil, nil, node.value, nil
 		}
 		return node, nil, nil, nil
 	}
 
-	node, err = node.clone(tree.ImmutableTree)
+	node, err = node.clone(tree)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -465,7 +465,7 @@ func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
 		}
 	}
 
-	tree.orphanedLeaves = []*NodeKey{}
+	tree.orphans = []*NodeKey{}
 	tree.ImmutableTree = iTree
 	tree.lastSaved = iTree.clone()
 
@@ -547,7 +547,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		}
 	}
 
-	tree.orphanedLeaves = []*NodeKey{}
+	tree.orphans = []*NodeKey{}
 	tree.ImmutableTree = t
 	tree.lastSaved = t.clone()
 	tree.allRootLoaded = true
@@ -730,7 +730,7 @@ func (tree *MutableTree) Rollback() {
 			skipFastStorageUpgrade: tree.skipFastStorageUpgrade,
 		}
 	}
-	tree.orphanedLeaves = []*NodeKey{}
+	tree.orphans = []*NodeKey{}
 	if !tree.skipFastStorageUpgrade {
 		tree.unsavedFastNodeAdditions = map[string]*fastnode.Node{}
 		tree.unsavedFastNodeRemovals = map[string]interface{}{}
@@ -804,7 +804,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			tree.root = existingRoot
 			tree.ImmutableTree = tree.ImmutableTree.clone()
 			tree.lastSaved = tree.ImmutableTree.clone()
-			tree.orphanedLeaves = []*NodeKey{}
+			tree.orphans = []*NodeKey{}
 			return newHash, version, nil
 		}
 
@@ -813,9 +813,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	logger.Debug("SAVE TREE %v\n", version)
 	// save orphans
-	orphans := tree.getOrphans()
-	orphans = append(orphans, tree.orphanedLeaves...) // should add updated leaves
-	if err := tree.ndb.SaveOrphans(version, orphans); err != nil {
+	// orphans := tree.getOrphans()
+	// orphans = append(orphans, tree.orphans...) // should add updated leaves
+	if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
 		return nil, 0, err
 	}
 	// save new nodes
@@ -864,7 +864,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	// set new working tree
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
-	tree.orphanedLeaves = []*NodeKey{}
+	tree.orphans = []*NodeKey{}
 	if !tree.skipFastStorageUpgrade {
 		tree.unsavedFastNodeAdditions = make(map[string]*fastnode.Node)
 		tree.unsavedFastNodeRemovals = make(map[string]interface{})
@@ -1041,12 +1041,12 @@ func (tree *MutableTree) DeleteVersion(version int64) error {
 func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
 	var err error
 	// TODO: optimize balance & rotate.
-	node, err = node.clone(tree.ImmutableTree)
+	node, err = node.clone(tree)
 	if err != nil {
 		return nil, err
 	}
 
-	newNode, err := node.leftNode.clone(tree.ImmutableTree)
+	newNode, err := node.leftNode.clone(tree)
 	if err != nil {
 		return nil, err
 	}
@@ -1071,12 +1071,12 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
 func (tree *MutableTree) rotateLeft(node *Node) (*Node, error) {
 	var err error
 	// TODO: optimize balance & rotate.
-	node, err = node.clone(tree.ImmutableTree)
+	node, err = node.clone(tree)
 	if err != nil {
 		return nil, err
 	}
 
-	newNode, err := node.rightNode.clone(tree.ImmutableTree)
+	newNode, err := node.rightNode.clone(tree)
 	if err != nil {
 		return nil, err
 	}
@@ -1168,34 +1168,6 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	}
 	// Nothing changed
 	return node, nil
-}
-
-// getOrphans gets orphaned nodes by the changes of the working tree.
-func (tree *MutableTree) getOrphans() []*NodeKey {
-	prevRoot := tree.lastSaved.root
-	orphans := make([]*NodeKey, 0)
-
-	var recursiveSpread func(*Node)
-	recursiveSpread = func(node *Node) {
-		isParent := false
-		if node.leftNode != nil {
-			isParent = true
-			recursiveSpread(node.leftNode)
-		}
-		if node.rightNode != nil {
-			isParent = true
-			recursiveSpread(node.rightNode)
-		}
-		if isParent {
-			orphans = append(orphans, node.nodeKey)
-		}
-	}
-
-	if prevRoot != nil {
-		recursiveSpread(prevRoot)
-	}
-
-	return orphans
 }
 
 // getNewNodes gets new created nodes by the changes of the working tree.
