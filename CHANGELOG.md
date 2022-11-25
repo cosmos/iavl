@@ -1,5 +1,9 @@
 # Changelog
 
+### Breaking Changes
+
+- [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements
+
 ## Unreleased
 
 ## 0.19.4 (October 28, 2022)

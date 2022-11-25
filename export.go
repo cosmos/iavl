@@ -2,8 +2,13 @@ package iavl
 
 import (
 	"context"
+<<<<<<< HEAD
 
 	"github.com/pkg/errors"
+=======
+	"errors"
+	"fmt"
+>>>>>>> 2777659 (fix: Prevent newExporter crash if tree.ndb is nil (#622))
 )
 
 // exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by
@@ -14,6 +19,9 @@ const exportBufferSize = 32
 // ExportDone is returned by Exporter.Next() when all items have been exported.
 // nolint:revive
 var ExportDone = errors.New("export is complete") // nolint:golint
+
+// ErrNotInitalizedTree when chains introduce a store without initializing data
+var ErrNotInitalizedTree = errors.New("iavl/export newExporter failed to create")
 
 // ExportNode contains exported node data.
 type ExportNode struct {
@@ -35,7 +43,15 @@ type Exporter struct {
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func newExporter(tree *ImmutableTree) *Exporter {
+func newExporter(tree *ImmutableTree) (*Exporter, error) {
+	if tree == nil {
+		return nil, fmt.Errorf("tree is nil: %w", ErrNotInitalizedTree)
+	}
+	// CV Prevent crash on incrVersionReaders if tree.ndb == nil
+	if tree.ndb == nil {
+		return nil, fmt.Errorf("tree.ndb is nil: %w", ErrNotInitalizedTree)
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	exporter := &Exporter{
 		tree:   tree,
@@ -46,7 +62,7 @@ func newExporter(tree *ImmutableTree) *Exporter {
 	tree.ndb.incrVersionReaders(tree.version)
 	go exporter.export(ctx)
 
-	return exporter
+	return exporter, nil
 }
 
 // export exports nodes
