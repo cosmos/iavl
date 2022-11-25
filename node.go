@@ -177,16 +177,20 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 
 	// ensure get children
 	var err error
+	leftNode := node.leftNode
+	rightNode := node.rightNode
 	if node.nodeKey != nil {
 		tree.orphans = append(tree.orphans, node.nodeKey)
-		node.leftNode, err = node.getLeftNode(tree.ImmutableTree)
+		leftNode, err = node.getLeftNode(tree.ImmutableTree)
 		if err != nil {
 			return nil, err
 		}
-		node.rightNode, err = node.getRightNode(tree.ImmutableTree)
+		rightNode, err = node.getRightNode(tree.ImmutableTree)
 		if err != nil {
 			return nil, err
 		}
+		node.leftNode = nil
+		node.rightNode = nil
 	}
 
 	return &Node{
@@ -197,8 +201,8 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 		nodeKey:       nil,
 		leftNodeKey:   node.leftNodeKey,
 		rightNodeKey:  node.rightNodeKey,
-		leftNode:      node.leftNode,
-		rightNode:     node.rightNode,
+		leftNode:      leftNode,
+		rightNode:     rightNode,
 	}, nil
 }
 

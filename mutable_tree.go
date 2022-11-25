@@ -30,7 +30,6 @@ var ErrVersionDoesNotExist = errors.New("version does not exist")
 type MutableTree struct {
 	*ImmutableTree                                     // The current, working tree.
 	lastSaved                *ImmutableTree            // The most recently saved tree.
-	nonce                    int32                     // To track the nonce in the SaveVersion.
 	orphans                  []*NodeKey                // Nodes removed by updates of working tree.
 	versions                 map[int64]bool            // The previous, saved versions of the tree.
 	allRootLoaded            bool                      // Whether all roots are loaded or not(by LazyLoadVersion)
@@ -813,21 +812,18 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	logger.Debug("SAVE TREE %v\n", version)
 	// save orphans
-	// orphans := tree.getOrphans()
-	// orphans = append(orphans, tree.orphans...) // should add updated leaves
 	if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
 		return nil, 0, err
 	}
+
 	// save new nodes
 	if tree.root != nil {
-		// ensure init the nonce
-		tree.nonce = 0
 		newNodes, err := tree.getNewNodes()
 		if err != nil {
 			return nil, 0, err
 		}
-		for i := int32(1); i <= tree.nonce; i++ {
-			node := newNodes[i]
+		for i := 1; i <= len(newNodes); i++ {
+			node := newNodes[int32(i)]
 			if err := tree.ndb.SaveNode(node); err != nil {
 				return nil, 0, err
 			}
@@ -1177,15 +1173,16 @@ func (tree *MutableTree) getNewNodes() (map[int32]*Node, error) {
 	newNodes := make(map[int32]*Node)
 	version := tree.version + 1
 
+	nonce := int32(0)
 	var recursiveSpread func(*Node) (*NodeKey, error)
 	recursiveSpread = func(node *Node) (*NodeKey, error) {
 		if node.nodeKey != nil {
 			return node.nodeKey, nil
 		}
-		tree.nonce++
+		nonce++
 		node.nodeKey = &NodeKey{
 			version: version,
-			nonce:   tree.nonce,
+			nonce:   nonce,
 		}
 
 		var err error
