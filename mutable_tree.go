@@ -818,17 +818,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	// save new nodes
 	if tree.root != nil {
-		newNodes, err := tree.getNewNodes()
-		if err != nil {
+		if err := tree.saveNewNodes(); err != nil {
 			return nil, 0, err
 		}
-		for i := 1; i <= len(newNodes); i++ {
-			node := newNodes[int32(i)]
-			if err := tree.ndb.SaveNode(node); err != nil {
-				return nil, 0, err
-			}
-		}
 	}
+
 	// save root
 	rootVersion := int64(0)
 	if tree.root != nil {
@@ -1166,16 +1160,15 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-// getNewNodes gets new created nodes by the changes of the working tree.
+// saveNewNodes save new created nodes by the changes of the working tree.
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
-func (tree *MutableTree) getNewNodes() (map[int32]*Node, error) {
-	newNodes := make(map[int32]*Node)
+func (tree *MutableTree) saveNewNodes() error {
 	version := tree.version + 1
 
 	nonce := int32(0)
-	var recursiveSpread func(*Node) (*NodeKey, error)
-	recursiveSpread = func(node *Node) (*NodeKey, error) {
+	var recursiveAssignKey func(*Node) (*NodeKey, error)
+	recursiveAssignKey = func(node *Node) (*NodeKey, error) {
 		if node.nodeKey != nil {
 			return node.nodeKey, nil
 		}
@@ -1187,14 +1180,14 @@ func (tree *MutableTree) getNewNodes() (map[int32]*Node, error) {
 
 		var err error
 		if node.leftNode != nil {
-			node.leftNodeKey, err = recursiveSpread(node.leftNode)
+			node.leftNodeKey, err = recursiveAssignKey(node.leftNode)
 			if err != nil {
 				return nil, err
 			}
 		}
 
 		if node.rightNode != nil {
-			node.rightNodeKey, err = recursiveSpread(node.rightNode)
+			node.rightNodeKey, err = recursiveAssignKey(node.rightNode)
 			if err != nil {
 				return nil, err
 			}
@@ -1204,13 +1197,29 @@ func (tree *MutableTree) getNewNodes() (map[int32]*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-
-		node.leftNode = nil
-		node.rightNode = nil
-		newNodes[node.nodeKey.nonce] = node
 		return node.nodeKey, nil
 	}
 
-	_, err := recursiveSpread(tree.root)
-	return newNodes, err
+	if _, err := recursiveAssignKey(tree.root); err != nil {
+		return err
+	}
+
+	var recursiveSave func(*Node) error
+	recursiveSave = func(node *Node) error {
+		if err := tree.ndb.SaveNode(node); err != nil {
+			return err
+		}
+		if err := recursiveSave(node.leftNode); err != nil {
+			return err
+		}
+		if err := recursiveSave(node.rightNode); err != nil {
+			return err
+		}
+
+		node.leftNode = nil
+		node.rightNode = nil
+		return nil
+	}
+
+	return recursiveSave(tree.root)
 }

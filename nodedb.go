@@ -114,7 +114,7 @@ func (ndb *nodeDB) GetNode(nk *NodeKey) (*Node, error) {
 	defer ndb.mtx.Unlock()
 
 	if nk == nil {
-		return nil, nil
+		return nil, ErrNodeMissingNodeKey
 	}
 
 	// Check the cache.
