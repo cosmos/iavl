@@ -9,7 +9,7 @@ import (
 // PrintTree prints the whole tree in an indented form.
 func PrintTree(tree *ImmutableTree) {
 	ndb, root := tree.ndb, tree.root
-	printNode(ndb, root, 0)
+	printNode(ndb, root, 0) //nolint:errcheck
 }
 
 func printNode(ndb *nodeDB, node *Node, indent int) error {
@@ -23,13 +23,19 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		return nil
 	}
 	if node.rightNode != nil {
-		printNode(ndb, node.rightNode, indent+1)
+		err := printNode(ndb, node.rightNode, indent+1)
+		if err != nil {
+			return err
+		}
 	} else if node.rightHash != nil {
 		rightNode, err := ndb.GetNode(node.rightHash)
 		if err != nil {
 			return err
 		}
-		printNode(ndb, rightNode, indent+1)
+		err = printNode(ndb, rightNode, indent+1)
+		if err != nil {
+			return err
+		}
 	}
 
 	hash, err := node._hash()
@@ -43,13 +49,19 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 	}
 
 	if node.leftNode != nil {
-		printNode(ndb, node.leftNode, indent+1)
+		err := printNode(ndb, node.leftNode, indent+1)
+		if err != nil {
+			return err
+		}
 	} else if node.leftHash != nil {
 		leftNode, err := ndb.GetNode(node.leftHash)
 		if err != nil {
 			return err
 		}
-		printNode(ndb, leftNode, indent+1)
+		err = printNode(ndb, leftNode, indent+1)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

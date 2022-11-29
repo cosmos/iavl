@@ -4,11 +4,10 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"runtime"
 	"sort"
 	"testing"
-
-	"math/rand"
 
 	"github.com/stretchr/testify/require"
 	db "github.com/tendermint/tm-db"
@@ -354,7 +353,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 	}
 }
 
-func (node *Node) lmd(t *ImmutableTree) *Node {
+func (n *Node) lmd(t *ImmutableTree) *Node {
 	if node.isLeaf() {
 		return node
 	}

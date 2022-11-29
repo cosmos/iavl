@@ -187,7 +187,6 @@ func (pln ProofLeafNode) Hash() ([]byte, error) {
 	_, err = hasher.Write(buf.Bytes())
 	if err != nil {
 		return nil, err
-
 	}
 
 	return hasher.Sum(nil), nil

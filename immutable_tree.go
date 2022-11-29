@@ -45,7 +45,7 @@ func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastS
 // String returns a string representation of Tree.
 func (t *ImmutableTree) String() string {
 	leaves := []string{}
-	t.Iterate(func(key []byte, val []byte) (stop bool) {
+	t.Iterate(func(key []byte, val []byte) (stop bool) { //nolint:errcheck
 		leaves = append(leaves, fmt.Sprintf("%x: %x", key, val))
 		return false
 	})
@@ -231,15 +231,15 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 	}
 
 	itr, err := t.Iterator(nil, nil, true)
-	defer itr.Close()
 	if err != nil {
 		return false, err
 	}
+	defer itr.Close()
+
 	for ; itr.Valid(); itr.Next() {
 		if fn(itr.Key(), itr.Value()) {
 			return true, nil
 		}
-
 	}
 	return false, nil
 }

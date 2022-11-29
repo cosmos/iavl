@@ -717,7 +717,10 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 			return err
 		}
 		if upgradedFastNodes%commitGap == 0 {
-			tree.ndb.Commit()
+			err = tree.ndb.Commit()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
