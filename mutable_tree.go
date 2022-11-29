@@ -1206,18 +1206,24 @@ func (tree *MutableTree) saveNewNodes() error {
 
 	var recursiveSave func(*Node) error
 	recursiveSave = func(node *Node) error {
+		if node.nodeKey.version < version {
+			return nil
+		}
 		if err := tree.ndb.SaveNode(node); err != nil {
 			return err
 		}
-		if err := recursiveSave(node.leftNode); err != nil {
-			return err
+		if node.leftNode != nil {
+			if err := recursiveSave(node.leftNode); err != nil {
+				return err
+			}
+			node.leftNode = nil
 		}
-		if err := recursiveSave(node.rightNode); err != nil {
-			return err
+		if node.rightNode != nil {
+			if err := recursiveSave(node.rightNode); err != nil {
+				return err
+			}
+			node.rightNode = nil
 		}
-
-		node.leftNode = nil
-		node.rightNode = nil
 		return nil
 	}
 

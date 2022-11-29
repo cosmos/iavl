@@ -208,8 +208,6 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 			return err
 		}
 	}
-	node.leftNode = nil
-	node.rightNode = nil
 
 	logger.Debug("BATCH SAVE %+v\n", node)
 	ndb.nodeCache.Add(node)
