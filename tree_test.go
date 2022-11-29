@@ -12,16 +12,18 @@ import (
 	"strconv"
 	"testing"
 
+	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	db "github.com/tendermint/tm-db"
 
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
-var testLevelDB bool
-var testFuzzIterations int
-var random *iavlrand.Rand
+var (
+	testLevelDB        bool
+	testFuzzIterations int
+	random             *iavlrand.Rand
+)
 
 func SetupTest() {
 	random = iavlrand.NewRand()
@@ -33,7 +35,7 @@ func SetupTest() {
 
 func getTestDB() (db.DB, func()) {
 	if testLevelDB {
-		d, err := db.NewGoLevelDB("test", ".")
+		d, err := db.NewDB("test", "goleveldb", ".")
 		if err != nil {
 			panic(err)
 		}
@@ -1651,7 +1653,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 	numVersions := 5000
 	numKeysPerVersion := 10
 
-	d, err := db.NewGoLevelDB("bench", ".")
+	d, err := db.NewDB("bench", "goleveldb", ".")
 	if err != nil {
 		panic(err)
 	}
@@ -2040,5 +2042,4 @@ func TestNodeCacheStatisic(t *testing.T) {
 			require.Equal(t, tc.expectCacheMissCnt, int(opts.Stat.GetCacheMissCnt()))
 		})
 	}
-
 }

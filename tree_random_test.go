@@ -13,7 +13,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	db "github.com/tendermint/tm-db"
+	db "github.com/cosmos/cosmos-db"
 )
 
 func TestRandomOperations(t *testing.T) {
@@ -102,7 +102,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempdir)
 
-	levelDB, err := db.NewGoLevelDB("leveldb", tempdir)
+	levelDB, err := db.NewDB("leveldb", "goleveldb", tempdir)
 	require.NoError(t, err)
 
 	tree, version, _ := loadTree(levelDB)
@@ -338,9 +338,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	iter, err := tree.ndb.db.Iterator(nil, nil)
 	require.NoError(t, err)
 
-	var (
-		foundKeys []string
-	)
+	var foundKeys []string
 	for ; iter.Valid(); iter.Next() {
 		foundKeys = append(foundKeys, string(iter.Key()))
 	}

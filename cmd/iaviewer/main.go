@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
@@ -77,7 +77,7 @@ func OpenDB(dir string) (dbm.DB, error) {
 		return nil, fmt.Errorf("cannot cut paths on %s", dir)
 	}
 	name := dir[cut+1:]
-	db, err := dbm.NewGoLevelDB(name, dir[:cut])
+	db, err := dbm.NewDB(name, "goleveldb", dir[:cut])
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func encodeID(id []byte) string {
 
 func PrintShape(tree *iavl.MutableTree) {
 	// shape := tree.RenderShape("  ", nil)
-	//TODO: handle this error
+	// TODO: handle this error
 	shape, _ := tree.RenderShape("  ", nodeEncoder)
 	fmt.Println(strings.Join(shape, "\n"))
 }

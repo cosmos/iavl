@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	db "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl"
-	db "github.com/tendermint/tm-db"
 )
 
 const historySize = 20
@@ -43,7 +43,6 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	t.Hash()
 
 	_, version, err := t.SaveVersion()
-
 	if err != nil {
 		b.Errorf("Can't save: %v", err)
 	}
@@ -325,8 +324,8 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
-		if (bb.dbType == db.RocksDBBackend) || (bb.dbType == db.CLevelDBBackend) || (bb.dbType == db.BoltDBBackend) {
-			_ = os.Mkdir(dirName, 0755)
+		if (bb.dbType == db.RocksDBBackend) || (bb.dbType == db.CLevelDBBackend) {
+			_ = os.Mkdir(dirName, 0o755)
 		}
 
 		defer func() {

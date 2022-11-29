@@ -3,7 +3,7 @@ package iavl
 import (
 	"errors"
 
-	dbm "github.com/tendermint/tm-db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 var errFastIteratorNilNdbGiven = errors.New("fast iterator must be created with a nodedb but it was nil")
