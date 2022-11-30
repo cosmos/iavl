@@ -19,7 +19,7 @@ The `orphans` are used to manage node removal in the current design and allow th
 
 ## Decision
 
-- Use the version and the sequenced integer ID as a node key like `bigendian(version) | byte array(path)` format. Here the `path` is a binary expression of the path from the root to the current node. 
+- Use the version and the path as a node key like `bigendian(version) | byte array(path)` format. Here the `path` is a binary expression of the path from the root to the current node. 
 	```
 	`10101` : (right, left, right, left, right) -> [0x15]
 	```
