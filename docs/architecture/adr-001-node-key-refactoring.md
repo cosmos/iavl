@@ -27,7 +27,7 @@ The `orphans` are used to manage node removal in the current design and allow th
 	```go
 	func (node *Node) getLeftNode() (*Node, error) {
 		if node.leftNode != nil {
-			return node.leftNode
+			return node.leftNode, nil
 		}
 		if node.leftNodeKey != nil {
 			return getNode(node.leftNodeKey) // get the node from the storage
@@ -47,7 +47,7 @@ New node structure
 ```go
 type NodeKey struct {
     version int64
-    path 	[]byte
+    path    []byte
 }
 
 type Node struct {
@@ -59,7 +59,7 @@ type Node struct {
 	rightNodeKey  *NodeKey   // new field, need to store in the storage
 	leftNode      *Node
 	rightNode     *Node
-    size          int64
+    	size          int64
 	subtreeHeight int8
 }
 ```
@@ -130,19 +130,19 @@ Using the version and the path, we take advantage of data locality in the LSM tr
 ```
 # node body
 
-add `hash`:											+32 byte
-add `leftNodeKey`, `rightNodeKey`:	max 8 + 8	=	+16 byte
-remove `leftHash`, `rightHash`:						-64 byte
-remove `version`: 					max 			-8	byte
+add `hash`:					    +32 byte
+add `leftNodeKey`, `rightNodeKey`:	max 8 + 8 = +16 byte
+remove `leftHash`, `rightHash`:			    -64 byte
+remove `version`: 			max	    -8	byte
 ------------------------------------------------------------
-									total save		24	byte
+				total save	     24	byte
 
 # node key
 
 remove `hash`:				-32 byte
 add `version|path`:			+16 byte
 ------------------------------------
-				total save 	16 	byte
+			total save 	 16 byte
 ```
 
 Removing orphans also provides performance improvements including memory and storage saving.
