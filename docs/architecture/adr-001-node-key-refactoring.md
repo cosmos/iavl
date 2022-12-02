@@ -95,27 +95,15 @@ We can migrate nodes one by one by iterating the version.
 
 We assume keeping only the range versions of `fromVersion` to `toVersion`. Refer to [this issue](https://github.com/cosmos/cosmos-sdk/issues/12989).
 
-When we want to prune all versions up to the specific version `n`
+Here we are introducing a new way how to get orphaned nodes which remove in the `n+1`th version updates.
 
-- Iterate the tree based on the root of `n+1`th version.
-- Iterate the node until visiting the node the version is below `fromVersion` and don't visit further deeply.
-- Apply `DeletePath` for all visited nodes the version is below `n+1`.
+- Traverse the tree in-order way based on the root of `n+1`th version.
+- If we visit the lower version node, pick the node and don't visit further deeply. Pay attention to the order of these nodes.
+- Traverse the tree in-order way based on the root of `n`th version.
+- Iterate the tree until meet the first node among the above nodes(stack) and delete all visited nodes so far from `n`th tree.
+- Pop the first node from the stack and iterate again.
 
-```go
-func DeletePath(nk *NodeKey) error {
-	if nk.path is not root {
-		pnk := &NodeKey{
-			version: nk.version,
-			path: parent(nk.path), // it looks like removing the last binary
-		}
-		if err != DeleteNode(pnk); err != nil {
-			return err
-		}
-		return DeletePath(pnk)
-	}
-	return nil
-}
-```
+If we assume `1 to (n-1)` versions already been removed, when we want to remove the `n`th version, we can just remove the above orphaned nodes.
 
 ### Rollback
 
