@@ -180,8 +180,8 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	err = tree.DeleteVersion(1)
-	require.NoError(t, err)
+	// err = tree.DeleteVersion(1)
+	// require.NoError(t, err)
 
 	latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)

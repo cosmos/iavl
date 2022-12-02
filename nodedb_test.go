@@ -14,13 +14,6 @@ import (
 	"github.com/cosmos/iavl/mock"
 )
 
-func BenchmarkOrphanKey(b *testing.B) {
-	ndb := &nodeDB{}
-	for i := 0; i < b.N; i++ {
-		ndb.orphanKey(1234, &NodeKey{version: 1239, nonce: int32(i)})
-	}
-}
-
 func BenchmarkTreeString(b *testing.B) {
 	tree := makeAndPopulateMutableTree(b)
 	b.ReportAllocs()
@@ -107,7 +100,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(versionKeyFormat.Key(expectedFastCacheVersion)).Times(1)
+	// rIterMock.EXPECT().Key().Return(versionKeyFormat.Key(expectedFastCacheVersion)).Times(1)
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)

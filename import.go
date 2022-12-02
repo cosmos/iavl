@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 
 	db "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/iavl/internal/encoding"
 )
 
 // maxBatchSize is the maximum size of the import batch before flushing it to the database
@@ -169,19 +169,17 @@ func (i *Importer) Commit() error {
 		return ErrNoImport
 	}
 
+	rootKey := &NodeKey{
+		version: i.version,
+		path:    big.NewInt(1),
+	}
 	switch len(i.stack) {
 	case 0:
-		if err := i.batch.Set(i.tree.ndb.versionKey(i.version), []byte{0}); err != nil {
+		if err := i.batch.Set(i.tree.ndb.nodeKey(rootKey), []byte{}); err != nil {
 			return err
 		}
 	case 1:
-		buf := new(bytes.Buffer)
-		if err := encoding.EncodeVarint(buf, i.stack[0].nodeKey.version); err != nil {
-			return err
-		}
-		if err := i.batch.Set(i.tree.ndb.versionKey(i.version), buf.Bytes()); err != nil {
-			return err
-		}
+
 	default:
 		return fmt.Errorf("invalid node structure, found stack size %v when committing",
 			len(i.stack))

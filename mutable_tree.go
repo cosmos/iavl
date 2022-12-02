@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 	"sort"
 	"sync"
 
@@ -811,29 +812,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	logger.Debug("SAVE TREE %v\n", version)
-	// save orphans
-	if err := tree.ndb.SaveOrphans(version, tree.orphans); err != nil {
-		return nil, 0, err
-	}
-
 	// save new nodes
 	if tree.root != nil {
 		if err := tree.saveNewNodes(); err != nil {
 			return nil, 0, err
 		}
-	}
-
-	// save root
-	rootVersion := int64(0)
-	if tree.root != nil {
-		if tree.root.nodeKey != nil {
-			rootVersion = tree.root.nodeKey.version
-		} else {
-			rootVersion = version
-		}
-	}
-	if err := tree.ndb.SaveRoot(version, rootVersion); err != nil {
-		return nil, 0, err
 	}
 
 	if !tree.skipFastStorageUpgrade {
@@ -931,100 +914,11 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 	return nil
 }
 
-func (tree *MutableTree) deleteVersion(version int64) error {
-	if version <= 0 {
-		return errors.New("version must be greater than 0")
-	}
-	if version == tree.version {
-		return fmt.Errorf("cannot delete latest saved version (%d)", version)
-	}
-	if !tree.VersionExists(version) {
-		return ErrVersionDoesNotExist
-	}
-	if err := tree.ndb.DeleteVersion(version, true); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // SetInitialVersion sets the initial version of the tree, replacing Options.InitialVersion.
 // It is only used during the initial SaveVersion() call for a tree with no other versions,
 // and is otherwise ignored.
 func (tree *MutableTree) SetInitialVersion(version uint64) {
 	tree.ndb.opts.InitialVersion = version
-}
-
-// DeleteVersions deletes a series of versions from the MutableTree.
-// Deprecated: please use DeleteVersionsRange instead.
-func (tree *MutableTree) DeleteVersions(versions ...int64) error {
-	logger.Debug("DELETING VERSIONS: %v\n", versions)
-
-	if len(versions) == 0 {
-		return nil
-	}
-
-	sort.Slice(versions, func(i, j int) bool {
-		return versions[i] < versions[j]
-	})
-
-	// Find ordered data and delete by interval
-	intervals := map[int64]int64{}
-	var fromVersion int64
-	for _, version := range versions {
-		if version-fromVersion != intervals[fromVersion] {
-			fromVersion = version
-		}
-		intervals[fromVersion]++
-	}
-
-	for fromVersion, sortedBatchSize := range intervals {
-		if err := tree.DeleteVersionsRange(fromVersion, fromVersion+sortedBatchSize); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// DeleteVersionsRange removes versions from an interval from the MutableTree (not inclusive).
-// An error is returned if any single version has active readers.
-// All writes happen in a single batch with a single commit.
-func (tree *MutableTree) DeleteVersionsRange(fromVersion, toVersion int64) error {
-	if err := tree.ndb.DeleteVersionsRange(fromVersion, toVersion); err != nil {
-		return err
-	}
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	tree.mtx.Lock()
-	defer tree.mtx.Unlock()
-	for version := fromVersion; version < toVersion; version++ {
-		delete(tree.versions, version)
-	}
-
-	return nil
-}
-
-// DeleteVersion deletes a tree version from disk. The version can then no
-// longer be accessed.
-func (tree *MutableTree) DeleteVersion(version int64) error {
-	logger.Debug("DELETE VERSION: %d\n", version)
-
-	if err := tree.deleteVersion(version); err != nil {
-		return err
-	}
-
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	tree.mtx.Lock()
-	defer tree.mtx.Unlock()
-	delete(tree.versions, version)
-	return nil
 }
 
 // Rotate right and return the new node and orphan.
@@ -1166,30 +1060,39 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 func (tree *MutableTree) saveNewNodes() error {
 	version := tree.version + 1
 
-	nonce := int32(0)
-	var recursiveAssignKey func(*Node) (*NodeKey, error)
-	recursiveAssignKey = func(node *Node) (*NodeKey, error) {
+	var recursiveAssignKey func(*Node, *big.Int) (*NodeKey, error)
+	recursiveAssignKey = func(node *Node, path *big.Int) (*NodeKey, error) {
 		if node.nodeKey != nil {
 			return node.nodeKey, nil
 		}
-		nonce++
+
 		node.nodeKey = &NodeKey{
 			version: version,
-			nonce:   nonce,
+			path:    path,
 		}
 
 		var err error
 		if node.leftNode != nil {
-			node.leftNodeKey, err = recursiveAssignKey(node.leftNode)
+			lftPath := big.NewInt(0)
+			lftPath.Lsh(path, 1)
+			leftNodeKey, err := recursiveAssignKey(node.leftNode, lftPath)
 			if err != nil {
 				return nil, err
+			}
+			if leftNodeKey.version < version {
+				node.leftNodeKey = leftNodeKey
 			}
 		}
 
 		if node.rightNode != nil {
-			node.rightNodeKey, err = recursiveAssignKey(node.rightNode)
+			rhtPath := big.NewInt(0)
+			rhtPath.SetBit(rhtPath.Lsh(path, 1), 0, 1)
+			rightNodeKey, err := recursiveAssignKey(node.rightNode, rhtPath)
 			if err != nil {
 				return nil, err
+			}
+			if rightNodeKey.version < version {
+				node.rightNodeKey = rightNodeKey
 			}
 		}
 
@@ -1200,7 +1103,7 @@ func (tree *MutableTree) saveNewNodes() error {
 		return node.nodeKey, nil
 	}
 
-	if _, err := recursiveAssignKey(tree.root); err != nil {
+	if _, err := recursiveAssignKey(tree.root, big.NewInt(1)); err != nil {
 		return err
 	}
 

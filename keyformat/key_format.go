@@ -3,6 +3,7 @@ package keyformat
 import (
 	"encoding/binary"
 	"fmt"
+	"math/big"
 )
 
 // Provides a fixed-width lexicographically sortable []byte key format
@@ -164,6 +165,8 @@ func scan(a interface{}, value []byte) {
 		*v = int32(binary.BigEndian.Uint32(value))
 	case *[]byte:
 		*v = value
+	case *big.Int:
+		*v = *big.NewInt(0).SetBytes(value)
 	default:
 		panic(fmt.Errorf("keyFormat scan() does not support scanning value of type %T: %v", a, a))
 	}

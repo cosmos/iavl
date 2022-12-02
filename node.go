@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 
 	"github.com/cosmos/iavl/cache"
 
@@ -20,14 +21,13 @@ import (
 // NodeKey represents a key of node in the DB.
 type NodeKey struct {
 	version int64
-	nonce   int32
+	path    *big.Int
 }
 
 func (nk *NodeKey) GetKey() []byte {
-	b := make([]byte, 12)
+	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(nk.version))
-	binary.BigEndian.PutUint32(b[8:], uint32(nk.nonce))
-	return b
+	return append(b, nk.path.Bytes()...)
 }
 
 // Node represents a node in a Tree.
@@ -91,7 +91,6 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 	}
 
 	// Read node body.
-
 	if node.isLeaf() {
 		val, _, cause := encoding.DecodeBytes(buf)
 		if cause != nil {
@@ -110,41 +109,40 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 		}
 		buf = buf[n:]
 
-		var (
-			leftNodeKey, rightNodeKey NodeKey
-			nonce                     int64
-		)
-		leftNodeKey.version, n, cause = encoding.DecodeVarint(buf)
+		childType, n, cause := encoding.DecodeVarint(buf)
 		if cause != nil {
-			return nil, fmt.Errorf("decoding node.leftNodeKey.version, %w", cause)
+			return nil, fmt.Errorf("deocding child type, %w", cause)
 		}
 		buf = buf[n:]
-		nonce, n, cause = encoding.DecodeVarint(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("deocding node.leftNodeKey.nonce, %w", cause)
+		if childType < int64(math.MinInt8) || childType > int64(math.MaxInt8) {
+			return nil, errors.New("invalid child type, must be int8")
 		}
-		buf = buf[n:]
-		if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
-			return nil, errors.New("invalid nonce, must be int32")
-		}
-		leftNodeKey.nonce = int32(nonce)
 
-		rightNodeKey.version, n, cause = encoding.DecodeVarint(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("decoding node.rightNodeKey.version, %w", cause)
-		}
-		buf = buf[n:]
-		nonce, _, cause = encoding.DecodeVarint(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", cause)
-		}
-		if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
-			return nil, errors.New("invalid nonce, must be int32")
-		}
-		rightNodeKey.nonce = int32(nonce)
+		if childType > 0 {
+			childVersion, n, cause := encoding.DecodeVarint(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding childNodeKey.version, %w", cause)
+			}
+			buf = buf[n:]
 
-		node.leftNodeKey = &leftNodeKey
-		node.rightNodeKey = &rightNodeKey
+			childPath, n, cause := encoding.DecodeBytes(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding childNodeKey.path, %w", cause)
+			}
+
+			switch childType {
+			case 1:
+				node.leftNodeKey = &NodeKey{
+					version: childVersion,
+					path:    big.NewInt(0).SetBytes(childPath),
+				}
+			case 2:
+				node.rightNodeKey = &NodeKey{
+					version: childVersion,
+					path:    big.NewInt(0).SetBytes(childPath),
+				}
+			}
+		}
 	}
 	return node, nil
 }
@@ -157,10 +155,10 @@ func (node *Node) GetKey() []byte {
 func (node *Node) String() string {
 	child := ""
 	if node.leftNode != nil && node.leftNode.nodeKey != nil {
-		child += fmt.Sprintf("{left %d, %d}", node.leftNode.nodeKey.version, node.leftNode.nodeKey.nonce)
+		child += fmt.Sprintf("{left %d, %v}", node.leftNode.nodeKey.version, node.leftNode.nodeKey.path)
 	}
 	if node.rightNode != nil && node.rightNode.nodeKey != nil {
-		child += fmt.Sprintf("{right %d, %d}", node.rightNode.nodeKey.version, node.rightNode.nodeKey.nonce)
+		child += fmt.Sprintf("{right %d, %v}", node.rightNode.nodeKey.version, node.rightNode.nodeKey.path)
 	}
 	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s",
 		ColoredBytes(node.key, Green, Blue),
@@ -461,11 +459,15 @@ func (node *Node) encodedSize() int {
 	if node.isLeaf() {
 		n += encoding.EncodeBytesSize(node.value)
 	} else {
-		n += encoding.EncodeBytesSize(node.hash) +
-			encoding.EncodeVarintSize(node.leftNodeKey.version) +
-			encoding.EncodeVarintSize(int64(node.leftNodeKey.nonce)) +
-			encoding.EncodeVarintSize(node.rightNodeKey.version) +
-			encoding.EncodeVarintSize(int64(node.rightNodeKey.nonce))
+		n += encoding.EncodeBytesSize(node.hash)
+		if node.leftNodeKey != nil {
+			n += encoding.EncodeVarintSize(node.leftNodeKey.version) +
+				encoding.EncodeBytesSize(node.leftNodeKey.path.Bytes())
+		}
+		if node.rightNodeKey != nil {
+			n += encoding.EncodeVarintSize(node.rightNodeKey.version) +
+				encoding.EncodeBytesSize(node.rightNodeKey.path.Bytes())
+		}
 	}
 	return n
 }
@@ -500,28 +502,32 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if cause != nil {
 			return fmt.Errorf("writing hash, %w", cause)
 		}
-		if node.leftNodeKey == nil {
-			return ErrLeftNodeKeyEmpty
+		childType := int64(0)
+		var childNodeKey NodeKey
+		if node.leftNodeKey != nil {
+			childType += 1
+			childNodeKey = *node.leftNodeKey
 		}
-		cause = encoding.EncodeVarint(w, node.leftNodeKey.version)
-		if cause != nil {
-			return fmt.Errorf("writing the version of left node key, %w", cause)
-		}
-		cause = encoding.EncodeVarint(w, int64(node.leftNodeKey.nonce))
-		if cause != nil {
-			return fmt.Errorf("writing the nonce of left node key, %w", cause)
+		if node.rightNodeKey != nil {
+			childType += 2
+			childNodeKey = *node.rightNodeKey
 		}
 
-		if node.rightNodeKey == nil {
-			return ErrRightNodeKeyEmpty
+		if childType > 2 {
+			return ErrChildNodeKey
 		}
-		cause = encoding.EncodeVarint(w, node.rightNodeKey.version)
-		if cause != nil {
-			return fmt.Errorf("writing the version of right node key, %w", cause)
+
+		if cause := encoding.EncodeVarint(w, childType); cause != nil {
+			return fmt.Errorf("writing childType , %w", cause)
 		}
-		cause = encoding.EncodeVarint(w, int64(node.rightNodeKey.nonce))
-		if cause != nil {
-			return fmt.Errorf("writing the nonce of right node key, %w", cause)
+
+		if childType > 0 {
+			if cause := encoding.EncodeVarint(w, childNodeKey.version); cause != nil {
+				return fmt.Errorf("writing the version of the child node key, %w", cause)
+			}
+			if cause := encoding.EncodeBytes(w, childNodeKey.path.Bytes()); cause != nil {
+				return fmt.Errorf("writing the path of the child node key, %w", cause)
+			}
 		}
 	}
 	return nil
@@ -608,10 +614,9 @@ func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascend
 }
 
 var (
-	ErrCloneLeafNode     = fmt.Errorf("attempt to copy a leaf node")
-	ErrEmptyChild        = fmt.Errorf("found an empty child")
-	ErrLeftNodeKeyEmpty  = fmt.Errorf("node.leftNodeKey was empty in writeBytes")
-	ErrRightNodeKeyEmpty = fmt.Errorf("node.rightNodeKey was empty in writeBytes")
-	ErrLeftHashIsNil     = fmt.Errorf("node.leftHash was nil in writeBytes")
-	ErrRightHashIsNil    = fmt.Errorf("node.rightHash was nil in writeBytes")
+	ErrCloneLeafNode  = fmt.Errorf("attempt to copy a leaf node")
+	ErrEmptyChild     = fmt.Errorf("found an empty child")
+	ErrChildNodeKey   = fmt.Errorf("node should have at most one child node key")
+	ErrLeftHashIsNil  = fmt.Errorf("node.leftHash was nil in writeBytes")
+	ErrRightHashIsNil = fmt.Errorf("node.rightHash was nil in writeBytes")
 )
