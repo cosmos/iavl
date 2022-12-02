@@ -103,13 +103,17 @@ When we want to prune all versions up to the specific version `n`
 
 ```go
 func DeletePath(nk *NodeKey) error {
-	DeleteNode(node)
 	if nk.path is not root {
-		DeletePath(&NodeKey{
+		pnk := &NodeKey{
 			version: nk.version,
 			path: parent(nk.path), // it looks like removing the last binary
-		})
+		}
+		if err != DeleteNode(pnk); err != nil {
+			return err
+		}
+		return DeletePath(pnk)
 	}
+	return nil
 }
 ```
 
