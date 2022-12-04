@@ -7,6 +7,7 @@
 ## Unreleased
 
 - [#586](https://github.com/cosmos/iavl/pull/586) Remove the `RangeProof` and refactor the ics23_proof to use the internal methods.
+- [#]() LoadVersionForOverwriting is not committed.
 
 ## 0.19.4 (October 28, 2022)
 
