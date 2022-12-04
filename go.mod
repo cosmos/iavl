@@ -3,7 +3,7 @@ module github.com/cosmos/iavl
 go 1.18
 
 require (
-	github.com/confio/ics23/go v0.7.0
+	github.com/confio/ics23/go v0.9.0
 	github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.50.1
