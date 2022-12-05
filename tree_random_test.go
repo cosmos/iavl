@@ -308,7 +308,6 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	require.EqualValues(t, []int{int(version)}, tree.AvailableVersions())
 	assertMirror(t, tree, mirror, version)
 	assertMirror(t, tree, mirror, 0)
-	assertOrphans(t, tree, 0)
 	t.Logf("Final version %v is correct, with no stray orphans", version)
 
 	// Now, let's delete all remaining key/value pairs, and make sure no stray
@@ -363,17 +362,6 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	var foundVersion int64
 	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
 	require.Equal(t, version, foundVersion, "Unexpected root version")
-}
-
-// Checks that the tree has the given number of orphan nodes.
-func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
-	count := 0
-	err := tree.ndb.traverseOrphans(func(k, v []byte) error {
-		count++
-		return nil
-	})
-	require.Nil(t, err)
-	require.EqualValues(t, expected, count, "Expected %v orphans, got %v", expected, count)
 }
 
 // Checks that a version is the maximum mirrored version.

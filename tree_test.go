@@ -460,9 +460,6 @@ func TestVersionedTree(t *testing.T) {
 	nodes2, err := tree.ndb.leafNodes()
 	require.NoError(err)
 	require.Len(nodes2, 5, "db should have grown in size")
-	orphans, err := tree.ndb.orphans()
-	require.NoError(err)
-	require.Len(orphans, 3, "db should have three orphans")
 
 	// Create three more orphans.
 	tree.Remove([]byte("key1")) // orphans both leaf node and inner node containing "key1" and "key2"
@@ -485,10 +482,6 @@ func TestVersionedTree(t *testing.T) {
 	nodes3, err := tree.ndb.leafNodes()
 	require.NoError(err)
 	require.Len(nodes3, 6, "wrong number of nodes")
-
-	orphans, err = tree.ndb.orphans()
-	require.NoError(err)
-	require.Len(orphans, 7, "wrong number of orphans")
 
 	hash4, _, _ := tree.SaveVersion()
 	require.EqualValues(hash3, hash4)
@@ -1255,41 +1248,6 @@ func TestVersionedTreeProofs(t *testing.T) {
 	res, err = iTree.VerifyProof(proof, []byte("k2"))
 	require.NoError(err)
 	require.True(res)
-}
-
-func TestOrphans(t *testing.T) {
-	// If you create a sequence of saved versions
-	// Then randomly delete versions other than the first and last until only those two remain
-	// Any remaining orphan nodes should either have fromVersion == firstVersion || toVersion == lastVersion
-	require := require.New(t)
-	tree, err := NewMutableTree(db.NewMemDB(), 100, false)
-	require.NoError(err)
-
-	NUMVERSIONS := 100
-	NUMUPDATES := 100
-
-	for i := 0; i < NUMVERSIONS; i++ {
-		for j := 1; j < NUMUPDATES; j++ {
-			tree.Set(iavlrand.RandBytes(2), iavlrand.RandBytes(2))
-		}
-		_, _, err = tree.SaveVersion()
-		require.NoError(err, "SaveVersion should not error")
-	}
-
-	idx := iavlrand.RandPerm(NUMVERSIONS - 2)
-	for _, v := range idx {
-		err = tree.DeleteVersion(int64(v + 1))
-		require.NoError(err, "DeleteVersion should not error")
-	}
-
-	err = tree.ndb.traverseOrphans(func(k, v []byte) error {
-		var fromVersion, toVersion int64
-		orphanKeyFormat.Scan(k, &toVersion, &fromVersion)
-		require.True(fromVersion == int64(1) || toVersion == int64(99), fmt.Sprintf(`Unexpected orphan key exists: %v with fromVersion = %d and toVersion = %d.\n 
-			Any orphan remaining in db should have either fromVersion == 1 or toVersion == 99. Since Version 1 and 99 are only versions in db`, k, fromVersion, toVersion))
-		return nil
-	})
-	require.Nil(err)
 }
 
 func TestVersionedTreeHash(t *testing.T) {

@@ -22,14 +22,6 @@ func BenchmarkNodeKey(b *testing.B) {
 	}
 }
 
-func BenchmarkOrphanKey(b *testing.B) {
-	ndb := &nodeDB{}
-	hashes := makeHashes(b, 2432325)
-	for i := 0; i < b.N; i++ {
-		ndb.orphanKey(1234, 1239, hashes[i])
-	}
-}
-
 func BenchmarkTreeString(b *testing.B) {
 	tree := makeAndPopulateMutableTree(b)
 	b.ReportAllocs()
