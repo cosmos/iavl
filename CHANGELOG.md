@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+<<<<<<< HEAD
+=======
+- [#586](https://github.com/cosmos/iavl/pull/586) Remove the `RangeProof` and refactor the ics23_proof to use the internal methods.
+- [#640](https://github.com/cosmos/iavl/pull/640) commit `NodeDB` batch in `LoadVersionForOverwriting`.
+
+>>>>>>> e144f08 (fix: commit the ndb in LoadVersionForOverwriting (#640))
 ## 0.19.4 (October 28, 2022)
 
 - [#599](https://github.com/cosmos/iavl/pull/599) Populate ImmutableTree creation in copy function with missing field
