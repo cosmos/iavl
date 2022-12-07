@@ -111,7 +111,11 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	return ndb.unsafeGetNode(hash)
+}
 
+// Contract: the caller should hold the ndb.mtx lock.
+func (ndb *nodeDB) unsafeGetNode(hash []byte) (*Node, error) {
 	if len(hash) == 0 {
 		return nil, ErrNodeMissingHash
 	}
@@ -603,7 +607,7 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 		return nil
 	}
 
-	node, err := ndb.GetNode(hash)
+	node, err := ndb.unsafeGetNode(hash)
 	if err != nil {
 		return err
 	}
