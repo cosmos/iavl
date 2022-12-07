@@ -436,6 +436,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return fmt.Errorf("root for version %v not found", latest)
 	}
 
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
 	for v, r := range ndb.versionReaders {
 		if v >= version && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
