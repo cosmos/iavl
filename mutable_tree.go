@@ -623,6 +623,13 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
+	// Commit the tree rollback first
+	// The fast storage rebuild don't have to be atomic with this,
+	// because it's idempotent and will do again when `LoadVersion`.
+	if err := tree.ndb.Commit(); err != nil {
+		return latestVersion, err
+	}
+
 	if !tree.skipFastStorageUpgrade {
 		if err := tree.enableFastStorageAndCommitLocked(); err != nil {
 			return latestVersion, err

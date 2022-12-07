@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- [#640](https://github.com/cosmos/iavl/pull/640) commit `NodeDB` batch in `LoadVersionForOverwriting`.
+
 ## 0.19.4 (October 28, 2022)
 
 - [#599](https://github.com/cosmos/iavl/pull/599) Populate ImmutableTree creation in copy function with missing field
