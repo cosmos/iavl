@@ -633,7 +633,7 @@ func (ndb *nodeDB) deleteOrphans(root, successorRoot []byte, predecessor int64) 
 		}
 	}
 
-	return DiffTree(ndb.getNode, rootNode, successorRootNode, func(orphaned, new []*Node) (bool, error) {
+	return DiffTree(ndb.getNode, rootNode, successorRootNode, predecessor, func(orphaned, new []*Node) (bool, error) {
 		for _, n := range orphaned {
 			if n.version > predecessor {
 				logger.Debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, n.version, rootNode.version, n.hash)

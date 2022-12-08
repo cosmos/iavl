@@ -22,11 +22,14 @@ type KVOperation struct {
 // The tuple of (orphaned, new) is passed to the handle callback, it can return a boolean to specify
 // should we stop the diff process.
 // Accepts nil input for empty tree.
+// predecessor is to skip the subtrees belong to predecessor or older versions, when searching for orphan nodes, we
+// don't need to worry about those old versions, pass 0 to do a full diff.
 // Contract:
 // - the (orphaned, new) nodes are at the same height.
 // - all the nodes are persisted nodes.
-func DiffTree(nodeGetter GetNode, root1, root2 *Node, handle func([]*Node, []*Node) (bool, error)) error {
+func DiffTree(nodeGetter GetNode, root1, root2 *Node, predecessor int64, handle func([]*Node, []*Node) (bool, error)) error {
 	if root1 == nil && root2 == nil {
+		// both empty, nothing to do
 		return nil
 	}
 
@@ -48,7 +51,7 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, handle func([]*Node, []*No
 		if stop, err := handle(l1.nodes, nil); stop || err != nil {
 			return err
 		}
-		if err := l1.moveToNextLayer(nodeGetter); err != nil {
+		if err := l1.moveToNextLayer(nodeGetter, predecessor); err != nil {
 			return err
 		}
 	}
@@ -57,7 +60,7 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, handle func([]*Node, []*No
 		if stop, err := handle(nil, l2.nodes); stop || err != nil {
 			return err
 		}
-		if err := l2.moveToNextLayer(nodeGetter); err != nil {
+		if err := l2.moveToNextLayer(nodeGetter, predecessor); err != nil {
 			return err
 		}
 	}
@@ -77,10 +80,10 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, handle func([]*Node, []*No
 		l1.nodes = orphaned
 		l2.nodes = new
 
-		if err := l1.moveToNextLayer(nodeGetter); err != nil {
+		if err := l1.moveToNextLayer(nodeGetter, predecessor); err != nil {
 			return err
 		}
-		if err := l2.moveToNextLayer(nodeGetter); err != nil {
+		if err := l2.moveToNextLayer(nodeGetter, predecessor); err != nil {
 			return err
 		}
 	}
@@ -90,7 +93,7 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, handle func([]*Node, []*No
 // StateChanges extract state changes between two versions of iavl tree
 func StateChanges(nodeGetter GetNode, root1, root2 *Node) ([]KVOperation, error) {
 	var ops []KVOperation
-	if err := DiffTree(nodeGetter, root1, root2, func(orphaned, new []*Node) (bool, error) {
+	if err := DiffTree(nodeGetter, root1, root2, 0, func(orphaned, new []*Node) (bool, error) {
 		// both orphaned and new nodes are at the same height, and we only care about leaf nodes here
 		// so if there's one leaf node, we need to do the work.
 		if (len(orphaned) > 0 && orphaned[0].isLeaf()) || (len(new) > 0 && new[0].isLeaf()) {
@@ -125,7 +128,8 @@ func (l *layer) isLeaf() bool {
 }
 
 // Contract: l.height must be larger than 0.
-func (l *layer) moveToNextLayer(nodeGetter GetNode) error {
+// predecessor filter subtrees to visit.
+func (l *layer) moveToNextLayer(nodeGetter GetNode, predecessor int64) error {
 	if l.height <= 0 {
 		panic("already at leaf layer")
 	}
@@ -136,20 +140,24 @@ func (l *layer) moveToNextLayer(nodeGetter GetNode) error {
 		if err != nil {
 			return err
 		}
-		if left.subtreeHeight == l.height-1 {
-			nodes = append(nodes, left)
-		} else {
-			pendingNodes = append(pendingNodes, left)
+		if left.version > predecessor {
+			if left.subtreeHeight == l.height-1 {
+				nodes = append(nodes, left)
+			} else {
+				pendingNodes = append(pendingNodes, left)
+			}
 		}
 
 		right, err := nodeGetter(node.rightHash)
 		if err != nil {
 			return err
 		}
-		if right.subtreeHeight == l.height-1 {
-			nodes = append(nodes, right)
-		} else {
-			pendingNodes = append(pendingNodes, right)
+		if right.version > predecessor {
+			if right.subtreeHeight == l.height-1 {
+				nodes = append(nodes, right)
+			} else {
+				pendingNodes = append(pendingNodes, right)
+			}
 		}
 	}
 
