@@ -2,13 +2,8 @@ package iavl
 
 import (
 	"context"
-<<<<<<< HEAD
-
-	"github.com/pkg/errors"
-=======
 	"errors"
 	"fmt"
->>>>>>> 2777659 (fix: Prevent newExporter crash if tree.ndb is nil (#622))
 )
 
 // exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by
