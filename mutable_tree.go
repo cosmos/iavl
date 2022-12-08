@@ -628,6 +628,9 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 		return nil, err
 	}
 	latestVersion, err := tree.ndb.getLatestVersion()
+	if err != nil {
+		return nil, err
+	}
 	if firstVersion > version || version > latestVersion {
 		return nil, ErrVersionDoesNotExist
 	}
