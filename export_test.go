@@ -160,7 +160,8 @@ func TestExporter(t *testing.T) {
 	}
 
 	actual := make([]*ExportNode, 0, len(expect))
-	exporter := tree.Export()
+	exporter, err := tree.Export()
+	require.NoError(t, err)
 	defer exporter.Close()
 	for {
 		node, err := exporter.Next()
@@ -189,7 +190,8 @@ func TestExporter_Import(t *testing.T) {
 		t.Run(desc, func(t *testing.T) {
 			t.Parallel()
 
-			exporter := tree.Export()
+			exporter, err := tree.Export()
+			require.NoError(t, err)
 			defer exporter.Close()
 
 			newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
@@ -234,7 +236,8 @@ func TestExporter_Import(t *testing.T) {
 
 func TestExporter_Close(t *testing.T) {
 	tree := setupExportTreeSized(t, 4096)
-	exporter := tree.Export()
+	exporter, err := tree.Export()
+	require.NoError(t, err)
 
 	node, err := exporter.Next()
 	require.NoError(t, err)
@@ -273,7 +276,8 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 
 	itree, err := tree.GetImmutable(2)
 	require.NoError(t, err)
-	exporter := itree.Export()
+	exporter, err := itree.Export()
+	require.NoError(t, err)
 	defer exporter.Close()
 
 	err = tree.DeleteVersion(2)
@@ -291,7 +295,8 @@ func BenchmarkExport(b *testing.B) {
 	tree := setupExportTreeSized(b, 4096)
 	b.StartTimer()
 	for n := 0; n < b.N; n++ {
-		exporter := tree.Export()
+		exporter, err := tree.Export()
+		require.NoError(b, err)
 		for {
 			_, err := exporter.Next()
 			if err == ExportDone {
