@@ -115,14 +115,14 @@ func TestNewIteratorConcurrency(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
-	_, _, err := tree.set([]byte("k1"), []byte("Fred"))
+	_, err := tree.set([]byte("k1"), []byte("Fred"))
 	require.NoError(t, err)
 	hash, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	require.NoError(t, tree.DeleteVersion(version))
+	require.NoError(t, tree.DeleteVersionsTo(version))
 
 	proof, err := tree.GetVersionedProof([]byte("k1"), version)
 	require.EqualError(t, err, ErrVersionDoesNotExist.Error())
@@ -131,9 +131,8 @@ func TestDelete(t *testing.T) {
 	key := tree.ndb.rootKey(version)
 	err = tree.ndb.db.Set(key, hash)
 	require.NoError(t, err)
-	tree.versions[version] = true
 
-	proof, err = tree.GetVersionedProof([]byte("k1"), version)
+	proof, err = tree.GetVersionedProof([]byte("k1"), version+1)
 	require.Nil(t, err)
 	require.Equal(t, 0, bytes.Compare([]byte("Fred"), proof.GetExist().Value))
 }
@@ -183,14 +182,14 @@ func TestTraverse(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
 	for i := 0; i < 6; i++ {
-		_, _, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		_, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
 		require.NoError(t, err)
 	}
 
 	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
 }
 
-func TestMutableTree_DeleteVersions(t *testing.T) {
+func TestMutableTree_DeleteVersionsTo(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
 	type entry struct {
@@ -220,22 +219,22 @@ func TestMutableTree_DeleteVersions(t *testing.T) {
 	}
 
 	// delete even versions
-	versionsToDelete := []int64{2, 4, 6, 8}
-	require.NoError(t, tree.DeleteVersions(versionsToDelete...))
+	versionToDelete := int64(8)
+	require.NoError(t, tree.DeleteVersionsTo(versionToDelete))
 
 	// ensure even versions have been deleted
-	for _, v := range versionsToDelete {
-		require.False(t, tree.versions[v])
+	for v := int64(1); v <= versionToDelete; v++ {
+		// require.False(t, tree.versions[v])
 
-		_, err := tree.LazyLoadVersion(v)
+		_, err := tree.LoadVersion(v)
 		require.Error(t, err)
 	}
 
 	// ensure odd number versions exist and we can query for all set entries
-	for _, v := range []int64{1, 3, 5, 7, 9, 10} {
-		require.True(t, tree.versions[v])
+	for _, v := range []int64{9, 10} {
+		// require.True(t, tree.versions[v])
 
-		_, err := tree.LazyLoadVersion(v)
+		_, err := tree.LoadVersion(v)
 		require.NoError(t, err)
 
 		for _, e := range versionEntries[v] {
@@ -259,106 +258,6 @@ func TestMutableTree_LoadVersion_Empty(t *testing.T) {
 
 	_, err = tree.LoadVersion(3)
 	require.Error(t, err)
-}
-
-func TestMutableTree_LazyLoadVersion_Empty(t *testing.T) {
-	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0, false)
-	require.NoError(t, err)
-
-	version, err := tree.LazyLoadVersion(0)
-	require.NoError(t, err)
-	assert.EqualValues(t, 0, version)
-
-	version, err = tree.LazyLoadVersion(-1)
-	require.NoError(t, err)
-	assert.EqualValues(t, 0, version)
-
-	_, err = tree.LazyLoadVersion(3)
-	require.Error(t, err)
-}
-
-func TestMutableTree_DeleteVersionsRange(t *testing.T) {
-	require := require.New(t)
-
-	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 0, false)
-	require.NoError(err)
-	const maxLength = 100
-	const fromLength = 10
-
-	versions := make([]int64, 0, maxLength)
-	for count := 1; count <= maxLength; count++ {
-		versions = append(versions, int64(count))
-		countStr := strconv.Itoa(count)
-		// Set kv pair and save version
-		_, err = tree.Set([]byte("aaa"), []byte("bbb"))
-		require.NoError(err, "Set should not fail")
-		_, err = tree.Set([]byte("key"+countStr), []byte("value"+countStr))
-		require.NoError(err, "Set should not fail")
-		_, _, err = tree.SaveVersion()
-		require.NoError(err, "SaveVersion should not fail")
-	}
-
-	tree, err = NewMutableTree(mdb, 0, false)
-	require.NoError(err)
-	targetVersion, err := tree.LoadVersion(int64(maxLength))
-	require.NoError(err)
-	require.Equal(targetVersion, int64(maxLength), "targetVersion shouldn't larger than the actual tree latest version")
-
-	err = tree.DeleteVersionsRange(fromLength, int64(maxLength/2))
-	require.NoError(err, "DeleteVersionsTo should not fail")
-
-	for _, version := range versions[:fromLength-1] {
-		require.True(tree.versions[version], "versions %d no more than 10 should exist", version)
-
-		v, err := tree.LazyLoadVersion(version)
-		require.NoError(err, version)
-		require.Equal(v, version)
-
-		value, err := tree.Get([]byte("aaa"))
-		require.NoError(err)
-		require.Equal(string(value), "bbb")
-
-		for _, count := range versions[:version] {
-			countStr := strconv.Itoa(int(count))
-			value, err := tree.Get([]byte("key" + countStr))
-			require.NoError(err)
-			require.Equal(string(value), "value"+countStr)
-		}
-	}
-
-	for _, version := range versions[fromLength : int64(maxLength/2)-1] {
-		require.False(tree.versions[version], "versions %d more 10 and no more than 50 should have been deleted", version)
-
-		_, err := tree.LazyLoadVersion(version)
-		require.Error(err)
-	}
-
-	for _, version := range versions[int64(maxLength/2)-1:] {
-		require.True(tree.versions[version], "versions %d more than 50 should exist", version)
-
-		v, err := tree.LazyLoadVersion(version)
-		require.NoError(err)
-		require.Equal(v, version)
-
-		value, err := tree.Get([]byte("aaa"))
-		require.NoError(err)
-		require.Equal(string(value), "bbb")
-
-		for _, count := range versions[:fromLength] {
-			countStr := strconv.Itoa(int(count))
-			value, err := tree.Get([]byte("key" + countStr))
-			require.NoError(err)
-			require.Equal(string(value), "value"+countStr)
-		}
-		for _, count := range versions[int64(maxLength/2)-1 : version] {
-			countStr := strconv.Itoa(int(count))
-			value, err := tree.Get([]byte("key" + countStr))
-			require.NoError(err)
-			require.Equal(string(value), "value"+countStr)
-		}
-	}
 }
 
 func TestMutableTree_InitialVersion(t *testing.T) {
@@ -475,8 +374,8 @@ func checkGetVersioned(t *testing.T, tree *MutableTree, version int64, key, valu
 
 func TestMutableTree_GetVersioned(t *testing.T) {
 	tree := prepareTree(t)
-	ver, err := tree.LazyLoadVersion(1)
-	require.True(t, ver == 1)
+	ver, err := tree.LoadVersion(1)
+	require.True(t, ver == 2)
 	require.NoError(t, err)
 	// check key of unloaded version
 	checkGetVersioned(t, tree, 1, []byte{1}, []byte("a"))
@@ -484,7 +383,7 @@ func TestMutableTree_GetVersioned(t *testing.T) {
 	checkGetVersioned(t, tree, 3, []byte{1}, nil)
 
 	tree = prepareTree(t)
-	ver, err = tree.LazyLoadVersion(2)
+	ver, err = tree.LoadVersion(2)
 	require.True(t, ver == 2)
 	require.NoError(t, err)
 	checkGetVersioned(t, tree, 1, []byte{1}, []byte("a"))
@@ -494,18 +393,18 @@ func TestMutableTree_GetVersioned(t *testing.T) {
 
 func TestMutableTree_DeleteVersion(t *testing.T) {
 	tree := prepareTree(t)
-	ver, err := tree.LazyLoadVersion(2)
+	ver, err := tree.LoadVersion(2)
 	require.True(t, ver == 2)
 	require.NoError(t, err)
 
-	require.NoError(t, tree.DeleteVersion(1))
+	require.NoError(t, tree.DeleteVersionsTo(1))
 
 	require.False(t, tree.VersionExists(1))
 	require.True(t, tree.VersionExists(2))
 	require.False(t, tree.VersionExists(3))
 
 	// cannot delete latest version
-	require.Error(t, tree.DeleteVersion(2))
+	require.Error(t, tree.DeleteVersionsTo(2))
 }
 
 func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
@@ -517,7 +416,7 @@ func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
 
 	newTree1, err := NewMutableTree(mdb, 1000, false)
 	require.NoError(t, err)
-	v2, err := newTree1.LazyLoadVersion(1)
+	v2, err := newTree1.LoadVersion(1)
 	require.NoError(t, err)
 	require.True(t, v1 == v2)
 
@@ -1217,7 +1116,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 	require.NoError(t, err)
 
 	// LazyLoadVersion - should auto enable fast storage
-	version, err := sut.LazyLoadVersion(1)
+	version, err := sut.LoadVersion(1)
 	require.NoError(t, err)
 
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
@@ -1404,7 +1303,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.NoError(t, err)
 
 	// LazyLoadVersion - should not auto enable fast storage
-	version, err := sut.LazyLoadVersion(1)
+	version, err := sut.LoadVersion(1)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
@@ -1431,7 +1330,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.False(t, isFastCacheEnabled)
 
 	// LoadVersionForOverwriting - should not auto enable fast storage
-	version, err = sut.LoadVersionForOverwriting(1)
+	err = sut.LoadVersionForOverwriting(1)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), version)
 
