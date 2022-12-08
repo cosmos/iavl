@@ -391,22 +391,6 @@ func (ndb *nodeDB) resetBatch() error {
 	return nil
 }
 
-// Contract:
-// - successor must exists, predecessor can be 0 if don't exists.
-// - predecessor < version < successor
-// - no other versions between predecessor, version, successor
-func (ndb *nodeDB) deleteVersion(version, predecessor, successor int64) error {
-	if err := ndb.deleteOrphans(version, predecessor, successor); err != nil {
-		return err
-	}
-
-	if err := ndb.batch.Delete(ndb.rootKey(version)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // DeleteVersion deletes a tree version from disk.
 func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	ndb.mtx.Lock()
@@ -416,6 +400,11 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 		return fmt.Errorf("unable to delete version %v, it has %v active readers", version, ndb.versionReaders[version])
 	}
 
+	root, err := ndb.getRoot(version)
+	if err != nil {
+		return err
+	}
+
 	// Will be zero if there is no previous version.
 	predecessor, err := ndb.getPreviousVersion(version)
 	if err != nil {
@@ -423,18 +412,23 @@ func (ndb *nodeDB) DeleteVersion(version int64, checkLatestVersion bool) error {
 	}
 
 	// Will be zero if there is no next version.
-	successor, err := ndb.getNextVersion(version)
+	successor, successorRoot, err := ndb.getNextVersion(version)
 	if err != nil {
 		return err
 	}
-
-	// nothing to do for latest version
-	if successor > 0 {
-		if err := ndb.deleteVersion(version, predecessor, successor); err != nil {
-			return err
+	if successor == 0 {
+		// no successor means it's the latest version
+		if checkLatestVersion {
+			return errors.New("tried to delete latest version")
 		}
+		return nil
 	}
-	return nil
+
+	if err := ndb.deleteOrphans(root, successorRoot, predecessor); err != nil {
+		return err
+	}
+
+	return ndb.batch.Delete(ndb.rootKey(version))
 }
 
 // rollbackVersion rollbacks the latest version,
@@ -557,7 +551,7 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 
 	// The shared successor which the range of version will compare against.
 	// Will be zero if there is no next version.
-	successor, err := ndb.getNextVersion(toVersion - 1)
+	successor, successorRoot, err := ndb.getNextVersion(toVersion - 1)
 	if err != nil {
 		return err
 	}
@@ -572,12 +566,14 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		}
 	}
 
-	// collect the versions to delete
+	// collect the to be deleted versions and associated root hashes.
 	var versions []int64
+	roots := make(map[int64][]byte)
 	if err := ndb.traverseRange(ndb.rootKey(fromVersion), ndb.rootKey(toVersion), func(k, v []byte) error {
 		var version int64
 		rootKeyFormat.Scan(k, &version)
 		versions = append(versions, version)
+		roots[version] = v
 		return nil
 	}); err != nil {
 		return err
@@ -589,7 +585,12 @@ func (ndb *nodeDB) DeleteVersionsRange(fromVersion, toVersion int64) error {
 		if i > 0 {
 			pre = versions[i-1]
 		}
-		if err := ndb.deleteVersion(versions[i], pre, successor); err != nil {
+
+		if err := ndb.deleteOrphans(roots[versions[i]], successorRoot, pre); err != nil {
+			return err
+		}
+
+		if err := ndb.batch.Delete(ndb.rootKey(versions[i])); err != nil {
 			return err
 		}
 	}
@@ -607,41 +608,35 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	return nil
 }
 
-// deleteOrphans deletes orphaned nodes from disk by comparing the related versions.
+// deleteOrphans find nodes orphaned by root2 on top of root1, and delete those whose version is larger than
+// predecessor.
+// So if predecessor, root1 and root2 are consecutive versions, it do the job of deleting the version of root1.
 // Contract:
-// - predecessor < version < successor
+// - predecessor < root < successorRoot
 // - there's no other version in between
 // - predecessor could be 0 if don't exists, successor must exist.
-func (ndb *nodeDB) deleteOrphans(version, predecessor, successor int64) error {
+func (ndb *nodeDB) deleteOrphans(root, successorRoot []byte, predecessor int64) error {
 	var (
-		root1, root2 *Node
-		err          error
+		rootNode, successorRootNode *Node
+		err                         error
 	)
-
-	rootHash1, err := ndb.getRoot(version)
-	if err != nil {
-		return err
-	}
-	rootHash2, err := ndb.getRoot(successor)
-	if err != nil {
-		return err
-	}
-
-	if len(rootHash1) > 0 {
-		if root1, err = ndb.getNode(rootHash1); err != nil {
+	if len(root) > 0 {
+		rootNode, err = ndb.getNode(root)
+		if err != nil {
 			return err
 		}
 	}
-	if len(rootHash2) > 0 {
-		if root2, err = ndb.getNode(rootHash2); err != nil {
+	if len(successorRoot) > 0 {
+		successorRootNode, err = ndb.getNode(successorRoot)
+		if err != nil {
 			return err
 		}
 	}
 
-	return DiffTree(ndb.getNode, root1, root2, func(orphaned, new []*Node) (bool, error) {
+	return DiffTree(ndb.getNode, rootNode, successorRootNode, func(orphaned, new []*Node) (bool, error) {
 		for _, n := range orphaned {
 			if n.version > predecessor {
-				logger.Debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, n.version, version, n.hash)
+				logger.Debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, n.version, rootNode.version, n.hash)
 				if err := ndb.batch.Delete(ndb.nodeKey(n.hash)); err != nil {
 					return false, err
 				}
@@ -711,13 +706,13 @@ func (ndb *nodeDB) getPreviousVersion(version int64) (int64, error) {
 }
 
 // getNextVersion returns 0 if there's no next version
-func (ndb *nodeDB) getNextVersion(version int64) (int64, error) {
+func (ndb *nodeDB) getNextVersion(version int64) (int64, []byte, error) {
 	itr, err := ndb.db.Iterator(
 		rootKeyFormat.Key(version+1),
 		rootKeyFormat.Key(maxVersion),
 	)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer itr.Close()
 
@@ -725,14 +720,14 @@ func (ndb *nodeDB) getNextVersion(version int64) (int64, error) {
 		k := itr.Key()
 		var nversion int64
 		rootKeyFormat.Scan(k, &nversion)
-		return nversion, nil
+		return nversion, itr.Value(), nil
 	}
 
 	if err := itr.Error(); err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 
-	return 0, nil
+	return 0, nil, nil
 }
 
 // Traverse fast nodes and return error if any, nil otherwise
