@@ -128,10 +128,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 			return 0, nil, err
 		}
 		start := time.Now().UTC()
-		exporter, err := itree.Export()
-		if err != nil {
-			return 0, nil, err
-		}
+		exporter := itree.Export()
 		defer exporter.Close()
 		for {
 			node, err := exporter.Next()
