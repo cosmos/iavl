@@ -18,16 +18,41 @@ type KVOperation struct {
 	original []byte
 }
 
+type DiffOptions struct {
+	// Predecessor specifies the version and the versions before that should be skipped during the diff process,
+	// it's to prevent unneeded traversal in pruning mode.
+	Predecessor int64
+	// If PruneMode is true, the diff process stop as soon as orphaned nodes becomes empty.
+	PruneMode bool
+}
+
+func DiffFull() DiffOptions {
+	return DiffOptions{}
+}
+
+func DiffForPruning(predecessor int64) DiffOptions {
+	return DiffOptions{
+		Predecessor: predecessor,
+		PruneMode:   true,
+	}
+}
+
 // DiffTree diff two versions of the iavl tree to find out the orphaned and new nodes.
 // The tuple of (orphaned, new) is passed to the handle callback, it can return a boolean to specify
 // should we stop the diff process.
 // Accepts nil input for empty tree.
-// predecessor is to skip the subtrees belong to predecessor or older versions, when searching for orphan nodes, we
-// don't need to worry about those old versions, pass 0 to do a full diff.
 // Contract:
 // - the (orphaned, new) nodes are at the same height.
 // - all the nodes are persisted nodes.
-func DiffTree(nodeGetter GetNode, root1, root2 *Node, predecessor int64, handle func([]*Node, []*Node) (bool, error)) error {
+func DiffTree(nodeGetter GetNode, root1, root2 *Node, handle func([]*Node, []*Node) error, opts DiffOptions) error {
+	// skipping nodes created at or before predecessor
+	if root1 != nil && root1.version <= opts.Predecessor {
+		root1 = nil
+	}
+	if root2 != nil && root2.version <= opts.Predecessor {
+		root2 = nil
+	}
+
 	if root1 == nil && root2 == nil {
 		// both empty, nothing to do
 		return nil
@@ -48,19 +73,19 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, predecessor int64, handle 
 	}
 
 	for l1.height > l2.height {
-		if stop, err := handle(l1.nodes, nil); stop || err != nil {
+		if err := handle(l1.nodes, nil); err != nil {
 			return err
 		}
-		if err := l1.moveToNextLayer(nodeGetter, predecessor); err != nil {
+		if err := l1.moveToNextLayer(nodeGetter, opts.Predecessor); err != nil {
 			return err
 		}
 	}
 
 	for l2.height > l1.height {
-		if stop, err := handle(nil, l2.nodes); stop || err != nil {
+		if err := handle(nil, l2.nodes); err != nil {
 			return err
 		}
-		if err := l2.moveToNextLayer(nodeGetter, predecessor); err != nil {
+		if err := l2.moveToNextLayer(nodeGetter, opts.Predecessor); err != nil {
 			return err
 		}
 	}
@@ -68,7 +93,7 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, predecessor int64, handle 
 	for {
 		// l1 l2 at the same height now
 		orphaned, new := diffNodes(l1.nodes, l2.nodes)
-		if stop, err := handle(orphaned, new); stop || err != nil {
+		if err := handle(orphaned, new); err != nil {
 			return err
 		}
 
@@ -76,14 +101,20 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, predecessor int64, handle 
 			break
 		}
 
-		// don't visit the common sub-trees
+		// reset nodes to remove the common nodes(sub-trees)
 		l1.nodes = orphaned
 		l2.nodes = new
 
-		if err := l1.moveToNextLayer(nodeGetter, predecessor); err != nil {
+		if opts.PruneMode && l1.isEmpty() {
+			// nothing else to see in tree1, no more orphaned nodes, only new ones,
+			// that's enough for pruning mode.
+			break
+		}
+
+		if err := l1.moveToNextLayer(nodeGetter, opts.Predecessor); err != nil {
 			return err
 		}
-		if err := l2.moveToNextLayer(nodeGetter, predecessor); err != nil {
+		if err := l2.moveToNextLayer(nodeGetter, opts.Predecessor); err != nil {
 			return err
 		}
 	}
@@ -93,14 +124,14 @@ func DiffTree(nodeGetter GetNode, root1, root2 *Node, predecessor int64, handle 
 // StateChanges extract state changes between two versions of iavl tree
 func StateChanges(nodeGetter GetNode, root1, root2 *Node) ([]KVOperation, error) {
 	var ops []KVOperation
-	if err := DiffTree(nodeGetter, root1, root2, 0, func(orphaned, new []*Node) (bool, error) {
+	if err := DiffTree(nodeGetter, root1, root2, func(orphaned, new []*Node) error {
 		// both orphaned and new nodes are at the same height, and we only care about leaf nodes here
 		// so if there's one leaf node, we need to do the work.
 		if (len(orphaned) > 0 && orphaned[0].isLeaf()) || (len(new) > 0 && new[0].isLeaf()) {
 			ops = diffLeafNodes(orphaned, new)
 		}
-		return false, nil
-	}); err != nil {
+		return nil
+	}, DiffFull()); err != nil {
 		return nil, err
 	}
 	return ops, nil
@@ -125,6 +156,10 @@ func newEmptyLayer(height int8) *layer {
 
 func (l *layer) isLeaf() bool {
 	return l.height == 0
+}
+
+func (l *layer) isEmpty() bool {
+	return len(l.nodes)+len(l.pendingNodes) == 0
 }
 
 // Contract: l.height must be larger than 0.

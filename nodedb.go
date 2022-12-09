@@ -633,18 +633,16 @@ func (ndb *nodeDB) deleteOrphans(root, successorRoot []byte, predecessor int64) 
 		}
 	}
 
-	return DiffTree(ndb.getNode, rootNode, successorRootNode, predecessor, func(orphaned, new []*Node) (bool, error) {
+	return DiffTree(ndb.getNode, rootNode, successorRootNode, func(orphaned, new []*Node) error {
 		for _, n := range orphaned {
-			if n.version > predecessor {
-				logger.Debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, n.version, rootNode.version, n.hash)
-				if err := ndb.batch.Delete(ndb.nodeKey(n.hash)); err != nil {
-					return false, err
-				}
-				ndb.nodeCache.Remove(n.hash)
+			logger.Debug("DELETE predecessor:%v fromVersion:%v toVersion:%v %X\n", predecessor, n.version, rootNode.version, n.hash)
+			if err := ndb.batch.Delete(ndb.nodeKey(n.hash)); err != nil {
+				return err
 			}
+			ndb.nodeCache.Remove(n.hash)
 		}
-		return false, nil
-	})
+		return nil
+	}, DiffForPruning(predecessor))
 }
 
 func (ndb *nodeDB) nodeKey(hash []byte) []byte {
