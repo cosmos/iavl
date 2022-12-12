@@ -35,6 +35,7 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
+	maxVersion                 = int64(math.MaxInt64)
 )
 
 var (
@@ -452,7 +453,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	// Next, delete orphans:
 	// - Delete orphan entries *and referred nodes* with fromVersion >= version
 	// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
-	err = ndb.traverseOrphans(func(key, hash []byte) error {
+	err = ndb.traverseRange(orphanKeyFormat.Key(version-1), orphanKeyFormat.Key(maxVersion), func(key, hash []byte) error {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
@@ -477,7 +478,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	}
 
 	// Delete the version root entries
-	err = ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(int64(math.MaxInt64)), func(k, v []byte) error {
+	err = ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(maxVersion), func(k, v []byte) error {
 		if err = ndb.batch.Delete(k); err != nil {
 			return err
 		}
@@ -488,26 +489,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return err
 	}
 
-	// Delete fast node entries
-	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
-		key := keyWithPrefix[1:]
-		fastNode, err := fastnode.DeserializeNode(key, v)
-		if err != nil {
-			return err
-		}
-
-		if version <= fastNode.GetVersionLastUpdatedAt() {
-			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
-				return err
-			}
-			ndb.fastNodeCache.Remove(key)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
+	// NOTICE: we don't touch fast node indexes here, because it'll be rebuilt later because of version mismatch.
 
 	return nil
 }
@@ -603,6 +585,11 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 	node, err := ndb.GetNode(hash)
 	if err != nil {
 		return err
+	}
+
+	if node.version < version {
+		// We can skip the whole sub-tree since children.version <= parent.version.
+		return nil
 	}
 
 	if node.leftHash != nil {
@@ -725,7 +712,7 @@ func (ndb *nodeDB) rootKey(version int64) []byte {
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	if ndb.latestVersion == 0 {
 		var err error
-		ndb.latestVersion, err = ndb.getPreviousVersion(1<<63 - 1)
+		ndb.latestVersion, err = ndb.getPreviousVersion(maxVersion)
 		if err != nil {
 			return 0, err
 		}
@@ -789,6 +776,7 @@ func (ndb *nodeDB) traverseOrphans(fn func(keyWithPrefix, v []byte) error) error
 }
 
 // Traverse fast nodes and return error if any, nil otherwise
+// nolint: unused
 func (ndb *nodeDB) traverseFastNodes(fn func(k, v []byte) error) error {
 	return ndb.traversePrefix(fastKeyFormat.Key(), fn)
 }
