@@ -1042,6 +1042,39 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	return nil
 }
 
+func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	if endVersion == 0 {
+		latestVersion, err := ndb.getLatestVersion()
+		if err != nil {
+			return err
+		}
+		endVersion = latestVersion + 1
+	}
+
+	predecessor, err := ndb.getPreviousVersion(startVersion)
+	if err != nil {
+		return err
+	}
+	prevRoot, err := ndb.getRoot(predecessor)
+	if err != nil {
+		return err
+	}
+	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
+		var version int64
+		rootKeyFormat.Scan(k, &version)
+		changeSet, err := StateChanges(ndb, predecessor, prevRoot, hash)
+		if err != nil {
+			return err
+		}
+		if err := fn(version, changeSet); err != nil {
+			return err
+		}
+		predecessor = version
+		prevRoot = hash
+		return nil
+	})
+}
+
 func (ndb *nodeDB) String() (string, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(buf)
