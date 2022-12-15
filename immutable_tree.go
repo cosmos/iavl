@@ -154,7 +154,7 @@ func (t *ImmutableTree) Hash() ([]byte, error) {
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
 // imported with MutableTree.Import() to recreate an identical tree.
-func (t *ImmutableTree) Export() *Exporter {
+func (t *ImmutableTree) Export() (*Exporter, error) {
 	return newExporter(t)
 }
 
@@ -312,9 +312,10 @@ func (t *ImmutableTree) isLatestTreeVersion() (bool, error) {
 // Used internally by MutableTree.
 func (t *ImmutableTree) clone() *ImmutableTree {
 	return &ImmutableTree{
-		root:    t.root,
-		ndb:     t.ndb,
-		version: t.version,
+		root:                   t.root,
+		ndb:                    t.ndb,
+		version:                t.version,
+		skipFastStorageUpgrade: t.skipFastStorageUpgrade,
 	}
 }
 

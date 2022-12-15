@@ -1,8 +1,14 @@
 # Running Benchmarks
 
-These instructions are mainly for running the benchmarks on an cloud instance that is intended to be thrown away, not on a dev machine.  Be careful with the install scripts locally.
+You should run the benchmarks in a container that has all needed support code, one of those is:
 
-This has only been tested on Ubuntu 16.04 and 18.04.  It *should* work on Ubuntu 14.04 as well.  It *may* work on Debian, but has never been tested.
+```
+ghcr.io/notional-labs/cosmos
+```
+
+and the source for it is here: https://github.com/notional-labs/containers/blob/master/cosmos/Dockerfile
+
+In
 
 
 ## Setting up the machine

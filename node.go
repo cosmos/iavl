@@ -178,7 +178,6 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 	leftNode := node.leftNode
 	rightNode := node.rightNode
 	if node.nodeKey != nil {
-		tree.orphans = append(tree.orphans, node.nodeKey)
 		leftNode, err = node.getLeftNode(tree.ImmutableTree)
 		if err != nil {
 			return nil, err

@@ -28,7 +28,7 @@ func ExampleImporter() {
 	if err != nil {
 		// handle err
 	}
-	exporter := itree.Export()
+	exporter, err := itree.Export()
 	defer exporter.Close()
 	exported := []*ExportNode{}
 	for {
@@ -219,7 +219,8 @@ func BenchmarkImport(b *testing.B) {
 	b.StopTimer()
 	tree := setupExportTreeSized(b, 4096)
 	exported := make([]*ExportNode, 0, 4096)
-	exporter := tree.Export()
+	exporter, err := tree.Export()
+	require.NoError(b, err)
 	for {
 		item, err := exporter.Next()
 		if err == ErrorExportDone {

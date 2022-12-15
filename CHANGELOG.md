@@ -1,8 +1,20 @@
 # Changelog
 
-## Unreleased
+### Breaking Changes
 
+- [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
+- [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements
+
+### API Changes
+
+- [#646](https://github.com/cosmos/iavl/pull/646) Remove the `DeleteVersion`, `DeleteVersions`, `DeleteVersionsRange` and introduce a new endpoint of `DeleteVersionsTo` instead
 - [#586](https://github.com/cosmos/iavl/pull/586) Remove the `RangeProof` and refactor the ics23_proof to use the internal methods.
+- [#640](https://github.com/cosmos/iavl/pull/640) commit `NodeDB` batch in `LoadVersionForOverwriting`.
+
+## 0.19.4 (October 28, 2022)
+
+ - [#599](https://github.com/cosmos/iavl/pull/599) Populate ImmutableTree creation in copy function with missing field
+ - [#589](https://github.com/cosmos/iavl/pull/589) Wrap `tree.addUnsavedRemoval()` with missing `if !tree.skipFastStorageUpgrade` statement
 
 ## 0.19.3 (October 8, 2022)
 

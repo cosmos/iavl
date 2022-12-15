@@ -16,6 +16,7 @@ import (
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/internal/encoding"
 	"github.com/cosmos/iavl/internal/logger"
 	"github.com/cosmos/iavl/keyformat"
@@ -66,6 +67,7 @@ type nodeDB struct {
 	opts           Options          // Options to customize for pruning/writing
 	versionReaders map[int64]uint32 // Number of active version readers
 	storageVersion string           // Storage version
+	firstVersion   int64            // First version of nodeDB.
 	latestVersion  int64            // Latest version of nodeDB.
 	nodeCache      cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
@@ -77,7 +79,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		opts = &o
 	}
 
-	storeVersion, err := db.Get(metadataKeyFormat.Key(unsafeToBz(storageVersionKey)))
+	storeVersion, err := db.Get(metadataKeyFormat.Key(ibytes.UnsafeStrToBytes(storageVersionKey)))
 
 	if err != nil || storeVersion == nil {
 		storeVersion = []byte(defaultStorageVersionValue)
@@ -87,6 +89,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		db:             db,
 		batch:          db.NewBatch(),
 		opts:           *opts,
+		firstVersion:   0,
 		latestVersion:  0, // initially invalid
 		nodeCache:      cache.New(cacheSize),
 		fastNodeCache:  cache.New(fastNodeCacheSize),
@@ -340,24 +343,32 @@ func (ndb *nodeDB) resetBatch() error {
 	return nil
 }
 
+// deleteVersion deletes a tree version from disk.
+// deletes orphans
+func (ndb *nodeDB) deleteVersion(version int64) error {
+	return ndb.traverseOrphans(version, func(orphan *Node) error {
+		return ndb.batch.Delete(ndb.nodeKey(orphan.nodeKey))
+	})
+}
+
 // DeleteVersionsFrom permanently deletes all tree versions from the given version upwards.
-func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
+func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	latest, err := ndb.getLatestVersion()
 	if err != nil {
 		return err
 	}
-	if latest < version {
+	if latest < fromVersion {
 		return nil
 	}
 
 	for v, r := range ndb.versionReaders {
-		if v >= version && r != 0 {
+		if v >= fromVersion && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
 
 	// Delete the nodes
-	err = ndb.traverseRange(nodeKeyFormat.Key(version), nodeKeyFormat.Key(latest+1), func(k, v []byte) error {
+	err = ndb.traverseRange(nodeKeyFormat.Key(fromVersion), nodeKeyFormat.Key(latest+1), func(k, v []byte) error {
 		if err = ndb.batch.Delete(k); err != nil {
 			return err
 		}
@@ -376,7 +387,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 			return err
 		}
 
-		if version <= fastNode.GetVersionLastUpdatedAt() {
+		if fromVersion <= fastNode.GetVersionLastUpdatedAt() {
 			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
 				return err
 			}
@@ -387,6 +398,40 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 
 	if err != nil {
 		return err
+	}
+
+	ndb.resetLatestVersion(fromVersion - 1)
+
+	return nil
+}
+
+// DeleteVersionsTo deletes the oldest versions upto the given version from the disk.
+func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
+	first, err := ndb.getFirstVersion()
+	if err != nil {
+		return err
+	}
+
+	latest, err := ndb.getLatestVersion()
+	if err != nil {
+		return err
+	}
+
+	if toVersion < first || latest <= toVersion {
+		return fmt.Errorf("the version should be in the range of [%d, %d)", first, latest)
+	}
+
+	for v, r := range ndb.versionReaders {
+		if v >= first && v <= toVersion && r != 0 {
+			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
+		}
+	}
+
+	for version := first; version <= toVersion; version++ {
+		if err := ndb.deleteVersion(version); err != nil {
+			return err
+		}
+		ndb.resetFirstVersion(version + 1)
 	}
 
 	return nil
@@ -408,6 +453,32 @@ func (ndb *nodeDB) nodeKey(nk *NodeKey) []byte {
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
 	return fastKeyFormat.KeyBytes(key)
+}
+
+func (ndb *nodeDB) getFirstVersion() (int64, error) {
+	latestVersion, err := ndb.getLatestVersion()
+	if err != nil {
+		return 0, err
+	}
+	firstVersion := int64(0)
+	for firstVersion < latestVersion {
+		version := (latestVersion + firstVersion) >> 1
+		has, err := ndb.HasVersion(version)
+		if err != nil {
+			return 0, err
+		}
+		if has {
+			latestVersion = version
+		} else {
+			firstVersion = version + 1
+		}
+	}
+
+	return latestVersion, nil
+}
+
+func (ndb *nodeDB) resetFirstVersion(version int64) {
+	ndb.firstVersion = version
 }
 
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
@@ -437,37 +508,12 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	return ndb.latestVersion, nil
 }
 
-func (ndb *nodeDB) updateLatestVersion(version int64) {
-	if ndb.latestVersion < version {
-		ndb.latestVersion = version
-	}
-}
-
 func (ndb *nodeDB) resetLatestVersion(version int64) {
 	ndb.latestVersion = version
 }
 
 func (ndb *nodeDB) HasVersion(version int64) (bool, error) {
 	return ndb.db.Has(nodeKeyFormat.Key(version, []byte{1}))
-}
-
-func (ndb *nodeDB) getVersions() (versions []int64, err error) {
-	versions = make([]int64, 0)
-	latestVersion, err := ndb.getLatestVersion()
-	if err != nil {
-		return nil, err
-	}
-	for v := latestVersion; v > 0; v-- {
-		exist, err := ndb.HasVersion(v)
-		if err != nil {
-			return nil, err
-		}
-		if !exist {
-			break
-		}
-		versions = append(versions, v)
-	}
-	return versions, err
 }
 
 // GetRoot get the nodeKey of the root for the specific version.
@@ -522,6 +568,36 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 
 	for ; itr.Valid(); itr.Next() {
 		if err := fn(itr.Key(), itr.Value()); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Traverse the subtree with a given node as the root.
+func (ndb *nodeDB) traverseTree(nk *NodeKey, fn func(node *Node) (bool, error)) error {
+	if nk == nil {
+		return nil
+	}
+
+	node, err := ndb.GetNode(nk)
+	if err != nil {
+		return err
+	}
+
+	stop, err := fn(node)
+	if err != nil || stop {
+		return err
+	}
+
+	if node.leftNodeKey != nil {
+		if err := ndb.traverseTree(node.leftNodeKey, fn); err != nil {
+			return err
+		}
+	}
+	if node.rightNodeKey != nil {
+		if err := ndb.traverseTree(node.rightNodeKey, fn); err != nil {
 			return err
 		}
 	}
@@ -588,6 +664,55 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	}
 }
 
+// traverseOrphans traverses orphans which removed by the updates of the version (n+1).
+func (ndb *nodeDB) traverseOrphans(version int64, fn func(*Node) error) error {
+	curKey, err := ndb.GetRoot(version + 1)
+	if err != nil {
+		return err
+	}
+
+	curIter, err := NewNodeIterator(curKey, ndb)
+	if err != nil {
+		return err
+	}
+
+	prevKey, err := ndb.GetRoot(version)
+	if err != nil {
+		return err
+	}
+	prevIter, err := NewNodeIterator(prevKey, ndb)
+	if err != nil {
+		return err
+	}
+
+	var orgNode *Node
+	for prevIter.Valid() {
+		for orgNode == nil && curIter.Valid() {
+			node := curIter.GetNode()
+			if node.nodeKey.version <= version {
+				curIter.Next(true)
+				orgNode = node
+			} else {
+				curIter.Next(false)
+			}
+		}
+		pNode := prevIter.GetNode()
+
+		if orgNode != nil && bytes.Equal(pNode.hash, orgNode.hash) {
+			prevIter.Next(true)
+			orgNode = nil
+		} else {
+			err = fn(pNode)
+			if err != nil {
+				return err
+			}
+			prevIter.Next(false)
+		}
+	}
+
+	return nil
+}
+
 // Utility and test functions
 
 // nolint: unused
@@ -620,6 +745,23 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 	}
 
 	return nodes, nil
+}
+
+// nolint: unused
+func (ndb *nodeDB) orphans() ([][]byte, error) {
+	orphans := [][]byte{}
+
+	for version := ndb.firstVersion; version < ndb.latestVersion; version++ {
+		err := ndb.traverseOrphans(version, func(orphan *Node) error {
+			orphans = append(orphans, orphan.hash)
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return orphans, nil
 }
 
 // Not efficient.
