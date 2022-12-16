@@ -488,31 +488,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return err
 	}
 
-<<<<<<< HEAD
-	// Delete fast node entries
-	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
-		key := keyWithPrefix[1:]
-		fastNode, err := DeserializeFastNode(key, v)
-
-		if err != nil {
-			return err
-		}
-
-		if version <= fastNode.versionLastUpdatedAt {
-			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
-				return err
-			}
-			ndb.fastNodeCache.Remove(key)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-=======
 	// NOTICE: we don't touch fast node indexes here, because it'll be rebuilt later because of version mismatch.
->>>>>>> d4086fe (feat: speed up rollback command (#636))
 
 	return nil
 }
@@ -1019,6 +995,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 // Not efficient.
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
+//
 //nolint:unused
 func (ndb *nodeDB) size() int {
 	size := 0
