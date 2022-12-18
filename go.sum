@@ -135,6 +135,8 @@ github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8Nz
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0 h1:OMu+dCsWVVsHodR4ykMKEj0VtwkNL+xOtyv0vmCmZVQ=
 github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0/go.mod h1:n5af5ISKZ7tP0q9hP1TW6MnWh7GrVrNfCLZhg+22gzg=
+github.com/cosmos/cosmos-db v0.0.0-20221214151242-e491abe41a85 h1:Y+XLZiEJ5/tCoGMa3Yo2csGVOfswdOuK+9/CAdHGeSw=
+github.com/cosmos/cosmos-db v0.0.0-20221214151242-e491abe41a85/go.mod h1:kwMlEC4wWvB48zAShGKVqboJL6w4zCLesaNQ3YLU2BQ=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
@@ -449,6 +451,8 @@ github.com/leonklingele/grouper v1.1.0/go.mod h1:uk3I3uDfi9B6PeUjsCKi6ndcf63Uy7s
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/linxGnu/grocksdb v1.7.4 h1:RCdeq0Y9jsDkRtFcgWclRrpL/AFEMQhPyOp6OIprOGc=
 github.com/linxGnu/grocksdb v1.7.4/go.mod h1:G4zrMNj2CP2aCXF61jbmZH81tu+kU3qU4rYpOU8WOL8=
+github.com/linxGnu/grocksdb v1.7.10 h1:dz7RY7GnFUA+GJO6jodyxgkUeGMEkPp3ikt9hAcNGEw=
+github.com/linxGnu/grocksdb v1.7.10/go.mod h1:0hTf+iA+GOr0jDX4CgIYyJZxqOH9XlBh6KVj8+zmF34=
 github.com/lufeee/execinquery v1.2.1 h1:hf0Ems4SHcUGBxpGN7Jz78z1ppVkP/837ZlETPCEtOM=
 github.com/lufeee/execinquery v1.2.1/go.mod h1:EC7DrEKView09ocscGHC+apXMIaorh4xqSxS/dy8SbM=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
