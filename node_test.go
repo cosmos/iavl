@@ -41,7 +41,7 @@ func TestNode_encodedSize(t *testing.T) {
 
 	// non-leaf node
 	node.subtreeHeight = 1
-	require.Equal(t, 39, node.encodedSize())
+	require.Equal(t, 41, node.encodedSize())
 }
 
 func TestNode_encode_decode(t *testing.T) {
@@ -68,7 +68,7 @@ func TestNode_encode_decode(t *testing.T) {
 				path:    big.NewInt(1),
 			},
 			hash: []byte{0x70, 0x80, 0x90, 0xa0},
-		}, "060e036b657904708090a002040206", false},
+		}, "060e036b657904708090a006020101020101", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			size:          1,
@@ -139,8 +139,8 @@ func TestNode_validate(t *testing.T) {
 		"inner with nil key":       {&Node{key: nil, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
 		"inner with value":         {&Node{key: k, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
 		"inner with empty value":   {&Node{key: k, value: []byte{}, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
-		"inner with left child":    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk}, false},
-		"inner with right child":   {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, rightNodeKey: nk}, false},
+		"inner with left child":    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk}, true},
+		"inner with right child":   {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, rightNodeKey: nk}, true},
 		"inner with no child":      {&Node{key: k, size: 1, subtreeHeight: 1}, false},
 		"inner with height 0":      {&Node{key: k, size: 1, subtreeHeight: 0, leftNodeKey: nk, rightNodeKey: nk}, false},
 	}

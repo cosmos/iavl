@@ -84,9 +84,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	assert.Equal(t, 1, available[0])
 	assert.Equal(t, versions, available[len(available)-1])
 
-	for i := 1; i < versions; i++ {
-		tree.DeleteVersionsTo(int64(i))
-	}
+	tree.DeleteVersionsTo(int64(versions - 1))
 
 	// require.Len(tree.versions, 1, "tree must have one version left")
 	tr, err := tree.GetImmutable(int64(versions))
@@ -822,12 +820,9 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion()
 
-	ntree.DeleteVersionsTo(6)
-	ntree.DeleteVersionsTo(5)
 	ntree.DeleteVersionsTo(1)
-	ntree.DeleteVersionsTo(2)
 	ntree.DeleteVersionsTo(4)
-	ntree.DeleteVersionsTo(3)
+	ntree.DeleteVersionsTo(6)
 
 	require.False(ntree.IsEmpty())
 	require.Equal(int64(4), ntree.Size())
@@ -1324,7 +1319,7 @@ func TestLoadVersion(t *testing.T) {
 		require.NoError(t, err, "SaveVersion should not fail")
 	}
 
-	// require the ability to lazy load the latest version
+	// require the ability to load the latest version
 	version, err = tree.LoadVersion(int64(maxVersions))
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions))
@@ -1333,19 +1328,19 @@ func TestLoadVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions)), "unexpected value")
 
-	// require the ability to lazy load an older version
+	// require the ability to load an older version
 	version, err = tree.LoadVersion(int64(maxVersions - 1))
-	require.NoError(t, err, "unexpected error when lazy loading version")
+	require.NoError(t, err, "unexpected error when loading version")
 	require.Equal(t, version, int64(maxVersions))
 
 	value, err = tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions-1)))
 	require.NoError(t, err)
 	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions-1)), "unexpected value")
 
-	// require the inability to lazy load a non-valid version
+	// require the inability to load a non-valid version
 	version, err = tree.LoadVersion(int64(maxVersions + 1))
-	require.Error(t, err, "expected error when lazy loading version")
-	require.Equal(t, version, int64(maxVersions))
+	require.Error(t, err, "expected error when loading version")
+	require.Equal(t, version, int64(0))
 }
 
 func TestOverwrite(t *testing.T) {

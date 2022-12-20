@@ -118,29 +118,39 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 			return nil, errors.New("invalid child type, must be int8")
 		}
 
-		if childType > 0 {
+		if childType&1 > 0 {
 			childVersion, n, cause := encoding.DecodeVarint(buf)
 			if cause != nil {
-				return nil, fmt.Errorf("decoding childNodeKey.version, %w", cause)
+				return nil, fmt.Errorf("decoding leftNodeKey.version, %w", cause)
 			}
 			buf = buf[n:]
 
 			childPath, n, cause := encoding.DecodeBytes(buf)
 			if cause != nil {
-				return nil, fmt.Errorf("decoding childNodeKey.path, %w", cause)
+				return nil, fmt.Errorf("decoding leftNodeKey.path, %w", cause)
+			}
+			buf = buf[n:]
+
+			node.leftNodeKey = &NodeKey{
+				version: childVersion,
+				path:    big.NewInt(0).SetBytes(childPath),
+			}
+		}
+		if childType&2 > 0 {
+			childVersion, n, cause := encoding.DecodeVarint(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding rightNodeKey.version, %w", cause)
+			}
+			buf = buf[n:]
+
+			childPath, _, cause := encoding.DecodeBytes(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding rightNodeKey.path, %w", cause)
 			}
 
-			switch childType {
-			case 1:
-				node.leftNodeKey = &NodeKey{
-					version: childVersion,
-					path:    big.NewInt(0).SetBytes(childPath),
-				}
-			case 2:
-				node.rightNodeKey = &NodeKey{
-					version: childVersion,
-					path:    big.NewInt(0).SetBytes(childPath),
-				}
+			node.rightNodeKey = &NodeKey{
+				version: childVersion,
+				path:    big.NewInt(0).SetBytes(childPath),
 			}
 		}
 	}
@@ -151,16 +161,21 @@ func (node *Node) GetKey() []byte {
 	return node.nodeKey.GetKey()
 }
 
+// String returns a string representation of the node key.
+func (nk *NodeKey) String() string {
+	return fmt.Sprintf("(%d, %v)", nk.version, *nk.path)
+}
+
 // String returns a string representation of the node.
 func (node *Node) String() string {
 	child := ""
 	if node.leftNode != nil && node.leftNode.nodeKey != nil {
-		child += fmt.Sprintf("{left %d, %v}", node.leftNode.nodeKey.version, node.leftNode.nodeKey.path)
+		child += fmt.Sprintf("{left %v}", node.leftNode.nodeKey)
 	}
 	if node.rightNode != nil && node.rightNode.nodeKey != nil {
-		child += fmt.Sprintf("{right %d, %v}", node.rightNode.nodeKey.version, node.rightNode.nodeKey.path)
+		child += fmt.Sprintf("{right %v}", node.rightNode.nodeKey)
 	}
-	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s",
+	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s\n",
 		ColoredBytes(node.key, Green, Blue),
 		ColoredBytes(node.value, Cyan, Blue),
 		node.nodeKey, node.leftNodeKey, node.rightNodeKey,
@@ -381,9 +396,6 @@ func (node *Node) validate() error {
 		if node.value != nil {
 			return errors.New("value must be nil for non-leaf node")
 		}
-		if node.leftNodeKey == nil || node.rightNodeKey == nil {
-			return errors.New("inner node must have children")
-		}
 	}
 	return nil
 }
@@ -502,30 +514,31 @@ func (node *Node) writeBytes(w io.Writer) error {
 			return fmt.Errorf("writing hash, %w", cause)
 		}
 		childType := int64(0)
-		var childNodeKey NodeKey
 		if node.leftNodeKey != nil {
 			childType += 1
-			childNodeKey = *node.leftNodeKey
 		}
 		if node.rightNodeKey != nil {
 			childType += 2
-			childNodeKey = *node.rightNodeKey
-		}
-
-		if childType > 2 {
-			return ErrChildNodeKey
 		}
 
 		if cause := encoding.EncodeVarint(w, childType); cause != nil {
 			return fmt.Errorf("writing childType , %w", cause)
 		}
 
-		if childType > 0 {
-			if cause := encoding.EncodeVarint(w, childNodeKey.version); cause != nil {
-				return fmt.Errorf("writing the version of the child node key, %w", cause)
+		if childType&1 > 0 {
+			if cause := encoding.EncodeVarint(w, node.leftNodeKey.version); cause != nil {
+				return fmt.Errorf("writing the version of the left node key, %w", cause)
 			}
-			if cause := encoding.EncodeBytes(w, childNodeKey.path.Bytes()); cause != nil {
-				return fmt.Errorf("writing the path of the child node key, %w", cause)
+			if cause := encoding.EncodeBytes(w, node.leftNodeKey.path.Bytes()); cause != nil {
+				return fmt.Errorf("writing the path of the left node key, %w", cause)
+			}
+		}
+		if childType&2 > 0 {
+			if cause := encoding.EncodeVarint(w, node.rightNodeKey.version); cause != nil {
+				return fmt.Errorf("writing the version of the right node key, %w", cause)
+			}
+			if cause := encoding.EncodeBytes(w, node.rightNodeKey.path.Bytes()); cause != nil {
+				return fmt.Errorf("writing the path of the right node key, %w", cause)
 			}
 		}
 	}
@@ -535,6 +548,14 @@ func (node *Node) writeBytes(w io.Writer) error {
 func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
+	}
+	if node.leftNodeKey == nil {
+		lftPath := big.NewInt(0)
+		lftPath.Lsh(node.nodeKey.path, 1)
+		node.leftNodeKey = &NodeKey{
+			version: node.nodeKey.version,
+			path:    lftPath,
+		}
 	}
 	leftNode, err := t.ndb.GetNode(node.leftNodeKey)
 	if err != nil {
@@ -546,6 +567,14 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
+	}
+	if node.rightNodeKey == nil {
+		rhtPath := big.NewInt(0)
+		rhtPath.SetBit(rhtPath.Lsh(node.nodeKey.path, 1), 0, 1)
+		node.rightNodeKey = &NodeKey{
+			version: node.nodeKey.version,
+			path:    rhtPath,
+		}
 	}
 	rightNode, err := t.ndb.GetNode(node.rightNodeKey)
 	if err != nil {

@@ -100,7 +100,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	// rIterMock.EXPECT().Key().Return(versionKeyFormat.Key(expectedFastCacheVersion)).Times(1)
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(expectedFastCacheVersion)).Times(1)
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)

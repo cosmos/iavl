@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"sort"
 	"strconv"
@@ -17,7 +16,6 @@ import (
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
-	"github.com/cosmos/iavl/internal/encoding"
 	"github.com/cosmos/iavl/internal/logger"
 	"github.com/cosmos/iavl/keyformat"
 )
@@ -167,7 +165,6 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
 	}
-
 	ndb.fastNodeCache.Add(fastNode)
 	return fastNode, nil
 }
@@ -346,6 +343,16 @@ func (ndb *nodeDB) resetBatch() error {
 // deleteVersion deletes a tree version from disk.
 // deletes orphans
 func (ndb *nodeDB) deleteVersion(version int64) error {
+	rootKey, err := ndb.GetRoot(version)
+	if err != nil {
+		return err
+	}
+	if rootKey == nil || rootKey.version < version {
+		if err := ndb.batch.Delete(ndb.nodeKey(&NodeKey{version: version, path: big.NewInt(1)})); err != nil {
+			return err
+		}
+	}
+
 	return ndb.traverseOrphans(version, func(orphan *Node) error {
 		return ndb.batch.Delete(ndb.nodeKey(orphan.nodeKey))
 	})
@@ -456,25 +463,27 @@ func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
 }
 
 func (ndb *nodeDB) getFirstVersion() (int64, error) {
-	latestVersion, err := ndb.getLatestVersion()
-	if err != nil {
-		return 0, err
-	}
-	firstVersion := int64(0)
-	for firstVersion < latestVersion {
-		version := (latestVersion + firstVersion) >> 1
-		has, err := ndb.HasVersion(version)
+	if ndb.firstVersion == 0 {
+		latestVersion, err := ndb.getLatestVersion()
 		if err != nil {
 			return 0, err
 		}
-		if has {
-			latestVersion = version
-		} else {
-			firstVersion = version + 1
+		firstVersion := int64(0)
+		for firstVersion < latestVersion {
+			version := (latestVersion + firstVersion) >> 1
+			has, err := ndb.HasVersion(version)
+			if err != nil {
+				return 0, err
+			}
+			if has {
+				latestVersion = version
+			} else {
+				firstVersion = version + 1
+			}
 		}
+		ndb.firstVersion = latestVersion
 	}
-
-	return latestVersion, nil
+	return ndb.firstVersion, nil
 }
 
 func (ndb *nodeDB) resetFirstVersion(version int64) {
@@ -496,6 +505,7 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		if itr.Valid() {
 			k := itr.Key()
 			nodeKeyFormat.Scan(k, &version)
+			ndb.latestVersion = version
 			return version, nil
 		}
 
@@ -516,14 +526,35 @@ func (ndb *nodeDB) HasVersion(version int64) (bool, error) {
 	return ndb.db.Has(nodeKeyFormat.Key(version, []byte{1}))
 }
 
-// GetRoot get the nodeKey of the root for the specific version.
+// GetRoot gets the nodeKey of the root for the specific version.
 func (ndb *nodeDB) GetRoot(version int64) (*NodeKey, error) {
-	value, err := ndb.db.Get(nodeKeyFormat.Key(version, []byte{1}))
+	val, err := ndb.db.Get(nodeKeyFormat.Key(version, []byte{1}))
 	if err != nil {
 		return nil, err
 	}
-	rootVersion, _, err := encoding.DecodeVarint(value)
-	return &NodeKey{version: rootVersion, path: big.NewInt(1)}, err
+	if len(val) == 0 { // empty root
+		return nil, nil
+	}
+	if val[0] == nodeKeyFormat.Prefix()[0] { // point to the prev root
+		var (
+			version int64
+			path    []byte
+		)
+		nodeKeyFormat.Scan(val, &version, &path)
+		return &NodeKey{version: version, path: big.NewInt(0).SetBytes(path)}, nil
+	}
+
+	return &NodeKey{version: version, path: big.NewInt(1)}, nil
+}
+
+// SaveEmptyRoot saves the empty root.
+func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
+	return ndb.batch.Set(nodeKeyFormat.Key(version, []byte{1}), []byte{})
+}
+
+// SaveRoot saves the root when no updates.
+func (ndb *nodeDB) SaveRoot(version int64, prevRootKey *NodeKey) error {
+	return ndb.batch.Set(nodeKeyFormat.Key(version, []byte{1}), ndb.nodeKey(prevRootKey))
 }
 
 // Traverse fast nodes and return error if any, nil otherwise
@@ -790,10 +821,16 @@ func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 
 	nodes := []*Node{}
 	for version := int64(1); version <= latest; version++ {
-		if err := ndb.traverseRange(nodeKeyFormat.Key(version, int32(1)), nodeKeyFormat.Key(version, int32(math.MaxInt32)), func(key, value []byte) error {
-			var nk NodeKey
-			nodeKeyFormat.Scan(key, &nk.version, &nk.path)
-			node, err := MakeNode(&nk, value)
+		if err := ndb.traverseRange(nodeKeyFormat.Key(version), nodeKeyFormat.Key(version+1), func(key, value []byte) error {
+			var (
+				version int64
+				path    []byte
+			)
+			nodeKeyFormat.Scan(key, &version, &path)
+			node, err := MakeNode(&NodeKey{
+				version: version,
+				path:    big.NewInt(0).SetBytes(path),
+			}, value)
 			if err != nil {
 				return err
 			}

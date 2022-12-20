@@ -6,6 +6,7 @@ package iavl
 import (
 	"bytes"
 	"errors"
+	"math/big"
 
 	dbm "github.com/cosmos/cosmos-db"
 )
@@ -316,12 +317,28 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		if node.isLeaf() {
 			return
 		}
+		if node.leftNodeKey == nil {
+			lftPath := big.NewInt(0)
+			lftPath.Lsh(node.nodeKey.path, 1)
+			node.leftNodeKey = &NodeKey{
+				version: node.nodeKey.version,
+				path:    lftPath,
+			}
+		}
 		leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
 		if err != nil {
 			iter.err = err
 			return
 		}
 		iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
+		if node.rightNodeKey == nil {
+			rhtPath := big.NewInt(0)
+			rhtPath.SetBit(rhtPath.Lsh(node.nodeKey.path, 1), 0, 1)
+			node.rightNodeKey = &NodeKey{
+				version: node.nodeKey.version,
+				path:    rhtPath,
+			}
+		}
 		rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
 		if err != nil {
 			iter.err = err
