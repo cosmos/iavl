@@ -606,36 +606,6 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 	return nil
 }
 
-// Traverse the subtree with a given node as the root.
-func (ndb *nodeDB) traverseTree(nk *NodeKey, fn func(node *Node) (bool, error)) error {
-	if nk == nil {
-		return nil
-	}
-
-	node, err := ndb.GetNode(nk)
-	if err != nil {
-		return err
-	}
-
-	stop, err := fn(node)
-	if err != nil || stop {
-		return err
-	}
-
-	if node.leftNodeKey != nil {
-		if err := ndb.traverseTree(node.leftNodeKey, fn); err != nil {
-			return err
-		}
-	}
-	if node.rightNodeKey != nil {
-		if err := ndb.traverseTree(node.rightNodeKey, fn); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 // Get iterator for fast prefix and error, if any
 func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
 	var startFormatted, endFormatted []byte

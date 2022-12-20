@@ -391,11 +391,8 @@ func (node *Node) validate() error {
 		if node.size != 1 {
 			return errors.New("leaf nodes must have size 1")
 		}
-	} else {
-		// Inner nodes
-		if node.value != nil {
-			return errors.New("value must be nil for non-leaf node")
-		}
+	} else if node.value != nil {
+		return errors.New("value must be nil for non-leaf node")
 	}
 	return nil
 }
@@ -515,7 +512,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		}
 		childType := int64(0)
 		if node.leftNodeKey != nil {
-			childType += 1
+			childType++
 		}
 		if node.rightNodeKey != nil {
 			childType += 2
