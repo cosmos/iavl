@@ -498,8 +498,8 @@ func (ndb *nodeDB) resetFirstVersion(version int64) {
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	if ndb.latestVersion == 0 {
 		itr, err := ndb.db.ReverseIterator(
-			nodeKeyFormat.Key(1),
-			nodeKeyFormat.Key(math.MaxInt64),
+			nodeKeyFormat.Key(int64(1)),
+			nodeKeyFormat.Key(int64(math.MaxInt64)),
 		)
 		if err != nil {
 			return 0, err
