@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"strconv"
@@ -36,6 +37,7 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
+	maxVersion                 = int64(math.MaxInt64)
 )
 
 var (
@@ -367,6 +369,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	if latest < fromVersion {
 		return nil
 	}
+
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 
 	for v, r := range ndb.versionReaders {
 		if v >= fromVersion && r != 0 {

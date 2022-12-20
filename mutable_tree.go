@@ -483,10 +483,6 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) error {
 		}
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
