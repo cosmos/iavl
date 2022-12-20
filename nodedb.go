@@ -499,7 +499,7 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	if ndb.latestVersion == 0 {
 		itr, err := ndb.db.ReverseIterator(
 			nodeKeyFormat.Key(1),
-			nodeKeyFormat.Key(1<<63-1),
+			nodeKeyFormat.Key(math.MaxInt64),
 		)
 		if err != nil {
 			return 0, err
