@@ -16,6 +16,10 @@ type BatchWithFlusher struct {
 
 var _ dbm.Batch = BatchWithFlusher{}
 
+// this value is used to estimate the additional size when adding an entry to a batch
+// additional size = key lenght + value lenght + possibleEntryOverHead
+var possibleEntryOverHead = 100
+
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
 func NewBatchWithFlusher(batch dbm.Batch, flushThreshold int) BatchWithFlusher {
 	return BatchWithFlusher{
@@ -25,15 +29,15 @@ func NewBatchWithFlusher(batch dbm.Batch, flushThreshold int) BatchWithFlusher {
 }
 
 // Set sets value at the given key to the db.
-// The set grows the underlying batch and if batchSizeFlushThreshold is reached,
-// the batch is flushed to disk, cleared, and a new one is created with buffer
-// pre-allocated to threshold.
+// If the set causes the underlying batch size to exceed batchSizeFlushThreshold would be reached,
+// the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
+// The addition entry is then added to the batch.
 func (b BatchWithFlusher) Set(key []byte, value []byte) error {
 	size, err := b.batch.GetByteSize()
 	if err != nil {
 		return err
 	}
-	if size >= b.batchSizeFlushThreshold {
+	if size+len(key)+len(value)+possibleEntryOverHead >= b.batchSizeFlushThreshold {
 		b.batch.Write()
 		b.batch = b.db.NewBatch()
 	}
@@ -45,15 +49,15 @@ func (b BatchWithFlusher) Set(key []byte, value []byte) error {
 }
 
 // Delete delete value at the given key to the db.
-// The Deletion grows the underlying batch and if batchSizeFlushThreshold is reached,
-// the batch is flushed to disk, cleared, and a new one is created with buffer
-// pre-allocated to threshold.
+// If the deletion causes the underlying batch size to exceed batchSizeFlushThreshold would be reached,
+// the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
+// The deletion entry is then added to the batch.
 func (b BatchWithFlusher) Delete(key []byte) error {
 	size, err := b.batch.GetByteSize()
 	if err != nil {
 		return err
 	}
-	if size >= b.batchSizeFlushThreshold {
+	if size+len(key)+possibleEntryOverHead >= b.batchSizeFlushThreshold {
 		b.batch.Write()
 		b.batch = b.db.NewBatch()
 	}
