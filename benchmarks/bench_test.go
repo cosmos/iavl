@@ -322,7 +322,7 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
-		if (bb.dbType == db.RocksDBBackend) || (bb.dbType == db.CLevelDBBackend) {
+		if bb.dbType == db.RocksDBBackend {
 			_ = os.Mkdir(dirName, 0o755)
 		}
 
