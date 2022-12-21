@@ -38,7 +38,10 @@ func (b BatchWithFlusher) Set(key []byte, value []byte) error {
 		return err
 	}
 	if size+len(key)+len(value)+possibleEntryOverHead >= b.batchSizeFlushThreshold {
-		b.batch.Write()
+		err = b.batch.Write()
+		if err != nil {
+			return err
+		}
 		b.batch = b.db.NewBatch()
 	}
 	err = b.batch.Set(key, value)
@@ -58,7 +61,10 @@ func (b BatchWithFlusher) Delete(key []byte) error {
 		return err
 	}
 	if size+len(key)+possibleEntryOverHead >= b.batchSizeFlushThreshold {
-		b.batch.Write()
+		err = b.batch.Write()
+		if err != nil {
+			return err
+		}
 		b.batch = b.db.NewBatch()
 	}
 	err = b.batch.Delete(key)
@@ -66,4 +72,8 @@ func (b BatchWithFlusher) Delete(key []byte) error {
 		return err
 	}
 	return nil
+}
+
+func (b BatchWithFlusher) Write() error {
+	return b.batch.Write()
 }
