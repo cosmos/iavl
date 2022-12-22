@@ -77,3 +77,15 @@ func (b BatchWithFlusher) Delete(key []byte) error {
 func (b BatchWithFlusher) Write() error {
 	return b.batch.Write()
 }
+
+func (b BatchWithFlusher) WriteSync() error {
+	return b.batch.WriteSync()
+}
+
+func (b BatchWithFlusher) Close() error {
+	return b.batch.Close()
+}
+
+func (b BatchWithFlusher) GetByteSize() (int, error) {
+	return b.batch.GetByteSize()
+}
