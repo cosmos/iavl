@@ -5,9 +5,8 @@ import (
 )
 
 // BatchWithFlusher is a wraper
-// around batch that flushes batch's data
-// to disk as soon as the configurable limit
-// is reached.
+// around batch that flushes batch's data to disk
+// as soon as the configurable limit is reached.
 type BatchWithFlusher struct {
 	db                      dbm.DB    // This is only used to create new batch
 	batch                   dbm.Batch // Batched writing buffer.
