@@ -135,6 +135,8 @@ github.com/coreos/go-etcd v2.0.0+incompatible/go.mod h1:Jez6KQU2B/sWsbdaef3ED8Nz
 github.com/coreos/go-semver v0.2.0/go.mod h1:nnelYz7RCh+5ahJtPPxZlU+153eP4D4r3EedlOD2RNk=
 github.com/cosmos/cosmos-db v0.0.0-20221214151242-e491abe41a85 h1:Y+XLZiEJ5/tCoGMa3Yo2csGVOfswdOuK+9/CAdHGeSw=
 github.com/cosmos/cosmos-db v0.0.0-20221214151242-e491abe41a85/go.mod h1:kwMlEC4wWvB48zAShGKVqboJL6w4zCLesaNQ3YLU2BQ=
+github.com/cosmos/cosmos-db v0.0.0-20221224071843-97e1443c3226 h1:mb2FmhiCYEL5sz4DOpz4RoUgghwmtyr7V+TBVrGPUFY=
+github.com/cosmos/cosmos-db v0.0.0-20221224071843-97e1443c3226/go.mod h1:kwMlEC4wWvB48zAShGKVqboJL6w4zCLesaNQ3YLU2BQ=
 github.com/cpuguy83/go-md2man v1.0.10/go.mod h1:SmD6nW6nTyfqj6ABTjUi3V3JVMnlJmwcJI5acqYI6dE=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
