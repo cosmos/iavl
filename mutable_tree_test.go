@@ -366,12 +366,14 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false)
 	require.NoError(t, err)
 
-	tree.Set([]byte("a"), []byte{0x01})
+	_, err = tree.Set([]byte("a"), []byte{0x01})
+	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 9, version)
 
-	tree.Set([]byte("b"), []byte{0x02})
+	_, err = tree.Set([]byte("b"), []byte{0x02})
+	require.NoError(t, err)
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
@@ -396,7 +398,8 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
-	tree.Set([]byte("c"), []byte{0x03})
+	_, err = tree.Set([]byte("c"), []byte{0x03})
+	require.NoError(t, err)
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 11, version)
@@ -406,7 +409,8 @@ func TestMutableTree_SetInitialVersion(t *testing.T) {
 	tree := setupMutableTree(t, false)
 	tree.SetInitialVersion(9)
 
-	tree.Set([]byte("a"), []byte{0x01})
+	_, err := tree.Set([]byte("a"), []byte{0x01})
+	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 9, version)
@@ -418,7 +422,8 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	t, err := NewMutableTree(db, 100000, false)
 	require.NoError(b, err)
 	for i := 0; i < 1000000; i++ {
-		t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		require.NoError(b, err)
 	}
 	b.ReportAllocs()
 	runtime.GC()
@@ -426,7 +431,8 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		require.NoError(b, err)
 	}
 }
 
@@ -435,13 +441,15 @@ func prepareTree(t *testing.T) *MutableTree {
 	tree, err := NewMutableTree(mdb, 1000, false)
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		tree.Set([]byte{byte(i)}, []byte("a"))
+		_, err = tree.Set([]byte{byte(i)}, []byte("a"))
+		require.NoError(t, err)
 	}
 	_, ver, err := tree.SaveVersion()
 	require.True(t, ver == 1)
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		tree.Set([]byte{byte(i)}, []byte("b"))
+		_, err = tree.Set([]byte{byte(i)}, []byte("b"))
+		require.NoError(t, err)
 	}
 	_, ver, err = tree.SaveVersion()
 	require.True(t, ver == 2)
@@ -1154,7 +1162,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	// Test that upgraded mutable tree iterates as expected
 	t.Run("Mutable tree", func(t *testing.T) {
 		i := 0
-		sut.Iterate(func(k, v []byte) bool {
+		sut.Iterate(func(k, v []byte) bool { //nolint:errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -1168,7 +1176,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 		require.NoError(t, err)
 
 		i := 0
-		immutableTree.Iterate(func(k, v []byte) bool {
+		immutableTree.Iterate(func(k, v []byte) bool { //nolint:errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -1503,7 +1511,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 	// Test that the mutable tree iterates as expected
 	t.Run("Mutable tree", func(t *testing.T) {
 		i := 0
-		sut.Iterate(func(k, v []byte) bool {
+		sut.Iterate(func(k, v []byte) bool { //nolint: errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -1517,7 +1525,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 		require.NoError(t, err)
 
 		i := 0
-		immutableTree.Iterate(func(k, v []byte) bool {
+		immutableTree.Iterate(func(k, v []byte) bool { //nolint: errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
