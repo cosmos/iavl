@@ -16,7 +16,7 @@ type BatchWithFlusher struct {
 var _ dbm.Batch = BatchWithFlusher{}
 
 // this value is used to estimate the additional size when adding an entry to a batch
-// additional size = key lenght + value lenght + possibleEntryOverHead
+// additional size = key length + value length + possibleEntryOverHead
 var possibleEntryOverHead = 100
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
