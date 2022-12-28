@@ -41,7 +41,7 @@ func (b BatchWithFlusher) Set(key []byte, value []byte) error {
 		if err != nil {
 			return err
 		}
-		b.batch = b.db.NewBatch()
+		b.batch = b.db.NewBatchWithSize(b.batchSizeFlushThreshold)
 	}
 	err = b.batch.Set(key, value)
 	if err != nil {
@@ -64,7 +64,7 @@ func (b BatchWithFlusher) Delete(key []byte) error {
 		if err != nil {
 			return err
 		}
-		b.batch = b.db.NewBatch()
+		b.batch = b.db.NewBatchWithSize(b.batchSizeFlushThreshold)
 	}
 	err = b.batch.Delete(key)
 	if err != nil {
