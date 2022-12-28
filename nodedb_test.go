@@ -287,7 +287,7 @@ func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 		for j := 0; 1<<j <= i; j++ {
 			buf = append(buf, byte((i>>j)&0xff))
 		}
-		tree.Set(buf, buf)
+		tree.Set(buf, buf) //nolint:errcheck
 	}
 	_, _, err = tree.SaveVersion()
 	require.Nil(tb, err, "Expected .SaveVersion to succeed")

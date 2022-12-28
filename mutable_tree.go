@@ -667,7 +667,7 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
 // Checks whether the fast cache on disk matches latest live state. If not, deletes all existing fast nodes and repopulates them
 // from latest tree.
-// nolint: unparam
+
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
 	isUpgradeable, err := tree.IsUpgradeable()
 	if err != nil {
@@ -930,13 +930,12 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return tree.ndb.setFastStorageVersionToBatch()
 }
 
-// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
 	return tree.unsavedFastNodeAdditions
 }
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
-// nolint: unused
+
 func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 	return tree.unsavedFastNodeRemovals
 }
