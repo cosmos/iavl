@@ -1351,6 +1351,7 @@ func TestCopyValueSemantics(t *testing.T) {
 	val[1] = '2'
 
 	val, err = tree.Get([]byte("k"))
+	require.NoError(err)
 	require.Equal([]byte("v2"), val)
 }
 

@@ -55,7 +55,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -108,7 +108,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val == nil {
 			t.Error("Fast method - expected value to exist")
 		}
