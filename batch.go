@@ -20,9 +20,10 @@ var _ dbm.Batch = BatchWithFlusher{}
 var possibleEntryOverHead = 100
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
-func NewBatchWithFlusher(batch dbm.Batch, flushThreshold int) BatchWithFlusher {
+func NewBatchWithFlusher(db dbm.DB, flushThreshold int) BatchWithFlusher {
 	return BatchWithFlusher{
-		batch:                   batch,
+		db:                      db,
+		batch:                   db.NewBatchWithSize(flushThreshold),
 		batchSizeFlushThreshold: flushThreshold,
 	}
 }
