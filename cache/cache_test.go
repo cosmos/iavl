@@ -304,6 +304,6 @@ func randBytes(length int) []byte {
 	// math.rand.Read always returns err=nil
 	// we do not need cryptographic randomness for this test:
 
-	rand.Read(key)
+	rand.Read(key) //nolint:errcheck
 	return key
 }

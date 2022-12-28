@@ -70,7 +70,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	r := rand.New(rand.NewSource(randSeed))
 
 	// loadTree loads the last persisted version of a tree with random pruning settings.
-	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, options *Options) {
+	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, options *Options) { //nolint:unparam
 		var err error
 		options = &Options{
 			Sync: r.Float64() < syncChance,
@@ -91,7 +91,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	}
 
 	// generates random keys and values
-	randString := func(size int) string {
+	randString := func(size int) string { //nolint:unparam
 		buf := make([]byte, size)
 		r.Read(buf)
 		return base64.StdEncoding.EncodeToString(buf)
@@ -314,10 +314,11 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	// data is left behind in the database.
 	prevVersion := tree.Version()
 	keys := [][]byte{}
-	tree.Iterate(func(key, value []byte) bool {
+	_, err = tree.Iterate(func(key, value []byte) bool {
 		keys = append(keys, key)
 		return false
 	})
+	require.NoError(t, err)
 	for _, key := range keys {
 		_, removed, err := tree.Remove(key)
 		require.NoError(t, err)
@@ -376,7 +377,7 @@ func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
 }
 
 // Checks that a version is the maximum mirrored version.
-func assertMaxVersion(t *testing.T, tree *MutableTree, version int64, mirrors map[int64]map[string]string) {
+func assertMaxVersion(t *testing.T, tree *MutableTree, version int64, mirrors map[int64]map[string]string) { //nolint:unparam
 	max := int64(0)
 	for v := range mirrors {
 		if v > max {
@@ -397,11 +398,12 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	// We check both ways: first check that iterated keys match the mirror, then iterate over the
 	// mirror and check with get. This is to exercise both the iteration and Get() code paths.
 	iterated := 0
-	itree.Iterate(func(key, value []byte) bool {
+	_, err = itree.Iterate(func(key, value []byte) bool {
 		require.Equal(t, string(value), mirror[string(key)], "Invalid value for key %q", key)
 		iterated++
 		return false
 	})
+	require.NoError(t, err)
 	require.EqualValues(t, len(mirror), itree.Size())
 	require.EqualValues(t, len(mirror), iterated)
 	for key, value := range mirror {

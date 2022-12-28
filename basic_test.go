@@ -134,7 +134,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -160,7 +160,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -341,7 +341,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for i, x := range records {
-		if val, removed, err := tree.Remove([]byte(x.key)); err != nil {
+		if val, removed, err := tree.Remove([]byte(x.key)); err != nil { //nolint:gocritic
 			require.NoError(t, err)
 		} else if !removed {
 			t.Error("Wasn't removed")

@@ -51,10 +51,11 @@ func TestIterateConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				require.NoError(t, err)
 			}(i, j)
 		}
-		tree.Iterate(func(key []byte, value []byte) bool {
+		tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
 			return false
 		})
 	}
@@ -68,7 +69,8 @@ func TestIteratorConcurrency(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 	tree := setupMutableTree(t, true)
-	tree.LoadVersion(0)
+	_, err := tree.LoadVersion(0)
+	require.NoError(t, err)
 	// So much slower
 	wg := new(sync.WaitGroup)
 	for i := 0; i < 100; i++ {
@@ -76,7 +78,8 @@ func TestIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				require.NoError(t, err)
 			}(i, j)
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
@@ -99,7 +102,8 @@ func TestNewIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				require.NoError(t, err)
 			}(i, j)
 		}
 		for ; it.Valid(); it.Next() {
@@ -111,7 +115,8 @@ func TestNewIteratorConcurrency(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
-	tree.set([]byte("k1"), []byte("Fred"))
+	_, _, err := tree.set([]byte("k1"), []byte("Fred"))
+	require.NoError(t, err)
 	hash, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
@@ -178,7 +183,8 @@ func TestTraverse(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
 	for i := 0; i < 6; i++ {
-		tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		_, _, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		require.NoError(t, err)
 	}
 
 	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
@@ -286,8 +292,10 @@ func TestMutableTree_DeleteVersionsRange(t *testing.T) {
 		versions = append(versions, int64(count))
 		countStr := strconv.Itoa(count)
 		// Set kv pair and save version
-		tree.Set([]byte("aaa"), []byte("bbb"))
-		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		_, err = tree.Set([]byte("aaa"), []byte("bbb"))
+		require.NoError(err, "Set should not fail")
+		_, err = tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		require.NoError(err, "Set should not fail")
 		_, _, err = tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not fail")
 	}
@@ -631,6 +639,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	fastValue, err := tree.Get([]byte(testKey1))
 	require.NoError(t, err)
 	_, regularValue, err := tree.GetWithIndex([]byte(testKey1))
+	require.NoError(t, err)
 	require.Equal(t, []byte(testVal1), fastValue)
 	require.Equal(t, []byte(testVal1), regularValue)
 
