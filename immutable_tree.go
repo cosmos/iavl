@@ -332,7 +332,8 @@ func (t *ImmutableTree) nodeSize() int {
 	return size
 }
 
-// TraverseStateChanges iterate the version range and extract state changes from diffing the adjacent versions.
+// TraverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive.
 func (t *ImmutableTree) TraverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
 	return t.ndb.traverseStateChanges(startVersion, endVersion, fn)
 }

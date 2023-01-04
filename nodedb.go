@@ -1042,6 +1042,8 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	return nil
 }
 
+// traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive.
 func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
 	if endVersion == 0 {
 		latestVersion, err := ndb.getLatestVersion()
@@ -1062,7 +1064,7 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
 		var version int64
 		rootKeyFormat.Scan(k, &version)
-		changeSet, err := StateChanges(ndb, predecessor, prevRoot, hash)
+		changeSet, err := ndb.extractStateChanges(predecessor, prevRoot, hash)
 		if err != nil {
 			return err
 		}

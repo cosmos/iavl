@@ -18,13 +18,19 @@ type KVPair struct {
 	Value  []byte
 }
 
-func StateChanges(ndb *nodeDB, version int64, root []byte, successorRoot []byte) (*ChangeSet, error) {
-	curIter, err := NewNodeIterator(successorRoot, ndb)
+// extractStateChanges extracts the state changes by between two versions of the tree.
+// it first traverse the `root` tree to find out the `newKeys` and `sharedNodes`,
+// `newKeys` are the keys of the newly added leaf nodes, which represents the inserts and updates,
+// `sharedNodes` are the referenced nodes that are created in previous versions,
+// then we traverse the `prevRoot` tree to find out the deletion entries, we can skip the subtrees
+// marked by the `sharedNodes`.
+func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root []byte) (*ChangeSet, error) {
+	curIter, err := NewNodeIterator(root, ndb)
 	if err != nil {
 		return nil, err
 	}
 
-	prevIter, err := NewNodeIterator(root, ndb)
+	prevIter, err := NewNodeIterator(prevRoot, ndb)
 	if err != nil {
 		return nil, err
 	}
@@ -34,13 +40,13 @@ func StateChanges(ndb *nodeDB, version int64, root []byte, successorRoot []byte)
 	newKeys := make(map[string]struct{})
 	for curIter.Valid() {
 		node := curIter.GetNode()
-		if node.version <= version {
+		if node.version <= prevVersion {
 			sharedNodes[ibytes.UnsafeBytesToStr(node.hash)] = struct{}{}
 		} else if node.isLeaf() {
 			changeSet = append(changeSet, KVPair{Key: node.key, Value: node.value})
 			newKeys[ibytes.UnsafeBytesToStr(node.key)] = struct{}{}
 		}
-		curIter.Next(node.version <= version)
+		curIter.Next(node.version <= prevVersion)
 	}
 	if err := curIter.Error(); err != nil {
 		return nil, err
