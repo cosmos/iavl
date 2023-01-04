@@ -422,13 +422,12 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	for v, r := range ndb.versionReaders {
 		if v >= fromVersion && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
+	ndb.mtx.Unlock()
 
 	// First, delete all active nodes whose node version is after the given version.
 	for version := fromVersion; version <= latest; version++ {
