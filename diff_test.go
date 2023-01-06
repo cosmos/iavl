@@ -65,8 +65,9 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 		}
 		if len(changeSets) > 0 {
 			// pick some random keys to delete from the last version
+			lastChangeSet := changeSets[len(changeSets)-1]
 			count = r.Int63n(10)
-			for _, pair := range changeSets[len(changeSets)-1].Pairs {
+			for _, pair := range lastChangeSet.Pairs {
 				if count <= 0 {
 					break
 				}
@@ -78,6 +79,18 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 					Delete: true,
 				}
 				count--
+			}
+
+			// Special case, set to identical value
+			if len(lastChangeSet.Pairs) > 0 {
+				i := r.Int63n(int64(len(lastChangeSet.Pairs)))
+				pair := lastChangeSet.Pairs[i]
+				if !pair.Delete {
+					items[string(pair.Key)] = KVPair{
+						Key:   pair.Key,
+						Value: pair.Value,
+					}
+				}
 			}
 		}
 
