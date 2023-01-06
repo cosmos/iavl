@@ -40,13 +40,15 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 	newKeys := make(map[string]struct{})
 	for curIter.Valid() {
 		node := curIter.GetNode()
-		if node.version <= prevVersion {
+		shared := node.version <= prevVersion
+		if shared {
 			sharedNodes[ibytes.UnsafeBytesToStr(node.hash)] = struct{}{}
 		} else if node.isLeaf() {
 			changeSet = append(changeSet, KVPair{Key: node.key, Value: node.value})
 			newKeys[ibytes.UnsafeBytesToStr(node.key)] = struct{}{}
 		}
-		curIter.Next(node.version <= prevVersion)
+		// skip subtree of shared nodes
+		curIter.Next(shared)
 	}
 	if err := curIter.Error(); err != nil {
 		return nil, err
