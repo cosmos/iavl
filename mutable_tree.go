@@ -543,12 +543,6 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 	return true, nil
 }
 
-func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
-	tree.mtx.Lock()
-	defer tree.mtx.Unlock()
-	return tree.enableFastStorageAndCommit()
-}
-
 func (tree *MutableTree) enableFastStorageAndCommit() error {
 	var err error
 
