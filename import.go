@@ -83,6 +83,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		version:       exportNode.Version,
 		subtreeHeight: exportNode.Height,
 	}
+	if node.subtreeHeight == 0 {
+		node.size = 1
+	}
 
 	// We build the tree from the bottom-left up. The stack is used to store unresolved left
 	// children while constructing right children. When all children are built, the parent can
@@ -92,25 +95,12 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// We don't modify the stack until we've verified the built node, to avoid leaving the
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
-	switch {
-	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
+	if stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight {
 		node.leftNode = i.stack[stackSize-2]
 		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
 		node.rightHash = node.rightNode.hash
-	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
-		node.leftNode = i.stack[stackSize-1]
-		node.leftHash = node.leftNode.hash
-	}
-
-	if node.subtreeHeight == 0 {
-		node.size = 1
-	}
-	if node.leftNode != nil {
-		node.size += node.leftNode.size
-	}
-	if node.rightNode != nil {
-		node.size += node.rightNode.size
+		node.size = node.leftNode.size + node.rightNode.size
 	}
 
 	_, err := node._hash()

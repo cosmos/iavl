@@ -321,8 +321,8 @@ func (node *Node) validate() error {
 		if node.value != nil {
 			return errors.New("value must be nil for non-leaf node")
 		}
-		if node.leftHash == nil && node.rightHash == nil {
-			return errors.New("inner node must have children")
+		if node.leftHash == nil || node.rightHash == nil {
+			return errors.New("inner node must have both children")
 		}
 	}
 	return nil
