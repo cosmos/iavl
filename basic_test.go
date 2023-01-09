@@ -54,7 +54,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -107,7 +107,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val == nil {
 			t.Error("Fast method - expected value to exist")
 		}
@@ -133,7 +133,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -159,7 +159,7 @@ func TestBasic(t *testing.T) {
 			t.Errorf("Unexpected value %s", val)
 		}
 
-		val, err = tree.Get(key)
+		val, _ = tree.Get(key)
 		if val != nil {
 			t.Error("Fast method - expected no value to exist")
 		}
@@ -170,7 +170,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestUnit(t *testing.T) {
-	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
+	expectSet := func(tree *MutableTree, i int, repr string) {
 		tree.SaveVersion()
 		updated, err := tree.Set(i2b(i), []byte{})
 		require.NoError(t, err)
@@ -182,7 +182,7 @@ func TestUnit(t *testing.T) {
 		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 
-	expectRemove := func(tree *MutableTree, i int, repr string, hashCount int64) {
+	expectRemove := func(tree *MutableTree, i int, repr string) {
 		tree.SaveVersion()
 		value, removed, err := tree.Remove(i2b(i))
 		require.NoError(t, err)
@@ -200,40 +200,40 @@ func TestUnit(t *testing.T) {
 	t1, err := T(N(4, 20))
 
 	require.NoError(t, err)
-	expectSet(t1, 8, "((4 8) 20)", 3)
-	expectSet(t1, 25, "(4 (20 25))", 3)
+	expectSet(t1, 8, "((4 8) 20)")
+	expectSet(t1, 25, "(4 (20 25))")
 
 	t2, err := T(N(4, N(20, 25)))
 
 	require.NoError(t, err)
-	expectSet(t2, 8, "((4 8) (20 25))", 3)
-	expectSet(t2, 30, "((4 20) (25 30))", 4)
+	expectSet(t2, 8, "((4 8) (20 25))")
+	expectSet(t2, 30, "((4 20) (25 30))")
 
 	t3, err := T(N(N(1, 2), 6))
 
 	require.NoError(t, err)
-	expectSet(t3, 4, "((1 2) (4 6))", 4)
-	expectSet(t3, 8, "((1 2) (6 8))", 3)
+	expectSet(t3, 4, "((1 2) (4 6))")
+	expectSet(t3, 8, "((1 2) (6 8))")
 
 	t4, err := T(N(N(1, 2), N(N(5, 6), N(7, 9))))
 
 	require.NoError(t, err)
-	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))", 5)
-	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))", 5)
+	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))")
+	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))")
 
 	// Test Remove cases:
 
 	t10, err := T(N(N(1, 2), 3))
 
 	require.NoError(t, err)
-	expectRemove(t10, 2, "(1 3)", 1)
-	expectRemove(t10, 3, "(1 2)", 0)
+	expectRemove(t10, 2, "(1 3)")
+	expectRemove(t10, 3, "(1 2)")
 
 	t11, err := T(N(N(N(1, 2), 3), N(4, 5)))
 
 	require.NoError(t, err)
-	expectRemove(t11, 4, "((1 2) (3 5))", 2)
-	expectRemove(t11, 3, "((1 2) (4 5))", 1)
+	expectRemove(t11, 4, "((1 2) (3 5))")
+	expectRemove(t11, 3, "((1 2) (4 5))")
 }
 
 func TestRemove(t *testing.T) {
@@ -316,7 +316,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for i, x := range records {
-		if val, removed, err := tree.Remove([]byte(x.key)); err != nil {
+		if val, removed, err := tree.Remove([]byte(x.key)); err != nil { //nolint:gocritic
 			require.NoError(t, err)
 		} else if !removed {
 			t.Error("Wasn't removed")

@@ -31,7 +31,8 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 
 	for i := 0; i < size; i++ {
 		key := randBytes(keyLen)
-		t.Set(key, randBytes(dataLen))
+		_, err = t.Set(key, randBytes(dataLen))
+		require.NoError(b, err)
 		keys[i] = key
 	}
 	commitTree(b, t)
@@ -41,7 +42,8 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 
 // commit tree saves a new version and deletes old ones according to historySize
 func commitTree(b *testing.B, t *iavl.MutableTree) {
-	t.Hash()
+	_, err := t.Hash()
+	require.NoError(b, err)
 
 	_, version, err := t.SaveVersion()
 	if err != nil {
@@ -63,7 +65,8 @@ func runQueriesFast(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	require.True(b, isFastCacheEnabled)
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
-		t.Get(q)
+		_, err := t.Get(q)
+		require.NoError(b, err)
 	}
 }
 
@@ -75,7 +78,8 @@ func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
 		q := keys[rand.Int31n(l)]
-		t.Get(q)
+		_, err := t.Get(q)
+		require.NoError(b, err)
 	}
 }
 
@@ -95,7 +99,8 @@ func runQueriesSlow(b *testing.B, t *iavl.MutableTree, keyLen int) {
 	b.StartTimer()
 	for i := 0; i < b.N; i++ {
 		q := randBytes(keyLen)
-		itree.GetWithIndex(q)
+		_, _, err := itree.GetWithIndex(q)
+		require.NoError(b, err)
 	}
 }
 
@@ -172,7 +177,8 @@ func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
 		key := keys[rand.Int31n(l)]
-		t.Set(key, randBytes(dataLen))
+		_, err := t.Set(key, randBytes(dataLen))
+		require.NoError(b, err)
 		if i%blockSize == 0 {
 			commitTree(b, t)
 		}
@@ -219,8 +225,10 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 			// perform query and write on check and then real
 			// check.GetFast(key)
 			// check.Set(key, data)
-			real.Get(key)
-			real.Set(key, data)
+			_, err := real.Get(key)
+			require.NoError(b, err)
+			_, err = real.Set(key, data)
+			require.NoError(b, err)
 		}
 
 		// at the end of a block, move it all along....

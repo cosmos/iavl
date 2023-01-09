@@ -948,22 +948,22 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	tree.SaveVersion()
 
 	val, err := tree.GetVersioned([]byte("A"), 2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Nil(t, val)
 
 	val, err = tree.GetVersioned([]byte("A"), 1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NotEmpty(t, val)
 
 	tree.DeleteVersionsTo(1)
 	tree.DeleteVersionsTo(2)
 
 	val, err = tree.GetVersioned([]byte("A"), 2)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Nil(t, val)
 
 	val, err = tree.GetVersioned([]byte("A"), 1)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Nil(t, val)
 }
 
@@ -1266,7 +1266,7 @@ func TestCopyValueSemantics(t *testing.T) {
 	val[1] = '2'
 
 	val, err = tree.Get([]byte("k"))
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal([]byte("v2"), val)
 }
 
@@ -1291,15 +1291,15 @@ func TestRollback(t *testing.T) {
 	require.Equal(int64(2), tree.Size())
 
 	val, err := tree.Get([]byte("r"))
-	require.Nil(err)
+	require.NoError(err)
 	require.Nil(val)
 
 	val, err = tree.Get([]byte("s"))
-	require.Nil(err)
+	require.NoError(err)
 	require.Nil(val)
 
 	val, err = tree.Get([]byte("t"))
-	require.Nil(err)
+	require.NoError(err)
 	require.Equal([]byte("v"), val)
 }
 

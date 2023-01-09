@@ -371,13 +371,12 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	for v, r := range ndb.versionReaders {
 		if v >= fromVersion && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
+	ndb.mtx.Unlock()
 
 	// Delete the nodes
 	err = ndb.traverseRange(nodeKeyFormat.Key(fromVersion), nodeKeyFormat.Key(latest+1), func(k, v []byte) error {
@@ -391,26 +390,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 		return err
 	}
 
-	// Delete fast node entries
-	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
-		key := keyWithPrefix[1:]
-		fastNode, err := fastnode.DeserializeNode(key, v)
-		if err != nil {
-			return err
-		}
-
-		if fromVersion <= fastNode.GetVersionLastUpdatedAt() {
-			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
-				return err
-			}
-			ndb.fastNodeCache.Remove(key)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
+	// NOTICE: we don't touch fast node indexes here, because it'll be rebuilt later because of version mismatch.
 
 	ndb.resetLatestVersion(fromVersion - 1)
 
@@ -527,6 +507,7 @@ func (ndb *nodeDB) resetLatestVersion(version int64) {
 	ndb.latestVersion = version
 }
 
+// HasVersion checks if the given version exists.
 func (ndb *nodeDB) HasVersion(version int64) (bool, error) {
 	return ndb.db.Has(nodeKeyFormat.Key(version, []byte{1}))
 }
@@ -568,7 +549,7 @@ func (ndb *nodeDB) traverseFastNodes(fn func(k, v []byte) error) error {
 }
 
 // Traverse all keys and return error if any, nil otherwise
-// nolint: unused
+
 func (ndb *nodeDB) traverse(fn func(key, value []byte) error) error {
 	return ndb.traverseRange(nil, nil, fn)
 }
@@ -721,7 +702,6 @@ func (ndb *nodeDB) traverseOrphans(version int64, fn func(*Node) error) error {
 
 // Utility and test functions
 
-// nolint: unused
 func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	leaves := []*Node{}
 
@@ -738,7 +718,6 @@ func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	return leaves, nil
 }
 
-// nolint: unused
 func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
@@ -753,7 +732,6 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 	return nodes, nil
 }
 
-// nolint: unused
 func (ndb *nodeDB) orphans() ([][]byte, error) {
 	orphans := [][]byte{}
 
@@ -774,7 +752,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
 //
-//nolint:unused
+
 func (ndb *nodeDB) size() int {
 	size := 0
 	err := ndb.traverse(func(k, v []byte) error {

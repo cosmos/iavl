@@ -18,25 +18,38 @@ func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
 
-	tree.Set([]byte("x"), []byte{255})
-	tree.Set([]byte("z"), []byte{255})
-	tree.Set([]byte("a"), []byte{1})
-	tree.Set([]byte("b"), []byte{2})
-	tree.Set([]byte("c"), []byte{3})
+	_, err = tree.Set([]byte("x"), []byte{255})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("z"), []byte{255})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("a"), []byte{1})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("b"), []byte{2})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("c"), []byte{3})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	tree.Remove([]byte("x"))
-	tree.Remove([]byte("b"))
-	tree.Set([]byte("c"), []byte{255})
-	tree.Set([]byte("d"), []byte{4})
+	_, _, err = tree.Remove([]byte("x"))
+	require.NoError(t, err)
+	_, _, err = tree.Remove([]byte("b"))
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("c"), []byte{255})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("d"), []byte{4})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	tree.Set([]byte("b"), []byte{2})
-	tree.Set([]byte("c"), []byte{3})
-	tree.Set([]byte("e"), []byte{5})
-	tree.Remove([]byte("z"))
+	_, err = tree.Set([]byte("b"), []byte{2})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("c"), []byte{3})
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("e"), []byte{5})
+	require.NoError(t, err)
+	_, _, err = tree.Remove([]byte("z"))
+	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 
@@ -112,7 +125,7 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 
 // setupExportTreeSized sets up a single-version tree with a given number
 // of randomly generated key/value pairs, useful for benchmarking.
-func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
+func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree { //nolint:unparam
 	const (
 		randSeed  = 49872768940 // For deterministic tests
 		keySize   = 16
@@ -222,7 +235,7 @@ func TestExporter_Import(t *testing.T) {
 			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
 			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
 
-			tree.Iterate(func(key, value []byte) bool {
+			tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
 				index, _, err := tree.GetWithIndex(key)
 				require.NoError(t, err)
 				newIndex, newValue, err := newTree.GetWithIndex(key)
@@ -263,15 +276,18 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
 
-	tree.Set([]byte("a"), []byte{1})
+	_, err = tree.Set([]byte("a"), []byte{1})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	tree.Set([]byte("b"), []byte{2})
+	_, err = tree.Set([]byte("b"), []byte{2})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	tree.Set([]byte("c"), []byte{3})
+	_, err = tree.Set([]byte("c"), []byte{3})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
