@@ -19,6 +19,9 @@ var _ dbm.Batch = BatchWithFlusher{}
 // additional size = key length + value length + possibleEntryOverHead
 var possibleEntryOverHead = 100
 
+// Ethereum has found that commit of 100KB is optimal
+var defaultFlushThreshold = 100000
+
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
 func NewBatchWithFlusher(db dbm.DB, flushThreshold int) BatchWithFlusher {
 	return BatchWithFlusher{
