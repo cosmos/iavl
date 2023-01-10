@@ -1118,32 +1118,17 @@ var (
 // traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
 // endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
 func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
-	firstVersion, err := ndb.getFirstVersion()
+	predecessor, err := ndb.getPreviousVersion(startVersion)
 	if err != nil {
 		return err
 	}
-	if startVersion < firstVersion {
-		startVersion = firstVersion
-	}
-	latestVersion, err := ndb.getLatestVersion()
+	prevRoot, err := ndb.getRoot(predecessor)
 	if err != nil {
 		return err
 	}
-	if endVersion > latestVersion {
-		endVersion = latestVersion
-	}
-
-	prevVersion := startVersion - 1
-	prevRoot, err := ndb.getRoot(prevVersion)
-	if err != nil && err != ErrVersionDoesNotExist {
-		return err
-	}
-
-	for version := startVersion; version <= endVersion; version++ {
-		root, err := ndb.getRoot(version)
-		if err != nil {
-			return err
-		}
+	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
+		var version int64
+		rootKeyFormat.Scan(k, &version)
 
 		var changeSet ChangeSet
 		receiveKVPair := func(pair *KVPair) error {
@@ -1151,16 +1136,16 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 			return nil
 		}
 
-		if err := ndb.extractStateChanges(prevVersion, prevRoot, root, receiveKVPair); err != nil {
+		if err := ndb.extractStateChanges(predecessor, prevRoot, hash, receiveKVPair); err != nil {
 			return err
 		}
 
 		if err := fn(version, &changeSet); err != nil {
 			return err
 		}
-		prevVersion = version
-		prevRoot = root
-	}
 
-	return nil
+		predecessor = version
+		prevRoot = hash
+		return nil
+	})
 }

@@ -4,6 +4,7 @@
 
 ### Improvements
 
+- [#654](https://github.com/cosmos/iavl/pull/654) Add API `TraverseStateChanges` to extract state changes from iavl versions.
 - [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
 
 ## 0.20.0 (March 14, 2023)
