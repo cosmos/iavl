@@ -1042,6 +1042,33 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	return nil
 }
 
+// traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
+func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	predecessor, err := ndb.getPreviousVersion(startVersion)
+	if err != nil {
+		return err
+	}
+	prevRoot, err := ndb.getRoot(predecessor)
+	if err != nil {
+		return err
+	}
+	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
+		var version int64
+		rootKeyFormat.Scan(k, &version)
+		changeSet, err := ndb.extractStateChanges(predecessor, prevRoot, hash)
+		if err != nil {
+			return err
+		}
+		if err := fn(version, changeSet); err != nil {
+			return err
+		}
+		predecessor = version
+		prevRoot = hash
+		return nil
+	})
+}
+
 func (ndb *nodeDB) String() (string, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(buf)
