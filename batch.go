@@ -4,7 +4,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 )
 
-// BatchWithFlusher is a wraper
+// BatchWithFlusher is a wrapper
 // around batch that flushes batch's data to disk
 // as soon as the configurable limit is reached.
 type BatchWithFlusher struct {
