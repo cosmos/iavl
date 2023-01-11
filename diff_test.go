@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/tendermint/tm-db"
 	"github.com/stretchr/testify/require"
 )
 
