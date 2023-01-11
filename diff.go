@@ -75,12 +75,16 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 		}
 	}
 
+	if err := curIter.Error(); err != nil {
+		return nil, err
+	}
+	if err := prevIter.Error(); err != nil {
+		return nil, err
+	}
+
 	findDeletedNodes(orphanedLeafNodes, newLeafNodes, func(node *Node, deleted bool) {
-		var pair KVPair
-		pair.Key = node.key
-		if deleted {
-			pair.Delete = true
-		} else {
+		pair := KVPair{Key: node.key, Delete: deleted}
+		if !deleted {
 			pair.Value = node.value
 		}
 		changeSet = append(changeSet, pair)
@@ -130,5 +134,4 @@ func findDeletedNodes(nodes1 []*Node, nodes2 []*Node, cb func(node *Node, delete
 			i2++
 		}
 	}
-
 }
