@@ -259,3 +259,79 @@ func (iter *Iterator) Error() error {
 func (iter *Iterator) IsFast() bool {
 	return false
 }
+
+// NodeIterator is an iterator for nodeDB to traverse a tree in depth-first, preorder manner.
+type NodeIterator struct {
+	nodesToVisit []*Node
+	ndb          *nodeDB
+	err          error
+}
+
+// NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
+func NewNodeIterator(root []byte, ndb *nodeDB) (*NodeIterator, error) {
+	if len(root) == 0 {
+		return &NodeIterator{
+			nodesToVisit: []*Node{},
+			ndb:          ndb,
+		}, nil
+	}
+
+	node, err := ndb.GetNode(root)
+	if err != nil {
+		return nil, err
+	}
+
+	return &NodeIterator{
+		nodesToVisit: []*Node{node},
+		ndb:          ndb,
+	}, nil
+}
+
+// GetNode returns the current visiting node.
+func (iter *NodeIterator) GetNode() *Node {
+	return iter.nodesToVisit[len(iter.nodesToVisit)-1]
+}
+
+// Valid checks if the validator is valid.
+func (iter *NodeIterator) Valid() bool {
+	if iter.err != nil {
+		return false
+	}
+	return len(iter.nodesToVisit) > 0
+}
+
+// Error returns an error if any errors.
+func (iter *NodeIterator) Error() error {
+	return iter.err
+}
+
+// Next moves forward the traversal.
+// if isSkipped is true, the subtree under the current node is skipped.
+func (iter *NodeIterator) Next(isSkipped bool) {
+	if !iter.Valid() {
+		return
+	}
+	node := iter.GetNode()
+	iter.nodesToVisit = iter.nodesToVisit[:len(iter.nodesToVisit)-1]
+
+	if isSkipped {
+		return
+	}
+
+	if node.isLeaf() {
+		return
+	}
+
+	leftNode, err := iter.ndb.GetNode(node.leftHash)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
+	rightNode, err := iter.ndb.GetNode(node.rightHash)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+}
