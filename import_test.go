@@ -15,9 +15,19 @@ func ExampleImporter() {
 		// handle err
 	}
 
-	tree.Set([]byte("a"), []byte{1})
-	tree.Set([]byte("b"), []byte{2})
-	tree.Set([]byte("c"), []byte{3})
+	_, err = tree.Set([]byte("a"), []byte{1})
+	if err != nil {
+		// handle err
+	}
+
+	_, err = tree.Set([]byte("b"), []byte{2})
+	if err != nil {
+		// handle err
+	}
+	_, err = tree.Set([]byte("c"), []byte{3})
+	if err != nil {
+		// handle err
+	}
 	_, version, err := tree.SaveVersion()
 	if err != nil {
 		// handle err
@@ -28,6 +38,9 @@ func ExampleImporter() {
 		// handle err
 	}
 	exporter, err := itree.Export()
+	if err != nil {
+		// handle err
+	}
 	defer exporter.Close()
 	exported := []*ExportNode{}
 	for {
@@ -72,7 +85,8 @@ func TestImporter_NegativeVersion(t *testing.T) {
 func TestImporter_NotEmpty(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	tree.Set([]byte("a"), []byte{1})
+	_, err = tree.Set([]byte("a"), []byte{1})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
@@ -85,7 +99,8 @@ func TestImporter_NotEmptyDatabase(t *testing.T) {
 
 	tree, err := NewMutableTree(db, 0, false)
 	require.NoError(t, err)
-	tree.Set([]byte("a"), []byte{1})
+	_, err = tree.Set([]byte("a"), []byte{1})
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
@@ -101,7 +116,8 @@ func TestImporter_NotEmptyDatabase(t *testing.T) {
 func TestImporter_NotEmptyUnsaved(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	tree.Set([]byte("a"), []byte{1})
+	_, err = tree.Set([]byte("a"), []byte{1})
+	require.NoError(t, err)
 
 	_, err = tree.Import(1)
 	require.Error(t, err)

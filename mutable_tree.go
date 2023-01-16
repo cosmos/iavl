@@ -649,16 +649,17 @@ func (tree *MutableTree) loadVersionForOverwriting(targetVersion int64, lazy boo
 		return latestVersion, err
 	}
 
-	if !tree.skipFastStorageUpgrade {
-		if err := tree.enableFastStorageAndCommitLocked(); err != nil {
-			return latestVersion, err
-		}
-	}
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
 
 	tree.ndb.resetLatestVersion(latestVersion)
 
-	tree.mtx.Lock()
-	defer tree.mtx.Unlock()
+	if !tree.skipFastStorageUpgrade {
+		// it'll repopulates the fast node index because of version mismatch.
+		if _, err := tree.enableFastStorageAndCommitIfNotEnabled(); err != nil {
+			return latestVersion, err
+		}
+	}
 
 	for v := range tree.versions {
 		if v > targetVersion {
@@ -694,7 +695,7 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
 // Checks whether the fast cache on disk matches latest live state. If not, deletes all existing fast nodes and repopulates them
 // from latest tree.
-// nolint: unparam
+
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
 	isUpgradeable, err := tree.IsUpgradeable()
 	if err != nil {
@@ -734,12 +735,6 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		return false, err
 	}
 	return true, nil
-}
-
-func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
-	tree.mtx.Lock()
-	defer tree.mtx.Unlock()
-	return tree.enableFastStorageAndCommit()
 }
 
 func (tree *MutableTree) enableFastStorageAndCommit() error {
@@ -963,13 +958,12 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return tree.ndb.setFastStorageVersionToBatch()
 }
 
-// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
 	return tree.unsavedFastNodeAdditions
 }
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
-// nolint: unused
+
 func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 	return tree.unsavedFastNodeRemovals
 }

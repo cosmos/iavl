@@ -205,7 +205,10 @@ func GetNonKey(allkeys [][]byte, loc Where) []byte {
 // BuildTree creates random key/values and stores in tree
 // returns a list of all keys in sorted order
 func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err error) {
-	tree, _ := NewMutableTree(db.NewMemDB(), cacheSize, false)
+	tree, err := NewMutableTree(db.NewMemDB(), cacheSize, false)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)
@@ -214,7 +217,10 @@ func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err 
 		// create random 4 byte key
 		rand.Read(key)
 		value := "value_for_key:" + string(key)
-		tree.Set(key, []byte(value))
+		_, err = tree.Set(key, []byte(value))
+		if err != nil {
+			return nil, nil, err
+		}
 		keys[i] = key
 	}
 	sort.Slice(keys, func(i, j int) bool {
