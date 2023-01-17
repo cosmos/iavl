@@ -329,5 +329,6 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		iter.err = err
 		return
 	}
+	// `leftNode` should be visited before `rightNode`, so the visit on leaf nodes is ordered by `node.key`
 	iter.nodesToVisit = append(iter.nodesToVisit, rightNode, leftNode)
 }
