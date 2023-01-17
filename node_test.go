@@ -114,8 +114,8 @@ func TestNode_validate(t *testing.T) {
 		"inner with nil key":     {&Node{key: nil, value: v, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, false},
 		"inner with value":       {&Node{key: k, value: v, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, false},
 		"inner with empty value": {&Node{key: k, value: []byte{}, version: 1, size: 1, subtreeHeight: 1, leftHash: h, rightHash: h}, false},
-		"inner with left child":  {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, leftHash: h}, true},
-		"inner with right child": {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, rightHash: h}, true},
+		"inner with left child":  {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, leftHash: h}, false},
+		"inner with right child": {&Node{key: k, version: 1, size: 1, subtreeHeight: 1, rightHash: h}, false},
 		"inner with no child":    {&Node{key: k, version: 1, size: 1, subtreeHeight: 1}, false},
 		"inner with height 0":    {&Node{key: k, version: 1, size: 1, subtreeHeight: 0, leftHash: h, rightHash: h}, false},
 	}

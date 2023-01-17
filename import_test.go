@@ -148,6 +148,8 @@ func TestImporter_Add(t *testing.T) {
 			require.NoError(t, err)
 			defer importer.Close()
 
+			require.NoError(t, importer.Add(&ExportNode{Key: k, Value: v, Version: 1, Height: 1}))
+			require.NoError(t, importer.Add(&ExportNode{Key: k, Value: v, Version: 1, Height: 0}))
 			err = importer.Add(tc.node)
 			if tc.valid {
 				require.NoError(t, err)

@@ -17,7 +17,7 @@ var ErrNoImport = errors.New("no import in progress")
 // Importer imports data into an empty MutableTree. It is created by MutableTree.Import(). Users
 // must call Close() when done.
 //
-// ExportNodes must be imported in the order returned by Exporter, i.e. depth-first post-order (LRN).
+// ExportNodes must be imported in the order returned by Exporter, i.e. depth-first pre-order (NLR).
 //
 // Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
 // modified while performing an import.
@@ -52,6 +52,43 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	}, nil
 }
 
+// writeNode writes the node content to the storage.
+func (i *Importer) writeNode(node *Node) error {
+	if _, err := node._hash(); err != nil {
+		return err
+	}
+	if err := node.validate(); err != nil {
+		return err
+	}
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	if err := node.writeBytes(buf); err != nil {
+		return err
+	}
+
+	bytesCopy := make([]byte, buf.Len())
+	copy(bytesCopy, buf.Bytes())
+
+	if err := i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy); err != nil {
+		return err
+	}
+
+	i.batchSize++
+	if i.batchSize >= maxBatchSize {
+		if err := i.batch.Write(); err != nil {
+			return err
+		}
+		i.batch.Close()
+		i.batch = i.tree.ndb.db.NewBatch()
+		i.batchSize = 0
+	}
+
+	return nil
+}
+
 // Close frees all resources. It is safe to call multiple times. Uncommitted nodes may already have
 // been flushed to the database, but will not be visible.
 func (i *Importer) Close() {
@@ -63,7 +100,7 @@ func (i *Importer) Close() {
 }
 
 // Add adds an ExportNode to the import. ExportNodes must be added in the order returned by
-// Exporter, i.e. depth-first post-order (LRN). Nodes are periodically flushed to the database,
+// Exporter, i.e. depth-first pre-order (NLR). Nodes are periodically flushed to the database,
 // but the imported version is not visible until Commit() is called.
 func (i *Importer) Add(exportNode *ExportNode) error {
 	if i.tree == nil {
@@ -84,80 +121,31 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		subtreeHeight: exportNode.Height,
 	}
 
-	// We build the tree from the bottom-left up. The stack is used to store unresolved left
+	// We build the tree from the bottom-left up. The stack is used to store resolved left
 	// children while constructing right children. When all children are built, the parent can
-	// be constructed and the resolved children can be discarded from the stack. Using a stack
-	// ensures that we can handle additional unresolved left children while building a right branch.
-	//
-	// We don't modify the stack until we've verified the built node, to avoid leaving the
-	// importer in an inconsistent state when we return an error.
-	stackSize := len(i.stack)
-	switch {
-	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
-		node.leftNode = i.stack[stackSize-2]
-		node.leftHash = node.leftNode.hash
-		node.rightNode = i.stack[stackSize-1]
-		node.rightHash = node.rightNode.hash
-	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
-		node.leftNode = i.stack[stackSize-1]
-		node.leftHash = node.leftNode.hash
-	}
+	// be constructed and the resolved children can be discarded from the stack.
 
 	if node.subtreeHeight == 0 {
 		node.size = 1
 	}
-	if node.leftNode != nil {
-		node.size += node.leftNode.size
-	}
-	if node.rightNode != nil {
-		node.size += node.rightNode.size
-	}
-
-	_, err := node._hash()
-	if err != nil {
-		return err
-	}
-
-	err = node.validate()
-	if err != nil {
-		return err
-	}
-
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf)
-
-	if err = node.writeBytes(buf); err != nil {
-		return err
-	}
-
-	bytesCopy := make([]byte, buf.Len())
-	copy(bytesCopy, buf.Bytes())
-
-	if err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy); err != nil {
-		return err
-	}
-
-	i.batchSize++
-	if i.batchSize >= maxBatchSize {
-		err = i.batch.Write()
-		if err != nil {
+	// just append to the stack
+	i.stack = append(i.stack, node)
+	stackSize := len(i.stack)
+	// if the last two nodes of the stack are resolved, it means we can resolve the parent node
+	for stackSize > 2 && i.stack[stackSize-1].size > 0 && i.stack[stackSize-2].size > 0 {
+		right, left, parent := i.stack[stackSize-1], i.stack[stackSize-2], i.stack[stackSize-3]
+		if err := i.writeNode(right); err != nil {
 			return err
 		}
-		i.batch.Close()
-		i.batch = i.tree.ndb.db.NewBatch()
-		i.batchSize = 0
+		if err := i.writeNode(left); err != nil {
+			return err
+		}
+		parent.leftHash = left.hash
+		parent.rightHash = right.hash
+		parent.size = left.size + right.size
+		stackSize -= 2
+		i.stack = i.stack[:stackSize]
 	}
-
-	// Update the stack now that we know there were no errors
-	switch {
-	case node.leftHash != nil && node.rightHash != nil:
-		i.stack = i.stack[:stackSize-2]
-	case node.leftHash != nil || node.rightHash != nil:
-		i.stack = i.stack[:stackSize-1]
-	}
-	// Only hash\height\size of the node will be used after it be pushed into the stack.
-	i.stack = append(i.stack, &Node{hash: node.hash, subtreeHeight: node.subtreeHeight, size: node.size})
 
 	return nil
 }
@@ -176,6 +164,9 @@ func (i *Importer) Commit() error {
 			return err
 		}
 	case 1:
+		if err := i.writeNode(i.stack[0]); err != nil {
+			return err
+		}
 		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash); err != nil {
 			return err
 		}

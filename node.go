@@ -321,7 +321,7 @@ func (node *Node) validate() error {
 		if node.value != nil {
 			return errors.New("value must be nil for non-leaf node")
 		}
-		if node.leftHash == nil && node.rightHash == nil {
+		if node.leftHash == nil || node.rightHash == nil {
 			return errors.New("inner node must have children")
 		}
 	}
@@ -523,13 +523,6 @@ func (node *Node) calcBalance(t *ImmutableTree) (int, error) {
 // nolint: unparam
 func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, false, func(node *Node) bool {
-		return cb(node)
-	})
-}
-
-// traversePost is a wrapper over traverseInRange when we want the whole tree post-order
-func (node *Node) traversePost(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
-	return node.traverseInRange(t, nil, nil, ascending, false, true, func(node *Node) bool {
 		return cb(node)
 	})
 }

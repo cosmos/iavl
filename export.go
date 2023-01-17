@@ -28,7 +28,7 @@ type ExportNode struct {
 // Exporter exports nodes from an ImmutableTree. It is created by ImmutableTree.Export().
 //
 // Exported nodes can be imported into an empty tree with MutableTree.Import(). Nodes are exported
-// depth-first post-order (LRN), this order must be preserved when importing in order to recreate
+// depth-first pre-order (NLR), this order must be preserved when importing in order to recreate
 // the same tree structure.
 type Exporter struct {
 	tree   *ImmutableTree
@@ -61,7 +61,7 @@ func newExporter(tree *ImmutableTree) (*Exporter, error) {
 
 // export exports nodes
 func (e *Exporter) export(ctx context.Context) {
-	e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
+	e.tree.root.traverse(e.tree, true, func(node *Node) bool {
 		exportNode := &ExportNode{
 			Key:     node.key,
 			Value:   node.value,

@@ -161,15 +161,15 @@ func TestExporter(t *testing.T) {
 	tree := setupExportTreeBasic(t)
 
 	expect := []*ExportNode{
+		{Key: []byte("d"), Value: nil, Version: 3, Height: 3},
+		{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
+		{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
 		{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
 		{Key: []byte("b"), Value: []byte{2}, Version: 3, Height: 0},
-		{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
 		{Key: []byte("c"), Value: []byte{3}, Version: 3, Height: 0},
-		{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
+		{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
 		{Key: []byte("d"), Value: []byte{4}, Version: 2, Height: 0},
 		{Key: []byte("e"), Value: []byte{5}, Version: 3, Height: 0},
-		{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
-		{Key: []byte("d"), Value: nil, Version: 3, Height: 3},
 	}
 
 	actual := make([]*ExportNode, 0, len(expect))
