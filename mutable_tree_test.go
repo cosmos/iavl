@@ -1567,5 +1567,5 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	// the following versions behaviors normally
 	node, err = tree.ndb.GetNode(rootHash)
 	require.NoError(t, err)
-	require.Equal(t, int64(initialVersion+1), node.version)
+	require.Equal(t, initialVersion+1, node.version)
 }
