@@ -761,8 +761,8 @@ func (ndb *nodeDB) getPreviousVersion(version int64) (int64, error) {
 	return 0, nil
 }
 
-// firstVersion returns the first version in the iavl tree, returns 0 if it's empty.
-func (ndb *nodeDB) firstVersion() (int64, error) {
+// getFirstVersion returns the first version in the iavl tree, returns 0 if it's empty.
+func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	itr, err := dbm.IteratePrefix(ndb.db, rootKeyFormat.Key())
 	if err != nil {
 		return 0, err

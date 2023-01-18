@@ -467,7 +467,7 @@ func (tree *MutableTree) Load() (int64, error) {
 // performs a no-op. Otherwise, if the root does not exist, an error will be
 // returned.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
-	firstVersion, err := tree.ndb.firstVersion()
+	firstVersion, err := tree.ndb.getFirstVersion()
 	if err != nil {
 		return 0, err
 	}
