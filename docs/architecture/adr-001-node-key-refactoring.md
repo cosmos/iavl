@@ -23,7 +23,7 @@ The `orphans` are used to manage node removal in the current design and allow th
 	```
 	`10101` : (right, left, right, left, right) -> [0x15]
 	```
-- Store only the child node key for the below version in node body writes. Because it is possible to get the child path for the same version.
+- Store the child node key in the node body only when the child node is from an earlier version. For the same version, it is possible to guess the child node key and thus it doesn't need to be explicitly stored.
 	```go
 	func (node *Node) getLeftNode() (*Node, error) {
 		if node.leftNode != nil {
