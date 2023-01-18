@@ -757,6 +757,21 @@ func (ndb *nodeDB) getPreviousVersion(version int64) (int64, error) {
 	return 0, nil
 }
 
+// getFirstVersion returns the first version in the iavl tree, returns 0 if it's empty.
+func (ndb *nodeDB) getFirstVersion() (int64, error) {
+	itr, err := dbm.IteratePrefix(ndb.db, rootKeyFormat.Key())
+	if err != nil {
+		return 0, err
+	}
+	defer itr.Close()
+	if itr.Valid() {
+		var version int64
+		rootKeyFormat.Scan(itr.Key(), &version)
+		return version, nil
+	}
+	return 0, nil
+}
+
 // deleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) error {
 	latestVersion, err := ndb.getLatestVersion()

@@ -460,17 +460,26 @@ func (tree *MutableTree) Load() (int64, error) {
 }
 
 // LazyLoadVersion attempts to lazy load only the specified target version
-// without loading previous roots/versions. Lazy loading should be used in cases
-// where only reads are expected. Any writes to a lazy loaded tree may result in
-// unexpected behavior. If the targetVersion is non-positive, the latest version
+// without loading previous roots/versions. If the targetVersion is non-positive, the latest version
 // will be loaded by default. If the latest version is non-positive, this method
 // performs a no-op. Otherwise, if the root does not exist, an error will be
 // returned.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
+	firstVersion, err := tree.ndb.getFirstVersion()
+	if err != nil {
+		return 0, err
+	}
+
 	latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
 	}
+
+	if firstVersion > 0 && firstVersion < int64(tree.ndb.opts.InitialVersion) {
+		return latestVersion, fmt.Errorf("initial version set to %v, but found earlier version %v",
+			tree.ndb.opts.InitialVersion, firstVersion)
+	}
+
 	if latestVersion < targetVersion {
 		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
 	}
@@ -611,10 +620,18 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	return latestVersion, nil
 }
 
-// LoadVersionForOverwriting attempts to load a tree at a previously committed
+// loadVersionForOverwriting attempts to load a tree at a previously committed
 // version, or the latest version below it. Any versions greater than targetVersion will be deleted.
-func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
-	latestVersion, err := tree.LoadVersion(targetVersion)
+func (tree *MutableTree) loadVersionForOverwriting(targetVersion int64, lazy bool) (int64, error) {
+	var (
+		latestVersion int64
+		err           error
+	)
+	if lazy {
+		latestVersion, err = tree.LazyLoadVersion(targetVersion)
+	} else {
+		latestVersion, err = tree.LoadVersion(targetVersion)
+	}
 	if err != nil {
 		return latestVersion, err
 	}
@@ -649,6 +666,17 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	}
 
 	return latestVersion, nil
+}
+
+// LoadVersionForOverwriting attempts to load a tree at a previously committed
+// version, or the latest version below it. Any versions greater than targetVersion will be deleted.
+func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
+	return tree.loadVersionForOverwriting(targetVersion, false)
+}
+
+// LazyLoadVersionForOverwriting is the lazy version of `LoadVersionForOverwriting`.
+func (tree *MutableTree) LazyLoadVersionForOverwriting(targetVersion int64) (int64, error) {
+	return tree.loadVersionForOverwriting(targetVersion, true)
 }
 
 // Returns true if the tree may be auto-upgraded, false otherwise
