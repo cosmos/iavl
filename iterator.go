@@ -260,14 +260,14 @@ func (iter *Iterator) IsFast() bool {
 	return false
 }
 
-// NodeIterator is an iterator for nodeDB to traverse a tree.
+// NodeIterator is an iterator for nodeDB to traverse a tree in depth-first, preorder manner.
 type NodeIterator struct {
 	nodesToVisit []*Node
 	ndb          *nodeDB
 	err          error
 }
 
-// NewNodeIterator returns a new NodeIterator.
+// NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
 func NewNodeIterator(root []byte, ndb *nodeDB) (*NodeIterator, error) {
 	if len(root) == 0 {
 		return &NodeIterator{
@@ -305,28 +305,34 @@ func (iter *NodeIterator) Error() error {
 	return iter.err
 }
 
-// Next moves to the next iterator.
+// Next moves forward the traversal.
+// if isSkipped is true, the subtree under the current node is skipped.
 func (iter *NodeIterator) Next(isSkipped bool) {
 	if !iter.Valid() {
 		return
 	}
 	node := iter.GetNode()
 	iter.nodesToVisit = iter.nodesToVisit[:len(iter.nodesToVisit)-1]
-	if !isSkipped {
-		if node.isLeaf() {
-			return
-		}
-		leftNode, err := iter.ndb.GetNode(node.leftHash)
-		if err != nil {
-			iter.err = err
-			return
-		}
-		iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
-		rightNode, err := iter.ndb.GetNode(node.rightHash)
-		if err != nil {
-			iter.err = err
-			return
-		}
-		iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+
+	if isSkipped {
+		return
 	}
+
+	if node.isLeaf() {
+		return
+	}
+
+	rightNode, err := iter.ndb.GetNode(node.rightHash)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+
+	leftNode, err := iter.ndb.GetNode(node.leftHash)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
 }
