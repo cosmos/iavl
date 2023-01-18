@@ -438,9 +438,19 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
 	latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
+	}
+
+	if firstVersion > 0 && firstVersion < int64(tree.ndb.opts.InitialVersion) {
+		return latestVersion, fmt.Errorf("initial version set to %v, but found earlier version %v",
+			tree.ndb.opts.InitialVersion, firstVersion)
+	}
+
+	if latestVersion < targetVersion {
+		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
 	}
 
 	if firstVersion == 0 {
@@ -506,7 +516,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	return latestVersion, nil
 }
 
-// LoadVersionForOverwriting attempts to load a tree at a previously committed
+// loadVersionForOverwriting attempts to load a tree at a previously committed
 // version, or the latest version below it. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) error {
 	if _, err := tree.LoadVersion(targetVersion); err != nil {
