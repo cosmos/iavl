@@ -35,6 +35,7 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
+	maxVersion                 = int64(math.MaxInt64)
 )
 
 var (
@@ -111,7 +112,11 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 func (ndb *nodeDB) GetNode(hash []byte) (*Node, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	return ndb.unsafeGetNode(hash)
+}
 
+// Contract: the caller should hold the ndb.mtx lock.
+func (ndb *nodeDB) unsafeGetNode(hash []byte) (*Node, error) {
 	if len(hash) == 0 {
 		return nil, ErrNodeMissingHash
 	}
@@ -436,6 +441,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return fmt.Errorf("root for version %v not found", latest)
 	}
 
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
 	for v, r := range ndb.versionReaders {
 		if v >= version && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
@@ -452,7 +460,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	// Next, delete orphans:
 	// - Delete orphan entries *and referred nodes* with fromVersion >= version
 	// - Delete orphan entries with toVersion >= version-1 (since orphans at latest are not orphans)
-	err = ndb.traverseOrphans(func(key, hash []byte) error {
+	err = ndb.traverseRange(orphanKeyFormat.Key(version-1), orphanKeyFormat.Key(maxVersion), func(key, hash []byte) error {
 		var fromVersion, toVersion int64
 		orphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 
@@ -477,7 +485,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 	}
 
 	// Delete the version root entries
-	err = ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(int64(math.MaxInt64)), func(k, v []byte) error {
+	err = ndb.traverseRange(rootKeyFormat.Key(version), rootKeyFormat.Key(maxVersion), func(k, v []byte) error {
 		if err = ndb.batch.Delete(k); err != nil {
 			return err
 		}
@@ -488,26 +496,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(version int64) error {
 		return err
 	}
 
-	// Delete fast node entries
-	err = ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
-		key := keyWithPrefix[1:]
-		fastNode, err := fastnode.DeserializeNode(key, v)
-		if err != nil {
-			return err
-		}
-
-		if version <= fastNode.GetVersionLastUpdatedAt() {
-			if err = ndb.batch.Delete(keyWithPrefix); err != nil {
-				return err
-			}
-			ndb.fastNodeCache.Remove(key)
-		}
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
+	// NOTICE: we don't touch fast node indexes here, because it'll be rebuilt later because of version mismatch.
 
 	return nil
 }
@@ -600,9 +589,14 @@ func (ndb *nodeDB) deleteNodesFrom(version int64, hash []byte) error {
 		return nil
 	}
 
-	node, err := ndb.GetNode(hash)
+	node, err := ndb.unsafeGetNode(hash)
 	if err != nil {
 		return err
+	}
+
+	if node.version < version {
+		// We can skip the whole sub-tree since children.version <= parent.version.
+		return nil
 	}
 
 	if node.leftHash != nil {
@@ -725,7 +719,7 @@ func (ndb *nodeDB) rootKey(version int64) []byte {
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	if ndb.latestVersion == 0 {
 		var err error
-		ndb.latestVersion, err = ndb.getPreviousVersion(1<<63 - 1)
+		ndb.latestVersion, err = ndb.getPreviousVersion(maxVersion)
 		if err != nil {
 			return 0, err
 		}
@@ -767,6 +761,21 @@ func (ndb *nodeDB) getPreviousVersion(version int64) (int64, error) {
 	return 0, nil
 }
 
+// getFirstVersion returns the first version in the iavl tree, returns 0 if it's empty.
+func (ndb *nodeDB) getFirstVersion() (int64, error) {
+	itr, err := dbm.IteratePrefix(ndb.db, rootKeyFormat.Key())
+	if err != nil {
+		return 0, err
+	}
+	defer itr.Close()
+	if itr.Valid() {
+		var version int64
+		rootKeyFormat.Scan(itr.Key(), &version)
+		return version, nil
+	}
+	return 0, nil
+}
+
 // deleteRoot deletes the root entry from disk, but not the node it points to.
 func (ndb *nodeDB) deleteRoot(version int64, checkLatestVersion bool) error {
 	latestVersion, err := ndb.getLatestVersion()
@@ -789,6 +798,7 @@ func (ndb *nodeDB) traverseOrphans(fn func(keyWithPrefix, v []byte) error) error
 }
 
 // Traverse fast nodes and return error if any, nil otherwise
+
 func (ndb *nodeDB) traverseFastNodes(fn func(k, v []byte) error) error {
 	return ndb.traversePrefix(fastKeyFormat.Key(), fn)
 }
@@ -799,7 +809,7 @@ func (ndb *nodeDB) traverseOrphansVersion(version int64, fn func(k, v []byte) er
 }
 
 // Traverse all keys and return error if any, nil otherwise
-// nolint: unused
+
 func (ndb *nodeDB) traverse(fn func(key, value []byte) error) error {
 	return ndb.traverseRange(nil, nil, fn)
 }
@@ -958,7 +968,6 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 
 // Utility and test functions
 
-// nolint: unused
 func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	leaves := []*Node{}
 
@@ -975,7 +984,6 @@ func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	return leaves, nil
 }
 
-// nolint: unused
 func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
@@ -990,7 +998,6 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 	return nodes, nil
 }
 
-// nolint: unused
 func (ndb *nodeDB) orphans() ([][]byte, error) {
 	orphans := [][]byte{}
 
@@ -1009,7 +1016,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
 //
-//nolint:unused
+
 func (ndb *nodeDB) size() int {
 	size := 0
 	err := ndb.traverse(func(k, v []byte) error {
@@ -1048,6 +1055,33 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 		}
 	}
 	return nil
+}
+
+// traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
+func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	predecessor, err := ndb.getPreviousVersion(startVersion)
+	if err != nil {
+		return err
+	}
+	prevRoot, err := ndb.getRoot(predecessor)
+	if err != nil {
+		return err
+	}
+	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
+		var version int64
+		rootKeyFormat.Scan(k, &version)
+		changeSet, err := ndb.extractStateChanges(predecessor, prevRoot, hash)
+		if err != nil {
+			return err
+		}
+		if err := fn(version, changeSet); err != nil {
+			return err
+		}
+		predecessor = version
+		prevRoot = hash
+		return nil
+	})
 }
 
 func (ndb *nodeDB) String() (string, error) {

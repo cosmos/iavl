@@ -51,10 +51,11 @@ func TestIterateConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				require.NoError(t, err)
 			}(i, j)
 		}
-		tree.Iterate(func(key []byte, value []byte) bool {
+		tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
 			return false
 		})
 	}
@@ -68,7 +69,8 @@ func TestIteratorConcurrency(t *testing.T) {
 		t.Skip("skipping test in short mode.")
 	}
 	tree := setupMutableTree(t, true)
-	tree.LoadVersion(0)
+	_, err := tree.LoadVersion(0)
+	require.NoError(t, err)
 	// So much slower
 	wg := new(sync.WaitGroup)
 	for i := 0; i < 100; i++ {
@@ -76,7 +78,8 @@ func TestIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				require.NoError(t, err)
 			}(i, j)
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
@@ -99,7 +102,8 @@ func TestNewIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				require.NoError(t, err)
 			}(i, j)
 		}
 		for ; it.Valid(); it.Next() {
@@ -111,7 +115,8 @@ func TestNewIteratorConcurrency(t *testing.T) {
 func TestDelete(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
-	tree.set([]byte("k1"), []byte("Fred"))
+	_, _, err := tree.set([]byte("k1"), []byte("Fred"))
+	require.NoError(t, err)
 	hash, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
@@ -178,7 +183,8 @@ func TestTraverse(t *testing.T) {
 	tree := setupMutableTree(t, false)
 
 	for i := 0; i < 6; i++ {
-		tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		_, _, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		require.NoError(t, err)
 	}
 
 	require.Equal(t, 11, tree.nodeSize(), "Size of tree unexpected")
@@ -286,8 +292,10 @@ func TestMutableTree_DeleteVersionsRange(t *testing.T) {
 		versions = append(versions, int64(count))
 		countStr := strconv.Itoa(count)
 		// Set kv pair and save version
-		tree.Set([]byte("aaa"), []byte("bbb"))
-		tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		_, err = tree.Set([]byte("aaa"), []byte("bbb"))
+		require.NoError(err, "Set should not fail")
+		_, err = tree.Set([]byte("key"+countStr), []byte("value"+countStr))
+		require.NoError(err, "Set should not fail")
 		_, _, err = tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not fail")
 	}
@@ -358,12 +366,14 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false)
 	require.NoError(t, err)
 
-	tree.Set([]byte("a"), []byte{0x01})
+	_, err = tree.Set([]byte("a"), []byte{0x01})
+	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 9, version)
 
-	tree.Set([]byte("b"), []byte{0x02})
+	_, err = tree.Set([]byte("b"), []byte{0x02})
+	require.NoError(t, err)
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
@@ -375,10 +385,18 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
+	// Check `LazyLoadVersion` behaviors the same as `LoadVersion`
+	version, err = tree.LazyLoadVersion(0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
 	// Reloading the tree with an initial version beyond the lowest should error
 	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false)
 	require.NoError(t, err)
 	_, err = tree.Load()
+	require.Error(t, err)
+
+	_, err = tree.LazyLoadVersion(0)
 	require.Error(t, err)
 
 	// Reloading the tree with a lower initial version is fine, and new versions can be produced
@@ -388,7 +406,12 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
-	tree.Set([]byte("c"), []byte{0x03})
+	version, err = tree.LazyLoadVersion(0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
+	_, err = tree.Set([]byte("c"), []byte{0x03})
+	require.NoError(t, err)
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 11, version)
@@ -398,7 +421,8 @@ func TestMutableTree_SetInitialVersion(t *testing.T) {
 	tree := setupMutableTree(t, false)
 	tree.SetInitialVersion(9)
 
-	tree.Set([]byte("a"), []byte{0x01})
+	_, err := tree.Set([]byte("a"), []byte{0x01})
+	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 9, version)
@@ -410,7 +434,8 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	t, err := NewMutableTree(db, 100000, false)
 	require.NoError(b, err)
 	for i := 0; i < 1000000; i++ {
-		t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		require.NoError(b, err)
 	}
 	b.ReportAllocs()
 	runtime.GC()
@@ -418,7 +443,8 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		require.NoError(b, err)
 	}
 }
 
@@ -427,13 +453,15 @@ func prepareTree(t *testing.T) *MutableTree {
 	tree, err := NewMutableTree(mdb, 1000, false)
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		tree.Set([]byte{byte(i)}, []byte("a"))
+		_, err = tree.Set([]byte{byte(i)}, []byte("a"))
+		require.NoError(t, err)
 	}
 	_, ver, err := tree.SaveVersion()
 	require.True(t, ver == 1)
 	require.NoError(t, err)
 	for i := 0; i < 100; i++ {
-		tree.Set([]byte{byte(i)}, []byte("b"))
+		_, err = tree.Set([]byte{byte(i)}, []byte("b"))
+		require.NoError(t, err)
 	}
 	_, ver, err = tree.SaveVersion()
 	require.True(t, ver == 2)
@@ -631,6 +659,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 	fastValue, err := tree.Get([]byte(testKey1))
 	require.NoError(t, err)
 	_, regularValue, err := tree.GetWithIndex([]byte(testKey1))
+	require.NoError(t, err)
 	require.Equal(t, []byte(testVal1), fastValue)
 	require.Equal(t, []byte(testVal1), regularValue)
 
@@ -1145,7 +1174,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	// Test that upgraded mutable tree iterates as expected
 	t.Run("Mutable tree", func(t *testing.T) {
 		i := 0
-		sut.Iterate(func(k, v []byte) bool {
+		sut.Iterate(func(k, v []byte) bool { //nolint:errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -1159,7 +1188,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 		require.NoError(t, err)
 
 		i := 0
-		immutableTree.Iterate(func(k, v []byte) bool {
+		immutableTree.Iterate(func(k, v []byte) bool { //nolint:errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -1494,7 +1523,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 	// Test that the mutable tree iterates as expected
 	t.Run("Mutable tree", func(t *testing.T) {
 		i := 0
-		sut.Iterate(func(k, v []byte) bool {
+		sut.Iterate(func(k, v []byte) bool { //nolint: errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
@@ -1508,11 +1537,47 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 		require.NoError(t, err)
 
 		i := 0
-		immutableTree.Iterate(func(k, v []byte) bool {
+		immutableTree.Iterate(func(k, v []byte) bool { //nolint: errcheck
 			require.Equal(t, []byte(mirror[i][0]), k)
 			require.Equal(t, []byte(mirror[i][1]), v)
 			i++
 			return false
 		})
 	})
+}
+
+// TestMutableTree_InitialVersion_FirstVersion demonstrate the un-intuitive behavior,
+// when InitialVersion is set the nodes created in the first version are not assigned with expected version number.
+func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
+	db := db.NewMemDB()
+
+	initialVersion := int64(1000)
+	tree, err := NewMutableTreeWithOpts(db, 0, &Options{
+		InitialVersion: uint64(initialVersion),
+	}, true)
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("hello"), []byte("world"))
+	require.NoError(t, err)
+
+	rootHash, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, initialVersion, version)
+
+	// the nodes created at the first version are not assigned with the `InitialVersion`
+	node, err := tree.ndb.GetNode(rootHash)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), node.version)
+
+	_, err = tree.Set([]byte("hello"), []byte("world1"))
+	require.NoError(t, err)
+
+	rootHash, version, err = tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, version)
+
+	// the following versions behaves normally
+	node, err = tree.ndb.GetNode(rootHash)
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, node.version)
 }

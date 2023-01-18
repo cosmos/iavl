@@ -462,17 +462,26 @@ func (tree *MutableTree) Load() (int64, error) {
 }
 
 // LazyLoadVersion attempts to lazy load only the specified target version
-// without loading previous roots/versions. Lazy loading should be used in cases
-// where only reads are expected. Any writes to a lazy loaded tree may result in
-// unexpected behavior. If the targetVersion is non-positive, the latest version
+// without loading previous roots/versions. If the targetVersion is non-positive, the latest version
 // will be loaded by default. If the latest version is non-positive, this method
 // performs a no-op. Otherwise, if the root does not exist, an error will be
 // returned.
 func (tree *MutableTree) LazyLoadVersion(targetVersion int64) (int64, error) {
+	firstVersion, err := tree.ndb.getFirstVersion()
+	if err != nil {
+		return 0, err
+	}
+
 	latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
 	}
+
+	if firstVersion > 0 && firstVersion < int64(tree.ndb.opts.InitialVersion) {
+		return latestVersion, fmt.Errorf("initial version set to %v, but found earlier version %v",
+			tree.ndb.opts.InitialVersion, firstVersion)
+	}
+
 	if latestVersion < targetVersion {
 		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
 	}
@@ -613,10 +622,18 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	return latestVersion, nil
 }
 
-// LoadVersionForOverwriting attempts to load a tree at a previously committed
+// loadVersionForOverwriting attempts to load a tree at a previously committed
 // version, or the latest version below it. Any versions greater than targetVersion will be deleted.
-func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
-	latestVersion, err := tree.LoadVersion(targetVersion)
+func (tree *MutableTree) loadVersionForOverwriting(targetVersion int64, lazy bool) (int64, error) {
+	var (
+		latestVersion int64
+		err           error
+	)
+	if lazy {
+		latestVersion, err = tree.LazyLoadVersion(targetVersion)
+	} else {
+		latestVersion, err = tree.LoadVersion(targetVersion)
+	}
 	if err != nil {
 		return latestVersion, err
 	}
@@ -625,16 +642,24 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 		return latestVersion, err
 	}
 
-	if !tree.skipFastStorageUpgrade {
-		if err := tree.enableFastStorageAndCommitLocked(); err != nil {
-			return latestVersion, err
-		}
+	// Commit the tree rollback first
+	// The fast storage rebuild don't have to be atomic with this,
+	// because it's idempotent and will do again when `LoadVersion`.
+	if err := tree.ndb.Commit(); err != nil {
+		return latestVersion, err
 	}
-
-	tree.ndb.resetLatestVersion(latestVersion)
 
 	tree.mtx.Lock()
 	defer tree.mtx.Unlock()
+
+	tree.ndb.resetLatestVersion(latestVersion)
+
+	if !tree.skipFastStorageUpgrade {
+		// it'll repopulates the fast node index because of version mismatch.
+		if _, err := tree.enableFastStorageAndCommitIfNotEnabled(); err != nil {
+			return latestVersion, err
+		}
+	}
 
 	for v := range tree.versions {
 		if v > targetVersion {
@@ -643,6 +668,17 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, 
 	}
 
 	return latestVersion, nil
+}
+
+// LoadVersionForOverwriting attempts to load a tree at a previously committed
+// version, or the latest version below it. Any versions greater than targetVersion will be deleted.
+func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) (int64, error) {
+	return tree.loadVersionForOverwriting(targetVersion, false)
+}
+
+// LazyLoadVersionForOverwriting is the lazy version of `LoadVersionForOverwriting`.
+func (tree *MutableTree) LazyLoadVersionForOverwriting(targetVersion int64) (int64, error) {
+	return tree.loadVersionForOverwriting(targetVersion, true)
 }
 
 // Returns true if the tree may be auto-upgraded, false otherwise
@@ -659,7 +695,7 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
 // Checks whether the fast cache on disk matches latest live state. If not, deletes all existing fast nodes and repopulates them
 // from latest tree.
-// nolint: unparam
+
 func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) {
 	isUpgradeable, err := tree.IsUpgradeable()
 	if err != nil {
@@ -699,12 +735,6 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		return false, err
 	}
 	return true, nil
-}
-
-func (tree *MutableTree) enableFastStorageAndCommitLocked() error {
-	tree.mtx.Lock()
-	defer tree.mtx.Unlock()
-	return tree.enableFastStorageAndCommit()
 }
 
 func (tree *MutableTree) enableFastStorageAndCommit() error {
@@ -928,13 +958,12 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return tree.ndb.setFastStorageVersionToBatch()
 }
 
-// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
 	return tree.unsavedFastNodeAdditions
 }
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
-// nolint: unused
+
 func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 	return tree.unsavedFastNodeRemovals
 }

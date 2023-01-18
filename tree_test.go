@@ -579,9 +579,11 @@ func TestVersionedTree(t *testing.T) {
 	require.True(len(nodes5) < len(nodes4), "db should have shrunk after delete %d !< %d", len(nodes5), len(nodes4))
 
 	val, err = tree.GetVersioned([]byte("key2"), 2)
+	require.NoError(err)
 	require.Nil(val)
 
 	val, err = tree.GetVersioned([]byte("key3"), 2)
+	require.NoError(err)
 	require.Nil(val)
 
 	// But they should still exist in the latest version.
@@ -963,6 +965,7 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 	tree.DeleteVersion(1)
 
 	val, err := tree.GetVersioned(key, 2)
+	require.NoError(err)
 	require.NotEmpty(val)
 	require.Equal([]byte("val1"), val)
 }
@@ -1027,18 +1030,22 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	tree.SaveVersion()
 
 	val, err := tree.GetVersioned([]byte("A"), 2)
+	require.NoError(t, err)
 	require.Nil(t, val)
 
 	val, err = tree.GetVersioned([]byte("A"), 1)
+	require.NoError(t, err)
 	require.NotEmpty(t, val)
 
 	tree.DeleteVersion(1)
 	tree.DeleteVersion(2)
 
 	val, err = tree.GetVersioned([]byte("A"), 2)
+	require.NoError(t, err)
 	require.Nil(t, val)
 
 	val, err = tree.GetVersioned([]byte("A"), 1)
+	require.NoError(t, err)
 	require.Nil(t, val)
 }
 
@@ -1351,6 +1358,7 @@ func TestCopyValueSemantics(t *testing.T) {
 	val[1] = '2'
 
 	val, err = tree.Get([]byte("k"))
+	require.NoError(err)
 	require.Equal([]byte("v2"), val)
 }
 
@@ -1375,12 +1383,15 @@ func TestRollback(t *testing.T) {
 	require.Equal(int64(2), tree.Size())
 
 	val, err := tree.Get([]byte("r"))
+	require.NoError(err)
 	require.Nil(val)
 
 	val, err = tree.Get([]byte("s"))
+	require.NoError(err)
 	require.Nil(val)
 
 	val, err = tree.Get([]byte("t"))
+	require.NoError(err)
 	require.Equal([]byte("v"), val)
 }
 

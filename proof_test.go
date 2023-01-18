@@ -125,7 +125,6 @@ func (bz byteslices) Less(i, j int) bool {
 	}
 }
 
-//nolint:unused
 func (bz byteslices) Swap(i, j int) {
 	bz[j], bz[i] = bz[i], bz[j]
 }
