@@ -872,9 +872,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 
 	// Same thing with proof. We get an error because a proof couldn't be
 	// constructed.
-	val, proof, err := tree.GetVersionedWithProof([]byte("key"), 404)
-	require.Nil(val)
-	require.Empty(proof)
+	_, err = tree.GetVersionedProof([]byte("key"), 404)
 	require.Error(err)
 }
 
@@ -1214,38 +1212,47 @@ func TestVersionedTreeProofs(t *testing.T) {
 	require.NoError(err)
 	require.NotEqual(root2, root3)
 
-	val, proof, err := tree.GetVersionedWithProof([]byte("k2"), 1)
+	iTree, err := tree.GetImmutable(1)
 	require.NoError(err)
-	require.EqualValues(val, []byte("v1"))
-	require.NoError(proof.Verify(root1), proof.String())
-	require.NoError(proof.VerifyItem([]byte("k2"), val))
 
-	val, proof, err = tree.GetVersionedWithProof([]byte("k4"), 1)
+	proof, err := tree.GetVersionedProof([]byte("k2"), 1)
 	require.NoError(err)
-	require.Nil(val)
-	require.NoError(proof.Verify(root1))
-	require.NoError(proof.VerifyAbsence([]byte("k4")))
-
-	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 2)
+	require.EqualValues(proof.GetExist().Value, []byte("v1"))
+	res, err := iTree.VerifyProof(proof, []byte("k2"))
 	require.NoError(err)
-	require.EqualValues(val, []byte("v2"))
-	require.NoError(proof.Verify(root2), proof.String())
-	require.NoError(proof.VerifyItem([]byte("k2"), val))
+	require.True(res)
 
-	val, proof, err = tree.GetVersionedWithProof([]byte("k1"), 2)
+	proof, err = tree.GetVersionedProof([]byte("k4"), 1)
 	require.NoError(err)
-	require.EqualValues(val, []byte("v1"))
-	require.NoError(proof.Verify(root2))
-	require.NoError(proof.VerifyItem([]byte("k1"), val))
-
-	val, proof, err = tree.GetVersionedWithProof([]byte("k2"), 3)
-
+	require.EqualValues(proof.GetNonexist().Key, []byte("k4"))
+	res, err = iTree.VerifyProof(proof, []byte("k4"))
 	require.NoError(err)
-	require.Nil(val)
-	require.NoError(proof.Verify(root3))
-	require.NoError(proof.VerifyAbsence([]byte("k2")))
-	require.Error(proof.Verify(root1))
-	require.Error(proof.Verify(root2))
+	require.True(res)
+
+	iTree, err = tree.GetImmutable(2)
+	require.NoError(err)
+	proof, err = tree.GetVersionedProof([]byte("k2"), 2)
+	require.NoError(err)
+	require.EqualValues(proof.GetExist().Value, []byte("v2"))
+	res, err = iTree.VerifyProof(proof, []byte("k2"))
+	require.NoError(err)
+	require.True(res)
+
+	proof, err = tree.GetVersionedProof([]byte("k1"), 2)
+	require.NoError(err)
+	require.EqualValues(proof.GetExist().Value, []byte("v1"))
+	res, err = iTree.VerifyProof(proof, []byte("k1"))
+	require.NoError(err)
+	require.True(res)
+
+	iTree, err = tree.GetImmutable(3)
+	require.NoError(err)
+	proof, err = tree.GetVersionedProof([]byte("k2"), 3)
+	require.NoError(err)
+	require.EqualValues(proof.GetNonexist().Key, []byte("k2"))
+	res, err = iTree.VerifyProof(proof, []byte("k2"))
+	require.NoError(err)
+	require.True(res)
 }
 
 func TestOrphans(t *testing.T) {
@@ -1304,14 +1311,17 @@ func TestVersionedTreeHash(t *testing.T) {
 	require.NoError(err)
 	require.EqualValues(hash1, hash)
 
-	hash2, _, err := tree.SaveVersion()
+	_, _, err = tree.SaveVersion()
 	require.NoError(err)
 
-	val, proof, err := tree.GetVersionedWithProof([]byte("I"), 2)
+	proof, err := tree.GetVersionedProof([]byte("I"), 2)
 	require.NoError(err)
-	require.EqualValues([]byte("F"), val)
-	require.NoError(proof.Verify(hash2))
-	require.NoError(proof.VerifyItem([]byte("I"), val))
+	require.EqualValues([]byte("F"), proof.GetExist().Value)
+	iTree, err := tree.GetImmutable(2)
+	require.NoError(err)
+	res, err := iTree.VerifyProof(proof, []byte("I"))
+	require.NoError(err)
+	require.True(res)
 }
 
 func TestNilValueSemantics(t *testing.T) {

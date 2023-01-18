@@ -35,6 +35,7 @@ jobs:
         run: |
           go test ./... -mod=readonly -timeout 5m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 5m
+          go test -fuzz=. -fuzztime=1m
           GOARCH=386 go test ./... -mod=readonly -timeout 5m
       - uses: codecov/codecov-action@v3.1.0
         with:

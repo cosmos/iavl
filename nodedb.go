@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/chrispappas/golang-generics-set/set"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 
@@ -79,6 +80,8 @@ type nodeDB struct {
 	latestVersion  int64            // Latest version of nodeDB.
 	nodeCache      cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
+	keysAccessed   set.Set[string]  // Set of keys accessed so far, used when tracing is enabled
+	tracingEnabled bool
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
@@ -102,7 +105,23 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 		fastNodeCache:  cache.New(fastNodeCacheSize),
 		versionReaders: make(map[int64]uint32, 8),
 		storageVersion: string(storeVersion),
+		keysAccessed:   make(set.Set[string]),
+		tracingEnabled: false,
 	}
+}
+
+// Adds the given into a set of keys accessed when tracing is enabled
+// Note: Used by Deep Subtrees to know which keys to add existence proofs for
+func (ndb *nodeDB) addTrace(key []byte) {
+	if ndb.tracingEnabled && ndb.keysAccessed != nil {
+		ndb.keysAccessed.Add(string(key))
+	}
+}
+
+// Sets tracingEnabled to given boolean and also resets keysAccessed
+func (ndb *nodeDB) setTracingEnabled(tracingEnabled bool) {
+	ndb.tracingEnabled = tracingEnabled
+	ndb.keysAccessed = make(set.Set[string])
 }
 
 // GetNode gets a node from memory or disk. If it is an inner node, it does not
@@ -122,6 +141,7 @@ func (ndb *nodeDB) unsafeGetNode(hash []byte) (*Node, error) {
 	// Check the cache.
 	if cachedNode := ndb.nodeCache.Get(hash); cachedNode != nil {
 		ndb.opts.Stat.IncCacheHitCnt()
+		ndb.addTrace(cachedNode.(*Node).key)
 		return cachedNode.(*Node), nil
 	}
 
@@ -144,6 +164,7 @@ func (ndb *nodeDB) unsafeGetNode(hash []byte) (*Node, error) {
 	node.hash = hash
 	node.persisted = true
 	ndb.nodeCache.Add(node)
+	ndb.addTrace(node.key)
 
 	return node, nil
 }
@@ -980,7 +1001,6 @@ func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	return leaves, nil
 }
 
-// nolint: unused
 func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
@@ -1015,6 +1035,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 // Not efficient.
 // NOTE: DB cannot implement Size() because
 // mutations are not always synchronous.
+//
 //nolint:unused
 func (ndb *nodeDB) size() int {
 	size := 0

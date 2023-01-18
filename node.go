@@ -180,6 +180,7 @@ func (node *Node) has(t *ImmutableTree, key []byte) (has bool, err error) {
 // The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
 // It's neighbor has index 1 and so on.
 func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte, err error) {
+	node.addTrace(t, node.key)
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -190,7 +191,6 @@ func (node *Node) get(t *ImmutableTree, key []byte) (index int64, value []byte, 
 			return 0, node.value, nil
 		}
 	}
-
 	if bytes.Compare(key, node.key) < 0 {
 		leftNode, err := node.getLeftNode(t)
 		if err != nil {
@@ -465,8 +465,16 @@ func (node *Node) writeBytes(w io.Writer) error {
 	return nil
 }
 
+func (node *Node) addTrace(t *ImmutableTree, key []byte) {
+	if t == nil || t.ndb == nil {
+		return
+	}
+	t.ndb.addTrace(key)
+}
+
 func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	if node.leftNode != nil {
+		node.addTrace(t, node.leftNode.key)
 		return node.leftNode, nil
 	}
 	leftNode, err := t.ndb.GetNode(node.leftHash)
@@ -479,6 +487,7 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 
 func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 	if node.rightNode != nil {
+		node.addTrace(t, node.rightNode.key)
 		return node.rightNode, nil
 	}
 	rightNode, err := t.ndb.GetNode(node.rightHash)

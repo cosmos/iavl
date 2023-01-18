@@ -513,13 +513,17 @@ func TestProof(t *testing.T) {
 
 	// Now for each item, construct a proof and verify
 	tree.Iterate(func(key []byte, value []byte) bool {
-		value2, proof, err := tree.GetWithProof(key)
+		proof, err := tree.GetMembershipProof(key)
 		assert.NoError(t, err)
-		assert.Equal(t, value, value2)
-		if assert.NotNil(t, proof) {
-			hash, err := tree.WorkingHash()
-			require.NoError(t, err)
-			verifyProof(t, proof, hash)
+		assert.Equal(t, value, proof.GetExist().Value)
+		res, err := tree.VerifyMembership(proof, key)
+		assert.NoError(t, err)
+		value2, err := tree.ImmutableTree.Get(key)
+		assert.NoError(t, err)
+		if value2 != nil {
+			assert.True(t, res)
+		} else {
+			assert.False(t, res)
 		}
 		return false
 	})
@@ -534,11 +538,8 @@ func TestTreeProof(t *testing.T) {
 	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	// should get false for proof with nil root
-	value, proof, err := tree.GetWithProof([]byte("foo"))
-	assert.Nil(t, value)
-	assert.Nil(t, proof)
-	assert.Error(t, proof.Verify([]byte(nil)))
-	assert.NoError(t, err)
+	_, err = tree.GetProof([]byte("foo"))
+	require.Error(t, err)
 
 	// insert lots of info and store the bytes
 	keys := make([][]byte, 200)
@@ -551,27 +552,18 @@ func TestTreeProof(t *testing.T) {
 	tree.SaveVersion()
 
 	// query random key fails
-	value, proof, err = tree.GetWithProof([]byte("foo"))
-	assert.Nil(t, value)
-	assert.NotNil(t, proof)
-	assert.NoError(t, err)
-	hash, err = tree.Hash()
-	assert.NoError(t, err)
-	assert.NoError(t, proof.Verify(hash))
-	assert.NoError(t, proof.VerifyAbsence([]byte("foo")))
+	_, err = tree.GetMembershipProof([]byte("foo"))
+	assert.Error(t, err)
 
 	// valid proof for real keys
-	root, err := tree.WorkingHash()
-	assert.NoError(t, err)
 	for _, key := range keys {
-		value, proof, err := tree.GetWithProof(key)
+		proof, err := tree.GetMembershipProof(key)
 		if assert.NoError(t, err) {
 			require.Nil(t, err, "Failed to read proof from bytes: %v", err)
-			assert.Equal(t, key, value)
-			err := proof.Verify(root)
-			assert.NoError(t, err, "#### %v", proof.String())
-			err = proof.VerifyItem(key, key)
-			assert.NoError(t, err, "#### %v", proof.String())
+			assert.Equal(t, key, proof.GetExist().Value)
+			res, err := tree.VerifyMembership(proof, key)
+			require.NoError(t, err)
+			require.True(t, res)
 		}
 	}
 }

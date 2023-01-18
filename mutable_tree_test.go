@@ -44,17 +44,18 @@ func TestDelete(t *testing.T) {
 
 	require.NoError(t, tree.DeleteVersion(version))
 
-	k1Value, _, _ := tree.GetVersionedWithProof([]byte("k1"), version)
-	require.Nil(t, k1Value)
+	proof, err := tree.GetVersionedProof([]byte("k1"), version)
+	require.EqualError(t, err, ErrVersionDoesNotExist.Error())
+	require.Nil(t, proof)
 
 	key := tree.ndb.rootKey(version)
 	err = tree.ndb.db.Set(key, hash)
 	require.NoError(t, err)
 	tree.versions[version] = true
 
-	k1Value, _, err = tree.GetVersionedWithProof([]byte("k1"), version)
+	proof, err = tree.GetVersionedProof([]byte("k1"), version)
 	require.Nil(t, err)
-	require.Equal(t, 0, bytes.Compare([]byte("Fred"), k1Value))
+	require.Equal(t, 0, bytes.Compare([]byte("Fred"), proof.GetExist().Value))
 }
 
 func TestGetRemove(t *testing.T) {

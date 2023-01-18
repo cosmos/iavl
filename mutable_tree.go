@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/chrispappas/golang-generics-set/set"
+	ics23 "github.com/confio/ics23/go"
 	"github.com/pkg/errors"
 	dbm "github.com/tendermint/tm-db"
 
@@ -38,7 +40,9 @@ type MutableTree struct {
 	ndb                      *nodeDB
 	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
 
-	mtx sync.Mutex
+	mtx            sync.Mutex
+	tracingEnabled bool
+	witnessData    []WitnessData
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -61,7 +65,26 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastSto
 		unsavedFastNodeRemovals:  make(map[string]interface{}),
 		ndb:                      ndb,
 		skipFastStorageUpgrade:   skipFastStorageUpgrade,
+		witnessData:              make([]WitnessData, 0),
+		tracingEnabled:           false,
 	}, nil
+}
+
+// Sets tracingEnabled to given boolean and also resets any existing witness data
+func (tree *MutableTree) SetTracingEnabled(tracingEnabled bool) {
+	tree.tracingEnabled = tracingEnabled
+	tree.ndb.setTracingEnabled(tracingEnabled)
+	tree.resetWitnessData()
+}
+
+// Resets witness data inside tree
+func (tree *MutableTree) resetWitnessData() {
+	tree.witnessData = make([]WitnessData, 0)
+}
+
+// Getter for witness data
+func (tree *MutableTree) GetWitnessData() []WitnessData {
+	return tree.witnessData
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
@@ -125,11 +148,56 @@ func (tree *MutableTree) prepareOrphansSlice() []*Node {
 	return make([]*Node, 0, tree.Height()+3)
 }
 
-// Set sets a key in the working tree. Nil values are invalid. The given
+// Return a list of existences proofs for all keys in the given set
+func (tree *MutableTree) reapExistenceProofs(keysAccessed []string) ([]*ics23.ExistenceProof, error) {
+	existenceProofs := make([]*ics23.ExistenceProof, 0, len(keysAccessed))
+	for _, key := range keysAccessed {
+		ics23proof, err := tree.GetMembershipProof([]byte(key))
+		if err != nil {
+			return nil, err
+		}
+		existenceProofs = append(existenceProofs, ics23proof.GetExist())
+	}
+	return existenceProofs, nil
+}
+
+// Wrapper around setOp to add operation related data to the tree's witness data
+// when tracing is enabled
+func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
+	if !tree.tracingEnabled {
+		return tree.setOp(key, value)
+	}
+	savedTree := tree.ImmutableTree.clone()
+	_, err = tree.setOp(key, value)
+
+	if err != nil {
+		return false, err
+	}
+
+	tree.ImmutableTree = savedTree
+	tree.orphans = map[string]int64{}
+
+	keysAccessed := tree.ndb.keysAccessed.Values()
+
+	existenceProofs, err := tree.reapExistenceProofs(keysAccessed)
+	if err != nil {
+		return false, err
+	}
+	tree.witnessData = append(tree.witnessData, WitnessData{
+		Operation: "write",
+		Key:       key,
+		Value:     value,
+		Proofs:    existenceProofs,
+	})
+	return tree.setOp(key, value)
+}
+
+// setOp sets a key in the working tree. Nil values are invalid. The given
 // key/value byte slices must not be modified after this call, since they point
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
-func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
+func (tree *MutableTree) setOp(key, value []byte) (updated bool, err error) {
+	tree.ndb.keysAccessed = make(set.Set[string])
 	var orphaned []*Node
 	orphaned, updated, err = tree.set(key, value)
 	if err != nil {
@@ -139,12 +207,42 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
 	if err != nil {
 		return updated, err
 	}
+	if !updated {
+		tree.ndb.keysAccessed.Delete(string(key))
+	}
 	return updated, nil
 }
 
-// Get returns the value of the specified key if it exists, or nil otherwise.
-// The returned value must not be modified, since it may point to data stored within IAVL.
+// Wrapper around getOp to add operation related data to the tree's witness data
+// when tracing is enabled
 func (tree *MutableTree) Get(key []byte) ([]byte, error) {
+	if !tree.tracingEnabled {
+		return tree.getOp(key)
+	}
+	value, err := tree.getOp(key)
+	if err != nil {
+		return nil, err
+	}
+
+	keysAccessed := tree.ndb.keysAccessed.Values()
+
+	existenceProofs, err := tree.reapExistenceProofs(keysAccessed)
+	if err != nil {
+		return nil, err
+	}
+	tree.witnessData = append(tree.witnessData, WitnessData{
+		Operation: "read",
+		Key:       key,
+		Proofs:    existenceProofs,
+	})
+	return value, nil
+}
+
+// getOp returns the value of the specified key if it exists, or nil otherwise.
+// The returned value must not be modified, since it may point to data stored within IAVL.
+func (tree *MutableTree) getOp(key []byte) ([]byte, error) {
+	tree.ndb.keysAccessed = make(set.Set[string])
+
 	if tree.root == nil {
 		return nil, nil
 	}
@@ -242,7 +340,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	newSelf *Node, updated bool, err error,
 ) {
 	version := tree.version + 1
-
+	node.addTrace(tree.ImmutableTree, node.key)
 	if node.isLeaf() {
 		if !tree.skipFastStorageUpgrade {
 			tree.addUnsavedAddition(key, NewFastNode(key, value, version))
@@ -316,9 +414,44 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte, orph
 	}
 }
 
-// Remove removes a key from the working tree. The given key byte slice should not be modified
-// after this call, since it may point to data stored inside IAVL.
+// Wrapper around removeOp to add operation related data to the tree's witness data
+// when tracing is enabled
 func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
+	if !tree.tracingEnabled {
+		return tree.removeOp(key)
+	}
+	ics23proof, err := tree.GetMembershipProof(key)
+	if err != nil {
+		return nil, false, err
+	}
+	savedTree := tree.ImmutableTree.clone()
+	_, _, err = tree.removeOp(key)
+	if err != nil {
+		return nil, false, err
+	}
+
+	keysAccessed := tree.ndb.keysAccessed.Values()
+
+	tree.ImmutableTree = savedTree
+	tree.orphans = map[string]int64{}
+
+	existenceProofs, err := tree.reapExistenceProofs(keysAccessed)
+	existenceProofs = append(existenceProofs, ics23proof.GetExist())
+	if err != nil {
+		return nil, false, err
+	}
+	tree.witnessData = append(tree.witnessData, WitnessData{
+		Operation: "delete",
+		Key:       key,
+		Proofs:    existenceProofs,
+	})
+	return tree.removeOp(key)
+}
+
+// removeOp removes a key from the working tree. The given key byte slice should not be modified
+// after this call, since it may point to data stored inside IAVL.
+func (tree *MutableTree) removeOp(key []byte) ([]byte, bool, error) {
+	tree.ndb.keysAccessed = make(set.Set[string])
 	val, orphaned, removed, err := tree.remove(key)
 	if err != nil {
 		return nil, false, err
@@ -370,7 +503,7 @@ func (tree *MutableTree) remove(key []byte) (value []byte, orphaned []*Node, rem
 // - the orphaned nodes.
 func (tree *MutableTree) recursiveRemove(node *Node, key []byte, orphans *[]*Node) (newHash []byte, newSelf *Node, newKey []byte, newValue []byte, err error) {
 	version := tree.version + 1
-
+	node.addTrace(tree.ImmutableTree, node.key)
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			*orphans = append(*orphans, node)
@@ -834,7 +967,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	if version == 1 && tree.ndb.opts.InitialVersion > 0 {
 		version = int64(tree.ndb.opts.InitialVersion)
 	}
-
 	if tree.VersionExists(version) {
 		// If the version already exists, return an error as we're attempting to overwrite.
 		// However, the same hash means idempotent (i.e. no-op).
