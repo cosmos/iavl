@@ -385,16 +385,28 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
+	// Check `LazyLoadVersion` behaviors the same as `LoadVersion`
+	version, err = tree.LazyLoadVersion(0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
 	// Reloading the tree with an initial version beyond the lowest should error
 	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false)
 	require.NoError(t, err)
 	_, err = tree.Load()
 	require.Error(t, err)
 
+	_, err = tree.LazyLoadVersion(0)
+	require.Error(t, err)
+
 	// Reloading the tree with a lower initial version is fine, and new versions can be produced
 	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false)
 	require.NoError(t, err)
 	version, err = tree.Load()
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
+	version, err = tree.LazyLoadVersion(0)
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
