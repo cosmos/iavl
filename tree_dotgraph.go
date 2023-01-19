@@ -116,16 +116,16 @@ func WriteDOTGraphToFile(filename string, tree *ImmutableTree) {
 	f1, _ := os.Create(filename)
 	defer f1.Close()
 	writer := bufio.NewWriter(f1)
-	WriteDotGraph_v2(writer, tree)
+	WriteDotGraphv2(writer, tree)
 	err := writer.Flush()
 	if err != nil {
 		panic(err)
 	}
 }
 
-// WriteDotGraph_v2 writes a DOT graph to the given writer. WriteDOTGraph failed to produce valid DOT
+// WriteDotGraphv2 writes a DOT graph to the given writer. WriteDOTGraph failed to produce valid DOT
 // graphs for large trees. This function is a rewrite of WriteDOTGraph that produces valid DOT graphs
-func WriteDotGraph_v2(w io.Writer, tree *ImmutableTree) {
+func WriteDotGraphv2(w io.Writer, tree *ImmutableTree) {
 	graph := dot.NewGraph(dot.Directed)
 
 	var traverse func(node *Node, parent *dot.Node, direction string)
