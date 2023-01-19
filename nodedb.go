@@ -397,7 +397,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	return nil
 }
 
-// DeleteVersionsTo deletes the oldest versions upto the given version from the disk.
+// DeleteVersionsTo deletes the oldest versions up to the given version from disk.
 func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 	first, err := ndb.getFirstVersion()
 	if err != nil {
@@ -803,6 +803,34 @@ func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
+func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	prevVersion := startVersion - 1
+	prevRoot, err := ndb.GetRoot(prevVersion)
+	if err != nil {
+		return err
+	}
+
+	for version := startVersion; version <= endVersion; version++ {
+		root, err := ndb.GetRoot(version)
+		if err != nil {
+			return err
+		}
+		changeSet, err := ndb.extractStateChanges(prevVersion, prevRoot, root)
+		if err != nil {
+			return err
+		}
+		if err := fn(version, changeSet); err != nil {
+			return err
+		}
+		prevVersion = version
+		prevRoot = root
+	}
+
 	return nil
 }
 

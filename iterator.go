@@ -261,14 +261,14 @@ func (iter *Iterator) IsFast() bool {
 	return false
 }
 
-// NodeIterator is an iterator for nodeDB to traverse a tree.
+// NodeIterator is an iterator for nodeDB to traverse a tree in depth-first, preorder manner.
 type NodeIterator struct {
 	nodesToVisit []*Node
 	ndb          *nodeDB
 	err          error
 }
 
-// NewNodeIterator returns a new NodeIterator.
+// NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
 func NewNodeIterator(rootKey *NodeKey, ndb *nodeDB) (*NodeIterator, error) {
 	if rootKey == nil {
 		return &NodeIterator{
@@ -306,44 +306,50 @@ func (iter *NodeIterator) Error() error {
 	return iter.err
 }
 
-// Next moves to the next iterator.
+// Next moves forward the traversal.
+// if isSkipped is true, the subtree under the current node is skipped.
 func (iter *NodeIterator) Next(isSkipped bool) {
 	if !iter.Valid() {
 		return
 	}
 	node := iter.GetNode()
 	iter.nodesToVisit = iter.nodesToVisit[:len(iter.nodesToVisit)-1]
-	if !isSkipped {
-		if node.isLeaf() {
-			return
-		}
-		if node.leftNodeKey == nil {
-			lftPath := big.NewInt(0)
-			lftPath.Lsh(node.nodeKey.path, 1)
-			node.leftNodeKey = &NodeKey{
-				version: node.nodeKey.version,
-				path:    lftPath,
-			}
-		}
-		leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
-		if err != nil {
-			iter.err = err
-			return
-		}
-		iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
-		if node.rightNodeKey == nil {
-			rhtPath := big.NewInt(0)
-			rhtPath.SetBit(rhtPath.Lsh(node.nodeKey.path, 1), 0, 1)
-			node.rightNodeKey = &NodeKey{
-				version: node.nodeKey.version,
-				path:    rhtPath,
-			}
-		}
-		rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
-		if err != nil {
-			iter.err = err
-			return
-		}
-		iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+
+	if isSkipped {
+		return
 	}
+
+	if node.isLeaf() {
+		return
+	}
+
+	if node.rightNodeKey == nil {
+		rhtPath := big.NewInt(0)
+		rhtPath.SetBit(rhtPath.Lsh(node.nodeKey.path, 1), 0, 1)
+		node.rightNodeKey = &NodeKey{
+			version: node.nodeKey.version,
+			path:    rhtPath,
+		}
+	}
+	rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+
+	if node.leftNodeKey == nil {
+		lftPath := big.NewInt(0)
+		lftPath.Lsh(node.nodeKey.path, 1)
+		node.leftNodeKey = &NodeKey{
+			version: node.nodeKey.version,
+			path:    lftPath,
+		}
+	}
+	leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
 }

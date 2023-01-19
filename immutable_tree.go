@@ -325,3 +325,9 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 func (t *ImmutableTree) nodeSize() int {
 	return int(t.root.size*2 - 1)
 }
+
+// TraverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive.
+func (t *ImmutableTree) TraverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	return t.ndb.traverseStateChanges(startVersion, endVersion, fn)
+}

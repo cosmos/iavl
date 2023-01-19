@@ -1340,7 +1340,7 @@ func TestLoadVersion(t *testing.T) {
 	// require the inability to load a non-valid version
 	version, err = tree.LoadVersion(int64(maxVersions + 1))
 	require.Error(t, err, "expected error when loading version")
-	require.Equal(t, version, int64(0))
+	require.Equal(t, version, int64(maxVersions))
 }
 
 func TestOverwrite(t *testing.T) {

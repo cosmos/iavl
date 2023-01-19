@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"math/big"
 	"runtime"
 	"sort"
 	"strconv"
@@ -1427,4 +1428,40 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 			return false
 		})
 	})
+}
+
+// TestMutableTree_InitialVersion_FirstVersion demonstrate the un-intuitive behavior,
+// when InitialVersion is set the nodes created in the first version are not assigned with expected version number.
+func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
+	db := db.NewMemDB()
+
+	initialVersion := int64(1000)
+	tree, err := NewMutableTreeWithOpts(db, 0, &Options{
+		InitialVersion: uint64(initialVersion),
+	}, true)
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("hello"), []byte("world"))
+	require.NoError(t, err)
+
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, initialVersion, version)
+	rootKey := &NodeKey{version: version, path: big.NewInt(1)}
+	// the nodes created at the first version are not assigned with the `InitialVersion`
+	node, err := tree.ndb.GetNode(rootKey)
+	require.NoError(t, err)
+	require.Equal(t, int64(initialVersion), node.nodeKey.version)
+
+	_, err = tree.Set([]byte("hello"), []byte("world1"))
+	require.NoError(t, err)
+
+	_, version, err = tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, version)
+	rootKey = &NodeKey{version: version, path: big.NewInt(1)}
+	// the following versions behaves normally
+	node, err = tree.ndb.GetNode(rootKey)
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, node.nodeKey.version)
 }
