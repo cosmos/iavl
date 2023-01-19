@@ -257,11 +257,9 @@ func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches
 	var branchCount, orphanIndex int
 	err := ndb.traverseOrphans(version, func(node *Node) error {
 		if node.isLeaf() {
-			//			fmt.Printf("leaf: %v:%v v%v\n", node.key, node.value, node.version)
 			require.Equal(t, orphanKeys[orphanIndex], node.key)
 			orphanIndex++
 		} else {
-			//			fmt.Printf("branch: %v:%v v%v\n", node.subtreeHeight, node.key, node.version)
 			branchCount++
 		}
 		return nil
