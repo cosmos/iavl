@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-
 	db "github.com/cosmos/cosmos-db"
+	"sync"
 )
 
-// maxBatchSize is the maximum size of the import batch before flushing it to the database
-const maxBatchSize = 10000
+// desiredBatchSize is the desired batch write size of the import batch before flushing it to the database.
+// The actual batch write size could exceed this value based on how fast the batch write goes through.
+// If there's an ongoing pending batch write, we will keep batching more until the ongoing batch write completes.
+const desiredBatchSize = 10000
 
 // ErrNoImport is returned when calling methods on a closed importer
 var ErrNoImport = errors.New("no import in progress")
@@ -22,14 +24,27 @@ var ErrNoImport = errors.New("no import in progress")
 // Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
 // modified while performing an import.
 type Importer struct {
-	tree      *MutableTree
-	version   int64
-	batch     db.Batch
-	batchSize uint32
-	stack     []*Node
+	tree         *MutableTree
+	version      int64
+	batch        db.Batch
+	batchSize    uint32
+	stack        []*Node
+	batchMtx     sync.RWMutex
+	chBatch      chan db.Batch
+	chBatchWg    sync.WaitGroup
+	chNode       chan *Node
+	chNodeWg     sync.WaitGroup
+	chNodeData   chan NodeData
+	chNodeDataWg sync.WaitGroup
+}
+
+type NodeData struct {
+	node *Node
+	data []byte
 }
 
 // newImporter creates a new Importer for an empty MutableTree.
+// Underneath it spawns three goroutines to process the data import flow.
 //
 // version should correspond to the version that was initially exported. It must be greater than
 // or equal to the highest ExportNode version number given.
@@ -44,17 +59,107 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		return nil, errors.New("tree must be empty")
 	}
 
-	return &Importer{
-		tree:    tree,
-		version: version,
-		batch:   tree.ndb.db.NewBatch(),
-		stack:   make([]*Node, 0, 8),
-	}, nil
+	importer := &Importer{
+		tree:         tree,
+		version:      version,
+		batch:        tree.ndb.db.NewBatch(),
+		stack:        make([]*Node, 0, 8),
+		batchMtx:     sync.RWMutex{},
+		chBatch:      make(chan db.Batch, 1),
+		chBatchWg:    sync.WaitGroup{},
+		chNode:       make(chan *Node, desiredBatchSize),
+		chNodeWg:     sync.WaitGroup{},
+		chNodeData:   make(chan NodeData, desiredBatchSize),
+		chNodeDataWg: sync.WaitGroup{},
+	}
+
+	importer.chNodeWg.Add(1)
+	go serializeNode(importer)
+
+	importer.chNodeDataWg.Add(1)
+	go setBatchData(importer)
+
+	importer.chBatchWg.Add(1)
+	go batchWrite(importer)
+
+	return importer, nil
+
+}
+
+// serializeNode get the next validated and hashed node from the channel
+// and dump the node to byte buf, push the serialized node data to another channel
+func serializeNode(i *Importer) {
+	for i.batch != nil {
+		if currNode, open := <-i.chNode; open {
+			buf := bufPool.Get().(*bytes.Buffer)
+			buf.Reset()
+			if err := currNode.writeBytes(buf); err != nil {
+				panic(err)
+			}
+			bytesCopy := make([]byte, buf.Len())
+			copy(bytesCopy, buf.Bytes())
+			bufPool.Put(buf)
+
+			i.chNodeData <- NodeData{
+				node: currNode,
+				data: bytesCopy,
+			}
+		} else {
+			break
+		}
+	}
+	i.chNodeWg.Done()
+}
+
+// setBatchData get the next serialized node data from channel, and write the data to the current batch
+func setBatchData(i *Importer) {
+	for i.batch != nil {
+		if nodeData, open := <-i.chNodeData; open {
+			i.batchMtx.RLock()
+			if i.batch != nil {
+				err := i.batch.Set(i.tree.ndb.nodeKey(nodeData.node.hash), nodeData.data)
+				if err != nil {
+					panic(err)
+				}
+			}
+			i.batchMtx.RUnlock()
+			i.batchSize++
+			// Only commit a new batch if size meet desiredBatchSize and there's no pending batch write
+			if i.batchSize >= desiredBatchSize && len(i.chBatch) < 1 {
+				i.chBatch <- i.batch
+				i.batch = i.tree.ndb.db.NewBatch()
+				i.batchSize = 0
+			}
+		} else {
+			break
+		}
+	}
+	i.chNodeDataWg.Done()
+}
+
+// batchWrite get a new batch from the channel and execute the batch write to the underline DB.
+func batchWrite(i *Importer) {
+	for i.batch != nil {
+		if nextBatch, open := <-i.chBatch; open {
+			err := nextBatch.Write()
+			if err != nil {
+				panic(err)
+			}
+			i.batchMtx.Lock()
+			nextBatch.Close()
+			i.batchMtx.Unlock()
+		} else {
+			break
+		}
+	}
+	i.chBatchWg.Done()
 }
 
 // Close frees all resources. It is safe to call multiple times. Uncommitted nodes may already have
 // been flushed to the database, but will not be visible.
 func (i *Importer) Close() {
+	i.batchMtx.Lock()
+	defer i.batchMtx.Unlock()
 	if i.batch != nil {
 		i.batch.Close()
 	}
@@ -123,32 +228,6 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return err
 	}
 
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf)
-
-	if err = node.writeBytes(buf); err != nil {
-		return err
-	}
-
-	bytesCopy := make([]byte, buf.Len())
-	copy(bytesCopy, buf.Bytes())
-
-	if err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy); err != nil {
-		return err
-	}
-
-	i.batchSize++
-	if i.batchSize >= maxBatchSize {
-		err = i.batch.Write()
-		if err != nil {
-			return err
-		}
-		i.batch.Close()
-		i.batch = i.tree.ndb.db.NewBatch()
-		i.batchSize = 0
-	}
-
 	// Update the stack now that we know there were no errors
 	switch {
 	case node.leftHash != nil && node.rightHash != nil:
@@ -159,6 +238,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// Only hash\height\size of the node will be used after it be pushed into the stack.
 	i.stack = append(i.stack, &Node{hash: node.hash, subtreeHeight: node.subtreeHeight, size: node.size})
 
+	// Send node to the channel
+	i.chNode <- node
+
 	return nil
 }
 
@@ -166,6 +248,15 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 // version visible, and updating the tree metadata. It can only be called once, and calls Close()
 // internally.
 func (i *Importer) Commit() error {
+
+	// Make sure all pending works are drained and close the channels in order
+	close(i.chNode)
+	i.chNodeWg.Wait()
+	close(i.chNodeData)
+	i.chNodeDataWg.Wait()
+	close(i.chBatch)
+	i.chBatchWg.Wait()
+
 	if i.tree == nil {
 		return ErrNoImport
 	}
