@@ -385,16 +385,28 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
+	// Check `LazyLoadVersion` behaviors the same as `LoadVersion`
+	version, err = tree.LazyLoadVersion(0)
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
 	// Reloading the tree with an initial version beyond the lowest should error
 	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false)
 	require.NoError(t, err)
 	_, err = tree.Load()
 	require.Error(t, err)
 
+	_, err = tree.LazyLoadVersion(0)
+	require.Error(t, err)
+
 	// Reloading the tree with a lower initial version is fine, and new versions can be produced
 	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false)
 	require.NoError(t, err)
 	version, err = tree.Load()
+	require.NoError(t, err)
+	assert.EqualValues(t, 10, version)
+
+	version, err = tree.LazyLoadVersion(0)
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
@@ -1532,4 +1544,40 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 			return false
 		})
 	})
+}
+
+// TestMutableTree_InitialVersion_FirstVersion demonstrate the un-intuitive behavior,
+// when InitialVersion is set the nodes created in the first version are not assigned with expected version number.
+func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
+	db := db.NewMemDB()
+
+	initialVersion := int64(1000)
+	tree, err := NewMutableTreeWithOpts(db, 0, &Options{
+		InitialVersion: uint64(initialVersion),
+	}, true)
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("hello"), []byte("world"))
+	require.NoError(t, err)
+
+	rootHash, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, initialVersion, version)
+
+	// the nodes created at the first version are not assigned with the `InitialVersion`
+	node, err := tree.ndb.GetNode(rootHash)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), node.version)
+
+	_, err = tree.Set([]byte("hello"), []byte("world1"))
+	require.NoError(t, err)
+
+	rootHash, version, err = tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, version)
+
+	// the following versions behaves normally
+	node, err = tree.ndb.GetNode(rootHash)
+	require.NoError(t, err)
+	require.Equal(t, initialVersion+1, node.version)
 }
