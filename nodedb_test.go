@@ -253,6 +253,96 @@ func TestIsFastStorageEnabled_False(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches int, orphanKeys [][]byte) {
+	var branchCount, orphanIndex int
+	err := ndb.traverseOrphans(version, func(node *Node) error {
+		if node.isLeaf() {
+			require.Equal(t, orphanKeys[orphanIndex], node.key)
+			orphanIndex++
+		} else {
+			branchCount++
+		}
+		return nil
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, branches, branchCount)
+}
+
+func TestNodeDB_traverseOrphans(t *testing.T) {
+	tree, _ := getTestTree(0)
+	var up bool
+	var err error
+
+	// version 1
+	for i := 0; i < 20; i++ {
+		up, err = tree.Set([]byte{byte(i)}, []byte{byte(i)})
+		require.False(t, up)
+		require.NoError(t, err)
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	// note: assertions were constructed by hand after inspecting the output of the graphviz below.
+	// WriteDOTGraphToFile("/tmp/tree_one.dot", tree.ImmutableTree)
+
+	// version 2
+	up, err = tree.Set([]byte{byte(19)}, []byte{byte(0)})
+	require.True(t, up)
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	// WriteDOTGraphToFile("/tmp/tree_two.dot", tree.ImmutableTree)
+
+	assertOrphansAndBranches(t, tree.ndb, 1, 5, [][]byte{{byte(19)}})
+
+	// version 3
+	k, up, err := tree.Remove([]byte{byte(0)})
+	require.Equal(t, []byte{byte(0)}, k)
+	require.True(t, up)
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	// WriteDOTGraphToFile("/tmp/tree_three.dot", tree.ImmutableTree)
+
+	assertOrphansAndBranches(t, tree.ndb, 2, 4, [][]byte{{byte(0)}})
+
+	// version 4
+	k, up, err = tree.Remove([]byte{byte(1)})
+	require.Equal(t, []byte{byte(1)}, k)
+	require.True(t, up)
+	require.NoError(t, err)
+	k, up, err = tree.Remove([]byte{byte(19)})
+	require.Equal(t, []byte{byte(0)}, k)
+	require.True(t, up)
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	// WriteDOTGraphToFile("/tmp/tree_four.dot", tree.ImmutableTree)
+
+	assertOrphansAndBranches(t, tree.ndb, 3, 7, [][]byte{{byte(1)}, {byte(19)}})
+
+	// version 5
+	k, up, err = tree.Remove([]byte{byte(10)})
+	require.Equal(t, []byte{byte(10)}, k)
+	require.True(t, up)
+	require.NoError(t, err)
+	k, up, err = tree.Remove([]byte{byte(9)})
+	require.Equal(t, []byte{byte(9)}, k)
+	require.True(t, up)
+	require.NoError(t, err)
+	up, err = tree.Set([]byte{byte(12)}, []byte{byte(0)})
+	require.True(t, up)
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	// WriteDOTGraphToFile("/tmp/tree_five.dot", tree.ImmutableTree)
+
+	assertOrphansAndBranches(t, tree.ndb, 4, 8, [][]byte{{byte(9)}, {byte(10)}, {byte(12)}})
+}
+
 func makeHashes(b *testing.B, seed int64) [][]byte {
 	b.StopTimer()
 	rnd := rand.NewSource(seed)
