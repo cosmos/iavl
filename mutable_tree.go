@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
 	"sort"
 	"sync"
 
@@ -971,8 +970,8 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 func (tree *MutableTree) saveNewNodes(version int64) error {
-	var recursiveAssignKey func(*Node, *big.Int) (*NodeKey, error)
-	recursiveAssignKey = func(node *Node, path *big.Int) (*NodeKey, error) {
+	var recursiveAssignKey func(*Node, Path) (*NodeKey, error)
+	recursiveAssignKey = func(node *Node, path Path) (*NodeKey, error) {
 		if node.nodeKey != nil {
 			return node.nodeKey, nil
 		}
@@ -984,8 +983,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 
 		var err error
 		if node.leftNode != nil {
-			lftPath := big.NewInt(0)
-			lftPath.Lsh(path, 1)
+			lftPath := path.shift(0)
 			leftNodeKey, err := recursiveAssignKey(node.leftNode, lftPath)
 			if err != nil {
 				return nil, err
@@ -998,8 +996,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		}
 
 		if node.rightNode != nil {
-			rhtPath := big.NewInt(0)
-			rhtPath.SetBit(rhtPath.Lsh(path, 1), 0, 1)
+			rhtPath := path.shift(1)
 			rightNodeKey, err := recursiveAssignKey(node.rightNode, rhtPath)
 			if err != nil {
 				return nil, err
@@ -1018,7 +1015,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		return node.nodeKey, nil
 	}
 
-	if _, err := recursiveAssignKey(tree.root, big.NewInt(1)); err != nil {
+	if _, err := recursiveAssignKey(tree.root, []byte{1}); err != nil {
 		return err
 	}
 

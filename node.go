@@ -11,23 +11,36 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"math/big"
 
 	"github.com/cosmos/iavl/cache"
 
 	"github.com/cosmos/iavl/internal/encoding"
 )
 
+type Path []byte
+
 // NodeKey represents a key of node in the DB.
 type NodeKey struct {
 	version int64
-	path    *big.Int
+	path    Path
+}
+
+func (p Path) shift(bit byte) Path {
+	res := make([]byte, len(p))
+	for i := 0; i < len(p); i++ {
+		res[i] = (p[i] << 1) | bit
+		bit = p[i] >> 7
+	}
+	if bit > 0 {
+		res = append(res, bit)
+	}
+	return res
 }
 
 func (nk *NodeKey) GetKey() []byte {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, uint64(nk.version))
-	return append(b, nk.path.Bytes()...)
+	return append(b, nk.path...)
 }
 
 // Node represents a node in a Tree.
@@ -133,7 +146,7 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 
 			node.leftNodeKey = &NodeKey{
 				version: childVersion,
-				path:    big.NewInt(0).SetBytes(childPath),
+				path:    childPath,
 			}
 		}
 		if childType&2 > 0 {
@@ -150,7 +163,7 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 
 			node.rightNodeKey = &NodeKey{
 				version: childVersion,
-				path:    big.NewInt(0).SetBytes(childPath),
+				path:    childPath,
 			}
 		}
 	}
@@ -163,7 +176,7 @@ func (node *Node) GetKey() []byte {
 
 // String returns a string representation of the node key.
 func (nk *NodeKey) String() string {
-	return fmt.Sprintf("(%d, %v)", nk.version, *nk.path)
+	return fmt.Sprintf("(%d, %v)", nk.version, nk.path)
 }
 
 // String returns a string representation of the node.
@@ -470,11 +483,11 @@ func (node *Node) encodedSize() int {
 		n += encoding.EncodeBytesSize(node.hash)
 		if node.leftNodeKey != nil {
 			n += encoding.EncodeVarintSize(node.leftNodeKey.version) +
-				encoding.EncodeBytesSize(node.leftNodeKey.path.Bytes())
+				encoding.EncodeBytesSize(node.leftNodeKey.path)
 		}
 		if node.rightNodeKey != nil {
 			n += encoding.EncodeVarintSize(node.rightNodeKey.version) +
-				encoding.EncodeBytesSize(node.rightNodeKey.path.Bytes())
+				encoding.EncodeBytesSize(node.rightNodeKey.path)
 		}
 	}
 	return n
@@ -526,7 +539,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 			if cause := encoding.EncodeVarint(w, node.leftNodeKey.version); cause != nil {
 				return fmt.Errorf("writing the version of the left node key, %w", cause)
 			}
-			if cause := encoding.EncodeBytes(w, node.leftNodeKey.path.Bytes()); cause != nil {
+			if cause := encoding.EncodeBytes(w, node.leftNodeKey.path); cause != nil {
 				return fmt.Errorf("writing the path of the left node key, %w", cause)
 			}
 		}
@@ -534,7 +547,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 			if cause := encoding.EncodeVarint(w, node.rightNodeKey.version); cause != nil {
 				return fmt.Errorf("writing the version of the right node key, %w", cause)
 			}
-			if cause := encoding.EncodeBytes(w, node.rightNodeKey.path.Bytes()); cause != nil {
+			if cause := encoding.EncodeBytes(w, node.rightNodeKey.path); cause != nil {
 				return fmt.Errorf("writing the path of the right node key, %w", cause)
 			}
 		}
@@ -547,8 +560,7 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 		return node.leftNode, nil
 	}
 	if node.leftNodeKey == nil {
-		lftPath := big.NewInt(0)
-		lftPath.Lsh(node.nodeKey.path, 1)
+		lftPath := node.nodeKey.path.shift(0)
 		node.leftNodeKey = &NodeKey{
 			version: node.nodeKey.version,
 			path:    lftPath,
@@ -566,8 +578,7 @@ func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 		return node.rightNode, nil
 	}
 	if node.rightNodeKey == nil {
-		rhtPath := big.NewInt(0)
-		rhtPath.SetBit(rhtPath.Lsh(node.nodeKey.path, 1), 0, 1)
+		rhtPath := node.nodeKey.path.shift(1)
 		node.rightNodeKey = &NodeKey{
 			version: node.nodeKey.version,
 			path:    rhtPath,

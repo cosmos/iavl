@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 	"sort"
 	"strconv"
 	"strings"
@@ -350,7 +349,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 		return err
 	}
 	if rootKey == nil || rootKey.version < version {
-		if err := ndb.batch.Delete(ndb.nodeKey(&NodeKey{version: version, path: big.NewInt(1)})); err != nil {
+		if err := ndb.batch.Delete(ndb.nodeKey(&NodeKey{version: version, path: []byte{1}})); err != nil {
 			return err
 		}
 	}
@@ -440,7 +439,7 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 }
 
 func (ndb *nodeDB) nodeKey(nk *NodeKey) []byte {
-	return nodeKeyFormat.Key(nk.version, nk.path.Bytes())
+	return nodeKeyFormat.Key(nk.version, []byte(nk.path))
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
@@ -527,10 +526,10 @@ func (ndb *nodeDB) GetRoot(version int64) (*NodeKey, error) {
 			path    []byte
 		)
 		nodeKeyFormat.Scan(val, &version, &path)
-		return &NodeKey{version: version, path: big.NewInt(0).SetBytes(path)}, nil
+		return &NodeKey{version: version, path: path}, nil
 	}
 
-	return &NodeKey{version: version, path: big.NewInt(1)}, nil
+	return &NodeKey{version: version, path: []byte{1}}, nil
 }
 
 // SaveEmptyRoot saves the empty root.
@@ -782,7 +781,7 @@ func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 			nodeKeyFormat.Scan(key, &version, &path)
 			node, err := MakeNode(&NodeKey{
 				version: version,
-				path:    big.NewInt(0).SetBytes(path),
+				path:    path,
 			}, value)
 			if err != nil {
 				return err

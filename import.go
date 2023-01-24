@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
 
 	db "github.com/cosmos/cosmos-db"
 )
@@ -172,7 +171,7 @@ func (i *Importer) Commit() error {
 
 	rootKey := &NodeKey{
 		version: i.version,
-		path:    big.NewInt(1),
+		path:    []byte{1},
 	}
 	switch len(i.stack) {
 	case 0:

@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -133,11 +132,11 @@ func TestImporter_Add(t *testing.T) {
 		valid bool
 	}{
 		"nil node":          {nil, false},
-		"valid":             {&ExportNode{Key: k, Value: v, NodeKey: &NodeKey{version: 1, path: big.NewInt(1)}, Height: 0}, true},
-		"no key":            {&ExportNode{Key: nil, Value: v, NodeKey: &NodeKey{version: 1, path: big.NewInt(2)}, Height: 0}, false},
-		"no value":          {&ExportNode{Key: k, Value: nil, NodeKey: &NodeKey{version: 1, path: big.NewInt(3)}, Height: 0}, false},
-		"version too large": {&ExportNode{Key: k, Value: v, NodeKey: &NodeKey{version: 2, path: big.NewInt(1)}, Height: 0}, false},
-		"no version":        {&ExportNode{Key: k, Value: v, NodeKey: &NodeKey{version: 0, path: big.NewInt(1)}, Height: 0}, false},
+		"valid":             {&ExportNode{Key: k, Value: v, NodeKey: &NodeKey{version: 1, path: []byte{1}}, Height: 0}, true},
+		"no key":            {&ExportNode{Key: nil, Value: v, NodeKey: &NodeKey{version: 1, path: []byte{2}}, Height: 0}, false},
+		"no value":          {&ExportNode{Key: k, Value: nil, NodeKey: &NodeKey{version: 1, path: []byte{3}}, Height: 0}, false},
+		"version too large": {&ExportNode{Key: k, Value: v, NodeKey: &NodeKey{version: 2, path: []byte{1}}, Height: 0}, false},
+		"no version":        {&ExportNode{Key: k, Value: v, NodeKey: &NodeKey{version: 0, path: []byte{1}}, Height: 0}, false},
 		// further cases will be handled by Node.validate()
 	}
 	for desc, tc := range testcases {
@@ -166,7 +165,7 @@ func TestImporter_Add_Closed(t *testing.T) {
 	require.NoError(t, err)
 
 	importer.Close()
-	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: big.NewInt(1)}, Height: 0})
+	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: []byte{1}}, Height: 0})
 	require.Error(t, err)
 	require.Equal(t, ErrNoImport, err)
 }
@@ -177,7 +176,7 @@ func TestImporter_Close(t *testing.T) {
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
 
-	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: big.NewInt(1)}, Height: 0})
+	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: []byte{1}}, Height: 0})
 	require.NoError(t, err)
 
 	importer.Close()
@@ -194,7 +193,7 @@ func TestImporter_Commit(t *testing.T) {
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
 
-	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: big.NewInt(1)}, Height: 0})
+	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: []byte{1}}, Height: 0})
 	require.NoError(t, err)
 
 	err = importer.Commit()
@@ -210,7 +209,7 @@ func TestImporter_Commit_Closed(t *testing.T) {
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
 
-	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: big.NewInt(1)}, Height: 0})
+	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), NodeKey: &NodeKey{version: 1, path: []byte{1}}, Height: 0})
 	require.NoError(t, err)
 
 	importer.Close()

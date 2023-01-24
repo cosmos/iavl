@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"math/big"
 	"runtime"
 	"sort"
 	"strconv"
@@ -1447,7 +1446,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, initialVersion, version)
-	rootKey := &NodeKey{version: version, path: big.NewInt(1)}
+	rootKey := &NodeKey{version: version, path: []byte{1}}
 	// the nodes created at the first version are not assigned with the `InitialVersion`
 	node, err := tree.ndb.GetNode(rootKey)
 	require.NoError(t, err)
@@ -1459,7 +1458,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, initialVersion+1, version)
-	rootKey = &NodeKey{version: version, path: big.NewInt(1)}
+	rootKey = &NodeKey{version: version, path: []byte{1}}
 	// the following versions behaves normally
 	node, err = tree.ndb.GetNode(rootKey)
 	require.NoError(t, err)
