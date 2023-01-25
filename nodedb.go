@@ -808,6 +808,21 @@ func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 // traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
 // endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
 func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	firstVersion, err := ndb.getFirstVersion()
+	if err != nil {
+		return err
+	}
+	if startVersion < firstVersion {
+		startVersion = firstVersion
+	}
+	latestVersion, err := ndb.getLatestVersion()
+	if err != nil {
+		return err
+	}
+	if endVersion > latestVersion {
+		endVersion = latestVersion
+	}
+
 	prevVersion := startVersion - 1
 	prevRoot, err := ndb.GetRoot(prevVersion)
 	if err != nil {

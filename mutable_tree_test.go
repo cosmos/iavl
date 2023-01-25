@@ -1450,7 +1450,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	// the nodes created at the first version are not assigned with the `InitialVersion`
 	node, err := tree.ndb.GetNode(rootKey)
 	require.NoError(t, err)
-	require.Equal(t, int64(initialVersion), node.nodeKey.version)
+	require.Equal(t, initialVersion, node.nodeKey.version)
 
 	_, err = tree.Set([]byte("hello"), []byte("world1"))
 	require.NoError(t, err)
