@@ -55,7 +55,7 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 			}
 		}
 
-		newLeaves = nil
+		newLeaves = newLeaves[:0]
 		return nil
 	}
 
