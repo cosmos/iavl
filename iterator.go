@@ -319,16 +319,17 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		return
 	}
 
-	leftNode, err := iter.ndb.GetNode(node.leftHash)
-	if err != nil {
-		iter.err = err
-		return
-	}
 	rightNode, err := iter.ndb.GetNode(node.rightHash)
 	if err != nil {
 		iter.err = err
 		return
 	}
-	// `leftNode` should be visited before `rightNode`, so the visit on leaf nodes is ordered by `node.key`
-	iter.nodesToVisit = append(iter.nodesToVisit, rightNode, leftNode)
+	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+
+	leftNode, err := iter.ndb.GetNode(node.leftHash)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
 }
