@@ -38,10 +38,10 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 		// current shared node between two versions
 		sharedNode *Node
 		// record all newly added leaf nodes in newer version, it represents all updates and insertions.
-		newLeafNodes []*Node
+		newLeaves []*Node
 		// orphaned leaf nodes in previous version, which represents all deletions and updates.
-		// both `newLeafNodes` and `orphanedLeafNodes` are ordered by key.
-		orphanedLeafNodes []*Node
+		// both `newLeaves` and `orphanedLeaves` are ordered by key.
+		orphanedLeaves []*Node
 	)
 
 	advanceSharedNode := func() {
@@ -56,7 +56,7 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 				sharedNode = node
 				break
 			} else if node.isLeaf() {
-				newLeafNodes = append(newLeafNodes, node)
+				newLeaves = append(newLeaves, node)
 			}
 		}
 	}
@@ -71,7 +71,7 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 		if shared {
 			advanceSharedNode()
 		} else if node.isLeaf() {
-			orphanedLeafNodes = append(orphanedLeafNodes, node)
+			orphanedLeaves = append(orphanedLeaves, node)
 		}
 	}
 
@@ -82,7 +82,7 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 		return nil, err
 	}
 
-	findDeletedNodes(orphanedLeafNodes, newLeafNodes, func(node *Node, deleted bool) {
+	findDeletedNodes(orphanedLeaves, newLeaves, func(node *Node, deleted bool) {
 		pair := KVPair{Key: node.key, Delete: deleted}
 		if !deleted {
 			pair.Value = node.value
