@@ -160,32 +160,46 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree { //n
 func TestExporter(t *testing.T) {
 	tree := setupExportTreeBasic(t)
 
-	expect := []*ExportNode{
-		{Key: []byte("d"), Value: nil, Version: 3, Height: 3},
-		{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
-		{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
-		{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
-		{Key: []byte("b"), Value: []byte{2}, Version: 3, Height: 0},
-		{Key: []byte("c"), Value: []byte{3}, Version: 3, Height: 0},
-		{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
-		{Key: []byte("d"), Value: []byte{4}, Version: 2, Height: 0},
-		{Key: []byte("e"), Value: []byte{5}, Version: 3, Height: 0},
+	expects := map[OrderType][]*ExportNode{
+		PreOrderTraverse: {
+			{Key: []byte("d"), Value: nil, Version: 3, Height: 3},
+			{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
+			{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
+			{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
+			{Key: []byte("b"), Value: []byte{2}, Version: 3, Height: 0},
+			{Key: []byte("c"), Value: []byte{3}, Version: 3, Height: 0},
+			{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
+			{Key: []byte("d"), Value: []byte{4}, Version: 2, Height: 0},
+			{Key: []byte("e"), Value: []byte{5}, Version: 3, Height: 0},
+		},
+		PostOrderTraverse: {
+			{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
+			{Key: []byte("b"), Value: []byte{2}, Version: 3, Height: 0},
+			{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
+			{Key: []byte("c"), Value: []byte{3}, Version: 3, Height: 0},
+			{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
+			{Key: []byte("d"), Value: []byte{4}, Version: 2, Height: 0},
+			{Key: []byte("e"), Value: []byte{5}, Version: 3, Height: 0},
+			{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
+			{Key: []byte("d"), Value: nil, Version: 3, Height: 3},
+		},
 	}
-
-	actual := make([]*ExportNode, 0, len(expect))
-	exporter, err := tree.Export()
-	require.NoError(t, err)
-	defer exporter.Close()
-	for {
-		node, err := exporter.Next()
-		if err == ErrorExportDone {
-			break
-		}
+	for orderType, expect := range expects {
+		actual := make([]*ExportNode, 0, len(expect))
+		exporter, err := tree.Export(orderType)
 		require.NoError(t, err)
-		actual = append(actual, node)
-	}
+		defer exporter.Close()
+		for {
+			node, err := exporter.Next()
+			if err == ErrorExportDone {
+				break
+			}
+			require.NoError(t, err)
+			actual = append(actual, node)
+		}
 
-	assert.Equal(t, expect, actual)
+		assert.Equal(t, expect, actual)
+	}
 }
 
 func TestExporter_Import(t *testing.T) {
@@ -197,59 +211,60 @@ func TestExporter_Import(t *testing.T) {
 		testcases["sized tree"] = setupExportTreeSized(t, 4096)
 		testcases["random tree"] = setupExportTreeRandom(t)
 	}
+	for _, orderType := range []OrderType{PostOrderTraverse, PreOrderTraverse} {
+		for desc, tree := range testcases {
+			tree := tree
+			t.Run(desc, func(t *testing.T) {
+				// t.Parallel()
 
-	for desc, tree := range testcases {
-		tree := tree
-		t.Run(desc, func(t *testing.T) {
-			t.Parallel()
+				exporter, err := tree.Export(orderType)
+				require.NoError(t, err)
+				defer exporter.Close()
 
-			exporter, err := tree.Export()
-			require.NoError(t, err)
-			defer exporter.Close()
+				newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
+				require.NoError(t, err)
+				importer, err := newTree.Import(tree.Version(), orderType)
+				require.NoError(t, err)
+				defer importer.Close()
 
-			newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
-			require.NoError(t, err)
-			importer, err := newTree.Import(tree.Version())
-			require.NoError(t, err)
-			defer importer.Close()
-
-			for {
-				item, err := exporter.Next()
-				if err == ErrorExportDone {
-					err = importer.Commit()
+				for {
+					item, err := exporter.Next()
+					if err == ErrorExportDone {
+						err = importer.Commit()
+						require.NoError(t, err)
+						break
+					}
 					require.NoError(t, err)
-					break
+					err = importer.Add(item)
+					require.NoError(t, err)
 				}
-				require.NoError(t, err)
-				err = importer.Add(item)
-				require.NoError(t, err)
-			}
 
-			treeHash, err := tree.Hash()
-			require.NoError(t, err)
-			newTreeHash, err := newTree.Hash()
-			require.NoError(t, err)
-
-			require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
-			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
-			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
-
-			tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
-				index, _, err := tree.GetWithIndex(key)
+				treeHash, err := tree.Hash()
 				require.NoError(t, err)
-				newIndex, newValue, err := newTree.GetWithIndex(key)
+				newTreeHash, err := newTree.Hash()
 				require.NoError(t, err)
-				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
-				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
-				return false
+
+				require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
+				require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
+				require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
+
+				tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
+					index, _, err := tree.GetWithIndex(key)
+					require.NoError(t, err)
+					newIndex, newValue, err := newTree.GetWithIndex(key)
+					require.NoError(t, err)
+					require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
+					require.Equal(t, value, newValue, "Value mismatch for key %v", key)
+					return false
+				})
 			})
-		})
+		}
 	}
 }
 
 func TestExporter_Close(t *testing.T) {
 	tree := setupExportTreeSized(t, 4096)
-	exporter, err := tree.Export()
+	exporter, err := tree.Export(PreOrderTraverse)
 	require.NoError(t, err)
 
 	node, err := exporter.Next()
@@ -292,7 +307,7 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 
 	itree, err := tree.GetImmutable(2)
 	require.NoError(t, err)
-	exporter, err := itree.Export()
+	exporter, err := itree.Export(PostOrderTraverse)
 	require.NoError(t, err)
 	defer exporter.Close()
 
@@ -310,17 +325,34 @@ func BenchmarkExport(b *testing.B) {
 	b.StopTimer()
 	tree := setupExportTreeSized(b, 4096)
 	b.StartTimer()
-	for n := 0; n < b.N; n++ {
-		exporter, err := tree.Export()
-		require.NoError(b, err)
-		for {
-			_, err := exporter.Next()
-			if err == ErrorExportDone {
-				break
-			} else if err != nil {
-				b.Error(err)
+	b.Run("post order export", func(sub *testing.B) {
+		for n := 0; n < sub.N; n++ {
+			exporter, err := tree.Export(PostOrderTraverse)
+			require.NoError(sub, err)
+			for {
+				_, err := exporter.Next()
+				if err == ErrorExportDone {
+					break
+				} else if err != nil {
+					sub.Error(err)
+				}
 			}
+			exporter.Close()
 		}
-		exporter.Close()
-	}
+	})
+	b.Run("pre order export", func(sub *testing.B) {
+		for n := 0; n < sub.N; n++ {
+			exporter, err := tree.Export(PreOrderTraverse)
+			require.NoError(sub, err)
+			for {
+				_, err := exporter.Next()
+				if err == ErrorExportDone {
+					break
+				} else if err != nil {
+					sub.Error(err)
+				}
+			}
+			exporter.Close()
+		}
+	})
 }

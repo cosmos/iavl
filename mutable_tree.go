@@ -172,8 +172,8 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 //
 // Import can only be called on an empty tree. It is the callers responsibility that no other
 // modifications are made to the tree while importing.
-func (tree *MutableTree) Import(version int64) (*Importer, error) {
-	return newImporter(tree, version)
+func (tree *MutableTree) Import(version int64, traverseOrder OrderType) (*Importer, error) {
+	return newImporter(tree, version, traverseOrder)
 }
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,

@@ -127,7 +127,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 			return 0, nil, err
 		}
 		start := time.Now().UTC()
-		exporter, err := itree.Export()
+		exporter, err := itree.Export(iavl.PreOrderTraverse)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -177,7 +177,7 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		if err != nil {
 			return err
 		}
-		importer, err := newTree.Import(version)
+		importer, err := newTree.Import(version, iavl.PreOrderTraverse)
 		if err != nil {
 			return err
 		}

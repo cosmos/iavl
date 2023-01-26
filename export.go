@@ -6,6 +6,14 @@ import (
 	"fmt"
 )
 
+type OrderType int
+
+// OrderTraverse is the type of traversal order to use when exporting and importing.
+const (
+	PreOrderTraverse OrderType = iota
+	PostOrderTraverse
+)
+
 // exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by
 // processing multiple nodes per context switch, but take care to avoid excessive memory usage,
 // especially since callers may export several IAVL stores in parallel (e.g. the Cosmos SDK).
@@ -27,17 +35,17 @@ type ExportNode struct {
 
 // Exporter exports nodes from an ImmutableTree. It is created by ImmutableTree.Export().
 //
-// Exported nodes can be imported into an empty tree with MutableTree.Import(). Nodes are exported
-// depth-first pre-order (NLR), this order must be preserved when importing in order to recreate
-// the same tree structure.
+// Exported nodes can be imported into an empty tree with MutableTree.Import(). Nodes are exported in traverseOrder,
+// this order must be preserved when importing in order to recreate the same tree structure.
 type Exporter struct {
-	tree   *ImmutableTree
-	ch     chan *ExportNode
-	cancel context.CancelFunc
+	tree          *ImmutableTree
+	traverseOrder OrderType
+	ch            chan *ExportNode
+	cancel        context.CancelFunc
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func newExporter(tree *ImmutableTree) (*Exporter, error) {
+func newExporter(tree *ImmutableTree, traverseOrder OrderType) (*Exporter, error) {
 	if tree == nil {
 		return nil, fmt.Errorf("tree is nil: %w", ErrNotInitalizedTree)
 	}
@@ -48,9 +56,10 @@ func newExporter(tree *ImmutableTree) (*Exporter, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	exporter := &Exporter{
-		tree:   tree,
-		ch:     make(chan *ExportNode, exportBufferSize),
-		cancel: cancel,
+		tree:          tree,
+		traverseOrder: traverseOrder,
+		ch:            make(chan *ExportNode, exportBufferSize),
+		cancel:        cancel,
 	}
 
 	tree.ndb.incrVersionReaders(tree.version)
@@ -61,22 +70,41 @@ func newExporter(tree *ImmutableTree) (*Exporter, error) {
 
 // export exports nodes
 func (e *Exporter) export(ctx context.Context) {
-	e.tree.root.traverse(e.tree, true, func(node *Node) bool {
-		exportNode := &ExportNode{
-			Key:     node.key,
-			Value:   node.value,
-			Version: node.version,
-			Height:  node.subtreeHeight,
-		}
+	defer close(e.ch)
+	switch e.traverseOrder {
+	case PreOrderTraverse:
+		e.tree.root.traverse(e.tree, true, func(node *Node) bool {
+			exportNode := &ExportNode{
+				Key:     node.key,
+				Value:   node.value,
+				Version: node.version,
+				Height:  node.subtreeHeight,
+			}
 
-		select {
-		case e.ch <- exportNode:
-			return false
-		case <-ctx.Done():
-			return true
-		}
-	})
-	close(e.ch)
+			select {
+			case e.ch <- exportNode:
+				return false
+			case <-ctx.Done():
+				return true
+			}
+		})
+	case PostOrderTraverse:
+		e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
+			exportNode := &ExportNode{
+				Key:     node.key,
+				Value:   node.value,
+				Version: node.version,
+				Height:  node.subtreeHeight,
+			}
+
+			select {
+			case e.ch <- exportNode:
+				return false
+			case <-ctx.Done():
+				return true
+			}
+		})
+	}
 }
 
 // Next fetches the next exported node, or returns ExportDone when done.
