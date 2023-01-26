@@ -24,7 +24,7 @@ type KVPairReceiver func(pair *KVPair) error
 // compare orphaned leave nodes and new leave nodes to produce stream of `KVPair`s and passed to callback.
 //
 // The algorithm don't run in constant memory strictly, but it tried the best the only
-// keep minimal intermidiate states in memory.
+// keep minimal intermediate states in memory.
 func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root []byte, receiver KVPairReceiver) error {
 	curIter, err := NewNodeIterator(root, ndb)
 	if err != nil {
@@ -157,47 +157,4 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 	}
 
 	return nil
-}
-
-// findDeletedNodes find out the deleted keys in `nodes1`.
-// Invariant: both `nodes1` and `nodes2` are ordered by key.
-func findDeletedNodes(nodes1 []*Node, nodes2 []*Node, cb func(node *Node, deleted bool)) {
-	// find out the deletions by diff two list of ordered nodes
-	var i1, i2 int
-	for {
-		if i1 >= len(nodes1) {
-			// insertions
-			for ; i2 < len(nodes2); i2++ {
-				cb(nodes2[i2], false)
-			}
-			break
-		}
-
-		if i2 >= len(nodes2) {
-			// deletions
-			for ; i1 < len(nodes1); i1++ {
-				cb(nodes1[i1], true)
-			}
-			break
-		}
-
-		cur1 := nodes1[i1]
-		cur2 := nodes2[i2]
-
-		switch bytes.Compare(cur1.key, cur2.key) {
-		case -1:
-			// deletion
-			cb(cur1, true)
-			i1++
-		case 1:
-			// insertion
-			cb(cur2, false)
-			i2++
-		default:
-			// update
-			cb(cur2, false)
-			i1++
-			i2++
-		}
-	}
 }
