@@ -215,7 +215,7 @@ func TestExporter_Import(t *testing.T) {
 		for desc, tree := range testcases {
 			tree := tree
 			t.Run(desc, func(t *testing.T) {
-				// t.Parallel()
+				t.Parallel()
 
 				exporter, err := tree.Export(orderType)
 				require.NoError(t, err)
