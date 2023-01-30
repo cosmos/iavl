@@ -320,16 +320,12 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
-<<<<<<< HEAD
-	tree.Set([]byte("c"), []byte{0x03})
-=======
 	version, err = tree.LazyLoadVersion(0)
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
 	_, err = tree.Set([]byte("c"), []byte{0x03})
 	require.NoError(t, err)
->>>>>>> d8e1e38 (feat: make `LazyLoadVersion` validate `InitialVersion` the same as `LoadVersion`)
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	assert.EqualValues(t, 11, version)
