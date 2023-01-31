@@ -101,8 +101,8 @@ func (i *Importer) Close() {
 	i.tree = nil
 }
 
-// Add adds an ExportNode to the import. ExportNodes must be added in the order returned by
-// Exporter, i.e. depth-first pre-order (NLR). Nodes are periodically flushed to the database,
+// Add adds an ExportNode to the import. ExportNodes must be added in the same order returned by
+// Exporter. Nodes are periodically flushed to the database,
 // but the imported version is not visible until Commit() is called.
 func (i *Importer) Add(exportNode *ExportNode) error {
 	if i.tree == nil {
@@ -122,6 +122,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		version:       exportNode.Version,
 		subtreeHeight: exportNode.Height,
 	}
+	// set the subtree size as 1 for the leaf nodes
 	if node.subtreeHeight == 0 {
 		node.size = 1
 	}
