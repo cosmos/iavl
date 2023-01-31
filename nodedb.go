@@ -961,13 +961,21 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
 		var version int64
 		rootKeyFormat.Scan(k, &version)
-		changeSet, err := ndb.extractStateChanges(predecessor, prevRoot, hash)
-		if err != nil {
+
+		var changeSet ChangeSet
+		receiveKVPair := func(pair *KVPair) error {
+			changeSet.Pairs = append(changeSet.Pairs, *pair)
+			return nil
+		}
+
+		if err := ndb.extractStateChanges(predecessor, prevRoot, hash, receiveKVPair); err != nil {
 			return err
 		}
-		if err := fn(version, changeSet); err != nil {
+
+		if err := fn(version, &changeSet); err != nil {
 			return err
 		}
+
 		predecessor = version
 		prevRoot = hash
 		return nil
