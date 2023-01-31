@@ -247,12 +247,7 @@ func (node *Node) _hash() ([]byte, error) {
 	}
 
 	h := sha256.New()
-	buf := new(bytes.Buffer)
-	if err := node.writeHashBytes(buf); err != nil {
-		return nil, err
-	}
-	_, err := h.Write(buf.Bytes())
-	if err != nil {
+	if err := node.writeHashBytes(h); err != nil {
 		return nil, err
 	}
 	node.hash = h.Sum(nil)
