@@ -156,8 +156,14 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 //
 // Import can only be called on an empty tree. It is the callers responsibility that no other
 // modifications are made to the tree while importing.
-func (tree *MutableTree) Import(version int64, traverseOrder OrderType) (*Importer, error) {
-	return newImporter(tree, version, traverseOrder)
+func (tree *MutableTree) Import(version int64) (*Importer, error) {
+	return newImporter(tree, version, PostOrderTraverse)
+}
+
+// ImportPreOrder is a convenience function that calls Import with traverseOrder = PreOrder.
+// This is for the new updates of node-key refactoring.
+func (tree *MutableTree) ImportPreOrder(version int64) (*Importer, error) {
+	return newImporter(tree, version, PreOrderTraverse)
 }
 
 // Iterate iterates over all keys of the tree. The keys and values must not be modified,

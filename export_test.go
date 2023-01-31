@@ -186,7 +186,15 @@ func TestExporter(t *testing.T) {
 	}
 	for orderType, expect := range expects {
 		actual := make([]*ExportNode, 0, len(expect))
-		exporter, err := tree.Export(orderType)
+		var (
+			exporter *Exporter
+			err      error
+		)
+		if orderType == PreOrderTraverse {
+			exporter, err = tree.ExportPreOrder()
+		} else {
+			exporter, err = tree.Export()
+		}
 		require.NoError(t, err)
 		defer exporter.Close()
 		for {
@@ -217,13 +225,26 @@ func TestExporter_Import(t *testing.T) {
 			t.Run(desc, func(t *testing.T) {
 				t.Parallel()
 
-				exporter, err := tree.Export(orderType)
+				var (
+					exporter *Exporter
+					importer *Importer
+					err      error
+				)
+				if orderType == PreOrderTraverse {
+					exporter, err = tree.ExportPreOrder()
+				} else {
+					exporter, err = tree.Export()
+				}
 				require.NoError(t, err)
 				defer exporter.Close()
 
 				newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
 				require.NoError(t, err)
-				importer, err := newTree.Import(tree.Version(), orderType)
+				if orderType == PreOrderTraverse {
+					importer, err = newTree.ImportPreOrder(tree.Version())
+				} else {
+					importer, err = newTree.Import(tree.Version())
+				}
 				require.NoError(t, err)
 				defer importer.Close()
 
@@ -264,7 +285,7 @@ func TestExporter_Import(t *testing.T) {
 
 func TestExporter_Close(t *testing.T) {
 	tree := setupExportTreeSized(t, 4096)
-	exporter, err := tree.Export(PreOrderTraverse)
+	exporter, err := tree.ExportPreOrder()
 	require.NoError(t, err)
 
 	node, err := exporter.Next()
@@ -307,7 +328,7 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 
 	itree, err := tree.GetImmutable(2)
 	require.NoError(t, err)
-	exporter, err := itree.Export(PostOrderTraverse)
+	exporter, err := itree.Export()
 	require.NoError(t, err)
 	defer exporter.Close()
 
@@ -328,7 +349,7 @@ func BenchmarkExport(b *testing.B) {
 	b.StartTimer()
 	b.Run("post order export", func(sub *testing.B) {
 		for n := 0; n < sub.N; n++ {
-			exporter, err := tree.Export(PostOrderTraverse)
+			exporter, err := tree.Export()
 			require.NoError(sub, err)
 			for {
 				_, err := exporter.Next()
@@ -343,7 +364,7 @@ func BenchmarkExport(b *testing.B) {
 	})
 	b.Run("pre order export", func(sub *testing.B) {
 		for n := 0; n < sub.N; n++ {
-			exporter, err := tree.Export(PreOrderTraverse)
+			exporter, err := tree.ExportPreOrder()
 			require.NoError(sub, err)
 			for {
 				_, err := exporter.Next()

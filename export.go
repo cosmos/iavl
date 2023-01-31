@@ -9,6 +9,7 @@ import (
 type OrderType int
 
 // OrderTraverse is the type of traversal order to use when exporting and importing.
+// PreOrder is needed for the new node-key refactoring. The default is PostOrder.
 const (
 	PreOrderTraverse OrderType = iota
 	PostOrderTraverse

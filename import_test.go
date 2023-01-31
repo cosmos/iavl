@@ -38,7 +38,7 @@ func ExampleImporter() {
 	if err != nil {
 		// handle err
 	}
-	exporter, err := itree.Export(PostOrderTraverse)
+	exporter, err := itree.Export()
 	if err != nil {
 		// handle err
 	}
@@ -59,7 +59,7 @@ func ExampleImporter() {
 	if err != nil {
 		// handle err
 	}
-	importer, err := newTree.Import(version, PostOrderTraverse)
+	importer, err := newTree.Import(version)
 	if err != nil {
 		// handle err
 	}
@@ -79,7 +79,7 @@ func ExampleImporter() {
 func TestImporter_NegativeVersion(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	_, err = tree.Import(-1, PostOrderTraverse)
+	_, err = tree.Import(-1)
 	require.Error(t, err)
 }
 
@@ -91,7 +91,7 @@ func TestImporter_NotEmpty(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	_, err = tree.Import(1, PostOrderTraverse)
+	_, err = tree.Import(1)
 	require.Error(t, err)
 }
 
@@ -110,7 +110,7 @@ func TestImporter_NotEmptyDatabase(t *testing.T) {
 	_, err = tree.Load()
 	require.NoError(t, err)
 
-	_, err = tree.Import(1, PostOrderTraverse)
+	_, err = tree.Import(1)
 	require.Error(t, err)
 }
 
@@ -120,7 +120,7 @@ func TestImporter_NotEmptyUnsaved(t *testing.T) {
 	_, err = tree.Set([]byte("a"), []byte{1})
 	require.NoError(t, err)
 
-	_, err = tree.Import(1, PostOrderTraverse)
+	_, err = tree.Import(1)
 	require.Error(t, err)
 }
 
@@ -147,7 +147,11 @@ func TestImporter_Add(t *testing.T) {
 				tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 				require.NoError(t, err)
 				var importer *Importer
-				importer, err = tree.Import(1, orderType)
+				if orderType == PreOrderTraverse {
+					importer, err = tree.ImportPreOrder(1)
+				} else {
+					importer, err = tree.Import(1)
+				}
 				require.NoError(t, err)
 				defer importer.Close()
 				if orderType == PreOrderTraverse {
@@ -168,7 +172,7 @@ func TestImporter_Add(t *testing.T) {
 func TestImporter_Add_Closed(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	importer, err := tree.Import(1, PostOrderTraverse)
+	importer, err := tree.Import(1)
 	require.NoError(t, err)
 
 	importer.Close()
@@ -180,7 +184,7 @@ func TestImporter_Add_Closed(t *testing.T) {
 func TestImporter_Close(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	importer, err := tree.Import(1, PostOrderTraverse)
+	importer, err := tree.Import(1)
 	require.NoError(t, err)
 
 	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), Version: 1, Height: 0})
@@ -197,7 +201,7 @@ func TestImporter_Close(t *testing.T) {
 func TestImporter_Commit(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	importer, err := tree.Import(1, PostOrderTraverse)
+	importer, err := tree.Import(1)
 	require.NoError(t, err)
 
 	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), Version: 1, Height: 0})
@@ -213,7 +217,7 @@ func TestImporter_Commit(t *testing.T) {
 func TestImporter_Commit_Closed(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	importer, err := tree.Import(1, PreOrderTraverse)
+	importer, err := tree.ImportPreOrder(1)
 	require.NoError(t, err)
 
 	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), Version: 1, Height: 0})
@@ -228,7 +232,7 @@ func TestImporter_Commit_Closed(t *testing.T) {
 func TestImporter_Commit_Empty(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)
-	importer, err := tree.Import(3, PostOrderTraverse)
+	importer, err := tree.Import(3)
 	require.NoError(t, err)
 	defer importer.Close()
 
@@ -251,7 +255,15 @@ func BenchmarkImport(b *testing.B) {
 				orderType = PostOrderTraverse
 			}
 			exported := make([]*ExportNode, 0, 4096)
-			exporter, err := tree.Export(orderType)
+			var (
+				exporter *Exporter
+				err      error
+			)
+			if orderType == PreOrderTraverse {
+				exporter, err = tree.ExportPreOrder()
+			} else {
+				exporter, err = tree.Export()
+			}
 			require.NoError(sub, err)
 			for {
 				item, err := exporter.Next()
@@ -268,7 +280,12 @@ func BenchmarkImport(b *testing.B) {
 			for n := 0; n < sub.N; n++ {
 				newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
 				require.NoError(sub, err)
-				importer, err := newTree.Import(tree.Version(), orderType)
+				var importer *Importer
+				if orderType == PreOrderTraverse {
+					importer, err = newTree.ImportPreOrder(tree.Version())
+				} else {
+					importer, err = newTree.Import(tree.Version())
+				}
 				require.NoError(sub, err)
 				for _, item := range exported {
 					err = importer.Add(item)

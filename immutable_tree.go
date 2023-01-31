@@ -155,8 +155,16 @@ func (t *ImmutableTree) Hash() ([]byte, error) {
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
 // imported with MutableTree.Import() to recreate an identical tree.
-func (t *ImmutableTree) Export(traverseOrder OrderType) (*Exporter, error) {
-	return newExporter(t, traverseOrder)
+// The default export order is PostOrderTraverse.
+func (t *ImmutableTree) Export() (*Exporter, error) {
+	return newExporter(t, PostOrderTraverse)
+}
+
+// Export returns an iterator that exports tree nodes as ExportNodes with pre-order traversal.
+// This api is for new node-key refactoring since we need to build a new tree with pre-order traversal
+// to construct the new node-key (path)
+func (t *ImmutableTree) ExportPreOrder() (*Exporter, error) {
+	return newExporter(t, PreOrderTraverse)
 }
 
 // GetWithIndex returns the index and value of the specified key if it exists, or nil and the next index
