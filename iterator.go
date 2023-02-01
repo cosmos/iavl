@@ -324,11 +324,10 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		iter.err = err
 		return
 	}
-	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
 	rightNode, err := iter.ndb.GetNode(node.rightHash)
 	if err != nil {
 		iter.err = err
 		return
 	}
-	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+	iter.nodesToVisit = append(iter.nodesToVisit, rightNode, leftNode)
 }
