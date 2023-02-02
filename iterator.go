@@ -294,10 +294,7 @@ func (iter *NodeIterator) GetNode() *Node {
 
 // Valid checks if the validator is valid.
 func (iter *NodeIterator) Valid() bool {
-	if iter.err != nil {
-		return false
-	}
-	return len(iter.nodesToVisit) > 0
+	return iter.err == nil && len(iter.nodesToVisit) > 0
 }
 
 // Error returns an error if any errors.
@@ -322,16 +319,17 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		return
 	}
 
-	leftNode, err := iter.ndb.GetNode(node.leftHash)
-	if err != nil {
-		iter.err = err
-		return
-	}
-	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
 	rightNode, err := iter.ndb.GetNode(node.rightHash)
 	if err != nil {
 		iter.err = err
 		return
 	}
 	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
+
+	leftNode, err := iter.ndb.GetNode(node.leftHash)
+	if err != nil {
+		iter.err = err
+		return
+	}
+	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
 }
