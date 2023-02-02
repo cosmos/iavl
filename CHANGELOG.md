@@ -4,7 +4,7 @@
 
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
 - [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements
-- [#]() Optimize node encode/decode speed with stream-vbyte format.
+- [#673](https://github.com/cosmos/iavl/pull/673) Optimize node encode/decode speed with stream-vbyte format.
 
 ### API Changes
 

@@ -21,12 +21,7 @@ import (
 
 var errBufferTooSmall = errors.New("buffer too small")
 
-const (
-	SizeHash = 32
-
-	OverflowVersion = 0x01
-	OverflowSize    = 0x02
-)
+const SizeHash = 32
 
 // Node represents a node in a Tree.
 type Node struct {
@@ -399,9 +394,6 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 // node encoded layout:
 // header: height(1) + stream vbyte (version, size_lo, size_hi, keyLen),
 // body: key + [leftHash(32), rightHash(32)], [value]
-//
-// overflow records if version or size overflows uint32,
-// if true, there's extra 4 bytes to store the high part.
 func (node *Node) maxEncodedSize() int {
 	size := 1 + 1 + 4*4 + len(node.key)
 	if node.isLeaf() {
