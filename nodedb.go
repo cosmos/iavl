@@ -192,14 +192,12 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	}
 
 	// Save node bytes to db.
-	var buf bytes.Buffer
-	buf.Grow(node.encodedSize())
-
-	if err := node.writeBytes(&buf); err != nil {
+	bz, err := node.Encode()
+	if err != nil {
 		return err
 	}
 
-	if err := ndb.batch.Set(ndb.nodeKey(node.hash), buf.Bytes()); err != nil {
+	if err := ndb.batch.Set(ndb.nodeKey(node.hash), bz); err != nil {
 		return err
 	}
 	logger.Debug("BATCH SAVE %X %p\n", node.hash, node)

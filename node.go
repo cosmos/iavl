@@ -12,8 +12,20 @@ import (
 	"math"
 
 	"github.com/cosmos/iavl/cache"
+	vbytedecode "github.com/theMPatel/streamvbyte-simdgo/pkg/decode"
+	vbyteencode "github.com/theMPatel/streamvbyte-simdgo/pkg/encode"
+	vbyteshared "github.com/theMPatel/streamvbyte-simdgo/pkg/shared"
 
 	"github.com/cosmos/iavl/internal/encoding"
+)
+
+var errBufferTooSmall = errors.New("buffer too small")
+
+const (
+	SizeHash = 32
+
+	OverflowVersion = 0x01
+	OverflowSize    = 0x02
 )
 
 // Node represents a node in a Tree.
@@ -49,63 +61,50 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
 func MakeNode(buf []byte) (*Node, error) {
-	// Read node header (height, size, version, key).
-	height, n, cause := encoding.DecodeVarint(buf)
-	if cause != nil {
-		return nil, fmt.Errorf("decoding node.height, %w", cause)
+	if len(buf) < 2 {
+		return nil, errBufferTooSmall
 	}
-	buf = buf[n:]
-	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
-		return nil, errors.New("invalid height, must be int8")
-	}
+	height := int8(buf[0])
+	ctl := uint8(buf[1])
+	buf = buf[2:]
 
-	size, n, cause := encoding.DecodeVarint(buf)
-	if cause != nil {
-		return nil, fmt.Errorf("decoding node.size, %w", cause)
+	vbyteLen := vbyteshared.ControlByteToSize(ctl)
+	if len(buf) < vbyteLen {
+		return nil, errBufferTooSmall
 	}
-	buf = buf[n:]
+	var ints [4]uint32
+	vbytedecode.Get4uint32Scalar(buf, ints[:], ctl)
+	buf = buf[vbyteLen:]
 
-	ver, n, cause := encoding.DecodeVarint(buf)
-	if cause != nil {
-		return nil, fmt.Errorf("decoding node.version, %w", cause)
-	}
-	buf = buf[n:]
+	version := int64(ints[0])
+	size := int64(ints[1])
+	size |= int64(ints[2]) << 32
+	keyLen := int(ints[3])
 
-	key, n, cause := encoding.DecodeBytes(buf)
-	if cause != nil {
-		return nil, fmt.Errorf("decoding node.key, %w", cause)
+	if len(buf) < keyLen {
+		return nil, errBufferTooSmall
 	}
-	buf = buf[n:]
+	key := buf[:keyLen]
+	buf = buf[keyLen:]
 
 	node := &Node{
-		subtreeHeight: int8(height),
+		subtreeHeight: height,
+		version:       version,
 		size:          size,
-		version:       ver,
 		key:           key,
 	}
 
 	// Read node body.
-
 	if node.isLeaf() {
-		val, _, cause := encoding.DecodeBytes(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("decoding node.value, %w", cause)
-		}
-		node.value = val
+		node.value = buf
 	} else { // Read children.
-		leftHash, n, cause := encoding.DecodeBytes(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("deocding node.leftHash, %w", cause)
+		if len(buf) < SizeHash*2 {
+			return nil, errBufferTooSmall
 		}
-		buf = buf[n:]
-
-		rightHash, _, cause := encoding.DecodeBytes(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("decoding node.rightHash, %w", cause)
-		}
-		node.leftHash = leftHash
-		node.rightHash = rightHash
+		node.leftHash = buf[:SizeHash]
+		node.rightHash = buf[SizeHash : SizeHash*2]
 	}
+
 	return node, nil
 }
 
@@ -396,67 +395,60 @@ func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err e
 	return
 }
 
-func (node *Node) encodedSize() int {
-	n := 1 +
-		encoding.EncodeVarintSize(node.size) +
-		encoding.EncodeVarintSize(node.version) +
-		encoding.EncodeBytesSize(node.key)
+// maxEncodedSize returns the maximum encoded size
+// node encoded layout:
+// header: height(1) + stream vbyte (version, size_lo, size_hi, keyLen),
+// body: key + [leftHash(32), rightHash(32)], [value]
+//
+// overflow records if version or size overflows uint32,
+// if true, there's extra 4 bytes to store the high part.
+func (node *Node) maxEncodedSize() int {
+	size := 1 + 1 + 4*4 + len(node.key)
 	if node.isLeaf() {
-		n += encoding.EncodeBytesSize(node.value)
-	} else {
-		n += encoding.EncodeBytesSize(node.leftHash) +
-			encoding.EncodeBytesSize(node.rightHash)
+		return size + len(node.value)
 	}
-	return n
+	return size + SizeHash*2
 }
 
-// Writes the node as a serialized byte slice to the supplied io.Writer.
-func (node *Node) writeBytes(w io.Writer) error {
+// Encode node to bytes
+func (node *Node) Encode() ([]byte, error) {
 	if node == nil {
-		return errors.New("cannot write nil node")
+		return nil, errors.New("cannot write nil node")
 	}
-	cause := encoding.EncodeVarint(w, int64(node.subtreeHeight))
-	if cause != nil {
-		return fmt.Errorf("writing height, %w", cause)
-	}
-	cause = encoding.EncodeVarint(w, node.size)
-	if cause != nil {
-		return fmt.Errorf("writing size, %w", cause)
-	}
-	cause = encoding.EncodeVarint(w, node.version)
-	if cause != nil {
-		return fmt.Errorf("writing version, %w", cause)
+	if node.version > math.MaxUint32 {
+		return nil, errors.New("version is too large")
 	}
 
-	// Unlike writeHashBytes, key is written for inner nodes.
-	cause = encoding.EncodeBytes(w, node.key)
-	if cause != nil {
-		return fmt.Errorf("writing key, %w", cause)
-	}
+	buf := make([]byte, node.maxEncodedSize())
+	buf[0] = byte(node.subtreeHeight)
+
+	buf[1] = vbyteencode.Put4uint32Scalar([]uint32{
+		uint32(node.version),
+		uint32(node.size),
+		uint32(node.size >> 32),
+		uint32(len(node.key)),
+	}, buf[2:])
+	offset := 2 + vbyteshared.ControlByteToSize(buf[1])
+
+	copy(buf[offset:], node.key)
+	offset += len(node.key)
 
 	if node.isLeaf() {
-		cause = encoding.EncodeBytes(w, node.value)
-		if cause != nil {
-			return fmt.Errorf("writing value, %w", cause)
-		}
+		copy(buf[offset:], node.value)
+		offset += len(node.value)
 	} else {
 		if node.leftHash == nil {
-			return ErrLeftHashIsNil
+			return nil, ErrLeftHashIsNil
 		}
-		cause = encoding.EncodeBytes(w, node.leftHash)
-		if cause != nil {
-			return fmt.Errorf("writing left hash, %w", cause)
-		}
-
 		if node.rightHash == nil {
-			return ErrRightHashIsNil
+			return nil, ErrRightHashIsNil
 		}
-		cause = encoding.EncodeBytes(w, node.rightHash)
-		if cause != nil {
-			return fmt.Errorf("writing right hash, %w", cause)
-		}
+		copy(buf[offset:], node.leftHash)
+		offset += SizeHash
+		copy(buf[offset:], node.rightHash)
+		offset += SizeHash
 	}
-	return nil
+	return buf[:offset], nil
 }
 
 func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
