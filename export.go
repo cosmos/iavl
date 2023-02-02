@@ -21,7 +21,7 @@ var ErrNotInitalizedTree = errors.New("iavl/export newExporter failed to create"
 type ExportNode struct {
 	Key     []byte
 	Value   []byte
-	NodeKey *NodeKey
+	Version int64
 	Height  int8
 }
 
@@ -65,7 +65,7 @@ func (e *Exporter) export(ctx context.Context) {
 		exportNode := &ExportNode{
 			Key:     node.key,
 			Value:   node.value,
-			NodeKey: node.nodeKey,
+			Version: node.nodeKey.version,
 			Height:  node.subtreeHeight,
 		}
 

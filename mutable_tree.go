@@ -970,41 +970,30 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 func (tree *MutableTree) saveNewNodes(version int64) error {
-	var recursiveAssignKey func(*Node, Path) (*NodeKey, error)
-	recursiveAssignKey = func(node *Node, path Path) (*NodeKey, error) {
+	nonce := int32(0)
+	newNodes := make([]*Node, 0)
+	var recursiveAssignKey func(*Node) (*NodeKey, error)
+	recursiveAssignKey = func(node *Node) (*NodeKey, error) {
 		if node.nodeKey != nil {
 			return node.nodeKey, nil
 		}
-
+		nonce++
 		node.nodeKey = &NodeKey{
 			version: version,
-			path:    path,
+			nonce:   nonce,
 		}
+		newNodes = append(newNodes, node)
 
 		var err error
-		if node.leftNode != nil {
-			lftPath := path.shift(0)
-			leftNodeKey, err := recursiveAssignKey(node.leftNode, lftPath)
+		// the inner nodes should have two children.
+		if node.subtreeHeight > 0 {
+			node.leftNodeKey, err = recursiveAssignKey(node.leftNode)
 			if err != nil {
 				return nil, err
 			}
-			if leftNodeKey.version < version {
-				node.leftNodeKey = leftNodeKey
-			} else {
-				node.leftNodeKey = nil
-			}
-		}
-
-		if node.rightNode != nil {
-			rhtPath := path.shift(1)
-			rightNodeKey, err := recursiveAssignKey(node.rightNode, rhtPath)
+			node.rightNodeKey, err = recursiveAssignKey(node.rightNode)
 			if err != nil {
 				return nil, err
-			}
-			if rightNodeKey.version < version {
-				node.rightNodeKey = rightNodeKey
-			} else {
-				node.rightNodeKey = nil
 			}
 		}
 
@@ -1015,29 +1004,15 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		return node.nodeKey, nil
 	}
 
-	if _, err := recursiveAssignKey(tree.root, []byte{1}); err != nil {
+	if _, err := recursiveAssignKey(tree.root); err != nil {
 		return err
 	}
 
-	q := make([]*Node, 0)
-	q = append(q, tree.root)
-	for len(q) > 0 {
-		node := q[0]
-		q = q[1:]
-		if node.nodeKey.version < version {
-			continue
-		}
+	for _, node := range newNodes {
 		if err := tree.ndb.SaveNode(node); err != nil {
 			return err
 		}
-		if node.leftNode != nil {
-			q = append(q, node.leftNode)
-			node.leftNode = nil
-		}
-		if node.rightNode != nil {
-			q = append(q, node.rightNode)
-			node.rightNode = nil
-		}
+		node.leftNode, node.rightNode = nil, nil
 	}
 
 	return nil

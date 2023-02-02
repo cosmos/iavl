@@ -41,8 +41,8 @@ const (
 
 var (
 	// All node keys are prefixed with the byte 'n'. This ensures no collision is
-	// possible with the other keys, and makes them easier to traverse. They are indexed by the version and the path.
-	nodeKeyFormat = keyformat.NewKeyFormat('n', int64Size, 0) // n<version><path>
+	// possible with the other keys, and makes them easier to traverse. They are indexed by the version and the local nonce.
+	nodeKeyFormat = keyformat.NewKeyFormat('n', int64Size, int32Size) // n<version><nonce>
 
 	// Key Format for making reads and iterates go through a data-locality preserving db.
 	// The value at an entry will list what version it was written to.
@@ -349,7 +349,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 		return err
 	}
 	if rootKey == nil || rootKey.version < version {
-		if err := ndb.batch.Delete(ndb.nodeKey(&NodeKey{version: version, path: []byte{1}})); err != nil {
+		if err := ndb.batch.Delete(ndb.nodeKey(&NodeKey{version: version, nonce: 1})); err != nil {
 			return err
 		}
 	}
@@ -439,7 +439,7 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 }
 
 func (ndb *nodeDB) nodeKey(nk *NodeKey) []byte {
-	return nodeKeyFormat.Key(nk.version, []byte(nk.path))
+	return nodeKeyFormat.Key(nk.version, nk.nonce)
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
@@ -523,13 +523,13 @@ func (ndb *nodeDB) GetRoot(version int64) (*NodeKey, error) {
 	if val[0] == nodeKeyFormat.Prefix()[0] { // point to the prev root
 		var (
 			version int64
-			path    []byte
+			nonce   int32
 		)
-		nodeKeyFormat.Scan(val, &version, &path)
-		return &NodeKey{version: version, path: path}, nil
+		nodeKeyFormat.Scan(val, &version, &nonce)
+		return &NodeKey{version: version, nonce: nonce}, nil
 	}
 
-	return &NodeKey{version: version, path: []byte{1}}, nil
+	return &NodeKey{version: version, nonce: 1}, nil
 }
 
 // SaveEmptyRoot saves the empty root.
@@ -776,12 +776,12 @@ func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 		if err := ndb.traverseRange(nodeKeyFormat.Key(version), nodeKeyFormat.Key(version+1), func(key, value []byte) error {
 			var (
 				version int64
-				path    []byte
+				nonce   int32
 			)
-			nodeKeyFormat.Scan(key, &version, &path)
+			nodeKeyFormat.Scan(key, &version, &nonce)
 			node, err := MakeNode(&NodeKey{
 				version: version,
-				path:    path,
+				nonce:   nonce,
 			}, value)
 			if err != nil {
 				return err

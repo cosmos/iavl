@@ -322,13 +322,6 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		return
 	}
 
-	if node.rightNodeKey == nil {
-		rhtPath := node.nodeKey.path.shift(1)
-		node.rightNodeKey = &NodeKey{
-			version: node.nodeKey.version,
-			path:    rhtPath,
-		}
-	}
 	rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
 	if err != nil {
 		iter.err = err
@@ -336,13 +329,6 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 	}
 	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
 
-	if node.leftNodeKey == nil {
-		lftPath := node.nodeKey.path.shift(0)
-		node.leftNodeKey = &NodeKey{
-			version: node.nodeKey.version,
-			path:    lftPath,
-		}
-	}
 	leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
 	if err != nil {
 		iter.err = err

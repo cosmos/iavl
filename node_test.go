@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"encoding/hex"
-	"math/big"
 	"math/rand"
 	"testing"
 
@@ -22,16 +21,16 @@ func TestNode_encodedSize(t *testing.T) {
 		hash:          iavlrand.RandBytes(20),
 		nodeKey: &NodeKey{
 			version: 1,
-			path:    []byte{1},
+			nonce:   1,
 		},
 		leftNodeKey: &NodeKey{
 			version: 1,
-			path:    []byte{1},
+			nonce:   1,
 		},
 		leftNode: nil,
 		rightNodeKey: &NodeKey{
 			version: 1,
-			path:    []byte{1},
+			nonce:   1,
 		},
 		rightNode: nil,
 	}
@@ -41,7 +40,7 @@ func TestNode_encodedSize(t *testing.T) {
 
 	// non-leaf node
 	node.subtreeHeight = 1
-	require.Equal(t, 41, node.encodedSize())
+	require.Equal(t, 39, node.encodedSize())
 }
 
 func TestNode_encode_decode(t *testing.T) {
@@ -57,18 +56,18 @@ func TestNode_encode_decode(t *testing.T) {
 			key:           []byte("key"),
 			nodeKey: &NodeKey{
 				version: 2,
-				path:    []byte{1},
+				nonce:   1,
 			},
 			leftNodeKey: &NodeKey{
 				version: 1,
-				path:    []byte{1},
+				nonce:   1,
 			},
 			rightNodeKey: &NodeKey{
 				version: 1,
-				path:    []byte{1},
+				nonce:   1,
 			},
 			hash: []byte{0x70, 0x80, 0x90, 0xa0},
-		}, "060e036b657904708090a006020101020101", false},
+		}, "060e036b657904708090a002020202", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			size:          1,
@@ -76,7 +75,7 @@ func TestNode_encode_decode(t *testing.T) {
 			value:         []byte("value"),
 			nodeKey: &NodeKey{
 				version: 3,
-				path:    []byte{1},
+				nonce:   1,
 			},
 			hash: []byte{0x7f, 0x68, 0x90, 0xca, 0x16, 0xde, 0xa6, 0xe8, 0x89, 0x3d, 0x96, 0xf0, 0xa3, 0xd, 0xa, 0x14, 0xe5, 0x55, 0x59, 0xfc, 0x9b, 0x83, 0x4, 0x91, 0xe3, 0xd2, 0x45, 0x1c, 0x81, 0xf6, 0xd1, 0xe},
 		}, "0002036b65790576616c7565", false},
@@ -112,7 +111,7 @@ func TestNode_validate(t *testing.T) {
 	v := []byte("value")
 	nk := &NodeKey{
 		version: 1,
-		path:    []byte{1},
+		nonce:   1,
 	}
 	c := &Node{key: []byte("child"), value: []byte("x"), size: 1}
 
@@ -161,7 +160,7 @@ func TestNode_validate(t *testing.T) {
 func BenchmarkNode_encodedSize(b *testing.B) {
 	nk := &NodeKey{
 		version: rand.Int63n(10000000),
-		path:    big.NewInt(rand.Int63n(10000000)).Bytes(),
+		nonce:   rand.Int31n(10000000),
 	}
 	node := &Node{
 		key:           iavlrand.RandBytes(25),
@@ -182,7 +181,7 @@ func BenchmarkNode_encodedSize(b *testing.B) {
 func BenchmarkNode_WriteBytes(b *testing.B) {
 	nk := &NodeKey{
 		version: rand.Int63n(10000000),
-		path:    big.NewInt(rand.Int63n(10000000)).Bytes(),
+		nonce:   rand.Int31n(10000000),
 	}
 	node := &Node{
 		key:           iavlrand.RandBytes(25),
