@@ -1,10 +1,12 @@
 # Changelog
 
+## 0.19.5 (February 2, 2023)
+
 ### Breaking Changes
 
 - [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements
 
-## Unreleased
+## Improvements
 
 - [#640](https://github.com/cosmos/iavl/pull/640) commit `NodeDB` batch in `LoadVersionForOverwriting`.
 - [#636](https://github.com/cosmos/iavl/pull/636) Speed up rollback method: `LoadVersionForOverwriting`.
