@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	db "github.com/cosmos/cosmos-db"
 )
@@ -42,7 +41,7 @@ type Importer struct {
 	chBatch          chan db.Batch
 	chBatchWg        sync.WaitGroup
 	chError          chan error
-	allChannelClosed atomic.Bool
+	allChannelClosed bool
 }
 
 type NodeData struct {
@@ -79,7 +78,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		chBatch:          make(chan db.Batch, 1),
 		chBatchWg:        sync.WaitGroup{},
 		chError:          make(chan error, 1),
-		allChannelClosed: atomic.Bool{},
+		allChannelClosed: false,
 	}
 
 	importer.chNodeDataWg.Add(1)
@@ -303,12 +302,12 @@ func (i *Importer) Commit() error {
 }
 
 // waitAndCloseChannels will try to close all the channels for importer and wait for remaining work to be done.
-// This function is guarded by atomic boolean, so it will only close the channels once. Closing channels usually
-// should happen in the Commit or Close action. If any error happens when draining the remaining data in the channel,
+// Closing channels should only happen once in the Commit or Close action. If any error happens when draining the remaining data in the channel,
 // The error will be popped out and returned.
 func (i *Importer) waitAndCloseChannels() error {
 	// Make sure all pending works are drained and close the channels in order
-	if i.allChannelClosed.CompareAndSwap(false, true) {
+	if !i.allChannelClosed {
+		i.allChannelClosed = true
 		close(i.chNodeData)
 		i.chNodeDataWg.Wait()
 		close(i.chBatch)
