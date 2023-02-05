@@ -14,7 +14,7 @@ import (
 // The actual batch write size could exceed this value based on how fast the batch write goes through.
 // If there's an ongoing pending batch write, we will keep batching more until the ongoing batch write completes.
 const defaultDesiredBatchSize = 10000
-const defaultMaxBatchSize = 50000
+const defaultMaxBatchSize = 100000
 
 // ErrNoImport is returned when calling methods on a closed importer
 var ErrNoImport = errors.New("no import in progress")
@@ -37,8 +37,6 @@ type Importer struct {
 	batchMtx         sync.RWMutex
 	chBatch          chan db.Batch
 	chBatchWg        sync.WaitGroup
-	chNodeData       chan NodeData
-	chNodeDataWg     sync.WaitGroup
 	chError          chan error
 	allChannelClosed atomic.Bool
 }
@@ -74,14 +72,9 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		maxBatchSize:     defaultMaxBatchSize,
 		chBatch:          make(chan db.Batch, 1),
 		chBatchWg:        sync.WaitGroup{},
-		chNodeData:       make(chan NodeData, defaultDesiredBatchSize),
-		chNodeDataWg:     sync.WaitGroup{},
 		chError:          make(chan error, 1),
 		allChannelClosed: atomic.Bool{},
 	}
-
-	importer.chNodeDataWg.Add(1)
-	go setBatchData(importer)
 
 	importer.chBatchWg.Add(1)
 	go batchWrite(importer)
@@ -98,33 +91,6 @@ func (i *Importer) WithDesiredBatchSize(batchSize uint32) *Importer {
 func (i *Importer) WithMaxBatchSize(batchSize uint32) *Importer {
 	i.desiredBatchSize = batchSize
 	return i
-}
-
-// setBatchData get the next serialized node data from channel, and write the data to the current batch
-func setBatchData(i *Importer) {
-	for i.batch != nil {
-		if nodeData, open := <-i.chNodeData; open {
-			i.batchMtx.RLock()
-			if i.batch != nil {
-				err := i.batch.Set(i.tree.ndb.nodeKey(nodeData.node.hash), nodeData.data)
-				if err != nil {
-					i.chError <- err
-					break
-				}
-			}
-			i.batchMtx.RUnlock()
-			i.batchSize++
-			// Only commit a new batch if size meet desiredBatchSize and there's no pending batch write
-			if (i.batchSize >= i.desiredBatchSize && len(i.chBatch) < 1) || i.batchSize >= i.maxBatchSize {
-				i.chBatch <- i.batch
-				i.batch = i.tree.ndb.db.NewBatch()
-				i.batchSize = 0
-			}
-		} else {
-			break
-		}
-	}
-	i.chNodeDataWg.Done()
 }
 
 // batchWrite get a new batch from the channel and execute the batch write to the underline DB.
@@ -223,13 +189,23 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	if err := node.writeBytes(buf); err != nil {
 		panic(err)
 	}
+
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 	bufPool.Put(buf)
 
-	i.chNodeData <- NodeData{
-		node: node,
-		data: bytesCopy,
+	err = i.batch.Set(i.tree.ndb.nodeKey(node.hash), bytesCopy)
+	if err != nil {
+		i.batchMtx.RUnlock()
+		return err
+	}
+
+	i.batchSize++
+	// Only commit a new batch if size meet desiredBatchSize and there's no pending batch write
+	if (i.batchSize >= i.desiredBatchSize && len(i.chBatch) < 1) || i.batchSize >= i.maxBatchSize {
+		i.chBatch <- i.batch
+		i.batch = i.tree.ndb.db.NewBatch()
+		i.batchSize = 0
 	}
 
 	// Check errors
@@ -301,8 +277,6 @@ func (i *Importer) Commit() error {
 func (i *Importer) waitAndCloseChannels() error {
 	// Make sure all pending works are drained and close the channels in order
 	if i.allChannelClosed.CompareAndSwap(false, true) {
-		close(i.chNodeData)
-		i.chNodeDataWg.Wait()
 		close(i.chBatch)
 		i.chBatchWg.Wait()
 		// Check errors
