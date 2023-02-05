@@ -98,7 +98,8 @@ func (i *Importer) WithDesiredBatchSize(batchSize uint32) *Importer {
 	return i
 }
 
-// WithMaxBatchSize set the maximum allowed batch size for write
+// WithMaxBatchSize set the maximum allowed batch size for write, should be greater than desired batch size.
+// Consider increase max batch size to reduce overall import time.
 func (i *Importer) WithMaxBatchSize(batchSize uint32) *Importer {
 	i.maxBatchSize = batchSize
 	return i
