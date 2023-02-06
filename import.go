@@ -88,7 +88,6 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	go batchWrite(importer)
 
 	return importer, nil
-
 }
 
 // WithDesiredBatchSize set the desired batch size for write
