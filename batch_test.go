@@ -32,7 +32,7 @@ func BenchmarkBatchWithFlusher(b *testing.B) {
 
 func benchmarkBatchWithFlusher(b *testing.B, backend dbm.BackendType) {
 	name := fmt.Sprintf("test_%x", randstr(12))
-	dir := os.TempDir()
+	dir := b.TempDir()
 	db, err := dbm.NewDB(name, backend, dir)
 	require.NoError(b, err)
 	defer cleanupDBDir(dir, name)
