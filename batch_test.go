@@ -39,7 +39,7 @@ func benchmarkBatchWithFlusher(b *testing.B, backend dbm.BackendType) {
 
 	batchWithFlusher := NewBatchWithFlusher(db, defaultFlushThreshold)
 
-	// we'll try to to commit 10MBs of data into the db
+	// we'll try to to commit 10MBs (1000 * 10KBs each entries) of data into the db
 	for n := uint16(0); n < 1000; n++ {
 		// each key / value is 10 KBs
 		key := make([]byte, 4)
