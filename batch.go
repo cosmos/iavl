@@ -13,7 +13,7 @@ type BatchWithFlusher struct {
 	batchSizeFlushThreshold int       // The maximum size of the batch in bytes before it gets flushed to disk
 }
 
-var _ dbm.Batch = BatchWithFlusher{}
+var _ dbm.Batch = &BatchWithFlusher{}
 
 // this value is used to estimate the additional size when adding an entry to a batch
 // additional size = key length + value length + possibleEntryOverHead
@@ -23,8 +23,8 @@ var possibleEntryOverHead = 100
 var defaultFlushThreshold = 100000
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
-func NewBatchWithFlusher(db dbm.DB, flushThreshold int) BatchWithFlusher {
-	return BatchWithFlusher{
+func NewBatchWithFlusher(db dbm.DB, flushThreshold int) *BatchWithFlusher {
+	return &BatchWithFlusher{
 		db:                      db,
 		batch:                   db.NewBatchWithSize(flushThreshold),
 		batchSizeFlushThreshold: flushThreshold,
@@ -35,13 +35,17 @@ func NewBatchWithFlusher(db dbm.DB, flushThreshold int) BatchWithFlusher {
 // If the set causes the underlying batch size to exceed batchSizeFlushThreshold would be reached,
 // the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
 // The addition entry is then added to the batch.
-func (b BatchWithFlusher) Set(key []byte, value []byte) error {
+func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
 	size, err := b.batch.GetByteSize()
 	if err != nil {
 		return err
 	}
 	if size+len(key)+len(value)+possibleEntryOverHead >= b.batchSizeFlushThreshold {
 		err = b.batch.Write()
+		if err != nil {
+			return err
+		}
+		err = b.batch.Close()
 		if err != nil {
 			return err
 		}
@@ -58,7 +62,7 @@ func (b BatchWithFlusher) Set(key []byte, value []byte) error {
 // If the deletion causes the underlying batch size to exceed batchSizeFlushThreshold would be reached,
 // the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
 // The deletion entry is then added to the batch.
-func (b BatchWithFlusher) Delete(key []byte) error {
+func (b *BatchWithFlusher) Delete(key []byte) error {
 	size, err := b.batch.GetByteSize()
 	if err != nil {
 		return err
@@ -77,18 +81,18 @@ func (b BatchWithFlusher) Delete(key []byte) error {
 	return nil
 }
 
-func (b BatchWithFlusher) Write() error {
+func (b *BatchWithFlusher) Write() error {
 	return b.batch.Write()
 }
 
-func (b BatchWithFlusher) WriteSync() error {
+func (b *BatchWithFlusher) WriteSync() error {
 	return b.batch.WriteSync()
 }
 
-func (b BatchWithFlusher) Close() error {
+func (b *BatchWithFlusher) Close() error {
 	return b.batch.Close()
 }
 
-func (b BatchWithFlusher) GetByteSize() (int, error) {
+func (b *BatchWithFlusher) GetByteSize() (int, error) {
 	return b.batch.GetByteSize()
 }
