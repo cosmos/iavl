@@ -225,24 +225,24 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
 	if err := node.writeBytes(buf); err != nil {
-		panic(err)
+		return err
 	}
 
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 	bufPool.Put(buf)
 
+	// Handle the remaining steps in a separate goroutine
+	i.chNodeData <- NodeData{
+		node: node,
+		data: bytesCopy,
+	}
+
 	// Check errors
 	select {
 	case err := <-i.chError:
 		return err
 	default:
-	}
-
-	// Handle the remaining steps in a separate goroutine
-	i.chNodeData <- NodeData{
-		node: node,
-		data: bytesCopy,
 	}
 
 	// Update the stack now that we know there were no errors
