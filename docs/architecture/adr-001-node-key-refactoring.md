@@ -42,7 +42,7 @@ type Node struct {
 	rightNodeKey  *NodeKey   // new field, need to store in the storage
 	leftNode      *Node
 	rightNode     *Node
-    size          int64
+	size          int64
 	leftNode      *Node
 	rightNode     *Node
 	subtreeHeight int8
@@ -106,19 +106,19 @@ Using the version and the path, we take advantage of data locality in the LSM tr
 ```
 # node body
 
-add `hash`:					    						+32 byte
+add `hash`:							+32 byte
 add `leftNodeKey`, `rightNodeKey`:	max (8 + 4) * 2 = 	+24 byte
-remove `leftHash`, `rightHash`:			    			-64 byte
-remove `version`: 								max	    -8	byte
+remove `leftHash`, `rightHash`:			    		-64 byte
+remove `version`: 					max	 -8 byte
 ------------------------------------------------------------
-										total save	     16	byte
+					total save	 	 16 byte
 
 # node key
 
-remove `hash`:				-32 byte
+remove `hash`:			-32 byte
 add `version|nonce`:		+12 byte
 ------------------------------------
-				total save 	 20 byte
+		total save 	 20 byte
 ```
 
 Removing orphans also provides performance improvements including memory and storage saving.
