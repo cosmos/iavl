@@ -10,7 +10,7 @@ Proposed
 
 ## Context
 
-The original key format of IAVL nodes is a hash of the node. It does not take advantage of data locality on disk. Nodes are stored in random locations on the disk due to the random hash value, so it needs to scan the disk to find the corresponding node which can be very inefficient.
+The original key format of IAVL nodes is a hash of the node. It does not take advantage of data locality on LSM-Tree. Nodes are stored with the random hash value, so it increases the number of compactions and makes it difficult to find the node. The new key format will take advantage of data locality in the LSM tree and reduce the number of compactions.
 
 The `orphans` are used to manage node removal in the current design and allow the deletion of removed nodes for the specific version from the disk through the `DeleteVersion` API. It needs to track every time when updating the tree and also requires extra storage to store `orphans`. But there are only 2 use cases for `DeleteVersion`:
 
@@ -19,35 +19,18 @@ The `orphans` are used to manage node removal in the current design and allow th
 
 ## Decision
 
-- Use the version and the path as a node key like `bigendian(version) | byte array(path)` format. Here the `path` is a binary expression of the path from the root to the current node. 
-	```
-	`10101` : (right, left, right, left, right) -> [0x15]
-	```
-- Store the child node key in the node body only when the child node is from an earlier version. For the same version, it is possible to guess the child node key and thus it doesn't need to be explicitly stored.
-	```go
-	func (node *Node) getLeftNode() (*Node, error) {
-		if node.leftNode != nil {
-			return node.leftNode, nil
-		}
-		if node.leftNodeKey != nil {
-			return getNode(node.leftNodeKey) // get the node from the storage
-		}
-		return getNode(&NodeKey{
-			version: node.nodeKey.version,
-			path: node.nodeKey.path + '0',  // it will be more complicated in the real implementation
-		})
-	}
-	```
-- Remove the `version` field from node body writes.
-- Remove the `leftHash` and `rightHash` fields, and instead store `hash` field in the node body.
+- Use the version and the local nonce as a node key like `bigendian(version) | bigendian(nonce)` format. Here the `nonce` is a local sequence id for the same version.
+	- Store the children node keys (`leftNodeKey` and `rightNodeKey`) in the node body.
+	- Remove the `version` field from node body writes.
+	- Remove the `leftHash` and `rightHash` fields, and instead store `hash` field in the node body.
 - Remove the `orphans` completely from both tree and storage.
 
 New node structure
 
 ```go
 type NodeKey struct {
-    version int64
-    path    []byte
+	version int64
+	nonce   int32
 }
 
 type Node struct {
@@ -59,7 +42,9 @@ type Node struct {
 	rightNodeKey  *NodeKey   // new field, need to store in the storage
 	leftNode      *Node
 	rightNode     *Node
-    	size          int64
+    size          int64
+	leftNode      *Node
+	rightNode     *Node
 	subtreeHeight int8
 }
 ```
@@ -68,15 +53,13 @@ New tree structure
 
 ```go
 type MutableTree struct {
-	*ImmutableTree                                    
-	lastSaved                *ImmutableTree
-	versions                 map[int64]bool           
-	allRootLoaded            bool                     
-	unsavedFastNodeAdditions map[string]*fastnode.Node
-	unsavedFastNodeRemovals  map[string]interface{}   
+	*ImmutableTree                                     // The current, working tree.
+	lastSaved                *ImmutableTree            // The most recently saved tree.
+	unsavedFastNodeAdditions map[string]*fastnode.Node // FastNodes that have not yet been saved to disk
+	unsavedFastNodeRemovals  map[string]interface{}    // FastNodes that have not yet been removed from disk
 	ndb                      *nodeDB
-	skipFastStorageUpgrade   bool 
-
+	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
+	
 	mtx sync.Mutex
 }
 ```
@@ -85,11 +68,12 @@ We will assign the `nodeKey` when saving the current version in `SaveVersion`. I
 
 ### Migration
 
-We can migrate nodes one by one by iterating the version.
+We can migrate nodes through the following steps:
 
-- Iterate the version in order, and get the root node for the specific version.
-- Iterate the tree based on the root and pick only nodes the node version is the same as the given version.
-- Store them using the new node key format.
+- Export the snapshot of the tree from the original version.
+- Import the snapshot to the new version.
+	- Track the nonce for the same version using int32 array of the version length.
+	- Assign the `nodeKey` when saving the node.
 
 ### Pruning
 
@@ -122,19 +106,19 @@ Using the version and the path, we take advantage of data locality in the LSM tr
 ```
 # node body
 
-add `hash`:					    +32 byte
-add `leftNodeKey`, `rightNodeKey`:	max 8 + 8 = +16 byte
-remove `leftHash`, `rightHash`:			    -64 byte
-remove `version`: 			max	    -8	byte
+add `hash`:					    						+32 byte
+add `leftNodeKey`, `rightNodeKey`:	max (8 + 4) * 2 = 	+24 byte
+remove `leftHash`, `rightHash`:			    			-64 byte
+remove `version`: 								max	    -8	byte
 ------------------------------------------------------------
-				total save	     24	byte
+										total save	     16	byte
 
 # node key
 
 remove `hash`:				-32 byte
-add `version|path`:			+16 byte
+add `version|nonce`:		+12 byte
 ------------------------------------
-			total save 	 16 byte
+				total save 	 20 byte
 ```
 
 Removing orphans also provides performance improvements including memory and storage saving.
@@ -145,6 +129,8 @@ The `Update` operation will require extra DB access because we need to take chil
 It doesn't require more access in other cases including `Set`, `Remove`, and `Proof`.
 
 It is impossible to remove the individual version. The new design requires more restrict pruning strategies.
+
+When importing the tree, it may require more memory because of int32 array of the version length. We will introduce the new importing strategy to reduce the memory usage.
 
 ## References
 
