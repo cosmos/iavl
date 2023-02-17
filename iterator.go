@@ -294,10 +294,7 @@ func (iter *NodeIterator) GetNode() *Node {
 
 // Valid checks if the validator is valid.
 func (iter *NodeIterator) Valid() bool {
-	if iter.err != nil {
-		return false
-	}
-	return len(iter.nodesToVisit) > 0
+	return iter.err == nil && len(iter.nodesToVisit) > 0
 }
 
 // Error returns an error if any errors.

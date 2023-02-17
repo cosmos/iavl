@@ -834,11 +834,18 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 		if err != nil {
 			return err
 		}
-		changeSet, err := ndb.extractStateChanges(prevVersion, prevRoot, root)
-		if err != nil {
+
+		var changeSet ChangeSet
+		receiveKVPair := func(pair *KVPair) error {
+			changeSet.Pairs = append(changeSet.Pairs, *pair)
+			return nil
+		}
+
+		if err := ndb.extractStateChanges(prevVersion, prevRoot, root, receiveKVPair); err != nil {
 			return err
 		}
-		if err := fn(version, changeSet); err != nil {
+
+		if err := fn(version, &changeSet); err != nil {
 			return err
 		}
 		prevVersion = version

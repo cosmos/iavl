@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"math/rand"
 	"testing"
@@ -206,6 +207,52 @@ func BenchmarkNode_WriteBytes(b *testing.B) {
 			var buf bytes.Buffer
 			buf.Grow(node.encodedSize())
 			_ = node.writeBytes(&buf)
+		}
+	})
+}
+
+func BenchmarkNode_HashNode(b *testing.B) {
+	node := &Node{
+		key:   iavlrand.RandBytes(25),
+		value: iavlrand.RandBytes(100),
+		nodeKey: &NodeKey{
+			version: rand.Int63n(10000000),
+			nonce:   rand.Int31n(10000000),
+		},
+		subtreeHeight: 0,
+		size:          rand.Int63n(10000000),
+		hash:          iavlrand.RandBytes(32),
+	}
+	b.ResetTimer()
+	b.Run("NoBuffer", func(sub *testing.B) {
+		sub.ReportAllocs()
+		for i := 0; i < sub.N; i++ {
+			h := sha256.New()
+			require.NoError(b, node.writeHashBytes(h, node.nodeKey.version))
+			_ = h.Sum(nil)
+		}
+	})
+	b.Run("PreAllocate", func(sub *testing.B) {
+		sub.ReportAllocs()
+		for i := 0; i < sub.N; i++ {
+			h := sha256.New()
+			buf := new(bytes.Buffer)
+			buf.Grow(node.encodedSize())
+			require.NoError(b, node.writeHashBytes(buf, node.nodeKey.version))
+			_, err := h.Write(buf.Bytes())
+			require.NoError(b, err)
+			_ = h.Sum(nil)
+		}
+	})
+	b.Run("NoPreAllocate", func(sub *testing.B) {
+		sub.ReportAllocs()
+		for i := 0; i < sub.N; i++ {
+			h := sha256.New()
+			buf := new(bytes.Buffer)
+			require.NoError(b, node.writeHashBytes(buf, node.nodeKey.version))
+			_, err := h.Write(buf.Bytes())
+			require.NoError(b, err)
+			_ = h.Sum(nil)
 		}
 	})
 }
