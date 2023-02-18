@@ -10,7 +10,7 @@ package iavl
 import (
 	"testing"
 
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/cometbft/cometbft-db"
 )
 
 func BenchmarkImmutableAvlTreeCLevelDB(b *testing.B) {

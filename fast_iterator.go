@@ -3,7 +3,7 @@ package iavl
 import (
 	"errors"
 
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/cometbft/cometbft-db"
 
 	"github.com/cosmos/iavl/fastnode"
 )

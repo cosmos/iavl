@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/cometbft/cometbft-db"
 	"github.com/stretchr/testify/require"
 )
 

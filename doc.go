@@ -9,7 +9,7 @@
 // Basic usage of MutableTree:
 //
 //	import "github.com/cosmos/iavl"
-//	import "github.com/cosmos/cosmos-db"
+//	import "github.com/cometbft/cometbft-db"
 //	...
 //
 //	tree := iavl.NewMutableTree(db.NewMemDB(), 128)
