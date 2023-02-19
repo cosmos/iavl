@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/cometbft/cometbft-db"
 
 	"github.com/cosmos/iavl"
 	ibytes "github.com/cosmos/iavl/internal/bytes"

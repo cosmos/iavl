@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/cometbft/cometbft-db"
 )
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling

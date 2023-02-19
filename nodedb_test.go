@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/cometbft/cometbft-db"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 

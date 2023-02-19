@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"errors"
 
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/cometbft/cometbft-db"
 )
 
 type traversal struct {
