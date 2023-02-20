@@ -24,8 +24,6 @@ pull_request_rules:
       backport:
         branches:
           - release/v0.19.x
-<<<<<<< HEAD
-=======
   - name: backport patches to v0.20.x branch
     conditions:
       - base=master
@@ -42,4 +40,3 @@ pull_request_rules:
       backport:
         branches:
           - release/v0.21.x
->>>>>>> ad8c0eb (chore: add release/v0.21.x (#684))
