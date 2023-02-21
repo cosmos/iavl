@@ -77,9 +77,11 @@ We can migrate nodes through the following steps:
 
 ### Pruning
 
-We assume keeping only the range versions of `fromVersion` to `toVersion`. Refer to [this issue](https://github.com/cosmos/cosmos-sdk/issues/12989).
+The current pruning strategies allows for intermediate versions to exist. With the adoption of this ADR we are migrating to allowing only versions to exist between a range (50-100 instead of 1,25,50-100).
 
-Here we are introducing a new way how to get orphaned nodes which remove in the `n+1`th version updates.
+Here we are introducing a new way how to get orphaned nodes which remove in the `n+1`th version updates without storing orphanes in the storage.
+
+When we want to remove the `n+1`th version
 
 - Traverse the tree in-order way based on the root of `n+1`th version.
 - If we visit the lower version node, pick the node and don't visit further deeply. Pay attention to the order of these nodes.
@@ -101,36 +103,36 @@ When we want to rollback to the specific version `n`
 
 ### Positive
 
-Using the version and the path, we take advantage of data locality in the LSM tree. Since we commit the sorted data, it can reduce compactions and makes it easy to find the key. Also, it can reduce the key and node size in the storage.
+* Using the version and a local nonce, we take advantage of data locality in the LSM tree. Since we commit the sorted data, it can reduce compactions and makes it easy to find the key. Also, it can reduce the key and node size in the storage.
 
-```
-# node body
+	```
+	# node body
 
-add `hash`:							+32 byte
-add `leftNodeKey`, `rightNodeKey`:	max (8 + 4) * 2 = 	+24 byte
-remove `leftHash`, `rightHash`:			    		-64 byte
-remove `version`: 					max	 -8 byte
-------------------------------------------------------------
-					total save	 	 16 byte
+	add `hash`:							+32 byte
+	add `leftNodeKey`, `rightNodeKey`:	max (8 + 4) * 2 = 	+24 byte
+	remove `leftHash`, `rightHash`:			    		-64 byte
+	remove `version`: 					max	 -8 byte
+	------------------------------------------------------------
+						total save	 	 16 byte
 
-# node key
+	# node key
 
-remove `hash`:			-32 byte
-add `version|nonce`:		+12 byte
-------------------------------------
-		total save 	 20 byte
-```
+	remove `hash`:			-32 byte
+	add `version|nonce`:		+12 byte
+	------------------------------------
+			total save 	 20 byte
+	```
 
-Removing orphans also provides performance improvements including memory and storage saving.
+* Removing orphans also provides performance improvements including memory and storage saving.
 
 ### Negative
 
-The `Update` operation will require extra DB access because we need to take children to calculate the hash of updated nodes.
-It doesn't require more access in other cases including `Set`, `Remove`, and `Proof`.
+* `Update` operations will require extra DB access because we need to take children to calculate the hash of updated nodes.
+	* It doesn't require more access in other cases including `Set`, `Remove`, and `Proof`.
 
-It is impossible to remove the individual version. The new design requires more restrict pruning strategies.
+* It is impossible to remove the individual version. The new design requires more restrict pruning strategies.
 
-When importing the tree, it may require more memory because of int32 array of the version length. We will introduce the new importing strategy to reduce the memory usage.
+* When importing the tree, it may require more memory because of int32 array of the version length. We will introduce the new importing strategy to reduce the memory usage.
 
 ## References
 
