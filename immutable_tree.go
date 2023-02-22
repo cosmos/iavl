@@ -156,7 +156,7 @@ func (t *ImmutableTree) Hash() ([]byte, error) {
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
 // imported with MutableTree.Import() to recreate an identical tree.
 func (t *ImmutableTree) Export() (*Exporter, error) {
-	return newExporter(t)
+	return newExporter(t, !t.ndb.opts.DisableExportBranchNodeKey)
 }
 
 // GetWithIndex returns the index and value of the specified key if it exists, or nil and the next index

@@ -27,6 +27,9 @@ type Importer struct {
 	batch     db.Batch
 	batchSize uint32
 	stack     []*Node
+	// minKeyStack has the same length as stack, it maintains the smallest key in each node's subtree,
+	// branch node always use the smallest key in it's right branch, so we don't have to export the branch node's key.
+	minKeyStack [][]byte
 }
 
 // newImporter creates a new Importer for an empty MutableTree.
@@ -45,10 +48,11 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	}
 
 	return &Importer{
-		tree:    tree,
-		version: version,
-		batch:   tree.ndb.db.NewBatch(),
-		stack:   make([]*Node, 0, 8),
+		tree:        tree,
+		version:     version,
+		batch:       tree.ndb.db.NewBatch(),
+		stack:       make([]*Node, 0, 8),
+		minKeyStack: make([][]byte, 0, 8),
 	}, nil
 }
 
@@ -98,9 +102,11 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		node.leftHash = node.leftNode.hash
 		node.rightNode = i.stack[stackSize-1]
 		node.rightHash = node.rightNode.hash
+		node.key = i.minKeyStack[stackSize-1]
 	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
 		node.leftNode = i.stack[stackSize-1]
 		node.leftHash = node.leftNode.hash
+		node.key = i.minKeyStack[stackSize-1]
 	}
 
 	if node.subtreeHeight == 0 {
@@ -153,8 +159,11 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	switch {
 	case node.leftHash != nil && node.rightHash != nil:
 		i.stack = i.stack[:stackSize-2]
+		i.minKeyStack = i.minKeyStack[:stackSize-1]
 	case node.leftHash != nil || node.rightHash != nil:
 		i.stack = i.stack[:stackSize-1]
+	default:
+		i.minKeyStack = append(i.minKeyStack, node.key)
 	}
 	// Only hash\height\size of the node will be used after it be pushed into the stack.
 	i.stack = append(i.stack, &Node{hash: node.hash, subtreeHeight: node.subtreeHeight, size: node.size})

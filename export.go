@@ -37,7 +37,7 @@ type Exporter struct {
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
-func newExporter(tree *ImmutableTree) (*Exporter, error) {
+func newExporter(tree *ImmutableTree, exportBranchNodeKey bool) (*Exporter, error) {
 	if tree == nil {
 		return nil, fmt.Errorf("tree is nil: %w", ErrNotInitalizedTree)
 	}
@@ -54,19 +54,21 @@ func newExporter(tree *ImmutableTree) (*Exporter, error) {
 	}
 
 	tree.ndb.incrVersionReaders(tree.version)
-	go exporter.export(ctx)
+	go exporter.export(ctx, exportBranchNodeKey)
 
 	return exporter, nil
 }
 
 // export exports nodes
-func (e *Exporter) export(ctx context.Context) {
+func (e *Exporter) export(ctx context.Context, exportBranchNodeKey bool) {
 	e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
 		exportNode := &ExportNode{
-			Key:     node.key,
 			Value:   node.value,
 			Version: node.version,
 			Height:  node.subtreeHeight,
+		}
+		if exportBranchNodeKey || node.isLeaf() {
+			exportNode.Key = node.key
 		}
 
 		select {

@@ -4,6 +4,7 @@
 
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
 - [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements
+- [#]() Skip branch node's key in import/export, the export behavior change is guarded by new option `DisableExportBranchNodeKey` which defaults to `false`, it's only breaking if user switch that option on.
 
 ### API Changes
 

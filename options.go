@@ -81,6 +81,10 @@ type Options struct {
 
 	// When Stat is not nil, statistical logic needs to be executed
 	Stat *Statistics
+
+	// don't export branch node's key in snapshot, default to false.
+	// see: https://github.com/cosmos/iavl/issues/688
+	DisableExportBranchNodeKey bool
 }
 
 // DefaultOptions returns the default options for IAVL.
