@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/confio/ics23/go v0.9.0
 	github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0
-	github.com/emicklei/dot v1.3.0
+	github.com/emicklei/dot v1.3.1
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.51.2
 	github.com/stretchr/testify v1.8.1
