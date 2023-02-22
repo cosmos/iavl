@@ -13,8 +13,10 @@ import (
 
 // setupExportTreeBasic sets up a basic tree with a handful of
 // create/update/delete operations over a few versions.
-func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+func setupExportTreeBasic(t require.TestingT, noBranchNodeKey bool) *ImmutableTree {
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, &Options{
+		DisableExportBranchNodeKey: noBranchNodeKey,
+	}, false)
 	require.NoError(t, err)
 
 	_, err = tree.Set([]byte("x"), []byte{255})
@@ -158,7 +160,7 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree { //n
 }
 
 func TestExporter(t *testing.T) {
-	tree := setupExportTreeBasic(t)
+	tree := setupExportTreeBasic(t, false)
 
 	expect := []*ExportNode{
 		{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
@@ -190,8 +192,9 @@ func TestExporter(t *testing.T) {
 
 func TestExporter_Import(t *testing.T) {
 	testcases := map[string]*ImmutableTree{
-		"empty tree": NewImmutableTree(db.NewMemDB(), 0, false),
-		"basic tree": setupExportTreeBasic(t),
+		"empty tree":         NewImmutableTree(db.NewMemDB(), 0, false),
+		"basic tree":         setupExportTreeBasic(t, false),
+		"no branch node key": setupExportTreeBasic(t, true),
 	}
 	if !testing.Short() {
 		testcases["sized tree"] = setupExportTreeSized(t, 4096)
