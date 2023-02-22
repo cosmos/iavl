@@ -28,7 +28,7 @@ type Importer struct {
 	batchSize uint32
 	stack     []*Node
 	// minKeyStack has the same length as stack, it maintains the smallest key in each node's subtree,
-	// branch node always use the smallest key in it's right branch, so we don't have to export the branch node's key.
+	// we use it to derive the smallest key of the right branch for branch nodes, so we don't have to export the branch node's key in snapshot.
 	minKeyStack [][]byte
 }
 
