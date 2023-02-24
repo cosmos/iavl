@@ -232,7 +232,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 			tree.addUnsavedAddition(key, fastnode.NewNode(key, value, version))
 		}
 		switch bytes.Compare(key, node.key) {
-		case -1:
+		case -1: // setKey < leafKey
 			return &Node{
 				key:           node.key,
 				subtreeHeight: 1,
@@ -241,7 +241,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 				leftNode:      NewNode(key, value),
 				rightNode:     node,
 			}, false, nil
-		case 1:
+		case 1: // setKey > leafKey
 			return &Node{
 				key:           key,
 				subtreeHeight: 1,

@@ -320,8 +320,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 }
 
 // nodeSize is like Size, but includes inner nodes too.
-//
-
+// used only for testing.
 func (t *ImmutableTree) nodeSize() int {
 	return int(t.root.size*2 - 1)
 }
