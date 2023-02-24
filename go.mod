@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/confio/ics23/go v0.9.0
-	github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0
+	github.com/cosmos/cosmos-db v1.0.0-rc.1
 	github.com/emicklei/dot v1.3.1
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.51.2
@@ -94,7 +94,6 @@ require (
 	github.com/jgautheron/goconst v1.5.1 // indirect
 	github.com/jingyugao/rowserrcheck v1.1.1 // indirect
 	github.com/jirfag/go-printf-func-name v0.0.0-20200119135958-7558a9eaa5af // indirect
-	github.com/jmhodges/levigo v1.0.0 // indirect
 	github.com/julz/importas v0.1.0 // indirect
 	github.com/junk1tm/musttag v0.4.5 // indirect
 	github.com/kisielk/errcheck v1.6.3 // indirect
@@ -109,7 +108,7 @@ require (
 	github.com/ldez/gomoddirectives v0.2.3 // indirect
 	github.com/ldez/tagliatelle v0.4.0 // indirect
 	github.com/leonklingele/grouper v1.1.1 // indirect
-	github.com/linxGnu/grocksdb v1.7.4 // indirect
+	github.com/linxGnu/grocksdb v1.7.14 // indirect
 	github.com/lufeee/execinquery v1.2.1 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/maratori/testableexamples v1.0.0 // indirect

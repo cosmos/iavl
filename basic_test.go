@@ -316,7 +316,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for i, x := range records {
-		if val, removed, err := tree.Remove([]byte(x.key)); err != nil { //nolint:gocritic
+		if val, removed, err := tree.Remove([]byte(x.key)); err != nil {
 			require.NoError(t, err)
 		} else if !removed {
 			t.Error("Wasn't removed")
