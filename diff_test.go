@@ -22,7 +22,9 @@ func TestDiffRoundTrip(t *testing.T) {
 	tree, err := NewMutableTree(db, 0, true)
 	require.NoError(t, err)
 	for i := range changeSets {
-		require.NoError(t, tree.SaveChangeSet(&changeSets[i]))
+		v, err := tree.SaveChangeSet(&changeSets[i])
+		require.NoError(t, err)
+		require.Equal(t, int64(i+1), v)
 	}
 
 	// extract change sets from db

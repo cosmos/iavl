@@ -1015,26 +1015,26 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 
 // SaveChangeSet saves a ChangeSet to the tree.
 // It is used to replay a ChangeSet as a new version.
-func (tree *MutableTree) SaveChangeSet(cs *ChangeSet) error {
+func (tree *MutableTree) SaveChangeSet(cs *ChangeSet) (int64, error) {
 	// if the tree has uncommitted changes, return error
 	if tree.root != nil && !tree.root.persisted {
-		return fmt.Errorf("cannot save changeset with uncommitted changes")
+		return 0, fmt.Errorf("cannot save changeset with uncommitted changes")
 	}
 	for _, pair := range cs.Pairs {
 		if pair.Delete {
 			_, removed, err := tree.Remove(pair.Key)
 			if !removed {
-				return fmt.Errorf("attempted to remove non-existent key %s", pair.Key)
+				return 0, fmt.Errorf("attempted to remove non-existent key %s", pair.Key)
 			}
 			if err != nil {
-				return err
+				return 0, err
 			}
 		} else {
 			if _, err := tree.Set(pair.Key, pair.Value); err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
-	_, _, err := tree.SaveVersion()
-	return err
+	_, version, err := tree.SaveVersion()
+	return version, err
 }
