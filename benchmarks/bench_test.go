@@ -51,7 +51,7 @@ func commitTree(b *testing.B, t *iavl.MutableTree) {
 	}
 
 	if version > historySize {
-		err = t.DeleteVersion(version - historySize)
+		err = t.DeleteVersionsTo(version - historySize)
 		if err != nil {
 			b.Errorf("Can't delete: %v", err)
 		}

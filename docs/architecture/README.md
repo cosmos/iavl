@@ -20,3 +20,5 @@ If recorded decisions turned out to be lacking, convene a discussion, record the
 and then modify the code to match.
 
 ## ADR Table of Contents
+
+- [ADR 001: Node Key Refactoring](./adr-001-node-key-refactoring.md)
