@@ -8,7 +8,7 @@ require (
 	github.com/emicklei/dot v1.3.1
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.51.2
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.6.0
 )
 
