@@ -34,7 +34,7 @@ Size is the number of leaves under a given node. With a full subtree, `node.size
 
 ### Marshaling 
 
-Every node is persisted by encoding the key, height, and size. If the node is a leaf node, then the value is persisted as well. If the node is not a leaf node, then the hash, leftNodeKey and rightNodeKey are persisted as well.
+Every node is persisted by encoding the key, height, and size. If the node is a leaf node, then the value is persisted as well. If the node is not a leaf node, then the hash, leftNodeKey, and rightNodeKey are persisted as well. The hash should be persisted in inner nodes to avoid recalculating the hash when the node is loaded from the disk, if not persisted, we should iterate through the entire subtree to calculate the hash.
 
 ```golang
 // Writes the node as a serialized byte slice to the supplied io.Writer.

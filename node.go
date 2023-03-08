@@ -480,7 +480,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 		return fmt.Errorf("writing size, %w", cause)
 	}
 
-	// Unlike writeHashByte, key is written for inner nodes.
+	// Unlike writeHashBytes, key is written for inner nodes.
 	cause = encoding.EncodeBytes(w, node.key)
 	if cause != nil {
 		return fmt.Errorf("writing key, %w", cause)
