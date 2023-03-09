@@ -37,7 +37,9 @@ func (b *BatchWithFlusher) estimateSizeAfterSetting(key []byte, value []byte) (i
 	// the batch size could gain more than the total size of key and value,
 	// https://github.com/syndtr/goleveldb/blob/64ee5596c38af10edb6d93e1327b3ed1739747c7/leveldb/batch.go#L98
 
-	// we add 100 here just to over account for that overhead
+	// we add 100 here just to over-account for that overhead
+	// since estimateSizeAfterSetting is only used to check if we exceed the threshold when setting a key / value
+	// this means we only over-account for the last key / value
 	return currentSize + len(key) + len(value) + 100, nil
 }
 
