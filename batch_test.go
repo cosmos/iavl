@@ -34,7 +34,9 @@ func BenchmarkBatchWithFlusher(b *testing.B) {
 	// we benchmark batch writing data of size 10MBs with different flush threshold
 	for _, flushThreshold := range []int{100000, 1000000, 10000000} {
 		for _, backend := range testedBackends {
-			benchmarkBatchWithFlusher(b, backend, flushThreshold)
+			b.Run(fmt.Sprintf("threshold=%d/backend=%s", flushThreshold, backend), func(b *testing.B) {
+				benchmarkBatchWithFlusher(b, backend, flushThreshold)
+			})
 		}
 	}
 }
