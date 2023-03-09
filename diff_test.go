@@ -21,19 +21,10 @@ func TestDiffRoundTrip(t *testing.T) {
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 0, true)
 	require.NoError(t, err)
-	for _, cs := range changeSets {
-		for _, pair := range cs.Pairs {
-			if pair.Delete {
-				_, removed, err := tree.Remove(pair.Key)
-				require.True(t, removed)
-				require.NoError(t, err)
-			} else {
-				_, err := tree.Set(pair.Key, pair.Value)
-				require.NoError(t, err)
-			}
-		}
-		_, _, err := tree.SaveVersion()
+	for i := range changeSets {
+		v, err := tree.SaveChangeSet(&changeSets[i])
 		require.NoError(t, err)
+		require.Equal(t, int64(i+1), v)
 	}
 
 	// extract change sets from db
