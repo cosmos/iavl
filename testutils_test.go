@@ -51,12 +51,12 @@ func N(l, r interface{}) *Node {
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
 	} else {
-		left = NewNode(i2b(l.(int)), nil, 0)
+		left = NewNode(i2b(l.(int)), nil)
 	}
 	if _, ok := r.(*Node); ok {
 		right = r.(*Node)
 	} else {
-		right = NewNode(i2b(r.(int)), nil, 0)
+		right = NewNode(i2b(r.(int)), nil)
 	}
 
 	n := &Node{
@@ -73,7 +73,7 @@ func N(l, r interface{}) *Node {
 func T(n *Node) (*MutableTree, error) {
 	t, _ := getTestTree(0)
 
-	_, _, err := n.hashWithCount()
+	_, err := n.hashWithCount(t.version + 1)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +82,13 @@ func T(n *Node) (*MutableTree, error) {
 }
 
 // Convenience for simple printing of keys & tree structure
-func P(n *Node) string {
+func P(n *Node, t *ImmutableTree) string {
 	if n.subtreeHeight == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
 	}
-	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
+	leftNode, _ := n.getLeftNode(t)
+	rightNode, _ := n.getRightNode(t)
+	return fmt.Sprintf("(%v %v)", P(leftNode, t), P(rightNode, t))
 }
 
 type traverser struct {

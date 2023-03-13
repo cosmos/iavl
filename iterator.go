@@ -268,15 +268,15 @@ type NodeIterator struct {
 }
 
 // NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
-func NewNodeIterator(root []byte, ndb *nodeDB) (*NodeIterator, error) {
-	if len(root) == 0 {
+func NewNodeIterator(rootKey *NodeKey, ndb *nodeDB) (*NodeIterator, error) {
+	if rootKey == nil {
 		return &NodeIterator{
 			nodesToVisit: []*Node{},
 			ndb:          ndb,
 		}, nil
 	}
 
-	node, err := ndb.GetNode(root)
+	node, err := ndb.GetNode(rootKey)
 	if err != nil {
 		return nil, err
 	}
@@ -319,14 +319,14 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		return
 	}
 
-	rightNode, err := iter.ndb.GetNode(node.rightHash)
+	rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
 	if err != nil {
 		iter.err = err
 		return
 	}
 	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
 
-	leftNode, err := iter.ndb.GetNode(node.leftHash)
+	leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
 	if err != nil {
 		iter.err = err
 		return

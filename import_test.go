@@ -152,6 +152,9 @@ func TestImporter_Add(t *testing.T) {
 			if tc.valid {
 				require.NoError(t, err)
 			} else {
+				if err == nil {
+					err = importer.Commit()
+				}
 				require.Error(t, err)
 			}
 		})
