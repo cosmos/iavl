@@ -1,5 +1,9 @@
 # Changelog
 
+### Improvements
+
+- [#703](https://github.com/cosmos/iavl/pull/703) New APIs `NewCompressExporter`/`NewCompressImporter` to support more compact snapshot format.
+
 ### Breaking Changes
 
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
