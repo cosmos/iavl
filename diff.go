@@ -25,7 +25,7 @@ type KVPairReceiver func(pair *KVPair) error
 //
 // The algorithm don't run in constant memory strictly, but it tried the best the only
 // keep minimal intermediate states in memory.
-func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root []byte, receiver KVPairReceiver) error {
+func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot *NodeKey, root *NodeKey, receiver KVPairReceiver) error {
 	curIter, err := NewNodeIterator(root, ndb)
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot []byte, root 
 		sharedNode = nil
 		for curIter.Valid() {
 			node := curIter.GetNode()
-			shared := node.version <= prevVersion
+			shared := node.nodeKey.version <= prevVersion
 			curIter.Next(shared)
 			if shared {
 				sharedNode = node

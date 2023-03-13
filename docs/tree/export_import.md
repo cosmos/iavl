@@ -44,7 +44,7 @@ This would produce the following export:
 
 When importing, the tree must be rebuilt in the same order, such that the missing attributes (e.g. `hash` and `size`) can be generated. This is possible because children are always given before their parents. We can therefore first generate the hash and size of the left and right leaf nodes, and then use these to recursively generate the hash and size of the parent.
 
-One way to do this is to keep a stack of orphaned children, and then pop those children once we build their parent, which then becomes a new child on the stack. We know that we encounter a parent because its height is higher than the child or children on top of the stack. We need a stack because we may need to recursively build a right branch while holding an orphaned left child. For the above export this would look like the following (in `key:height=value` format):
+One way to do this is to keep a stack of determined children, and then pop those children once we build their parent, which then becomes a new child on the stack. We know that we encounter a parent because its height is higher than the child or children on top of the stack. We need a stack because we may need to recursively build a right branch while holding an determined left child. For the above export this would look like the following (in `key:height=value` format):
 
 ```
 | Stack           | Import node                                                 |

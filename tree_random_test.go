@@ -277,9 +277,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 
 	firstKey := foundKeys[0]
 	secondKey := foundKeys[1]
-
 	require.True(t, strings.HasPrefix(firstKey, metadataKeyFormat.Prefix()))
-	require.True(t, strings.HasPrefix(secondKey, rootKeyFormat.Prefix()))
 
 	require.Equal(t, string(metadataKeyFormat.KeyBytes([]byte(storageVersionKey))), firstKey, "Unexpected storage version key")
 
@@ -290,7 +288,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), string(storageVersionValue))
 
 	var foundVersion int64
-	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
+	nodeKeyFormat.Scan([]byte(secondKey), &foundVersion)
 	require.Equal(t, version, foundVersion, "Unexpected root version")
 }
 
@@ -324,6 +322,9 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	// mirror and check with get. This is to exercise both the iteration and Get() code paths.
 	iterated := 0
 	_, err = itree.Iterate(func(key, value []byte) bool {
+		if string(value) != mirror[string(key)] {
+			fmt.Println("missing ", string(key), " ", string(value))
+		}
 		require.Equal(t, string(value), mirror[string(key)], "Invalid value for key %q", key)
 		iterated++
 		return false

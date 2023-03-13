@@ -9,15 +9,16 @@ The MutableTree stores the last saved ImmutableTree and the current working tree
 ```golang
 // MutableTree is a persistent tree which keeps track of versions.
 type MutableTree struct {
-	*ImmutableTree                  // The current, working tree.
-	lastSaved      *ImmutableTree   // The most recently saved tree.
-	orphans        map[string]int64 // Nodes removed by changes to working tree.
-	versions       map[int64]bool   // The previous, saved versions of the tree.
-	ndb            *nodeDB
+	*ImmutableTree                                     // The current, working tree.
+	lastSaved                *ImmutableTree            // The most recently saved tree.
+	unsavedFastNodeAdditions map[string]*fastnode.Node // FastNodes that have not yet been saved to disk
+	unsavedFastNodeRemovals  map[string]interface{}    // FastNodes that have not yet been removed from disk
+	ndb                      *nodeDB
+	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
+
+	mtx sync.Mutex
 }
 ```
-
-The versions map stores which versions of the IAVL are stored in nodeDB. Anytime a version `v` gets persisted, `versions[v]` is set to `true`. Anytime a version gets deleted, `versions[v]` is set to false.
 
 ### Set
 
@@ -39,12 +40,11 @@ newVersion := latestVersion+1
 newNode := NewNode(key, value, newVersion)
 // original leaf node: originalLeaf gets replaced by inner node below
 Node{
-    key:       setKey,       // inner node key is equal to left child's key
+    key:       leafKey,       // inner node key is equal to right child's key
     height:    1,            // height=1 since node is parent of leaves
     size:      2,            // 2 leaf nodes under this node
     leftNode:  newNode,      // left Node is the new added leaf node
     rightNode: originalLeaf, // right Node is the original leaf node
-    version:   newVersion,   // inner node is new since lastVersion, so it has an incremented version
 }
 ```
 
@@ -55,19 +55,18 @@ If `setKey` > `leafKey`:
 // since this is a new update since latest saved version,
 // this node has version=latestVersion+1
 newVersion := latestVersion+1
-newNode := NewNode(key, value, latestVersion+1)
+newNode := NewNode(key, value, newVersion)
 // original leaf node: originalLeaf gets replaced by inner node below
 Node{
-    key:       leafKey,      // inner node key is equal to left child's key
+    key:       setKey,      // inner node key is equal to right child's key
     height:    1,            // height=1 since node is parent of leaves
     size:      2,            // 2 leaf nodes under this node
     leftNode:  originalLeaf, // left Node is the original leaf node
     rightNode: newNode,      // right Node  is the new added leaf node
-    version:   newVersion,   // inner node is new since lastVersion, so it has an incremented version
 }
 ```
 
-Any node that gets recursed upon during a Set call is necessarily orphaned since it will either have a new value (in the case of an update) or it will have a new descendant. The recursive calls accumulate a list of orphans as it descends down the IAVL tree. This list of orphans is ultimately added to the mutable tree's orphan list at the end of the Set call.
+Any node that gets recursed upon during a Set call is necessarily orphaned since it will either have a new value (in the case of an update) or it will have a new descendant. For new nodes, the node key and hash will be assigned in the `SaveVersion` (see `SaveVersion` section).
 
 After each set, the current working tree has its height and size recalculated. If the height of the left branch and right branch of the working tree differs by more than one, then the mutable tree has to be balanced before the Set call can return.
 
@@ -80,12 +79,6 @@ Remove recurses down the IAVL tree in the same way that Set does until it reache
 #### Recursive Remove
 
 Remove works by calling an inner function `recursiveRemove` that returns the following values after a recursive call `recursiveRemove(recurseNode, removeKey)`:
-
-##### NewHash
-
-If a node in recurseNode's subtree gets removed, then the hash of the recurseNode will change. Thus during the recursive calls down the subtree, all of recurseNode's children will return their new hashes after the remove (if they have changed). Using this information, recurseNode can calculate its own updated hash and return that value.
-
-If recurseNode is the node getting removed itself, NewHash is `nil`.
 
 ##### ReplaceNode
 
@@ -108,7 +101,6 @@ After LeftLeaf removed:
 IAVLTREE---RightLeaf
 
 ReplaceNode = RightLeaf
-orphaned = [LeftLeaf, recurseNode]
 ```
 
 If recurseNode is an inner node that got called in the recursiveRemove, but is not a direct parent of the removed leaf. Then an updated version of the node will exist in the tree. Notably, it will have an incremented version, a new hash (as explained in the `NewHash` section), and recalculated height and size.
@@ -119,29 +111,11 @@ The height and size of the ReplaceNode will have to be calculated since these va
 
 It's possible that the subtree for `ReplaceNode` will have to be rebalanced (see `Balance` section). If this is the case, this will also update `ReplaceNode`'s hash since the structure of `ReplaceNode`'s subtree will change.
 
-##### LeftmostLeafKey
-
-The LeftmostLeafKey is the key of the leftmost leaf of `recurseNode`'s subtree. This is only used if `recurseNode` is the right child of its parent. Since inner nodes should have their key equal to the leftmost key of their right branch (if leftmostkey is not `nil`). If recurseNode is the right child of its parent `parentNode`, `parentNode` will set its key to `parentNode.key = leftMostKeyOfRecurseNodeSubTree`.
-
-If `recurseNode` is a leaf, it will return `nil`.
-
-If `recurseNode` is a parent of the leaf that got removed, it will return its own key if the left child was removed. If the right child is removed, it will return `nil`.
-
-If `recurseNode` is a generic inner node that isn't a direct parent of the removed node, it will return the leftmost key of its child's recursive call if `node.key < removeKey`. It will return `nil` otherwise.
-
-If `removeKey` does not exist in the IAVL tree, leftMostKey is `nil` for entire recursive stack.
-
 ##### RemovedValue
 
 RemovedValue is the value that was at the node that was removed. It does not get changed as it travels up the recursive stack.
 
 If `removeKey` does not exist in the IAVL tree, RemovedValue is `nil`.
-
-##### Orphans
-
-Just like `recursiveSet`, any node that gets recursed upon by `recursiveRemove` in a successful `Remove` call will have to be orphaned. The Orphans list in `recursiveRemove` accumulates the list of orphans so that it can return them to `Remove`. `Remove` will then iterate through this list and add all the orphans to the mutable tree's `orphans` map.
-
-If the `removeKey` does not exist in the IAVL tree, then the orphans list is `nil`.
 
 ### Balance
 
@@ -173,7 +147,7 @@ Before `RotateRight(node8)`:
 After `RotateRight(node8)`:
 ```
          |---9
-     |---8
+     |---8'
      |   |   |---7
      |   |---6
      |       |---5
@@ -182,7 +156,7 @@ After `RotateRight(node8)`:
      |---2
          |---3
 
-Orphaned: 4
+Orphaned: 4, 8
 ```
 
 Note that the key order for subtrees is still preserved.
@@ -213,10 +187,10 @@ After `RotateLeft(node2)`:
      |       |---5
      |   |---4
      |   |   |---3  
-     |---2
+     |---2'
          |---1
 
-Orphaned: 6
+Orphaned: 6, 2
 ```
 
 The IAVL detects whenever a subtree has become unbalanced by 2 (after any set/remove). If this does happen, then the tree is immediately rebalanced. Thus, any unbalanced subtree can only exist in 4 states:
@@ -238,13 +212,13 @@ The IAVL detects whenever a subtree has become unbalanced by 2 (after any set/re
 **After 1: Balanced**
 ```
          |---9
-     |---8
+     |---8'
      |   |---6
 4'---|
      |   |---3
      |---2
 
-Orphaned: 4
+Orphaned: 4, 8
 ```
 
 #### Left Right Case
@@ -267,13 +241,13 @@ Make tree left left unbalanced, and then balance.
 **After 1: Left Left Unbalanced**
 ```
     |---9
-8---|
+8'---|
     |---6'
         |   |---5
         |---4
             |---2
 
-Orphaned: 6
+Orphaned: 6, 8
 ```
 
 **After 2: Balanced**
@@ -310,10 +284,10 @@ Note: 6 got orphaned again, so omit list repitition
      |---8
 6'---|
      |   |---4
-     |---2
+     |---2'
          |---1
 
-Orphaned: 6
+Orphaned: 6, 2
 ```
 
 #### Right Left Case
@@ -339,10 +313,10 @@ Make tree right right unbalanced, then balance.
         |---6
     |---4'
     |   |---3
-2---|
+2'---|
     |---1
 
-Orphaned: 4
+Orphaned: 4, 2
 ```
 
 **After 2: Balanced**
@@ -361,24 +335,14 @@ Orphaned: 4
 
 SaveVersion saves the current working tree as the latest version, `tree.version+1`.
 
-If the tree's root is empty, then there are no nodes to save. The `nodeDB` must still save any orphans since the root itself could be the node that has been removed since the last version. Then the `nodeDB` also saves the empty root for this version.
+If the tree's root is empty, then there are no nodes to save. Then the `nodeDB` also saves the empty root for this version.
 
-If the root is not empty. Then SaveVersion will ensure that the `nodeDB` saves the orphans, roots and any new nodes that have been created since the last version was saved.
+If the root is not empty. Then `SaveVersion` will iterate the tree and save new nodes (which the node key is `nil`) to the `nodeDB`. 
 
-SaveVersion also calls `nodeDB.Commit`, this ensures that any batched writes from the last save gets committed to the appropriate databases.
+`SaveVersion` also calls `nodeDB.Commit`, this ensures that any batched writes from the last save gets committed to the appropriate databases.
 
-`tree.version` gets incremented and the versions map has `versions[tree.version] = true`.
-
-It will set the lastSaved `ImmutableTree` to the current working tree, and clone the tree to allow for future updates on the next working tree. It also resets orphans to the empty map.
+`tree.version` gets incremented and it will set the lastSaved `ImmutableTree` to the current working tree, and clone the tree to allow for future updates on the next working tree. 
 
 Lastly, it returns the tree's hash, the latest version, and nil for error.
 
 SaveVersion will error if a tree at the version trying to be saved already exists.
-
-### DeleteVersion
-
-DeleteVersion will simply call nodeDB's `DeleteVersion` function which is documented in the [nodeDB docs](./nodedb.md) and then call `nodeDB.Commit` to flush all batched updates.
-
-It will also delete the version from the versions map.
-
-DeleteVersion will return an error if the version is invalid, or nonexistent. DeleteVersion will also return an error if the version trying to be deleted is the latest version of the IAVL tree since that is unallowed.

@@ -1,9 +1,7 @@
 package iavl
 
 import (
-	"encoding/binary"
 	"errors"
-	"math/rand"
 	"strconv"
 	"testing"
 
@@ -16,9 +14,11 @@ import (
 
 func BenchmarkNodeKey(b *testing.B) {
 	ndb := &nodeDB{}
-	hashes := makeHashes(b, 2432325)
 	for i := 0; i < b.N; i++ {
-		ndb.nodeKey(hashes[i])
+		ndb.nodeKey(&NodeKey{
+			version: int64(i),
+			nonce:   int32(i),
+		})
 	}
 }
 
@@ -108,7 +108,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(rootKeyFormat.Key(expectedFastCacheVersion)).Times(1)
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(expectedFastCacheVersion)).Times(1)
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
@@ -341,22 +341,6 @@ func TestNodeDB_traverseOrphans(t *testing.T) {
 	// WriteDOTGraphToFile("/tmp/tree_five.dot", tree.ImmutableTree)
 
 	assertOrphansAndBranches(t, tree.ndb, 4, 8, [][]byte{{byte(9)}, {byte(10)}, {byte(12)}})
-}
-
-func makeHashes(b *testing.B, seed int64) [][]byte {
-	b.StopTimer()
-	rnd := rand.NewSource(seed)
-	hashes := make([][]byte, b.N)
-	hashBytes := 8 * ((hashSize + 7) / 8)
-	for i := 0; i < b.N; i++ {
-		hashes[i] = make([]byte, hashBytes)
-		for b := 0; b < hashBytes; b += 8 {
-			binary.BigEndian.PutUint64(hashes[i][b:b+8], uint64(rnd.Int63()))
-		}
-		hashes[i] = hashes[i][:hashSize]
-	}
-	b.StartTimer()
-	return hashes
 }
 
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
