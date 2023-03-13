@@ -1,8 +1,8 @@
 # Node
 
-The Node struct stores a node in the IAVL tree. 
+The Node struct stores a node in the IAVL tree.
 
-### Structure
+## Structure
 
 ```golang
 // NodeKey represents a key of node in the DB.
@@ -13,16 +13,17 @@ type NodeKey struct {
 
 // Node represents a node in a Tree.
 type Node struct {
-	key           []byte	// key for the node.
-	value         []byte	// value of leaf node. If inner node, value = nil
-	hash          []byte	// hash of above field and left node's hash, right node's hash
-	nodeKey       *NodeKey	// node key of the nodeDB
-	leftNodeKey   *NodeKey	// node key of the left child
-	rightNodeKey  *NodeKey	// node key of the right child
-	size          int64		// number of leaves that are under the current node. Leaf nodes have size = 1
-	leftNode      *Node		// pointer to left child
-	rightNode     *Node		// pointer to right child
-	subtreeHeight int8		// height of the node. Leaf nodes have height 0
+	key       []byte // key for the node.
+	value     []byte // value of leaf node. If inner node, value = nil
+	version   int64  // The version of the IAVL that this node was first added in.
+	height    int8   // The height of the node. Leaf nodes have height 0
+	size      int64  // The number of leaves that are under the current node. Leaf nodes have size = 1
+	hash      []byte // hash of above field and leftHash, rightHash
+	leftHash  []byte // hash of left child
+	leftNode  *Node  // pointer to left child
+    rightHash []byte // hash of right child
+	rightNode *Node  // pointer to right child
+	persisted bool   // persisted to disk
 }
 ```
 
@@ -32,7 +33,7 @@ The version of a node is the first version of the IAVL tree that the node gets a
 
 Size is the number of leaves under a given node. With a full subtree, `node.size = 2^(node.height)`.
 
-### Marshaling 
+### Marshaling
 
 Every node is persisted by encoding the key, height, and size. If the node is a leaf node, then the value is persisted as well. If the node is not a leaf node, then the hash, leftNodeKey, and rightNodeKey are persisted as well. The hash should be persisted in inner nodes to avoid recalculating the hash when the node is loaded from the disk, if not persisted, we should iterate through the entire subtree to calculate the hash.
 
