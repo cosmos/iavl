@@ -78,3 +78,5 @@
 - [\#453](https://github.com/cosmos/iavl/pull/453),[\#456](https://github.com/cosmos/iavl/pull/456) Optimization: buffer reuse
 - [\#474](https://github.com/cosmos/iavl/pull/474) bump github.com/confio/ics23 to v0.7
 - [\#475](https://github.com/cosmos/iavl/pull/475) Use go v1.17
+
+For previous changelogs visit: <https://github.com/cosmos/iavl/blob/v0.18.0/CHANGELOG.md>
