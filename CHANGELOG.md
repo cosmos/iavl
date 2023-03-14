@@ -1,11 +1,8 @@
 # Changelog
 
-### Breaking Changes
+### 0.20.0 (March 14, 2023)
 
 - [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements
-
-## Unreleased
-
 - [#586](https://github.com/cosmos/iavl/pull/586) Remove the `RangeProof` and refactor the ics23_proof to use the internal methods.
 - [#640](https://github.com/cosmos/iavl/pull/640) commit `NodeDB` batch in `LoadVersionForOverwriting`.
 - [#636](https://github.com/cosmos/iavl/pull/636) Speed up rollback method: `LoadVersionForOverwriting`.
@@ -13,16 +10,17 @@
 
 ## 0.19.4 (October 28, 2022)
 
- - [#599](https://github.com/cosmos/iavl/pull/599) Populate ImmutableTree creation in copy function with missing field
- - [#589](https://github.com/cosmos/iavl/pull/589) Wrap `tree.addUnsavedRemoval()` with missing `if !tree.skipFastStorageUpgrade` statement
+- [#599](https://github.com/cosmos/iavl/pull/599) Populate ImmutableTree creation in copy function with missing field
+- [#589](https://github.com/cosmos/iavl/pull/589) Wrap `tree.addUnsavedRemoval()` with missing `if !tree.skipFastStorageUpgrade` statement
 
 ## 0.19.3 (October 8, 2022)
 
-- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set. 
+- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set.
+
 ## 0.19.2 (October 6, 2022)
 
-- [#547](https://github.com/cosmos/iavl/pull/547) Implement `skipFastStorageUpgrade` in order to skip fast storage upgrade and usage. 
-- [#531](https://github.com/cosmos/iavl/pull/531) Upgrade to fast storage in batches. 
+- [#547](https://github.com/cosmos/iavl/pull/547) Implement `skipFastStorageUpgrade` in order to skip fast storage upgrade and usage.
+- [#531](https://github.com/cosmos/iavl/pull/531) Upgrade to fast storage in batches.
 
 ## 0.19.1 (August 3, 2022)
 
@@ -133,8 +131,8 @@ Special thanks to external contributors on this release: @odeke-em
 
 ## 0.15.0 (November 23, 2020)
 
-The IAVL project has moved from https://github.com/tendermint/iavl to
-https://github.com/cosmos/iavl. This changes the module import path, which is now
+The IAVL project has moved from <https://github.com/tendermint/iavl> to
+<https://github.com/cosmos/iavl>. This changes the module import path, which is now
 `github.com/cosmos/iavl`.
 
 Users upgrading from 0.13 should read important upgrade information in the 0.14.0 release below.
@@ -309,7 +307,7 @@ IMPROVEMENTS
 
 IMPROVEMENTS
 
-- Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: https://github.com/tendermint/tendermint/pull/3397)
+- Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: <https://github.com/tendermint/tendermint/pull/3397>)
 
 ## 0.12.1 (February 12, 2019)
 
@@ -321,7 +319,7 @@ IMPROVEMENTS
 
 BREAKING CHANGES
 
-- Uses new Tendermint ReverseIterator API. See https://github.com/tendermint/tendermint/pull/2913
+- Uses new Tendermint ReverseIterator API. See <https://github.com/tendermint/tendermint/pull/2913>
 
 ## 0.11.1 (October 29, 2018)
 
