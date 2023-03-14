@@ -149,8 +149,7 @@ func (t *ImmutableTree) Has(key []byte) (bool, error) {
 
 // Hash returns the root hash.
 func (t *ImmutableTree) Hash() ([]byte, error) {
-	hash, _, err := t.root.hashWithCount()
-	return hash, err
+	return t.root.hashWithCount(t.version + 1)
 }
 
 // Export returns an iterator that exports tree nodes as ExportNodes. These nodes can be
@@ -283,7 +282,7 @@ func (t *ImmutableTree) IterateRangeInclusive(start, end []byte, ascending bool,
 	}
 	return t.root.traverseInRange(t, start, end, ascending, true, false, func(node *Node) bool {
 		if node.subtreeHeight == 0 {
-			return fn(node.key, node.value, node.version)
+			return fn(node.key, node.value, node.nodeKey.version)
 		}
 		return false
 	})
@@ -321,15 +320,9 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 }
 
 // nodeSize is like Size, but includes inner nodes too.
-//
-
+// used only for testing.
 func (t *ImmutableTree) nodeSize() int {
-	size := 0
-	t.root.traverse(t, true, func(n *Node) bool {
-		size++
-		return false
-	})
-	return size
+	return int(t.root.size*2 - 1)
 }
 
 // TraverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.

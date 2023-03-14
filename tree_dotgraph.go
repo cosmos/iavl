@@ -50,7 +50,7 @@ func WriteDOTGraph(w io.Writer, tree *ImmutableTree, paths []PathToLeaf) {
 	ctx := &graphContext{}
 
 	// TODO: handle error
-	tree.root.hashWithCount() //nolint:errcheck
+	tree.root.hashWithCount(tree.version + 1) //nolint:errcheck
 	tree.root.traverse(tree, true, func(node *Node) bool {
 		graphNode := &graphNode{
 			Attrs: map[string]string{},
@@ -63,7 +63,7 @@ func WriteDOTGraph(w io.Writer, tree *ImmutableTree, paths []PathToLeaf) {
 
 		graphNode.Label = mkLabel(ibytes.UnsafeBytesToStr(node.key), 16, "sans-serif")
 		graphNode.Label += mkLabel(shortHash, 10, "monospace")
-		graphNode.Label += mkLabel(fmt.Sprintf("version=%d", node.version), 10, "monospace")
+		graphNode.Label += mkLabel(fmt.Sprintf("nodeKey=%v", node.nodeKey), 10, "monospace")
 
 		if node.value != nil {
 			graphNode.Label += mkLabel(ibytes.UnsafeBytesToStr(node.value), 10, "sans-serif")
@@ -132,9 +132,9 @@ func WriteDotGraphv2(w io.Writer, tree *ImmutableTree) {
 	traverse = func(node *Node, parent *dot.Node, direction string) {
 		var label string
 		if node.isLeaf() {
-			label = fmt.Sprintf("%v:%v\nv%v", node.key, node.value, node.version)
+			label = fmt.Sprintf("%v:%v\nv%v", node.key, node.value, node.nodeKey.version)
 		} else {
-			label = fmt.Sprintf("%v:%v\nv%v", node.subtreeHeight, node.key, node.version)
+			label = fmt.Sprintf("%v:%v\nv%v", node.subtreeHeight, node.key, node.nodeKey.version)
 		}
 
 		n := graph.Node(label)
@@ -146,7 +146,7 @@ func WriteDotGraphv2(w io.Writer, tree *ImmutableTree) {
 
 		if node.leftNode != nil {
 			leftNode = node.leftNode
-		} else if node.leftHash != nil {
+		} else if node.leftNodeKey != nil {
 			in, err := node.getLeftNode(tree)
 			if err == nil {
 				leftNode = in
@@ -155,7 +155,7 @@ func WriteDotGraphv2(w io.Writer, tree *ImmutableTree) {
 
 		if node.rightNode != nil {
 			rightNode = node.rightNode
-		} else if node.rightHash != nil {
+		} else if node.rightNodeKey != nil {
 			in, err := node.getRightNode(tree)
 			if err == nil {
 				rightNode = in

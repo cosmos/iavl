@@ -6,6 +6,7 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -16,31 +17,42 @@ import (
 	"github.com/cosmos/iavl/internal/encoding"
 )
 
+// NodeKey represents a key of node in the DB.
+type NodeKey struct {
+	version int64
+	nonce   int32
+}
+
+func (nk *NodeKey) GetKey() []byte {
+	b := make([]byte, 12)
+	binary.BigEndian.PutUint64(b, uint64(nk.version))
+	binary.BigEndian.PutUint32(b[8:], uint32(nk.nonce))
+	return b
+}
+
 // Node represents a node in a Tree.
 type Node struct {
 	key           []byte
 	value         []byte
 	hash          []byte
-	leftHash      []byte
-	rightHash     []byte
-	version       int64
+	nodeKey       *NodeKey
+	leftNodeKey   *NodeKey
+	rightNodeKey  *NodeKey
 	size          int64
 	leftNode      *Node
 	rightNode     *Node
 	subtreeHeight int8
-	persisted     bool
 }
 
 var _ cache.Node = (*Node)(nil)
 
 // NewNode returns a new node from a key, value and version.
-func NewNode(key []byte, value []byte, version int64) *Node {
+func NewNode(key []byte, value []byte) *Node {
 	return &Node{
 		key:           key,
 		value:         value,
 		subtreeHeight: 0,
 		size:          1,
-		version:       version,
 	}
 }
 
@@ -48,8 +60,8 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 //
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(buf []byte) (*Node, error) {
-	// Read node header (height, size, version, key).
+func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
+	// Read node header (height, size, key).
 	height, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
 		return nil, fmt.Errorf("decoding node.height, %w", cause)
@@ -65,12 +77,6 @@ func MakeNode(buf []byte) (*Node, error) {
 	}
 	buf = buf[n:]
 
-	ver, n, cause := encoding.DecodeVarint(buf)
-	if cause != nil {
-		return nil, fmt.Errorf("decoding node.version, %w", cause)
-	}
-	buf = buf[n:]
-
 	key, n, cause := encoding.DecodeBytes(buf)
 	if cause != nil {
 		return nil, fmt.Errorf("decoding node.key, %w", cause)
@@ -80,69 +86,126 @@ func MakeNode(buf []byte) (*Node, error) {
 	node := &Node{
 		subtreeHeight: int8(height),
 		size:          size,
-		version:       ver,
+		nodeKey:       nodeKey,
 		key:           key,
 	}
 
 	// Read node body.
-
 	if node.isLeaf() {
 		val, _, cause := encoding.DecodeBytes(buf)
 		if cause != nil {
 			return nil, fmt.Errorf("decoding node.value, %w", cause)
 		}
 		node.value = val
+		// ensure take the hash for the leaf node
+		if _, err := node._hash(node.nodeKey.version); err != nil {
+			return nil, fmt.Errorf("calculating hash error: %v", err)
+		}
+
 	} else { // Read children.
-		leftHash, n, cause := encoding.DecodeBytes(buf)
+		node.hash, n, cause = encoding.DecodeBytes(buf)
 		if cause != nil {
-			return nil, fmt.Errorf("deocding node.leftHash, %w", cause)
+			return nil, fmt.Errorf("decoding node.hash, %w", cause)
 		}
 		buf = buf[n:]
 
-		rightHash, _, cause := encoding.DecodeBytes(buf)
+		var (
+			leftNodeKey, rightNodeKey NodeKey
+			nonce                     int64
+		)
+		leftNodeKey.version, n, cause = encoding.DecodeVarint(buf)
 		if cause != nil {
-			return nil, fmt.Errorf("decoding node.rightHash, %w", cause)
+			return nil, fmt.Errorf("decoding node.leftNodeKey.version, %w", cause)
 		}
-		node.leftHash = leftHash
-		node.rightHash = rightHash
+		buf = buf[n:]
+		nonce, n, cause = encoding.DecodeVarint(buf)
+		if cause != nil {
+			return nil, fmt.Errorf("deocding node.leftNodeKey.nonce, %w", cause)
+		}
+		buf = buf[n:]
+		if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
+			return nil, errors.New("invalid nonce, must be int32")
+		}
+		leftNodeKey.nonce = int32(nonce)
+
+		rightNodeKey.version, n, cause = encoding.DecodeVarint(buf)
+		if cause != nil {
+			return nil, fmt.Errorf("decoding node.rightNodeKey.version, %w", cause)
+		}
+		buf = buf[n:]
+		nonce, _, cause = encoding.DecodeVarint(buf)
+		if cause != nil {
+			return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", cause)
+		}
+		if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
+			return nil, errors.New("invalid nonce, must be int32")
+		}
+		rightNodeKey.nonce = int32(nonce)
+
+		node.leftNodeKey = &leftNodeKey
+		node.rightNodeKey = &rightNodeKey
 	}
 	return node, nil
 }
 
 func (node *Node) GetKey() []byte {
-	return node.hash
+	return node.nodeKey.GetKey()
+}
+
+// String returns a string representation of the node key.
+func (nk *NodeKey) String() string {
+	return fmt.Sprintf("(%d, %d)", nk.version, nk.nonce)
 }
 
 // String returns a string representation of the node.
 func (node *Node) String() string {
-	hashstr := "<no hash>"
-	if len(node.hash) > 0 {
-		hashstr = fmt.Sprintf("%X", node.hash)
+	child := ""
+	if node.leftNode != nil && node.leftNode.nodeKey != nil {
+		child += fmt.Sprintf("{left %v}", node.leftNode.nodeKey)
 	}
-	return fmt.Sprintf("Node{%s:%s@%d %X;%X}#%s",
+	if node.rightNode != nil && node.rightNode.nodeKey != nil {
+		child += fmt.Sprintf("{right %v}", node.rightNode.nodeKey)
+	}
+	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s\n",
 		ColoredBytes(node.key, Green, Blue),
 		ColoredBytes(node.value, Cyan, Blue),
-		node.version,
-		node.leftHash, node.rightHash,
-		hashstr)
+		node.nodeKey, node.leftNodeKey, node.rightNodeKey,
+		node.size, node.subtreeHeight, child)
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
-func (node *Node) clone(version int64) (*Node, error) {
+func (node *Node) clone(tree *MutableTree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, ErrCloneLeafNode
 	}
+
+	// ensure get children
+	var err error
+	leftNode := node.leftNode
+	rightNode := node.rightNode
+	if node.nodeKey != nil {
+		leftNode, err = node.getLeftNode(tree.ImmutableTree)
+		if err != nil {
+			return nil, err
+		}
+		rightNode, err = node.getRightNode(tree.ImmutableTree)
+		if err != nil {
+			return nil, err
+		}
+		node.leftNode = nil
+		node.rightNode = nil
+	}
+
 	return &Node{
 		key:           node.key,
 		subtreeHeight: node.subtreeHeight,
-		version:       version,
 		size:          node.size,
 		hash:          nil,
-		leftHash:      node.leftHash,
-		leftNode:      node.leftNode,
-		rightHash:     node.rightHash,
-		rightNode:     node.rightNode,
-		persisted:     false,
+		nodeKey:       nil,
+		leftNodeKey:   node.leftNodeKey,
+		rightNodeKey:  node.rightNodeKey,
+		leftNode:      leftNode,
+		rightNode:     rightNode,
 	}, nil
 }
 
@@ -241,13 +304,13 @@ func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value [
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() ([]byte, error) {
+func (node *Node) _hash(version int64) ([]byte, error) {
 	if node.hash != nil {
 		return node.hash, nil
 	}
 
 	h := sha256.New()
-	if err := node.writeHashBytes(h); err != nil {
+	if err := node.writeHashBytes(h, version); err != nil {
 		return nil, err
 	}
 	node.hash = h.Sum(nil)
@@ -259,27 +322,27 @@ func (node *Node) _hash() ([]byte, error) {
 // descendant nodes. Returns the node hash and number of nodes hashed.
 // If the tree is empty (i.e. the node is nil), returns the hash of an empty input,
 // to conform with RFC-6962.
-func (node *Node) hashWithCount() ([]byte, int64, error) {
+func (node *Node) hashWithCount(version int64) ([]byte, error) {
 	if node == nil {
-		return sha256.New().Sum(nil), 0, nil
+		return sha256.New().Sum(nil), nil
 	}
 	if node.hash != nil {
-		return node.hash, 0, nil
+		return node.hash, nil
 	}
 
 	h := sha256.New()
 	buf := new(bytes.Buffer)
-	hashCount, err := node.writeHashBytesRecursively(buf)
+	err := node.writeHashBytesRecursively(buf, version)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	_, err = h.Write(buf.Bytes())
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	node.hash = h.Sum(nil)
 
-	return node.hash, hashCount + 1, nil
+	return node.hash, nil
 }
 
 // validate validates the node contents
@@ -290,7 +353,10 @@ func (node *Node) validate() error {
 	if node.key == nil {
 		return errors.New("key cannot be nil")
 	}
-	if node.version <= 0 {
+	if node.nodeKey == nil {
+		return errors.New("nodeKey cannot be nil")
+	}
+	if node.nodeKey.version <= 0 {
 		return errors.New("version must be greater than 0")
 	}
 	if node.subtreeHeight < 0 {
@@ -305,27 +371,21 @@ func (node *Node) validate() error {
 		if node.value == nil {
 			return errors.New("value cannot be nil for leaf node")
 		}
-		if node.leftHash != nil || node.leftNode != nil || node.rightHash != nil || node.rightNode != nil {
+		if node.leftNodeKey != nil || node.leftNode != nil || node.rightNodeKey != nil || node.rightNode != nil {
 			return errors.New("leaf node cannot have children")
 		}
 		if node.size != 1 {
 			return errors.New("leaf nodes must have size 1")
 		}
-	} else {
-		// Inner nodes
-		if node.value != nil {
-			return errors.New("value must be nil for non-leaf node")
-		}
-		if node.leftHash == nil && node.rightHash == nil {
-			return errors.New("inner node must have children")
-		}
+	} else if node.value != nil {
+		return errors.New("value must be nil for non-leaf node")
 	}
 	return nil
 }
 
 // Writes the node's hash to the given io.Writer. This function expects
 // child hashes to be already set.
-func (node *Node) writeHashBytes(w io.Writer) error {
+func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 	err := encoding.EncodeVarint(w, int64(node.subtreeHeight))
 	if err != nil {
 		return fmt.Errorf("writing height, %w", err)
@@ -334,7 +394,7 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("writing size, %w", err)
 	}
-	err = encoding.EncodeVarint(w, node.version)
+	err = encoding.EncodeVarint(w, version)
 	if err != nil {
 		return fmt.Errorf("writing version, %w", err)
 	}
@@ -356,14 +416,14 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 			return fmt.Errorf("writing value, %w", err)
 		}
 	} else {
-		if node.leftHash == nil || node.rightHash == nil {
-			return ErrEmptyChildHash
+		if node.leftNode == nil || node.rightNode == nil {
+			return ErrEmptyChild
 		}
-		err = encoding.EncodeBytes(w, node.leftHash)
+		err = encoding.EncodeBytes(w, node.leftNode.hash)
 		if err != nil {
 			return fmt.Errorf("writing left hash, %w", err)
 		}
-		err = encoding.EncodeBytes(w, node.rightHash)
+		err = encoding.EncodeBytes(w, node.rightNode.hash)
 		if err != nil {
 			return fmt.Errorf("writing right hash, %w", err)
 		}
@@ -374,38 +434,34 @@ func (node *Node) writeHashBytes(w io.Writer) error {
 
 // Writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
-func (node *Node) writeHashBytesRecursively(w io.Writer) (hashCount int64, err error) {
-	if node.leftNode != nil {
-		leftHash, leftCount, err := node.leftNode.hashWithCount()
-		if err != nil {
-			return 0, err
-		}
-		node.leftHash = leftHash
-		hashCount += leftCount
+func (node *Node) writeHashBytesRecursively(w io.Writer, version int64) error {
+	_, err := node.leftNode.hashWithCount(version)
+	if err != nil {
+		return err
 	}
-	if node.rightNode != nil {
-		rightHash, rightCount, err := node.rightNode.hashWithCount()
-		if err != nil {
-			return 0, err
-		}
-		node.rightHash = rightHash
-		hashCount += rightCount
+	_, err = node.rightNode.hashWithCount(version)
+	if err != nil {
+		return err
 	}
-	err = node.writeHashBytes(w)
-
-	return
+	return node.writeHashBytes(w, version)
 }
 
 func (node *Node) encodedSize() int {
 	n := 1 +
 		encoding.EncodeVarintSize(node.size) +
-		encoding.EncodeVarintSize(node.version) +
 		encoding.EncodeBytesSize(node.key)
 	if node.isLeaf() {
 		n += encoding.EncodeBytesSize(node.value)
 	} else {
-		n += encoding.EncodeBytesSize(node.leftHash) +
-			encoding.EncodeBytesSize(node.rightHash)
+		n += encoding.EncodeBytesSize(node.hash)
+		if node.leftNodeKey != nil {
+			n += encoding.EncodeVarintSize(node.leftNodeKey.version) +
+				encoding.EncodeVarintSize(int64(node.leftNodeKey.nonce))
+		}
+		if node.rightNodeKey != nil {
+			n += encoding.EncodeVarintSize(node.rightNodeKey.version) +
+				encoding.EncodeVarintSize(int64(node.rightNodeKey.nonce))
+		}
 	}
 	return n
 }
@@ -423,10 +479,6 @@ func (node *Node) writeBytes(w io.Writer) error {
 	if cause != nil {
 		return fmt.Errorf("writing size, %w", cause)
 	}
-	cause = encoding.EncodeVarint(w, node.version)
-	if cause != nil {
-		return fmt.Errorf("writing version, %w", cause)
-	}
 
 	// Unlike writeHashBytes, key is written for inner nodes.
 	cause = encoding.EncodeBytes(w, node.key)
@@ -440,20 +492,32 @@ func (node *Node) writeBytes(w io.Writer) error {
 			return fmt.Errorf("writing value, %w", cause)
 		}
 	} else {
-		if node.leftHash == nil {
-			return ErrLeftHashIsNil
-		}
-		cause = encoding.EncodeBytes(w, node.leftHash)
+		cause = encoding.EncodeBytes(w, node.hash)
 		if cause != nil {
-			return fmt.Errorf("writing left hash, %w", cause)
+			return fmt.Errorf("writing hash, %w", cause)
+		}
+		if node.leftNodeKey == nil {
+			return ErrLeftNodeKeyEmpty
+		}
+		cause = encoding.EncodeVarint(w, node.leftNodeKey.version)
+		if cause != nil {
+			return fmt.Errorf("writing the version of left node key, %w", cause)
+		}
+		cause = encoding.EncodeVarint(w, int64(node.leftNodeKey.nonce))
+		if cause != nil {
+			return fmt.Errorf("writing the nonce of left node key, %w", cause)
 		}
 
-		if node.rightHash == nil {
-			return ErrRightHashIsNil
+		if node.rightNodeKey == nil {
+			return ErrRightNodeKeyEmpty
 		}
-		cause = encoding.EncodeBytes(w, node.rightHash)
+		cause = encoding.EncodeVarint(w, node.rightNodeKey.version)
 		if cause != nil {
-			return fmt.Errorf("writing right hash, %w", cause)
+			return fmt.Errorf("writing the version of right node key, %w", cause)
+		}
+		cause = encoding.EncodeVarint(w, int64(node.rightNodeKey.nonce))
+		if cause != nil {
+			return fmt.Errorf("writing the nonce of right node key, %w", cause)
 		}
 	}
 	return nil
@@ -463,11 +527,10 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
-	leftNode, err := t.ndb.GetNode(node.leftHash)
+	leftNode, err := t.ndb.GetNode(node.leftNodeKey)
 	if err != nil {
 		return nil, err
 	}
-
 	return leftNode, nil
 }
 
@@ -475,11 +538,10 @@ func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
-	rightNode, err := t.ndb.GetNode(node.rightHash)
+	rightNode, err := t.ndb.GetNode(node.rightNodeKey)
 	if err != nil {
 		return nil, err
 	}
-
 	return rightNode, nil
 }
 
@@ -515,7 +577,6 @@ func (node *Node) calcBalance(t *ImmutableTree) (int, error) {
 }
 
 // traverse is a wrapper over traverseInRange when we want the whole tree
-// nolint: unparam
 func (node *Node) traverse(t *ImmutableTree, ascending bool, cb func(*Node) bool) bool {
 	return node.traverseInRange(t, nil, nil, ascending, false, false, func(node *Node) bool {
 		return cb(node)
@@ -543,8 +604,10 @@ func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascend
 }
 
 var (
-	ErrCloneLeafNode  = fmt.Errorf("attempt to copy a leaf node")
-	ErrEmptyChildHash = fmt.Errorf("found an empty child hash")
-	ErrLeftHashIsNil  = fmt.Errorf("node.leftHash was nil in writeBytes")
-	ErrRightHashIsNil = fmt.Errorf("node.rightHash was nil in writeBytes")
+	ErrCloneLeafNode     = fmt.Errorf("attempt to copy a leaf node")
+	ErrEmptyChild        = fmt.Errorf("found an empty child")
+	ErrLeftNodeKeyEmpty  = fmt.Errorf("node.leftNodeKey was empty in writeBytes")
+	ErrRightNodeKeyEmpty = fmt.Errorf("node.rightNodeKey was empty in writeBytes")
+	ErrLeftHashIsNil     = fmt.Errorf("node.leftHash was nil in writeBytes")
+	ErrRightHashIsNil    = fmt.Errorf("node.rightHash was nil in writeBytes")
 )
