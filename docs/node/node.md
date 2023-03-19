@@ -13,17 +13,16 @@ type NodeKey struct {
 
 // Node represents a node in a Tree.
 type Node struct {
-	key       []byte // key for the node.
-	value     []byte // value of leaf node. If inner node, value = nil
-	version   int64  // The version of the IAVL that this node was first added in.
-	height    int8   // The height of the node. Leaf nodes have height 0
-	size      int64  // The number of leaves that are under the current node. Leaf nodes have size = 1
-	hash      []byte // hash of above field and leftHash, rightHash
-	leftHash  []byte // hash of left child
-	leftNode  *Node  // pointer to left child
-    	rightHash []byte // hash of right child
-	rightNode *Node  // pointer to right child
-	persisted bool   // persisted to disk
+	key           []byte	// key for the node.
+	value         []byte	// value of leaf node. If inner node, value = nil
+	hash          []byte	// hash of above field and left node's hash, right node's hash
+	nodeKey       *NodeKey	// node key of the nodeDB
+	leftNodeKey   *NodeKey	// node key of the left child
+	rightNodeKey  *NodeKey	// node key of the right child
+	size          int64		// number of leaves that are under the current node. Leaf nodes have size = 1
+	leftNode      *Node		// pointer to left child
+	rightNode     *Node		// pointer to right child
+	subtreeHeight int8		// height of the node. Leaf nodes have height 0
 }
 ```
 
