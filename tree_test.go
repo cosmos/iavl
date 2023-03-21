@@ -354,6 +354,11 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.True(tree.VersionExists(1))
 	require.True(tree.VersionExists(3))
 
+	// Test the empty root loads correctly.
+	it, err := tree.GetImmutable(3)
+	require.NoError(err)
+	require.Nil(it.root)
+
 	require.NoError(tree.DeleteVersionsTo(3))
 
 	require.False(tree.VersionExists(1))

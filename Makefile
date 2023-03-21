@@ -40,8 +40,7 @@ format:
 .PHONY: format
 
 # look into .golangci.yml for enabling / disabling linters
-golangci_lint_cmd=github.com/golangci/golangci-lint/cmd/golangci-lint
-
+golangci_lint_cmd=github.com/golangci/golangci-lint/cmd/golangci-lint@v1.51.2
 lint:
 	@echo "--> Running linter"
 	@go run $(golangci_lint_cmd) run --timeout=10m
