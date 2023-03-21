@@ -588,13 +588,9 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 	if err != nil {
 		return nil, err
 	}
-	if rootNodeKey == nil {
-		return nil, ErrVersionDoesNotExist
-	}
 
 	var root *Node
-	// rootNodeKey.version = 0 means root is a nil
-	if rootNodeKey.version != 0 {
+	if rootNodeKey != nil {
 		root, err = tree.ndb.GetNode(rootNodeKey)
 		if err != nil {
 			return nil, err
