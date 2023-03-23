@@ -764,6 +764,15 @@ func (ndb *nodeDB) size() int {
 	return size
 }
 
+func isReferenceToRoot(bz []byte) bool {
+	if bz[0] == nodeKeyFormat.Prefix()[0] {
+		if len(bz) == 13 {
+			return true
+		}
+	}
+	return false
+}
+
 func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 	ndb.resetLatestVersion(0)
 	latest, err := ndb.getLatestVersion()
@@ -778,6 +787,9 @@ func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 				version int64
 				nonce   int32
 			)
+			if isReferenceToRoot(value) {
+				return nil
+			}
 			nodeKeyFormat.Scan(key, &version, &nonce)
 			node, err := MakeNode(&NodeKey{
 				version: version,
