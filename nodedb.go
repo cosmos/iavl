@@ -517,6 +517,9 @@ func (ndb *nodeDB) GetRoot(version int64) (*NodeKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	if val == nil {
+		return nil, ErrVersionDoesNotExist
+	}
 	if len(val) == 0 { // empty root
 		return nil, nil
 	}
@@ -837,7 +840,7 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 
 	prevVersion := startVersion - 1
 	prevRoot, err := ndb.GetRoot(prevVersion)
-	if err != nil {
+	if err != nil && err != ErrVersionDoesNotExist {
 		return err
 	}
 
@@ -906,8 +909,4 @@ func (ndb *nodeDB) String() (string, error) {
 	return "-" + "\n" + buf.String() + "-", nil
 }
 
-var (
-	ErrNodeMissingNodeKey   = fmt.Errorf("node does not have a nodeKey")
-	ErrNodeAlreadyPersisted = fmt.Errorf("shouldn't be calling save on an already persisted node")
-	ErrRootMissingNodeKey   = fmt.Errorf("root node key must not be zero")
-)
+var ErrNodeMissingNodeKey = fmt.Errorf("node does not have a nodeKey")
