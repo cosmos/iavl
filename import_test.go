@@ -206,6 +206,22 @@ func TestImporter_Commit(t *testing.T) {
 	require.True(t, has)
 }
 
+func TestImporter_Commit_ForwardVersion(t *testing.T) {
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	require.NoError(t, err)
+	importer, err := tree.Import(2)
+	require.NoError(t, err)
+
+	err = importer.Add(&ExportNode{Key: []byte("key"), Value: []byte("value"), Version: 1, Height: 0})
+	require.NoError(t, err)
+
+	err = importer.Commit()
+	require.NoError(t, err)
+	has, err := tree.Has([]byte("key"))
+	require.NoError(t, err)
+	require.True(t, has)
+}
+
 func TestImporter_Commit_Closed(t *testing.T) {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	require.NoError(t, err)

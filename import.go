@@ -177,6 +177,11 @@ func (i *Importer) Commit() error {
 		if err := i.writeNode(i.stack[0]); err != nil {
 			return err
 		}
+		if i.stack[0].nodeKey.version < i.version { // it means there is no update in the given version
+			if err := i.batch.Set(i.tree.ndb.nodeKey(&NodeKey{version: i.version, nonce: 1}), i.tree.ndb.nodeKey(i.stack[0].nodeKey)); err != nil {
+				return err
+			}
+		}
 	default:
 		return fmt.Errorf("invalid node structure, found stack size %v when committing",
 			len(i.stack))
