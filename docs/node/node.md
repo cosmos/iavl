@@ -1,8 +1,8 @@
 # Node
 
-The Node struct stores a node in the IAVL tree. 
+The Node struct stores a node in the IAVL tree.
 
-### Structure
+## Structure
 
 ```golang
 // NodeKey represents a key of node in the DB.
@@ -32,7 +32,7 @@ The version of a node is the first version of the IAVL tree that the node gets a
 
 Size is the number of leaves under a given node. With a full subtree, `node.size = 2^(node.height)`.
 
-### Marshaling 
+### Marshaling
 
 Every node is persisted by encoding the key, height, and size. If the node is a leaf node, then the value is persisted as well. If the node is not a leaf node, then the hash, leftNodeKey, and rightNodeKey are persisted as well. The hash should be persisted in inner nodes to avoid recalculating the hash when the node is loaded from the disk, if not persisted, we should iterate through the entire subtree to calculate the hash.
 
