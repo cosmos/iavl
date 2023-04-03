@@ -777,35 +777,28 @@ func isReferenceToRoot(bz []byte) bool {
 }
 
 func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
-	ndb.resetLatestVersion(0)
-	latest, err := ndb.getLatestVersion()
-	if err != nil {
-		return err
-	}
-
 	nodes := []*Node{}
-	for version := int64(1); version <= latest; version++ {
-		if err := ndb.traverseRange(nodeKeyFormat.Key(version), nodeKeyFormat.Key(version+1), func(key, value []byte) error {
-			var (
-				version int64
-				nonce   int32
-			)
-			if isReferenceToRoot(value) {
-				return nil
-			}
-			nodeKeyFormat.Scan(key, &version, &nonce)
-			node, err := MakeNode(&NodeKey{
-				version: version,
-				nonce:   nonce,
-			}, value)
-			if err != nil {
-				return err
-			}
-			nodes = append(nodes, node)
+
+	if err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
+		if isReferenceToRoot(value) {
 			return nil
-		}); err != nil {
+		}
+		var (
+			version int64
+			nonce   int32
+		)
+		nodeKeyFormat.Scan(key, &version, &nonce)
+		node, err := MakeNode(&NodeKey{
+			version: version,
+			nonce:   nonce,
+		}, value)
+		if err != nil {
 			return err
 		}
+		nodes = append(nodes, node)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	sort.Slice(nodes, func(i, j int) bool {
