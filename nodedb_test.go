@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -275,14 +276,18 @@ func TestTraverseNodes(t *testing.T) {
 
 	count := 0
 	err = tree.ndb.traverseNodes(func(node *Node) error {
-		t.Log(node)
-		if node.isLeaf() {
-			count++
+		actualNode, err := tree.ndb.GetNode(node.nodeKey)
+		if err != nil {
+			return err
 		}
+		if actualNode.String() != node.String() {
+			return fmt.Errorf("found unexpected node")
+		}
+		count++
 		return nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, 30, count)
+	require.Equal(t, 64, count)
 }
 
 func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches int, orphanKeys [][]byte) {
