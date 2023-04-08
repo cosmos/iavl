@@ -42,14 +42,14 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 	var changeSets []ChangeSet
 
 	for i := 0; i < n; i++ {
-		items := make(map[string]KVPair)
+		items := make(map[string]*KVPair)
 		start, count, step := r.Int63n(1000), r.Int63n(1000), r.Int63n(10)
 		for i := start; i < start+count*step; i += step {
 			value := make([]byte, 8)
 			binary.LittleEndian.PutUint64(value, uint64(i))
 
 			key := fmt.Sprintf("test-%d", i)
-			items[key] = KVPair{
+			items[key] = &KVPair{
 				Key:   []byte(key),
 				Value: value,
 			}
@@ -65,7 +65,7 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 				if pair.Delete {
 					continue
 				}
-				items[string(pair.Key)] = KVPair{
+				items[string(pair.Key)] = &KVPair{
 					Key:    pair.Key,
 					Delete: true,
 				}
@@ -77,7 +77,7 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 				i := r.Int63n(int64(len(lastChangeSet.Pairs)))
 				pair := lastChangeSet.Pairs[i]
 				if !pair.Delete {
-					items[string(pair.Key)] = KVPair{
+					items[string(pair.Key)] = &KVPair{
 						Key:   pair.Key,
 						Value: pair.Value,
 					}
