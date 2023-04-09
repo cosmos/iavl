@@ -199,7 +199,6 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	}
 
 	logger.Debug("BATCH SAVE %+v\n", node)
-	ndb.nodeCache.Add(node)
 	return nil
 }
 
