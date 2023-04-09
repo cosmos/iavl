@@ -322,7 +322,16 @@ func (ndb *nodeDB) Has(nk *NodeKey) (bool, error) {
 
 // resetBatch reset the db batch, keep low memory used
 func (ndb *nodeDB) resetBatch() error {
-	var err error
+	size, err := ndb.batch.GetByteSize()
+	if err != nil {
+		// just don't do an optimization here. keep letting batch size increase.
+		return nil
+	}
+	// write in ~64kb chunks. if less than 64kb, continue.
+	if size < 64*1024 {
+		return nil
+	}
+
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
 	} else {
