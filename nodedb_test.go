@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"testing"
 
+	log "cosmossdk.io/log"
 	db "github.com/cosmos/cosmos-db"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
@@ -345,7 +346,7 @@ func TestNodeDB_traverseOrphans(t *testing.T) {
 
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	memDB := db.NewMemDB()
-	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false)
+	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
 	require.NoError(tb, err)
 
 	for i := 0; i < 1e4; i++ {

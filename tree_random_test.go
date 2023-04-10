@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cosmos/cosmos-db"
@@ -79,7 +80,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options, false)
+		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options, false, log.NewNopLogger())
 		require.NoError(t, err)
 		version, err = tree.Load()
 		require.NoError(t, err)
