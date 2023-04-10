@@ -120,9 +120,8 @@ func (kf *KeyFormat) ScanBytes(key []byte) [][]byte {
 		if l == 0 {
 			segments[i] = key[n:]
 			break
-		} else {
-			segments[i] = key[n-l : n]
 		}
+		segments[i] = key[n-l : n]
 	}
 	return segments
 }
