@@ -300,7 +300,7 @@ func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
 }
 
 // Checks that a version is the maximum mirrored version.
-func assertMaxVersion(t *testing.T, tree *MutableTree, version int64, mirrors map[int64]map[string]string) { //nolint:unparam,revive
+func assertMaxVersion(t *testing.T, tree *MutableTree, version int64, mirrors map[int64]map[string]string) { //nolint:unparam
 	max := int64(0)
 	for v := range mirrors {
 		if v > max {
