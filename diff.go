@@ -2,18 +2,14 @@ package iavl
 
 import (
 	"bytes"
+
+	"github.com/cosmos/iavl/proto"
 )
 
-// ChangeSet represents the state changes extracted from diffing iavl versions.
-type ChangeSet struct {
-	Pairs []KVPair
-}
-
-type KVPair struct {
-	Delete bool
-	Key    []byte
-	Value  []byte
-}
+type (
+	KVPair    = proto.KVPair
+	ChangeSet = proto.ChangeSet
+)
 
 // KVPairReceiver is callback parameter of method `extractStateChanges` to receive stream of `KVPair`s.
 type KVPairReceiver func(pair *KVPair) error
