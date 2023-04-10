@@ -2,18 +2,14 @@ package iavl
 
 import (
 	"bytes"
+
+	"github.com/cosmos/iavl/proto"
 )
 
-// ChangeSet represents the state changes extracted from diffing iavl versions.
-type ChangeSet struct {
-	Pairs []KVPair
-}
-
-type KVPair struct {
-	Delete bool
-	Key    []byte
-	Value  []byte
-}
+type (
+	KVPair    = proto.KVPair
+	ChangeSet = proto.ChangeSet
+)
 
 // KVPairReceiver is callback parameter of method `extractStateChanges` to receive stream of `KVPair`s.
 type KVPairReceiver func(pair *KVPair) error
@@ -90,14 +86,14 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot *NodeKey, roo
 	// compare with the current newLeaves, to produce `iavl.KVPair` stream.
 	addOrphanedLeave := func(orphaned *Node) error {
 		for len(newLeaves) > 0 {
-			new := newLeaves[0]
-			switch bytes.Compare(orphaned.key, new.key) {
+			newLeave := newLeaves[0]
+			switch bytes.Compare(orphaned.key, newLeave.key) {
 			case 1:
 				// consume a new node as insertion and continue
 				newLeaves = newLeaves[1:]
 				if err := receiver(&KVPair{
-					Key:   new.key,
-					Value: new.value,
+					Key:   newLeave.key,
+					Value: newLeave.value,
 				}); err != nil {
 					return err
 				}
@@ -114,8 +110,8 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot *NodeKey, roo
 				// update, consume the new node and stop
 				newLeaves = newLeaves[1:]
 				return receiver(&KVPair{
-					Key:   new.key,
-					Value: new.value,
+					Key:   newLeave.key,
+					Value: newLeave.value,
 				})
 			}
 		}
@@ -152,9 +148,5 @@ func (ndb *nodeDB) extractStateChanges(prevVersion int64, prevRoot *NodeKey, roo
 	if err := curIter.Error(); err != nil {
 		return err
 	}
-	if err := prevIter.Error(); err != nil {
-		return err
-	}
-
-	return nil
+	return prevIter.Error()
 }
