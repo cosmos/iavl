@@ -5,6 +5,7 @@
 ### Improvements
 
 - [#703](https://github.com/cosmos/iavl/pull/703) New APIs `NewCompressExporter`/`NewCompressImporter` to support more compact snapshot format.
+- [#728](https://github.com/cosmos/iavl/pull/728) Remove automatically adding internal IAVL nodes into the LRU cache.
 
 ### Breaking Changes
 
