@@ -12,34 +12,34 @@ import (
 func ExampleImporter() {
 	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 
 	_, err = tree.Set([]byte("a"), []byte{1})
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 
 	_, err = tree.Set([]byte("b"), []byte{2})
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 	_, err = tree.Set([]byte("c"), []byte{3})
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 	_, version, err := tree.SaveVersion()
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 
 	itree, err := tree.GetImmutable(version)
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 	exporter, err := itree.Export()
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 	defer exporter.Close()
 	exported := []*ExportNode{}
@@ -49,29 +49,29 @@ func ExampleImporter() {
 		if err == ErrorExportDone {
 			break
 		} else if err != nil {
-			// handle err
+			panic(err)
 		}
 		exported = append(exported, node)
 	}
 
 	newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 	importer, err := newTree.Import(version)
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 	defer importer.Close()
 	for _, node := range exported {
 		err = importer.Add(node)
 		if err != nil {
-			// handle err
+			panic(err)
 		}
 	}
 	err = importer.Commit()
 	if err != nil {
-		// handle err
+		panic(err)
 	}
 }
 

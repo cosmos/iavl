@@ -379,10 +379,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 
 	// Delete the nodes
 	err = ndb.traverseRange(nodeKeyFormat.Key(fromVersion), nodeKeyFormat.Key(latest+1), func(k, v []byte) error {
-		if err = ndb.batch.Delete(k); err != nil {
-			return err
-		}
-		return nil
+		return ndb.batch.Delete(k)
 	})
 
 	if err != nil {
@@ -570,11 +567,7 @@ func (ndb *nodeDB) traverseRange(start []byte, end []byte, fn func(k, v []byte) 
 		}
 	}
 
-	if err := itr.Error(); err != nil {
-		return err
-	}
-
-	return nil
+	return itr.Error()
 }
 
 // Traverse all keys with a certain prefix. Return error if any, nil otherwise
