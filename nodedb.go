@@ -840,7 +840,7 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 
 		var changeSet ChangeSet
 		receiveKVPair := func(pair *KVPair) error {
-			changeSet.Pairs = append(changeSet.Pairs, *pair)
+			changeSet.Pairs = append(changeSet.Pairs, pair)
 			return nil
 		}
 
