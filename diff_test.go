@@ -22,24 +22,24 @@ func TestDiffRoundTrip(t *testing.T) {
 	tree, err := NewMutableTree(db, 0, true)
 	require.NoError(t, err)
 	for i := range changeSets {
-		v, err := tree.SaveChangeSet(&changeSets[i])
+		v, err := tree.SaveChangeSet(changeSets[i])
 		require.NoError(t, err)
 		require.Equal(t, int64(i+1), v)
 	}
 
 	// extract change sets from db
-	var extractChangeSets []ChangeSet
+	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true)
 	err = tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
-		extractChangeSets = append(extractChangeSets, *changeSet)
+		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})
 	require.NoError(t, err)
 	require.Equal(t, changeSets, extractChangeSets)
 }
 
-func genChangeSets(r *rand.Rand, n int) []ChangeSet {
-	var changeSets []ChangeSet
+func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
+	var changeSets []*ChangeSet
 
 	for i := 0; i < n; i++ {
 		items := make(map[string]*KVPair)
@@ -96,7 +96,7 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 			cs.Pairs = append(cs.Pairs, items[key])
 		}
 
-		changeSets = append(changeSets, cs)
+		changeSets = append(changeSets, &cs)
 	}
 	return changeSets
 }
