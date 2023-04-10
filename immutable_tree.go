@@ -38,7 +38,7 @@ func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastS
 	return &ImmutableTree{
 		logger: lg,
 		// NodeDB-backed Tree.
-		ndb:                    newNodeDB(db, cacheSize, opts),
+		ndb:                    newNodeDB(db, cacheSize, opts, lg),
 		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }
