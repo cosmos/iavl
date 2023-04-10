@@ -1057,6 +1057,59 @@ func (ndb *nodeDB) traverseNodes(fn func(hash []byte, node *Node) error) error {
 	return nil
 }
 
+<<<<<<< HEAD
+=======
+// traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
+func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	firstVersion, err := ndb.getFirstVersion()
+	if err != nil {
+		return err
+	}
+	if startVersion < firstVersion {
+		startVersion = firstVersion
+	}
+	latestVersion, err := ndb.getLatestVersion()
+	if err != nil {
+		return err
+	}
+	if endVersion > latestVersion {
+		endVersion = latestVersion
+	}
+
+	prevVersion := startVersion - 1
+	prevRoot, err := ndb.GetRoot(prevVersion)
+	if err != nil && err != ErrVersionDoesNotExist {
+		return err
+	}
+
+	for version := startVersion; version <= endVersion; version++ {
+		root, err := ndb.GetRoot(version)
+		if err != nil {
+			return err
+		}
+
+		var changeSet ChangeSet
+		receiveKVPair := func(pair *KVPair) error {
+			changeSet.Pairs = append(changeSet.Pairs, pair)
+			return nil
+		}
+
+		if err := ndb.extractStateChanges(prevVersion, prevRoot, root, receiveKVPair); err != nil {
+			return err
+		}
+
+		if err := fn(version, &changeSet); err != nil {
+			return err
+		}
+		prevVersion = version
+		prevRoot = root
+	}
+
+	return nil
+}
+
+>>>>>>> 61be28a (feat: make ChangeSet and KVPair protobuf serializable (#726))
 func (ndb *nodeDB) String() (string, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	defer bufPool.Put(buf)
