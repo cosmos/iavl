@@ -828,11 +828,7 @@ func (tree *MutableTree) DeleteVersionsTo(toVersion int64) error {
 		return err
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
-		return err
-	}
-
-	return nil
+	return tree.ndb.Commit()
 }
 
 // Rotate right and return the new node and orphan.
