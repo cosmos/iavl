@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/iavl/cache"
 
+	"github.com/cosmos/iavl/internal/color"
 	"github.com/cosmos/iavl/internal/encoding"
 )
 
@@ -167,8 +168,8 @@ func (node *Node) String() string {
 		child += fmt.Sprintf("{right %v}", node.rightNode.nodeKey)
 	}
 	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s\n",
-		ColoredBytes(node.key, Green, Blue),
-		ColoredBytes(node.value, Cyan, Blue),
+		color.ColoredBytes(node.key, color.Green, color.Blue),
+		color.ColoredBytes(node.value, color.Cyan, color.Blue),
 		node.nodeKey, node.leftNodeKey, node.rightNodeKey,
 		node.size, node.subtreeHeight, child)
 }
