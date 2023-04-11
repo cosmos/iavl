@@ -22,34 +22,34 @@ func TestDiffRoundTrip(t *testing.T) {
 	tree, err := NewMutableTree(db, 0, true)
 	require.NoError(t, err)
 	for i := range changeSets {
-		v, err := tree.SaveChangeSet(&changeSets[i])
+		v, err := tree.SaveChangeSet(changeSets[i])
 		require.NoError(t, err)
 		require.Equal(t, int64(i+1), v)
 	}
 
 	// extract change sets from db
-	var extractChangeSets []ChangeSet
+	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true)
 	err = tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
-		extractChangeSets = append(extractChangeSets, *changeSet)
+		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})
 	require.NoError(t, err)
 	require.Equal(t, changeSets, extractChangeSets)
 }
 
-func genChangeSets(r *rand.Rand, n int) []ChangeSet {
-	var changeSets []ChangeSet
+func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
+	var changeSets []*ChangeSet
 
 	for i := 0; i < n; i++ {
-		items := make(map[string]KVPair)
+		items := make(map[string]*KVPair)
 		start, count, step := r.Int63n(1000), r.Int63n(1000), r.Int63n(10)
 		for i := start; i < start+count*step; i += step {
 			value := make([]byte, 8)
 			binary.LittleEndian.PutUint64(value, uint64(i))
 
 			key := fmt.Sprintf("test-%d", i)
-			items[key] = KVPair{
+			items[key] = &KVPair{
 				Key:   []byte(key),
 				Value: value,
 			}
@@ -65,7 +65,7 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 				if pair.Delete {
 					continue
 				}
-				items[string(pair.Key)] = KVPair{
+				items[string(pair.Key)] = &KVPair{
 					Key:    pair.Key,
 					Delete: true,
 				}
@@ -77,7 +77,7 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 				i := r.Int63n(int64(len(lastChangeSet.Pairs)))
 				pair := lastChangeSet.Pairs[i]
 				if !pair.Delete {
-					items[string(pair.Key)] = KVPair{
+					items[string(pair.Key)] = &KVPair{
 						Key:   pair.Key,
 						Value: pair.Value,
 					}
@@ -96,7 +96,7 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 			cs.Pairs = append(cs.Pairs, items[key])
 		}
 
-		changeSets = append(changeSets, cs)
+		changeSets = append(changeSets, &cs)
 	}
 	return changeSets
 }
