@@ -8,6 +8,8 @@
 
 ### Breaking Changes
 
+- [#735](https://github.com/cosmos/iavl/pull/735) Pass logger to `NodeDB`, `MutableTree` and `ImmutableTree`
+
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
 
 ### API Changes

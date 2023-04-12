@@ -9,6 +9,7 @@ import (
 	"sort"
 	"testing"
 
+	log "cosmossdk.io/log"
 	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +43,7 @@ func b2i(bz []byte) int {
 
 // Construct a MutableTree
 func getTestTree(cacheSize int) (*MutableTree, error) {
-	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, false)
+	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, false, log.NewNopLogger())
 }
 
 // Convenience for a new node
@@ -325,7 +326,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t, err := NewMutableTree(db, 100000, false)
+	t, err := NewMutableTree(db, 100000, false, log.NewNopLogger())
 	require.NoError(b, err)
 
 	value := []byte{}

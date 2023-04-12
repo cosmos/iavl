@@ -11,12 +11,12 @@ import (
 	"strings"
 	"sync"
 
+	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
-	"github.com/cosmos/iavl/internal/logger"
 	"github.com/cosmos/iavl/keyformat"
 )
 
@@ -60,6 +60,8 @@ var (
 var errInvalidFastStorageVersion = fmt.Sprintf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 
 type nodeDB struct {
+	logger log.Logger
+
 	mtx            sync.Mutex       // Read/write lock.
 	db             dbm.DB           // Persistent node storage.
 	batch          dbm.Batch        // Batched writing buffer.
@@ -72,7 +74,7 @@ type nodeDB struct {
 	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 	if opts == nil {
 		o := DefaultOptions()
 		opts = &o
@@ -85,6 +87,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 	}
 
 	return &nodeDB{
+		logger:         lg,
 		db:             db,
 		batch:          db.NewBatch(),
 		opts:           *opts,
@@ -198,7 +201,7 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		}
 	}
 
-	logger.Debug("BATCH SAVE %+v\n", node)
+	ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
 }
