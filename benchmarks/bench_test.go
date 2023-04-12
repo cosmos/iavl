@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cosmos/cosmos-db"
@@ -25,7 +26,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false)
+	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger())
 	require.NoError(b, err)
 	keys := make([][]byte, size)
 

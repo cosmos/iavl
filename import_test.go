@@ -3,6 +3,7 @@ package iavl
 import (
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -10,7 +11,7 @@ import (
 )
 
 func ExampleImporter() {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +55,7 @@ func ExampleImporter() {
 		exported = append(exported, node)
 	}
 
-	newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	newTree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	if err != nil {
 		panic(err)
 	}
@@ -76,14 +77,14 @@ func ExampleImporter() {
 }
 
 func TestImporter_NegativeVersion(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	_, err = tree.Import(-1)
 	require.Error(t, err)
 }
 
 func TestImporter_NotEmpty(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	_, err = tree.Set([]byte("a"), []byte{1})
 	require.NoError(t, err)
@@ -97,14 +98,14 @@ func TestImporter_NotEmpty(t *testing.T) {
 func TestImporter_NotEmptyDatabase(t *testing.T) {
 	db := db.NewMemDB()
 
-	tree, err := NewMutableTree(db, 0, false)
+	tree, err := NewMutableTree(db, 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	_, err = tree.Set([]byte("a"), []byte{1})
 	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	tree, err = NewMutableTree(db, 0, false)
+	tree, err = NewMutableTree(db, 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	_, err = tree.Load()
 	require.NoError(t, err)
@@ -114,7 +115,7 @@ func TestImporter_NotEmptyDatabase(t *testing.T) {
 }
 
 func TestImporter_NotEmptyUnsaved(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	_, err = tree.Set([]byte("a"), []byte{1})
 	require.NoError(t, err)
@@ -142,7 +143,7 @@ func TestImporter_Add(t *testing.T) {
 	for desc, tc := range testcases {
 		tc := tc // appease scopelint
 		t.Run(desc, func(t *testing.T) {
-			tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+			tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 			require.NoError(t, err)
 			importer, err := tree.Import(1)
 			require.NoError(t, err)
@@ -162,7 +163,7 @@ func TestImporter_Add(t *testing.T) {
 }
 
 func TestImporter_Add_Closed(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
@@ -174,7 +175,7 @@ func TestImporter_Add_Closed(t *testing.T) {
 }
 
 func TestImporter_Close(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
@@ -191,7 +192,7 @@ func TestImporter_Close(t *testing.T) {
 }
 
 func TestImporter_Commit(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
@@ -223,7 +224,7 @@ func TestImporter_Commit_ForwardVersion(t *testing.T) {
 }
 
 func TestImporter_Commit_Closed(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	importer, err := tree.Import(1)
 	require.NoError(t, err)
@@ -238,7 +239,7 @@ func TestImporter_Commit_Closed(t *testing.T) {
 }
 
 func TestImporter_Commit_Empty(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	importer, err := tree.Import(3)
 	require.NoError(t, err)
@@ -268,7 +269,7 @@ func BenchmarkImport(b *testing.B) {
 	b.StartTimer()
 
 	for n := 0; n < b.N; n++ {
-		newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
+		newTree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 		require.NoError(b, err)
 		importer, err := newTree.Import(tree.Version())
 		require.NoError(b, err)
