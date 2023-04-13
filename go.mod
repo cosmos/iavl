@@ -11,7 +11,7 @@ require (
 	github.com/golangci/golangci-lint v1.52.2
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.8.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
