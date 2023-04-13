@@ -238,9 +238,6 @@ func TestExporter_Import(t *testing.T) {
 			tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
 				index, _, err := tree.GetWithIndex(key)
 				require.NoError(t, err)
-<<<<<<< HEAD
-				newIndex, newValue, err := newTree.GetWithIndex(key)
-=======
 				defer innerExporter.Close()
 
 				exporter := NodeExporter(innerExporter)
@@ -249,7 +246,6 @@ func TestExporter_Import(t *testing.T) {
 				}
 
 				newTree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
->>>>>>> 85a123c (refactor: add logger (#735))
 				require.NoError(t, err)
 				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
 				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
