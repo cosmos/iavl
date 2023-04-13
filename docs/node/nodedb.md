@@ -1,6 +1,6 @@
 # NodeDB
 
-### Structure
+## Structure
 
 The nodeDB is responsible for persisting nodes and fastNodes correctly in persistent storage.
 

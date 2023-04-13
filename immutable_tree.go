@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
 )
 
@@ -14,6 +15,8 @@ import (
 // Returned key/value byte slices must not be modified, since they may point to data located inside
 // IAVL which would also be modified.
 type ImmutableTree struct {
+	logger log.Logger
+
 	root                   *Node
 	ndb                    *nodeDB
 	version                int64
@@ -21,23 +24,21 @@ type ImmutableTree struct {
 }
 
 // NewImmutableTree creates both in-memory and persistent instances
-func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool) *ImmutableTree {
+func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger) *ImmutableTree {
 	if db == nil {
 		// In-memory Tree.
 		return &ImmutableTree{}
 	}
-	return &ImmutableTree{
-		// NodeDB-backed Tree.
-		ndb:                    newNodeDB(db, cacheSize, nil),
-		skipFastStorageUpgrade: skipFastStorageUpgrade,
-	}
+
+	return NewImmutableTreeWithOpts(db, cacheSize, nil, skipFastStorageUpgrade, lg)
 }
 
 // NewImmutableTreeWithOpts creates an ImmutableTree with the given options.
-func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool) *ImmutableTree {
+func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) *ImmutableTree {
 	return &ImmutableTree{
+		logger: lg,
 		// NodeDB-backed Tree.
-		ndb:                    newNodeDB(db, cacheSize, opts),
+		ndb:                    newNodeDB(db, cacheSize, opts, lg),
 		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }
@@ -67,7 +68,7 @@ func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) ([]strin
 type NodeEncoder func(id []byte, depth int, isLeaf bool) string
 
 // defaultNodeEncoder can encode any node unless the client overrides it
-func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
+func defaultNodeEncoder(id []byte, _ int, isLeaf bool) string {
 	prefix := "- "
 	if isLeaf {
 		prefix = "* "

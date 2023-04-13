@@ -12,7 +12,7 @@ jobs:
     container: ghcr.io/notional-labs/cosmos
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.19' # The Go version to download (if necessary) and use.
       - name: run benchmarks

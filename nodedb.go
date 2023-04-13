@@ -11,12 +11,12 @@ import (
 	"strings"
 	"sync"
 
+	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
-	"github.com/cosmos/iavl/internal/logger"
 	"github.com/cosmos/iavl/keyformat"
 )
 
@@ -60,6 +60,8 @@ var (
 var errInvalidFastStorageVersion = fmt.Sprintf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 
 type nodeDB struct {
+	logger log.Logger
+
 	mtx            sync.Mutex       // Read/write lock.
 	db             dbm.DB           // Persistent node storage.
 	batch          dbm.Batch        // Batched writing buffer.
@@ -72,7 +74,7 @@ type nodeDB struct {
 	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 	if opts == nil {
 		o := DefaultOptions()
 		opts = &o
@@ -85,6 +87,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options) *nodeDB {
 	}
 
 	return &nodeDB{
+		logger:         lg,
 		db:             db,
 		batch:          db.NewBatch(),
 		opts:           *opts,
@@ -198,7 +201,7 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		}
 	}
 
-	logger.Debug("BATCH SAVE %+v\n", node)
+	ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
 }
@@ -379,10 +382,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 
 	// Delete the nodes
 	err = ndb.traverseRange(nodeKeyFormat.Key(fromVersion), nodeKeyFormat.Key(latest+1), func(k, v []byte) error {
-		if err = ndb.batch.Delete(k); err != nil {
-			return err
-		}
-		return nil
+		return ndb.batch.Delete(k)
 	})
 
 	if err != nil {
@@ -517,6 +517,9 @@ func (ndb *nodeDB) GetRoot(version int64) (*NodeKey, error) {
 	if err != nil {
 		return nil, err
 	}
+	if val == nil {
+		return nil, ErrVersionDoesNotExist
+	}
 	if len(val) == 0 { // empty root
 		return nil, nil
 	}
@@ -567,11 +570,7 @@ func (ndb *nodeDB) traverseRange(start []byte, end []byte, fn func(k, v []byte) 
 		}
 	}
 
-	if err := itr.Error(); err != nil {
-		return err
-	}
-
-	return nil
+	return itr.Error()
 }
 
 // Traverse all keys with a certain prefix. Return error if any, nil otherwise
@@ -825,7 +824,7 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 
 	prevVersion := startVersion - 1
 	prevRoot, err := ndb.GetRoot(prevVersion)
-	if err != nil {
+	if err != nil && err != ErrVersionDoesNotExist {
 		return err
 	}
 
@@ -837,7 +836,7 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 
 		var changeSet ChangeSet
 		receiveKVPair := func(pair *KVPair) error {
-			changeSet.Pairs = append(changeSet.Pairs, *pair)
+			changeSet.Pairs = append(changeSet.Pairs, pair)
 			return nil
 		}
 
@@ -894,8 +893,4 @@ func (ndb *nodeDB) String() (string, error) {
 	return "-" + "\n" + buf.String() + "-", nil
 }
 
-var (
-	ErrNodeMissingNodeKey   = fmt.Errorf("node does not have a nodeKey")
-	ErrNodeAlreadyPersisted = fmt.Errorf("shouldn't be calling save on an already persisted node")
-	ErrRootMissingNodeKey   = fmt.Errorf("root node key must not be zero")
-)
+var ErrNodeMissingNodeKey = fmt.Errorf("node does not have a nodeKey")

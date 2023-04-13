@@ -2,7 +2,7 @@
 
 Nodes and fastNodes are stored under the database with different key formats to ensure there are no key collisions and a structured key from which we can extract useful information.
 
-### Nodes
+## Nodes
 
 Node KeyFormat: `n|node.nodeKey.version|node.nodeKey.nonce`
 

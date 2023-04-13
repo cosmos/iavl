@@ -40,3 +40,11 @@ pull_request_rules:
       backport:
         branches:
           - release/v0.21.x
+  - name: backport patches to v1.x branch
+    conditions:
+      - base=master
+      - label=backport/v1.x
+    actions:
+      backport:
+        branches:
+          - release/v1.x.x
