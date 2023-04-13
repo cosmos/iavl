@@ -208,7 +208,7 @@ func TestImporter_Commit(t *testing.T) {
 }
 
 func TestImporter_Commit_ForwardVersion(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	importer, err := tree.Import(2)
 	require.NoError(t, err)
