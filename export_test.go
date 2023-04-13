@@ -201,42 +201,15 @@ func TestExporter_Import(t *testing.T) {
 
 	for desc, tree := range testcases {
 		tree := tree
-		t.Run(desc, func(t *testing.T) {
-			t.Parallel()
-
-			exporter, err := tree.Export()
-			require.NoError(t, err)
-			defer exporter.Close()
-
-			newTree, err := NewMutableTree(db.NewMemDB(), 0, false)
-			require.NoError(t, err)
-			importer, err := newTree.Import(tree.Version())
-			require.NoError(t, err)
-			defer importer.Close()
-
-			for {
-				item, err := exporter.Next()
-				if err == ErrorExportDone {
-					err = importer.Commit()
-					require.NoError(t, err)
-					break
-				}
-				require.NoError(t, err)
-				err = importer.Add(item)
-				require.NoError(t, err)
+		for _, compress := range []bool{false, true} {
+			if compress {
+				desc += "-compress"
 			}
+			compress := compress
+			t.Run(desc, func(t *testing.T) {
+				t.Parallel()
 
-			treeHash, err := tree.Hash()
-			require.NoError(t, err)
-			newTreeHash, err := newTree.Hash()
-			require.NoError(t, err)
-
-			require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
-			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
-			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
-
-			tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
-				index, _, err := tree.GetWithIndex(key)
+				innerExporter, err := tree.Export()
 				require.NoError(t, err)
 				defer innerExporter.Close()
 
@@ -247,11 +220,47 @@ func TestExporter_Import(t *testing.T) {
 
 				newTree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 				require.NoError(t, err)
-				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
-				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
-				return false
+				innerImporter, err := newTree.Import(tree.Version())
+				require.NoError(t, err)
+				defer innerImporter.Close()
+
+				importer := NodeImporter(innerImporter)
+				if compress {
+					importer = NewCompressImporter(innerImporter)
+				}
+
+				for {
+					item, err := exporter.Next()
+					if err == ErrorExportDone {
+						err = innerImporter.Commit()
+						require.NoError(t, err)
+						break
+					}
+					require.NoError(t, err)
+					err = importer.Add(item)
+					require.NoError(t, err)
+				}
+
+				treeHash, err := tree.Hash()
+				require.NoError(t, err)
+				newTreeHash, err := newTree.Hash()
+				require.NoError(t, err)
+
+				require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
+				require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
+				require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
+
+				tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
+					index, _, err := tree.GetWithIndex(key)
+					require.NoError(t, err)
+					newIndex, newValue, err := newTree.GetWithIndex(key)
+					require.NoError(t, err)
+					require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
+					require.Equal(t, value, newValue, "Value mismatch for key %v", key)
+					return false
+				})
 			})
-		})
+		}
 	}
 }
 
