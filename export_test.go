@@ -50,6 +50,8 @@ func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
 	require.NoError(t, err)
 	_, _, err = tree.Remove([]byte("z"))
 	require.NoError(t, err)
+	_, err = tree.Set([]byte("abc"), []byte{6})
+	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 
@@ -163,10 +165,12 @@ func TestExporter(t *testing.T) {
 
 	expect := []*ExportNode{
 		{Key: []byte("a"), Value: []byte{1}, Version: 1, Height: 0},
+		{Key: []byte("abc"), Value: []byte{6}, Version: 3, Height: 0},
+		{Key: []byte("abc"), Value: nil, Version: 3, Height: 1},
 		{Key: []byte("b"), Value: []byte{2}, Version: 3, Height: 0},
-		{Key: []byte("b"), Value: nil, Version: 3, Height: 1},
 		{Key: []byte("c"), Value: []byte{3}, Version: 3, Height: 0},
-		{Key: []byte("c"), Value: nil, Version: 3, Height: 2},
+		{Key: []byte("c"), Value: nil, Version: 3, Height: 1},
+		{Key: []byte("b"), Value: nil, Version: 3, Height: 2},
 		{Key: []byte("d"), Value: []byte{4}, Version: 2, Height: 0},
 		{Key: []byte("e"), Value: []byte{5}, Version: 3, Height: 0},
 		{Key: []byte("e"), Value: nil, Version: 3, Height: 1},
@@ -177,6 +181,41 @@ func TestExporter(t *testing.T) {
 	exporter, err := tree.Export()
 	require.NoError(t, err)
 	defer exporter.Close()
+	for {
+		node, err := exporter.Next()
+		if err == ErrorExportDone {
+			break
+		}
+		require.NoError(t, err)
+		actual = append(actual, node)
+	}
+
+	assert.Equal(t, expect, actual)
+}
+
+func TestExporterCompress(t *testing.T) {
+	tree := setupExportTreeBasic(t)
+
+	expect := []*ExportNode{
+		{Key: []byte{0, 'a'}, Value: []byte{1}, Version: 1, Height: 0},
+		{Key: []byte{1, 'b', 'c'}, Value: []byte{6}, Version: 3, Height: 0},
+		{Key: nil, Value: nil, Version: 0, Height: 1},
+		{Key: []byte{0, 'b'}, Value: []byte{2}, Version: 3, Height: 0},
+		{Key: []byte{0, 'c'}, Value: []byte{3}, Version: 3, Height: 0},
+		{Key: nil, Value: nil, Version: 0, Height: 1},
+		{Key: nil, Value: nil, Version: 0, Height: 2},
+		{Key: []byte{0, 'd'}, Value: []byte{4}, Version: 2, Height: 0},
+		{Key: []byte{0, 'e'}, Value: []byte{5}, Version: 3, Height: 0},
+		{Key: nil, Value: nil, Version: 0, Height: 1},
+		{Key: nil, Value: nil, Version: 0, Height: 3},
+	}
+
+	actual := make([]*ExportNode, 0, len(expect))
+	innerExporter, err := tree.Export()
+	require.NoError(t, err)
+	defer innerExporter.Close()
+
+	exporter := NewCompressExporter(innerExporter)
 	for {
 		node, err := exporter.Next()
 		if err == ErrorExportDone {
