@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"testing"
 
@@ -252,6 +253,42 @@ func TestIsFastStorageEnabled_False(t *testing.T) {
 	shouldForce, err := ndb.shouldForceFastStorageUpgrade()
 	require.False(t, shouldForce)
 	require.NoError(t, err)
+}
+
+func TestTraverseNodes(t *testing.T) {
+	tree, _ := getTestTree(0)
+	// version 1
+	for i := 0; i < 20; i++ {
+		_, err := tree.Set([]byte{byte(i)}, []byte{byte(i)})
+		require.NoError(t, err)
+	}
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+	// version 2, no commit
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	// version 3
+	for i := 20; i < 30; i++ {
+		_, err := tree.Set([]byte{byte(i)}, []byte{byte(i)})
+		require.NoError(t, err)
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	count := 0
+	err = tree.ndb.traverseNodes(func(node *Node) error {
+		actualNode, err := tree.ndb.GetNode(node.nodeKey)
+		if err != nil {
+			return err
+		}
+		if actualNode.String() != node.String() {
+			return fmt.Errorf("found unexpected node")
+		}
+		count++
+		return nil
+	})
+	require.NoError(t, err)
+	require.Equal(t, 64, count)
 }
 
 func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches int, orphanKeys [][]byte) {
