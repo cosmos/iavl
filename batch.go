@@ -16,7 +16,7 @@ type BatchWithFlusher struct {
 var _ dbm.Batch = &BatchWithFlusher{}
 
 // Ethereum has found that commit of 100KB is optimal, ref ethereum/go-ethereum#15115
-var defaultFlushThreshold = 100000
+// var defaultFlushThreshold = 100000
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
 func NewBatchWithFlusher(db dbm.DB, flushThreshold int) *BatchWithFlusher {

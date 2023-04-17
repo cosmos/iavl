@@ -59,7 +59,7 @@ func benchmarkBatchWithFlusher(b *testing.B, backend dbm.BackendType, flushThres
 			panic(err)
 		}
 	}
-	batchWithFlusher.Write()
+	require.NoError(b, batchWithFlusher.Write())
 }
 
 func TestBatchWithFlusher(t *testing.T) {
@@ -93,12 +93,12 @@ func testBatchWithFlusher(t *testing.T, backend dbm.BackendType, flushThreshold 
 			panic(err)
 		}
 	}
-	batchWithFlusher.Write()
+	require.NoError(t, batchWithFlusher.Write())
 
 	itr, err := db.Iterator(nil, nil)
 	require.NoError(t, err)
 
-	var keyNonce uint16 = 0
+	var keyNonce uint16
 	for itr.Valid() {
 		expectedKey := makeKey(keyNonce)
 		require.Equal(t, expectedKey, itr.Key())
