@@ -5,13 +5,13 @@ go 1.19
 require (
 	cosmossdk.io/log v1.0.0
 	github.com/cosmos/cosmos-db v1.0.0-rc.1
-	github.com/cosmos/ics23/go v0.9.1-0.20221207100636-b1abd8678aab
+	github.com/cosmos/ics23/go v0.10.0
 	github.com/emicklei/dot v1.4.2
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.52.2
 	github.com/stretchr/testify v1.8.2
 	golang.org/x/crypto v0.8.0
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.30.0
 )
 
 require (
