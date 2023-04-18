@@ -973,10 +973,10 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 func (tree *MutableTree) saveNewNodes(version int64) error {
 	nonce := int32(0)
 	newNodes := make([]*Node, 0)
-	var recursiveAssignKey func(*Node) (*NodeKey, error)
-	recursiveAssignKey = func(node *Node) (*NodeKey, error) {
+	var recursiveAssignKey func(*Node) ([]byte, error)
+	recursiveAssignKey = func(node *Node) ([]byte, error) {
 		if node.nodeKey != nil {
-			return node.nodeKey, nil
+			return node.nodeKey.GetKey(), nil
 		}
 		nonce++
 		node.nodeKey = &NodeKey{
@@ -1002,7 +1002,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		if err != nil {
 			return nil, err
 		}
-		return node.nodeKey, nil
+		return node.nodeKey.GetKey(), nil
 	}
 
 	if _, err := recursiveAssignKey(tree.root); err != nil {
