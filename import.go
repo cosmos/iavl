@@ -74,7 +74,7 @@ func (i *Importer) writeNode(node *Node) error {
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 
-	if err := i.batch.Set(i.tree.ndb.nodeKey(node.nodeKey), bytesCopy); err != nil {
+	if err := i.batch.Set(i.tree.ndb.nodeKey(node.GetKey()), bytesCopy); err != nil {
 		return err
 	}
 
@@ -135,8 +135,8 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	} else if stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight {
 		node.leftNode = i.stack[stackSize-2]
 		node.rightNode = i.stack[stackSize-1]
-		node.leftNodeKey = node.leftNode.nodeKey
-		node.rightNodeKey = node.rightNode.nodeKey
+		node.leftNodeKey = node.leftNode.GetKey()
+		node.rightNodeKey = node.rightNode.GetKey()
 		node.size = node.leftNode.size + node.rightNode.size
 		// Update the stack now.
 		if err := i.writeNode(i.stack[stackSize-2]); err != nil {
@@ -169,7 +169,7 @@ func (i *Importer) Commit() error {
 
 	switch len(i.stack) {
 	case 0:
-		if err := i.batch.Set(i.tree.ndb.nodeKey(&NodeKey{version: i.version, nonce: 1}), []byte{}); err != nil {
+		if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), []byte{}); err != nil {
 			return err
 		}
 	case 1:
@@ -178,7 +178,7 @@ func (i *Importer) Commit() error {
 			return err
 		}
 		if i.stack[0].nodeKey.version < i.version { // it means there is no update in the given version
-			if err := i.batch.Set(i.tree.ndb.nodeKey(&NodeKey{version: i.version, nonce: 1}), i.tree.ndb.nodeKey(i.stack[0].nodeKey)); err != nil {
+			if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), i.tree.ndb.nodeKey(i.stack[0].GetKey())); err != nil {
 				return err
 			}
 		}

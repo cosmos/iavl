@@ -344,7 +344,7 @@ func TestNodeIterator_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if the iterating count is same with the entire node count of the tree
-	itr, err := NewNodeIterator(tree.root.nodeKey, tree.ndb)
+	itr, err := NewNodeIterator(tree.root.GetKey(), tree.ndb)
 	require.NoError(t, err)
 	nodeCount := 0
 	for ; itr.Valid(); itr.Next(false) {
@@ -353,7 +353,7 @@ func TestNodeIterator_Success(t *testing.T) {
 	require.Equal(t, int64(nodeCount), tree.Size()*2-1)
 
 	// check if the skipped node count is right
-	itr, err = NewNodeIterator(tree.root.nodeKey, tree.ndb)
+	itr, err = NewNodeIterator(tree.root.GetKey(), tree.ndb)
 	require.NoError(t, err)
 	updateCount := 0
 	skipCount := 0

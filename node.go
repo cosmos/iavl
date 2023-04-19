@@ -24,10 +24,27 @@ type NodeKey struct {
 	nonce   int32
 }
 
+// GetKey returns a byte slice of the NodeKey.
 func (nk *NodeKey) GetKey() []byte {
 	b := make([]byte, 12)
 	binary.BigEndian.PutUint64(b, uint64(nk.version))
 	binary.BigEndian.PutUint32(b[8:], uint32(nk.nonce))
+	return b
+}
+
+// GetNodeKey returns a NodeKey from a byte slice.
+func GetNodeKey(key []byte) *NodeKey {
+	return &NodeKey{
+		version: int64(binary.BigEndian.Uint64(key)),
+		nonce:   int32(binary.BigEndian.Uint32(key[8:])),
+	}
+}
+
+// GetRootKey returns a byte slice of the root node key for the given version.
+func GetRootKey(version int64) []byte {
+	b := make([]byte, 12)
+	binary.BigEndian.PutUint64(b, uint64(version))
+	binary.BigEndian.PutUint32(b[8:], 1)
 	return b
 }
 
@@ -37,8 +54,8 @@ type Node struct {
 	value         []byte
 	hash          []byte
 	nodeKey       *NodeKey
-	leftNodeKey   *NodeKey
-	rightNodeKey  *NodeKey
+	leftNodeKey   []byte
+	rightNodeKey  []byte
 	size          int64
 	leftNode      *Node
 	rightNode     *Node
@@ -57,11 +74,16 @@ func NewNode(key []byte, value []byte) *Node {
 	}
 }
 
+// GetKey returns the key of the node.
+func (node *Node) GetKey() []byte {
+	return node.nodeKey.GetKey()
+}
+
 // MakeNode constructs an *Node from an encoded byte slice.
 //
 // The new node doesn't have its hash saved or set. The caller must set it
 // afterwards.
-func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
+func MakeNode(nk []byte, buf []byte) (*Node, error) {
 	// Read node header (height, size, key).
 	height, n, cause := encoding.DecodeVarint(buf)
 	if cause != nil {
@@ -87,7 +109,7 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 	node := &Node{
 		subtreeHeight: int8(height),
 		size:          size,
-		nodeKey:       nodeKey,
+		nodeKey:       GetNodeKey(nk),
 		key:           key,
 	}
 
@@ -143,14 +165,10 @@ func MakeNode(nodeKey *NodeKey, buf []byte) (*Node, error) {
 		}
 		rightNodeKey.nonce = int32(nonce)
 
-		node.leftNodeKey = &leftNodeKey
-		node.rightNodeKey = &rightNodeKey
+		node.leftNodeKey = leftNodeKey.GetKey()
+		node.rightNodeKey = rightNodeKey.GetKey()
 	}
 	return node, nil
-}
-
-func (node *Node) GetKey() []byte {
-	return node.nodeKey.GetKey()
 }
 
 // String returns a string representation of the node key.
@@ -456,12 +474,14 @@ func (node *Node) encodedSize() int {
 	} else {
 		n += encoding.EncodeBytesSize(node.hash)
 		if node.leftNodeKey != nil {
-			n += encoding.EncodeVarintSize(node.leftNodeKey.version) +
-				encoding.EncodeVarintSize(int64(node.leftNodeKey.nonce))
+			nk := GetNodeKey(node.leftNodeKey)
+			n += encoding.EncodeVarintSize(nk.version) +
+				encoding.EncodeVarintSize(int64(nk.nonce))
 		}
 		if node.rightNodeKey != nil {
-			n += encoding.EncodeVarintSize(node.rightNodeKey.version) +
-				encoding.EncodeVarintSize(int64(node.rightNodeKey.nonce))
+			nk := GetNodeKey(node.rightNodeKey)
+			n += encoding.EncodeVarintSize(nk.version) +
+				encoding.EncodeVarintSize(int64(nk.nonce))
 		}
 	}
 	return n
@@ -500,11 +520,12 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.leftNodeKey == nil {
 			return ErrLeftNodeKeyEmpty
 		}
-		cause = encoding.EncodeVarint(w, node.leftNodeKey.version)
+		leftNodeKey := GetNodeKey(node.leftNodeKey)
+		cause = encoding.EncodeVarint(w, leftNodeKey.version)
 		if cause != nil {
 			return fmt.Errorf("writing the version of left node key, %w", cause)
 		}
-		cause = encoding.EncodeVarint(w, int64(node.leftNodeKey.nonce))
+		cause = encoding.EncodeVarint(w, int64(leftNodeKey.nonce))
 		if cause != nil {
 			return fmt.Errorf("writing the nonce of left node key, %w", cause)
 		}
@@ -512,11 +533,12 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if node.rightNodeKey == nil {
 			return ErrRightNodeKeyEmpty
 		}
-		cause = encoding.EncodeVarint(w, node.rightNodeKey.version)
+		rightNodeKey := GetNodeKey(node.rightNodeKey)
+		cause = encoding.EncodeVarint(w, rightNodeKey.version)
 		if cause != nil {
 			return fmt.Errorf("writing the version of right node key, %w", cause)
 		}
-		cause = encoding.EncodeVarint(w, int64(node.rightNodeKey.nonce))
+		cause = encoding.EncodeVarint(w, int64(rightNodeKey.nonce))
 		if cause != nil {
 			return fmt.Errorf("writing the nonce of right node key, %w", cause)
 		}
