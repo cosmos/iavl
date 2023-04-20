@@ -295,7 +295,7 @@ func TestTraverseNodes(t *testing.T) {
 
 func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches int, orphanKeys [][]byte) {
 	var branchCount, orphanIndex int
-	err := ndb.traverseOrphans(version, func(node *Node) error {
+	err := ndb.traverseOrphans(version, version+1, func(node *Node) error {
 		if node.isLeaf() {
 			require.Equal(t, orphanKeys[orphanIndex], node.key)
 			orphanIndex++

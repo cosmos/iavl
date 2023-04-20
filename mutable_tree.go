@@ -73,6 +73,14 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
+	legacyLatestVersion, err := tree.ndb.getLegacyLatestVersion()
+	if err != nil {
+		return false
+	}
+	if version <= legacyLatestVersion {
+		has, _ := tree.ndb.hasLegacyVersion(version)
+		return has
+	}
 	firstVersion, err := tree.ndb.getFirstVersion()
 	if err != nil {
 		return false
@@ -81,6 +89,7 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 	if err != nil {
 		return false
 	}
+
 	return firstVersion <= version && version <= latestVersion
 }
 
