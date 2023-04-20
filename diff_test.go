@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/cometbft/cometbft-db"
 	"github.com/stretchr/testify/require"
 )
 
@@ -30,7 +30,7 @@ func TestDiffRoundTrip(t *testing.T) {
 	// extract change sets from db
 	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true)
-	err = tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
+	err = tree2.ndb.traverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
 		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})
