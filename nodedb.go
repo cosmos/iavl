@@ -40,7 +40,7 @@ const (
 )
 
 var (
-	// All node keys are prefixed with the byte 'n'. This ensures no collision is
+	// All new node keys are prefixed with the byte 's'. This ensures no collision is
 	// possible with the legacy nodes, and makes them easier to traverse. They are indexed by the version and the local nonce.
 	nodeKeyFormat = keyformat.NewKeyFormat('s', int64Size+int32Size) // s<version><nonce>
 
