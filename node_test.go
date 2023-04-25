@@ -44,6 +44,7 @@ func TestNode_encode_decode(t *testing.T) {
 		version: 1,
 		nonce:   1,
 	}
+	childNodeHash := []byte{0x7f, 0x68, 0x90, 0xca, 0x16, 0xde, 0xa6, 0xe8, 0x89, 0x3d, 0x96, 0xf0, 0xa3, 0xd, 0xa, 0x14, 0xe5, 0x55, 0x59, 0xfc, 0x9b, 0x83, 0x4, 0x91, 0xe3, 0xd2, 0x45, 0x1c, 0x81, 0xf6, 0xd1, 0xe}
 	testcases := map[string]struct {
 		node        *Node
 		expectHex   string
@@ -61,7 +62,19 @@ func TestNode_encode_decode(t *testing.T) {
 			leftNodeKey:  childNodeKey.GetKey(),
 			rightNodeKey: childNodeKey.GetKey(),
 			hash:         []byte{0x70, 0x80, 0x90, 0xa0},
-		}, "060e036b657904708090a002020202", false},
+		}, "060e036b657904708090a00002020202", false},
+		"inner hybrid": {&Node{
+			subtreeHeight: 3,
+			size:          7,
+			key:           []byte("key"),
+			nodeKey: &NodeKey{
+				version: 2,
+				nonce:   1,
+			},
+			leftNodeKey:  childNodeKey.GetKey(),
+			rightNodeKey: childNodeHash,
+			hash:         []byte{0x70, 0x80, 0x90, 0xa0},
+		}, "060e036b657904708090a0040202207f6890ca16dea6e8893d96f0a30d0a14e55559fc9b830491e3d2451c81f6d10e", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			size:          1,

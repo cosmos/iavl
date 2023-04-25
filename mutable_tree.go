@@ -103,8 +103,25 @@ func (tree *MutableTree) AvailableVersions() []int {
 	if err != nil {
 		return nil
 	}
+	legacyLatestVersion, err := tree.ndb.getLegacyLatestVersion()
+	if err != nil {
+		return nil
+	}
 
 	res := make([]int, 0)
+	if legacyLatestVersion > firstVersion {
+		for version := firstVersion; version < legacyLatestVersion; version++ {
+			has, err := tree.ndb.hasLegacyVersion(version)
+			if err != nil {
+				return nil
+			}
+			if has {
+				res = append(res, int(version))
+			}
+		}
+		firstVersion = legacyLatestVersion
+	}
+
 	for version := firstVersion; version <= latestVersion; version++ {
 		res = append(res, int(version))
 	}
@@ -985,7 +1002,10 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 	var recursiveAssignKey func(*Node) ([]byte, error)
 	recursiveAssignKey = func(node *Node) ([]byte, error) {
 		if node.nodeKey != nil {
-			return node.nodeKey.GetKey(), nil
+			if node.nodeKey.nonce > 0 {
+				return node.nodeKey.GetKey(), nil
+			}
+			return node.hash, nil
 		}
 		nonce++
 		node.nodeKey = &NodeKey{

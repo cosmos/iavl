@@ -18,6 +18,13 @@ import (
 	"github.com/cosmos/iavl/internal/encoding"
 )
 
+const (
+	// ModeLegacyLeftNode is the mode for legacy left child in the node encoding/decoding.
+	ModeLegacyLeftNode = 0x01
+	// ModeLegacyRightNode is the mode for legacy right child in the node encoding/decoding.
+	ModeLegacyRightNode = 0x02
+)
+
 // NodeKey represents a key of node in the DB.
 type NodeKey struct {
 	version int64
@@ -129,41 +136,67 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 		}
 		buf = buf[n:]
 
-		var (
-			leftNodeKey, rightNodeKey NodeKey
-			nonce                     int64
-		)
-		leftNodeKey.version, n, cause = encoding.DecodeVarint(buf)
+		mode, n, cause := encoding.DecodeVarint(buf)
 		if cause != nil {
-			return nil, fmt.Errorf("decoding node.leftNodeKey.version, %w", cause)
+			return nil, fmt.Errorf("decoding mode, %w", cause)
 		}
 		buf = buf[n:]
-		nonce, n, cause = encoding.DecodeVarint(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("deocding node.leftNodeKey.nonce, %w", cause)
+		if mode < 0 || mode > 3 {
+			return nil, errors.New("invalid mode")
 		}
-		buf = buf[n:]
-		if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
-			return nil, errors.New("invalid nonce, must be int32")
-		}
-		leftNodeKey.nonce = int32(nonce)
 
-		rightNodeKey.version, n, cause = encoding.DecodeVarint(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("decoding node.rightNodeKey.version, %w", cause)
+		if mode&ModeLegacyLeftNode != 0 { // legacy leftNodeKey
+			node.leftNodeKey, n, cause = encoding.DecodeBytes(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding legacy node.leftNodeKey, %w", cause)
+			}
+			buf = buf[n:]
+		} else {
+			var (
+				leftNodeKey NodeKey
+				nonce       int64
+			)
+			leftNodeKey.version, n, cause = encoding.DecodeVarint(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding node.leftNodeKey.version, %w", cause)
+			}
+			buf = buf[n:]
+			nonce, n, cause = encoding.DecodeVarint(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("deocding node.leftNodeKey.nonce, %w", cause)
+			}
+			buf = buf[n:]
+			if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
+				return nil, errors.New("invalid nonce, must be int32")
+			}
+			leftNodeKey.nonce = int32(nonce)
+			node.leftNodeKey = leftNodeKey.GetKey()
 		}
-		buf = buf[n:]
-		nonce, _, cause = encoding.DecodeVarint(buf)
-		if cause != nil {
-			return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", cause)
+		if mode&ModeLegacyRightNode != 0 { // legacy rightNodeKey
+			node.rightNodeKey, _, cause = encoding.DecodeBytes(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding legacy node.rightNodeKey, %w", cause)
+			}
+		} else {
+			var (
+				rightNodeKey NodeKey
+				nonce        int64
+			)
+			rightNodeKey.version, n, cause = encoding.DecodeVarint(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding node.rightNodeKey.version, %w", cause)
+			}
+			buf = buf[n:]
+			nonce, _, cause = encoding.DecodeVarint(buf)
+			if cause != nil {
+				return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", cause)
+			}
+			if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
+				return nil, errors.New("invalid nonce, must be int32")
+			}
+			rightNodeKey.nonce = int32(nonce)
+			node.rightNodeKey = rightNodeKey.GetKey()
 		}
-		if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
-			return nil, errors.New("invalid nonce, must be int32")
-		}
-		rightNodeKey.nonce = int32(nonce)
-
-		node.leftNodeKey = leftNodeKey.GetKey()
-		node.rightNodeKey = rightNodeKey.GetKey()
 	}
 	return node, nil
 }
@@ -577,30 +610,55 @@ func (node *Node) writeBytes(w io.Writer) error {
 		if cause != nil {
 			return fmt.Errorf("writing hash, %w", cause)
 		}
+		mode := 0
 		if node.leftNodeKey == nil {
 			return ErrLeftNodeKeyEmpty
 		}
-		leftNodeKey := GetNodeKey(node.leftNodeKey)
-		cause = encoding.EncodeVarint(w, leftNodeKey.version)
-		if cause != nil {
-			return fmt.Errorf("writing the version of left node key, %w", cause)
+		// check if children NodeKeys are legacy mode
+		if len(node.leftNodeKey) == hashSize {
+			mode += ModeLegacyLeftNode
 		}
-		cause = encoding.EncodeVarint(w, int64(leftNodeKey.nonce))
-		if cause != nil {
-			return fmt.Errorf("writing the nonce of left node key, %w", cause)
+		if len(node.rightNodeKey) == hashSize {
+			mode += ModeLegacyRightNode
 		}
-
+		cause = encoding.EncodeVarint(w, int64(mode))
+		if cause != nil {
+			return fmt.Errorf("writing mode, %w", cause)
+		}
+		if mode&ModeLegacyLeftNode != 0 { // legacy leftNodeKey
+			cause = encoding.EncodeBytes(w, node.leftNodeKey)
+			if cause != nil {
+				return fmt.Errorf("writing the legacy left node key, %w", cause)
+			}
+		} else {
+			leftNodeKey := GetNodeKey(node.leftNodeKey)
+			cause = encoding.EncodeVarint(w, leftNodeKey.version)
+			if cause != nil {
+				return fmt.Errorf("writing the version of left node key, %w", cause)
+			}
+			cause = encoding.EncodeVarint(w, int64(leftNodeKey.nonce))
+			if cause != nil {
+				return fmt.Errorf("writing the nonce of left node key, %w", cause)
+			}
+		}
 		if node.rightNodeKey == nil {
 			return ErrRightNodeKeyEmpty
 		}
-		rightNodeKey := GetNodeKey(node.rightNodeKey)
-		cause = encoding.EncodeVarint(w, rightNodeKey.version)
-		if cause != nil {
-			return fmt.Errorf("writing the version of right node key, %w", cause)
-		}
-		cause = encoding.EncodeVarint(w, int64(rightNodeKey.nonce))
-		if cause != nil {
-			return fmt.Errorf("writing the nonce of right node key, %w", cause)
+		if mode&ModeLegacyRightNode != 0 { // legacy rightNodeKey
+			cause = encoding.EncodeBytes(w, node.rightNodeKey)
+			if cause != nil {
+				return fmt.Errorf("writing the legacy right node key, %w", cause)
+			}
+		} else {
+			rightNodeKey := GetNodeKey(node.rightNodeKey)
+			cause = encoding.EncodeVarint(w, rightNodeKey.version)
+			if cause != nil {
+				return fmt.Errorf("writing the version of right node key, %w", cause)
+			}
+			cause = encoding.EncodeVarint(w, int64(rightNodeKey.nonce))
+			if cause != nil {
+				return fmt.Errorf("writing the nonce of right node key, %w", cause)
+			}
 		}
 	}
 	return nil

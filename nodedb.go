@@ -394,7 +394,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 // deleteLegacyNodes deletes all legacy nodes with the given version from disk.
 // NOTE: This is only used for DeleteVersionsFrom.
 func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
-	node, err := ndb.GetNode(ndb.legacyNodeKey(nk))
+	node, err := ndb.GetNode(nk)
 	if err != nil {
 		return err
 	}
@@ -428,7 +428,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 	var prevVersion, curVersion int64
 	var rootKeys [][]byte
 	for ; itr.Valid(); itr.Next() {
-		legacyNodeKeyFormat.Scan(itr.Key(), &curVersion)
+		legacyRootKeyFormat.Scan(itr.Key(), &curVersion)
 		rootKeys = append(rootKeys, itr.Key())
 		if prevVersion > 0 {
 			if err := ndb.traverseOrphans(prevVersion, curVersion, func(orphan *Node) error {
@@ -482,18 +482,19 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
 	for v, r := range ndb.versionReaders {
 		if v >= fromVersion && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}
+	ndb.mtx.Unlock()
 
 	// Delete the legacy versions
 	legacyLatestVersion, err := ndb.getLegacyLatestVersion()
 	if err != nil {
 		return err
 	}
+	dumpFromVersion := fromVersion
 	if legacyLatestVersion >= fromVersion {
 		if err := ndb.traverseRange(legacyRootKeyFormat.Key(fromVersion), legacyRootKeyFormat.Key(legacyLatestVersion+1), func(k, v []byte) error {
 			var version int64
@@ -508,15 +509,12 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 		}); err != nil {
 			return err
 		}
-		fromVersion = legacyLatestVersion + 1
 		// Update the legacy latest version forcibly
 		ndb.legacyLatestVersion = 0
-		if _, err = ndb.getLegacyLatestVersion(); err != nil {
-			return err
-		}
+		fromVersion = legacyLatestVersion + 1
 	}
 
-	// Delete the nodes
+	// Delete the nodes for new format
 	err = ndb.traverseRange(nodeKeyPrefixFormat.Key(fromVersion), nodeKeyPrefixFormat.Key(latest+1), func(k, v []byte) error {
 		return ndb.batch.Delete(k)
 	})
@@ -527,7 +525,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 
 	// NOTICE: we don't touch fast node indexes here, because it'll be rebuilt later because of version mismatch.
 
-	ndb.resetLatestVersion(fromVersion - 1)
+	ndb.resetLatestVersion(dumpFromVersion - 1)
 
 	return nil
 }
