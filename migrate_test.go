@@ -31,7 +31,7 @@ func createLegacyTree(t *testing.T, dbType, dbDir string, version int) error {
 func TestLazySet(t *testing.T) {
 	legacyVersion := 1000
 	dbType := "goleveldb"
-	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
+	dbDir := fmt.Sprintf("legacy-%s-%d", dbType, legacyVersion)
 	relateDir := fmt.Sprintf("./cmd/dbgenerator/%s", dbDir)
 
 	defer func() {
