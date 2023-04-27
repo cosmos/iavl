@@ -4,11 +4,12 @@ go 1.18
 
 require (
 	github.com/cometbft/cometbft-db v0.7.0
-	github.com/confio/ics23/go v0.9.0
+	github.com/cosmos/ics23/go v0.10.0
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/crypto v0.4.0
+	google.golang.org/protobuf v1.28.1
 )
 
 require (
@@ -36,6 +37,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/charithe/durationcheck v0.0.9 // indirect
 	github.com/chavacava/garif v0.0.0-20220630083739-93517212f375 // indirect
+	github.com/cosmos/gogoproto v1.4.3 // indirect
 	github.com/curioswitch/go-reassign v0.2.0 // indirect
 	github.com/daixiang0/gci v0.8.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -65,7 +67,6 @@ require (
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2 // indirect
@@ -187,7 +188,6 @@ require (
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
-	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

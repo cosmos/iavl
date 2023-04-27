@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	ics23 "github.com/confio/ics23/go"
+	ics23 "github.com/cosmos/ics23/go"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cometbft/cometbft-db"
