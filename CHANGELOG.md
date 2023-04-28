@@ -6,8 +6,12 @@
 
 - [#703](https://github.com/cosmos/iavl/pull/703) New APIs `NewCompressExporter`/`NewCompressImporter` to support more compact snapshot format.
 - [#729](https://github.com/cosmos/iavl/pull/729) Speedup Genesis writes for IAVL, by writing in small batches.
+- [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
+- [#718](https://github.com/cosmos/iavl/pull/718) Fix `traverseNodes` unexpected behaviour
 
 ### Breaking Changes
+
+- [#735](https://github.com/cosmos/iavl/pull/735) Pass logger to `NodeDB`, `MutableTree` and `ImmutableTree`
 
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
 

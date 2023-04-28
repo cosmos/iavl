@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cosmos/cosmos-db"
@@ -25,7 +26,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false)
+	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger())
 	require.NoError(b, err)
 	keys := make([][]byte, size)
 
@@ -208,7 +209,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 	// XXX: This was adapted to work with VersionedTree but needs to be re-thought.
 
 	lastCommit := t
-	real := t
+	realTree := t
 	// check := t
 
 	for i := 0; i < b.N; i++ {
@@ -222,18 +223,18 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 			}
 			data := randBytes(dataLen)
 
-			// perform query and write on check and then real
+			// perform query and write on check and then realTree
 			// check.GetFast(key)
 			// check.Set(key, data)
-			_, err := real.Get(key)
+			_, err := realTree.Get(key)
 			require.NoError(b, err)
-			_, err = real.Set(key, data)
+			_, err = realTree.Set(key, data)
 			require.NoError(b, err)
 		}
 
 		// at the end of a block, move it all along....
-		commitTree(b, real)
-		lastCommit = real
+		commitTree(b, realTree)
+		lastCommit = realTree
 	}
 
 	return lastCommit
@@ -356,9 +357,8 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 					// log the error instead of failing.
 					b.Logf("%+v\n", err)
 					continue
-				} else {
-					require.NoError(b, err)
 				}
+				require.NoError(b, err)
 			}
 			defer d.Close()
 		}
