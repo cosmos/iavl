@@ -3,7 +3,7 @@ module github.com/cosmos/iavl
 go 1.19
 
 require (
-	cosmossdk.io/log v1.0.0
+	cosmossdk.io/log v1.1.0
 	github.com/cosmos/cosmos-db v1.0.0-rc.1
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/emicklei/dot v1.4.2
@@ -146,7 +146,7 @@ require (
 	github.com/quasilyte/regex/syntax v0.0.0-20210819130434-b3f0c404a727 // indirect
 	github.com/quasilyte/stdinfo v0.0.0-20220114132959-f7386bf02567 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
-	github.com/rs/zerolog v1.29.0 // indirect
+	github.com/rs/zerolog v1.29.1 // indirect
 	github.com/ryancurrah/gomodguard v1.3.0 // indirect
 	github.com/ryanrolds/sqlclosecheck v0.4.0 // indirect
 	github.com/sanposhiho/wastedassign/v2 v2.0.7 // indirect
