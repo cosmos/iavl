@@ -116,6 +116,8 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 
 // GetNode gets a node from memory or disk. If it is an inner node, it does not
 // load its children.
+// It is used for both formats of nodes: legacy and new.
+// `legacy`: nk is the hash of the node. `new`: <version><nonce>.
 func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
