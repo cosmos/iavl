@@ -7,7 +7,6 @@ import (
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl/fastnode"
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 var (
@@ -32,7 +31,7 @@ type UnsavedFastIterator struct {
 	nextUnsavedNodeIdx       int
 	unsavedFastNodeAdditions map[string]*fastnode.Node
 	unsavedFastNodeRemovals  map[string]interface{}
-	unsavedFastNodesToSort   []string
+	unsavedFastNodesToSort   [][]byte
 }
 
 var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
@@ -63,14 +62,15 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 			continue
 		}
 
-		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, ibytes.UnsafeBytesToStr(fastNode.GetKey()))
+		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, fastNode.GetKey())
 	}
 
 	sort.Slice(iter.unsavedFastNodesToSort, func(i, j int) bool {
+		cmp := bytes.Compare(iter.unsavedFastNodesToSort[i], iter.unsavedFastNodesToSort[j])
 		if ascending {
-			return iter.unsavedFastNodesToSort[i] < iter.unsavedFastNodesToSort[j]
+			return cmp < 0
 		}
-		return iter.unsavedFastNodesToSort[i] > iter.unsavedFastNodesToSort[j]
+		return cmp > 0
 	})
 
 	if iter.ndb == nil {
@@ -134,10 +134,10 @@ func (iter *UnsavedFastIterator) Next() {
 		return
 	}
 
-	diskKeyStr := ibytes.UnsafeBytesToStr(iter.fastIterator.Key())
+	diskKeyStr := iter.fastIterator.Key()
 	if iter.fastIterator.Valid() && iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 
-		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {
+		if iter.unsavedFastNodeRemovals[string(diskKeyStr)] != nil {
 			// If next fast node from disk is to be removed, skip it.
 			iter.fastIterator.Next()
 			iter.Next()
@@ -145,19 +145,20 @@ func (iter *UnsavedFastIterator) Next() {
 		}
 
 		nextUnsavedKey := iter.unsavedFastNodesToSort[iter.nextUnsavedNodeIdx]
-		nextUnsavedNode := iter.unsavedFastNodeAdditions[nextUnsavedKey]
+		nextUnsavedNode := iter.unsavedFastNodeAdditions[string(nextUnsavedKey)]
 
 		var isUnsavedNext bool
+		cmp := bytes.Compare(diskKeyStr, nextUnsavedKey)
 		if iter.ascending {
-			isUnsavedNext = diskKeyStr >= nextUnsavedKey
+			isUnsavedNext = cmp >= 0
 		} else {
-			isUnsavedNext = diskKeyStr <= nextUnsavedKey
+			isUnsavedNext = cmp <= 0
 		}
 
 		if isUnsavedNext {
 			// Unsaved node is next
 
-			if diskKeyStr == nextUnsavedKey {
+			if cmp == 0 {
 				// Unsaved update prevails over saved copy so we skip the copy from disk
 				iter.fastIterator.Next()
 			}
@@ -178,7 +179,7 @@ func (iter *UnsavedFastIterator) Next() {
 
 	// if only nodes on disk are left, we return them
 	if iter.fastIterator.Valid() {
-		if iter.unsavedFastNodeRemovals[diskKeyStr] != nil {
+		if iter.unsavedFastNodeRemovals[string(diskKeyStr)] != nil {
 			// If next fast node from disk is to be removed, skip it.
 			iter.fastIterator.Next()
 			iter.Next()
@@ -195,7 +196,7 @@ func (iter *UnsavedFastIterator) Next() {
 	// if only unsaved nodes are left, we can just iterate
 	if iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 		nextUnsavedKey := iter.unsavedFastNodesToSort[iter.nextUnsavedNodeIdx]
-		nextUnsavedNode := iter.unsavedFastNodeAdditions[nextUnsavedKey]
+		nextUnsavedNode := iter.unsavedFastNodeAdditions[string(nextUnsavedKey)]
 
 		iter.nextKey = nextUnsavedNode.GetKey()
 		iter.nextVal = nextUnsavedNode.GetValue()
