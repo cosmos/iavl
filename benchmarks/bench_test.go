@@ -1,8 +1,9 @@
 package benchmarks
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	mrand "math/rand"
 	"os"
 	"runtime"
 	"strings"
@@ -21,7 +22,7 @@ func randBytes(length int) []byte {
 	key := make([]byte, length)
 	// math.rand.Read always returns err=nil
 	// we do not need cryptographic randomness for this test:
-	rand.Read(key)
+	rand.Read(key) //nolint:errcheck
 	return key
 }
 
@@ -78,7 +79,7 @@ func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	require.True(b, isFastCacheEnabled)
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
-		q := keys[rand.Int31n(l)]
+		q := keys[mrand.Int31n(l)]
 		_, err := t.Get(q)
 		require.NoError(b, err)
 	}
@@ -120,7 +121,7 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	b.StartTimer()
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
-		q := keys[rand.Int31n(l)]
+		q := keys[mrand.Int31n(l)]
 		index, value, err := itree.GetWithIndex(q)
 		require.NoError(b, err)
 		require.True(b, index >= 0, "the index must not be negative")
@@ -177,7 +178,7 @@ func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
 func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
-		key := keys[rand.Int31n(l)]
+		key := keys[mrand.Int31n(l)]
 		_, err := t.Set(key, randBytes(dataLen))
 		require.NoError(b, err)
 		if i%blockSize == 0 {
@@ -217,7 +218,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 			// 50% insert, 50% update
 			var key []byte
 			if i%2 == 0 {
-				key = keys[rand.Int31n(l)]
+				key = keys[mrand.Int31n(l)]
 			} else {
 				key = randBytes(keyLen)
 			}
