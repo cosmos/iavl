@@ -16,7 +16,6 @@ import (
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/keyformat"
 )
 
@@ -80,7 +79,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 		opts = &o
 	}
 
-	storeVersion, err := db.Get(metadataKeyFormat.Key(ibytes.UnsafeStrToBytes(storageVersionKey)))
+	storeVersion, err := db.Get(metadataKeyFormat.Key([]byte(storageVersionKey)))
 
 	if err != nil || storeVersion == nil {
 		storeVersion = []byte(defaultStorageVersionValue)
