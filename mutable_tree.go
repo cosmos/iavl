@@ -164,7 +164,7 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	}
 
 	if !tree.skipFastStorageUpgrade {
-		if fastNode, ok := tree.unsavedFastNodeAdditions[ibytes.UnsafeBytesToStr(key)]; ok {
+		if fastNode, ok := tree.unsavedFastNodeAdditions[string(key)]; ok {
 			return fastNode.GetValue(), nil
 		}
 		// check if node was deleted
@@ -796,9 +796,8 @@ func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 }
 
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
-	skey := ibytes.UnsafeBytesToStr(key)
-	delete(tree.unsavedFastNodeRemovals, skey)
-	tree.unsavedFastNodeAdditions[skey] = node
+	delete(tree.unsavedFastNodeRemovals, ibytes.UnsafeBytesToStr(key))
+	tree.unsavedFastNodeAdditions[string(key)] = node
 }
 
 func (tree *MutableTree) saveFastNodeAdditions(batchCommmit bool) error {
