@@ -383,6 +383,20 @@ func (ndb *nodeDB) SaveBranch(node *Node) ([]byte, error) {
 
 // resetBatch reset the db batch, keep low memory used
 func (ndb *nodeDB) resetBatch() error {
+	size, err := ndb.batch.GetByteSize()
+	if err != nil {
+		// just don't do an optimization here. write with batch size 1.
+		return ndb.writeBatch()
+	}
+	// write in ~64kb chunks. if less than 64kb, continue.
+	if size < 64*1024 {
+		return nil
+	}
+
+	return ndb.writeBatch()
+}
+
+func (ndb *nodeDB) writeBatch() error {
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
