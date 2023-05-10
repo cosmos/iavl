@@ -5,12 +5,14 @@ This tool is used for testing the `lazy loading and set` feature of the `iavl` t
 
 ## Usage
 
-It takes 4 arguments:
+It takes 5 arguments:
+
     - dbtype: the type of database to use. 
     - dbdir: the directory to store the database.
-    - `random` or `sequential`: The `sequential` option will generate the tree from `1` to `version` in order. The `random` option will remove half of the versions randomly from the `sequential` mode.
-    - version: the number of versions to generate.
+    - `random` or `sequential`: The `sequential` option will generate the tree from `1` to `version` in order and delete versions from `1` to `removal version`. The `random` option will delete `removal version` versions randomly.
+    - version: the upto number of versions to generate.
+    - removal version: the number of versions to remove.
 
 ```shell
-go run main.go <dbtype> <dbdir> <random|sequential> <version>
+go run . <dbtype> <dbdir> <random|sequential> <version> <removal version>
 ```

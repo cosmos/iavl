@@ -1,4 +1,4 @@
-module dbgenerator
+module github.com/cosmos/iavl/cmd/dbgenerator
 
 go 1.20
 

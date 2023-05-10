@@ -14,7 +14,15 @@ import (
 )
 
 func createLegacyTree(t *testing.T, dbType, dbDir string, version int) error {
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd cmd/dbgenerator && go run main.go %s %s random %d", dbType, dbDir, version)) //nolint:gosec
+	relateDir := fmt.Sprintf("./cmd/dbgenerator/%s", dbDir)
+	if _, err := os.Stat(relateDir); err == nil {
+		err := os.RemoveAll(relateDir)
+		if err != nil {
+			t.Errorf("%+v\n", err)
+		}
+	}
+
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd cmd/dbgenerator && go run . %s %s random %d %d", dbType, dbDir, version, version/2)) //nolint:gosec
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out

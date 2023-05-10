@@ -94,8 +94,9 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 		return nil, fmt.Errorf("decoding node.height, %w", cause)
 	}
 	buf = buf[n:]
-	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
-		return nil, errors.New("invalid height, must be int8")
+	height8 := int8(height)
+	if height != int64(height8) {
+		return nil, errors.New("invalid height, out of int8 range")
 	}
 
 	size, n, cause := encoding.DecodeVarint(buf)
@@ -111,7 +112,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 	buf = buf[n:]
 
 	node := &Node{
-		subtreeHeight: int8(height),
+		subtreeHeight: height8,
 		size:          size,
 		nodeKey:       GetNodeKey(nk),
 		key:           key,
@@ -163,13 +164,13 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 			buf = buf[n:]
 			nonce, n, cause = encoding.DecodeVarint(buf)
 			if cause != nil {
-				return nil, fmt.Errorf("deocding node.leftNodeKey.nonce, %w", cause)
+				return nil, fmt.Errorf("decoding node.leftNodeKey.nonce, %w", cause)
 			}
 			buf = buf[n:]
-			if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
-				return nil, errors.New("invalid nonce, must be int32")
-			}
 			leftNodeKey.nonce = int32(nonce)
+			if nonce != int64(leftNodeKey.nonce) {
+				return nil, errors.New("invalid leftNodeKey.nonce, out of int32 range")
+			}
 			node.leftNodeKey = leftNodeKey.GetKey()
 		}
 		if mode&ModeLegacyRightNode != 0 { // legacy rightNodeKey
@@ -191,10 +192,10 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 			if cause != nil {
 				return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", cause)
 			}
-			if nonce < int64(math.MinInt32) || nonce > int64(math.MaxInt32) {
-				return nil, errors.New("invalid nonce, must be int32")
-			}
 			rightNodeKey.nonce = int32(nonce)
+			if nonce != int64(rightNodeKey.nonce) {
+				return nil, errors.New("invalid rightNodeKey.nonce, out of int32 range")
+			}
 			node.rightNodeKey = rightNodeKey.GetKey()
 		}
 	}
@@ -250,7 +251,7 @@ func MakeLegacyNode(hash, buf []byte) (*Node, error) {
 	} else { // Read children.
 		leftHash, n, cause := encoding.DecodeBytes(buf)
 		if cause != nil {
-			return nil, fmt.Errorf("deocding node.leftHash, %w", cause)
+			return nil, fmt.Errorf("decoding node.leftHash, %w", cause)
 		}
 		buf = buf[n:]
 

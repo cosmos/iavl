@@ -538,7 +538,7 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 		return err
 	}
 	// If the legacy version is greater than the toVersion, we don't need to delete anything.
-	// It will delete the legacy versions at onece.
+	// It will delete the legacy versions at once.
 	if legacyLatestVersion > toVersion {
 		return nil
 	}
@@ -608,38 +608,41 @@ func (ndb *nodeDB) legacyRootKey(version int64) []byte {
 }
 
 func (ndb *nodeDB) getFirstVersion() (int64, error) {
-	if ndb.firstVersion == 0 {
-		// Check if we have a legacy version
-		itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
-		if err != nil {
-			return 0, err
-		}
-		defer itr.Close()
-		if itr.Valid() {
-			var version int64
-			legacyRootKeyFormat.Scan(itr.Key(), &version)
-			return version, nil
-		}
-		// Find the first version
-		latestVersion, err := ndb.getLatestVersion()
-		if err != nil {
-			return 0, err
-		}
-		firstVersion := int64(0)
-		for firstVersion < latestVersion {
-			version := (latestVersion + firstVersion) >> 1
-			has, err := ndb.hasVersion(version)
-			if err != nil {
-				return 0, err
-			}
-			if has {
-				latestVersion = version
-			} else {
-				firstVersion = version + 1
-			}
-		}
-		ndb.firstVersion = latestVersion
+	if ndb.firstVersion != 0 {
+		return ndb.firstVersion, nil
 	}
+
+	// Check if we have a legacy version
+	itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
+	if err != nil {
+		return 0, err
+	}
+	defer itr.Close()
+	if itr.Valid() {
+		var version int64
+		legacyRootKeyFormat.Scan(itr.Key(), &version)
+		return version, nil
+	}
+	// Find the first version
+	latestVersion, err := ndb.getLatestVersion()
+	if err != nil {
+		return 0, err
+	}
+	firstVersion := int64(0)
+	for firstVersion < latestVersion {
+		version := (latestVersion + firstVersion) >> 1
+		has, err := ndb.hasVersion(version)
+		if err != nil {
+			return 0, err
+		}
+		if has {
+			latestVersion = version
+		} else {
+			firstVersion = version + 1
+		}
+	}
+	ndb.firstVersion = latestVersion
+
 	return ndb.firstVersion, nil
 }
 
@@ -680,37 +683,40 @@ func (ndb *nodeDB) getLegacyLatestVersion() (int64, error) {
 }
 
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
-	if ndb.latestVersion == 0 {
-		itr, err := ndb.db.ReverseIterator(
-			nodeKeyPrefixFormat.Key(int64(1)),
-			nodeKeyPrefixFormat.Key(int64(math.MaxInt64)),
-		)
-		if err != nil {
-			return 0, err
-		}
-		defer itr.Close()
-
-		if itr.Valid() {
-			k := itr.Key()
-			var nk []byte
-			nodeKeyFormat.Scan(k, &nk)
-			ndb.latestVersion = GetNodeKey(nk).version
-			return ndb.latestVersion, nil
-		}
-
-		if err := itr.Error(); err != nil {
-			return 0, err
-		}
-
-		// If there are no versions, try to get the latest version from the legacy format.
-		version, err := ndb.getLegacyLatestVersion()
-		if err != nil {
-			return 0, err
-		}
-		if version > 0 {
-			ndb.latestVersion = version
-		}
+	if ndb.latestVersion != 0 {
+		return ndb.latestVersion, nil
 	}
+
+	itr, err := ndb.db.ReverseIterator(
+		nodeKeyPrefixFormat.Key(int64(1)),
+		nodeKeyPrefixFormat.Key(int64(math.MaxInt64)),
+	)
+	if err != nil {
+		return 0, err
+	}
+	defer itr.Close()
+
+	if itr.Valid() {
+		k := itr.Key()
+		var nk []byte
+		nodeKeyFormat.Scan(k, &nk)
+		ndb.latestVersion = GetNodeKey(nk).version
+		return ndb.latestVersion, nil
+	}
+
+	if err := itr.Error(); err != nil {
+		return 0, err
+	}
+
+	// If there are no versions, try to get the latest version from the legacy format.
+	version, err := ndb.getLegacyLatestVersion()
+	if err != nil {
+		return 0, err
+	}
+	if version > 0 {
+		ndb.latestVersion = version
+	}
+
 	return ndb.latestVersion, nil
 }
 

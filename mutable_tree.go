@@ -78,8 +78,8 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 		return false
 	}
 	if version <= legacyLatestVersion {
-		has, _ := tree.ndb.hasLegacyVersion(version)
-		return has
+		has, err := tree.ndb.hasLegacyVersion(version)
+		return err == nil && has
 	}
 	firstVersion, err := tree.ndb.getFirstVersion()
 	if err != nil {

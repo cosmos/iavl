@@ -17,8 +17,8 @@ const (
 
 func main() {
 	args := os.Args[1:]
-	if len(args) < 4 {
-		fmt.Fprintln(os.Stderr, "Usage: dbgenerator <dbtype> <dbdir> <random|sequential> <version>")
+	if len(args) < 5 {
+		fmt.Fprintln(os.Stderr, "Usage: dbgenerator <dbtype> <dbdir> <random|sequential> <version> <removal version>")
 		os.Exit(1)
 	}
 
@@ -28,7 +28,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = generateTree(args[0], args[1], args[2], version); err != nil {
+	removalVersion, err := strconv.Atoi(args[4])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Invalid removal version number: %s\n", err)
+	}
+
+	if err = generateTree(args[0], args[1], args[2], version, removalVersion); err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating tree: %s\n", err)
 	}
 }
@@ -46,7 +51,7 @@ func openDB(dbType, dbDir string) (dbm.DB, error) {
 	return db, nil
 }
 
-func generateTree(dbType, dbDir, mode string, version int) error {
+func generateTree(dbType, dbDir, mode string, version, removalVersion int) error {
 	db, err := openDB(dbType, dbDir)
 	if err != nil {
 		return err
@@ -55,29 +60,29 @@ func generateTree(dbType, dbDir, mode string, version int) error {
 
 	switch mode {
 	case "random":
-		return generateRandomTree(db, version)
+		return generateRandomTree(db, version, removalVersion)
 	case "sequential":
-		_, err = generateSequentialTree(db, version)
+		_, err = generateSequentialTree(db, version, removalVersion)
 		return err
 	default:
 		return fmt.Errorf("invalid mode: %s", mode)
 	}
 }
 
-func generateRandomTree(db dbm.DB, version int) error {
-	t, err := generateSequentialTree(db, version)
+func generateRandomTree(db dbm.DB, version, removalVersion int) error {
+	t, err := generateSequentialTree(db, version, 0)
 	if err != nil {
 		return err
 	}
 
-	// delete the half of the versions
+	// delete the versions
 	versions := make([]int64, version)
 	for i := 0; i < version; i++ {
 		versions[i] = int64(i + 1)
 	}
 
 	// make sure the latest version is not deleted
-	for i := 1; i <= version/2; i++ {
+	for i := 1; i <= removalVersion; i++ {
 		index := rand.Intn(version - i)
 		if err := t.DeleteVersion(versions[index]); err != nil {
 			return err
@@ -88,7 +93,7 @@ func generateRandomTree(db dbm.DB, version int) error {
 	return nil
 }
 
-func generateSequentialTree(db dbm.DB, version int) (*iavl.MutableTree, error) {
+func generateSequentialTree(db dbm.DB, version, removalVersion int) (*iavl.MutableTree, error) {
 	t, err := iavl.NewMutableTreeWithOpts(db, DefaultCacheSize, nil, false)
 	if err != nil {
 		return nil, err
@@ -103,6 +108,8 @@ func generateSequentialTree(db dbm.DB, version int) (*iavl.MutableTree, error) {
 			return nil, err
 		}
 	}
+
+	err = t.DeleteVersionsRange(1, int64(removalVersion)+1)
 
 	return t, err
 }
