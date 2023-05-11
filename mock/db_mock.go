@@ -391,6 +391,21 @@ func (mr *MockBatchMockRecorder) Delete(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Delete", reflect.TypeOf((*MockBatch)(nil).Delete), arg0)
 }
 
+// GetByteSize mocks base method.
+func (m *MockBatch) GetByteSize() (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetByteSize")
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetByteSize indicates an expected call of GetByteSize.
+func (mr *MockBatchMockRecorder) GetByteSize() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetByteSize", reflect.TypeOf((*MockBatch)(nil).GetByteSize))
+}
+
 // Set mocks base method.
 func (m *MockBatch) Set(arg0, arg1 []byte) error {
 	m.ctrl.T.Helper()
