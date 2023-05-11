@@ -8,7 +8,7 @@ import (
 	"sort"
 	"testing"
 
-	db "github.com/cometbft/cometbft-db"
+	db "github.com/cosmos/cosmos-db"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	db "github.com/cometbft/cometbft-db"
+	db "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl/fastnode"
 )
 

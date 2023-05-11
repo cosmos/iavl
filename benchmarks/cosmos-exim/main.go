@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	tmdb "github.com/cometbft/cometbft-db"
+	tmdb "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl"
 )
 

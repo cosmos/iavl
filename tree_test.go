@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"testing"
 
-	db "github.com/cometbft/cometbft-db"
+	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 

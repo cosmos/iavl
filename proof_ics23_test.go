@@ -9,7 +9,7 @@ import (
 	ics23 "github.com/confio/ics23/go"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/cometbft/cometbft-db"
+	db "github.com/cosmos/cosmos-db"
 )
 
 func TestGetMembership(t *testing.T) {
