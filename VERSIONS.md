@@ -7,7 +7,7 @@
 | [v0.21.x](https://github.com/cosmos/iavl/tree/release/v0.21.x) | v0.48.x          |
 | [v1.x.x](https://github.com/cosmos/iavl/tree/release/v1.x.x)   | -                |
 
-## Overview
+## DB Overview
 
 - v0.19.x of IAVL uses [`tm-db`](https://github.com/tendermint/tm-db)
 - v0.20.x of IAVL uses [`cometbft-db`](https://github.com/cometbft/cometbft-db)
