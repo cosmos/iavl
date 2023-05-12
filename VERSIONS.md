@@ -1,6 +1,6 @@
 # IAVL x Cosmos SDK
 
-| IAVL                                                           | DB Interfaces                                            | Cosmos SDK       |
+| IAVL                                                           | DB Interface                                             | Cosmos SDK       |
 | -------------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
 | [v0.19.x](https://github.com/cosmos/iavl/tree/release/v0.19.x) | [`tm-db`](https://github.com/tendermint/tm-db)           | v0.45.x, v0.46.x |
 | [v0.20.x](https://github.com/cosmos/iavl/tree/release/v0.20.x) | [`cometbft-db`](https://github.com/cometbft/cometbft-db) | v0.47.x          |
