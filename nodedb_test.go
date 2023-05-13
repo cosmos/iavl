@@ -142,7 +142,7 @@ func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
 
 	err := ndb.setFastStorageVersionToBatch()
 	require.Error(t, err)
-	require.Equal(t, expectedErrorMsg, err.Error())
+	require.Equal(t, expectedErrorMsg, err)
 	require.Equal(t, invalidStorageVersion, ndb.getStorageVersion())
 }
 

@@ -35,7 +35,6 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
-	maxVersion                 = int64(math.MaxInt64)
 )
 
 var (
@@ -50,13 +49,13 @@ var (
 	// return result_version. Else, go through old (slow) IAVL get method that walks through tree.
 	fastKeyFormat = keyformat.NewKeyFormat('f', 0) // f<keystring>
 
-	// Key Format for storing metadata about the chain such as the vesion number.
+	// Key Format for storing metadata about the chain such as the version number.
 	// The value at an entry will be in a variable format and up to the caller to
 	// decide how to parse.
 	metadataKeyFormat = keyformat.NewKeyFormat('m', 0) // m<keystring>
 )
 
-var errInvalidFastStorageVersion = fmt.Sprintf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
+var errInvalidFastStorageVersion = fmt.Errorf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 
 type nodeDB struct {
 	logger log.Logger
@@ -229,7 +228,7 @@ func (ndb *nodeDB) setFastStorageVersionToBatch() error {
 		versions := strings.Split(ndb.storageVersion, fastStorageVersionDelimiter)
 
 		if len(versions) > 2 {
-			return errors.New(errInvalidFastStorageVersion)
+			return errInvalidFastStorageVersion
 		}
 
 		newVersion = versions[0]
