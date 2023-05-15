@@ -30,7 +30,9 @@ type KeyFormat struct {
 //		return keyFormat.Key(version, hasher.Sum(nil))
 //	}
 //
-// if the last term of the layout ends in 0
+// If the last term of the layout is 0 it is unbounded, and will accept any length.
+//
+// NewKeyFormat panics if any other term than the last is 0.
 func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 	// For prefix byte
 	length := 1
