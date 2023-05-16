@@ -8,7 +8,7 @@
 - [#729](https://github.com/cosmos/iavl/pull/729) Speedup Genesis writes for IAVL, by writing in small batches.
 - [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
 - [#718](https://github.com/cosmos/iavl/pull/718) Fix `traverseNodes` unexpected behaviour
-- [#]() Add `WorkingVersion()int64` API.
+- [#770](https://github.com/cosmos/iavl/pull/770) Add `WorkingVersion()int64` API.
 
 ### Breaking Changes
 
