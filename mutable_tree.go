@@ -996,12 +996,12 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 func (tree *MutableTree) saveNewNodes(version int64) error {
-	nonce := int32(0)
+	nonce := uint32(0)
 	newNodes := make([]*Node, 0)
 	var recursiveAssignKey func(*Node) ([]byte, error)
 	recursiveAssignKey = func(node *Node) ([]byte, error) {
 		if node.nodeKey != nil {
-			if node.nodeKey.nonce > 0 {
+			if node.nodeKey.nonce != 0 {
 				return node.nodeKey.GetKey(), nil
 			}
 			return node.hash, nil

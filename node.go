@@ -28,14 +28,14 @@ const (
 // NodeKey represents a key of node in the DB.
 type NodeKey struct {
 	version int64
-	nonce   int32
+	nonce   uint32
 }
 
 // GetKey returns a byte slice of the NodeKey.
 func (nk *NodeKey) GetKey() []byte {
 	b := make([]byte, 12)
 	binary.BigEndian.PutUint64(b, uint64(nk.version))
-	binary.BigEndian.PutUint32(b[8:], uint32(nk.nonce))
+	binary.BigEndian.PutUint32(b[8:], nk.nonce)
 	return b
 }
 
@@ -43,7 +43,7 @@ func (nk *NodeKey) GetKey() []byte {
 func GetNodeKey(key []byte) *NodeKey {
 	return &NodeKey{
 		version: int64(binary.BigEndian.Uint64(key)),
-		nonce:   int32(binary.BigEndian.Uint32(key[8:])),
+		nonce:   binary.BigEndian.Uint32(key[8:]),
 	}
 }
 
@@ -167,7 +167,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 				return nil, fmt.Errorf("decoding node.leftNodeKey.nonce, %w", err)
 			}
 			buf = buf[n:]
-			leftNodeKey.nonce = int32(nonce)
+			leftNodeKey.nonce = uint32(nonce)
 			if nonce != int64(leftNodeKey.nonce) {
 				return nil, errors.New("invalid leftNodeKey.nonce, out of int32 range")
 			}
@@ -192,7 +192,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 			if err != nil {
 				return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", err)
 			}
-			rightNodeKey.nonce = int32(nonce)
+			rightNodeKey.nonce = uint32(nonce)
 			if nonce != int64(rightNodeKey.nonce) {
 				return nil, errors.New("invalid rightNodeKey.nonce, out of int32 range")
 			}

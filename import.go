@@ -27,7 +27,7 @@ type Importer struct {
 	batch     db.Batch
 	batchSize uint32
 	stack     []*Node
-	nonces    []int32
+	nonces    []uint32
 }
 
 // newImporter creates a new Importer for an empty MutableTree.
@@ -50,7 +50,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		version: version,
 		batch:   tree.ndb.db.NewBatch(),
 		stack:   make([]*Node, 0, 8),
-		nonces:  make([]int32, version+1),
+		nonces:  make([]uint32, version+1),
 	}, nil
 }
 
