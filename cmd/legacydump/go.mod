@@ -1,4 +1,4 @@
-module github.com/cosmos/iavl/cmd/dbgenerator
+module github.com/cosmos/iavl/cmd/legacydump
 
 go 1.20
 

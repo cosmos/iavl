@@ -67,7 +67,7 @@ var (
 	legacyRootKeyFormat = keyformat.NewKeyFormat('r', int64Size) // r<version>
 )
 
-var errInvalidFastStorageVersion = fmt.Errorf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
+var errInvalidFastStorageVersion = fmt.Errorf("fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 
 type nodeDB struct {
 	logger log.Logger

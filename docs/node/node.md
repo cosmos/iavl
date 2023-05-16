@@ -42,53 +42,53 @@ func (node *Node) writeBytes(w io.Writer) error {
 	if node == nil {
 		return errors.New("cannot write nil node")
 	}
-	cause := encoding.EncodeVarint(w, int64(node.subtreeHeight))
-	if cause != nil {
-		return fmt.Errorf("writing height, %w", cause)
+	err := encoding.EncodeVarint(w, int64(node.subtreeHeight))
+	if err != nil {
+		return fmt.Errorf("writing height, %w", err)
 	}
-	cause = encoding.EncodeVarint(w, node.size)
-	if cause != nil {
-		return fmt.Errorf("writing size, %w", cause)
+	err = encoding.EncodeVarint(w, node.size)
+	if err != nil {
+		return fmt.Errorf("writing size, %w", err)
 	}
 
 	// Unlike writeHashByte, key is written for inner nodes.
-	cause = encoding.EncodeBytes(w, node.key)
-	if cause != nil {
-		return fmt.Errorf("writing key, %w", cause)
+	err = encoding.EncodeBytes(w, node.key)
+	if err != nil {
+		return fmt.Errorf("writing key, %w", err)
 	}
 
 	if node.isLeaf() {
-		cause = encoding.EncodeBytes(w, node.value)
-		if cause != nil {
-			return fmt.Errorf("writing value, %w", cause)
+		err = encoding.EncodeBytes(w, node.value)
+		if err != nil {
+			return fmt.Errorf("writing value, %w", err)
 		}
 	} else {
-		cause = encoding.EncodeBytes(w, node.hash)
-		if cause != nil {
-			return fmt.Errorf("writing hash, %w", cause)
+		err = encoding.EncodeBytes(w, node.hash)
+		if err != nil {
+			return fmt.Errorf("writing hash, %w", err)
 		}
 		if node.leftNodeKey == nil {
 			return ErrLeftNodeKeyEmpty
 		}
-		cause = encoding.EncodeVarint(w, node.leftNodeKey.version)
-		if cause != nil {
-			return fmt.Errorf("writing the version of left node key, %w", cause)
+		err = encoding.EncodeVarint(w, node.leftNodeKey.version)
+		if err != nil {
+			return fmt.Errorf("writing the version of left node key, %w", err)
 		}
-		cause = encoding.EncodeVarint(w, int64(node.leftNodeKey.nonce))
-		if cause != nil {
-			return fmt.Errorf("writing the nonce of left node key, %w", cause)
+		err = encoding.EncodeVarint(w, int64(node.leftNodeKey.nonce))
+		if err != nil {
+			return fmt.Errorf("writing the nonce of left node key, %w", err)
 		}
 
 		if node.rightNodeKey == nil {
 			return ErrRightNodeKeyEmpty
 		}
-		cause = encoding.EncodeVarint(w, node.rightNodeKey.version)
-		if cause != nil {
-			return fmt.Errorf("writing the version of right node key, %w", cause)
+		err = encoding.EncodeVarint(w, node.rightNodeKey.version)
+		if err != nil {
+			return fmt.Errorf("writing the version of right node key, %w", err)
 		}
-		cause = encoding.EncodeVarint(w, int64(node.rightNodeKey.nonce))
-		if cause != nil {
-			return fmt.Errorf("writing the nonce of right node key, %w", cause)
+		err = encoding.EncodeVarint(w, int64(node.rightNodeKey.nonce))
+		if err != nil {
+			return fmt.Errorf("writing the nonce of right node key, %w", err)
 		}
 	}
 	return nil

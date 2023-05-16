@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -13,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func createLegacyTree(t *testing.T, dbType, dbDir string, version int) error {
-	relateDir := fmt.Sprintf("./cmd/dbgenerator/%s", dbDir)
+func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, error) {
+	relateDir := path.Join(t.TempDir(), dbDir)
 	if _, err := os.Stat(relateDir); err == nil {
 		err := os.RemoveAll(relateDir)
 		if err != nil {
@@ -22,25 +23,29 @@ func createLegacyTree(t *testing.T, dbType, dbDir string, version int) error {
 		}
 	}
 
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd cmd/dbgenerator && go run . %s %s random %d %d", dbType, dbDir, version, version/2)) //nolint:gosec
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd cmd/legacydump && go run . %s %s random %d %d", dbType, relateDir, version, version/2)) //nolint:gosec
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	if err != nil {
+	if err != nil || stderr.Len() > 0 {
 		t.Log(fmt.Sprint(err) + ": " + stderr.String())
+		if err == nil {
+			err = fmt.Errorf("stderr: %s", stderr.String())
+		}
 	}
 	t.Log("Result: " + out.String())
 
-	return err
+	return relateDir, err
 }
 
 func TestLazySet(t *testing.T) {
 	legacyVersion := 1000
 	dbType := "goleveldb"
 	dbDir := fmt.Sprintf("legacy-%s-%d", dbType, legacyVersion)
-	relateDir := fmt.Sprintf("./cmd/dbgenerator/%s", dbDir)
+	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
+	require.NoError(t, err)
 
 	defer func() {
 		err := os.RemoveAll(relateDir)
@@ -49,7 +54,6 @@ func TestLazySet(t *testing.T) {
 		}
 	}()
 
-	require.NoError(t, createLegacyTree(t, dbType, dbDir, legacyVersion))
 	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 
@@ -84,7 +88,8 @@ func TestDeleteVersions(t *testing.T) {
 	legacyVersion := 100
 	dbType := "goleveldb"
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
-	relateDir := fmt.Sprintf("./cmd/dbgenerator/%s", dbDir)
+	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
+	require.NoError(t, err)
 
 	defer func() {
 		err := os.RemoveAll(relateDir)
@@ -93,7 +98,6 @@ func TestDeleteVersions(t *testing.T) {
 		}
 	}()
 
-	require.NoError(t, createLegacyTree(t, dbType, dbDir, legacyVersion))
 	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 

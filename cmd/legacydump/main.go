@@ -1,6 +1,7 @@
 package main
 
 import (
+	cryptorand "crypto/rand"
 	"fmt"
 	"math/rand"
 	"os"
@@ -18,7 +19,7 @@ const (
 func main() {
 	args := os.Args[1:]
 	if len(args) < 5 {
-		fmt.Fprintln(os.Stderr, "Usage: dbgenerator <dbtype> <dbdir> <random|sequential> <version> <removal version>")
+		fmt.Fprintln(os.Stderr, "Usage: legacydump <dbtype> <dbdir> <random|sequential> <version> <removal version>")
 		os.Exit(1)
 	}
 
@@ -33,7 +34,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Invalid removal version number: %s\n", err)
 	}
 
-	if err = generateTree(args[0], args[1], args[2], version, removalVersion); err != nil {
+	if err = GenerateTree(args[0], args[1], args[2], version, removalVersion); err != nil {
 		fmt.Fprintf(os.Stderr, "Error generating tree: %s\n", err)
 	}
 }
@@ -51,7 +52,8 @@ func openDB(dbType, dbDir string) (dbm.DB, error) {
 	return db, nil
 }
 
-func generateTree(dbType, dbDir, mode string, version, removalVersion int) error {
+// GenerateTree generates a tree with the given number of versions.
+func GenerateTree(dbType, dbDir, mode string, version, removalVersion int) error {
 	db, err := openDB(dbType, dbDir)
 	if err != nil {
 		return err
@@ -109,15 +111,15 @@ func generateSequentialTree(db dbm.DB, version, removalVersion int) (*iavl.Mutab
 		}
 	}
 
-	err = t.DeleteVersionsRange(1, int64(removalVersion)+1)
+	if removalVersion > 0 {
+		err = t.DeleteVersionsRange(1, int64(removalVersion)+1)
+	}
 
 	return t, err
 }
 
 func randBytes(length int) []byte {
 	key := make([]byte, length)
-	// math.rand.Read always returns err=nil
-	// we do not need cryptographic randomness for this test:
-	rand.Read(key)
+	_, _ = cryptorand.Read(key)
 	return key
 }

@@ -1,6 +1,6 @@
-# DBGenerator
+# LegacyDump
 
-`dbgenerator` is a command line tool to generate a `iavl` tree based on the legacy format of the node key.
+`legacydump` is a command line tool to generate a `iavl` tree based on the legacy format of the node key.
 This tool is used for testing the `lazy loading and set` feature of the `iavl` tree.
 
 ## Usage
