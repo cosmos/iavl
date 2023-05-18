@@ -1535,7 +1535,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	require := require.New(t)
 
-	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger())
+	tree, _ := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger(), DefaultFlushThreshold)
 
 	for i := byte(0); i < 20; i++ {
 		tree.Set([]byte{i}, []byte{i})
@@ -1597,7 +1597,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	require := require.New(t)
 
-	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger())
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(err)
 
 	for i := byte(0); i < 20; i++ {
@@ -1856,7 +1856,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 			opts := &Options{Stat: stat}
 			db, err := db.NewDB("test", db.MemDBBackend, "")
 			require.NoError(t, err)
-			mt, err := NewMutableTreeWithOpts(db, tc.cacheSize, opts, false, log.NewNopLogger())
+			mt, err := NewMutableTreeWithOpts(db, tc.cacheSize, opts, false, log.NewNopLogger(), DefaultFlushThreshold)
 			require.NoError(t, err)
 
 			for i := 0; i < numKeyVals; i++ {

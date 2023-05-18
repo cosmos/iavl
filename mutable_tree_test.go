@@ -258,7 +258,7 @@ func TestMutableTree_LoadVersion_Empty(t *testing.T) {
 
 func TestMutableTree_InitialVersion(t *testing.T) {
 	memDB := db.NewMemDB()
-	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
+	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(t, err)
 
 	_, err = tree.Set([]byte("a"), []byte{0x01})
@@ -274,20 +274,20 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with the same initial version is fine
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(t, err)
 	version, err = tree.Load()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with an initial version beyond the lowest should error
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false, log.NewNopLogger())
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(t, err)
 	_, err = tree.Load()
 	require.Error(t, err)
 
 	// Reloading the tree with a lower initial version is fine, and new versions can be produced
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false, log.NewNopLogger())
+	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(t, err)
 	version, err = tree.Load()
 	require.NoError(t, err)
@@ -813,7 +813,7 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	expectedError := errors.New("some db error")
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, expectedError).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
@@ -835,12 +835,12 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(1))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
-	expectedError := errors.New("some db error")
+	expectedError := errors.New("some error")
 
 	batchMock := mock.NewMockBatch(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	iterMock := mock.NewMockIterator(ctrl)
@@ -849,6 +849,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	iterMock.EXPECT().Valid().Times(2)
 	iterMock.EXPECT().Close()
 
+	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(1)
 	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
 
 	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
@@ -889,7 +890,7 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 	batchMock := mock.NewMockBatch(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 
 	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
@@ -937,7 +938,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(3)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(3)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -956,6 +957,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	updatedExpectedStorageVersion := make([]byte, len(expectedStorageVersion))
 	copy(updatedExpectedStorageVersion, expectedStorageVersion)
 	updatedExpectedStorageVersion[len(updatedExpectedStorageVersion)-1]++
+	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(2)
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
 	batchMock.EXPECT().Write().Return(nil).Times(2)
@@ -1438,7 +1440,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	initialVersion := int64(1000)
 	tree, err := NewMutableTreeWithOpts(db, 0, &Options{
 		InitialVersion: uint64(initialVersion),
-	}, true, log.NewNopLogger())
+	}, true, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(t, err)
 
 	_, err = tree.Set([]byte("hello"), []byte("world"))

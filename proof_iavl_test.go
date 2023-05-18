@@ -10,7 +10,7 @@ import (
 )
 
 func TestProofOp(t *testing.T) {
-	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger())
+	tree, err := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger(), DefaultFlushThreshold)
 	require.NoError(t, err)
 	keys := []byte{0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7} // 10 total.
 	for _, ikey := range keys {

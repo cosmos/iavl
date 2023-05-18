@@ -27,7 +27,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger())
+	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger(), iavl.DefaultFlushThreshold)
 	require.NoError(b, err)
 	keys := make([][]byte, size)
 

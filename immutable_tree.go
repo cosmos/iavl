@@ -38,7 +38,8 @@ func NewImmutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastS
 	return &ImmutableTree{
 		logger: lg,
 		// NodeDB-backed Tree.
-		ndb:                    newNodeDB(db, cacheSize, opts, lg),
+		// flushthreshold is 0 since there's no batch commit action.
+		ndb:                    newNodeDB(db, cacheSize, opts, lg, 0),
 		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
 }

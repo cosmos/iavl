@@ -46,12 +46,12 @@ type MutableTree struct {
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger) (*MutableTree, error) {
-	return NewMutableTreeWithOpts(db, cacheSize, nil, skipFastStorageUpgrade, lg)
+	return NewMutableTreeWithOpts(db, cacheSize, nil, skipFastStorageUpgrade, lg, DefaultFlushThreshold)
 }
 
 // NewMutableTreeWithOpts returns a new tree with the specified options.
-func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) (*MutableTree, error) {
-	ndb := newNodeDB(db, cacheSize, opts, lg)
+func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger, flushThreshold int) (*MutableTree, error) {
+	ndb := newNodeDB(db, cacheSize, opts, lg, flushThreshold)
 	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
 
 	return &MutableTree{

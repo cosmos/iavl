@@ -70,9 +70,10 @@ type nodeDB struct {
 	latestVersion  int64            // Latest version of nodeDB.
 	nodeCache      cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache  cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
+	flushThreshold int
 }
 
-func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger, flushThreshold int) *nodeDB {
 	if opts == nil {
 		o := DefaultOptions()
 		opts = &o
@@ -84,10 +85,19 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 		storeVersion = []byte(defaultStorageVersionValue)
 	}
 
+	var batch dbm.Batch
+	if flushThreshold == 0 {
+		// if flushThreshold is not set, we use regular db.Batch with no flush threshold
+		batch = db.NewBatch()
+	} else {
+		// else flushThreshold
+		batch = NewBatchWithFlusher(db, flushThreshold)
+	}
+
 	return &nodeDB{
 		logger:         lg,
 		db:             db,
-		batch:          db.NewBatch(),
+		batch:          batch,
 		opts:           *opts,
 		firstVersion:   0,
 		latestVersion:  0, // initially invalid
@@ -95,6 +105,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 		fastNodeCache:  cache.New(fastNodeCacheSize),
 		versionReaders: make(map[int64]uint32, 8),
 		storageVersion: string(storeVersion),
+		flushThreshold: flushThreshold,
 	}
 }
 
@@ -642,7 +653,11 @@ func (ndb *nodeDB) Commit() error {
 	}
 
 	ndb.batch.Close()
-	ndb.batch = ndb.db.NewBatch()
+	if ndb.flushThreshold == 0 {
+		ndb.batch = ndb.db.NewBatch()
+	} else {
+		ndb.batch = NewBatchWithFlusher(ndb.db, ndb.flushThreshold)
+	}
 
 	return nil
 }
