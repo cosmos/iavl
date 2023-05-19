@@ -10,6 +10,10 @@
 - [#718](https://github.com/cosmos/iavl/pull/718) Fix `traverseNodes` unexpected behaviour
 - [#770](https://github.com/cosmos/iavl/pull/770) Add `WorkingVersion()int64` API.
 
+### Bug Fixes
+
+- [#]() Fix memory leak in `Import`.
+
 ### Breaking Changes
 
 - [#735](https://github.com/cosmos/iavl/pull/735) Pass logger to `NodeDB`, `MutableTree` and `ImmutableTree`
