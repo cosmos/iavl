@@ -93,24 +93,18 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
 	switch {
-	case stackSize >= 2 && i.stack[stackSize-1].height < node.height && i.stack[stackSize-2].height < node.height:
-		node.leftNode = i.stack[stackSize-2]
-		node.leftHash = node.leftNode.hash
-		node.rightNode = i.stack[stackSize-1]
-		node.rightHash = node.rightNode.hash
-	case stackSize >= 1 && i.stack[stackSize-1].height < node.height:
-		node.leftNode = i.stack[stackSize-1]
-		node.leftHash = node.leftNode.hash
-	}
-
-	if node.height == 0 {
+	case node.height == 0:
 		node.size = 1
-	}
-	if node.leftNode != nil {
-		node.size += node.leftNode.size
-	}
-	if node.rightNode != nil {
-		node.size += node.rightNode.size
+	case stackSize >= 2 && i.stack[stackSize-1].height < node.height && i.stack[stackSize-2].height < node.height:
+		leftNode := i.stack[stackSize-2]
+		rightNode := i.stack[stackSize-1]
+		node.leftHash = leftNode.hash
+		node.rightHash = rightNode.hash
+		node.size = leftNode.size + rightNode.size
+	case stackSize >= 1 && i.stack[stackSize-1].height < node.height:
+		leftNode := i.stack[stackSize-1]
+		node.leftHash = leftNode.hash
+		node.size = leftNode.size
 	}
 
 	_, err := node._hash()

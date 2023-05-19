@@ -6,6 +6,10 @@
 
 - [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
 
+### Bug Fixes
+
+- [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
+
 ## 0.19.5 (February 2, 2023)
 
 ### Breaking Changes
