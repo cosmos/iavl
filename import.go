@@ -135,6 +135,15 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	} else if stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight {
 		leftNode := i.stack[stackSize-2]
 		rightNode := i.stack[stackSize-1]
+
+		// remove the recursive references to avoid memory leak
+		leftNode.leftNode = nil
+		leftNode.rightNode = nil
+		rightNode.leftNode = nil
+		rightNode.rightNode = nil
+
+		node.leftNode = leftNode
+		node.rightNode = rightNode
 		node.leftNodeKey = leftNode.nodeKey
 		node.rightNodeKey = rightNode.nodeKey
 		node.size = leftNode.size + rightNode.size
