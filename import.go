@@ -136,12 +136,6 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		leftNode := i.stack[stackSize-2]
 		rightNode := i.stack[stackSize-1]
 
-		// remove the recursive references to avoid memory leak
-		leftNode.leftNode = nil
-		leftNode.rightNode = nil
-		rightNode.leftNode = nil
-		rightNode.rightNode = nil
-
 		node.leftNode = leftNode
 		node.rightNode = rightNode
 		node.leftNodeKey = leftNode.nodeKey
@@ -155,6 +149,12 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 			return err
 		}
 		i.stack = i.stack[:stackSize-2]
+
+		// remove the recursive references to avoid memory leak
+		leftNode.leftNode = nil
+		leftNode.rightNode = nil
+		rightNode.leftNode = nil
+		rightNode.rightNode = nil
 	}
 	i.nonces[exportNode.Version]++
 	node.nodeKey = &NodeKey{
