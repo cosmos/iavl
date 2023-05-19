@@ -133,19 +133,28 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	if node.subtreeHeight == 0 {
 		node.size = 1
 	} else if stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight {
-		node.leftNode = i.stack[stackSize-2]
-		node.rightNode = i.stack[stackSize-1]
-		node.leftNodeKey = node.leftNode.nodeKey
-		node.rightNodeKey = node.rightNode.nodeKey
-		node.size = node.leftNode.size + node.rightNode.size
+		leftNode := i.stack[stackSize-2]
+		rightNode := i.stack[stackSize-1]
+
+		node.leftNode = leftNode
+		node.rightNode = rightNode
+		node.leftNodeKey = leftNode.nodeKey
+		node.rightNodeKey = rightNode.nodeKey
+		node.size = leftNode.size + rightNode.size
 		// Update the stack now.
-		if err := i.writeNode(i.stack[stackSize-2]); err != nil {
+		if err := i.writeNode(leftNode); err != nil {
 			return err
 		}
-		if err := i.writeNode(i.stack[stackSize-1]); err != nil {
+		if err := i.writeNode(rightNode); err != nil {
 			return err
 		}
 		i.stack = i.stack[:stackSize-2]
+
+		// remove the recursive references to avoid memory leak
+		leftNode.leftNode = nil
+		leftNode.rightNode = nil
+		rightNode.leftNode = nil
+		rightNode.rightNode = nil
 	}
 	i.nonces[exportNode.Version]++
 	node.nodeKey = &NodeKey{

@@ -55,7 +55,7 @@ var (
 	metadataKeyFormat = keyformat.NewKeyFormat('m', 0) // m<keystring>
 )
 
-var errInvalidFastStorageVersion = fmt.Errorf("Fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
+var errInvalidFastStorageVersion = fmt.Errorf("fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 
 type nodeDB struct {
 	logger log.Logger
