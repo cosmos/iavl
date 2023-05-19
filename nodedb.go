@@ -85,19 +85,10 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger, flushThre
 		storeVersion = []byte(defaultStorageVersionValue)
 	}
 
-	var batch dbm.Batch
-	if flushThreshold == 0 {
-		// if flushThreshold is not set, we use regular db.Batch with no flush threshold
-		batch = db.NewBatch()
-	} else {
-		// else flushThreshold
-		batch = NewBatchWithFlusher(db, flushThreshold)
-	}
-
 	return &nodeDB{
 		logger:         lg,
 		db:             db,
-		batch:          batch,
+		batch:          NewBatch(db, flushThreshold),
 		opts:           *opts,
 		firstVersion:   0,
 		latestVersion:  0, // initially invalid
@@ -144,6 +135,14 @@ func (ndb *nodeDB) GetNode(nk *NodeKey) (*Node, error) {
 	ndb.nodeCache.Add(node)
 
 	return node, nil
+}
+
+func NewBatch(db dbm.DB, flushThreshold int) dbm.Batch {
+	if flushThreshold == 0 {
+		return db.NewBatch()
+	} else {
+		return NewBatchWithFlusher(db, flushThreshold)
+	}
 }
 
 func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
@@ -362,7 +361,7 @@ func (ndb *nodeDB) writeBatch() error {
 		return err
 	}
 
-	ndb.batch = ndb.db.NewBatch()
+	ndb.batch = NewBatch(ndb.db, ndb.flushThreshold)
 
 	return nil
 }
@@ -653,11 +652,7 @@ func (ndb *nodeDB) Commit() error {
 	}
 
 	ndb.batch.Close()
-	if ndb.flushThreshold == 0 {
-		ndb.batch = ndb.db.NewBatch()
-	} else {
-		ndb.batch = NewBatchWithFlusher(ndb.db, ndb.flushThreshold)
-	}
+	ndb.batch = NewBatch(ndb.db, ndb.flushThreshold)
 
 	return nil
 }
