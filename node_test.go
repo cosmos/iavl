@@ -14,26 +14,21 @@ import (
 )
 
 func TestNode_encodedSize(t *testing.T) {
+	nodeKey := &NodeKey{
+		version: 1,
+		nonce:   1,
+	}
 	node := &Node{
 		key:           iavlrand.RandBytes(10),
 		value:         iavlrand.RandBytes(10),
 		subtreeHeight: 0,
 		size:          100,
 		hash:          iavlrand.RandBytes(20),
-		nodeKey: &NodeKey{
-			version: 1,
-			nonce:   1,
-		},
-		leftNodeKey: &NodeKey{
-			version: 1,
-			nonce:   1,
-		},
-		leftNode: nil,
-		rightNodeKey: &NodeKey{
-			version: 1,
-			nonce:   1,
-		},
-		rightNode: nil,
+		nodeKey:       nodeKey,
+		leftNodeKey:   nodeKey.GetKey(),
+		leftNode:      nil,
+		rightNodeKey:  nodeKey.GetKey(),
+		rightNode:     nil,
 	}
 
 	// leaf node
@@ -45,6 +40,11 @@ func TestNode_encodedSize(t *testing.T) {
 }
 
 func TestNode_encode_decode(t *testing.T) {
+	childNodeKey := &NodeKey{
+		version: 1,
+		nonce:   1,
+	}
+	childNodeHash := []byte{0x7f, 0x68, 0x90, 0xca, 0x16, 0xde, 0xa6, 0xe8, 0x89, 0x3d, 0x96, 0xf0, 0xa3, 0xd, 0xa, 0x14, 0xe5, 0x55, 0x59, 0xfc, 0x9b, 0x83, 0x4, 0x91, 0xe3, 0xd2, 0x45, 0x1c, 0x81, 0xf6, 0xd1, 0xe}
 	testcases := map[string]struct {
 		node        *Node
 		expectHex   string
@@ -59,16 +59,22 @@ func TestNode_encode_decode(t *testing.T) {
 				version: 2,
 				nonce:   1,
 			},
-			leftNodeKey: &NodeKey{
-				version: 1,
+			leftNodeKey:  childNodeKey.GetKey(),
+			rightNodeKey: childNodeKey.GetKey(),
+			hash:         []byte{0x70, 0x80, 0x90, 0xa0},
+		}, "060e036b657904708090a00002020202", false},
+		"inner hybrid": {&Node{
+			subtreeHeight: 3,
+			size:          7,
+			key:           []byte("key"),
+			nodeKey: &NodeKey{
+				version: 2,
 				nonce:   1,
 			},
-			rightNodeKey: &NodeKey{
-				version: 1,
-				nonce:   1,
-			},
-			hash: []byte{0x70, 0x80, 0x90, 0xa0},
-		}, "060e036b657904708090a002020202", false},
+			leftNodeKey:  childNodeKey.GetKey(),
+			rightNodeKey: childNodeHash,
+			hash:         []byte{0x70, 0x80, 0x90, 0xa0},
+		}, "060e036b657904708090a0040202207f6890ca16dea6e8893d96f0a30d0a14e55559fc9b830491e3d2451c81f6d10e", false},
 		"leaf": {&Node{
 			subtreeHeight: 0,
 			size:          1,
@@ -93,7 +99,7 @@ func TestNode_encode_decode(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tc.expectHex, hex.EncodeToString(buf.Bytes()))
 
-			node, err := MakeNode(tc.node.nodeKey, buf.Bytes())
+			node, err := MakeNode(tc.node.GetKey(), buf.Bytes())
 			require.NoError(t, err)
 			// since key and value is always decoded to []byte{} we augment the expected struct here
 			if tc.node.key == nil {
@@ -131,18 +137,18 @@ func TestNode_validate(t *testing.T) {
 		"leaf with size 0":         {&Node{key: k, value: v, size: 0}, false},
 		"leaf with size 2":         {&Node{key: k, value: v, size: 2}, false},
 		"leaf with size -1":        {&Node{key: k, value: v, size: -1}, false},
-		"leaf with left node key":  {&Node{key: k, value: v, size: 1, leftNodeKey: nk}, false},
+		"leaf with left node key":  {&Node{key: k, value: v, size: 1, leftNodeKey: nk.GetKey()}, false},
 		"leaf with left child":     {&Node{key: k, value: v, size: 1, leftNode: c}, false},
-		"leaf with right node key": {&Node{key: k, value: v, size: 1, rightNodeKey: nk}, false},
+		"leaf with right node key": {&Node{key: k, value: v, size: 1, rightNodeKey: nk.GetKey()}, false},
 		"leaf with right child":    {&Node{key: k, value: v, size: 1, rightNode: c}, false},
-		"inner":                    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk, rightNodeKey: nk}, true},
-		"inner with nil key":       {&Node{key: nil, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
-		"inner with value":         {&Node{key: k, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
-		"inner with empty value":   {&Node{key: k, value: []byte{}, size: 1, subtreeHeight: 1, leftNodeKey: nk, rightNodeKey: nk}, false},
-		"inner with left child":    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk}, true},
-		"inner with right child":   {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, rightNodeKey: nk}, true},
+		"inner":                    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk.GetKey(), rightNodeKey: nk.GetKey()}, true},
+		"inner with nil key":       {&Node{key: nil, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk.GetKey(), rightNodeKey: nk.GetKey()}, false},
+		"inner with value":         {&Node{key: k, value: v, size: 1, subtreeHeight: 1, leftNodeKey: nk.GetKey(), rightNodeKey: nk.GetKey()}, false},
+		"inner with empty value":   {&Node{key: k, value: []byte{}, size: 1, subtreeHeight: 1, leftNodeKey: nk.GetKey(), rightNodeKey: nk.GetKey()}, false},
+		"inner with left child":    {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, leftNodeKey: nk.GetKey()}, true},
+		"inner with right child":   {&Node{key: k, size: 1, subtreeHeight: 1, nodeKey: nk, rightNodeKey: nk.GetKey()}, true},
 		"inner with no child":      {&Node{key: k, size: 1, subtreeHeight: 1}, false},
-		"inner with height 0":      {&Node{key: k, size: 1, subtreeHeight: 0, leftNodeKey: nk, rightNodeKey: nk}, false},
+		"inner with height 0":      {&Node{key: k, size: 1, subtreeHeight: 0, leftNodeKey: nk.GetKey(), rightNodeKey: nk.GetKey()}, false},
 	}
 
 	for desc, tc := range testcases {
@@ -161,7 +167,7 @@ func TestNode_validate(t *testing.T) {
 func BenchmarkNode_encodedSize(b *testing.B) {
 	nk := &NodeKey{
 		version: rand.Int63n(10000000),
-		nonce:   rand.Int31n(10000000),
+		nonce:   uint32(rand.Int31n(10000000)),
 	}
 	node := &Node{
 		key:           iavlrand.RandBytes(25),
@@ -169,8 +175,8 @@ func BenchmarkNode_encodedSize(b *testing.B) {
 		nodeKey:       nk,
 		subtreeHeight: 1,
 		size:          rand.Int63n(10000000),
-		leftNodeKey:   nk,
-		rightNodeKey:  nk,
+		leftNodeKey:   nk.GetKey(),
+		rightNodeKey:  nk.GetKey(),
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
@@ -182,7 +188,7 @@ func BenchmarkNode_encodedSize(b *testing.B) {
 func BenchmarkNode_WriteBytes(b *testing.B) {
 	nk := &NodeKey{
 		version: rand.Int63n(10000000),
-		nonce:   rand.Int31n(10000000),
+		nonce:   uint32(rand.Int31n(10000000)),
 	}
 	node := &Node{
 		key:           iavlrand.RandBytes(25),
@@ -190,8 +196,8 @@ func BenchmarkNode_WriteBytes(b *testing.B) {
 		nodeKey:       nk,
 		subtreeHeight: 1,
 		size:          rand.Int63n(10000000),
-		leftNodeKey:   nk,
-		rightNodeKey:  nk,
+		leftNodeKey:   nk.GetKey(),
+		rightNodeKey:  nk.GetKey(),
 	}
 	b.ResetTimer()
 	b.Run("NoPreAllocate", func(sub *testing.B) {
@@ -217,7 +223,7 @@ func BenchmarkNode_HashNode(b *testing.B) {
 		value: iavlrand.RandBytes(100),
 		nodeKey: &NodeKey{
 			version: rand.Int63n(10000000),
-			nonce:   rand.Int31n(10000000),
+			nonce:   uint32(rand.Int31n(10000000)),
 		},
 		subtreeHeight: 0,
 		size:          rand.Int63n(10000000),

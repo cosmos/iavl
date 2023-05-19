@@ -27,7 +27,7 @@ type Importer struct {
 	batch     db.Batch
 	batchSize uint32
 	stack     []*Node
-	nonces    []int32
+	nonces    []uint32
 }
 
 // newImporter creates a new Importer for an empty MutableTree.
@@ -50,7 +50,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		version: version,
 		batch:   tree.ndb.db.NewBatch(),
 		stack:   make([]*Node, 0, 8),
-		nonces:  make([]int32, version+1),
+		nonces:  make([]uint32, version+1),
 	}, nil
 }
 
@@ -74,7 +74,7 @@ func (i *Importer) writeNode(node *Node) error {
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
 
-	if err := i.batch.Set(i.tree.ndb.nodeKey(node.nodeKey), bytesCopy); err != nil {
+	if err := i.batch.Set(i.tree.ndb.nodeKey(node.GetKey()), bytesCopy); err != nil {
 		return err
 	}
 
@@ -138,9 +138,10 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 
 		node.leftNode = leftNode
 		node.rightNode = rightNode
-		node.leftNodeKey = leftNode.nodeKey
-		node.rightNodeKey = rightNode.nodeKey
+		node.leftNodeKey = leftNode.GetKey()
+		node.rightNodeKey = rightNode.GetKey()
 		node.size = leftNode.size + rightNode.size
+
 		// Update the stack now.
 		if err := i.writeNode(leftNode); err != nil {
 			return err
@@ -178,7 +179,7 @@ func (i *Importer) Commit() error {
 
 	switch len(i.stack) {
 	case 0:
-		if err := i.batch.Set(i.tree.ndb.nodeKey(&NodeKey{version: i.version, nonce: 1}), []byte{}); err != nil {
+		if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), []byte{}); err != nil {
 			return err
 		}
 	case 1:
@@ -187,7 +188,7 @@ func (i *Importer) Commit() error {
 			return err
 		}
 		if i.stack[0].nodeKey.version < i.version { // it means there is no update in the given version
-			if err := i.batch.Set(i.tree.ndb.nodeKey(&NodeKey{version: i.version, nonce: 1}), i.tree.ndb.nodeKey(i.stack[0].nodeKey)); err != nil {
+			if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), i.tree.ndb.nodeKey(i.stack[0].GetKey())); err != nil {
 				return err
 			}
 		}

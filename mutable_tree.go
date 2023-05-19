@@ -73,6 +73,14 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
+	legacyLatestVersion, err := tree.ndb.getLegacyLatestVersion()
+	if err != nil {
+		return false
+	}
+	if version <= legacyLatestVersion {
+		has, err := tree.ndb.hasLegacyVersion(version)
+		return err == nil && has
+	}
 	firstVersion, err := tree.ndb.getFirstVersion()
 	if err != nil {
 		return false
@@ -81,6 +89,7 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 	if err != nil {
 		return false
 	}
+
 	return firstVersion <= version && version <= latestVersion
 }
 
@@ -94,8 +103,25 @@ func (tree *MutableTree) AvailableVersions() []int {
 	if err != nil {
 		return nil
 	}
+	legacyLatestVersion, err := tree.ndb.getLegacyLatestVersion()
+	if err != nil {
+		return nil
+	}
 
 	res := make([]int, 0)
+	if legacyLatestVersion > firstVersion {
+		for version := firstVersion; version < legacyLatestVersion; version++ {
+			has, err := tree.ndb.hasLegacyVersion(version)
+			if err != nil {
+				return nil
+			}
+			if has {
+				res = append(res, int(version))
+			}
+		}
+		firstVersion = legacyLatestVersion
+	}
+
 	for version := firstVersion; version <= latestVersion; version++ {
 		res = append(res, int(version))
 	}
@@ -975,12 +1001,15 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
 func (tree *MutableTree) saveNewNodes(version int64) error {
-	nonce := int32(0)
+	nonce := uint32(0)
 	newNodes := make([]*Node, 0)
-	var recursiveAssignKey func(*Node) (*NodeKey, error)
-	recursiveAssignKey = func(node *Node) (*NodeKey, error) {
+	var recursiveAssignKey func(*Node) ([]byte, error)
+	recursiveAssignKey = func(node *Node) ([]byte, error) {
 		if node.nodeKey != nil {
-			return node.nodeKey, nil
+			if node.nodeKey.nonce != 0 {
+				return node.nodeKey.GetKey(), nil
+			}
+			return node.hash, nil
 		}
 		nonce++
 		node.nodeKey = &NodeKey{
@@ -1006,7 +1035,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		if err != nil {
 			return nil, err
 		}
-		return node.nodeKey, nil
+		return node.nodeKey.GetKey(), nil
 	}
 
 	if _, err := recursiveAssignKey(tree.root); err != nil {

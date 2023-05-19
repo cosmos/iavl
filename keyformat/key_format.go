@@ -141,6 +141,11 @@ func (kf *KeyFormat) Scan(key []byte, args ...interface{}) {
 	}
 }
 
+// Length of the key format.
+func (kf *KeyFormat) Length() int {
+	return kf.length
+}
+
 // Return the prefix as a string.
 func (kf *KeyFormat) Prefix() string {
 	return string([]byte{kf.prefix})

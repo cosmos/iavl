@@ -807,7 +807,7 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(1))
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(GetRootKey(1)))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	expectedError := errors.New("some db error")
@@ -832,7 +832,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(1))
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(GetRootKey(1)))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	expectedError := errors.New("some db error")
@@ -883,7 +883,7 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(1))
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(GetRootKey(1)))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	batchMock := mock.NewMockBatch(ctrl)
@@ -946,7 +946,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(latestTreeVersion))
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(GetRootKey(latestTreeVersion)))
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	fastNodeKeyToDelete := []byte("some_key")
@@ -1447,7 +1447,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, initialVersion, version)
-	rootKey := &NodeKey{version: version, nonce: 1}
+	rootKey := GetRootKey(version)
 	// the nodes created at the first version are not assigned with the `InitialVersion`
 	node, err := tree.ndb.GetNode(rootKey)
 	require.NoError(t, err)
@@ -1459,7 +1459,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	_, version, err = tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, initialVersion+1, version)
-	rootKey = &NodeKey{version: version, nonce: 1}
+	rootKey = GetRootKey(version)
 	// the following versions behaves normally
 	node, err = tree.ndb.GetNode(rootKey)
 	require.NoError(t, err)

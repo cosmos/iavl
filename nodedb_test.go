@@ -16,11 +16,13 @@ import (
 
 func BenchmarkNodeKey(b *testing.B) {
 	ndb := &nodeDB{}
+
 	for i := 0; i < b.N; i++ {
-		ndb.nodeKey(&NodeKey{
+		nk := &NodeKey{
 			version: int64(i),
-			nonce:   int32(i),
-		})
+			nonce:   uint32(i),
+		}
+		ndb.nodeKey(nk.GetKey())
 	}
 }
 
@@ -110,7 +112,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(expectedFastCacheVersion)).Times(1)
+	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(GetRootKey(int64(expectedFastCacheVersion)))).Times(1)
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
@@ -277,7 +279,7 @@ func TestTraverseNodes(t *testing.T) {
 
 	count := 0
 	err = tree.ndb.traverseNodes(func(node *Node) error {
-		actualNode, err := tree.ndb.GetNode(node.nodeKey)
+		actualNode, err := tree.ndb.GetNode(node.GetKey())
 		if err != nil {
 			return err
 		}
@@ -293,7 +295,7 @@ func TestTraverseNodes(t *testing.T) {
 
 func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches int, orphanKeys [][]byte) {
 	var branchCount, orphanIndex int
-	err := ndb.traverseOrphans(version, func(node *Node) error {
+	err := ndb.traverseOrphans(version, version+1, func(node *Node) error {
 		if node.isLeaf() {
 			require.Equal(t, orphanKeys[orphanIndex], node.key)
 			orphanIndex++
