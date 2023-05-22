@@ -150,30 +150,45 @@ func batchWrite(i *Importer) {
 
 // writeNode writes the node content to the storage.
 func (i *Importer) writeNode(node *Node) error {
+
+	if err := i.validate(node); err != nil {
+		return err
+	}
+
+	if nodeData, err := i.getDataBytes(node); err != nil {
+		return err
+	} else {
+		// Handle the remaining steps in a separate goroutine
+		i.chanConfig.chNodeData <- NodeData{
+			node: node,
+			data: nodeData,
+		}
+	}
+
+	return nil
+}
+
+func (i *Importer) validate(node *Node) error {
 	if _, err := node._hash(node.nodeKey.version); err != nil {
 		return err
 	}
 	if err := node.validate(); err != nil {
 		return err
 	}
+	return nil
+}
 
+func (i *Importer) getDataBytes(node *Node) ([]byte, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
+	defer bufPool.Put(buf)
 	if err := node.writeBytes(buf); err != nil {
-		return err
+		return nil, err
 	}
 
 	bytesCopy := make([]byte, buf.Len())
 	copy(bytesCopy, buf.Bytes())
-	bufPool.Put(buf)
-
-	// Handle the remaining steps in a separate goroutine
-	i.chanConfig.chNodeData <- NodeData{
-		node: node,
-		data: bytesCopy,
-	}
-
-	return nil
+	return bytesCopy, nil
 }
 
 // Close frees all resources. It is safe to call multiple times. Uncommitted nodes may already have
@@ -283,8 +298,16 @@ func (i *Importer) Commit() error {
 		}
 	case 1:
 		i.stack[0].nodeKey.nonce = 1
-		if err := i.writeNode(i.stack[0]); err != nil {
+		node := i.stack[0]
+		if err := i.validate(node); err != nil {
 			return err
+		}
+		if dataBytes, err := i.getDataBytes(node); err != nil {
+			return err
+		} else {
+			if err := i.batch.Set(i.tree.ndb.nodeKey(node.GetKey()), dataBytes); err != nil {
+				return err
+			}
 		}
 		if i.stack[0].nodeKey.version < i.version { // it means there is no update in the given version
 			if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), i.tree.ndb.nodeKey(i.stack[0].GetKey())); err != nil {
