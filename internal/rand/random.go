@@ -97,13 +97,12 @@ MAIN_LOOP:
 			if v >= 62 {         // only 62 characters in strChars
 				val >>= 6
 				continue
-			} else {
-				chars = append(chars, strChars[v])
-				if len(chars) == length {
-					break MAIN_LOOP
-				}
-				val >>= 6
 			}
+			chars = append(chars, strChars[v])
+			if len(chars) == length {
+				break MAIN_LOOP
+			}
+			val >>= 6
 		}
 	}
 
@@ -146,50 +145,50 @@ func (r *Rand) Int64() int64 {
 
 func (r *Rand) Int() int {
 	r.Lock()
+	defer r.Unlock()
 	i := r.rand.Int()
-	r.Unlock()
 	return i
 }
 
 func (r *Rand) Int31() int32 {
 	r.Lock()
+	defer r.Unlock()
 	i31 := r.rand.Int31()
-	r.Unlock()
 	return i31
 }
 
 func (r *Rand) Int31n(n int32) int32 {
 	r.Lock()
+	defer r.Unlock()
 	i31n := r.rand.Int31n(n)
-	r.Unlock()
 	return i31n
 }
 
 func (r *Rand) Int63() int64 {
 	r.Lock()
+	defer r.Unlock()
 	i63 := r.rand.Int63()
-	r.Unlock()
 	return i63
 }
 
 func (r *Rand) Int63n(n int64) int64 {
 	r.Lock()
+	defer r.Unlock()
 	i63n := r.rand.Int63n(n)
-	r.Unlock()
 	return i63n
 }
 
 func (r *Rand) Float32() float32 {
 	r.Lock()
+	defer r.Unlock()
 	f32 := r.rand.Float32()
-	r.Unlock()
 	return f32
 }
 
 func (r *Rand) Float64() float64 {
 	r.Lock()
+	defer r.Unlock()
 	f64 := r.rand.Float64()
-	r.Unlock()
 	return f64
 }
 
@@ -213,8 +212,8 @@ func (r *Rand) Bytes(n int) []byte {
 // It panics if n <= 0.
 func (r *Rand) Intn(n int) int {
 	r.Lock()
+	defer r.Unlock()
 	i := r.rand.Intn(n)
-	r.Unlock()
 	return i
 }
 
@@ -228,8 +227,8 @@ func (r *Rand) Bool() bool {
 // Perm returns a pseudo-random permutation of n integers in [0, n).
 func (r *Rand) Perm(n int) []int {
 	r.Lock()
+	defer r.Unlock()
 	perm := r.rand.Perm(n)
-	r.Unlock()
 	return perm
 }
 

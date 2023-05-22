@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cosmos/cosmos-db"
@@ -79,7 +80,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options, false)
+		tree, err = NewMutableTreeWithOpts(levelDB, cacheSize, options, false, log.NewNopLogger())
 		require.NoError(t, err)
 		version, err = tree.Load()
 		require.NoError(t, err)
@@ -99,7 +100,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempdir)
 
-	levelDB, err := db.NewGoLevelDB("leveldb", tempdir)
+	levelDB, err := db.NewGoLevelDB("leveldb", tempdir, nil)
 	require.NoError(t, err)
 
 	tree, version, _ := loadTree(levelDB)
@@ -277,9 +278,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 
 	firstKey := foundKeys[0]
 	secondKey := foundKeys[1]
-
 	require.True(t, strings.HasPrefix(firstKey, metadataKeyFormat.Prefix()))
-	require.True(t, strings.HasPrefix(secondKey, rootKeyFormat.Prefix()))
 
 	require.Equal(t, string(metadataKeyFormat.KeyBytes([]byte(storageVersionKey))), firstKey, "Unexpected storage version key")
 
@@ -290,7 +289,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), string(storageVersionValue))
 
 	var foundVersion int64
-	rootKeyFormat.Scan([]byte(secondKey), &foundVersion)
+	nodeKeyFormat.Scan([]byte(secondKey), &foundVersion)
 	require.Equal(t, version, foundVersion, "Unexpected root version")
 }
 
@@ -324,6 +323,9 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	// mirror and check with get. This is to exercise both the iteration and Get() code paths.
 	iterated := 0
 	_, err = itree.Iterate(func(key, value []byte) bool {
+		if string(value) != mirror[string(key)] {
+			fmt.Println("missing ", string(key), " ", string(value))
+		}
 		require.Equal(t, string(value), mirror[string(key)], "Invalid value for key %q", key)
 		iterated++
 		return false

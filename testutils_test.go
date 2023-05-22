@@ -9,6 +9,7 @@ import (
 	"sort"
 	"testing"
 
+	log "cosmossdk.io/log"
 	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
 
@@ -42,7 +43,7 @@ func b2i(bz []byte) int {
 
 // Construct a MutableTree
 func getTestTree(cacheSize int) (*MutableTree, error) {
-	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, false)
+	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, false, log.NewNopLogger())
 }
 
 // Convenience for a new node
@@ -51,12 +52,12 @@ func N(l, r interface{}) *Node {
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
 	} else {
-		left = NewNode(i2b(l.(int)), nil, 0)
+		left = NewNode(i2b(l.(int)), nil)
 	}
 	if _, ok := r.(*Node); ok {
 		right = r.(*Node)
 	} else {
-		right = NewNode(i2b(r.(int)), nil, 0)
+		right = NewNode(i2b(r.(int)), nil)
 	}
 
 	n := &Node{
@@ -73,7 +74,7 @@ func N(l, r interface{}) *Node {
 func T(n *Node) (*MutableTree, error) {
 	t, _ := getTestTree(0)
 
-	_, _, err := n.hashWithCount()
+	_, err := n.hashWithCount(t.version + 1)
 	if err != nil {
 		return nil, err
 	}
@@ -82,11 +83,13 @@ func T(n *Node) (*MutableTree, error) {
 }
 
 // Convenience for simple printing of keys & tree structure
-func P(n *Node) string {
+func P(n *Node, t *ImmutableTree) string {
 	if n.subtreeHeight == 0 {
 		return fmt.Sprintf("%v", b2i(n.key))
 	}
-	return fmt.Sprintf("(%v %v)", P(n.leftNode), P(n.rightNode))
+	leftNode, _ := n.getLeftNode(t)
+	rightNode, _ := n.getRightNode(t)
+	return fmt.Sprintf("(%v %v)", P(leftNode, t), P(rightNode, t))
 }
 
 type traverser struct {
@@ -95,7 +98,7 @@ type traverser struct {
 	count int
 }
 
-func (t *traverser) view(key, value []byte) bool {
+func (t *traverser) view(key, _ []byte) bool {
 	if t.first == "" {
 		t.first = string(key)
 	}
@@ -323,7 +326,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t, err := NewMutableTree(db, 100000, false)
+	t, err := NewMutableTree(db, 100000, false, log.NewNopLogger())
 	require.NoError(b, err)
 
 	value := []byte{}

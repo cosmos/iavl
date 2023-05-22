@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"sync"
-
 	db "github.com/cosmos/cosmos-db"
+	"sync"
 )
 
 // desiredBatchSize is the desired batch write size of the import batch before flushing it to the database.
@@ -15,7 +14,7 @@ const defaultDesiredBatchSize = 20000
 
 // If there's an ongoing pending batch write, we will keep batching more writes
 // until the ongoing batch write completes or we reach maxBatchSize
-const defaultMaxBatchSize = 200000
+const defaultMaxBatchSize = 500000
 
 // ErrNoImport is returned when calling methods on a closed importer
 var ErrNoImport = errors.New("no import in progress")
@@ -33,6 +32,7 @@ type Importer struct {
 	batch            db.Batch
 	batchSize        uint32
 	stack            []*Node
+	nonces           []uint32
 	desiredBatchSize uint32
 	maxBatchSize     uint32
 	batchMtx         sync.RWMutex
@@ -70,6 +70,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		version:          version,
 		batch:            tree.ndb.db.NewBatch(),
 		stack:            make([]*Node, 0, 8),
+		nonces:           make([]uint32, version+1),
 		batchMtx:         sync.RWMutex{},
 		desiredBatchSize: defaultDesiredBatchSize,
 		maxBatchSize:     defaultMaxBatchSize,
@@ -88,6 +89,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	go batchWrite(importer)
 
 	return importer, nil
+
 }
 
 // WithDesiredBatchSize set the desired batch size for write
@@ -109,16 +111,16 @@ func setBatchData(i *Importer) {
 		if nodeData, open := <-i.chNodeData; open {
 			i.batchMtx.RLock()
 			if i.batch != nil {
-				err := i.batch.Set(i.tree.ndb.nodeKey(nodeData.node.hash), nodeData.data)
+				err := i.batch.Set(i.tree.ndb.nodeKey(nodeData.node.GetKey()), nodeData.data)
 				if err != nil {
 					i.batchMtx.RUnlock()
 					i.chError <- err
 					break
 				}
 			}
-			i.batchMtx.RUnlock()
 			i.batchSize++
-			// Only commit a new batch if size meet desiredBatchSize and there's no pending batch write
+			i.batchMtx.RUnlock()
+			// Only commit a new batch if size meet desiredBatchSize and there's no pending batch write or we exceed maxBatchSize
 			if (i.batchSize >= i.desiredBatchSize && len(i.chBatch) < 1) || i.batchSize >= i.maxBatchSize {
 				i.chBatch <- i.batch
 				i.batch = i.tree.ndb.db.NewBatch()
@@ -150,8 +152,36 @@ func batchWrite(i *Importer) {
 	i.chBatchWg.Done()
 }
 
+// writeNode writes the node content to the storage.
+func (i *Importer) writeNode(node *Node) error {
+	if _, err := node._hash(node.nodeKey.version); err != nil {
+		return err
+	}
+	if err := node.validate(); err != nil {
+		return err
+	}
+
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	if err := node.writeBytes(buf); err != nil {
+		return err
+	}
+
+	bytesCopy := make([]byte, buf.Len())
+	copy(bytesCopy, buf.Bytes())
+	bufPool.Put(buf)
+
+	// Handle the remaining steps in a separate goroutine
+	i.chNodeData <- NodeData{
+		node: node,
+		data: bytesCopy,
+	}
+
+	return nil
+}
+
 // Close frees all resources. It is safe to call multiple times. Uncommitted nodes may already have
-// been flushed to the database, but will not be visible. Errors are ignored in the close functions.
+// been flushed to the database, but will not be visible.
 func (i *Importer) Close() {
 	_ = i.waitAndCloseChannels()
 	if i.batch != nil {
@@ -179,7 +209,6 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	node := &Node{
 		key:           exportNode.Key,
 		value:         exportNode.Value,
-		version:       exportNode.Version,
 		subtreeHeight: exportNode.Height,
 	}
 
@@ -191,69 +220,49 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	// We don't modify the stack until we've verified the built node, to avoid leaving the
 	// importer in an inconsistent state when we return an error.
 	stackSize := len(i.stack)
-	switch {
-	case stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight:
-		node.leftNode = i.stack[stackSize-2]
-		node.leftHash = node.leftNode.hash
-		node.rightNode = i.stack[stackSize-1]
-		node.rightHash = node.rightNode.hash
-	case stackSize >= 1 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight:
-		node.leftNode = i.stack[stackSize-1]
-		node.leftHash = node.leftNode.hash
-	}
-
 	if node.subtreeHeight == 0 {
 		node.size = 1
-	}
-	if node.leftNode != nil {
-		node.size += node.leftNode.size
-	}
-	if node.rightNode != nil {
-		node.size += node.rightNode.size
-	}
+	} else if stackSize >= 2 && i.stack[stackSize-1].subtreeHeight < node.subtreeHeight && i.stack[stackSize-2].subtreeHeight < node.subtreeHeight {
+		leftNode := i.stack[stackSize-2]
+		rightNode := i.stack[stackSize-1]
 
-	_, err := node._hash()
-	if err != nil {
-		return err
-	}
+		node.leftNode = leftNode
+		node.rightNode = rightNode
+		node.leftNodeKey = leftNode.GetKey()
+		node.rightNodeKey = rightNode.GetKey()
+		node.size = leftNode.size + rightNode.size
 
-	err = node.validate()
-	if err != nil {
-		return err
-	}
+		// Update the stack now.
+		if err := i.writeNode(leftNode); err != nil {
+			return err
+		}
+		if err := i.writeNode(rightNode); err != nil {
+			return err
+		}
 
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	if err := node.writeBytes(buf); err != nil {
-		return err
-	}
+		// Check errors from channel
+		select {
+		case err := <-i.chError:
+			return err
+		default:
+		}
 
-	bytesCopy := make([]byte, buf.Len())
-	copy(bytesCopy, buf.Bytes())
-	bufPool.Put(buf)
-
-	// Handle the remaining steps in a separate goroutine
-	i.chNodeData <- NodeData{
-		node: node,
-		data: bytesCopy,
-	}
-
-	// Check errors
-	select {
-	case err := <-i.chError:
-		return err
-	default:
-	}
-
-	// Update the stack now that we know there were no errors
-	switch {
-	case node.leftHash != nil && node.rightHash != nil:
 		i.stack = i.stack[:stackSize-2]
-	case node.leftHash != nil || node.rightHash != nil:
-		i.stack = i.stack[:stackSize-1]
+
+		// remove the recursive references to avoid memory leak
+		leftNode.leftNode = nil
+		leftNode.rightNode = nil
+		rightNode.leftNode = nil
+		rightNode.rightNode = nil
 	}
-	// Only hash\height\size of the node will be used after it be pushed into the stack.
-	i.stack = append(i.stack, &Node{hash: node.hash, subtreeHeight: node.subtreeHeight, size: node.size})
+	i.nonces[exportNode.Version]++
+	node.nodeKey = &NodeKey{
+		version: exportNode.Version,
+		// Nonce is 1-indexed, but start at 2 since the root node having a nonce of 1.
+		nonce: i.nonces[exportNode.Version] + 1,
+	}
+
+	i.stack = append(i.stack, node)
 
 	return nil
 }
@@ -273,12 +282,18 @@ func (i *Importer) Commit() error {
 
 	switch len(i.stack) {
 	case 0:
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), []byte{}); err != nil {
+		if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), []byte{}); err != nil {
 			return err
 		}
 	case 1:
-		if err := i.batch.Set(i.tree.ndb.rootKey(i.version), i.stack[0].hash); err != nil {
+		i.stack[0].nodeKey.nonce = 1
+		if err := i.writeNode(i.stack[0]); err != nil {
 			return err
+		}
+		if i.stack[0].nodeKey.version < i.version { // it means there is no update in the given version
+			if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), i.tree.ndb.nodeKey(i.stack[0].GetKey())); err != nil {
+				return err
+			}
 		}
 	default:
 		return fmt.Errorf("invalid node structure, found stack size %v when committing",
@@ -301,7 +316,7 @@ func (i *Importer) Commit() error {
 }
 
 // waitAndCloseChannels will try to close all the channels for importer and wait for remaining work to be done.
-// Closing channels should only happen once in the Commit or Close action. If any error happens when draining the remaining data in the channel,
+// This function should only be called in the Commit or Close action. If any error happens when draining the remaining data in the channel,
 // The error will be popped out and returned.
 func (i *Importer) waitAndCloseChannels() error {
 	// Make sure all pending works are drained and close the channels in order

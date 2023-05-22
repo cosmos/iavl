@@ -2,12 +2,12 @@
 package iavl
 
 import (
-	"bytes"
 	"encoding/hex"
 	mrand "math/rand"
 	"sort"
 	"testing"
 
+	"cosmossdk.io/log"
 	db "github.com/cosmos/cosmos-db"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/stretchr/testify/assert"
@@ -171,52 +171,28 @@ func TestBasic(t *testing.T) {
 }
 
 func TestUnit(t *testing.T) {
-	expectHash := func(tree *ImmutableTree, hashCount int64) {
-		// ensure number of new hash calculations is as expected.
-		hash, count, err := tree.root.hashWithCount()
-		require.NoError(t, err)
-		if count != hashCount {
-			t.Fatalf("Expected %v new hashes, got %v", hashCount, count)
-		}
-		// nuke hashes and reconstruct hash, ensure it's the same.
-		tree.root.traverse(tree, true, func(node *Node) bool {
-			node.hash = nil
-			return false
-		})
-		// ensure that the new hash after nuking is the same as the old.
-		newHash, _, err := tree.root.hashWithCount()
-		require.NoError(t, err)
-		if !bytes.Equal(hash, newHash) {
-			t.Fatalf("Expected hash %v but got %v after nuking", hash, newHash)
-		}
-	}
-
-	expectSet := func(tree *MutableTree, i int, repr string, hashCount int64) {
-		origNode := tree.root
+	expectSet := func(tree *MutableTree, i int, repr string) {
+		tree.SaveVersion()
 		updated, err := tree.Set(i2b(i), []byte{})
 		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
-		if updated || P(tree.root) != repr {
+		if updated || P(tree.root, tree.ImmutableTree) != repr {
 			t.Fatalf("Adding %v to %v:\nExpected         %v\nUnexpectedly got %v updated:%v",
-				i, P(origNode), repr, P(tree.root), updated)
+				i, P(tree.lastSaved.root, tree.lastSaved), repr, P(tree.root, tree.ImmutableTree), updated)
 		}
-		// ensure hash calculation requirements
-		expectHash(tree.ImmutableTree, hashCount)
-		tree.root = origNode
+		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 
-	expectRemove := func(tree *MutableTree, i int, repr string, hashCount int64) {
-		origNode := tree.root
+	expectRemove := func(tree *MutableTree, i int, repr string) {
+		tree.SaveVersion()
 		value, removed, err := tree.Remove(i2b(i))
 		require.NoError(t, err)
 		// ensure node was added & structure is as expected.
-		if len(value) != 0 || !removed || P(tree.root) != repr {
+		if len(value) != 0 || !removed || P(tree.root, tree.ImmutableTree) != repr {
 			t.Fatalf("Removing %v from %v:\nExpected         %v\nUnexpectedly got %v value:%v removed:%v",
-				i, P(origNode), repr, P(tree.root), value, removed)
+				i, P(tree.lastSaved.root, tree.lastSaved), repr, P(tree.root, tree.ImmutableTree), value, removed)
 		}
-		// ensure hash calculation requirements
-		expectHash(tree.ImmutableTree, hashCount)
-		tree.root = origNode
+		tree.ImmutableTree = tree.lastSaved.clone()
 	}
 
 	// Test Set cases:
@@ -225,40 +201,40 @@ func TestUnit(t *testing.T) {
 	t1, err := T(N(4, 20))
 
 	require.NoError(t, err)
-	expectSet(t1, 8, "((4 8) 20)", 3)
-	expectSet(t1, 25, "(4 (20 25))", 3)
+	expectSet(t1, 8, "((4 8) 20)")
+	expectSet(t1, 25, "(4 (20 25))")
 
 	t2, err := T(N(4, N(20, 25)))
 
 	require.NoError(t, err)
-	expectSet(t2, 8, "((4 8) (20 25))", 3)
-	expectSet(t2, 30, "((4 20) (25 30))", 4)
+	expectSet(t2, 8, "((4 8) (20 25))")
+	expectSet(t2, 30, "((4 20) (25 30))")
 
 	t3, err := T(N(N(1, 2), 6))
 
 	require.NoError(t, err)
-	expectSet(t3, 4, "((1 2) (4 6))", 4)
-	expectSet(t3, 8, "((1 2) (6 8))", 3)
+	expectSet(t3, 4, "((1 2) (4 6))")
+	expectSet(t3, 8, "((1 2) (6 8))")
 
 	t4, err := T(N(N(1, 2), N(N(5, 6), N(7, 9))))
 
 	require.NoError(t, err)
-	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))", 5)
-	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))", 5)
+	expectSet(t4, 8, "(((1 2) (5 6)) ((7 8) 9))")
+	expectSet(t4, 10, "(((1 2) (5 6)) (7 (9 10)))")
 
 	// Test Remove cases:
 
 	t10, err := T(N(N(1, 2), 3))
 
 	require.NoError(t, err)
-	expectRemove(t10, 2, "(1 3)", 1)
-	expectRemove(t10, 3, "(1 2)", 0)
+	expectRemove(t10, 2, "(1 3)")
+	expectRemove(t10, 3, "(1 2)")
 
 	t11, err := T(N(N(N(1, 2), 3), N(4, 5)))
 
 	require.NoError(t, err)
-	expectRemove(t11, 4, "((1 2) (3 5))", 2)
-	expectRemove(t11, 3, "((1 2) (4 5))", 1)
+	expectRemove(t11, 4, "((1 2) (3 5))")
+	expectRemove(t11, 3, "((1 2) (4 5))")
 }
 
 func TestRemove(t *testing.T) {
@@ -341,7 +317,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	for i, x := range records {
-		if val, removed, err := tree.Remove([]byte(x.key)); err != nil { //nolint:gocritic
+		if val, removed, err := tree.Remove([]byte(x.key)); err != nil {
 			require.NoError(t, err)
 		} else if !removed {
 			t.Error("Wasn't removed")
@@ -470,7 +446,7 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1, err := NewMutableTree(db, 0, false)
+	t1, err := NewMutableTree(db, 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
@@ -478,7 +454,7 @@ func TestPersistence(t *testing.T) {
 	t1.SaveVersion()
 
 	// Load a tree
-	t2, err := NewMutableTree(db, 0, false)
+	t2, err := NewMutableTree(db, 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 	t2.Load()
 	for key, value := range records {
@@ -528,7 +504,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	tree, err := NewMutableTree(db, 100, false)
+	tree, err := NewMutableTree(db, 100, false, log.NewNopLogger())
 	require.NoError(t, err)
 	hash, err := tree.Hash()
 	require.NoError(t, err)

@@ -1,13 +1,15 @@
 package benchmarks
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	mrand "math/rand"
 	"os"
 	"runtime"
 	"strings"
 	"testing"
 
+	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cosmos/cosmos-db"
@@ -20,12 +22,12 @@ func randBytes(length int) []byte {
 	key := make([]byte, length)
 	// math.rand.Read always returns err=nil
 	// we do not need cryptographic randomness for this test:
-	rand.Read(key)
+	rand.Read(key) //nolint:errcheck
 	return key
 }
 
 func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false)
+	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger())
 	require.NoError(b, err)
 	keys := make([][]byte, size)
 
@@ -77,7 +79,7 @@ func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	require.True(b, isFastCacheEnabled)
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
-		q := keys[rand.Int31n(l)]
+		q := keys[mrand.Int31n(l)]
 		_, err := t.Get(q)
 		require.NoError(b, err)
 	}
@@ -119,7 +121,7 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	b.StartTimer()
 	l := int32(len(keys))
 	for i := 0; i < b.N; i++ {
-		q := keys[rand.Int31n(l)]
+		q := keys[mrand.Int31n(l)]
 		index, value, err := itree.GetWithIndex(q)
 		require.NoError(b, err)
 		require.True(b, index >= 0, "the index must not be negative")
@@ -176,7 +178,7 @@ func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
 func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
 	l := int32(len(keys))
 	for i := 1; i <= b.N; i++ {
-		key := keys[rand.Int31n(l)]
+		key := keys[mrand.Int31n(l)]
 		_, err := t.Set(key, randBytes(dataLen))
 		require.NoError(b, err)
 		if i%blockSize == 0 {
@@ -208,7 +210,7 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 	// XXX: This was adapted to work with VersionedTree but needs to be re-thought.
 
 	lastCommit := t
-	real := t
+	realTree := t
 	// check := t
 
 	for i := 0; i < b.N; i++ {
@@ -216,24 +218,24 @@ func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int,
 			// 50% insert, 50% update
 			var key []byte
 			if i%2 == 0 {
-				key = keys[rand.Int31n(l)]
+				key = keys[mrand.Int31n(l)]
 			} else {
 				key = randBytes(keyLen)
 			}
 			data := randBytes(dataLen)
 
-			// perform query and write on check and then real
+			// perform query and write on check and then realTree
 			// check.GetFast(key)
 			// check.Set(key, data)
-			_, err := real.Get(key)
+			_, err := realTree.Get(key)
 			require.NoError(b, err)
-			_, err = real.Set(key, data)
+			_, err = realTree.Set(key, data)
 			require.NoError(b, err)
 		}
 
 		// at the end of a block, move it all along....
-		commitTree(b, real)
-		lastCommit = real
+		commitTree(b, realTree)
+		lastCommit = realTree
 	}
 
 	return lastCommit
@@ -330,7 +332,7 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
-		if (bb.dbType == db.RocksDBBackend) || (bb.dbType == db.CLevelDBBackend) {
+		if bb.dbType == db.RocksDBBackend {
 			_ = os.Mkdir(dirName, 0o755)
 		}
 
@@ -356,9 +358,8 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 					// log the error instead of failing.
 					b.Logf("%+v\n", err)
 					continue
-				} else {
-					require.NoError(b, err)
 				}
+				require.NoError(b, err)
 			}
 			defer d.Close()
 		}

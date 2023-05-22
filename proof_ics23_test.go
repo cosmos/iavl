@@ -2,11 +2,13 @@ package iavl
 
 import (
 	"bytes"
-	"math/rand"
+	"crypto/rand"
+	mrand "math/rand"
 	"sort"
 	"testing"
 
-	ics23 "github.com/confio/ics23/go"
+	log "cosmossdk.io/log"
+	ics23 "github.com/cosmos/ics23/go"
 	"github.com/stretchr/testify/require"
 
 	db "github.com/cosmos/cosmos-db"
@@ -128,7 +130,7 @@ func BenchmarkGetNonMembership(b *testing.B) {
 	b.Run("fast", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			caseIdx := rand.Intn(len(cases))
+			caseIdx := mrand.Intn(len(cases))
 			tc := cases[caseIdx]
 
 			tree, allkeys, err := BuildTree(tc.size, 100000)
@@ -148,7 +150,7 @@ func BenchmarkGetNonMembership(b *testing.B) {
 	b.Run("regular", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			b.StopTimer()
-			caseIdx := rand.Intn(len(cases))
+			caseIdx := mrand.Intn(len(cases))
 			tc := cases[caseIdx]
 
 			tree, allkeys, err := BuildTree(tc.size, 100000)
@@ -183,7 +185,7 @@ func GetKey(allkeys [][]byte, loc Where) []byte {
 		return allkeys[len(allkeys)-1]
 	}
 	// select a random index between 1 and allkeys-2
-	idx := rand.Int()%(len(allkeys)-2) + 1
+	idx := mrand.Int()%(len(allkeys)-2) + 1
 	return allkeys[idx]
 }
 
@@ -205,7 +207,7 @@ func GetNonKey(allkeys [][]byte, loc Where) []byte {
 // BuildTree creates random key/values and stores in tree
 // returns a list of all keys in sorted order
 func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err error) {
-	tree, err := NewMutableTree(db.NewMemDB(), cacheSize, false)
+	tree, err := NewMutableTree(db.NewMemDB(), cacheSize, false, log.NewNopLogger())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -215,7 +217,7 @@ func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err 
 	for i := 0; i < size; i++ {
 		key := make([]byte, 4)
 		// create random 4 byte key
-		rand.Read(key)
+		rand.Read(key) //nolint:errcheck
 		value := "value_for_key:" + string(key)
 		_, err = tree.Set(key, []byte(value))
 		if err != nil {

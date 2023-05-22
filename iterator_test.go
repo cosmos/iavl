@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	log "cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl/fastnode"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
 	}
 
 	t.Run("Nil additions given", func(t *testing.T) {
-		tree, err := NewMutableTree(dbm.NewMemDB(), 0, false)
+		tree, err := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
 		require.NoError(t, err)
 		itr := NewUnsavedFastIterator(start, end, ascending, tree.ndb, nil, tree.unsavedFastNodeRemovals)
 		performTest(t, itr)
@@ -64,7 +65,7 @@ func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
 	})
 
 	t.Run("Nil removals given", func(t *testing.T) {
-		tree, err := NewMutableTree(dbm.NewMemDB(), 0, false)
+		tree, err := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
 		require.NoError(t, err)
 		itr := NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, nil)
 		performTest(t, itr)
@@ -78,7 +79,7 @@ func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
 	})
 
 	t.Run("Additions and removals are nil", func(t *testing.T) {
-		tree, err := NewMutableTree(dbm.NewMemDB(), 0, false)
+		tree, err := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
 		require.NoError(t, err)
 		itr := NewUnsavedFastIterator(start, end, ascending, tree.ndb, nil, nil)
 		performTest(t, itr)
@@ -248,7 +249,7 @@ func iteratorSuccessTest(t *testing.T, config *iteratorTestConfig) {
 }
 
 func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree, err := NewMutableTree(dbm.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 
 	mirror := setupMirrorForIterator(t, config, tree)
@@ -265,7 +266,7 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Itera
 }
 
 func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree, err := NewMutableTree(dbm.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 
 	mirror := setupMirrorForIterator(t, config, tree)
@@ -277,7 +278,7 @@ func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.I
 }
 
 func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree, err := NewMutableTree(dbm.NewMemDB(), 0, false)
+	tree, err := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
 	require.NoError(t, err)
 
 	// For unsaved fast iterator, we would like to test the state where
@@ -343,7 +344,7 @@ func TestNodeIterator_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	// check if the iterating count is same with the entire node count of the tree
-	itr, err := NewNodeIterator(tree.root.hash, tree.ndb)
+	itr, err := NewNodeIterator(tree.root.GetKey(), tree.ndb)
 	require.NoError(t, err)
 	nodeCount := 0
 	for ; itr.Valid(); itr.Next(false) {
@@ -352,23 +353,23 @@ func TestNodeIterator_Success(t *testing.T) {
 	require.Equal(t, int64(nodeCount), tree.Size()*2-1)
 
 	// check if the skipped node count is right
-	itr, err = NewNodeIterator(tree.root.hash, tree.ndb)
+	itr, err = NewNodeIterator(tree.root.GetKey(), tree.ndb)
 	require.NoError(t, err)
 	updateCount := 0
 	skipCount := 0
 	for itr.Valid() {
 		node := itr.GetNode()
 		updateCount++
-		if node.version < tree.Version() {
+		if node.nodeKey.version < tree.Version() {
 			skipCount += int(node.size*2 - 2) // the size of the subtree without the root
 		}
-		itr.Next(node.version < tree.Version())
+		itr.Next(node.nodeKey.version < tree.Version())
 	}
 	require.Equal(t, nodeCount, updateCount+skipCount)
 }
 
 func TestNodeIterator_WithEmptyRoot(t *testing.T) {
-	itr, err := NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, nil))
+	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, nil, log.NewNopLogger()))
 	require.NoError(t, err)
 	require.False(t, itr.Valid())
 }

@@ -6,9 +6,10 @@ The Immutable tree struct contains an IAVL version.
 
 ```golang
 type ImmutableTree struct {
-	root    *Node
-	ndb     *nodeDB
-	version int64
+	root                   *Node
+	ndb                    *nodeDB
+	version                int64
+	skipFastStorageUpgrade bool
 }
 ```
 
@@ -20,14 +21,14 @@ Users can get information about the IAVL tree by calling getter functions such a
 
 Users can get values by specifying the key or the index of the leaf node they want to get value for.
 
-Get by key will return both the index and the value.
+GetWithIndex by key will return both the index and the value.
 
 ```golang
-// Get returns the index and value of the specified key if it exists, or nil
+// GetWithIndex returns the index and value of the specified key if it exists, or nil
 // and the next index, if it doesn't.
-func (t *ImmutableTree) Get(key []byte) (index int64, value []byte) {
+func (t *ImmutableTree) GetWithIndex(key []byte) (int64, []byte, error) {
 	if t.root == nil {
-		return 0, nil
+		return 0, nil, nil
 	}
 	return t.root.get(t, key)
 }
