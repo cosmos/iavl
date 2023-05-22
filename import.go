@@ -27,21 +27,38 @@ var ErrNoImport = errors.New("no import in progress")
 // Importer is not concurrency-safe, it is the caller's responsibility to ensure the tree is not
 // modified while performing an import.
 type Importer struct {
-	tree             *MutableTree
-	version          int64
-	batch            db.Batch
-	batchSize        uint32
-	stack            []*Node
-	nonces           []uint32
+	tree       *MutableTree
+	version    int64
+	batch      db.Batch
+	batchSize  uint32
+	batchMtx   sync.RWMutex
+	stack      []*Node
+	nonces     []uint32
+	chanConfig ChannelConfig
+}
+
+type ChannelConfig struct {
 	desiredBatchSize uint32
 	maxBatchSize     uint32
-	batchMtx         sync.RWMutex
 	chNodeData       chan NodeData
 	chNodeDataWg     sync.WaitGroup
 	chBatch          chan db.Batch
 	chBatchWg        sync.WaitGroup
 	chError          chan error
 	allChannelClosed bool
+}
+
+func DefaultChannelConfig() ChannelConfig {
+	return ChannelConfig{
+		desiredBatchSize: defaultDesiredBatchSize,
+		maxBatchSize:     defaultMaxBatchSize,
+		chNodeData:       make(chan NodeData, 2*defaultDesiredBatchSize),
+		chNodeDataWg:     sync.WaitGroup{},
+		chBatch:          make(chan db.Batch, 1),
+		chBatchWg:        sync.WaitGroup{},
+		chError:          make(chan error, 1),
+		allChannelClosed: false,
+	}
 }
 
 type NodeData struct {
@@ -66,63 +83,42 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 	}
 
 	importer := &Importer{
-		tree:             tree,
-		version:          version,
-		batch:            tree.ndb.db.NewBatch(),
-		stack:            make([]*Node, 0, 8),
-		nonces:           make([]uint32, version+1),
-		batchMtx:         sync.RWMutex{},
-		desiredBatchSize: defaultDesiredBatchSize,
-		maxBatchSize:     defaultMaxBatchSize,
-		chNodeData:       make(chan NodeData, 2*defaultDesiredBatchSize),
-		chNodeDataWg:     sync.WaitGroup{},
-		chBatch:          make(chan db.Batch, 1),
-		chBatchWg:        sync.WaitGroup{},
-		chError:          make(chan error, 1),
-		allChannelClosed: false,
+		tree:       tree,
+		version:    version,
+		batch:      tree.ndb.db.NewBatch(),
+		stack:      make([]*Node, 0, 8),
+		nonces:     make([]uint32, version+1),
+		batchMtx:   sync.RWMutex{},
+		chanConfig: DefaultChannelConfig(),
 	}
 
-	importer.chNodeDataWg.Add(1)
+	importer.chanConfig.chNodeDataWg.Add(1)
 	go setBatchData(importer)
 
-	importer.chBatchWg.Add(1)
+	importer.chanConfig.chBatchWg.Add(1)
 	go batchWrite(importer)
 
 	return importer, nil
-
-}
-
-// WithDesiredBatchSize set the desired batch size for write
-func (i *Importer) WithDesiredBatchSize(batchSize uint32) *Importer {
-	i.desiredBatchSize = batchSize
-	return i
-}
-
-// WithMaxBatchSize set the maximum allowed batch size for write, should be greater than desired batch size.
-// Consider increase max batch size to reduce overall import time.
-func (i *Importer) WithMaxBatchSize(batchSize uint32) *Importer {
-	i.maxBatchSize = batchSize
-	return i
 }
 
 // setBatchData get the next serialized node data from channel, and write the data to the current batch
 func setBatchData(i *Importer) {
 	for i.batch != nil {
-		if nodeData, open := <-i.chNodeData; open {
+		if nodeData, open := <-i.chanConfig.chNodeData; open {
 			i.batchMtx.RLock()
 			if i.batch != nil {
 				err := i.batch.Set(i.tree.ndb.nodeKey(nodeData.node.GetKey()), nodeData.data)
 				if err != nil {
 					i.batchMtx.RUnlock()
-					i.chError <- err
+					i.chanConfig.chError <- err
 					break
 				}
 			}
 			i.batchSize++
 			i.batchMtx.RUnlock()
 			// Only commit a new batch if size meet desiredBatchSize and there's no pending batch write or we exceed maxBatchSize
-			if (i.batchSize >= i.desiredBatchSize && len(i.chBatch) < 1) || i.batchSize >= i.maxBatchSize {
-				i.chBatch <- i.batch
+			if (i.batchSize >= i.chanConfig.desiredBatchSize && len(i.chanConfig.chBatch) < 1) || i.batchSize >= i.chanConfig.maxBatchSize {
+				i.chanConfig.chBatch <- i.batch
 				i.batch = i.tree.ndb.db.NewBatch()
 				i.batchSize = 0
 			}
@@ -130,16 +126,16 @@ func setBatchData(i *Importer) {
 			break
 		}
 	}
-	i.chNodeDataWg.Done()
+	i.chanConfig.chNodeDataWg.Done()
 }
 
-// batchWrite get a new batch from the channel and execute the batch write to the underline DB.
+// batchWrite get a new batch from the channel and execute the batch write to the underlying DB.
 func batchWrite(i *Importer) {
 	for i.batch != nil {
-		if nextBatch, open := <-i.chBatch; open {
+		if nextBatch, open := <-i.chanConfig.chBatch; open {
 			err := nextBatch.Write()
 			if err != nil {
-				i.chError <- err
+				i.chanConfig.chError <- err
 				break
 			}
 			i.batchMtx.Lock()
@@ -149,7 +145,7 @@ func batchWrite(i *Importer) {
 			break
 		}
 	}
-	i.chBatchWg.Done()
+	i.chanConfig.chBatchWg.Done()
 }
 
 // writeNode writes the node content to the storage.
@@ -172,7 +168,7 @@ func (i *Importer) writeNode(node *Node) error {
 	bufPool.Put(buf)
 
 	// Handle the remaining steps in a separate goroutine
-	i.chNodeData <- NodeData{
+	i.chanConfig.chNodeData <- NodeData{
 		node: node,
 		data: bytesCopy,
 	}
@@ -242,7 +238,7 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 
 		// Check errors from channel
 		select {
-		case err := <-i.chError:
+		case err := <-i.chanConfig.chError:
 			return err
 		default:
 		}
@@ -320,15 +316,15 @@ func (i *Importer) Commit() error {
 // The error will be popped out and returned.
 func (i *Importer) waitAndCloseChannels() error {
 	// Make sure all pending works are drained and close the channels in order
-	if !i.allChannelClosed {
-		i.allChannelClosed = true
-		close(i.chNodeData)
-		i.chNodeDataWg.Wait()
-		close(i.chBatch)
-		i.chBatchWg.Wait()
+	if !i.chanConfig.allChannelClosed {
+		i.chanConfig.allChannelClosed = true
+		close(i.chanConfig.chNodeData)
+		i.chanConfig.chNodeDataWg.Wait()
+		close(i.chanConfig.chBatch)
+		i.chanConfig.chBatchWg.Wait()
 		// Check errors
 		select {
-		case err := <-i.chError:
+		case err := <-i.chanConfig.chError:
 			return err
 		default:
 		}
