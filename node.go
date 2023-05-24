@@ -444,13 +444,11 @@ func (node *Node) hashWithCount(version int64) []byte {
 	}
 
 	h := sha256.New()
-	buf := new(bytes.Buffer)
-	if err := node.writeHashBytesRecursively(buf, version); err != nil {
+	if err := node.writeHashBytesRecursively(h, version); err != nil {
 		// writeHashBytesRecursively doesn't return an error unless h.Write does,
 		// and hash.Hash.Write doesn't.
 		panic(err)
 	}
-	h.Write(buf.Bytes())
 	node.hash = h.Sum(nil)
 
 	return node.hash
