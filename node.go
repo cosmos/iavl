@@ -126,10 +126,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 		}
 		node.value = val
 		// ensure take the hash for the leaf node
-		if _, err := node._hash(node.nodeKey.version); err != nil {
-			return nil, fmt.Errorf("calculating hash error: %v", err)
-		}
-
+		node._hash(node.nodeKey.version)
 	} else { // Read children.
 		node.hash, n, err = encoding.DecodeBytes(buf)
 		if err != nil {
@@ -417,18 +414,18 @@ func (node *Node) getByIndex(t *ImmutableTree, index int64) (key []byte, value [
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash(version int64) ([]byte, error) {
+func (node *Node) _hash(version int64) []byte {
 	if node.hash != nil {
-		return node.hash, nil
+		return node.hash
 	}
 
 	h := sha256.New()
 	if err := node.writeHashBytes(h, version); err != nil {
-		return nil, err
+		return nil
 	}
 	node.hash = h.Sum(nil)
 
-	return node.hash, nil
+	return node.hash
 }
 
 // Hash the node and its descendants recursively. This usually mutates all

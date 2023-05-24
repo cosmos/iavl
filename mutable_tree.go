@@ -1025,10 +1025,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 			}
 		}
 
-		_, err = node._hash(version)
-		if err != nil {
-			return nil, err
-		}
+		node._hash(version)
 		return node.nodeKey.GetKey(), nil
 	}
 
