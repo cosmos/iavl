@@ -149,7 +149,7 @@ func (t *ImmutableTree) Has(key []byte) (bool, error) {
 }
 
 // Hash returns the root hash.
-func (t *ImmutableTree) Hash() ([]byte, error) {
+func (t *ImmutableTree) Hash() []byte {
 	return t.root.hashWithCount(t.version + 1)
 }
 

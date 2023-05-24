@@ -74,10 +74,7 @@ func N(l, r interface{}) *Node {
 func T(n *Node) (*MutableTree, error) {
 	t, _ := getTestTree(0)
 
-	_, err := n.hashWithCount(t.version + 1)
-	if err != nil {
-		return nil, err
-	}
+	n.hashWithCount(t.version + 1)
 	t.root = n
 	return t, nil
 }

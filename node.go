@@ -435,27 +435,25 @@ func (node *Node) _hash(version int64) ([]byte, error) {
 // descendant nodes. Returns the node hash and number of nodes hashed.
 // If the tree is empty (i.e. the node is nil), returns the hash of an empty input,
 // to conform with RFC-6962.
-func (node *Node) hashWithCount(version int64) ([]byte, error) {
+func (node *Node) hashWithCount(version int64) []byte {
 	if node == nil {
-		return sha256.New().Sum(nil), nil
+		return sha256.New().Sum(nil)
 	}
 	if node.hash != nil {
-		return node.hash, nil
+		return node.hash
 	}
 
 	h := sha256.New()
 	buf := new(bytes.Buffer)
-	err := node.writeHashBytesRecursively(buf, version)
-	if err != nil {
-		return nil, err
+	if err := node.writeHashBytesRecursively(buf, version); err != nil {
+		// writeHashBytesRecursively doesn't return an error unless h.Write does,
+		// and hash.Hash.Write doesn't.
+		panic(err)
 	}
-	_, err = h.Write(buf.Bytes())
-	if err != nil {
-		return nil, err
-	}
+	h.Write(buf.Bytes())
 	node.hash = h.Sum(nil)
 
-	return node.hash, nil
+	return node.hash
 }
 
 // validate validates the node contents
@@ -545,17 +543,12 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 	return nil
 }
 
-// Writes the node's hash to the given io.Writer.
+// writeHashBytesRecursively writes the node's hash to the given io.Writer.
 // This function has the side-effect of calling hashWithCount.
+// It only returns an error if w.Write fails.
 func (node *Node) writeHashBytesRecursively(w io.Writer, version int64) error {
-	_, err := node.leftNode.hashWithCount(version)
-	if err != nil {
-		return err
-	}
-	_, err = node.rightNode.hashWithCount(version)
-	if err != nil {
-		return err
-	}
+	node.leftNode.hashWithCount(version)
+	node.rightNode.hashWithCount(version)
 	return node.writeHashBytes(w, version)
 }
 

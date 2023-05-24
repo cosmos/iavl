@@ -805,8 +805,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	tree.SaveVersion()
 	tree.SaveVersion()
 
-	preHash, err := tree.Hash()
-	require.NoError(err)
+	preHash := tree.Hash()
 	require.NotNil(preHash)
 
 	require.Equal(int64(6), tree.Version())
@@ -819,8 +818,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	require.False(ntree.IsEmpty())
 	require.Equal(int64(6), ntree.Version())
 
-	postHash, err := ntree.Hash()
-	require.NoError(err)
+	postHash := ntree.Hash()
 	require.Equal(preHash, postHash)
 
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
@@ -1121,8 +1119,7 @@ func TestVersionedTreeProofs(t *testing.T) {
 	// printNode(tree.ndb, tree.root, 0)
 	// fmt.Println("TREE VERSION 1 END")
 
-	root1, err := tree.Hash()
-	require.NoError(err)
+	root1 := tree.Hash()
 
 	tree.Set([]byte("k2"), []byte("v2"))
 	tree.Set([]byte("k4"), []byte("v2"))
@@ -1133,16 +1130,14 @@ func TestVersionedTreeProofs(t *testing.T) {
 	// printNode(tree.ndb, tree.root, 0)
 	// fmt.Println("TREE VERSION END")
 
-	root2, err := tree.Hash()
-	require.NoError(err)
+	root2 := tree.Hash()
 	require.NotEqual(root1, root2)
 
 	tree.Remove([]byte("k2"))
 	_, _, err = tree.SaveVersion()
 	require.NoError(err)
 
-	root3, err := tree.Hash()
-	require.NoError(err)
+	root3 := tree.Hash()
 	require.NotEqual(root2, root3)
 
 	iTree, err := tree.GetImmutable(1)
@@ -1218,20 +1213,17 @@ func TestVersionedTreeHash(t *testing.T) {
 	tree, err := getTestTree(0)
 	require.NoError(err)
 
-	hash, err := tree.Hash()
-	require.NoError(err)
+	hash := tree.Hash()
 	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 	tree.Set([]byte("I"), []byte("D"))
-	hash, err = tree.Hash()
-	require.NoError(err)
+	hash = tree.Hash()
 	require.Equal("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	hash1, _, err := tree.SaveVersion()
 	require.NoError(err)
 
 	tree.Set([]byte("I"), []byte("F"))
-	hash, err = tree.Hash()
-	require.NoError(err)
+	hash = tree.Hash()
 	require.EqualValues(hash1, hash)
 
 	_, _, err = tree.SaveVersion()

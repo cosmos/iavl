@@ -44,8 +44,7 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 
 // commit tree saves a new version and deletes old ones according to historySize
 func commitTree(b *testing.B, t *iavl.MutableTree) {
-	_, err := t.Hash()
-	require.NoError(b, err)
+	t.Hash()
 
 	_, version, err := t.SaveVersion()
 	if err != nil {

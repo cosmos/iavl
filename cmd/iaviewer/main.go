@@ -49,11 +49,7 @@ func main() {
 	switch args[0] {
 	case "data":
 		PrintKeys(tree)
-		hash, err := tree.Hash()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error hashing tree: %s\n", err)
-			os.Exit(1)
-		}
+		hash := tree.Hash()
 		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
 	case "shape":

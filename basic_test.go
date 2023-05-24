@@ -506,8 +506,7 @@ func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 100, false, log.NewNopLogger())
 	require.NoError(t, err)
-	hash, err := tree.Hash()
-	require.NoError(t, err)
+	hash := tree.Hash()
 	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	// should get false for proof with nil root
