@@ -15,10 +15,9 @@ import (
 // setupExportTreeBasic sets up a basic tree with a handful of
 // create/update/delete operations over a few versions.
 func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 
-	_, err = tree.Set([]byte("x"), []byte{255})
+	_, err := tree.Set([]byte("x"), []byte{255})
 	require.NoError(t, err)
 	_, err = tree.Set([]byte("z"), []byte{255})
 	require.NoError(t, err)
@@ -75,8 +74,7 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 	)
 
 	r := rand.New(rand.NewSource(randSeed))
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 
 	var version int64
 	keys := make([][]byte, 0, versionOps)
@@ -113,6 +111,7 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 				keys = append(keys, key)
 			}
 		}
+		var err error
 		_, version, err = tree.SaveVersion()
 		require.NoError(t, err)
 	}
@@ -135,8 +134,7 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree { //n
 	)
 
 	r := rand.New(rand.NewSource(randSeed))
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 
 	for i := 0; i < treeSize; i++ {
 		key := make([]byte, keySize)
@@ -257,8 +255,7 @@ func TestExporter_Import(t *testing.T) {
 					exporter = NewCompressExporter(innerExporter)
 				}
 
-				newTree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
-				require.NoError(t, err)
+				newTree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 				innerImporter, err := newTree.Import(tree.Version())
 				require.NoError(t, err)
 				defer innerImporter.Close()
@@ -326,10 +323,9 @@ func TestExporter_Close(t *testing.T) {
 }
 
 func TestExporter_DeleteVersionErrors(t *testing.T) {
-	tree, err := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 
-	_, err = tree.Set([]byte("a"), []byte{1})
+	_, err := tree.Set([]byte("a"), []byte{1})
 	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)

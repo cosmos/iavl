@@ -204,10 +204,7 @@ func GetNonKey(allkeys [][]byte, loc Where) []byte {
 // BuildTree creates random key/values and stores in tree
 // returns a list of all keys in sorted order
 func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err error) {
-	tree, err := NewMutableTree(db.NewMemDB(), cacheSize, false, log.NewNopLogger())
-	if err != nil {
-		return nil, nil, err
-	}
+	tree := NewMutableTree(db.NewMemDB(), cacheSize, false, log.NewNopLogger())
 
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)

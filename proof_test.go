@@ -14,8 +14,7 @@ import (
 
 func TestTreeGetProof(t *testing.T) {
 	require := require.New(t)
-	tree, err := getTestTree(0)
-	require.NoError(err)
+	tree := getTestTree(0)
 	for _, ikey := range []byte{0x11, 0x32, 0x50, 0x72, 0x99} {
 		key := []byte{ikey}
 		tree.Set(key, []byte(iavlrand.RandStr(8)))
@@ -41,11 +40,10 @@ func TestTreeGetProof(t *testing.T) {
 }
 
 func TestTreeKeyExistsProof(t *testing.T) {
-	tree, err := getTestTree(0)
-	require.NoError(t, err)
+	tree := getTestTree(0)
 
 	// should get error
-	_, err = tree.GetProof([]byte("foo"))
+	_, err := tree.GetProof([]byte("foo"))
 	assert.Error(t, err)
 
 	// insert lots of info and store the bytes
