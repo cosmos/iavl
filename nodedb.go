@@ -608,6 +608,10 @@ func (ndb *nodeDB) nodeKey(nk []byte) []byte {
 	return nodeKeyFormat.Key(nk)
 }
 
+func (ndb *nodeDB) nodeKeyPrefix(version int64) []byte {
+	return nodeKeyPrefixFormat.Key(version)
+}
+
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
 	return fastKeyFormat.KeyBytes(key)
 }
@@ -772,7 +776,7 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 		return nil, nil
 	}
 	if isReferenceToRoot(val) { // point to the prev root
-		return val[1:], nil
+		return append(val[1:], 0, 0, 0, 1), nil
 	}
 
 	return rootKey, nil
@@ -784,8 +788,8 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 }
 
 // SaveRoot saves the root when no updates.
-func (ndb *nodeDB) SaveRoot(version int64, prevRootKey *NodeKey) error {
-	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), ndb.nodeKey(prevRootKey.GetKey()))
+func (ndb *nodeDB) SaveRoot(version, prevVersion int64) error {
+	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), ndb.nodeKeyPrefix(prevVersion))
 }
 
 // Traverse fast nodes and return error if any, nil otherwise
@@ -1008,8 +1012,8 @@ func (ndb *nodeDB) size() int {
 }
 
 func isReferenceToRoot(bz []byte) bool {
-	if bz[0] == nodeKeyFormat.Prefix()[0] {
-		if len(bz) == nodeKeyFormat.Length() {
+	if bz[0] == nodeKeyPrefixFormat.Prefix()[0] {
+		if len(bz) == nodeKeyPrefixFormat.Length() {
 			return true
 		}
 	}

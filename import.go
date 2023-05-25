@@ -188,7 +188,7 @@ func (i *Importer) Commit() error {
 			return err
 		}
 		if i.stack[0].nodeKey.version < i.version { // it means there is no update in the given version
-			if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), i.tree.ndb.nodeKey(i.stack[0].GetKey())); err != nil {
+			if err := i.batch.Set(i.tree.ndb.nodeKey(GetRootKey(i.version)), i.tree.ndb.nodeKeyPrefix(i.stack[0].nodeKey.version)); err != nil {
 				return err
 			}
 		}
