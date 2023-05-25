@@ -14,6 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	dbType = "goleveldb"
+)
+
 func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, error) {
 	relateDir := path.Join(t.TempDir(), dbDir)
 	if _, err := os.Stat(relateDir); err == nil {
@@ -42,7 +46,6 @@ func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, 
 
 func TestLazySet(t *testing.T) {
 	legacyVersion := 1000
-	dbType := "goleveldb"
 	dbDir := fmt.Sprintf("legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
@@ -88,7 +91,6 @@ func TestLazySet(t *testing.T) {
 
 func TestLegacyReferenceNode(t *testing.T) {
 	legacyVersion := 10
-	dbType := "goleveldb"
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
@@ -130,7 +132,6 @@ func TestLegacyReferenceNode(t *testing.T) {
 
 func TestDeleteVersions(t *testing.T) {
 	legacyVersion := 100
-	dbType := "goleveldb"
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
