@@ -748,7 +748,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				// it will update the legacy node to the new format
 				// which ensures the reference node is not a legacy node
 				tree.root.nodeKey.nonce = 1
-				tree.ndb.SaveNode(tree.root)
+				if err := tree.ndb.SaveNode(tree.root); err != nil {
+					return nil, 0, fmt.Errorf("failed to save the reference legacy node: %w", err)
+				}
 			}
 		} else {
 			if err := tree.saveNewNodes(version); err != nil {
