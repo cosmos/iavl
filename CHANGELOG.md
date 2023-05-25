@@ -2,6 +2,8 @@
 
 ## UNRELEASED
 
+## 0.19.6 (May 25, 2023)
+
 ### Improvements
 
 - [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
@@ -30,14 +32,14 @@
 
 ## 0.19.3 (October 8, 2022)
 
-- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set. 
+- `ProofInner.Hash()` prevents both right and left from both being set. Only one is allowed to be set.
 
 > Note: It is recommended to not use the native proof structure of IAVL in its current form. Please refer to [ics23](https://github.com/confio/ics23/tree/master/go) for IAVL proofs
 
 ## 0.19.2 (October 6, 2022)
 
- - [#547](https://github.com/cosmos/iavl/pull/547) Implement `skipFastStorageUpgrade` in order to skip fast storage upgrade and usage. 
- - [#531](https://github.com/cosmos/iavl/pull/531) Upgrade to fast storage in batches. 
+- [#547](https://github.com/cosmos/iavl/pull/547) Implement `skipFastStorageUpgrade` in order to skip fast storage upgrade and usage.
+- [#531](https://github.com/cosmos/iavl/pull/531) Upgrade to fast storage in batches.
 
 ## 0.19.1 (August 3, 2022)
 
@@ -148,8 +150,8 @@ Special thanks to external contributors on this release: @odeke-em
 
 ## 0.15.0 (November 23, 2020)
 
-The IAVL project has moved from https://github.com/tendermint/iavl to
-https://github.com/cosmos/iavl. This changes the module import path, which is now
+The IAVL project has moved from <https://github.com/tendermint/iavl> to
+<https://github.com/cosmos/iavl>. This changes the module import path, which is now
 `github.com/cosmos/iavl`.
 
 Users upgrading from 0.13 should read important upgrade information in the 0.14.0 release below.
@@ -267,7 +269,7 @@ Users wishing to prune historical versions can do so via `MutableTree.DeleteVers
 
 ### Bug Fixes
 
-- [import][\#230](https://github.com/tendermint/iavl/pull/230) Set correct version when committing an empty import.
+- [import][\#230](<https://github.com/tendermint/iavl/pull/230>) Set correct version when committing an empty import.
 
 ## 0.13.2 (March 18, 2020)
 
@@ -279,11 +281,11 @@ Users wishing to prune historical versions can do so via `MutableTree.DeleteVers
 
 ### Improvements
 
-- [dep][\#220](https://github.com/tendermint/iavl/pull/220) Update tm-db to 0.5.0, which includes a new B-tree based MemDB used by IAVL for non-persisted versions.
+- [dep][\#220](<https://github.com/tendermint/iavl/pull/220>) Update tm-db to 0.5.0, which includes a new B-tree based MemDB used by IAVL for non-persisted versions.
 
 ### Bug Fixes
 
-- [nodedb][\#219](https://github.com/tendermint/iavl/pull/219) Fix a concurrent database access issue when deleting orphans.
+- [nodedb][\#219](<https://github.com/tendermint/iavl/pull/219>) Fix a concurrent database access issue when deleting orphans.
 
 ## 0.13.0 (January 16, 2020)
 
@@ -292,14 +294,14 @@ Special thanks to external contributors on this release:
 
 ### BREAKING CHANGES
 
-- [pruning][\#158](https://github.com/tendermint/iavl/pull/158) NodeDB constructor must provide `keepRecent` and `keepEvery` fields to define PruningStrategy. All Save functionality must specify whether they should flushToDisk as well using `flushToDisk` boolean argument. All Delete functionality must specify whether object should be deleted from memory only using the `memOnly` boolean argument.
-- [dep][\#194](https://github.com/tendermint/iavl/pull/194) Update tm-db to 0.4.0 this includes interface breaking to return errors.
+- [pruning][\#158](<https://github.com/tendermint/iavl/pull/158>) NodeDB constructor must provide `keepRecent` and `keepEvery` fields to define PruningStrategy. All Save functionality must specify whether they should flushToDisk as well using `flushToDisk` boolean argument. All Delete functionality must specify whether object should be deleted from memory only using the `memOnly` boolean argument.
+- [dep][\#194](<https://github.com/tendermint/iavl/pull/194>) Update tm-db to 0.4.0 this includes interface breaking to return errors.
 
 ### IMPROVEMENTS
 
 ### Bug Fix
 
-- [orphans][#177](https://github.com/tendermint/iavl/pull/177) Collect all orphans after remove (@rickyyangz)
+- [orphans][#177](<https://github.com/tendermint/iavl/pull/177>) Collect all orphans after remove (@rickyyangz)
 
 ## 0.12.4 (July 31, 2019)
 
@@ -324,7 +326,7 @@ IMPROVEMENTS
 
 IMPROVEMENTS
 
-- Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: https://github.com/tendermint/tendermint/pull/3397)
+- Use Tendermint v0.30.2 and close batch after write (related pull request in Tendermint: <https://github.com/tendermint/tendermint/pull/3397>)
 
 ## 0.12.1 (February 12, 2019)
 
@@ -336,7 +338,7 @@ IMPROVEMENTS
 
 BREAKING CHANGES
 
-- Uses new Tendermint ReverseIterator API. See https://github.com/tendermint/tendermint/pull/2913
+- Uses new Tendermint ReverseIterator API. See <https://github.com/tendermint/tendermint/pull/2913>
 
 ## 0.11.1 (October 29, 2018)
 
