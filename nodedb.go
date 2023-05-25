@@ -763,6 +763,9 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 		if val == nil {
 			return nil, ErrVersionDoesNotExist
 		}
+		if len(val) == 0 { // empty root
+			return nil, nil
+		}
 		return val, nil
 	}
 	if len(val) == 0 { // empty root
