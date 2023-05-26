@@ -23,7 +23,7 @@ func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, 
 		}
 	}
 
-	cmd := exec.Command("sh", "-c", fmt.Sprintf("cd cmd/legacydump && go run . %s %s random %d %d", dbType, relateDir, version, version/2)) //nolint:gosec
+	cmd := exec.Command("sh", "-c", fmt.Sprintf("./cmd/legacydump/legacydump %s %s random %d %d", dbType, relateDir, version, version/2)) //nolint:gosec
 	var out bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &out
