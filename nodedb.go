@@ -566,8 +566,8 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 		return err
 	}
 
-	if toVersion < first || latest <= toVersion {
-		return fmt.Errorf("the version should be in the range of [%d, %d)", first, latest)
+	if latest <= toVersion {
+		return fmt.Errorf("the version should be smaller than the latest version %d", latest)
 	}
 
 	for v, r := range ndb.versionReaders {
