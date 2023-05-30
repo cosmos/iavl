@@ -33,10 +33,9 @@ var (
 	maxIterator = 100
 )
 
-func setupMutableTree(t *testing.T, skipFastStorageUpgrade bool) *MutableTree {
+func setupMutableTree(skipFastStorageUpgrade bool) *MutableTree {
 	memDB := db.NewMemDB()
-	tree, err := NewMutableTree(memDB, 0, skipFastStorageUpgrade, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(memDB, 0, skipFastStorageUpgrade, log.NewNopLogger())
 	return tree
 }
 
@@ -45,7 +44,7 @@ func TestIterateConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tree := setupMutableTree(t, true)
+	tree := setupMutableTree(true)
 	wg := new(sync.WaitGroup)
 	for i := 0; i < 100; i++ {
 		for j := 0; j < maxIterator; j++ {
@@ -69,7 +68,7 @@ func TestIteratorConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tree := setupMutableTree(t, true)
+	tree := setupMutableTree(true)
 	_, err := tree.LoadVersion(0)
 	require.NoError(t, err)
 	// So much slower
@@ -95,7 +94,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tree := setupMutableTree(t, true)
+	tree := setupMutableTree(true)
 	for i := 0; i < 100; i++ {
 		wg := new(sync.WaitGroup)
 		it := NewIterator(nil, nil, true, tree.ImmutableTree)
@@ -114,7 +113,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	_, err := tree.set([]byte("k1"), []byte("Fred"))
 	require.NoError(t, err)
@@ -136,7 +135,7 @@ func TestDelete(t *testing.T) {
 
 func TestGetRemove(t *testing.T) {
 	require := require.New(t)
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	testGet := func(exists bool) {
 		v, err := tree.Get(tKey1)
 		require.NoError(err)
@@ -176,7 +175,7 @@ func TestGetRemove(t *testing.T) {
 }
 
 func TestTraverse(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	for i := 0; i < 6; i++ {
 		_, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
@@ -187,7 +186,7 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestMutableTree_DeleteVersionsTo(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	type entry struct {
 		key   []byte
@@ -242,7 +241,7 @@ func TestMutableTree_DeleteVersionsTo(t *testing.T) {
 }
 
 func TestMutableTree_LoadVersion_Empty(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	version, err := tree.LoadVersion(0)
 	require.NoError(t, err)
@@ -258,10 +257,9 @@ func TestMutableTree_LoadVersion_Empty(t *testing.T) {
 
 func TestMutableTree_InitialVersion(t *testing.T) {
 	memDB := db.NewMemDB()
-	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
 
-	_, err = tree.Set([]byte("a"), []byte{0x01})
+	_, err := tree.Set([]byte("a"), []byte{0x01})
 	require.NoError(t, err)
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
@@ -274,21 +272,18 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with the same initial version is fine
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
 	version, err = tree.Load()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with an initial version beyond the lowest should error
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false, log.NewNopLogger())
 	_, err = tree.Load()
 	require.Error(t, err)
 
 	// Reloading the tree with a lower initial version is fine, and new versions can be produced
-	tree, err = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false, log.NewNopLogger())
 	version, err = tree.Load()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
@@ -301,7 +296,7 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 }
 
 func TestMutableTree_SetInitialVersion(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	tree.SetInitialVersion(9)
 
 	_, err := tree.Set([]byte("a"), []byte{0x01})
@@ -314,8 +309,7 @@ func TestMutableTree_SetInitialVersion(t *testing.T) {
 func BenchmarkMutableTree_Set(b *testing.B) {
 	db, err := db.NewDB("test", db.MemDBBackend, "")
 	require.NoError(b, err)
-	t, err := NewMutableTree(db, 100000, false, log.NewNopLogger())
-	require.NoError(b, err)
+	t := NewMutableTree(db, 100000, false, log.NewNopLogger())
 	for i := 0; i < 1000000; i++ {
 		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
 		require.NoError(b, err)
@@ -333,10 +327,9 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 
 func prepareTree(t *testing.T) *MutableTree {
 	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	for i := 0; i < 100; i++ {
-		_, err = tree.Set([]byte{byte(i)}, []byte("a"))
+		_, err := tree.Set([]byte{byte(i)}, []byte("a"))
 		require.NoError(t, err)
 	}
 	_, ver, err := tree.SaveVersion()
@@ -350,8 +343,7 @@ func prepareTree(t *testing.T) *MutableTree {
 	require.True(t, ver == 2)
 	require.NoError(t, err)
 
-	newTree, err := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	newTree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 
 	return newTree
 }
@@ -406,19 +398,16 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 
 func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
 	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	_, v1, err := tree.SaveVersion()
 	require.NoError(t, err)
 
-	newTree1, err := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	newTree1 := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	v2, err := newTree1.LoadVersion(1)
 	require.NoError(t, err)
 	require.True(t, v1 == v2)
 
-	newTree2, err := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	newTree2 := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	v2, err = newTree1.LoadVersion(1)
 	require.NoError(t, err)
 	require.True(t, v1 == v2)
@@ -428,8 +417,7 @@ func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
 
 func TestMutableTree_SetSimple(t *testing.T) {
 	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(mdb, 0, false, log.NewNopLogger())
 
 	const testKey1 = "a"
 	const testVal1 = "test"
@@ -456,7 +444,7 @@ func TestMutableTree_SetSimple(t *testing.T) {
 }
 
 func TestMutableTree_SetTwoKeys(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	const testKey1 = "a"
 	const testVal1 = "test"
@@ -501,7 +489,7 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 }
 
 func TestMutableTree_SetOverwrite(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	const testKey1 = "a"
 	const testVal1 = "test"
 	const testVal2 = "test2"
@@ -531,7 +519,7 @@ func TestMutableTree_SetOverwrite(t *testing.T) {
 }
 
 func TestMutableTree_SetRemoveSet(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	const testKey1 = "a"
 	const testVal1 = "test"
 
@@ -600,8 +588,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 
 func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	mdb := db.NewMemDB()
-	tree, err := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 
 	const key1 = "a"
 	const key2 = "b"
@@ -665,8 +652,7 @@ func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	require.Equal(t, len(unsavedNodeRemovals), 0)
 
 	// Load
-	t2, err := NewMutableTree(mdb, 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	t2 := NewMutableTree(mdb, 0, false, log.NewNopLogger())
 
 	_, err = t2.Load()
 	require.NoError(t, err)
@@ -722,8 +708,7 @@ func TestIterate_MutableTree_Unsaved_NextVersion(t *testing.T) {
 }
 
 func TestIterator_MutableTree_Invalid(t *testing.T) {
-	tree, err := getTestTree(0)
-	require.NoError(t, err)
+	tree := getTestTree(0)
 
 	itr, err := tree.Iterator([]byte("a"), []byte("b"), true)
 	require.NoError(t, err)
@@ -734,8 +719,7 @@ func TestIterator_MutableTree_Invalid(t *testing.T) {
 func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	// Setup
 	db := db.NewMemDB()
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Default version when storage key does not exist in the db
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
@@ -765,8 +749,7 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	// Setup
 	db := db.NewMemDB()
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Default version when storage key does not exist in the db
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
@@ -816,8 +799,7 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
-	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
-	require.Nil(t, err)
+	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
 	require.NotNil(t, tree)
 
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
@@ -851,8 +833,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 
 	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
 
-	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
-	require.Nil(t, err)
+	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
 	require.NotNil(t, tree)
 
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
@@ -892,8 +873,7 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 
-	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
-	require.Nil(t, err)
+	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
 	require.NotNil(t, tree)
 
 	// Pretend that we called Load and have the latest state in the tree
@@ -985,8 +965,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	iterMock.EXPECT().Valid().Return(false).Times(1)
 	iterMock.EXPECT().Close().Return(nil).Times(1)
 
-	tree, err := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
-	require.Nil(t, err)
+	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
 	require.NotNil(t, tree)
 
 	// Pretend that we called Load and have the latest state in the tree
@@ -1036,7 +1015,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
-	sut, _ := NewMutableTree(tree.ndb.db, 1000, false, log.NewNopLogger())
+	sut := NewMutableTree(tree.ndb.db, 1000, false, log.NewNopLogger())
 
 	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
@@ -1103,7 +1082,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
-	sut, _ := NewMutableTree(tree.ndb.db, 1000, false, log.NewNopLogger())
+	sut := NewMutableTree(tree.ndb.db, 1000, false, log.NewNopLogger())
 
 	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
@@ -1242,7 +1221,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade bool) (*MutableTree, [][]string) {
 	db := db.NewMemDB()
 
-	tree, _ := NewMutableTree(db, 0, skipFastStorageUpgrade, log.NewNopLogger())
+	tree := NewMutableTree(db, 0, skipFastStorageUpgrade, log.NewNopLogger())
 
 	keyPrefix, valPrefix := "key", "val"
 
@@ -1290,7 +1269,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
-	sut, _ := NewMutableTree(tree.ndb.db, 1000, true, log.NewNopLogger())
+	sut := NewMutableTree(tree.ndb.db, 1000, true, log.NewNopLogger())
 
 	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
@@ -1377,7 +1356,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
-	sut, _ := NewMutableTree(tree.ndb.db, 1000, true, log.NewNopLogger())
+	sut := NewMutableTree(tree.ndb.db, 1000, true, log.NewNopLogger())
 
 	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
 	require.NoError(t, err)
@@ -1436,12 +1415,11 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	db := db.NewMemDB()
 
 	initialVersion := int64(1000)
-	tree, err := NewMutableTreeWithOpts(db, 0, &Options{
+	tree := NewMutableTreeWithOpts(db, 0, &Options{
 		InitialVersion: uint64(initialVersion),
 	}, true, log.NewNopLogger())
-	require.NoError(t, err)
 
-	_, err = tree.Set([]byte("hello"), []byte("world"))
+	_, err := tree.Set([]byte("hello"), []byte("world"))
 	require.NoError(t, err)
 
 	_, version, err := tree.SaveVersion()

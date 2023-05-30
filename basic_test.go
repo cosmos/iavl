@@ -15,8 +15,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	tree, err := getTestTree(0)
-	require.NoError(t, err)
+	tree := getTestTree(0)
 	up, err := tree.Set([]byte("1"), []byte("one"))
 	require.NoError(t, err)
 	if up {
@@ -241,8 +240,7 @@ func TestRemove(t *testing.T) {
 	keyLen, dataLen := 16, 40
 
 	size := 10000
-	t1, err := getTestTree(size)
-	require.NoError(t, err)
+	t1 := getTestTree(size)
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
@@ -271,8 +269,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	records := make([]*record, 400)
-	tree, err := getTestTree(0)
-	require.NoError(t, err)
+	tree := getTestTree(0)
 
 	randomRecord := func() *record {
 		return &record{randstr(20), randstr(20)}
@@ -324,7 +321,6 @@ func TestIntegration(t *testing.T) {
 		} else if string(val) != x.value {
 			t.Error("Wrong value")
 		}
-		require.NoError(t, err)
 		for _, r := range records[i+1:] {
 			has, err := tree.Has([]byte(r.key))
 			require.NoError(t, err)
@@ -374,8 +370,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	sort.Strings(keys)
 
-	tree, err := getTestTree(0)
-	require.NoError(t, err)
+	tree := getTestTree(0)
 
 	// insert all the data
 	for _, r := range records {
@@ -446,16 +441,14 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1, err := NewMutableTree(db, 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	t1 := NewMutableTree(db, 0, false, log.NewNopLogger())
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
 	t1.SaveVersion()
 
 	// Load a tree
-	t2, err := NewMutableTree(db, 0, false, log.NewNopLogger())
-	require.NoError(t, err)
+	t2 := NewMutableTree(db, 0, false, log.NewNopLogger())
 	t2.Load()
 	for key, value := range records {
 		t2value, err := t2.Get([]byte(key))
@@ -468,8 +461,7 @@ func TestPersistence(t *testing.T) {
 
 func TestProof(t *testing.T) {
 	// Construct some random tree
-	tree, err := getTestTree(100)
-	require.NoError(t, err)
+	tree := getTestTree(100)
 	for i := 0; i < 10; i++ {
 		key, value := randstr(20), randstr(20)
 		tree.Set([]byte(key), []byte(value))
@@ -504,14 +496,12 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := db.NewMemDB()
-	tree, err := NewMutableTree(db, 100, false, log.NewNopLogger())
-	require.NoError(t, err)
-	hash, err := tree.Hash()
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 100, false, log.NewNopLogger())
+	hash := tree.Hash()
 	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	// should get false for proof with nil root
-	_, err = tree.GetProof([]byte("foo"))
+	_, err := tree.GetProof([]byte("foo"))
 	require.Error(t, err)
 
 	// insert lots of info and store the bytes

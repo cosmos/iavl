@@ -62,8 +62,7 @@ func TestLazySet(t *testing.T) {
 		}
 	}()
 
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -81,8 +80,7 @@ func TestLazySet(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tree, err = NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree = NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Verify that the latest legacy version can still be loaded
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -107,8 +105,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 		}
 	}()
 
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -121,8 +118,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load the previous version
-	newTree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	newTree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 	_, err = newTree.LoadVersion(version - 1)
 	require.NoError(t, err)
 	// Check if the reference node is refactored
@@ -148,8 +144,7 @@ func TestDeleteVersions(t *testing.T) {
 		}
 	}()
 
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))

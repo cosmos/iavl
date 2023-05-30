@@ -258,7 +258,7 @@ func TestIsFastStorageEnabled_False(t *testing.T) {
 }
 
 func TestTraverseNodes(t *testing.T) {
-	tree, _ := getTestTree(0)
+	tree := getTestTree(0)
 	// version 1
 	for i := 0; i < 20; i++ {
 		_, err := tree.Set([]byte{byte(i)}, []byte{byte(i)})
@@ -310,7 +310,7 @@ func assertOrphansAndBranches(t *testing.T, ndb *nodeDB, version int64, branches
 }
 
 func TestNodeDB_traverseOrphans(t *testing.T) {
-	tree, _ := getTestTree(0)
+	tree := getTestTree(0)
 	var up bool
 	var err error
 
@@ -385,8 +385,7 @@ func TestNodeDB_traverseOrphans(t *testing.T) {
 
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	memDB := db.NewMemDB()
-	tree, err := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
-	require.NoError(tb, err)
+	tree := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
 
 	for i := 0; i < 1e4; i++ {
 		buf := make([]byte, 0, (i/255)+1)
@@ -395,7 +394,7 @@ func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 		}
 		tree.Set(buf, buf) //nolint:errcheck
 	}
-	_, _, err = tree.SaveVersion()
+	_, _, err := tree.SaveVersion()
 	require.Nil(tb, err, "Expected .SaveVersion to succeed")
 	return tree
 }

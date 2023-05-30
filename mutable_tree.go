@@ -45,12 +45,12 @@ type MutableTree struct {
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
-func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger) (*MutableTree, error) {
+func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
 	return NewMutableTreeWithOpts(db, cacheSize, nil, skipFastStorageUpgrade, lg)
 }
 
 // NewMutableTreeWithOpts returns a new tree with the specified options.
-func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) (*MutableTree, error) {
+func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
 	ndb := newNodeDB(db, cacheSize, opts, lg)
 	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
 
@@ -62,7 +62,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastSto
 		unsavedFastNodeRemovals:  make(map[string]interface{}),
 		ndb:                      ndb,
 		skipFastStorageUpgrade:   skipFastStorageUpgrade,
-	}, nil
+	}
 }
 
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
@@ -130,12 +130,12 @@ func (tree *MutableTree) AvailableVersions() []int {
 
 // Hash returns the hash of the latest saved version of the tree, as returned
 // by SaveVersion. If no versions have been saved, Hash returns nil.
-func (tree *MutableTree) Hash() ([]byte, error) {
+func (tree *MutableTree) Hash() []byte {
 	return tree.lastSaved.Hash()
 }
 
 // WorkingHash returns the hash of the current working tree.
-func (tree *MutableTree) WorkingHash() ([]byte, error) {
+func (tree *MutableTree) WorkingHash() []byte {
 	return tree.ImmutableTree.Hash()
 }
 
@@ -715,10 +715,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			}
 		}
 
-		newHash, err := tree.WorkingHash()
-		if err != nil {
-			return nil, version, err
-		}
+		newHash := tree.WorkingHash()
 
 		if (existingRoot == nil && tree.root == nil) || (existingRoot != nil && bytes.Equal(existingRoot.hash, newHash)) { // TODO with WorkingHash
 			tree.version = version
@@ -781,10 +778,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.unsavedFastNodeRemovals = make(map[string]interface{})
 	}
 
-	hash, err := tree.Hash()
-	if err != nil {
-		return nil, version, err
-	}
+	hash := tree.Hash()
 
 	return hash, version, nil
 }
@@ -1040,10 +1034,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 			}
 		}
 
-		_, err = node._hash(version)
-		if err != nil {
-			return nil, err
-		}
+		node._hash(version)
 		return node.nodeKey.GetKey(), nil
 	}
 
