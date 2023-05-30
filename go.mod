@@ -9,7 +9,7 @@ require (
 	github.com/emicklei/dot v1.4.2
 	github.com/golang/mock v1.6.0
 	github.com/golangci/golangci-lint v1.52.2
-	github.com/stretchr/testify v1.8.3
+	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.9.0
 	google.golang.org/protobuf v1.30.0
 )
