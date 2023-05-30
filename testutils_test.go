@@ -42,7 +42,7 @@ func b2i(bz []byte) int {
 }
 
 // Construct a MutableTree
-func getTestTree(cacheSize int) (*MutableTree, error) {
+func getTestTree(cacheSize int) *MutableTree {
 	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, false, log.NewNopLogger())
 }
 
@@ -72,12 +72,9 @@ func N(l, r interface{}) *Node {
 
 // Setup a deep node
 func T(n *Node) (*MutableTree, error) {
-	t, _ := getTestTree(0)
+	t := getTestTree(0)
 
-	_, err := n.hashWithCount(t.version + 1)
-	if err != nil {
-		return nil, err
-	}
+	n.hashWithCount(t.version + 1)
 	t.root = n
 	return t, nil
 }
@@ -167,8 +164,7 @@ func getSortedMirrorKeys(mirror map[string]string) []string {
 func getRandomizedTreeAndMirror(t *testing.T) (*MutableTree, map[string]string) {
 	const cacheSize = 100
 
-	tree, err := getTestTree(cacheSize)
-	require.NoError(t, err)
+	tree := getTestTree(cacheSize)
 
 	mirror := make(map[string]string)
 
@@ -326,8 +322,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db db.DB) {
 
 	b.StopTimer()
 
-	t, err := NewMutableTree(db, 100000, false, log.NewNopLogger())
-	require.NoError(b, err)
+	t := NewMutableTree(db, 100000, false, log.NewNopLogger())
 
 	value := []byte{}
 	for i := 0; i < 1000000; i++ {

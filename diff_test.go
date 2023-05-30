@@ -20,8 +20,7 @@ func TestDiffRoundTrip(t *testing.T) {
 
 	// apply changeSets to tree
 	db := db.NewMemDB()
-	tree, err := NewMutableTree(db, 0, true, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 0, true, log.NewNopLogger())
 	for i := range changeSets {
 		v, err := tree.SaveChangeSet(changeSets[i])
 		require.NoError(t, err)
@@ -31,7 +30,7 @@ func TestDiffRoundTrip(t *testing.T) {
 	// extract change sets from db
 	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true, log.NewNopLogger())
-	err = tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
+	err := tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
 		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})

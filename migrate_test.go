@@ -57,8 +57,7 @@ func TestLazySet(t *testing.T) {
 	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -76,8 +75,7 @@ func TestLazySet(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tree, err = NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree = NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Verify that the latest legacy version can still be loaded
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -101,8 +99,7 @@ func TestDeleteVersions(t *testing.T) {
 	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 
-	tree, err := NewMutableTree(db, 1000, false, log.NewNopLogger())
-	require.NoError(t, err)
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))

@@ -30,10 +30,7 @@ func printNode(ndb *nodeDB, node *Node, indent int) error {
 		printNode(ndb, rightNode, indent+1) //nolint:errcheck
 	}
 
-	hash, err := node._hash(node.nodeKey.version)
-	if err != nil {
-		return err
-	}
+	hash := node._hash(node.nodeKey.version)
 
 	fmt.Printf("%sh:%X\n", indentPrefix, hash)
 	if node.isLeaf() {

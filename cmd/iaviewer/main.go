@@ -49,11 +49,7 @@ func main() {
 	switch args[0] {
 	case "data":
 		PrintKeys(tree)
-		hash, err := tree.Hash()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error hashing tree: %s\n", err)
-			os.Exit(1)
-		}
+		hash := tree.Hash()
 		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
 	case "shape":
@@ -126,10 +122,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
-	tree, err := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
-	if err != nil {
-		return nil, err
-	}
+	tree := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err

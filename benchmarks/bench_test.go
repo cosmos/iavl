@@ -27,13 +27,12 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t, err := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger())
-	require.NoError(b, err)
+	t := iavl.NewMutableTreeWithOpts(db, size, nil, false, log.NewNopLogger())
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
 		key := randBytes(keyLen)
-		_, err = t.Set(key, randBytes(dataLen))
+		_, err := t.Set(key, randBytes(dataLen))
 		require.NoError(b, err)
 		keys[i] = key
 	}
@@ -44,8 +43,7 @@ func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.Mutab
 
 // commit tree saves a new version and deletes old ones according to historySize
 func commitTree(b *testing.B, t *iavl.MutableTree) {
-	_, err := t.Hash()
-	require.NoError(b, err)
+	t.Hash()
 
 	_, version, err := t.SaveVersion()
 	if err != nil {
