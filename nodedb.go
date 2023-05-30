@@ -566,8 +566,8 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 		return err
 	}
 
-	if toVersion < first || latest <= toVersion {
-		return fmt.Errorf("the version should be in the range of [%d, %d)", first, latest)
+	if latest <= toVersion {
+		return fmt.Errorf("the version should be smaller than the latest version %d", latest)
 	}
 
 	for v, r := range ndb.versionReaders {
@@ -606,6 +606,10 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 
 func (ndb *nodeDB) nodeKey(nk []byte) []byte {
 	return nodeKeyFormat.Key(nk)
+}
+
+func (ndb *nodeDB) nodeKeyPrefix(version int64) []byte {
+	return nodeKeyPrefixFormat.Key(version)
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
@@ -763,13 +767,16 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 		if val == nil {
 			return nil, ErrVersionDoesNotExist
 		}
+		if len(val) == 0 { // empty root
+			return nil, nil
+		}
 		return val, nil
 	}
 	if len(val) == 0 { // empty root
 		return nil, nil
 	}
 	if isReferenceToRoot(val) { // point to the prev root
-		return val[1:], nil
+		return append(val[1:], 0, 0, 0, 1), nil
 	}
 
 	return rootKey, nil
@@ -781,8 +788,8 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 }
 
 // SaveRoot saves the root when no updates.
-func (ndb *nodeDB) SaveRoot(version int64, prevRootKey *NodeKey) error {
-	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), ndb.nodeKey(prevRootKey.GetKey()))
+func (ndb *nodeDB) SaveRoot(version, prevVersion int64) error {
+	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), ndb.nodeKeyPrefix(prevVersion))
 }
 
 // Traverse fast nodes and return error if any, nil otherwise
@@ -1005,8 +1012,8 @@ func (ndb *nodeDB) size() int {
 }
 
 func isReferenceToRoot(bz []byte) bool {
-	if bz[0] == nodeKeyFormat.Prefix()[0] {
-		if len(bz) == nodeKeyFormat.Length() {
+	if bz[0] == nodeKeyPrefixFormat.Prefix()[0] {
+		if len(bz) == nodeKeyPrefixFormat.Length() {
 			return true
 		}
 	}

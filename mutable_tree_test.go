@@ -33,7 +33,7 @@ var (
 	maxIterator = 100
 )
 
-func setupMutableTree(t *testing.T, skipFastStorageUpgrade bool) *MutableTree {
+func setupMutableTree(skipFastStorageUpgrade bool) *MutableTree {
 	memDB := db.NewMemDB()
 	tree := NewMutableTree(memDB, 0, skipFastStorageUpgrade, log.NewNopLogger())
 	return tree
@@ -44,7 +44,7 @@ func TestIterateConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tree := setupMutableTree(t, true)
+	tree := setupMutableTree(true)
 	wg := new(sync.WaitGroup)
 	for i := 0; i < 100; i++ {
 		for j := 0; j < maxIterator; j++ {
@@ -68,7 +68,7 @@ func TestIteratorConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tree := setupMutableTree(t, true)
+	tree := setupMutableTree(true)
 	_, err := tree.LoadVersion(0)
 	require.NoError(t, err)
 	// So much slower
@@ -94,7 +94,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode.")
 	}
-	tree := setupMutableTree(t, true)
+	tree := setupMutableTree(true)
 	for i := 0; i < 100; i++ {
 		wg := new(sync.WaitGroup)
 		it := NewIterator(nil, nil, true, tree.ImmutableTree)
@@ -113,7 +113,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 }
 
 func TestDelete(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	_, err := tree.set([]byte("k1"), []byte("Fred"))
 	require.NoError(t, err)
@@ -135,7 +135,7 @@ func TestDelete(t *testing.T) {
 
 func TestGetRemove(t *testing.T) {
 	require := require.New(t)
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	testGet := func(exists bool) {
 		v, err := tree.Get(tKey1)
 		require.NoError(err)
@@ -175,7 +175,7 @@ func TestGetRemove(t *testing.T) {
 }
 
 func TestTraverse(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	for i := 0; i < 6; i++ {
 		_, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
@@ -186,7 +186,7 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestMutableTree_DeleteVersionsTo(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	type entry struct {
 		key   []byte
@@ -241,7 +241,7 @@ func TestMutableTree_DeleteVersionsTo(t *testing.T) {
 }
 
 func TestMutableTree_LoadVersion_Empty(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	version, err := tree.LoadVersion(0)
 	require.NoError(t, err)
@@ -296,7 +296,7 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 }
 
 func TestMutableTree_SetInitialVersion(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	tree.SetInitialVersion(9)
 
 	_, err := tree.Set([]byte("a"), []byte{0x01})
@@ -444,7 +444,7 @@ func TestMutableTree_SetSimple(t *testing.T) {
 }
 
 func TestMutableTree_SetTwoKeys(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 
 	const testKey1 = "a"
 	const testVal1 = "test"
@@ -489,7 +489,7 @@ func TestMutableTree_SetTwoKeys(t *testing.T) {
 }
 
 func TestMutableTree_SetOverwrite(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	const testKey1 = "a"
 	const testVal1 = "test"
 	const testVal2 = "test2"
@@ -519,7 +519,7 @@ func TestMutableTree_SetOverwrite(t *testing.T) {
 }
 
 func TestMutableTree_SetRemoveSet(t *testing.T) {
-	tree := setupMutableTree(t, false)
+	tree := setupMutableTree(false)
 	const testKey1 = "a"
 	const testVal1 = "test"
 

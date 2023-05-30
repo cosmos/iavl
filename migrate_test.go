@@ -14,6 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	dbType = "goleveldb"
+)
+
 func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, error) {
 	relateDir := path.Join(t.TempDir(), dbDir)
 	if _, err := os.Stat(relateDir); err == nil {
@@ -42,20 +46,21 @@ func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, 
 
 func TestLazySet(t *testing.T) {
 	legacyVersion := 1000
-	dbType := "goleveldb"
 	dbDir := fmt.Sprintf("legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
 
+	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
+	require.NoError(t, err)
+
 	defer func() {
-		err := os.RemoveAll(relateDir)
-		if err != nil {
+		if err := db.Close(); err != nil {
+			t.Errorf("DB close error: %v\n", err)
+		}
+		if err := os.RemoveAll(relateDir); err != nil {
 			t.Errorf("%+v\n", err)
 		}
 	}()
-
-	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
-	require.NoError(t, err)
 
 	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
@@ -82,22 +87,62 @@ func TestLazySet(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestDeleteVersions(t *testing.T) {
-	legacyVersion := 100
-	dbType := "goleveldb"
+func TestLegacyReferenceNode(t *testing.T) {
+	legacyVersion := 10
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
 
+	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
+	require.NoError(t, err)
+
 	defer func() {
-		err := os.RemoveAll(relateDir)
-		if err != nil {
+		if err := db.Close(); err != nil {
+			t.Errorf("DB close error: %v\n", err)
+		}
+		if err := os.RemoveAll(relateDir); err != nil {
 			t.Errorf("%+v\n", err)
 		}
 	}()
 
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+
+	// Load the latest legacy version
+	_, err = tree.LoadVersion(int64(legacyVersion))
+	require.NoError(t, err)
+
+	// Commit new versions without updates
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Load the previous version
+	newTree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	_, err = newTree.LoadVersion(version - 1)
+	require.NoError(t, err)
+	// Check if the reference node is refactored
+	require.Equal(t, newTree.root.nodeKey.nonce, uint32(1))
+	require.Equal(t, newTree.root.nodeKey.version, int64(legacyVersion))
+}
+
+func TestDeleteVersions(t *testing.T) {
+	legacyVersion := 100
+	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
+	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
+	require.NoError(t, err)
+
 	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("DB close error: %v\n", err)
+		}
+		if err := os.RemoveAll(relateDir); err != nil {
+			t.Errorf("%+v\n", err)
+		}
+	}()
 
 	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
