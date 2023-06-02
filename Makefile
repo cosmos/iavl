@@ -1,4 +1,3 @@
-GOTOOLS := github.com/golangci/golangci-lint/cmd/golangci-lint
 VERSION := $(shell echo $(shell git describe --tags) | sed 's/^v//')
 COMMIT := $(shell git log -1 --format='%H')
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
@@ -30,25 +29,28 @@ test:
 	@go test ./... $(LDFLAGS) -v 
 .PHONY: test
 
-tools:
-	go get -v $(GOTOOLS)
-.PHONY: tools
-
 format:
 	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
 	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -format
 .PHONY: format
 
 # look into .golangci.yml for enabling / disabling linters
+<<<<<<< HEAD
 golangci_lint_cmd=github.com/golangci/golangci-lint/cmd/golangci-lint
+=======
+golangci_lint_cmd=golangci-lint
+golangci_version=v1.51.2
+>>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 
 lint:
 	@echo "--> Running linter"
-	@go run $(golangci_lint_cmd) run --timeout=10m
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_cmd) run --timeout=10m
 
 lint-fix:
 	@echo "--> Running linter"
-	@go run $(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:

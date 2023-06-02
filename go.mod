@@ -6,6 +6,7 @@ require (
 	github.com/cosmos/cosmos-db v0.0.0-20220822060143-23a8145386c0
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/golang/mock v1.6.0
+<<<<<<< HEAD
 	github.com/golangci/golangci-lint v1.50.1
 	github.com/stretchr/testify v1.8.1
 	golang.org/x/crypto v0.4.0
@@ -17,10 +18,17 @@ require (
 	github.com/Antonboom/errname v0.1.7 // indirect
 	github.com/Antonboom/nilnil v0.1.1 // indirect
 	github.com/BurntSushi/toml v1.2.1 // indirect
+=======
+	github.com/stretchr/testify v1.8.4
+	golang.org/x/crypto v0.9.0
+	google.golang.org/protobuf v1.30.0
+)
+
+require (
+>>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 	github.com/DataDog/zstd v1.4.5 // indirect
-	github.com/Djarvur/go-err113 v0.0.0-20210108212216-aea10b59be24 // indirect
-	github.com/GaijinEntertainment/go-exhaustruct/v2 v2.3.0 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
+<<<<<<< HEAD
 	github.com/Masterminds/semver v1.5.0 // indirect
 	github.com/OpenPeeDeeP/depguard v1.1.1 // indirect
 	github.com/alexkohler/prealloc v1.0.0 // indirect
@@ -37,12 +45,16 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/charithe/durationcheck v0.0.9 // indirect
 	github.com/chavacava/garif v0.0.0-20220630083739-93517212f375 // indirect
+=======
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+>>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 	github.com/cockroachdb/errors v1.8.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/pebble v0.0.0-20220817183557-09c6e030a677 // indirect
 	github.com/cockroachdb/redact v1.0.8 // indirect
 	github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 // indirect
 	github.com/cosmos/gogoproto v1.4.3 // indirect
+<<<<<<< HEAD
 	github.com/curioswitch/go-reassign v0.2.0 // indirect
 	github.com/daixiang0/gci v0.8.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -65,9 +77,13 @@ require (
 	github.com/go-xmlfmt/xmlfmt v0.0.0-20191208150333-d5b6f63a941b // indirect
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
+=======
+	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/fsnotify/fsnotify v1.5.4 // indirect
+>>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 	github.com/gogo/protobuf v1.3.2 // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
+<<<<<<< HEAD
 	github.com/golangci/check v0.0.0-20180506172741-cfe4005ccda2 // indirect
 	github.com/golangci/dupl v0.0.0-20180902072040-3e9179ac440a // indirect
 	github.com/golangci/go-misc v0.0.0-20220329215616-d24fe342adfe // indirect
@@ -98,9 +114,13 @@ require (
 	github.com/kisielk/errcheck v1.6.2 // indirect
 	github.com/kisielk/gotool v1.0.0 // indirect
 	github.com/kkHAIKE/contextcheck v1.1.3 // indirect
+=======
+	github.com/google/btree v1.1.2 // indirect
+>>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 	github.com/klauspost/compress v1.15.9 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
+<<<<<<< HEAD
 	github.com/kulti/thelper v0.6.3 // indirect
 	github.com/kunwardeep/paralleltest v1.0.6 // indirect
 	github.com/kyoh86/exportloopref v0.1.8 // indirect
@@ -198,6 +218,23 @@ require (
 	mvdan.cc/interfacer v0.0.0-20180901003855-c20040233aed // indirect
 	mvdan.cc/lint v0.0.0-20170908181259-adc824a0674b // indirect
 	mvdan.cc/unparam v0.0.0-20220706161116-678bad134442 // indirect
+=======
+	github.com/linxGnu/grocksdb v1.7.15 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.18 // indirect
+	github.com/onsi/gomega v1.26.0 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rs/zerolog v1.29.1 // indirect
+	github.com/spf13/cast v1.5.1 // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
+	golang.org/x/sync v0.1.0 // indirect
+	golang.org/x/sys v0.8.0 // indirect
+	gonum.org/v1/gonum v0.11.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+>>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 )
 
 retract v0.18.0
