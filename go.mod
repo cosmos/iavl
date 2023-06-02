@@ -8,12 +8,7 @@ require (
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/emicklei/dot v1.4.2
 	github.com/golang/mock v1.6.0
-<<<<<<< HEAD
-	github.com/golangci/golangci-lint v1.52.2
-	github.com/stretchr/testify v1.8.3
-=======
 	github.com/stretchr/testify v1.8.4
->>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 	golang.org/x/crypto v0.9.0
 	google.golang.org/protobuf v1.30.0
 )
