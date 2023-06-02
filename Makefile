@@ -35,12 +35,8 @@ format:
 .PHONY: format
 
 # look into .golangci.yml for enabling / disabling linters
-<<<<<<< HEAD
-golangci_lint_cmd=github.com/golangci/golangci-lint/cmd/golangci-lint
-=======
 golangci_lint_cmd=golangci-lint
 golangci_version=v1.51.2
->>>>>>> f5db747 (build(deps): remove golangci-lint from deps (#787))
 
 lint:
 	@echo "--> Running linter"
