@@ -55,23 +55,23 @@ The modified API will have the following structure:
 
 ```go
     Tree interface {
-		Has(key []byte) (bool, error)
-		Get(key []byte) ([]byte, error)
-		SaveVersion(batch struct{
+        Has(key []byte) (bool, error)
+        Get(key []byte) ([]byte, error)
+        SaveVersion(batch struct{
             keys [][]btye
             values [][]byte
         }) ([]byte, int64, error)
-		Version() int64
+        Version() int64
         Hash() []byte
-		WorkingHash() []byte
-		VersionExists(version int64) bool
-		DeleteVersionsTo(version int64) error
-		GetVersioned(key []byte, version int64) ([]byte, *cmtprotocrypto.ProofOps, error)
-		GetTree(version int64) (*iavl.Tree, error)
-		SetInitialVersion(version uint64)
-		Iterator(start, end []byte, ascending bool) (types.Iterator, error)
-		LoadVersionForOverwriting(targetVersion int64) error
-	}
+        WorkingHash() []byte
+        VersionExists(version int64) bool
+        DeleteVersionsTo(version int64) error
+        GetVersioned(key []byte, version int64) ([]byte, *cmtprotocrypto.ProofOps, error)
+        GetTree(version int64) (*iavl.Tree, error)
+        SetInitialVersion(version uint64)
+        Iterator(start, end []byte, ascending bool) (types.Iterator, error)
+        LoadVersionForOverwriting(targetVersion int64) error
+    }
 ```
 ## Consequences
 
