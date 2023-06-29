@@ -13,6 +13,7 @@
 ### Bug Fixes
 
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
+- [#795](https://github.com/cosmos/iavl/pull/795) Fix plugin used for buf generate.
 
 ### Breaking Changes
 
