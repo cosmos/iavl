@@ -236,7 +236,7 @@ func TestUnit(t *testing.T) {
 	expectRemove(t11, 3, "((1 2) (4 5))")
 }
 
-func TestRemove(t *testing.T) {
+func TestRemove(_ *testing.T) {
 	keyLen, dataLen := 16, 40
 
 	size := 10000
