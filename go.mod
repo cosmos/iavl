@@ -10,7 +10,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.10.0
-	google.golang.org/protobuf v1.30.0
+	google.golang.org/protobuf v1.31.0
 )
 
 require (
