@@ -37,44 +37,44 @@ func TestDiffRoundTrip(t *testing.T) {
 	}
 
 	// extract change sets from db
-	var extractChangeSets []ChangeSet
+	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true)
 	err = tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
-		extractChangeSets = append(extractChangeSets, *changeSet)
+		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})
 	require.NoError(t, err)
 	require.Equal(t, changeSets, extractChangeSets)
 }
 
-func genChangeSets(r *rand.Rand, n int) []ChangeSet {
-	var changeSets []ChangeSet
+func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
+	var changeSets []*ChangeSet
 
 	for i := 0; i < n; i++ {
-		items := make(map[string]KVPair)
+		items := make(map[string]*KVPair)
 		start, count, step := r.Int63n(1000), r.Int63n(1000), r.Int63n(10)
 		for i := start; i < start+count*step; i += step {
 			value := make([]byte, 8)
 			binary.LittleEndian.PutUint64(value, uint64(i))
 
 			key := fmt.Sprintf("test-%d", i)
-			items[key] = KVPair{
+			items[key] = &KVPair{
 				Key:   []byte(key),
 				Value: value,
 			}
 		}
 		if len(changeSets) > 0 {
 			// pick some random keys to delete from the last version
-			lastChangeSet := changeSets[len(changeSets)-1]
+			pairs := changeSets[len(changeSets)-1].Pairs
 			count = r.Int63n(10)
-			for _, pair := range lastChangeSet.Pairs {
+			for _, pair := range pairs {
 				if count <= 0 {
 					break
 				}
 				if pair.Delete {
 					continue
 				}
-				items[string(pair.Key)] = KVPair{
+				items[string(pair.Key)] = &KVPair{
 					Key:    pair.Key,
 					Delete: true,
 				}
@@ -82,11 +82,11 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 			}
 
 			// Special case, set to identical value
-			if len(lastChangeSet.Pairs) > 0 {
-				i := r.Int63n(int64(len(lastChangeSet.Pairs)))
-				pair := lastChangeSet.Pairs[i]
+			if len(pairs) > 0 {
+				i := r.Int63n(int64(len(pairs)))
+				pair := pairs[i]
 				if !pair.Delete {
-					items[string(pair.Key)] = KVPair{
+					items[string(pair.Key)] = &KVPair{
 						Key:   pair.Key,
 						Value: pair.Value,
 					}
@@ -103,10 +103,10 @@ func genChangeSets(r *rand.Rand, n int) []ChangeSet {
 		var cs ChangeSet
 		for _, key := range keys {
 			p := items[key]
-			cs.Pairs = append(cs.Pairs, &p)
+			cs.Pairs = append(cs.Pairs, p)
 		}
 
-		changeSets = append(changeSets, cs)
+		changeSets = append(changeSets, &cs)
 	}
 	return changeSets
 }
