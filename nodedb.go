@@ -130,7 +130,7 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 		return cachedNode.(*Node), nil
 	}
 
-	ndb.opts.Stat.IncCacheMissCnt()
+	//ndb.opts.Stat.IncCacheMissCnt()
 
 	// Doesn't exist, load.
 	isLegcyNode := len(nk) == hashSize
@@ -1139,3 +1139,9 @@ func (ndb *nodeDB) String() (string, error) {
 }
 
 var ErrNodeMissingNodeKey = fmt.Errorf("node does not have a nodeKey")
+
+var (
+	ErrNodeMissingHash      = fmt.Errorf("node does not have a hash")
+	ErrNodeAlreadyPersisted = fmt.Errorf("shouldn't be calling save on an already persisted node")
+	ErrRootMissingHash      = fmt.Errorf("root hash must not be empty")
+)

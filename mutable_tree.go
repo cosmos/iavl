@@ -42,6 +42,9 @@ type MutableTree struct {
 	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
 
 	mtx sync.Mutex
+
+	// todo
+	rootsCache map[int64]*Node
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.

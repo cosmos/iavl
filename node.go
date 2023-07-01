@@ -14,6 +14,7 @@ import (
 
 	"github.com/cosmos/iavl/cache"
 
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl/internal/color"
 	"github.com/cosmos/iavl/internal/encoding"
 )
@@ -743,6 +744,70 @@ func (node *Node) traverseInRange(tree *ImmutableTree, start, end []byte, ascend
 		}
 	}
 	return stop
+}
+
+// GetVersion returns the version of the node
+func (node *Node) GetVersion() int64 {
+	// TODO
+	return 0
+}
+
+func (node *Node) GetValue() []byte {
+	return node.value
+}
+
+func (node *Node) GetLogicalKey() []byte {
+	return node.key
+}
+
+func (node *Node) IsLeaf() bool {
+	return node.isLeaf()
+}
+
+func (node *Node) Has(db dbm.DB, key []byte) (bool, error) {
+	return false, nil
+}
+
+func LeafNodeHash(key, value []byte, version int64) ([]byte, error) {
+	h := sha256.New()
+	var buf bytes.Buffer
+	// height
+	err := encoding.EncodeVarint(&buf, 0)
+	if err != nil {
+		return nil, err
+	}
+	// size
+	err = encoding.EncodeVarint(&buf, 1)
+	if err != nil {
+		return nil, err
+	}
+	// version
+	err = encoding.EncodeVarint(&buf, version)
+	if err != nil {
+		return nil, err
+	}
+
+	//key
+	err = encoding.EncodeBytes(&buf, key)
+	if err != nil {
+		return nil, err
+	}
+
+	// value
+	valueHash := sha256.Sum256(value)
+	err = encoding.EncodeBytes(&buf, valueHash[:])
+	if err != nil {
+		return nil, err
+	}
+	_, err = h.Write(buf.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return h.Sum(nil), nil
+}
+
+func (node *Node) ComputeHash() ([]byte, error) {
+	return node.hashWithCount(node.nodeKey.version), nil
 }
 
 var (
