@@ -28,6 +28,9 @@ type Importer struct {
 	batchSize uint32
 	stack     []*Node
 	nonces    []uint32
+
+	// inflightCommit tracks a batch commit, if any.
+	inflightCommit <-chan error
 }
 
 // newImporter creates a new Importer for an empty MutableTree.
@@ -78,10 +81,21 @@ func (i *Importer) writeNode(node *Node) error {
 
 	i.batchSize++
 	if i.batchSize >= maxBatchSize {
-		if err := i.batch.Write(); err != nil {
+		// Wait for previous batch.
+		var err error
+		if i.inflightCommit != nil {
+			err = <-i.inflightCommit
+			i.inflightCommit = nil
+		}
+		if err != nil {
 			return err
 		}
-		i.batch.Close()
+		result := make(chan error)
+		i.inflightCommit = result
+		go func(batch db.Batch) {
+			defer batch.Close()
+			result <- batch.Write()
+		}(i.batch)
 		i.batch = i.tree.ndb.db.NewBatch()
 		i.batchSize = 0
 	}
@@ -92,6 +106,10 @@ func (i *Importer) writeNode(node *Node) error {
 // Close frees all resources. It is safe to call multiple times. Uncommitted nodes may already have
 // been flushed to the database, but will not be visible.
 func (i *Importer) Close() {
+	if i.inflightCommit != nil {
+		<-i.inflightCommit
+		i.inflightCommit = nil
+	}
 	if i.batch != nil {
 		i.batch.Close()
 	}
