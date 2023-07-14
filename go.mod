@@ -6,11 +6,11 @@ require (
 	cosmossdk.io/log v1.1.0
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/ics23/go v0.10.0
-	github.com/emicklei/dot v1.4.2
+	github.com/emicklei/dot v1.5.0
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/crypto v0.9.0
-	google.golang.org/protobuf v1.30.0
+	golang.org/x/crypto v0.11.0
 )
 
 require (
@@ -25,7 +25,6 @@ require (
 	github.com/cosmos/gogoproto v1.4.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
@@ -43,7 +42,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
 	gonum.org/v1/gonum v0.11.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
