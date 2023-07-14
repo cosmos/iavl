@@ -57,10 +57,7 @@ The modified API will have the following structure:
     Tree interface {
         Has(key []byte) (bool, error)
         Get(key []byte) ([]byte, error)
-        SaveVersion(batch struct{
-            keys [][]btye
-            values [][]byte
-        }) ([]byte, int64, error)
+        SaveVersion(cs *ChangeSet) ([]byte, int64, error)
         Version() int64
         Hash() []byte
         WorkingHash() []byte
@@ -71,6 +68,7 @@ The modified API will have the following structure:
         SetInitialVersion(version uint64)
         Iterator(start, end []byte, ascending bool) (types.Iterator, error)
         LoadVersionForOverwriting(targetVersion int64) error
+        WaitForCommit() error // this is for when gracefully shutdown
     }
 ```
 ## Consequences
