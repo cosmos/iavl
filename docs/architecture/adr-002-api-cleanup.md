@@ -18,7 +18,7 @@ There is a lot of legacy code in the SDK that is not used anymore and can be rem
 
 ## Context
 
-The introduction of `Store V2` separates SS (State Storage) and SC (State Commitment), where `iavl` is used for SC and `versionDB` is already implemented for SS. The index of the `fast node` is not needed in `iavl` since `versionDB` allows key-value queries for a specific version.
+The introduction of `Store V2` separates SS (State Storage) and SC (State Commitment), where `iavl` is used for SC. The index of the `fast node` is not needed in `iavl` since SS allows key-value queries for a specific version.
 Additionally, `Store V2` introduces a new approach to `SaveVersion` that accepts a batch object for the atomicity of the commit and removes the usage of `dbm.Batch` in `nodeDB`.
 
 The current implementation of `iavl` suffers from performance issues due to synchronous writes during the `Commit` process. To address this, the proposed changes aim to finalize the current version in memory, parallelize hash calculations in `WorkingHash`, and introduce asynchronous writes.
@@ -27,7 +27,6 @@ Moreover, the existing architecture of `iavl` lacks modularity and code organiza
 
 - The boundary between `ImmutableTree` and `MutableTree` is not clear.
 - There are many public methods in `nodeDB`, making it less structured.
-- `nodeDB` serves as both storage and cache simultaneously.
 
 ## Decision
 
@@ -49,7 +48,6 @@ To support `Store V2` and improve `Commit` performance, we propose the following
 
 - Merge `ImmutableTree` and `MutableTree` into a single `Tree` structure.
 - Make `nodeDB` methods private.
-- Separate the cache from `nodeDB` and introduce a new `nodeCache` component.
 
 The modified API will have the following structure:
 
