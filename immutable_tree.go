@@ -67,7 +67,7 @@ func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) ([]strin
 type NodeEncoder func(id []byte, depth int, isLeaf bool) string
 
 // defaultNodeEncoder can encode any node unless the client overrides it
-func defaultNodeEncoder(id []byte, depth int, isLeaf bool) string {
+func defaultNodeEncoder(id []byte, _ int, isLeaf bool) string {
 	prefix := "- "
 	if isLeaf {
 		prefix = "* "
@@ -330,4 +330,10 @@ func (t *ImmutableTree) nodeSize() int {
 		return false
 	})
 	return size
+}
+
+// TraverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive.
+func (t *ImmutableTree) TraverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	return t.ndb.traverseStateChanges(startVersion, endVersion, fn)
 }

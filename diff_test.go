@@ -21,16 +21,25 @@ func TestDiffRoundTrip(t *testing.T) {
 	db := db.NewMemDB()
 	tree, err := NewMutableTree(db, 0, true)
 	require.NoError(t, err)
-	for i := range changeSets {
-		v, err := tree.SaveChangeSet(changeSets[i])
+	for _, cs := range changeSets {
+		for _, pair := range cs.Pairs {
+			if pair.Delete {
+				_, removed, err := tree.Remove(pair.Key)
+				require.True(t, removed)
+				require.NoError(t, err)
+			} else {
+				_, err := tree.Set(pair.Key, pair.Value)
+				require.NoError(t, err)
+			}
+		}
+		_, _, err := tree.SaveVersion()
 		require.NoError(t, err)
-		require.Equal(t, int64(i+1), v)
 	}
 
 	// extract change sets from db
 	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true)
-	err = tree2.ndb.traverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
+	err = tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
 		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})
@@ -56,9 +65,9 @@ func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
 		}
 		if len(changeSets) > 0 {
 			// pick some random keys to delete from the last version
-			lastChangeSet := changeSets[len(changeSets)-1]
+			pairs := changeSets[len(changeSets)-1].Pairs
 			count = r.Int63n(10)
-			for _, pair := range lastChangeSet.Pairs {
+			for _, pair := range pairs {
 				if count <= 0 {
 					break
 				}
@@ -73,9 +82,9 @@ func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
 			}
 
 			// Special case, set to identical value
-			if len(lastChangeSet.Pairs) > 0 {
-				i := r.Int63n(int64(len(lastChangeSet.Pairs)))
-				pair := lastChangeSet.Pairs[i]
+			if len(pairs) > 0 {
+				i := r.Int63n(int64(len(pairs)))
+				pair := pairs[i]
 				if !pair.Delete {
 					items[string(pair.Key)] = &KVPair{
 						Key:   pair.Key,
@@ -93,7 +102,8 @@ func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
 
 		var cs ChangeSet
 		for _, key := range keys {
-			cs.Pairs = append(cs.Pairs, items[key])
+			p := items[key]
+			cs.Pairs = append(cs.Pairs, p)
 		}
 
 		changeSets = append(changeSets, &cs)
