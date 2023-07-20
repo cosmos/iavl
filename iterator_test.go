@@ -3,6 +3,7 @@ package iavl
 import (
 	"math/rand"
 	"sort"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -35,7 +36,7 @@ func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 	})
 
 	t.Run("Unsaved Fast Iterator", func(t *testing.T) {
-		itr := NewUnsavedFastIterator(start, end, ascending, nil, map[string]*FastNode{}, map[string]interface{}{})
+		itr := NewUnsavedFastIterator(start, end, ascending, nil, &sync.Map{}, &sync.Map{})
 		performTest(t, itr)
 		require.ErrorIs(t, errFastIteratorNilNdbGiven, itr.Error())
 	})
@@ -296,14 +297,14 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	require.NoError(t, err)
 
 	// No unsaved additions or removals should be present after saving
-	require.Equal(t, 0, len(tree.unsavedFastNodeAdditions))
-	require.Equal(t, 0, len(tree.unsavedFastNodeRemovals))
+	require.Equal(t, 0, syncMapCount(tree.unsavedFastNodeAdditions))
+	require.Equal(t, 0, syncMapCount(tree.unsavedFastNodeRemovals))
 
 	// Ensure that there are unsaved additions and removals present
 	secondHalfMirror := setupMirrorForIterator(t, &secondHalfConfig, tree)
 
-	require.True(t, len(tree.unsavedFastNodeAdditions) >= len(secondHalfMirror))
-	require.Equal(t, 0, len(tree.unsavedFastNodeRemovals))
+	require.True(t, syncMapCount(tree.unsavedFastNodeAdditions) >= len(secondHalfMirror))
+	require.Equal(t, 0, syncMapCount(tree.unsavedFastNodeRemovals))
 
 	// Merge the two halves
 	if config.ascending {
@@ -328,4 +329,13 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 
 	itr := NewUnsavedFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 	return itr, mirror
+}
+
+func syncMapCount(m *sync.Map) int {
+	count := 0
+	m.Range(func(_, _ interface{}) bool {
+		count++
+		return true
+	})
+	return count
 }
