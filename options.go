@@ -81,6 +81,8 @@ type Options struct {
 
 	// When Stat is not nil, statistical logic needs to be executed
 	Stat *Statistics
+
+	Sqlite *SqliteDb
 }
 
 // DefaultOptions returns the default options for IAVL.

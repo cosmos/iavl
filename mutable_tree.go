@@ -52,7 +52,7 @@ func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg lo
 // NewMutableTreeWithOpts returns a new tree with the specified options.
 func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
 	ndb := newNodeDB(db, cacheSize, opts, lg)
-	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
+	head := &ImmutableTree{ndb: ndb, sqlDb: opts.Sqlite, skipFastStorageUpgrade: skipFastStorageUpgrade}
 
 	return &MutableTree{
 		logger:                   lg,
@@ -700,6 +700,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	isGenesis := (tree.version == 0)
 	version := tree.WorkingVersion()
 
+	// TODO
 	if tree.VersionExists(version) {
 		// If the version already exists, return an error as we're attempting to overwrite.
 		// However, the same hash means idempotent (i.e. no-op).
@@ -750,6 +751,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				}
 			}
 		} else {
+			// avlite: only this case handled so far
 			if err := tree.saveNewNodes(version); err != nil {
 				return nil, 0, err
 			}
@@ -764,8 +766,14 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
-		return nil, version, err
+	if tree.sqlDb != nil {
+		if err := tree.sqlDb.Commit(); err != nil {
+			return nil, version, err
+		}
+	} else {
+		if err := tree.ndb.Commit(); err != nil {
+			return nil, version, err
+		}
 	}
 
 	tree.version = version
@@ -1008,7 +1016,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 	newNodes := make([]*Node, 0)
 	var recursiveAssignKey func(*Node) ([]byte, error)
 	recursiveAssignKey = func(node *Node) ([]byte, error) {
-		if node.nodeKey != nil {
+		if node.hash != nil {
 			if node.nodeKey.nonce != 0 {
 				return node.nodeKey.GetKey(), nil
 			}
@@ -1043,7 +1051,13 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 	}
 
 	for _, node := range newNodes {
-		if err := tree.ndb.SaveNode(node); err != nil {
+		var err error
+		if tree.sqlDb != nil {
+			err = tree.sqlDb.QueueNode(node)
+		} else {
+			err = tree.ndb.SaveNode(node)
+		}
+		if err != nil {
 			return err
 		}
 		node.leftNode, node.rightNode = nil, nil

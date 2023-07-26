@@ -657,7 +657,13 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
-	leftNode, err := t.ndb.GetNode(node.leftNodeKey)
+	var leftNode *Node
+	var err error
+	if t.sqlDb != nil {
+		leftNode, err = t.sqlDb.GetNode(node.leftNodeKey)
+	} else {
+		leftNode, err = t.ndb.GetNode(node.leftNodeKey)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -668,7 +674,13 @@ func (node *Node) getRightNode(t *ImmutableTree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
-	rightNode, err := t.ndb.GetNode(node.rightNodeKey)
+	var rightNode *Node
+	var err error
+	if t.sqlDb != nil {
+		rightNode, err = t.sqlDb.GetNode(node.rightNodeKey)
+	} else {
+		rightNode, err = t.ndb.GetNode(node.rightNodeKey)
+	}
 	if err != nil {
 		return nil, err
 	}

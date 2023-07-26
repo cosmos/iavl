@@ -9,6 +9,7 @@ require (
 	github.com/emicklei/dot v1.5.0
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
+	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/crypto v0.11.0
 )
