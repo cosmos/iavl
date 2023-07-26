@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"time"
 
 	"github.com/cosmos/iavl/cache"
 
@@ -660,11 +661,14 @@ func (node *Node) getLeftNode(t *ImmutableTree) (*Node, error) {
 	}
 	var leftNode *Node
 	var err error
+	getNodeCount++
+	start := time.Now()
 	if t.sqlDb != nil {
 		leftNode, err = t.sqlDb.GetNode(node.leftNodeKey)
 	} else {
 		leftNode, err = t.ndb.GetNode(node.leftNodeKey)
 	}
+	getNodeTime += time.Since(start).Nanoseconds()
 	if err != nil {
 		return nil, err
 	}

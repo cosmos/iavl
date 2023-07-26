@@ -8,6 +8,11 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
+var (
+	getNodeCount = 0
+	getNodeTime  = int64(0)
+)
+
 // TODO
 // optimizations:
 // - push deleted leaves into storage
@@ -93,6 +98,12 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 	leftNodeKey := &NodeKey{}
 	rightNodeKey := &NodeKey{}
 
+	mmapRows := db.storage.QueryRow("PRAGMA mmap_size;")
+	var mmapSize int
+	err := mmapRows.Scan(&mmapSize)
+	if err != nil {
+		return nil, err
+	}
 	// this seems wrong
 	nodeKey := GetNodeKey(nk)
 	v := int(nodeKey.version)
@@ -105,7 +116,7 @@ FROM node WHERE version = ? AND sequence = ?`, v, seq)
 	n := &Node{
 		nodeKey: nodeKey,
 	}
-	err := rows.Scan(&n.subtreeHeight, &n.size, &n.key, &n.hash,
+	err = rows.Scan(&n.subtreeHeight, &n.size, &n.key, &n.hash,
 		&leftNodeKey.version, &leftNodeKey.nonce,
 		&rightNodeKey.version, &rightNodeKey.nonce)
 	if err != nil {
@@ -179,11 +190,7 @@ CREATE TABLE node (
 	if err != nil {
 		return nil, err
 	}
-	_, err = sqlDb.latest.Exec("PRAGMA temp_store=MEMORY;")
-	if err != nil {
-		return nil, err
-	}
-	_, err = sqlDb.latest.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", 1024*1024*1024*5))
+	_, err = sqlDb.latest.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", 1024*1024*1024))
 	if err != nil {
 		return nil, err
 	}
@@ -196,11 +203,7 @@ CREATE TABLE node (
 	if err != nil {
 		return nil, err
 	}
-	_, err = sqlDb.storage.Exec("PRAGMA temp_store=MEMORY;")
-	if err != nil {
-		return nil, err
-	}
-	_, err = sqlDb.storage.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", 1024*1024*1024*5))
+	_, err = sqlDb.storage.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", 1024*1024*1024))
 	if err != nil {
 		return nil, err
 	}
