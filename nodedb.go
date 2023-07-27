@@ -130,7 +130,7 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 		return cachedNode.(*Node), nil
 	}
 
-	//ndb.opts.Stat.IncCacheMissCnt()
+	ndb.opts.Stat.IncCacheMissCnt()
 
 	// Doesn't exist, load.
 	isLegcyNode := len(nk) == hashSize

@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -30,6 +31,7 @@ type SqliteDb struct {
 	latest  *sqlite3.Conn
 	storage *sqlite3.Conn
 
+	insertStmt  *stmtConn
 	getNodeStmt *stmtConn
 	ctx         context.Context
 	resetPool   chan *stmtConn
@@ -45,58 +47,53 @@ func (db *SqliteDb) QueueNode(node *Node) error {
 }
 
 func (db *SqliteDb) Commit() error {
-	var leftNodeKey, rightNodeKey *NodeKey
+	//var leftNodeKey, rightNodeKey *NodeKey
 	err := db.storage.Begin()
 	if err != nil {
 		return err
 	}
-	err = db.latest.Begin()
-	if err != nil {
-		return err
-	}
+	//err = db.latest.Begin()
+	//if err != nil {
+	//	return err
+	//}
 
 	storage, err := db.storage.Prepare(
-		`INSERT INTO node(version, sequence, key, hash, size, height, left_version, left_sequence, right_version, right_sequence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+		`INSERT INTO node(node_key, bytes) VALUES (?, ?)`)
 	if err != nil {
 		return err
 	}
-	leaves, err := db.latest.Prepare(
-		`INSERT INTO leaf(key, value, version, deleted) VALUES(?, ?, ?, ?)`)
-	if err != nil {
-		return err
-	}
+	//leaves, err := db.latest.Prepare(
+	//	`INSERT INTO leaf(key, value, version, deleted) VALUES(?, ?, ?, ?)`)
+	//if err != nil {
+	//	return err
+	//}
 
 	for _, node := range db.batch {
-		if node.subtreeHeight > 0 {
-			leftNodeKey = GetNodeKey(node.leftNodeKey)
-			rightNodeKey = GetNodeKey(node.rightNodeKey)
-		} else {
-			// leaf
-			leftNodeKey = &NodeKey{}
-			rightNodeKey = &NodeKey{}
+		var buf bytes.Buffer
+		buf.Grow(node.encodedSize())
+		if err = node.writeBytes(&buf); err != nil {
+			return err
 		}
-
-		hash := node._hash(node.nodeKey.version)
-		err = storage.Exec(node.nodeKey.version, int(node.nodeKey.nonce), node.key, hash, node.size, int(node.subtreeHeight),
-			leftNodeKey.version, int(leftNodeKey.nonce), rightNodeKey.version, int(rightNodeKey.nonce))
+		k := (int(node.nodeKey.version) << 32) | int(node.nodeKey.nonce)
+		err = storage.Exec(k, buf.Bytes())
 		if err != nil {
 			return err
 		}
-		if node.isLeaf() {
-			err = leaves.Exec(node.key, node.value, node.nodeKey.version, 0)
-			if err != nil {
-				return err
-			}
-		}
+		//if node.isLeaf() {
+		//	err = leaves.Exec(node.key, node.value, node.nodeKey.version, 0)
+		//	if err != nil {
+		//		return err
+		//	}
+		//}
 	}
 	err = db.storage.Commit()
 	if err != nil {
 		return err
 	}
-	err = db.latest.Commit()
-	if err != nil {
-		return err
-	}
+	//err = db.latest.Commit()
+	//if err != nil {
+	//	return err
+	//}
 
 	db.batch = nil
 	return nil
@@ -106,21 +103,20 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 	if nk == nil {
 		return nil, ErrNodeMissingNodeKey
 	}
-	leftNodeKey := &NodeKey{}
-	rightNodeKey := &NodeKey{}
+	//leftNodeKey := &NodeKey{}
+	//rightNodeKey := &NodeKey{}
 
 	nodeKey := GetNodeKey(nk)
-	v := int(nodeKey.version)
-	seq := int(nodeKey.nonce)
+	//v := int(nodeKey.version)
+	//seq := int(nodeKey.nonce)
+	k := (int(nodeKey.version) << 32) | int(nodeKey.nonce)
 	//stmt := <-db.getNodePool
 	stmt := db.getNodeStmt
-	err := stmt.Bind(v, seq)
+	err := stmt.Bind(k)
 	if err != nil {
 		return nil, err
 	}
-	n := &Node{
-		nodeKey: nodeKey,
-	}
+
 	ok, err := stmt.Step()
 	if err != nil {
 		return nil, err
@@ -129,24 +125,22 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 		return nil, fmt.Errorf("node not found")
 	}
 
-	var height, leftNonce, rightNonce int
-	err = stmt.Scan(&height, &n.size, &n.key, &n.hash,
-		&leftNodeKey.version, &leftNonce,
-		&rightNodeKey.version, &rightNonce)
+	var bz sqlite3.RawBytes
+	err = stmt.Scan(&bz)
+	if err != nil {
+		return nil, err
+	}
+	n, err := MakeNode(nk, bz)
 	if err != nil {
 		return nil, err
 	}
 
-	n.subtreeHeight = int8(height)
-	leftNodeKey.nonce = uint32(leftNonce)
-	rightNodeKey.nonce = uint32(rightNonce)
-
-	if n.isLeaf() {
-		n._hash(nodeKey.version)
-	} else {
-		n.leftNodeKey = leftNodeKey.GetKey()
-		n.rightNodeKey = rightNodeKey.GetKey()
-	}
+	//if n.isLeaf() {
+	//	n._hash(nodeKey.version)
+	//} else {
+	//	n.leftNodeKey = leftNodeKey.GetKey()
+	//	n.rightNodeKey = rightNodeKey.GetKey()
+	//}
 
 	//if err := stmt.Reset(); err != nil {
 	//	return nil, err
@@ -157,6 +151,7 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 	}
 
 	//db.getNodePool <- stmt
+
 	//db.resetPool <- stmt
 
 	return n, nil
@@ -179,6 +174,10 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 		return nil, err
 	}
 	sqlDb.storage, err = sqlite3.Open(fmt.Sprintf("file:%s/storage.db?cache=shared", path))
+	if err != nil {
+		return nil, err
+	}
+	err = sqlDb.storage.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
 		return nil, err
 	}
@@ -205,18 +204,27 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 		if err != nil {
 			return nil, err
 		}
-		stmt, err := conn.Prepare(
-			`SELECT 
-    height, size, key, hash, left_version, left_sequence, right_version, right_sequence
-FROM node WHERE version = ? AND sequence = ?`)
+		stmt, err := conn.Prepare(`SELECT bytes FROM node WHERE node_key = ?`)
 		if err != nil {
 			return nil, err
 		}
+
 		//sqlDb.getNodePool <- &stmtConn{stmt, conn}
 		sqlDb.getNodeStmt = &stmtConn{stmt, conn}
+
+		//conn, err = sqlite3.Open(fmt.Sprintf("file:%s/storage.db?cache=shared", path))
+		//err = conn.Exec("PRAGMA synchronous=OFF;")
+		//if err != nil {
+		//	return nil, err
+		//}
+		//stmt, err = conn.Prepare(`INSERT INTO node(node_key, bytes) VALUES (?, ?)`)
+		//if err != nil {
+		//	return nil, err
+		//}
+		//sqlDb.insertStmt = &stmtConn{stmt, conn}
 	}
 
-	//for i := 0; i < 2; i++ {
+	//for i := 0; i < 8; i++ {
 	//	go func() {
 	//		for {
 	//			select {
@@ -272,17 +280,9 @@ func (db *SqliteDb) initNewDb() error {
 	}
 	err = db.storage.Exec(`
 CREATE TABLE node (
-   version int,
-   sequence int,
-   key blob,
-   hash blob,
-   size int,
-   height int,
-   left_version int,
-   left_sequence int,
-   right_version int,
-   right_sequence int,
-   PRIMARY KEY (version, sequence)
+   node_key int,
+   bytes blob,
+   PRIMARY KEY (node_key)
 );`)
 	if err != nil {
 		return err
