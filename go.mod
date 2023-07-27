@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	cosmossdk.io/log v1.1.0
+	github.com/bvinc/go-sqlite-lite v0.6.1
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/emicklei/dot v1.5.0
@@ -11,6 +12,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.17
 	github.com/stretchr/testify v1.8.4
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	golang.org/x/crypto v0.11.0
 )
 
@@ -40,7 +42,6 @@ require (
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
 	github.com/rs/zerolog v1.29.1 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect

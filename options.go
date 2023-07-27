@@ -1,6 +1,8 @@
 package iavl
 
-import "sync/atomic"
+import (
+	"sync/atomic"
+)
 
 // Statisc about db runtime state
 type Statistics struct {

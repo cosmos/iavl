@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -17,7 +18,7 @@ func TestSqliteDb_SaveVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.Remove(dir))
 
-	sqlDb, err := NewSqliteDb(dir)
+	sqlDb, err := NewSqliteDb(context.Background(), dir)
 	require.NoError(t, err)
 
 	levelDb, err := dbm.NewGoLevelDBWithOpts("testdb", dir, &opt.Options{})
@@ -38,7 +39,8 @@ func TestSqliteDb_SaveVersion(t *testing.T) {
 		require.Equal(t, int64(i+1), v)
 	}
 
-	fmt.Printf("getNodeCount %d, getNodeTime %d\n", getNodeCount, getNodeTime)
+	fmt.Printf("getNodeCount %d, getNodeTime %d, GetNode: μ%2.2f\n",
+		getNodeCount, getNodeTime, float64(getNodeTime)/float64(getNodeCount)/1000)
 
 	require.NoError(t, sqlDb.Close())
 }
@@ -49,10 +51,10 @@ func TestSqliteDb_GetNode(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, os.Remove(dir))
 
-	db, err := NewSqliteDb(dir)
+	db, err := NewSqliteDb(context.Background(), dir)
 	require.NoError(t, err)
 
-	_, err = db.storage.Exec(
+	err = db.storage.Exec(
 		`INSERT INTO node(version, sequence, key, size, height, left_version, 
                  left_sequence, right_version, right_sequence) 
 VALUES(1, 2, "key1", 5, 5, 1, 2, 1, 3)`)
