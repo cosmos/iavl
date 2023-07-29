@@ -47,26 +47,25 @@ func (db *SqliteDb) QueueNode(node *Node) error {
 }
 
 func (db *SqliteDb) Commit() error {
-	//var leftNodeKey, rightNodeKey *NodeKey
 	err := db.storage.Begin()
 	if err != nil {
 		return err
 	}
-	//err = db.latest.Begin()
-	//if err != nil {
-	//	return err
-	//}
+	err = db.latest.Begin()
+	if err != nil {
+		return err
+	}
 
 	storage, err := db.storage.Prepare(
 		`INSERT INTO node(node_key, bytes) VALUES (?, ?)`)
 	if err != nil {
 		return err
 	}
-	//leaves, err := db.latest.Prepare(
-	//	`INSERT INTO leaf(key, value, version, deleted) VALUES(?, ?, ?, ?)`)
-	//if err != nil {
-	//	return err
-	//}
+	latest, err := db.latest.Prepare(
+		`INSERT INTO tree(seq, version, hash, height, size, l_seq, l_version, r_seq, r_version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
 
 	for _, node := range db.batch {
 		var buf bytes.Buffer
@@ -74,26 +73,32 @@ func (db *SqliteDb) Commit() error {
 		if err = node.writeBytes(&buf); err != nil {
 			return err
 		}
-		k := (int(node.nodeKey.version) << 32) | int(node.nodeKey.nonce)
-		err = storage.Exec(k, buf.Bytes())
+		err = storage.Exec(node.nodeKey.GetKey(), buf.Bytes())
 		if err != nil {
 			return err
 		}
-		//if node.isLeaf() {
-		//	err = leaves.Exec(node.key, node.value, node.nodeKey.version, 0)
-		//	if err != nil {
-		//		return err
-		//	}
-		//}
+
+		var leftNodeKey NodeKey
+		var rightNodeKey NodeKey
+		if !node.IsLeaf() {
+			leftNodeKey = *GetNodeKey(node.leftNodeKey)
+			rightNodeKey = *GetNodeKey(node.rightNodeKey)
+		}
+		err = latest.Exec(
+			int(node.nodeKey.nonce), int(node.nodeKey.version), node.hash, int(node.subtreeHeight), int(node.size),
+			int(leftNodeKey.nonce), int(leftNodeKey.version), int(rightNodeKey.nonce), int(rightNodeKey.version))
+		if err != nil {
+			return err
+		}
 	}
 	err = db.storage.Commit()
 	if err != nil {
 		return err
 	}
-	//err = db.latest.Commit()
-	//if err != nil {
-	//	return err
-	//}
+	err = db.latest.Commit()
+	if err != nil {
+		return err
+	}
 
 	db.batch = nil
 	return nil
@@ -106,13 +111,13 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 	//leftNodeKey := &NodeKey{}
 	//rightNodeKey := &NodeKey{}
 
-	nodeKey := GetNodeKey(nk)
+	//nodeKey := GetNodeKey(nk)
 	//v := int(nodeKey.version)
 	//seq := int(nodeKey.nonce)
-	k := (int(nodeKey.version) << 32) | int(nodeKey.nonce)
+	//k := (int(nodeKey.version) << 32) | int(nodeKey.nonce)
 	//stmt := <-db.getNodePool
 	stmt := db.getNodeStmt
-	err := stmt.Bind(k)
+	err := stmt.Bind(nk)
 	if err != nil {
 		return nil, err
 	}
@@ -173,6 +178,10 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = sqlDb.latest.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return nil, err
+	}
 	sqlDb.storage, err = sqlite3.Open(fmt.Sprintf("file:%s/storage.db?cache=shared", path))
 	if err != nil {
 		return nil, err
@@ -204,6 +213,7 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		stmt, err := conn.Prepare(`SELECT bytes FROM node WHERE node_key = ?`)
 		if err != nil {
 			return nil, err
@@ -274,13 +284,26 @@ func (db *SqliteDb) initNewDb() error {
 			,value blob
 			,version int
 			,deleted int
-		);`)
+		);
+		CREATE TABLE tree
+		(
+			 seq   int
+			,version int
+		    ,hash blob
+		    ,height int
+			,size int
+			,l_seq int
+		    ,l_version int
+			,r_seq int
+			,r_version int
+		);
+`)
 	if err != nil {
 		return err
 	}
 	err = db.storage.Exec(`
 CREATE TABLE node (
-   node_key int,
+   node_key blob,
    bytes blob,
    PRIMARY KEY (node_key)
 );`)
@@ -288,11 +311,21 @@ CREATE TABLE node (
 		return err
 	}
 
+	pagesize := os.Getpagesize()
+
+	err = db.latest.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pagesize))
+	if err != nil {
+		return err
+	}
 	err = db.latest.Exec("PRAGMA journal_mode=WAL;")
 	if err != nil {
 		return err
 	}
 
+	err = db.storage.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pagesize))
+	if err != nil {
+		return err
+	}
 	err = db.storage.Exec("PRAGMA journal_mode=WAL;")
 	if err != nil {
 		return err
