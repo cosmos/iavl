@@ -18,7 +18,7 @@ type ImmutableTree struct {
 	logger log.Logger
 
 	root                   *Node
-	sqlDb                  *SqliteDb
+	nodeBackened           NodeBackend
 	ndb                    *nodeDB
 	version                int64
 	skipFastStorageUpgrade bool
@@ -316,7 +316,7 @@ func (t *ImmutableTree) clone() *ImmutableTree {
 	return &ImmutableTree{
 		root:                   t.root,
 		ndb:                    t.ndb,
-		sqlDb:                  t.sqlDb,
+		nodeBackened:           t.nodeBackened,
 		version:                t.version,
 		skipFastStorageUpgrade: t.skipFastStorageUpgrade,
 	}

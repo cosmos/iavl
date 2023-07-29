@@ -25,8 +25,9 @@ func TestSqliteDb_SaveVersion(t *testing.T) {
 	require.NoError(t, err)
 
 	tree := NewMutableTreeWithOpts(levelDb, 0,
-		&Options{Sqlite: sqlDb},
+		//&Options{NodeBackend: sqlDb},
 		//&Options{},
+		&Options{NodeBackend: NewMapDB()},
 		false, log.NewNopLogger())
 	for i := 0; i < 1000; i++ {
 		for j := 1000; j > 0; j-- {

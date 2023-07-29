@@ -42,9 +42,6 @@ type MutableTree struct {
 	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
 
 	mtx sync.Mutex
-
-	// todo
-	rootsCache map[int64]*Node
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -57,7 +54,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastSto
 	ndb := newNodeDB(db, cacheSize, opts, lg)
 	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
 	if opts != nil {
-		head.sqlDb = opts.Sqlite
+		head.nodeBackened = opts.NodeBackend
 	}
 
 	return &MutableTree{
@@ -294,9 +291,15 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 				rightNode:     NewNode(key, value),
 			}, false, nil
 		default:
+			if err := tree.addOrphan(node); err != nil {
+				return nil, false, err
+			}
 			return NewNode(key, value), true, nil
 		}
 	} else {
+		if err := tree.addOrphan(node); err != nil {
+			return nil, false, err
+		}
 		node, err = node.clone(tree)
 		if err != nil {
 			return nil, false, err
@@ -359,6 +362,9 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 // - the removed value
 func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
 	tree.logger.Debug("recursiveRemove", "node", node, "key", key)
+	if err := tree.addOrphan(node); err != nil {
+		return nil, nil, nil, false, err
+	}
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			return nil, nil, node.value, true, nil
@@ -772,8 +778,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	if tree.sqlDb != nil {
-		if err := tree.sqlDb.Commit(); err != nil {
+	if tree.nodeBackened != nil {
+		if err := tree.nodeBackened.Commit(); err != nil {
 			return nil, version, err
 		}
 	} else {
@@ -890,6 +896,9 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
 		return nil, err
 	}
 
+	if err = tree.addOrphan(node.leftNode); err != nil {
+		return nil, err
+	}
 	newNode, err := node.leftNode.clone(tree)
 	if err != nil {
 		return nil, err
@@ -920,6 +929,9 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, error) {
 		return nil, err
 	}
 
+	if err = tree.addOrphan(node.rightNode); err != nil {
+		return nil, err
+	}
 	newNode, err := node.rightNode.clone(tree)
 	if err != nil {
 		return nil, err
@@ -1058,8 +1070,8 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 
 	for _, node := range newNodes {
 		var err error
-		if tree.sqlDb != nil {
-			err = tree.sqlDb.QueueNode(node)
+		if tree.nodeBackened != nil {
+			err = tree.nodeBackened.QueueNode(node)
 		} else {
 			err = tree.ndb.SaveNode(node)
 		}
@@ -1069,6 +1081,16 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		node.leftNode, node.rightNode = nil, nil
 	}
 
+	return nil
+}
+
+func (tree *MutableTree) addOrphan(orphan *Node) error {
+	if orphan.nodeKey == nil {
+		return nil
+	}
+	if tree.nodeBackened != nil {
+		return tree.nodeBackened.QueueOrphan(orphan)
+	}
 	return nil
 }
 
