@@ -42,6 +42,9 @@ type MutableTree struct {
 	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
 
 	mtx sync.Mutex
+
+	MetricTreeHeight GaugeMetric
+	MetricTreeSize   GaugeMetric
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -711,6 +714,13 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error)
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	isGenesis := (tree.version == 0)
 	version := tree.WorkingVersion()
+
+	if tree.MetricTreeHeight != nil {
+		tree.MetricTreeHeight.Set(float64(tree.Height()))
+	}
+	if tree.MetricTreeSize != nil {
+		tree.MetricTreeSize.Set(float64(tree.Size()))
+	}
 
 	// TODO
 	if tree.VersionExists(version) {

@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	"github.com/gogo/protobuf/proto"
+	"github.com/hashicorp/golang-lru/v2"
 )
 
 var (
@@ -32,6 +34,8 @@ type SqliteDb struct {
 	latest           *sqlite3.Conn
 	storage          *sqlite3.Conn
 	latestConnString string
+	dbDir            string
+	wal              *os.File
 
 	deleteStmt  *stmtConn
 	insertStmt  *stmtConn
@@ -40,6 +44,41 @@ type SqliteDb struct {
 	ctx         context.Context
 	resetPool   chan *stmtConn
 	getNodePool chan *stmtConn
+	cache       *lru.Cache[[12]byte, *Node]
+}
+
+func (db *SqliteDb) StoreChangeSet(version int64, changeset *ChangeSet) error {
+	if len(changeset.Pairs) == 0 {
+		return nil
+	}
+
+	if err := db.storage.Begin(); err != nil {
+		return err
+	}
+
+	storeLeaf, err := db.storage.Prepare(`INSERT INTO leaf(key, value, version, deleted) VALUES (?, ?, ?, ?)`)
+	if err != nil {
+		return err
+	}
+	storeTree, err := db.storage.Prepare(`INSERT INTO tree (node_key, bytes) VALUES (?, ?)`)
+	if err != nil {
+		return err
+	}
+
+	for _, pair := range changeset.Pairs {
+		// TODO 4 cases
+		if pair.Delete {
+			if err := storeLeaf.Exec(pair.Key, pair.Value, version, true); err != nil {
+				return err
+			}
+		} else {
+			if err := storeTree.Exec(pair.Key, pair.Value); err != nil {
+				return err
+			}
+		}
+	}
+
+	return db.Commit()
 }
 
 func (db *SqliteDb) QueueOrphan(node *Node) error {
@@ -58,32 +97,45 @@ func (db *SqliteDb) QueueNode(node *Node) error {
 	return nil
 }
 
-func (db *SqliteDb) PreparedCommit() error {
+func (db *SqliteDb) Commit() error {
+	return db.cacheCommit()
+}
+
+func (db *SqliteDb) cacheCommit() error {
+	var nk [12]byte
+
+	changeSet := &ChangeSet{}
+
 	for _, node := range db.batch {
-		var buf bytes.Buffer
-		buf.Grow(node.encodedSize())
-		if err := node.writeBytes(&buf); err != nil {
-			return err
-		}
-		err := db.insertStmt.Exec(node.nodeKey.GetKey(), buf.Bytes())
-		if err != nil {
-			return err
-		}
+		copy(nk[:], node.nodeKey.GetKey())
+		db.cache.Add(nk, node)
+		changeSet.Pairs = append(changeSet.Pairs, &KVPair{Key: node.key, Value: node.value})
 	}
 
 	for _, node := range db.orphans {
-		err := db.deleteStmt.Exec(node.nodeKey.GetKey())
-		if err != nil {
-			return err
-		}
+		copy(nk[:], node.nodeKey.GetKey())
+		db.cache.Remove(nk)
+		changeSet.Pairs = append(changeSet.Pairs, &KVPair{Key: node.key, Value: node.value, Delete: true})
 	}
 
 	db.batch = nil
 	db.orphans = nil
+
+	if len(changeSet.Pairs) > 0 {
+		bz, err := proto.Marshal(changeSet)
+		if err != nil {
+			return err
+		}
+		_, err = db.wal.Write(bz)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
-func (db *SqliteDb) Commit() error {
+func (db *SqliteDb) dbCommit() error {
 	var err error
 	//err = db.storage.Begin()
 	//if err != nil {
@@ -107,11 +159,12 @@ func (db *SqliteDb) Commit() error {
 	if err != nil {
 		return err
 	}
-	orphans, err := db.latest.Prepare(`DELETE FROM node WHERE node_key = ?`)
-	if err != nil {
-		return err
-	}
+	//orphans, err := db.latest.Prepare(`DELETE FROM node WHERE node_key = ?`)
+	//if err != nil {
+	//	return err
+	//}
 
+	var nk [12]byte
 	for _, node := range db.batch {
 		var buf bytes.Buffer
 		buf.Grow(node.encodedSize())
@@ -125,6 +178,9 @@ func (db *SqliteDb) Commit() error {
 		if err = latestNode.Exec(node.nodeKey.GetKey(), buf.Bytes()); err != nil {
 			return err
 		}
+
+		copy(nk[:], node.nodeKey.GetKey())
+		db.cache.Add(nk, node)
 
 		//var leftNodeKey NodeKey
 		//var rightNodeKey NodeKey
@@ -141,9 +197,11 @@ func (db *SqliteDb) Commit() error {
 	}
 
 	for _, node := range db.orphans {
-		if err = orphans.Exec(node.nodeKey.GetKey()); err != nil {
-			return err
-		}
+		//if err = orphans.Exec(node.nodeKey.GetKey()); err != nil {
+		//	return err
+		//}
+		copy(nk[:], node.nodeKey.GetKey())
+		db.cache.Remove(nk)
 	}
 
 	//err = db.storage.Commit()
@@ -165,6 +223,14 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 	if nk == nil {
 		return nil, ErrNodeMissingNodeKey
 	}
+
+	var nkbz [12]byte
+	copy(nkbz[:], nk)
+	cacheNode, found := db.cache.Get(nkbz)
+	if found {
+		return cacheNode, nil
+	}
+
 	//leftNodeKey := &NodeKey{}
 	//rightNodeKey := &NodeKey{}
 
@@ -220,48 +286,67 @@ func (db *SqliteDb) GetNode(nk []byte) (*Node, error) {
 }
 
 func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
-	sqlDb := &SqliteDb{ctx: ctxt}
+	lruCache, err := lru.New[[12]byte, *Node](1_000_000)
+	if err != nil {
+		return nil, err
+	}
+	db := &SqliteDb{
+		ctx:   ctxt,
+		cache: lruCache,
+		dbDir: path,
+	}
+
 	newDb := false
-	_, err := os.Stat(path)
+	_, err = os.Stat(path)
 	if os.IsNotExist(err) {
 		err := os.Mkdir(path, 0755)
+		if err != nil {
+			return nil, err
+		}
+		db.wal, err = os.Create(fmt.Sprintf("%s/wal", path))
 		if err != nil {
 			return nil, err
 		}
 		newDb = true
 	}
 
-	//sqlDb.latestConnString = fmt.Sprintf("file:%s/latest.db?cache=shared", path)
-	sqlDb.latestConnString = "file::memory:?cache=shared"
+	db.latestConnString = fmt.Sprintf("file:%s/latest.db?cache=shared", path)
+	//db.latestConnString = "file::memory:?cache=shared"
 
-	sqlDb.latest, err = sqlite3.Open(sqlDb.latestConnString)
+	db.latest, err = sqlite3.Open(db.latestConnString)
 	if err != nil {
 		return nil, err
 	}
-	err = sqlDb.latest.Exec("PRAGMA synchronous=OFF;")
+	err = db.latest.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
 		return nil, err
 	}
-	sqlDb.storage, err = sqlite3.Open(fmt.Sprintf("file:%s/storage.db?cache=shared", path))
+	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
+	maxWalSizeBytes := 1024 * 1024 * 1024 * 3
+	if err = db.latest.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
+		//if err = db.latest.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", 0)); err != nil {
+		return nil, err
+	}
+	db.storage, err = sqlite3.Open(fmt.Sprintf("file:%s/storage.db?cache=shared", path))
 	if err != nil {
 		return nil, err
 	}
-	err = sqlDb.storage.Exec("PRAGMA synchronous=OFF;")
+	err = db.storage.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
 		return nil, err
 	}
 
 	if newDb {
-		if err := sqlDb.initNewDb(); err != nil {
+		if err := db.initNewDb(); err != nil {
 			return nil, err
 		}
 	}
 
 	maxSqlConn := 1
-	sqlDb.getNodePool = make(chan *stmtConn, maxSqlConn)
-	sqlDb.resetPool = make(chan *stmtConn, maxSqlConn)
+	db.getNodePool = make(chan *stmtConn, maxSqlConn)
+	db.resetPool = make(chan *stmtConn, maxSqlConn)
 	for i := 0; i < maxSqlConn; i++ {
-		conn, err := sqlite3.Open(sqlDb.latestConnString)
+		conn, err := sqlite3.Open(db.latestConnString)
 		if err != nil {
 			return nil, err
 		}
@@ -275,10 +360,10 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 			return nil, err
 		}
 
-		//sqlDb.getNodePool <- &stmtConn{stmt, conn}
-		sqlDb.getNodeStmt = &stmtConn{stmt, conn}
+		//db.getNodePool <- &stmtConn{stmt, conn}
+		db.getNodeStmt = &stmtConn{stmt, conn}
 
-		conn, err = sqlite3.Open(sqlDb.latestConnString)
+		conn, err = sqlite3.Open(db.latestConnString)
 		err = conn.Exec("PRAGMA synchronous=OFF;")
 		if err != nil {
 			return nil, err
@@ -287,9 +372,9 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 		if err != nil {
 			return nil, err
 		}
-		sqlDb.insertStmt = &stmtConn{stmt, conn}
+		db.insertStmt = &stmtConn{stmt, conn}
 
-		conn, err = sqlite3.Open(sqlDb.latestConnString)
+		conn, err = sqlite3.Open(db.latestConnString)
 		err = conn.Exec("PRAGMA synchronous=OFF;")
 		if err != nil {
 			return nil, err
@@ -298,7 +383,7 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 		if err != nil {
 			return nil, err
 		}
-		sqlDb.deleteStmt = &stmtConn{stmt, conn}
+		db.deleteStmt = &stmtConn{stmt, conn}
 	}
 
 	//for i := 0; i < 8; i++ {
@@ -307,19 +392,19 @@ func NewSqliteDb(ctxt context.Context, path string) (*SqliteDb, error) {
 	//			select {
 	//			case <-ctxt.Done():
 	//				break
-	//			case sc := <-sqlDb.resetPool:
+	//			case sc := <-db.resetPool:
 	//				err := sc.Reset()
 	//				if err != nil {
 	//					// TODO
 	//					panic(err)
 	//				}
-	//				sqlDb.getNodePool <- sc
+	//				db.getNodePool <- sc
 	//			}
 	//		}
 	//	}()
 	//}
 
-	return sqlDb, nil
+	return db, nil
 }
 
 func (db *SqliteDb) Close() error {
@@ -345,13 +430,13 @@ func (db *SqliteDb) Close() error {
 
 func (db *SqliteDb) initNewDb() error {
 	err := db.latest.Exec(`
-		CREATE TABLE node(node_key blob, bytes blob, PRIMARY KEY (node_key));
+		CREATE TABLE node(node_key blob, bytes blob)
 `)
 	if err != nil {
 		return err
 	}
 	err = db.storage.Exec(`
-CREATE TABLE tree
+CREATE TABLE node
 		(
 			 seq   int
 			,version int
@@ -364,19 +449,17 @@ CREATE TABLE tree
 			,r_version int
 		);
 CREATE TABLE leaf (key blob, value blob, deleted int, version int, PRIMARY KEY (key));
-CREATE TABLE node (node_key blob, bytes blob, PRIMARY KEY (node_key));`)
+CREATE TABLE tree (node_key blob, bytes blob, PRIMARY KEY (node_key));`)
 	if err != nil {
 		return err
 	}
 
 	pagesize := os.Getpagesize()
 
-	err = db.latest.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pagesize))
-	if err != nil {
+	if err = db.latest.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pagesize)); err != nil {
 		return err
 	}
-	err = db.latest.Exec("PRAGMA journal_mode=WAL;")
-	if err != nil {
+	if err = db.latest.Exec("PRAGMA journal_mode=WAL;"); err != nil {
 		return err
 	}
 
