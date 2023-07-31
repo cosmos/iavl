@@ -24,6 +24,10 @@ type GaugeMetric interface {
 	Set(float64)
 }
 
+type HistogramMetric interface {
+	Observe(float64)
+}
+
 type NaiveWal struct {
 	logDir string
 }
@@ -102,15 +106,24 @@ func NewTidwalLog(logDir string) (*wal.Log, error) {
 	return log, err
 }
 
+type walCache struct {
+	puts         map[nodeCacheKey]*deferredNode
+	deletes      []*deferredNode
+	sinceVersion int64
+}
+
 type Wal struct {
 	wal                *NaiveWal
 	tidwall            *wal.Log
 	commitment         dbm.DB
 	storage            *SqliteDb
 	checkpointInterval int
+	checkpointHead     uint64
 
 	cache     map[nodeCacheKey]*deferredNode
 	cacheLock sync.RWMutex
+	nodeCh    chan *deferredNode
+	wcache    *walCache
 
 	MetricNodesRead CountMetric
 	MetricWalSize   GaugeMetric
@@ -121,11 +134,16 @@ type Wal struct {
 
 func NewWal(wal *wal.Log, commitment dbm.DB, storage *SqliteDb) *Wal {
 	return &Wal{
-		tidwall:            wal,
-		commitment:         commitment,
-		storage:            storage,
-		cache:              make(map[nodeCacheKey]*deferredNode),
-		checkpointInterval: 30,
+		tidwall:    wal,
+		commitment: commitment,
+		storage:    storage,
+		cache:      make(map[nodeCacheKey]*deferredNode),
+		wcache: &walCache{
+			puts:    make(map[nodeCacheKey]*deferredNode),
+			deletes: make([]*deferredNode, 0),
+		},
+		nodeCh:             make(chan *deferredNode),
+		checkpointInterval: 100,
 	}
 }
 
@@ -137,24 +155,46 @@ func (r *Wal) Write(idx uint64, bz []byte) error {
 }
 
 func (r *Wal) CacheGet(key nodeCacheKey) (*Node, error) {
-	r.cacheLock.RLock()
-	defer r.cacheLock.RUnlock()
+	//r.cacheLock.RLock()
+	//defer r.cacheLock.RUnlock()
 
-	if dn, ok := r.cache[key]; ok {
-		node, err := MakeNode(key[:], dn.nodeBz)
-		if err != nil {
-			return nil, err
-		}
+	if dn, ok := r.wcache.puts[key]; ok {
+		//node, err := MakeNode(key[:], dn.nodeBz)
+		//if err != nil {
+		//	return nil, err
+		//}
 		if r.MetricCacheHit != nil {
 			r.MetricCacheHit.Inc()
 		}
-		return node, nil
+		return dn.node, nil
 	}
 
 	if r.MetricCacheMiss != nil {
 		r.MetricCacheMiss.Inc()
 	}
 	return nil, nil
+}
+
+func (r *Wal) CachePut(node *deferredNode) {
+	//r.cacheLock.Lock()
+	//defer r.cacheLock.Unlock()
+	nk := node.nodeKey
+
+	if !node.deleted {
+		r.wcache.puts[nk] = node
+	} else {
+		delete(r.wcache.puts, nk)
+		nodeKey := GetNodeKey(nk[:])
+		if nodeKey.version < r.wcache.sinceVersion {
+			r.wcache.deletes = append(r.wcache.deletes, node)
+		}
+	}
+	if r.MetricNodesRead != nil {
+		r.MetricNodesRead.Inc()
+	}
+	if r.MetricCacheSize != nil {
+		r.MetricCacheSize.Set(float64(len(r.wcache.puts)))
+	}
 }
 
 func (r *Wal) FirstIndex() (uint64, error) {
@@ -231,6 +271,8 @@ func (r *Wal) RunNaive(ctxt context.Context) error {
 
 type deferredNode struct {
 	nodeBz  []byte
+	node    *Node
+	nodeKey nodeCacheKey
 	deleted bool
 }
 
@@ -270,45 +312,45 @@ func (r *Wal) Run(ctxt context.Context) error {
 				checkpointHead = index
 			}
 
-			for i := 0; i < len(bz); {
-				deleted := bz[i] == 1
-				i += 1
-				nodeKey := bz[i : i+12]
-				i += 12
-				size := binary.BigEndian.Uint32(bz[i : i+4])
-				i += 4
-				nodeBz := bz[i : i+int(size)]
-				i += int(size)
-
-				var nk nodeCacheKey
-				copy(nk[:], nodeKey)
-				r.cacheLock.Lock()
-				if !deleted {
-					r.cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: false}
-					if r.MetricCacheSize != nil {
-						r.MetricCacheSize.Add(1)
-					}
-				} else {
-					if _, ok := r.cache[nk]; !ok {
-						// deleting a key that is persisted
-						r.cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: true}
-						if r.MetricCacheSize != nil {
-							r.MetricCacheSize.Add(1)
-						}
-					} else {
-						// deleting a key that is not persisted; never makes it to disk
-						delete(r.cache, nk)
-						if r.MetricCacheSize != nil {
-							r.MetricCacheSize.Sub(1)
-						}
-					}
-				}
-				r.cacheLock.Unlock()
-
-				if r.MetricNodesRead != nil {
-					r.MetricNodesRead.Inc()
-				}
-			}
+			//for i := 0; i < len(bz); {
+			//	deleted := bz[i] == 1
+			//	i += 1
+			//	nodeKey := bz[i : i+12]
+			//	i += 12
+			//	size := binary.BigEndian.Uint32(bz[i : i+4])
+			//	i += 4
+			//	nodeBz := bz[i : i+int(size)]
+			//	i += int(size)
+			//
+			//	var nk nodeCacheKey
+			//	copy(nk[:], nodeKey)
+			//	r.cacheLock.Lock()
+			//	if !deleted {
+			//		r.cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: false}
+			//		if r.MetricCacheSize != nil {
+			//			r.MetricCacheSize.Add(1)
+			//		}
+			//	} else {
+			//		if _, ok := r.cache[nk]; !ok {
+			//			// deleting a key that is persisted
+			//			r.cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: true}
+			//			if r.MetricCacheSize != nil {
+			//				r.MetricCacheSize.Add(1)
+			//			}
+			//		} else {
+			//			// deleting a key that is not persisted; never makes it to disk
+			//			delete(r.cache, nk)
+			//			if r.MetricCacheSize != nil {
+			//				r.MetricCacheSize.Sub(1)
+			//			}
+			//		}
+			//	}
+			//	r.cacheLock.Unlock()
+			//
+			//	if r.MetricNodesRead != nil {
+			//		r.MetricNodesRead.Inc()
+			//	}
+			//}
 			checkpointBz += float64(len(bz))
 			index++
 
@@ -354,4 +396,54 @@ func (r *Wal) Run(ctxt context.Context) error {
 
 		// remove from wal
 	}
+}
+
+func (r *Wal) MaybeCheckpoint(index uint64, version int64, cache NodeCache) error {
+	if r.checkpointHead == 0 {
+		r.checkpointHead = index
+	}
+
+	if index-r.checkpointHead >= uint64(r.checkpointInterval) {
+		fmt.Printf("wal: checkpointing now. [%d - %d) will be flushed to state commitment\n",
+			r.checkpointHead, index)
+		for k, dn := range r.wcache.puts {
+			if !dn.deleted {
+				err := r.commitment.Set(k[:], dn.nodeBz)
+				if err != nil {
+					return err
+				}
+				cache.Add(k, dn.node)
+			}
+		}
+		for _, dn := range r.wcache.deletes {
+			err := r.commitment.Delete(dn.nodeKey[:])
+			if err != nil {
+				return err
+			}
+			cache.Remove(dn.nodeKey)
+		}
+		if err := r.tidwall.TruncateFront(index); err != nil {
+			return err
+		}
+
+		r.cacheLock.Lock()
+		//r.cache = make(map[nodeCacheKey]*deferredNode)
+		r.wcache = &walCache{
+			puts:         make(map[nodeCacheKey]*deferredNode),
+			deletes:      []*deferredNode{},
+			sinceVersion: version + 1,
+		}
+		r.cacheLock.Unlock()
+
+		//if r.MetricWalSize != nil {
+		//	r.MetricWalSize.Sub(checkpointBz)
+		//}
+		if r.MetricCacheSize != nil {
+			r.MetricCacheSize.Set(0)
+		}
+		r.checkpointHead = index
+		//checkpointBz = 0
+	}
+
+	return nil
 }

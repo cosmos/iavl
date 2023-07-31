@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/pingcap/errors"
 )
 
 type NodeBackend interface {
@@ -139,10 +139,12 @@ type KeyValueBackend struct {
 	walIdx    uint64
 
 	// metrics
-	MetricBlockCount CountMetric
-	MetricCacheSize  GaugeMetric
-	MetricCacheMiss  CountMetric
-	MetricCacheHit   CountMetric
+	MetricBlockCount      CountMetric
+	MetricCacheSize       GaugeMetric
+	MetricCacheMiss       CountMetric
+	MetricCacheHit        CountMetric
+	MetricDbFetch         CountMetric
+	MetricDbFetchDuration HistogramMetric
 }
 
 func NewKeyValueBackend(db dbm.DB, cacheSize int, wal *Wal) (*KeyValueBackend, error) {
@@ -188,7 +190,7 @@ func (kv *KeyValueBackend) Commit() error {
 	for _, node := range kv.nodes {
 		nkBz := node.nodeKey.GetKey()
 		copy(nk[:], nkBz)
-		kv.nodeCache.Add(nk, node)
+		//kv.nodeCache.Add(nk, node)
 
 		if version == 0 {
 			version = node.nodeKey.version
@@ -217,12 +219,14 @@ func (kv *KeyValueBackend) Commit() error {
 		if _, err := kv.walBuf.Write(nodeBz); err != nil {
 			return err
 		}
+
+		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, node: node})
 	}
 
 	for _, node := range kv.orphans {
 		nkBz := node.nodeKey.GetKey()
 		copy(nk[:], nkBz)
-		kv.nodeCache.Remove(nk)
+		//kv.nodeCache.Remove(nk)
 
 		var nodeBuf bytes.Buffer
 		if err := node.writeBytes(&nodeBuf); err != nil {
@@ -248,15 +252,20 @@ func (kv *KeyValueBackend) Commit() error {
 		if _, err = kv.walBuf.Write(nodeBz); err != nil {
 			return err
 		}
+		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, deleted: true, node: node})
 	}
 
 	if kv.MetricCacheSize != nil {
 		kv.MetricCacheSize.Set(float64(kv.nodeCache.Size()))
 	}
 
-	if kv.walBuf.Len() > 70*1024*1024 {
+	if kv.walBuf.Len() > 50*1024*1024 {
 		// TODO: send span mapping idx to height range
 		err := kv.wal.Write(kv.walIdx, kv.walBuf.Bytes())
+		if err != nil {
+			return err
+		}
+		err = kv.wal.MaybeCheckpoint(kv.walIdx, version, kv.nodeCache)
 		if err != nil {
 			return err
 		}
@@ -278,18 +287,6 @@ func (kv *KeyValueBackend) GetNode(nodeKey []byte) (*Node, error) {
 	var nk nodeCacheKey
 	copy(nk[:], nodeKey)
 
-	// fetch lru cache
-	if node, ok := kv.nodeCache.Get(nk); ok {
-		if kv.MetricCacheHit != nil {
-			kv.MetricCacheHit.Inc()
-		}
-		return node, nil
-	}
-
-	if kv.MetricCacheMiss != nil {
-		kv.MetricCacheMiss.Inc()
-	}
-
 	// fetch from wal cache
 	node, err := kv.wal.CacheGet(nk)
 	if err != nil {
@@ -299,15 +296,37 @@ func (kv *KeyValueBackend) GetNode(nodeKey []byte) (*Node, error) {
 		return node, nil
 	}
 
+	// fetch lru cache
+	if node, ok := kv.nodeCache.Get(nk); ok {
+		if kv.MetricCacheHit != nil {
+			kv.MetricCacheHit.Inc()
+		}
+		return node, nil
+	}
+	if kv.MetricCacheMiss != nil {
+		kv.MetricCacheMiss.Inc()
+	}
+
 	// fetch from commitment store
+	if kv.MetricDbFetch != nil {
+		kv.MetricDbFetch.Inc()
+	}
+	since := time.Now()
 	value, err := kv.db.Get(nodeKey)
 	if err != nil {
 		return nil, err
 	}
+	if kv.MetricDbFetchDuration != nil {
+		kv.MetricDbFetchDuration.Observe(time.Since(since).Seconds())
+	}
+	if value == nil {
+		return nil, fmt.Errorf("kv/GetNode; node not found; nodeKey: %s [%X]", GetNodeKey(nodeKey), nodeKey)
+	}
 	node, err = MakeNode(nodeKey, value)
 	if err != nil {
-		return nil, errors.Wrapf(err, "kv/GetNode/MakeNode; nodeKey: %s [%X]; bytes: %X",
-			GetNodeKey(nodeKey), nodeKey, value)
+		return nil, fmt.Errorf("kv/GetNode/MakeNode; nodeKey: %s [%X]; bytes: %X; %w",
+			GetNodeKey(nodeKey), nodeKey, value, err)
 	}
+	kv.nodeCache.Add(nk, node)
 	return node, nil
 }
