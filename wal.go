@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/tidwall/wal"
@@ -112,6 +113,12 @@ type walCache struct {
 	sinceVersion int64
 }
 
+type checkpointArgs struct {
+	index   uint64
+	version int64
+	cache   NodeCache
+}
+
 type Wal struct {
 	wal                *NaiveWal
 	tidwall            *wal.Log
@@ -120,10 +127,16 @@ type Wal struct {
 	checkpointInterval int
 	checkpointHead     uint64
 
-	cache     map[nodeCacheKey]*deferredNode
-	cacheLock sync.RWMutex
-	nodeCh    chan *deferredNode
-	wcache    *walCache
+	cache        map[nodeCacheKey]*deferredNode
+	cacheLock    sync.RWMutex
+	checkpointCh chan *checkpointArgs
+
+	// todo: delete
+	wcache     *walCache
+	blueCache  *walCache
+	greenCache *walCache
+	hotCache   *walCache
+	coldCache  *walCache
 
 	MetricNodesRead CountMetric
 	MetricWalSize   GaugeMetric
@@ -133,6 +146,14 @@ type Wal struct {
 }
 
 func NewWal(wal *wal.Log, commitment dbm.DB, storage *SqliteDb) *Wal {
+	blue := &walCache{
+		puts:    make(map[nodeCacheKey]*deferredNode),
+		deletes: []*deferredNode{},
+	}
+	green := &walCache{
+		puts:    make(map[nodeCacheKey]*deferredNode),
+		deletes: []*deferredNode{},
+	}
 	return &Wal{
 		tidwall:    wal,
 		commitment: commitment,
@@ -142,7 +163,12 @@ func NewWal(wal *wal.Log, commitment dbm.DB, storage *SqliteDb) *Wal {
 			puts:    make(map[nodeCacheKey]*deferredNode),
 			deletes: make([]*deferredNode, 0),
 		},
-		nodeCh:             make(chan *deferredNode),
+		blueCache:  blue,
+		greenCache: green,
+		hotCache:   blue,
+		coldCache:  green,
+
+		checkpointCh:       make(chan *checkpointArgs, 100),
 		checkpointInterval: 100,
 	}
 }
@@ -155,14 +181,19 @@ func (r *Wal) Write(idx uint64, bz []byte) error {
 }
 
 func (r *Wal) CacheGet(key nodeCacheKey) (*Node, error) {
-	//r.cacheLock.RLock()
-	//defer r.cacheLock.RUnlock()
+	r.cacheLock.RLock()
+	hot := *r.hotCache
+	cold := *r.coldCache
+	r.cacheLock.RUnlock()
 
-	if dn, ok := r.wcache.puts[key]; ok {
-		//node, err := MakeNode(key[:], dn.nodeBz)
-		//if err != nil {
-		//	return nil, err
-		//}
+	if dn, ok := hot.puts[key]; ok {
+		if r.MetricCacheHit != nil {
+			r.MetricCacheHit.Inc()
+		}
+		return dn.node, nil
+	}
+
+	if dn, ok := cold.puts[key]; ok {
 		if r.MetricCacheHit != nil {
 			r.MetricCacheHit.Inc()
 		}
@@ -179,14 +210,15 @@ func (r *Wal) CachePut(node *deferredNode) {
 	//r.cacheLock.Lock()
 	//defer r.cacheLock.Unlock()
 	nk := node.nodeKey
+	cache := r.hotCache
 
 	if !node.deleted {
-		r.wcache.puts[nk] = node
+		cache.puts[nk] = node
 	} else {
-		delete(r.wcache.puts, nk)
+		delete(cache.puts, nk)
 		nodeKey := GetNodeKey(nk[:])
-		if nodeKey.version < r.wcache.sinceVersion {
-			r.wcache.deletes = append(r.wcache.deletes, node)
+		if nodeKey.version < cache.sinceVersion {
+			cache.deletes = append(cache.deletes, node)
 		}
 	}
 	if r.MetricNodesRead != nil {
@@ -398,51 +430,81 @@ func (r *Wal) Run(ctxt context.Context) error {
 	}
 }
 
+func (r *Wal) CheckpointRunner(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case args := <-r.checkpointCh:
+			if r.checkpointHead == 0 {
+				r.checkpointHead = args.index
+			}
+
+			if args.index-r.checkpointHead >= uint64(r.checkpointInterval) {
+				r.cacheLock.Lock()
+				r.hotCache, r.coldCache = r.coldCache, r.hotCache
+				r.cacheLock.Unlock()
+				err := r.Checkpoint(args.index, args.version, args.cache)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+}
+
+func (r *Wal) Checkpoint(index uint64, version int64, cache NodeCache) error {
+	start := time.Now()
+	fmt.Printf("wal: checkpointing now. [%d - %d) will be flushed to state commitment\n",
+		r.checkpointHead, index)
+	for k, dn := range r.coldCache.puts {
+		if !dn.deleted {
+			err := r.commitment.Set(k[:], dn.nodeBz)
+			if err != nil {
+				return err
+			}
+			cache.Add(k, dn.node)
+		}
+	}
+	for _, dn := range r.coldCache.deletes {
+		err := r.commitment.Delete(dn.nodeKey[:])
+		if err != nil {
+			return err
+		}
+		cache.Remove(dn.nodeKey)
+	}
+	if err := r.tidwall.TruncateFront(index); err != nil {
+		return err
+	}
+
+	r.cacheLock.Lock()
+	//r.cache = make(map[nodeCacheKey]*deferredNode)
+	r.coldCache = &walCache{
+		puts:         make(map[nodeCacheKey]*deferredNode),
+		deletes:      []*deferredNode{},
+		sinceVersion: version + 1,
+	}
+	r.cacheLock.Unlock()
+
+	//if r.MetricWalSize != nil {
+	//	r.MetricWalSize.Sub(checkpointBz)
+	//}
+	if r.MetricCacheSize != nil {
+		r.MetricCacheSize.Set(0)
+	}
+	r.checkpointHead = index
+	//checkpointBz = 0
+	fmt.Printf("wal: checkpoint completed in %.3fs\n", time.Since(start).Seconds())
+	return nil
+}
+
 func (r *Wal) MaybeCheckpoint(index uint64, version int64, cache NodeCache) error {
 	if r.checkpointHead == 0 {
 		r.checkpointHead = index
 	}
 
 	if index-r.checkpointHead >= uint64(r.checkpointInterval) {
-		fmt.Printf("wal: checkpointing now. [%d - %d) will be flushed to state commitment\n",
-			r.checkpointHead, index)
-		for k, dn := range r.wcache.puts {
-			if !dn.deleted {
-				err := r.commitment.Set(k[:], dn.nodeBz)
-				if err != nil {
-					return err
-				}
-				cache.Add(k, dn.node)
-			}
-		}
-		for _, dn := range r.wcache.deletes {
-			err := r.commitment.Delete(dn.nodeKey[:])
-			if err != nil {
-				return err
-			}
-			cache.Remove(dn.nodeKey)
-		}
-		if err := r.tidwall.TruncateFront(index); err != nil {
-			return err
-		}
-
-		r.cacheLock.Lock()
-		//r.cache = make(map[nodeCacheKey]*deferredNode)
-		r.wcache = &walCache{
-			puts:         make(map[nodeCacheKey]*deferredNode),
-			deletes:      []*deferredNode{},
-			sinceVersion: version + 1,
-		}
-		r.cacheLock.Unlock()
-
-		//if r.MetricWalSize != nil {
-		//	r.MetricWalSize.Sub(checkpointBz)
-		//}
-		if r.MetricCacheSize != nil {
-			r.MetricCacheSize.Set(0)
-		}
-		r.checkpointHead = index
-		//checkpointBz = 0
+		return r.Checkpoint(index, version, cache)
 	}
 
 	return nil

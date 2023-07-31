@@ -265,10 +265,11 @@ func (kv *KeyValueBackend) Commit() error {
 		if err != nil {
 			return err
 		}
-		err = kv.wal.MaybeCheckpoint(kv.walIdx, version, kv.nodeCache)
-		if err != nil {
-			return err
-		}
+		//err = kv.wal.MaybeCheckpoint(kv.walIdx, version, kv.nodeCache)
+		//if err != nil {
+		//	return err
+		//}
+		kv.wal.checkpointCh <- &checkpointArgs{kv.walIdx, version, kv.nodeCache}
 		kv.walBuf.Reset()
 		kv.walIdx++
 	}
