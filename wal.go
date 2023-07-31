@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"sync"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/tidwall/wal"
@@ -102,15 +103,20 @@ func NewTidwalLog(logDir string) (*wal.Log, error) {
 }
 
 type Wal struct {
-	wal        *NaiveWal
-	tidwall    *wal.Log
-	commitment dbm.DB
-	storage    *SqliteDb
-
+	wal                *NaiveWal
+	tidwall            *wal.Log
+	commitment         dbm.DB
+	storage            *SqliteDb
 	checkpointInterval int
+
+	cache     map[nodeCacheKey]*deferredNode
+	cacheLock sync.RWMutex
 
 	MetricNodesRead CountMetric
 	MetricWalSize   GaugeMetric
+	MetricCacheMiss CountMetric
+	MetricCacheHit  CountMetric
+	MetricCacheSize GaugeMetric
 }
 
 func NewWal(wal *wal.Log, commitment dbm.DB, storage *SqliteDb) *Wal {
@@ -118,7 +124,8 @@ func NewWal(wal *wal.Log, commitment dbm.DB, storage *SqliteDb) *Wal {
 		tidwall:            wal,
 		commitment:         commitment,
 		storage:            storage,
-		checkpointInterval: 50,
+		cache:              make(map[nodeCacheKey]*deferredNode),
+		checkpointInterval: 30,
 	}
 }
 
@@ -127,6 +134,27 @@ func (r *Wal) Write(idx uint64, bz []byte) error {
 		r.MetricWalSize.Add(float64(len(bz)))
 	}
 	return r.tidwall.Write(idx, bz)
+}
+
+func (r *Wal) CacheGet(key nodeCacheKey) (*Node, error) {
+	r.cacheLock.RLock()
+	defer r.cacheLock.RUnlock()
+
+	if dn, ok := r.cache[key]; ok {
+		node, err := MakeNode(key[:], dn.nodeBz)
+		if err != nil {
+			return nil, err
+		}
+		if r.MetricCacheHit != nil {
+			r.MetricCacheHit.Inc()
+		}
+		return node, nil
+	}
+
+	if r.MetricCacheMiss != nil {
+		r.MetricCacheMiss.Inc()
+	}
+	return nil, nil
 }
 
 func (r *Wal) FirstIndex() (uint64, error) {
@@ -211,7 +239,6 @@ func (r *Wal) Run(ctxt context.Context) error {
 		checkpointBz   float64
 		checkpointHead uint64
 		index          uint64
-		cache          = make(map[nodeCacheKey]*deferredNode)
 		err            error
 	)
 
@@ -255,17 +282,28 @@ func (r *Wal) Run(ctxt context.Context) error {
 
 				var nk nodeCacheKey
 				copy(nk[:], nodeKey)
+				r.cacheLock.Lock()
 				if !deleted {
-					cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: false}
+					r.cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: false}
+					if r.MetricCacheSize != nil {
+						r.MetricCacheSize.Add(1)
+					}
 				} else {
-					if _, ok := cache[nk]; !ok {
+					if _, ok := r.cache[nk]; !ok {
 						// deleting a key that is persisted
-						cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: true}
+						r.cache[nk] = &deferredNode{nodeBz: nodeBz, deleted: true}
+						if r.MetricCacheSize != nil {
+							r.MetricCacheSize.Add(1)
+						}
 					} else {
 						// deleting a key that is not persisted; never makes it to disk
-						delete(cache, nk)
+						delete(r.cache, nk)
+						if r.MetricCacheSize != nil {
+							r.MetricCacheSize.Sub(1)
+						}
 					}
 				}
+				r.cacheLock.Unlock()
 
 				if r.MetricNodesRead != nil {
 					r.MetricNodesRead.Inc()
@@ -277,7 +315,7 @@ func (r *Wal) Run(ctxt context.Context) error {
 			if index-checkpointHead >= uint64(r.checkpointInterval) {
 				fmt.Printf("wal: checkpointing now. [%d - %d) will be flushed to state commitment\n",
 					checkpointHead, index)
-				for k, dn := range cache {
+				for k, dn := range r.cache {
 					if !dn.deleted {
 						err = r.commitment.Set(k[:], dn.nodeBz)
 						if err != nil {
@@ -293,9 +331,16 @@ func (r *Wal) Run(ctxt context.Context) error {
 				if err := r.tidwall.TruncateFront(index); err != nil {
 					return err
 				}
-				cache = make(map[nodeCacheKey]*deferredNode)
+
+				r.cacheLock.Lock()
+				r.cache = make(map[nodeCacheKey]*deferredNode)
+				r.cacheLock.Unlock()
+
 				if r.MetricWalSize != nil {
 					r.MetricWalSize.Sub(checkpointBz)
+				}
+				if r.MetricCacheSize != nil {
+					r.MetricCacheSize.Set(0)
 				}
 				checkpointHead = 0
 				checkpointBz = 0
