@@ -6,6 +6,7 @@ import (
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/gogo/protobuf/proto"
 	lru "github.com/hashicorp/golang-lru/v2"
 )
 
@@ -224,22 +225,28 @@ func (kv *KeyValueBackend) QueueOrphan(node *Node) error {
 func (kv *KeyValueBackend) Commit(version int64) error {
 	var nk nodeCacheKey
 
+	changeset := &ChangeSet{}
 	for _, node := range kv.nodes {
-		nodeBz, err := WriteWalNode(kv.walBuf, node, 0)
-		if err != nil {
-			return err
-		}
+		//nodeBz, err := WriteWalNode(kv.walBuf, node, 0)
+		//if err != nil {
+		//	return err
+		//}
+		changeset.Pairs = append(changeset.Pairs, &KVPair{Key: node.key, Value: node.value})
+
 		copy(nk[:], node.nodeKey.GetKey())
-		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, node: node})
+		dn := &deferredNode{nodeKey: nk, node: node}
+		kv.wal.CachePut(dn)
 	}
 
 	for _, node := range kv.orphans {
-		nodeBz, err := WriteWalNode(kv.walBuf, node, 1)
-		if err != nil {
-			return err
-		}
+		//nodeBz, err := WriteWalNode(kv.walBuf, node, 1)
+		//if err != nil {
+		//	return err
+		//}
 		copy(nk[:], node.nodeKey.GetKey())
-		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, deleted: true, node: node})
+		changeset.Pairs = append(changeset.Pairs, &KVPair{Key: node.key, Value: node.value, Delete: true})
+		dn := &deferredNode{nodeKey: nk, deleted: true, node: node}
+		kv.wal.CachePut(dn)
 		kv.nodeCache.Remove(nk)
 	}
 
@@ -247,8 +254,14 @@ func (kv *KeyValueBackend) Commit(version int64) error {
 		kv.MetricCacheSize.Set(float64(kv.nodeCache.Size()))
 	}
 
+	walBz, err := proto.Marshal(changeset)
+	if err != nil {
+		return err
+	}
+	kv.walBuf.Write(walBz)
+
 	if kv.walBuf.Len() > 50*1024*1024 {
-		err := kv.wal.Write(kv.walIdx, kv.walBuf.Bytes())
+		err = kv.wal.Write(kv.walIdx, kv.walBuf.Bytes())
 		if err != nil {
 			return err
 		}
@@ -286,11 +299,11 @@ func (kv *KeyValueBackend) GetNode(nodeKey []byte) (*Node, error) {
 	}
 
 	// fetch lru cache
-	if node, ok := kv.nodeCache.Get(nk); ok {
+	if n, ok := kv.nodeCache.Get(nk); ok {
 		if kv.MetricCacheHit != nil {
 			kv.MetricCacheHit.Inc()
 		}
-		return node, nil
+		return n, nil
 	}
 	if kv.MetricCacheMiss != nil {
 		kv.MetricCacheMiss.Inc()

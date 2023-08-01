@@ -225,7 +225,7 @@ func (r *Wal) FirstIndex() (uint64, error) {
 }
 
 type deferredNode struct {
-	nodeBz  []byte
+	nodeBz  *[]byte
 	node    *Node
 	nodeKey nodeCacheKey
 	deleted bool
@@ -259,14 +259,18 @@ func (r *Wal) Checkpoint(index uint64, version int64, cache NodeCache) error {
 	start := time.Now()
 	fmt.Printf("wal: checkpointing now. [%d - %d) will be flushed to state commitment\n",
 		r.checkpointHead, index)
+	buf := new(bytes.Buffer)
 	for k, dn := range r.coldCache.puts {
-		if !dn.deleted {
-			err := r.commitment.Set(k[:], dn.nodeBz)
-			if err != nil {
-				return err
-			}
-			cache.Add(k, dn.node)
+		err := dn.node.writeBytes(buf)
+		if err != nil {
+			return err
 		}
+		err = r.commitment.Set(k[:], buf.Bytes())
+		if err != nil {
+			return err
+		}
+		cache.Add(k, dn.node)
+		buf.Reset()
 	}
 	for _, dn := range r.coldCache.deletes {
 		err := r.commitment.Delete(dn.nodeKey[:])
