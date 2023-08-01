@@ -123,31 +123,12 @@ func (m *MapDB) Commit(version int64) error {
 		var nk [12]byte
 		copy(nk[:], node.nodeKey.GetKey())
 		m.nodes[nk] = node
-		// _, err := WriteWalNode(m.walBuf, node)
-		bz, err := WriteWalNodeProto(node)
-		if err != nil {
-			return err
-		}
-		_, err = m.walBuf.Write(bz)
-		if err != nil {
-			return err
-		}
 	}
 	for _, node := range m.del {
 		var nk [12]byte
 		copy(nk[:], node.nodeKey.GetKey())
 		delete(m.nodes, nk)
-		//_, err := WriteWalNode(m.walBuf, node)
-		// bz, err := WriteWalNodeProto(node)
-		// if err != nil {
-		// 	return err
-		// }
-		_, err := m.walBuf.Write(nk[:])
-		if err != nil {
-			return err
-		}
 	}
-	m.walBuf.Reset()
 	m.add = nil
 	m.del = nil
 	return nil

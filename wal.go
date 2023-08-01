@@ -257,6 +257,8 @@ func (r *Wal) CheckpointRunner(ctx context.Context) error {
 
 func (r *Wal) Checkpoint(index uint64, version int64, cache NodeCache) error {
 	start := time.Now()
+	setCount := 0
+	deleteCount := 0
 	fmt.Printf("wal: checkpointing now. [%d - %d) will be flushed to state commitment\n",
 		r.checkpointHead, index)
 	buf := new(bytes.Buffer)
@@ -271,12 +273,14 @@ func (r *Wal) Checkpoint(index uint64, version int64, cache NodeCache) error {
 		}
 		cache.Add(k, dn.node)
 		buf.Reset()
+		setCount++
 	}
 	for _, dn := range r.coldCache.deletes {
 		err := r.commitment.Delete(dn.nodeKey[:])
 		if err != nil {
 			return err
 		}
+		deleteCount++
 	}
 	if err := r.wal.TruncateFront(index); err != nil {
 		return err
@@ -298,7 +302,9 @@ func (r *Wal) Checkpoint(index uint64, version int64, cache NodeCache) error {
 	}
 	r.checkpointHead = index
 	//checkpointBz = 0
-	fmt.Printf("wal: checkpoint completed in %.3fs\n", time.Since(start).Seconds())
+
+	fmt.Printf("wal: checkpoint completed in %.3fs; %d sets, %d deletes\n",
+		time.Since(start).Seconds(), setCount, deleteCount)
 	return nil
 }
 
