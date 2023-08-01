@@ -240,6 +240,7 @@ func (kv *KeyValueBackend) Commit(version int64) error {
 		}
 		copy(nk[:], node.nodeKey.GetKey())
 		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, deleted: true, node: node})
+		kv.nodeCache.Remove(nk)
 	}
 
 	if kv.MetricCacheSize != nil {
@@ -247,11 +248,11 @@ func (kv *KeyValueBackend) Commit(version int64) error {
 	}
 
 	if kv.walBuf.Len() > 50*1024*1024 {
-		// TODO: send span mapping idx to height range
 		err := kv.wal.Write(kv.walIdx, kv.walBuf.Bytes())
 		if err != nil {
 			return err
 		}
+		// TODO: support single threaded checkpoint by configuration
 		//err = kv.wal.MaybeCheckpoint(kv.walIdx, version, kv.nodeCache)
 		//if err != nil {
 		//	return err
