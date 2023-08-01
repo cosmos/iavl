@@ -8,7 +8,7 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/gogo/protobuf/proto"
-	"github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru/v2"
 )
 
 var (
@@ -78,7 +78,7 @@ func (db *SqliteDb) StoreChangeSet(version int64, changeset *ChangeSet) error {
 		}
 	}
 
-	return db.Commit()
+	return db.Commit(version)
 }
 
 func (db *SqliteDb) QueueOrphan(node *Node) error {
@@ -97,7 +97,7 @@ func (db *SqliteDb) QueueNode(node *Node) error {
 	return nil
 }
 
-func (db *SqliteDb) Commit() error {
+func (db *SqliteDb) Commit(version int64) error {
 	return db.cacheCommit()
 }
 

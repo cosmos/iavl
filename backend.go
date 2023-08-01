@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"time"
 
@@ -18,7 +17,7 @@ type NodeBackend interface {
 	QueueOrphan(*Node) error
 
 	// Commit commits all queued nodes to storage.
-	Commit() error
+	Commit(int64) error
 
 	GetNode(nodeKey []byte) (*Node, error)
 }
@@ -89,6 +88,11 @@ var _ NodeBackend = (*MapDB)(nil)
 
 type MapDB struct {
 	nodes map[[12]byte]*Node
+	add   []*Node
+	del   []*Node
+
+	// simulation
+	walBuf *bytes.Buffer
 }
 
 func NewMapDB() *MapDB {
@@ -97,25 +101,58 @@ func NewMapDB() *MapDB {
 	}
 }
 
-func (m MapDB) QueueNode(node *Node) error {
-	var nk [12]byte
-	copy(nk[:], node.nodeKey.GetKey())
-	m.nodes[nk] = node
+func (m *MapDB) QueueNode(node *Node) error {
+	// var nk [12]byte
+	// copy(nk[:], node.nodeKey.GetKey())
+	// m.nodes[nk] = node
+	m.add = append(m.add, node)
 	return nil
 }
 
-func (m MapDB) QueueOrphan(node *Node) error {
-	var nk [12]byte
-	copy(nk[:], node.nodeKey.GetKey())
-	delete(m.nodes, nk)
+func (m *MapDB) QueueOrphan(node *Node) error {
+	// var nk [12]byte
+	// copy(nk[:], node.nodeKey.GetKey())
+	// delete(m.nodes, nk)
+	m.del = append(m.del, node)
 	return nil
 }
 
-func (m MapDB) Commit() error {
+func (m *MapDB) Commit(version int64) error {
+	for _, node := range m.add {
+		var nk [12]byte
+		copy(nk[:], node.nodeKey.GetKey())
+		m.nodes[nk] = node
+		// _, err := WriteWalNode(m.walBuf, node)
+		bz, err := WriteWalNodeProto(node)
+		if err != nil {
+			return err
+		}
+		_, err = m.walBuf.Write(bz)
+		if err != nil {
+			return err
+		}
+	}
+	for _, node := range m.del {
+		var nk [12]byte
+		copy(nk[:], node.nodeKey.GetKey())
+		delete(m.nodes, nk)
+		//_, err := WriteWalNode(m.walBuf, node)
+		// bz, err := WriteWalNodeProto(node)
+		// if err != nil {
+		// 	return err
+		// }
+		_, err := m.walBuf.Write(nk[:])
+		if err != nil {
+			return err
+		}
+	}
+	m.walBuf.Reset()
+	m.add = nil
+	m.del = nil
 	return nil
 }
 
-func (m MapDB) GetNode(nodeKey []byte) (*Node, error) {
+func (m *MapDB) GetNode(nodeKey []byte) (*Node, error) {
 	var nk [12]byte
 	copy(nk[:], nodeKey)
 	n, ok := m.nodes[nk]
@@ -134,7 +171,7 @@ type KeyValueBackend struct {
 	nodes     []*Node
 	orphans   []*Node
 	db        dbm.DB
-	walBuf    bytes.Buffer
+	walBuf    *bytes.Buffer
 	wal       *Wal
 	walIdx    uint64
 
@@ -164,6 +201,7 @@ func NewKeyValueBackend(db dbm.DB, cacheSize int, wal *Wal) (*KeyValueBackend, e
 		walIdx: walIdx,
 		//nodeCache: &NodeMapCache{cache: make(map[nodeCacheKey]*Node)},
 		nodeCache: lruCache,
+		walBuf:    new(bytes.Buffer),
 	}, nil
 }
 
@@ -183,75 +221,24 @@ func (kv *KeyValueBackend) QueueOrphan(node *Node) error {
 	return nil
 }
 
-func (kv *KeyValueBackend) Commit() error {
+func (kv *KeyValueBackend) Commit(version int64) error {
 	var nk nodeCacheKey
-	var version int64
 
 	for _, node := range kv.nodes {
-		nkBz := node.nodeKey.GetKey()
-		copy(nk[:], nkBz)
-		//kv.nodeCache.Add(nk, node)
-
-		if version == 0 {
-			version = node.nodeKey.version
-		}
-
-		var nodeBuf bytes.Buffer
-		if err := node.writeBytes(&nodeBuf); err != nil {
+		nodeBz, err := WriteWalNode(kv.walBuf, node, 0)
+		if err != nil {
 			return err
 		}
-		nodeBz := nodeBuf.Bytes()
-		size := len(nodeBz)
-		kv.walBuf.Grow(1 + 12 + 4 + size)
-		// delete = false
-		if err := kv.walBuf.WriteByte(0); err != nil {
-			return err
-		}
-		// node key
-		if _, err := kv.walBuf.Write(nkBz); err != nil {
-			return err
-		}
-		// size
-		if err := binary.Write(&kv.walBuf, binary.BigEndian, uint32(size)); err != nil {
-			return err
-		}
-		// payload
-		if _, err := kv.walBuf.Write(nodeBz); err != nil {
-			return err
-		}
-
+		copy(nk[:], node.nodeKey.GetKey())
 		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, node: node})
 	}
 
 	for _, node := range kv.orphans {
-		nkBz := node.nodeKey.GetKey()
-		copy(nk[:], nkBz)
-		//kv.nodeCache.Remove(nk)
-
-		var nodeBuf bytes.Buffer
-		if err := node.writeBytes(&nodeBuf); err != nil {
-			return err
-		}
-		nodeBz := nodeBuf.Bytes()
-		size := len(nodeBz)
-		kv.walBuf.Grow(1 + 12 + 4 + size)
-		// delete = true
-		if err := kv.walBuf.WriteByte(1); err != nil {
-			return err
-		}
-		// node key
-		if _, err := kv.walBuf.Write(nkBz); err != nil {
-			return err
-		}
-		// size
-		err := binary.Write(&kv.walBuf, binary.BigEndian, uint32(size))
+		nodeBz, err := WriteWalNode(kv.walBuf, node, 1)
 		if err != nil {
 			return err
 		}
-		// payload
-		if _, err = kv.walBuf.Write(nodeBz); err != nil {
-			return err
-		}
+		copy(nk[:], node.nodeKey.GetKey())
 		kv.wal.CachePut(&deferredNode{nodeBz: nodeBz, nodeKey: nk, deleted: true, node: node})
 	}
 

@@ -789,7 +789,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if tree.nodeBackened != nil {
-		if err := tree.nodeBackened.Commit(); err != nil {
+		if err := tree.nodeBackened.Commit(version); err != nil {
 			return nil, version, err
 		}
 	} else {

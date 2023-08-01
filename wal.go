@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/gogo/protobuf/proto"
 	"github.com/tidwall/wal"
 )
 
@@ -31,6 +33,87 @@ type HistogramMetric interface {
 
 type NaiveWal struct {
 	logDir string
+}
+
+var _ proto.Message = (*WalNode)(nil)
+
+type WalNode struct {
+	Height   int64  `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
+	Size     int64  `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	Key      []byte `protobuf:"bytes,3,opt,name=key,proto3" json:"key,omitempty"`
+	Value    []byte `protobuf:"bytes,4,opt,name=value,proto3" json:"value,omitempty"`
+	Hash     []byte `protobuf:"bytes,5,opt,name=hash,proto3" json:"hash,omitempty"`
+	LeftKey  []byte `protobuf:"bytes,6,opt,name=left_key,proto3" json:"left_key,omitempty"`
+	RightKey []byte `protobuf:"bytes,7,opt,name=right_key,proto3" json:"right_key,omitempty"`
+}
+
+func (w *WalNode) Reset() { *w = WalNode{} }
+
+func (w *WalNode) String() string { return "" }
+
+func (w *WalNode) ProtoMessage() {}
+
+func WriteWalNodeProto(node *Node) ([]byte, error) {
+	walNode := &WalNode{
+		Height: int64(node.subtreeHeight),
+		Size:   node.size,
+		Key:    node.key,
+	}
+	if node.isLeaf() {
+		walNode.Value = node.value
+	} else {
+		walNode.Hash = node.hash
+		walNode.LeftKey = node.leftNodeKey
+		walNode.RightKey = node.rightNodeKey
+	}
+	return proto.Marshal(walNode)
+}
+
+func WriteWalNode(w *bytes.Buffer, node *Node, delete byte) ([]byte, error) {
+	if delete != 0 && delete != 1 {
+		return nil, fmt.Errorf("delete must be 0 or 1")
+	}
+	// var nodeBuf bytes.Buffer
+	// if err := node.writeBytes(&nodeBuf); err != nil {
+	// 	return nil, err
+	// }
+	// nodeBz := nodeBuf.Bytes()
+	// w.Grow(1 + 12 + 4 + size)
+
+	// delete = false
+	if err := w.WriteByte(delete); err != nil {
+		return nil, err
+	}
+
+	// node key
+	var nk nodeCacheKey
+	nkBz := node.nodeKey.GetKey()
+	copy(nk[:], nkBz)
+
+	if _, err := w.Write(nkBz); err != nil {
+		return nil, err
+	}
+
+	if delete == 1 {
+		return nil, nil
+	}
+
+	// size
+	var nodeBuf bytes.Buffer
+	if err := node.writeBytes(&nodeBuf); err != nil {
+		return nil, err
+	}
+	nodeBz := nodeBuf.Bytes()
+	size := len(nodeBz)
+	if err := binary.Write(w, binary.BigEndian, uint32(size)); err != nil {
+		return nil, err
+	}
+
+	// payload
+	if _, err := w.Write(nodeBz); err != nil {
+		return nil, err
+	}
+	return nodeBz, nil
 }
 
 func (w *NaiveWal) filename(index int64) string {
@@ -207,10 +290,11 @@ func (r *Wal) CacheGet(key nodeCacheKey) (*Node, error) {
 }
 
 func (r *Wal) CachePut(node *deferredNode) {
-	//r.cacheLock.Lock()
-	//defer r.cacheLock.Unlock()
-	nk := node.nodeKey
+	r.cacheLock.Lock()
 	cache := r.hotCache
+	r.cacheLock.Unlock()
+
+	nk := node.nodeKey
 
 	if !node.deleted {
 		cache.puts[nk] = node
@@ -443,6 +527,7 @@ func (r *Wal) CheckpointRunner(ctx context.Context) error {
 			if args.index-r.checkpointHead >= uint64(r.checkpointInterval) {
 				r.cacheLock.Lock()
 				r.hotCache, r.coldCache = r.coldCache, r.hotCache
+				r.hotCache.sinceVersion = args.version + 1
 				r.cacheLock.Unlock()
 				err := r.Checkpoint(args.index, args.version, args.cache)
 				if err != nil {
@@ -480,9 +565,8 @@ func (r *Wal) Checkpoint(index uint64, version int64, cache NodeCache) error {
 	r.cacheLock.Lock()
 	//r.cache = make(map[nodeCacheKey]*deferredNode)
 	r.coldCache = &walCache{
-		puts:         make(map[nodeCacheKey]*deferredNode),
-		deletes:      []*deferredNode{},
-		sinceVersion: version + 1,
+		puts:    make(map[nodeCacheKey]*deferredNode),
+		deletes: []*deferredNode{},
 	}
 	r.cacheLock.Unlock()
 
