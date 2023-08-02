@@ -45,6 +45,10 @@ type MutableTree struct {
 
 	MetricTreeHeight GaugeMetric
 	MetricTreeSize   GaugeMetric
+
+	// TODO, dev only.. remove.
+	nopMode bool
+	//
 }
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
@@ -56,8 +60,12 @@ func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg lo
 func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
 	ndb := newNodeDB(db, cacheSize, opts, lg)
 	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
+	var nopMode bool
 	if opts != nil {
 		head.nodeBackened = opts.NodeBackend
+		if _, ok := opts.NodeBackend.(*NopBackend); ok {
+			nopMode = true
+		}
 	}
 
 	return &MutableTree{
@@ -68,6 +76,7 @@ func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastSto
 		unsavedFastNodeRemovals:  make(map[string]interface{}),
 		ndb:                      ndb,
 		skipFastStorageUpgrade:   skipFastStorageUpgrade,
+		nopMode:                  nopMode,
 	}
 }
 
@@ -269,6 +278,10 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
 	version := tree.version + 1
+
+	if node == nil {
+		fmt.Println("bad")
+	}
 
 	if node.isLeaf() {
 		if !tree.skipFastStorageUpgrade {
@@ -1088,7 +1101,10 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		if err != nil {
 			return err
 		}
-		node.leftNode, node.rightNode = nil, nil
+
+		if !tree.nopMode {
+			node.leftNode, node.rightNode = nil, nil
+		}
 	}
 
 	return nil

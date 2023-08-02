@@ -144,6 +144,18 @@ func (m *MapDB) GetNode(nodeKey []byte) (*Node, error) {
 	return n, nil
 }
 
+var _ NodeBackend = (*NopBackend)(nil)
+
+type NopBackend struct{}
+
+func (n NopBackend) QueueNode(*Node) error { return nil }
+
+func (n NopBackend) QueueOrphan(*Node) error { return nil }
+
+func (n NopBackend) Commit(int64) error { return nil }
+
+func (n NopBackend) GetNode([]byte) (*Node, error) { return nil, nil }
+
 type nodeCacheKey [12]byte
 
 var _ NodeBackend = (*KeyValueBackend)(nil)

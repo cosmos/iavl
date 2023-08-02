@@ -304,8 +304,11 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		node.leftNode = nil
-		node.rightNode = nil
+
+		if !tree.nopMode {
+			node.leftNode = nil
+			node.rightNode = nil
+		}
 	}
 
 	return &Node{
