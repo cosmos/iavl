@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -85,7 +84,6 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 			return true
 		}
 
-		fmt.Println(fastNode.GetKey())
 		// convert key to bytes. Type conversion failure should not happen in practice
 		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, k.(string))
 

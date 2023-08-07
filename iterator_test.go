@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -227,17 +226,17 @@ func iteratorSuccessTest(t *testing.T, config *iteratorTestConfig) {
 		assertIterator(t, itr, mirror, config.ascending)
 	}
 
-	// t.Run("Iterator", func(t *testing.T) {
-	// 	itr, mirror := setupIteratorAndMirror(t, config)
-	// 	require.True(t, itr.Valid())
-	// 	performTest(t, itr, mirror)
-	// })
+	t.Run("Iterator", func(t *testing.T) {
+		itr, mirror := setupIteratorAndMirror(t, config)
+		require.True(t, itr.Valid())
+		performTest(t, itr, mirror)
+	})
 
-	// t.Run("Fast Iterator", func(t *testing.T) {
-	// 	itr, mirror := setupFastIteratorAndMirror(t, config)
-	// 	require.True(t, itr.Valid())
-	// 	performTest(t, itr, mirror)
-	// })
+	t.Run("Fast Iterator", func(t *testing.T) {
+		itr, mirror := setupFastIteratorAndMirror(t, config)
+		require.True(t, itr.Valid())
+		performTest(t, itr, mirror)
+	})
 
 	t.Run("Unsaved Fast Iterator", func(t *testing.T) {
 		itr, mirror := setupUnsavedFastIterator(t, config)
@@ -324,8 +323,6 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	}
 
 	itr := NewUnsavedFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
-	fmt.Println("------")
-	fmt.Println(itr.Valid())
 	return itr, mirror
 }
 
