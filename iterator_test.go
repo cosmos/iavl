@@ -330,3 +330,52 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	itr := NewUnsavedFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 	return itr, mirror
 }
+<<<<<<< HEAD
+=======
+
+func TestNodeIterator_Success(t *testing.T) {
+	tree, mirror := getRandomizedTreeAndMirror(t)
+
+	_, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	randomizeTreeAndMirror(t, tree, mirror)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// check if the iterating count is same with the entire node count of the tree
+	itr, err := NewNodeIterator(tree.root.GetKey(), tree.ndb)
+	require.NoError(t, err)
+	nodeCount := 0
+	for ; itr.Valid(); itr.Next(false) {
+		nodeCount++
+	}
+	require.Equal(t, int64(nodeCount), tree.Size()*2-1)
+
+	// check if the skipped node count is right
+	itr, err = NewNodeIterator(tree.root.GetKey(), tree.ndb)
+	require.NoError(t, err)
+	updateCount := 0
+	skipCount := 0
+	for itr.Valid() {
+		node := itr.GetNode()
+		updateCount++
+		if node.nodeKey.version < tree.Version() {
+			skipCount += int(node.size*2 - 2) // the size of the subtree without the root
+		}
+		itr.Next(node.nodeKey.version < tree.Version())
+	}
+	require.Equal(t, nodeCount, updateCount+skipCount)
+}
+
+func TestNodeIterator_WithEmptyRoot(t *testing.T) {
+	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, nil, log.NewNopLogger()))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+
+	itr, err = NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, nil, log.NewNopLogger()))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+}
+>>>>>>> 06f5be1 (fix: rootKey empty check by len equals 0 (#801))
