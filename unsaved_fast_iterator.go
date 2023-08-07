@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -61,10 +60,8 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 	}
 
 	if iter.unsavedFastNodeAdditions == nil {
-		fmt.Println(iter.unsavedFastNodeAdditions)
 		iter.err = errUnsavedFastIteratorNilAdditionsGiven
 		iter.valid = false
-		fmt.Println(iter.err)
 		return iter
 	}
 
