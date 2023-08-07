@@ -268,8 +268,13 @@ type NodeIterator struct {
 }
 
 // NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
+<<<<<<< HEAD
 func NewNodeIterator(root []byte, ndb *nodeDB) (*NodeIterator, error) {
 	if len(root) == 0 {
+=======
+func NewNodeIterator(rootKey []byte, ndb *nodeDB) (*NodeIterator, error) {
+	if len(rootKey) == 0 {
+>>>>>>> 06f5be1 (fix: rootKey empty check by len equals 0 (#801))
 		return &NodeIterator{
 			nodesToVisit: []*Node{},
 			ndb:          ndb,
