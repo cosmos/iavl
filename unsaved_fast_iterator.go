@@ -3,12 +3,14 @@ package iavl
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
 	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/fastnode"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 var (
@@ -52,6 +54,25 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 		fastIterator:             NewFastIterator(start, end, ascending, ndb),
 	}
 
+	if iter.ndb == nil {
+		iter.err = errFastIteratorNilNdbGiven
+		iter.valid = false
+		return iter
+	}
+
+	if iter.unsavedFastNodeAdditions == nil {
+		fmt.Println(iter.unsavedFastNodeAdditions)
+		iter.err = errUnsavedFastIteratorNilAdditionsGiven
+		iter.valid = false
+		fmt.Println(iter.err)
+		return iter
+	}
+
+	if iter.unsavedFastNodeRemovals == nil {
+		iter.err = errUnsavedFastIteratorNilRemovalsGiven
+		iter.valid = false
+		return iter
+	}
 	// We need to ensure that we iterate over saved and unsaved state in order.
 	// The strategy is to sort unsaved nodes, the fast node on disk are already sorted.
 	// Then, we keep a pointer to both the unsaved and saved nodes, and iterate over them in order efficiently.
@@ -83,24 +104,6 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 		}
 		return cmp > 0
 	})
-
-	if iter.ndb == nil {
-		iter.err = errFastIteratorNilNdbGiven
-		iter.valid = false
-		return iter
-	}
-
-	if iter.unsavedFastNodeAdditions == nil {
-		iter.err = errUnsavedFastIteratorNilAdditionsGiven
-		iter.valid = false
-		return iter
-	}
-
-	if iter.unsavedFastNodeRemovals == nil {
-		iter.err = errUnsavedFastIteratorNilRemovalsGiven
-		iter.valid = false
-		return iter
-	}
 
 	// Move to the first element
 	iter.Next()
@@ -145,7 +148,8 @@ func (iter *UnsavedFastIterator) Next() {
 		return
 	}
 
-	diskKeyStr := iter.fastIterator.Key()
+	diskKey := iter.fastIterator.Key()
+	diskKeyStr := ibytes.UnsafeBytesToStr(diskKey)
 	if iter.fastIterator.Valid() && iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 		value, ok := iter.unsavedFastNodeRemovals.Load(diskKeyStr)
 		if ok && value != nil {
@@ -160,7 +164,7 @@ func (iter *UnsavedFastIterator) Next() {
 		nextUnsavedNode := nextUnsavedNodeVal.(*fastnode.Node)
 
 		var isUnsavedNext bool
-		cmp := bytes.Compare(diskKeyStr, nextUnsavedKey)
+		cmp := bytes.Compare(diskKey, nextUnsavedKey)
 		if iter.ascending {
 			isUnsavedNext = cmp >= 0
 		} else {
