@@ -3,6 +3,7 @@ package iavl
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -34,7 +35,7 @@ type UnsavedFastIterator struct {
 	nextUnsavedNodeIdx       int
 	unsavedFastNodeAdditions *sync.Map // map[string]*FastNode
 	unsavedFastNodeRemovals  *sync.Map // map[string]interface{}
-	unsavedFastNodesToSort   [][]byte
+	unsavedFastNodesToSort   []string
 }
 
 var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
@@ -84,22 +85,18 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 			return true
 		}
 
+		fmt.Println(fastNode.GetKey())
 		// convert key to bytes. Type conversion failure should not happen in practice
-		keyBytes, ok := k.([][]byte)
-		if !ok {
-			return false
-		}
-		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, keyBytes...)
+		iter.unsavedFastNodesToSort = append(iter.unsavedFastNodesToSort, k.(string))
 
 		return true
 	})
 
 	sort.Slice(iter.unsavedFastNodesToSort, func(i, j int) bool {
-		cmp := bytes.Compare(iter.unsavedFastNodesToSort[i], iter.unsavedFastNodesToSort[j])
 		if ascending {
-			return cmp < 0
+			return iter.unsavedFastNodesToSort[i] < iter.unsavedFastNodesToSort[j]
 		}
-		return cmp > 0
+		return iter.unsavedFastNodesToSort[i] > iter.unsavedFastNodesToSort[j]
 	})
 
 	// Move to the first element
@@ -161,17 +158,15 @@ func (iter *UnsavedFastIterator) Next() {
 		nextUnsavedNode := nextUnsavedNodeVal.(*fastnode.Node)
 
 		var isUnsavedNext bool
-		cmp := bytes.Compare(diskKey, nextUnsavedKey)
 		if iter.ascending {
-			isUnsavedNext = cmp >= 0
+			isUnsavedNext = diskKeyStr >= nextUnsavedKey
 		} else {
-			isUnsavedNext = cmp <= 0
+			isUnsavedNext = diskKeyStr <= nextUnsavedKey
 		}
 
 		if isUnsavedNext {
 			// Unsaved node is next
-
-			if cmp == 0 {
+			if diskKeyStr == nextUnsavedKey {
 				// Unsaved update prevails over saved copy so we skip the copy from disk
 				iter.fastIterator.Next()
 			}
