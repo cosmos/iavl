@@ -13,6 +13,11 @@
 ### Bug Fixes
 
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
+<<<<<<< HEAD
+=======
+- [#795](https://github.com/cosmos/iavl/pull/795) Fix plugin used for buf generate.
+- [#801](https://github.com/cosmos/iavl/pull/801) Fix rootKey empty check by len equals 0.
+>>>>>>> 06f5be1 (fix: rootKey empty check by len equals 0 (#801))
 
 ### Breaking Changes
 
