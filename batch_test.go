@@ -31,15 +31,12 @@ func TestBatchWithFlusher(t *testing.T) {
 		dbm.GoLevelDBBackend,
 	}
 
-	// we test batch writing data of size 10MBs with different flush threshold
-	for _, flushThreshold := range []int{100000, 1000000, 10000000} {
-		for _, backend := range testedBackends {
-			testBatchWithFlusher(t, backend, flushThreshold)
-		}
+	for _, backend := range testedBackends {
+		testBatchWithFlusher(t, backend)
 	}
 }
 
-func testBatchWithFlusher(t *testing.T, backend dbm.BackendType, flushThreshold int) {
+func testBatchWithFlusher(t *testing.T, backend dbm.BackendType) {
 	name := fmt.Sprintf("test_%x", randstr(12))
 	dir := t.TempDir()
 	db, err := dbm.NewDB(name, backend, dir)
