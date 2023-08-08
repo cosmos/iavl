@@ -796,7 +796,7 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	expectedError := errors.New("some db error")
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, expectedError).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
@@ -822,7 +822,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	batchMock := mock.NewMockBatch(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	iterMock := mock.NewMockIterator(ctrl)
@@ -832,6 +832,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	iterMock.EXPECT().Close()
 
 	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
+	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(1)
 
 	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
 	require.NotNil(t, tree)
@@ -870,7 +871,7 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 	batchMock := mock.NewMockBatch(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 
 	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
@@ -917,7 +918,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(3)
+
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(3)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -936,6 +938,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	updatedExpectedStorageVersion := make([]byte, len(expectedStorageVersion))
 	copy(updatedExpectedStorageVersion, expectedStorageVersion)
 	updatedExpectedStorageVersion[len(updatedExpectedStorageVersion)-1]++
+	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(2)
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
 	batchMock.EXPECT().Write().Return(nil).Times(2)
