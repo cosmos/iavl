@@ -330,3 +330,13 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	itr := NewUnsavedFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb, tree.unsavedFastNodeAdditions, tree.unsavedFastNodeRemovals)
 	return itr, mirror
 }
+
+func TestNodeIterator_WithEmptyRoot(t *testing.T) {
+	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, nil))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+
+	itr, err = NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, nil))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+}
