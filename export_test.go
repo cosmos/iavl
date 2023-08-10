@@ -124,7 +124,7 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 
 // setupExportTreeSized sets up a single-version tree with a given number
 // of randomly generated key/value pairs, useful for benchmarking.
-func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
+func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree { //nolint:unparam
 	const (
 		randSeed  = 49872768940 // For deterministic tests
 		keySize   = 16
