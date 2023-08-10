@@ -47,4 +47,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-retract v0.18.0
+retract (
+	v0.18.0
+	// This version is not used by the Cosmos SDK and adds a maintenance burden.
+	// Use v1.x.x instead.
+	[v0.21.0, v0.21.1, v0.21.2]
+)
