@@ -13,13 +13,12 @@
 ### Bug Fixes
 
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
+- [#801](https://github.com/cosmos/iavl/pull/801) Fix rootKey empty check by len equals 0.
 
 ### Breaking Changes
 
 - [#735](https://github.com/cosmos/iavl/pull/735) Pass logger to `NodeDB`, `MutableTree` and `ImmutableTree`
-
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
-
 - [#777](https://github.com/cosmos/iavl/pull/777) Don't return errors from ImmutableTree.Hash, NewImmutableTree, NewImmutableTreeWIthOpts
 
 ### API Changes
