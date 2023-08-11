@@ -14,14 +14,18 @@ import (
 	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
-// commitGap after upgrade/delete commitGap FastNodes when commit the batch
-var commitGap uint64 = 5000000
+var (
+	// commitGap after upgrade/delete commitGap FastNodes when commit the batch
+	commitGap uint64 = 5000000
 
-// ErrVersionDoesNotExist is returned if a requested version does not exist.
-var ErrVersionDoesNotExist = errors.New("version does not exist")
+	// ErrVersionDoesNotExist is returned if a requested version does not exist.
+	ErrVersionDoesNotExist = errors.New("version does not exist")
 
-// ErrKeyDoesNotExist is returned if a key does not exist.
-var ErrKeyDoesNotExist = errors.New("key does not exist")
+	// ErrKeyDoesNotExist is returned if a key does not exist.
+	ErrKeyDoesNotExist = errors.New("key does not exist")
+)
+
+type Option func(*Options)
 
 // MutableTree is a persistent tree which keeps track of versions. It is not safe for concurrent
 // use, and should be guarded by a Mutex or RWLock as appropriate. An immutable tree at a given
@@ -46,12 +50,17 @@ type MutableTree struct {
 
 // NewMutableTree returns a new tree with the specified cache size and datastore.
 func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
-	return NewMutableTreeWithOpts(db, cacheSize, nil, skipFastStorageUpgrade, lg)
+	return NewMutableTreeWithOpts(db, cacheSize, skipFastStorageUpgrade, lg)
 }
 
 // NewMutableTreeWithOpts returns a new tree with the specified options.
-func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, opts *Options, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
-	ndb := newNodeDB(db, cacheSize, opts, lg)
+func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger, options ...Option) *MutableTree {
+	opts := DefaultOptions()
+	for _, opt := range options {
+		opt(&opts)
+	}
+
+	ndb := newNodeDB(db, cacheSize, &opts, lg)
 	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
 
 	return &MutableTree{

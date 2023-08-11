@@ -90,3 +90,31 @@ type Options struct {
 func DefaultOptions() Options {
 	return Options{FlushThreshold: 100000}
 }
+
+// SyncOption sets the Sync option.
+func SyncOption(sync bool) Option {
+	return func(opts *Options) {
+		opts.Sync = sync
+	}
+}
+
+// InitialVersionOption sets the initial version for the tree.
+func InitialVersionOption(iv uint64) Option {
+	return func(opts *Options) {
+		opts.InitialVersion = iv
+	}
+}
+
+// StatOption sets the Statistics for the tree.
+func StatOption(stats *Statistics) Option {
+	return func(opts *Options) {
+		opts.Stat = stats
+	}
+}
+
+// FlushThresholdOption sets the FlushThreshold for the batcher.
+func FlushThresholdOption(ft int) Option {
+	return func(opts *Options) {
+		opts.FlushThreshold = ft
+	}
+}

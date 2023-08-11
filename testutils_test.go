@@ -43,7 +43,7 @@ func b2i(bz []byte) int {
 
 // Construct a MutableTree
 func getTestTree(cacheSize int) *MutableTree {
-	return NewMutableTreeWithOpts(db.NewMemDB(), cacheSize, nil, false, log.NewNopLogger())
+	return NewMutableTree(db.NewMemDB(), cacheSize, false, log.NewNopLogger())
 }
 
 // Convenience for a new node
