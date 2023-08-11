@@ -1481,7 +1481,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	require := require.New(t)
 
-	tree := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger())
+	tree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 
 	for i := byte(0); i < 20; i++ {
 		tree.Set([]byte{i}, []byte{i})
@@ -1543,7 +1543,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 func TestLoadVersionForOverwritingCase3(t *testing.T) {
 	require := require.New(t)
 
-	tree := NewMutableTreeWithOpts(db.NewMemDB(), 0, nil, false, log.NewNopLogger())
+	tree := NewMutableTree(db.NewMemDB(), 0, false, log.NewNopLogger())
 
 	for i := byte(0); i < 20; i++ {
 		tree.Set([]byte{i}, []byte{i})
@@ -1796,10 +1796,9 @@ func TestNodeCacheStatisic(t *testing.T) {
 		tc := tc
 		t.Run(name, func(sub *testing.T) {
 			stat := &Statistics{}
-			opts := &Options{Stat: stat}
 			db, err := db.NewDB("test", db.MemDBBackend, "")
 			require.NoError(t, err)
-			mt := NewMutableTreeWithOpts(db, tc.cacheSize, opts, false, log.NewNopLogger())
+			mt := NewMutableTree(db, tc.cacheSize, false, log.NewNopLogger(), StatOption(stat))
 
 			for i := 0; i < numKeyVals; i++ {
 				key := []byte(strconv.Itoa(i))
@@ -1817,10 +1816,10 @@ func TestNodeCacheStatisic(t *testing.T) {
 				require.NotNil(t, val)
 				require.NotEmpty(t, val)
 			}
-			require.Equal(t, tc.expectFastCacheHitCnt, int(opts.Stat.GetFastCacheHitCnt()))
-			require.Equal(t, tc.expectFastCacheMissCnt, int(opts.Stat.GetFastCacheMissCnt()))
-			require.Equal(t, tc.expectCacheHitCnt, int(opts.Stat.GetCacheHitCnt()))
-			require.Equal(t, tc.expectCacheMissCnt, int(opts.Stat.GetCacheMissCnt()))
+			require.Equal(t, tc.expectFastCacheHitCnt, int(stat.GetFastCacheHitCnt()))
+			require.Equal(t, tc.expectFastCacheMissCnt, int(stat.GetFastCacheMissCnt()))
+			require.Equal(t, tc.expectCacheHitCnt, int(stat.GetCacheHitCnt()))
+			require.Equal(t, tc.expectCacheMissCnt, int(stat.GetCacheMissCnt()))
 		})
 	}
 }
