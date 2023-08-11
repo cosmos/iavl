@@ -363,7 +363,11 @@ func TestNodeIterator_Success(t *testing.T) {
 }
 
 func TestNodeIterator_WithEmptyRoot(t *testing.T) {
-	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, nil, log.NewNopLogger()))
+	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, DefaultOptions(), log.NewNopLogger()))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+
+	itr, err = NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, DefaultOptions(), log.NewNopLogger()))
 	require.NoError(t, err)
 	require.False(t, itr.Valid())
 }

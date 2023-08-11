@@ -48,9 +48,9 @@ func TestNewNoDbStorage_StorageVersionInDb_Success(t *testing.T) {
 	dbMock := mock.NewMockDB(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(expectedVersion), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 
-	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, expectedVersion, ndb.storageVersion)
 }
 
@@ -61,9 +61,8 @@ func TestNewNoDbStorage_ErrorInConstructor_DefaultSet(t *testing.T) {
 	dbMock := mock.NewMockDB(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, errors.New("some db error")).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
-
-	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
+	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, expectedVersion, ndb.getStorageVersion())
 }
 
@@ -74,9 +73,9 @@ func TestNewNoDbStorage_DoesNotExist_DefaultSet(t *testing.T) {
 	dbMock := mock.NewMockDB(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 
-	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, expectedVersion, ndb.getStorageVersion())
 }
 
@@ -85,7 +84,7 @@ func TestSetStorageVersion_Success(t *testing.T) {
 
 	db := db.NewMemDB()
 
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
 	err := ndb.setFastStorageVersionToBatch()
@@ -108,7 +107,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 	expectedFastCacheVersion := 2
 
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(defaultStorageVersionValue), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
@@ -116,9 +115,10 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
+	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(expectedFastCacheVersion))).Return(errors.New(expectedErrorMsg)).Times(1)
 
-	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
 	err := ndb.setFastStorageVersionToBatch()
@@ -137,9 +137,9 @@ func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
 	invalidStorageVersion := fastStorageVersionValue + fastStorageVersionDelimiter + "1" + fastStorageVersionDelimiter + "2"
 
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(invalidStorageVersion), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 
-	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, invalidStorageVersion, ndb.getStorageVersion())
 
 	err := ndb.setFastStorageVersionToBatch()
@@ -150,7 +150,7 @@ func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
 
 func TestSetStorageVersion_FastVersionFirst_VersionAppended(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.storageVersion = fastStorageVersionValue
 	ndb.latestVersion = 100
 
@@ -161,7 +161,7 @@ func TestSetStorageVersion_FastVersionFirst_VersionAppended(t *testing.T) {
 
 func TestSetStorageVersion_FastVersionSecond_VersionAppended(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 
 	storageVersionBytes := []byte(fastStorageVersionValue)
@@ -175,7 +175,7 @@ func TestSetStorageVersion_FastVersionSecond_VersionAppended(t *testing.T) {
 
 func TestSetStorageVersion_SameVersionTwice(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 
 	storageVersionBytes := []byte(fastStorageVersionValue)
@@ -195,7 +195,7 @@ func TestSetStorageVersion_SameVersionTwice(t *testing.T) {
 // Test case where version is incorrect and has some extra garbage at the end
 func TestShouldForceFastStorageUpdate_DefaultVersion_True(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.storageVersion = defaultStorageVersionValue
 	ndb.latestVersion = 100
 
@@ -206,7 +206,7 @@ func TestShouldForceFastStorageUpdate_DefaultVersion_True(t *testing.T) {
 
 func TestShouldForceFastStorageUpdate_FastVersion_Greater_True(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion+1))
 
@@ -217,7 +217,7 @@ func TestShouldForceFastStorageUpdate_FastVersion_Greater_True(t *testing.T) {
 
 func TestShouldForceFastStorageUpdate_FastVersion_Smaller_True(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion-1))
 
@@ -228,7 +228,7 @@ func TestShouldForceFastStorageUpdate_FastVersion_Smaller_True(t *testing.T) {
 
 func TestShouldForceFastStorageUpdate_FastVersion_Match_False(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion))
 
@@ -239,7 +239,7 @@ func TestShouldForceFastStorageUpdate_FastVersion_Match_False(t *testing.T) {
 
 func TestIsFastStorageEnabled_True(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion))
 
@@ -248,7 +248,7 @@ func TestIsFastStorageEnabled_True(t *testing.T) {
 
 func TestIsFastStorageEnabled_False(t *testing.T) {
 	db := db.NewMemDB()
-	ndb := newNodeDB(db, 0, nil, log.NewNopLogger())
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = defaultStorageVersionValue
 
@@ -385,7 +385,7 @@ func TestNodeDB_traverseOrphans(t *testing.T) {
 
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	memDB := db.NewMemDB()
-	tree := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
+	tree := NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 
 	for i := 0; i < 1e4; i++ {
 		buf := make([]byte, 0, (i/255)+1)
