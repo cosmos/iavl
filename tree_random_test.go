@@ -78,7 +78,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree = NewMutableTreeWithOpts(levelDB, cacheSize, false, log.NewNopLogger(), SyncOption(r.Float64() < syncChance))
+		tree = NewMutableTree(levelDB, cacheSize, false, log.NewNopLogger(), SyncOption(r.Float64() < syncChance))
 		version, err = tree.Load()
 		require.NoError(t, err)
 		t.Logf("Loaded version %v (sync=%v cache=%v)", version, options.Sync, cacheSize)

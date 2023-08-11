@@ -48,13 +48,8 @@ type MutableTree struct {
 	mtx sync.Mutex
 }
 
-// NewMutableTree returns a new tree with the specified cache size and datastore.
-func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger) *MutableTree {
-	return NewMutableTreeWithOpts(db, cacheSize, skipFastStorageUpgrade, lg)
-}
-
-// NewMutableTreeWithOpts returns a new tree with the specified options.
-func NewMutableTreeWithOpts(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger, options ...Option) *MutableTree {
+// NewMutableTree returns a new tree with the specified optional options.
+func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger, options ...Option) *MutableTree {
 	opts := DefaultOptions()
 	for _, opt := range options {
 		opt(&opts)

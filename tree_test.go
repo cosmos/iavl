@@ -1798,7 +1798,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 			stat := &Statistics{}
 			db, err := db.NewDB("test", db.MemDBBackend, "")
 			require.NoError(t, err)
-			mt := NewMutableTreeWithOpts(db, tc.cacheSize, false, log.NewNopLogger(), StatOption(stat))
+			mt := NewMutableTree(db, tc.cacheSize, false, log.NewNopLogger(), StatOption(stat))
 
 			for i := 0; i < numKeyVals; i++ {
 				key := []byte(strconv.Itoa(i))

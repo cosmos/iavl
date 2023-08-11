@@ -385,7 +385,7 @@ func TestNodeDB_traverseOrphans(t *testing.T) {
 
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	memDB := db.NewMemDB()
-	tree := NewMutableTreeWithOpts(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
+	tree := NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 
 	for i := 0; i < 1e4; i++ {
 		buf := make([]byte, 0, (i/255)+1)
