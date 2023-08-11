@@ -84,6 +84,7 @@ func TestIteratorConcurrency(t *testing.T) {
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
 		for ; itr.Valid(); itr.Next() {
+			// do nothing
 		}
 	}
 	wg.Wait()
@@ -107,6 +108,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 			}(i, j)
 		}
 		for ; it.Valid(); it.Next() {
+			// do nothing
 		}
 		wg.Wait()
 	}
@@ -257,7 +259,7 @@ func TestMutableTree_LoadVersion_Empty(t *testing.T) {
 
 func TestMutableTree_InitialVersion(t *testing.T) {
 	memDB := db.NewMemDB()
-	tree := NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
+	tree := NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 
 	_, err := tree.Set([]byte("a"), []byte{0x01})
 	require.NoError(t, err)
@@ -272,18 +274,18 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with the same initial version is fine
-	tree = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 9}, false, log.NewNopLogger())
+	tree = NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 	version, err = tree.Load()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with an initial version beyond the lowest should error
-	tree = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 10}, false, log.NewNopLogger())
+	tree = NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(10))
 	_, err = tree.Load()
 	require.Error(t, err)
 
 	// Reloading the tree with a lower initial version is fine, and new versions can be produced
-	tree = NewMutableTreeWithOpts(memDB, 0, &Options{InitialVersion: 3}, false, log.NewNopLogger())
+	tree = NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(3))
 	version, err = tree.Load()
 	require.NoError(t, err)
 	assert.EqualValues(t, 10, version)
@@ -1418,9 +1420,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	db := db.NewMemDB()
 
 	initialVersion := int64(1000)
-	tree := NewMutableTreeWithOpts(db, 0, &Options{
-		InitialVersion: uint64(initialVersion),
-	}, true, log.NewNopLogger())
+	tree := NewMutableTree(db, 0, true, log.NewNopLogger(), InitialVersionOption(uint64(initialVersion)))
 
 	_, err := tree.Set([]byte("hello"), []byte("world"))
 	require.NoError(t, err)
