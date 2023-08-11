@@ -100,7 +100,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 	return &nodeDB{
 		logger:              lg,
 		db:                  db,
-		batch:               db.NewBatch(),
+		batch:               NewBatchWithFlusher(db),
 		opts:                *opts,
 		firstVersion:        0,
 		latestVersion:       0, // initially invalid
@@ -382,7 +382,7 @@ func (ndb *nodeDB) writeBatch() error {
 		return err
 	}
 
-	ndb.batch = ndb.db.NewBatch()
+	ndb.batch = NewBatchWithFlusher(ndb.db)
 
 	return nil
 }
@@ -877,7 +877,7 @@ func (ndb *nodeDB) Commit() error {
 	}
 
 	ndb.batch.Close()
-	ndb.batch = ndb.db.NewBatch()
+	ndb.batch = NewBatchWithFlusher(ndb.db)
 
 	return nil
 }

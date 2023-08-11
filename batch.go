@@ -8,22 +8,20 @@ import (
 // around batch that flushes batch's data to disk
 // as soon as the configurable limit is reached.
 type BatchWithFlusher struct {
-	db             dbm.DB    // This is only used to create new batch
-	batch          dbm.Batch // Batched writing buffer.
-	flushThreshold int       // The maximum size of the batch in bytes before it gets flushed to disk
+	db    dbm.DB    // This is only used to create new batch
+	batch dbm.Batch // Batched writing buffer.
 }
 
 var _ dbm.Batch = &BatchWithFlusher{}
 
 // Ethereum has found that commit of 100KB is optimal, ref ethereum/go-ethereum#15115
-// var defaultFlushThreshold = 100000
+var flushThreshold = 100000
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
-func NewBatchWithFlusher(db dbm.DB, flushThreshold int) *BatchWithFlusher {
+func NewBatchWithFlusher(db dbm.DB) *BatchWithFlusher {
 	return &BatchWithFlusher{
-		db:             db,
-		batch:          db.NewBatchWithSize(flushThreshold),
-		flushThreshold: flushThreshold,
+		db:    db,
+		batch: db.NewBatchWithSize(flushThreshold),
 	}
 }
 
@@ -44,7 +42,7 @@ func (b *BatchWithFlusher) estimateSizeAfterSetting(key []byte, value []byte) (i
 }
 
 // Set sets value at the given key to the db.
-// If the set causes the underlying batch size to exceed batchSizeFlushThreshold,
+// If the set causes the underlying batch size to exceed flushThreshold,
 // the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
 // The addition entry is then added to the batch.
 func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
@@ -52,7 +50,7 @@ func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	if batchSizeAfter > b.flushThreshold {
+	if batchSizeAfter > flushThreshold {
 		err = b.batch.Write()
 		if err != nil {
 			return err
@@ -61,7 +59,7 @@ func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
 		if err != nil {
 			return err
 		}
-		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+		b.batch = b.db.NewBatchWithSize(flushThreshold)
 	}
 	err = b.batch.Set(key, value)
 	if err != nil {
@@ -79,7 +77,7 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	if batchSizeAfter > b.flushThreshold {
+	if batchSizeAfter > flushThreshold {
 		err = b.batch.Write()
 		if err != nil {
 			return err
@@ -88,7 +86,7 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 		if err != nil {
 			return err
 		}
-		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+		b.batch = b.db.NewBatchWithSize(flushThreshold)
 	}
 	err = b.batch.Delete(key)
 	if err != nil {

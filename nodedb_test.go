@@ -48,7 +48,7 @@ func TestNewNoDbStorage_StorageVersionInDb_Success(t *testing.T) {
 	dbMock := mock.NewMockDB(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(expectedVersion), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 
 	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
 	require.Equal(t, expectedVersion, ndb.storageVersion)
@@ -61,8 +61,7 @@ func TestNewNoDbStorage_ErrorInConstructor_DefaultSet(t *testing.T) {
 	dbMock := mock.NewMockDB(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, errors.New("some db error")).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
-
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
 	require.Equal(t, expectedVersion, ndb.getStorageVersion())
 }
@@ -74,7 +73,7 @@ func TestNewNoDbStorage_DoesNotExist_DefaultSet(t *testing.T) {
 	dbMock := mock.NewMockDB(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(nil).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(nil).Times(1)
 
 	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
 	require.Equal(t, expectedVersion, ndb.getStorageVersion())
@@ -108,7 +107,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 	expectedFastCacheVersion := 2
 
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(defaultStorageVersionValue), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 
 	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
 	rIterMock.EXPECT().Valid().Return(true).Times(1)
@@ -116,6 +115,7 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 	rIterMock.EXPECT().Close().Return(nil).Times(1)
 
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
+	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(expectedFastCacheVersion))).Return(errors.New(expectedErrorMsg)).Times(1)
 
 	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
@@ -137,7 +137,7 @@ func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
 	invalidStorageVersion := fastStorageVersionValue + fastStorageVersionDelimiter + "1" + fastStorageVersionDelimiter + "2"
 
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(invalidStorageVersion), nil).Times(1)
-	dbMock.EXPECT().NewBatch().Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 
 	ndb := newNodeDB(dbMock, 0, nil, log.NewNopLogger())
 	require.Equal(t, invalidStorageVersion, ndb.getStorageVersion())
