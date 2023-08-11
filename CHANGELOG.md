@@ -20,16 +20,9 @@
 
 - [#735](https://github.com/cosmos/iavl/pull/735) Pass logger to `NodeDB`, `MutableTree` and `ImmutableTree`
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `orphans` from the storage
-<<<<<<< HEAD
-- [#777](https://github.com/cosmos/iavl/pull/777) Don't return errors from ImmutableTree.Hash, NewImmutableTree, NewImmutableTreeWIthOpts
-
-### API Changes
-
-=======
 - [#777](https://github.com/cosmos/iavl/pull/777) Don't return errors from ImmutableTree.Hash, NewImmutableTree
 - [#815](https://github.com/cosmos/iavl/pull/815) `NewMutableTreeWithOpts` was removed in favour of accepting options via a variadic in `NewMutableTree`
 - [#815](https://github.com/cosmos/iavl/pull/815) `NewImmutableTreeWithOpts` is removed in favour of accepting options via a variadic in `NewImmutableTree`
->>>>>>> 0420895 (refactor: make batcher configurable (#815))
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `DeleteVersion`, `DeleteVersions`, `DeleteVersionsRange` and introduce a new endpoint of `DeleteVersionsTo` instead
 
 ## 0.20.0 (March 14, 2023)
