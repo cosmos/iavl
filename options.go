@@ -81,9 +81,12 @@ type Options struct {
 
 	// When Stat is not nil, statistical logic needs to be executed
 	Stat *Statistics
+
+	// Ethereum has found that commit of 100KB is optimal, ref ethereum/go-ethereum#15115
+	FlushThreshold int
 }
 
 // DefaultOptions returns the default options for IAVL.
 func DefaultOptions() Options {
-	return Options{}
+	return Options{FlushThreshold: 100000}
 }

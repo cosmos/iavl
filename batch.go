@@ -10,18 +10,18 @@ import (
 type BatchWithFlusher struct {
 	db    dbm.DB    // This is only used to create new batch
 	batch dbm.Batch // Batched writing buffer.
+
+	flushThreshold int // The threshold to flush the batch to disk.
 }
 
 var _ dbm.Batch = &BatchWithFlusher{}
 
-// Ethereum has found that commit of 100KB is optimal, ref ethereum/go-ethereum#15115
-var flushThreshold = 100000
-
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
-func NewBatchWithFlusher(db dbm.DB) *BatchWithFlusher {
+func NewBatchWithFlusher(db dbm.DB, flushThreshold int) *BatchWithFlusher {
 	return &BatchWithFlusher{
-		db:    db,
-		batch: db.NewBatchWithSize(flushThreshold),
+		db:             db,
+		batch:          db.NewBatchWithSize(flushThreshold),
+		flushThreshold: flushThreshold,
 	}
 }
 
@@ -50,7 +50,7 @@ func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
 	if err != nil {
 		return err
 	}
-	if batchSizeAfter > flushThreshold {
+	if batchSizeAfter > b.flushThreshold {
 		err = b.batch.Write()
 		if err != nil {
 			return err
@@ -59,7 +59,7 @@ func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
 		if err != nil {
 			return err
 		}
-		b.batch = b.db.NewBatchWithSize(flushThreshold)
+		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
 	}
 	err = b.batch.Set(key, value)
 	if err != nil {
@@ -77,7 +77,7 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	if batchSizeAfter > flushThreshold {
+	if batchSizeAfter > b.flushThreshold {
 		err = b.batch.Write()
 		if err != nil {
 			return err
@@ -86,7 +86,7 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 		if err != nil {
 			return err
 		}
-		b.batch = b.db.NewBatchWithSize(flushThreshold)
+		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
 	}
 	err = b.batch.Delete(key)
 	if err != nil {

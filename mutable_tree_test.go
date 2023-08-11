@@ -84,6 +84,7 @@ func TestIteratorConcurrency(t *testing.T) {
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
 		for ; itr.Valid(); itr.Next() {
+			// do nothing
 		}
 	}
 	wg.Wait()
@@ -107,6 +108,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 			}(i, j)
 		}
 		for ; it.Valid(); it.Next() {
+			// do nothing
 		}
 		wg.Wait()
 	}
