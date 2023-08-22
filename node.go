@@ -69,7 +69,7 @@ type Node struct {
 	subtreeHeight int8
 }
 
-var _ cache.Node = (*Node)(nil)
+var _ cache.WriteNode = (*Node)(nil)
 
 // NewNode returns a new node from a key, value and version.
 func NewNode(key []byte, value []byte) *Node {
@@ -84,6 +84,11 @@ func NewNode(key []byte, value []byte) *Node {
 // GetKey returns the key of the node.
 func (node *Node) GetKey() []byte {
 	return node.nodeKey.GetKey()
+}
+
+// GetVersion returns the version of the node.
+func (node *Node) GetVersion() int64 {
+	return node.nodeKey.version
 }
 
 // MakeNode constructs an *Node from an encoded byte slice.

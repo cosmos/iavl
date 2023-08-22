@@ -35,6 +35,7 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
+	asyncWriteChannelSize      = 10000
 )
 
 var (
@@ -72,7 +73,10 @@ var errInvalidFastStorageVersion = fmt.Errorf("fast storage version must be in t
 type nodeDB struct {
 	logger log.Logger
 
-	mtx                 sync.Mutex       // Read/write lock.
+	mtx     sync.Mutex     // Read/write lock.
+	wgWrite sync.WaitGroup // Wait group for async write operations.
+	chWrite chan *Node     // Channel for async write operations.
+
 	db                  dbm.DB           // Persistent node storage.
 	batch               dbm.Batch        // Batched writing buffer.
 	opts                Options          // Options to customize for pruning/writing
@@ -81,7 +85,7 @@ type nodeDB struct {
 	firstVersion        int64            // First version of nodeDB.
 	latestVersion       int64            // Latest version of nodeDB.
 	legacyLatestVersion int64            // Latest version of nodeDB in legacy format.
-	nodeCache           cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
+	nodeCache           cache.NodeCache  // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache       cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
@@ -92,7 +96,7 @@ func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
 		storeVersion = []byte(defaultStorageVersionValue)
 	}
 
-	return &nodeDB{
+	d := &nodeDB{
 		logger:              lg,
 		db:                  db,
 		batch:               NewBatchWithFlusher(db, opts.FlushThreshold),
@@ -100,11 +104,28 @@ func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
 		firstVersion:        0,
 		latestVersion:       0, // initially invalid
 		legacyLatestVersion: 0,
-		nodeCache:           cache.New(cacheSize),
+		nodeCache:           cache.NewNodeCache(cacheSize),
 		fastNodeCache:       cache.New(fastNodeCacheSize),
 		versionReaders:      make(map[int64]uint32, 8),
 		storageVersion:      string(storeVersion),
 	}
+
+	d.startAsyncWrite()
+
+	return d
+}
+
+// startAsyncWrite starts the async write goroutine.
+func (ndb *nodeDB) startAsyncWrite() {
+	ndb.chWrite = make(chan *Node, asyncWriteChannelSize)
+	ndb.wgWrite.Add(1)
+	go ndb.asyncWrite()
+}
+
+// waitAsyncWrite waits for the async write goroutine to finish.
+func (ndb *nodeDB) waitAsyncWrite() {
+	close(ndb.chWrite)
+	ndb.wgWrite.Wait()
 }
 
 // GetNode gets a node from memory or disk. If it is an inner node, it does not
@@ -206,6 +227,15 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		return ErrNodeMissingNodeKey
 	}
 
+	// push to async write channel
+	ndb.chWrite <- node
+
+	ndb.nodeCache.Add(node)
+	return nil
+}
+
+// writeNode writes a node to db.
+func (ndb *nodeDB) writeNode(node *Node) error {
 	// Save node bytes to db.
 	var buf bytes.Buffer
 	buf.Grow(node.encodedSize())
@@ -224,10 +254,36 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 			return err
 		}
 	}
-
-	ndb.logger.Debug("BATCH SAVE", "node", node)
-	ndb.nodeCache.Add(node)
 	return nil
+}
+
+// saveVersion let the async write goroutine to commit the batch.
+func (ndb *nodeDB) saveVersion(version int64) {
+	ndb.incrVersionReaders(version)
+	// push the dummy node to the async write channel
+	ndb.chWrite <- &Node{}
+}
+
+// asyncWrite writes nodes to db asynchronously.
+func (ndb *nodeDB) asyncWrite() {
+	defer ndb.wgWrite.Done()
+
+	prevVersion := int64(0)
+	for node := range ndb.chWrite {
+		if node.nodeKey == nil {
+			if err := ndb.Commit(); err != nil {
+				ndb.logger.Error("failed to commit batch", "err", err)
+			}
+
+			ndb.nodeCache.SetVersion(prevVersion)
+			ndb.decrVersionReaders(prevVersion)
+			continue
+		}
+		if err := ndb.writeNode(node); err != nil {
+			ndb.logger.Error("failed to write node", "err", err)
+		}
+		prevVersion = node.nodeKey.version
+	}
 }
 
 // SaveFastNode saves a FastNode to disk and add to cache.
@@ -523,6 +579,10 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 		fromVersion = legacyLatestVersion + 1
 	}
 
+	// Wait for all async write operations to finish.
+	ndb.waitAsyncWrite()
+	defer ndb.startAsyncWrite()
+
 	// Delete the nodes for new format
 	err = ndb.traverseRange(nodeKeyPrefixFormat.Key(fromVersion), nodeKeyPrefixFormat.Key(latest+1), func(k, v []byte) error {
 		return ndb.batch.Delete(k)
@@ -749,7 +809,7 @@ func (ndb *nodeDB) hasLegacyVersion(version int64) (bool, error) {
 // GetRoot gets the nodeKey of the root for the specific version.
 func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 	rootKey := GetRootKey(version)
-	val, err := ndb.db.Get(nodeKeyFormat.Key(rootKey))
+	val, err := ndb.GetNode(rootKey)
 	if err != nil {
 		return nil, err
 	}
@@ -946,6 +1006,10 @@ func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node)
 func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 	leaves := []*Node{}
 
+	// Wait for all async write operations to finish.
+	ndb.waitAsyncWrite()
+	defer ndb.startAsyncWrite()
+
 	err := ndb.traverseNodes(func(node *Node) error {
 		if node.isLeaf() {
 			leaves = append(leaves, node)
@@ -962,6 +1026,10 @@ func (ndb *nodeDB) leafNodes() ([]*Node, error) {
 func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
+	// Wait for all async write operations to finish.
+	ndb.waitAsyncWrite()
+	defer ndb.startAsyncWrite()
+
 	err := ndb.traverseNodes(func(node *Node) error {
 		nodes = append(nodes, node)
 		return nil
@@ -975,6 +1043,10 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 
 func (ndb *nodeDB) orphans() ([][]byte, error) {
 	orphans := [][]byte{}
+
+	// Wait for all async write operations to finish.
+	ndb.waitAsyncWrite()
+	defer ndb.startAsyncWrite()
 
 	for version := ndb.firstVersion; version < ndb.latestVersion; version++ {
 		err := ndb.traverseOrphans(version, version+1, func(orphan *Node) error {
@@ -1131,6 +1203,13 @@ func (ndb *nodeDB) String() (string, error) {
 	}
 
 	return "-" + "\n" + buf.String() + "-", nil
+}
+
+func (ndb *nodeDB) close() error {
+	// Close the write channel and wait for all writes to finish
+	ndb.waitAsyncWrite()
+
+	return ndb.db.Close()
 }
 
 var ErrNodeMissingNodeKey = fmt.Errorf("node does not have a nodeKey")

@@ -768,9 +768,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
-		return nil, version, err
-	}
+	tree.ndb.saveVersion(version)
 
 	tree.version = version
 
@@ -1080,4 +1078,9 @@ func (tree *MutableTree) SaveChangeSet(cs *ChangeSet) (int64, error) {
 	}
 	_, version, err := tree.SaveVersion()
 	return version, err
+}
+
+// Close closes the underlying NodeDB.
+func (tree *MutableTree) Close() error {
+	return tree.ndb.close()
 }
