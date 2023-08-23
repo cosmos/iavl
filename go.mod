@@ -1,6 +1,6 @@
 module github.com/cosmos/iavl
 
-go 1.20
+go 1.21
 
 require (
 	cosmossdk.io/log v1.2.0
