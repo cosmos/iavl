@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.0.0-rc.0 (August 23, 2023)
 
 ### Improvements
 
@@ -15,6 +15,7 @@
 
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
 - [#801](https://github.com/cosmos/iavl/pull/801) Fix rootKey empty check by len equals 0.
+- [#805](https://github.com/cosmos/iavl/pull/805) Use `sync.Map` instead of map to prevent concurrent writes at the fast node level
 
 ### Breaking Changes
 
