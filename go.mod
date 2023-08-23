@@ -9,8 +9,8 @@ require (
 	github.com/emicklei/dot v1.4.2
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/crypto v0.12.0
 	google.golang.org/protobuf v1.30.0
+	golang.org/x/crypto v0.12.0
 )
 
 require (
@@ -49,8 +49,8 @@ require (
 )
 
 retract (
+	v0.18.0
 	// This version is not used by the Cosmos SDK and adds a maintenance burden.
 	// Use v1.x.x instead.
 	[v0.21.0, v0.21.2]
-	v0.18.0
 )
