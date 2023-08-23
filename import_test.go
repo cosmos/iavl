@@ -233,9 +233,17 @@ func TestImporter_Commit_Empty(t *testing.T) {
 }
 
 func BenchmarkImport(b *testing.B) {
+	benchmarkImport(b, 4096)
+}
+
+func BenchmarkImportBatch(b *testing.B) {
+	benchmarkImport(b, maxBatchSize*10)
+}
+
+func benchmarkImport(b *testing.B, nodes int) {
 	b.StopTimer()
-	tree := setupExportTreeSized(b, 4096)
-	exported := make([]*ExportNode, 0, 4096)
+	tree := setupExportTreeSized(b, nodes)
+	exported := make([]*ExportNode, 0, nodes)
 	exporter, err := tree.Export()
 	require.NoError(b, err)
 	for {
