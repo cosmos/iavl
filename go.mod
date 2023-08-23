@@ -10,7 +10,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/crypto v0.11.0
+	golang.org/x/crypto v0.12.0
 )
 
 require (
@@ -42,9 +42,14 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	gonum.org/v1/gonum v0.11.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-retract v0.18.0
+retract (
+	v0.18.0
+	// This version is not used by the Cosmos SDK and adds a maintenance burden.
+	// Use v1.x.x instead.
+	[v0.21.0, v0.21.2]
+)

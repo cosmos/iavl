@@ -68,11 +68,11 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	r := rand.New(rand.NewSource(randSeed))
 
 	// loadTree loads the last persisted version of a tree with random pruning settings.
-	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, options *Options) { //nolint:unparam
+	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
 		var err error
-		options = &Options{
-			Sync: r.Float64() < syncChance,
-		}
+
+		sync := r.Float64() < syncChance
+
 		// set the cache size regardless of whether caching is enabled. This ensures we always
 		// call the RNG the same number of times, such that changing settings does not affect
 		// the RNG sequence.
@@ -80,10 +80,10 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree = NewMutableTreeWithOpts(levelDB, cacheSize, options, false, log.NewNopLogger())
+		tree = NewMutableTree(levelDB, cacheSize, false, log.NewNopLogger(), SyncOption(sync))
 		version, err = tree.Load()
 		require.NoError(t, err)
-		t.Logf("Loaded version %v (sync=%v cache=%v)", version, options.Sync, cacheSize)
+		t.Logf("Loaded version %v (sync=%v cache=%v)", version, sync, cacheSize)
 		return
 	}
 

@@ -85,12 +85,7 @@ type nodeDB struct {
 	fastNodeCache       cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
-	if opts == nil {
-		o := DefaultOptions()
-		opts = &o
-	}
-
+func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
 	storeVersion, err := db.Get(metadataKeyFormat.Key([]byte(storageVersionKey)))
 
 	if err != nil || storeVersion == nil {
@@ -100,8 +95,8 @@ func newNodeDB(db dbm.DB, cacheSize int, opts *Options, lg log.Logger) *nodeDB {
 	return &nodeDB{
 		logger:              lg,
 		db:                  db,
-		batch:               db.NewBatch(),
-		opts:                *opts,
+		batch:               NewBatchWithFlusher(db, opts.FlushThreshold),
+		opts:                opts,
 		firstVersion:        0,
 		latestVersion:       0, // initially invalid
 		legacyLatestVersion: 0,
@@ -382,7 +377,7 @@ func (ndb *nodeDB) writeBatch() error {
 		return err
 	}
 
-	ndb.batch = ndb.db.NewBatch()
+	ndb.batch = NewBatchWithFlusher(ndb.db, ndb.opts.FlushThreshold)
 
 	return nil
 }
@@ -877,7 +872,7 @@ func (ndb *nodeDB) Commit() error {
 	}
 
 	ndb.batch.Close()
-	ndb.batch = ndb.db.NewBatch()
+	ndb.batch = NewBatchWithFlusher(ndb.db, ndb.opts.FlushThreshold)
 
 	return nil
 }
