@@ -77,16 +77,16 @@ type nodeDB struct {
 	wgWrite sync.WaitGroup   // Wait group for async write operations.
 	chWrite chan interface{} // Channel for async write operations.
 
-	db                  dbm.DB           // Persistent node storage.
-	batch               dbm.Batch        // Batched writing buffer.
-	opts                Options          // Options to customize for pruning/writing
-	versionReaders      map[int64]uint32 // Number of active version readers
-	storageVersion      string           // Storage version
-	firstVersion        int64            // First version of nodeDB.
-	latestVersion       int64            // Latest version of nodeDB.
-	legacyLatestVersion int64            // Latest version of nodeDB in legacy format.
-	nodeCache           cache.NodeCache  // Cache for nodes in the regular tree that consists of key-value pairs at any version.
-	fastNodeCache       cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
+	db                   dbm.DB           // Persistent node storage.
+	batch                dbm.Batch        // Batched writing buffer.
+	opts                 Options          // Options to customize for pruning/writing
+	versionReaderWriters map[int64]uint32 // Number of active version readers
+	storageVersion       string           // Storage version
+	firstVersion         int64            // First version of nodeDB.
+	latestVersion        int64            // Latest version of nodeDB.
+	legacyLatestVersion  int64            // Latest version of nodeDB in legacy format.
+	nodeCache            cache.NodeCache  // Cache for nodes in the regular tree that consists of key-value pairs at any version.
+	fastNodeCache        cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
@@ -97,17 +97,17 @@ func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
 	}
 
 	d := &nodeDB{
-		logger:              lg,
-		db:                  db,
-		batch:               NewBatchWithFlusher(db, opts.FlushThreshold),
-		opts:                opts,
-		firstVersion:        0,
-		latestVersion:       0, // initially invalid
-		legacyLatestVersion: 0,
-		nodeCache:           cache.NewNodeCache(cacheSize),
-		fastNodeCache:       cache.New(fastNodeCacheSize),
-		versionReaders:      make(map[int64]uint32, 8),
-		storageVersion:      string(storeVersion),
+		logger:               lg,
+		db:                   db,
+		batch:                NewBatchWithFlusher(db, opts.FlushThreshold),
+		opts:                 opts,
+		firstVersion:         0,
+		latestVersion:        0, // initially invalid
+		legacyLatestVersion:  0,
+		nodeCache:            cache.NewNodeCache(cacheSize),
+		fastNodeCache:        cache.New(fastNodeCacheSize),
+		versionReaderWriters: make(map[int64]uint32, 8),
+		storageVersion:       string(storeVersion),
 	}
 
 	d.startAsyncWrite()
@@ -270,31 +270,29 @@ func (ndb *nodeDB) writeFastNode(node *fastnode.Node) error {
 // saveVersion lets the async write goroutine know to commit the batch.
 func (ndb *nodeDB) saveVersion(version int64) {
 	ndb.resetLatestVersion(version)
-	ndb.incrVersionReaders(version)
-	// push the dummy struct to the async write channel
-	ndb.chWrite <- struct{}{}
+	ndb.incrVersionReaderWriters(version)
+	// push the version to the async write channel
+	ndb.chWrite <- version
 }
 
 // asyncWrite writes nodes to db asynchronously.
 func (ndb *nodeDB) asyncWrite() {
 	defer ndb.wgWrite.Done()
 
-	prevVersion := int64(0)
 	for node := range ndb.chWrite {
-		if node == struct{}{} {
+		if v, ok := node.(int64); ok {
 			if err := ndb.Commit(); err != nil {
 				ndb.logger.Error("failed to commit batch", "err", err)
 			}
 
-			ndb.nodeCache.SetVersion(prevVersion)
-			ndb.decrVersionReaders(prevVersion)
+			ndb.nodeCache.SetVersion(v)
+			ndb.decrVersionReaderWriters(v)
 			continue
 		}
 		if n, ok := node.(*Node); ok {
 			if err := ndb.writeNode(n); err != nil {
 				ndb.logger.Error("failed to write node", "err", err)
 			}
-			prevVersion = n.GetVersion()
 		} else if n, ok := node.(*fastnode.Node); ok {
 			if n.GetValue() == nil {
 				// delete fast node
@@ -551,7 +549,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	ndb.mtx.Lock()
-	for v, r := range ndb.versionReaders {
+	for v, r := range ndb.versionReaderWriters {
 		if v >= fromVersion && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
@@ -625,7 +623,7 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 		return fmt.Errorf("the version should be smaller than the latest version %d", latest)
 	}
 
-	for v, r := range ndb.versionReaders {
+	for v, r := range ndb.versionReaderWriters {
 		if v >= first && v <= toVersion && r != 0 {
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
@@ -945,17 +943,20 @@ func (ndb *nodeDB) Commit() error {
 	return nil
 }
 
-func (ndb *nodeDB) incrVersionReaders(version int64) {
+func (ndb *nodeDB) incrVersionReaderWriters(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	ndb.versionReaders[version]++
+	ndb.versionReaderWriters[version]++
 }
 
-func (ndb *nodeDB) decrVersionReaders(version int64) {
+func (ndb *nodeDB) decrVersionReaderWriters(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	if ndb.versionReaders[version] > 0 {
-		ndb.versionReaders[version]--
+	count := ndb.versionReaderWriters[version]
+	if count == 1 {
+		delete(ndb.versionReaderWriters, version)
+	} else if count > 1 {
+		ndb.versionReaderWriters[version]--
 	}
 }
 

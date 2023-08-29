@@ -1555,6 +1555,8 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail")
 
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
 	err = tree.DeleteVersionsTo(1)
 	require.NoError(err, "DeleteVersion should not fail")
 
@@ -1583,6 +1585,8 @@ func TestLoadVersionForOverwritingCase3(t *testing.T) {
 
 	removedNodes := []*Node{}
 
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
 	for _, n := range nodes {

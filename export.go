@@ -53,7 +53,7 @@ func newExporter(tree *ImmutableTree) (*Exporter, error) {
 		cancel: cancel,
 	}
 
-	tree.ndb.incrVersionReaders(tree.version)
+	tree.ndb.incrVersionReaderWriters(tree.version)
 	go exporter.export(ctx)
 
 	return exporter, nil
@@ -93,7 +93,7 @@ func (e *Exporter) Close() {
 	for range e.ch { // drain channel
 	}
 	if e.tree != nil {
-		e.tree.ndb.decrVersionReaders(e.tree.version)
+		e.tree.ndb.decrVersionReaderWriters(e.tree.version)
 	}
 	e.tree = nil
 }

@@ -219,6 +219,8 @@ func TestMutableTree_DeleteVersionsTo(t *testing.T) {
 	}
 
 	// delete even versions
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
 	versionToDelete := int64(8)
 	require.NoError(t, tree.DeleteVersionsTo(versionToDelete))
 
