@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
-	"github.com/cosmos/iavl/fastnode"
 
 	"github.com/cosmos/iavl/internal/encoding"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
@@ -124,6 +123,7 @@ func TestDelete(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	require.NoError(t, tree.DeleteVersionsTo(version))
 
 	proof, err := tree.GetVersionedProof([]byte("k1"), version)
@@ -188,7 +188,9 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestMutableTree_DeleteVersionsTo(t *testing.T) {
-	tree := setupMutableTree(false)
+	memDB := db.NewMemDB()
+	tree := NewMutableTree(memDB, 0, false, log.NewTestLogger(t))
+	// tree := setupMutableTree(false)
 
 	type entry struct {
 		key   []byte
@@ -274,6 +276,7 @@ func TestMutableTree_InitialVersion(t *testing.T) {
 	assert.EqualValues(t, 10, version)
 
 	// Reloading the tree with the same initial version is fine
+	require.NoError(t, tree.Close())
 	tree = NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 	version, err = tree.Load()
 	require.NoError(t, err)
@@ -345,6 +348,7 @@ func prepareTree(t *testing.T) *MutableTree {
 	require.True(t, ver == 2)
 	require.NoError(t, err)
 
+	require.NoError(t, tree.Close())
 	newTree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 
 	return newTree
@@ -404,6 +408,7 @@ func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
 	_, v1, err := tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	newTree1 := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	v2, err := newTree1.LoadVersion(1)
 	require.NoError(t, err)
@@ -654,6 +659,7 @@ func TestMutableTree_FastNodeIntegration(t *testing.T) {
 	require.Equal(t, len(unsavedNodeRemovals), 0)
 
 	// Load
+	tree.ndb.waitAsyncWrite()
 	t2 := NewMutableTree(mdb, 0, false, log.NewNopLogger())
 
 	_, err = t2.Load()
@@ -704,6 +710,7 @@ func TestIterate_MutableTree_Unsaved_NextVersion(t *testing.T) {
 
 	assertMutableMirrorIterate(t, tree, mirror)
 
+	tree.ndb.startAsyncWrite()
 	randomizeTreeAndMirror(t, tree, mirror)
 
 	assertMutableMirrorIterate(t, tree, mirror)
@@ -1013,6 +1020,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testi
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.True(t, isFastCacheEnabled)
@@ -1080,6 +1088,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.True(t, isFastCacheEnabled)
@@ -1124,103 +1133,6 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 			require.Equal(t, []byte(kv[1]), v)
 		}
 	})
-}
-
-func TestUpgradeStorageToFast_Success(t *testing.T) {
-	tmpCommitGap := commitGap
-	commitGap = 1000
-	defer func() {
-		commitGap = tmpCommitGap
-	}()
-
-	type fields struct {
-		nodeCount int
-	}
-	tests := []struct {
-		name   string
-		fields fields
-	}{
-		{"less than commit gap", fields{nodeCount: 100}},
-		{"equal to commit gap", fields{nodeCount: int(commitGap)}},
-		{"great than commit gap", fields{nodeCount: int(commitGap) + 100}},
-		{"two times commit gap", fields{nodeCount: int(commitGap) * 2}},
-		{"two times plus commit gap", fields{nodeCount: int(commitGap)*2 + 1}},
-	}
-
-	for _, tt := range tests {
-		tree, mirror := setupTreeAndMirror(t, tt.fields.nodeCount, false)
-		enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
-		require.Nil(t, err)
-		require.True(t, enabled)
-		t.Run(tt.name, func(t *testing.T) {
-			i := 0
-			iter := NewFastIterator(nil, nil, true, tree.ndb)
-			for ; iter.Valid(); iter.Next() {
-				require.Equal(t, []byte(mirror[i][0]), iter.Key())
-				require.Equal(t, []byte(mirror[i][1]), iter.Value())
-				i++
-			}
-			require.Equal(t, len(mirror), i)
-		})
-	}
-}
-
-func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
-	// we delete fast node, in case of deadlock. we should limit the stale count lower than chBufferSize(64)
-	tmpCommitGap := commitGap
-	commitGap = 5
-	defer func() {
-		commitGap = tmpCommitGap
-	}()
-
-	valStale := "val_stale"
-	addStaleKey := func(ndb *nodeDB, staleCount int) {
-		keyPrefix := "key"
-		for i := 0; i < staleCount; i++ {
-			key := fmt.Sprintf("%s_%d", keyPrefix, i)
-
-			node := fastnode.NewNode([]byte(key), []byte(valStale), 100)
-			var buf bytes.Buffer
-			buf.Grow(node.EncodedSize())
-			err := node.WriteBytes(&buf)
-			require.NoError(t, err)
-			err = ndb.db.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
-			require.NoError(t, err)
-		}
-	}
-	type fields struct {
-		nodeCount  int
-		staleCount int
-	}
-
-	tests := []struct {
-		name   string
-		fields fields
-	}{
-		{"stale less than commit gap", fields{nodeCount: 100, staleCount: 4}},
-		{"stale equal to commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)}},
-		{"stale great than commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap)*2 - 1}},
-		{"stale twice commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap) * 2}},
-		{"stale great than twice commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)*2 + 1}},
-	}
-
-	for _, tt := range tests {
-		tree, mirror := setupTreeAndMirror(t, tt.fields.nodeCount, false)
-		addStaleKey(tree.ndb, tt.fields.staleCount)
-		enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
-		require.Nil(t, err)
-		require.True(t, enabled)
-		t.Run(tt.name, func(t *testing.T) {
-			i := 0
-			iter := NewFastIterator(nil, nil, true, tree.ndb)
-			for ; iter.Valid(); iter.Next() {
-				require.Equal(t, []byte(mirror[i][0]), iter.Key())
-				require.Equal(t, []byte(mirror[i][1]), iter.Value())
-				i++
-			}
-			require.Equal(t, len(mirror), i)
-		})
-	}
 }
 
 func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade bool) (*MutableTree, [][]string) {
@@ -1274,6 +1186,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Get_Success(t *testin
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	sut := NewMutableTree(tree.ndb.db, 1000, true, log.NewNopLogger())
 
 	isFastCacheEnabled, err = sut.IsFastCacheEnabled()
@@ -1361,6 +1274,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	sut := NewMutableTree(tree.ndb.db, 1000, true, log.NewNopLogger())
 
 	isFastCacheEnabled, err = sut.IsFastCacheEnabled()

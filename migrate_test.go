@@ -118,6 +118,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load the previous version
+	tree.ndb.waitAsyncWrite()
 	newTree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 	_, err = newTree.LoadVersion(version - 1)
 	require.NoError(t, err)

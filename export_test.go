@@ -346,6 +346,7 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 	require.NoError(t, err)
 	defer exporter.Close()
 
+	tree.ndb.waitAsyncWrite()
 	err = tree.DeleteVersionsTo(1)
 	require.NoError(t, err)
 

@@ -61,13 +61,14 @@ func TestVersionedRandomTree(t *testing.T) {
 	// Create a tree of size 1000 with 100 versions.
 	for i := 1; i <= versions; i++ {
 		for j := 0; j < keysPerVersion; j++ {
-			k := []byte(iavlrand.RandStr(8))
+			k := []byte(fmt.Sprintf("key-%d-%d", i, j))
 			v := []byte(iavlrand.RandStr(8))
 			tree.Set(k, v)
 		}
 		tree.SaveVersion()
 	}
 
+	tree.ndb.waitAsyncWrite()
 	leafNodes, err := tree.ndb.leafNodes()
 	require.Nil(err)
 	require.Equal(versions*keysPerVersion, len(leafNodes), "wrong number of nodes")
@@ -197,6 +198,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	}
 	singleVersionTree.SaveVersion()
 
+	// tree.ndb.asyncWrite()
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersionsTo(int64(i))
 	}
@@ -286,6 +288,7 @@ func TestVersionedTreeSpecial1(t *testing.T) {
 	tree.Set([]byte("T"), []byte("MhkWjkVy"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	tree.DeleteVersionsTo(1)
 	tree.DeleteVersionsTo(2)
 	tree.DeleteVersionsTo(3)
@@ -307,6 +310,7 @@ func TestVersionedRandomTreeSpecial2(t *testing.T) {
 	tree.Set([]byte("7OSHNE7k"), []byte("ff181M2d"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	tree.DeleteVersionsTo(1)
 
 	nodes, err := tree.ndb.nodes()
@@ -347,6 +351,7 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.True(tree.VersionExists(3))
 
 	// Test the empty root loads correctly.
+	tree.ndb.waitAsyncWrite()
 	it, err := tree.GetImmutable(3)
 	require.NoError(err)
 	require.Nil(it.root)
@@ -405,12 +410,13 @@ func TestVersionedTree(t *testing.T) {
 	// key2 (root)  version=1
 	// -----------
 
+	tree.ndb.waitAsyncWrite()
 	nodes1, err := tree.ndb.leafNodes()
 	require.NoError(err)
 	require.Len(nodes1, 2, "db should have a size of 2")
 
 	// version  1
-
+	tree.ndb.startAsyncWrite()
 	tree.Set([]byte("key1"), []byte("val1"))
 	tree.Set([]byte("key2"), []byte("val1"))
 	tree.Set([]byte("key3"), []byte("val1"))
@@ -425,6 +431,7 @@ func TestVersionedTree(t *testing.T) {
 
 	// Recreate a new tree and load it, to make sure it works in this
 	// scenario.
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(d, 100, false, log.NewNopLogger())
 	_, err = tree.Load()
 	require.NoError(err)
@@ -466,6 +473,7 @@ func TestVersionedTree(t *testing.T) {
 	// key2 = val2
 	// -----------
 
+	tree.ndb.waitAsyncWrite()
 	nodes3, err := tree.ndb.leafNodes()
 	require.NoError(err)
 	require.Len(nodes3, 6, "wrong number of nodes")
@@ -474,10 +482,12 @@ func TestVersionedTree(t *testing.T) {
 	require.NoError(err)
 	require.Len(orphans, 7, "wrong number of orphans")
 
+	tree.ndb.startAsyncWrite()
 	hash4, _, _ := tree.SaveVersion()
 	require.EqualValues(hash3, hash4)
 	require.NotNil(hash4)
 
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(d, 100, false, log.NewNopLogger())
 	_, err = tree.Load()
 	require.NoError(err)
@@ -655,6 +665,7 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	tree.DeleteVersionsTo(2)
 
 	val, err := tree.Get([]byte("key0"))
@@ -698,6 +709,7 @@ func TestVersionedTreeSpecialCase(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	tree.DeleteVersionsTo(2)
 
 	val, err := tree.GetVersioned([]byte("key2"), 1)
@@ -722,6 +734,7 @@ func TestVersionedTreeSpecialCase2(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(d, 100, false, log.NewNopLogger())
 	_, err := tree.Load()
 	require.NoError(err)
@@ -753,6 +766,7 @@ func TestVersionedTreeSpecialCase3(t *testing.T) {
 	tree.Set([]byte("k"), []byte("CpEnpzKJ"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	tree.DeleteVersionsTo(1)
 	tree.DeleteVersionsTo(2)
 	tree.DeleteVersionsTo(3)
@@ -790,6 +804,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	require.Equal(int64(6), tree.Version())
 
 	// Reload the tree, to test that roots and orphans are properly loaded.
+	tree.ndb.waitAsyncWrite()
 	ntree := NewMutableTree(d, 0, false, log.NewNopLogger())
 	ntree.Load()
 
@@ -802,6 +817,7 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion()
 
+	ntree.ndb.waitAsyncWrite()
 	ntree.DeleteVersionsTo(1)
 	ntree.DeleteVersionsTo(4)
 	ntree.DeleteVersionsTo(6)
@@ -860,6 +876,7 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 
 	// When version 1 is deleted, the orphans should move to the next
 	// checkpoint, which is version 10.
+	tree.ndb.waitAsyncWrite()
 	tree.DeleteVersionsTo(1)
 
 	val, err := tree.GetVersioned(key, 2)
@@ -923,6 +940,8 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 
 	tree.Set([]byte("X"), []byte("New"))
 	tree.SaveVersion()
+
+	tree.ndb.waitAsyncWrite()
 
 	val, err := tree.GetVersioned([]byte("A"), 2)
 	require.NoError(t, err)
@@ -1043,8 +1062,8 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 		require.NoError(err)
 		sizeBefore := len(nodes)
 		tree.SaveVersion()
-		_, err = tree.ndb.nodes()
-		require.NoError(err)
+		tree.ndb.waitAsyncWrite()
+		tree.ndb.startAsyncWrite()
 		nodes, err = tree.ndb.nodes()
 		require.NoError(err)
 		sizeAfter := len(nodes)
@@ -1107,6 +1126,8 @@ func TestVersionedTreeProofs(t *testing.T) {
 
 	root3 := tree.Hash()
 	require.NotEqual(root2, root3)
+
+	tree.ndb.waitAsyncWrite()
 
 	iTree, err := tree.GetImmutable(1)
 	require.NoError(err)
@@ -1319,7 +1340,8 @@ func TestOverwrite(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail")
 
-	// Reload tree at version 1
+	// Close the tree and reload tree at version 1
+	require.NoError(tree.Close())
 	tree = NewMutableTree(mdb, 0, false, log.NewNopLogger())
 	_, err = tree.LoadVersion(int64(1))
 	require.NoError(err, "LoadVersion should not fail")
@@ -1502,6 +1524,8 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	}
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
 	removedNodes := []*Node{}
 
 	nodes, err := tree.ndb.nodes()

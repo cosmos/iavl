@@ -117,6 +117,7 @@ func expectTraverse(t *testing.T, trav traverser, start, end string, count int) 
 }
 
 func assertMutableMirrorIterate(t *testing.T, tree *MutableTree, mirror map[string]string) {
+	tree.ndb.waitAsyncWrite()
 	sortedMirrorKeys := make([]string, 0, len(mirror))
 	for k := range mirror {
 		sortedMirrorKeys = append(sortedMirrorKeys, k)

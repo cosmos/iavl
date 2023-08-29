@@ -277,6 +277,7 @@ func TestTraverseNodes(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	count := 0
 	err = tree.ndb.traverseNodes(func(node *Node) error {
 		actualNode, err := tree.ndb.GetNode(node.GetKey())

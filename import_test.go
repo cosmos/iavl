@@ -96,6 +96,7 @@ func TestImporter_NotEmptyDatabase(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
 	_, err = tree.Load()
 	require.NoError(t, err)

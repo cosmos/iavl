@@ -178,6 +178,7 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	err = tree.DeleteVersionsTo(1)
 	require.NoError(t, err)
 
@@ -252,6 +253,7 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Itera
 	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	immutableTree, err := tree.GetImmutable(latestVersion)
@@ -268,6 +270,7 @@ func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.I
 	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	itr := NewFastIterator(config.startIterate, config.endIterate, config.ascending, tree.ndb)
 	return itr, mirror
 }
@@ -290,6 +293,8 @@ func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Ite
 	mirror := setupMirrorForIterator(t, &firstHalfConfig, tree)
 	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
+
+	tree.ndb.waitAsyncWrite()
 
 	// No unsaved additions or removals should be present after saving
 	require.Equal(t, 0, len(tree.unsavedFastNodeAdditions))

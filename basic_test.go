@@ -448,6 +448,7 @@ func TestPersistence(t *testing.T) {
 	t1.SaveVersion()
 
 	// Load a tree
+	t1.ndb.waitAsyncWrite()
 	t2 := NewMutableTree(db, 0, false, log.NewNopLogger())
 	t2.Load()
 	for key, value := range records {
