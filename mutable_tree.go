@@ -35,10 +35,10 @@ type Option func(*Options)
 type MutableTree struct {
 	logger log.Logger
 
-	*ImmutableTree                                     // The current, working tree.
-	lastSaved                *ImmutableTree            // The most recently saved tree.
-	unsavedFastNodeAdditions map[string]*fastnode.Node // FastNodes that have not yet been saved to disk
-	unsavedFastNodeRemovals  map[string]interface{}    // FastNodes that have not yet been removed from disk
+	*ImmutableTree                          // The current, working tree.
+	lastSaved                *ImmutableTree // The most recently saved tree.
+	unsavedFastNodeAdditions *sync.Map      // map[string]*FastNode FastNodes that have not yet been saved to disk
+	unsavedFastNodeRemovals  *sync.Map      // map[string]interface{} FastNodes that have not yet been removed from disk
 	ndb                      *nodeDB
 	skipFastStorageUpgrade   bool // If true, the tree will work like no fast storage and always not upgrade fast storage
 
@@ -59,8 +59,8 @@ func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg lo
 		logger:                   lg,
 		ImmutableTree:            head,
 		lastSaved:                head.clone(),
-		unsavedFastNodeAdditions: make(map[string]*fastnode.Node),
-		unsavedFastNodeRemovals:  make(map[string]interface{}),
+		unsavedFastNodeAdditions: &sync.Map{},
+		unsavedFastNodeRemovals:  &sync.Map{},
 		ndb:                      ndb,
 		skipFastStorageUpgrade:   skipFastStorageUpgrade,
 	}
@@ -173,11 +173,11 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	}
 
 	if !tree.skipFastStorageUpgrade {
-		if fastNode, ok := tree.unsavedFastNodeAdditions[string(key)]; ok {
-			return fastNode.GetValue(), nil
+		if fastNode, ok := tree.unsavedFastNodeAdditions.Load(ibytes.UnsafeBytesToStr(key)); ok {
+			return fastNode.(*fastnode.Node).GetValue(), nil
 		}
 		// check if node was deleted
-		if _, ok := tree.unsavedFastNodeRemovals[string(key)]; ok {
+		if _, ok := tree.unsavedFastNodeRemovals.Load(string(key)); ok {
 			return nil, nil
 		}
 	}
@@ -642,8 +642,8 @@ func (tree *MutableTree) Rollback() {
 		}
 	}
 	if !tree.skipFastStorageUpgrade {
-		tree.unsavedFastNodeAdditions = map[string]*fastnode.Node{}
-		tree.unsavedFastNodeRemovals = map[string]interface{}{}
+		tree.unsavedFastNodeAdditions = &sync.Map{}
+		tree.unsavedFastNodeRemovals = &sync.Map{}
 	}
 }
 
@@ -756,8 +756,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.ImmutableTree = tree.ImmutableTree.clone()
 	tree.lastSaved = tree.ImmutableTree.clone()
 	if !tree.skipFastStorageUpgrade {
-		tree.unsavedFastNodeAdditions = make(map[string]*fastnode.Node)
-		tree.unsavedFastNodeRemovals = make(map[string]interface{})
+		tree.unsavedFastNodeAdditions = &sync.Map{}
+		tree.unsavedFastNodeRemovals = &sync.Map{}
 	}
 
 	hash := tree.Hash()
@@ -775,47 +775,64 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return tree.ndb.setFastStorageVersionToBatch()
 }
 
+// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
-	return tree.unsavedFastNodeAdditions
+	additions := make(map[string]*fastnode.Node)
+	tree.unsavedFastNodeAdditions.Range(func(key, value interface{}) bool {
+		additions[key.(string)] = value.(*fastnode.Node)
+		return true
+	})
+	return additions
 }
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
 
 func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
-	return tree.unsavedFastNodeRemovals
+	removals := make(map[string]interface{})
+	tree.unsavedFastNodeRemovals.Range(func(key, value interface{}) bool {
+		removals[key.(string)] = value
+		return true
+	})
+	return removals
 }
 
+// addUnsavedAddition stores an addition into the unsaved additions map
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
-	delete(tree.unsavedFastNodeRemovals, ibytes.UnsafeBytesToStr(key))
-	tree.unsavedFastNodeAdditions[string(key)] = node
+	skey := ibytes.UnsafeBytesToStr(key)
+	tree.unsavedFastNodeRemovals.Delete(skey)
+	tree.unsavedFastNodeAdditions.Store(skey, node)
 }
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
-	keysToSort := make([]string, 0, len(tree.unsavedFastNodeAdditions))
-	for key := range tree.unsavedFastNodeAdditions {
-		keysToSort = append(keysToSort, key)
-	}
+	keysToSort := make([]string, 0)
+	tree.unsavedFastNodeAdditions.Range(func(k, v interface{}) bool {
+		keysToSort = append(keysToSort, k.(string))
+		return true
+	})
 	sort.Strings(keysToSort)
 
 	for _, key := range keysToSort {
-		if err := tree.ndb.SaveFastNode(tree.unsavedFastNodeAdditions[key]); err != nil {
+		val, _ := tree.unsavedFastNodeAdditions.Load(key)
+		if err := tree.ndb.SaveFastNode(val.(*fastnode.Node)); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+// addUnsavedRemoval adds a removal to the unsaved removals map
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
 	skey := ibytes.UnsafeBytesToStr(key)
-	delete(tree.unsavedFastNodeAdditions, skey)
-	tree.unsavedFastNodeRemovals[skey] = true
+	tree.unsavedFastNodeAdditions.Delete(skey)
+	tree.unsavedFastNodeRemovals.Store(skey, true)
 }
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
-	keysToSort := make([]string, 0, len(tree.unsavedFastNodeRemovals))
-	for key := range tree.unsavedFastNodeRemovals {
-		keysToSort = append(keysToSort, key)
-	}
+	keysToSort := make([]string, 0)
+	tree.unsavedFastNodeRemovals.Range(func(k, v interface{}) bool {
+		keysToSort = append(keysToSort, k.(string))
+		return true
+	})
 	sort.Strings(keysToSort)
 
 	for _, key := range keysToSort {
