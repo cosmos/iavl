@@ -742,6 +742,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
+	tree.ndb.resetLatestVersion(version)
+
 	if !tree.skipFastStorageUpgrade {
 		if err := tree.saveFastNodeVersion(); err != nil {
 			return nil, version, err

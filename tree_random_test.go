@@ -152,6 +152,8 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 			version, tree.Size(), len(tree.AvailableVersions()))
 
 		// Verify that the version matches the mirror.
+		tree.ndb.waitAsyncWrite()
+		tree.ndb.startAsyncWrite()
 		assertMirror(t, tree, mirror, 0)
 
 		// Save the mirror as a disk mirror, since we currently persist all versions.

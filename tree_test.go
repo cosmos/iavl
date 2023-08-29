@@ -610,6 +610,9 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val0"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
+
 	leafNodes, err := tree.ndb.leafNodes()
 	require.Nil(t, err)
 	require.Len(t, leafNodes, 3)
@@ -619,6 +622,9 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 	tree.Set([]byte("key3"), []byte("val1"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
+
 	leafNodes, err = tree.ndb.leafNodes()
 	require.Nil(t, err)
 	require.Len(t, leafNodes, 6)
@@ -627,6 +633,9 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 	tree.Remove([]byte("key1"))
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
+
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
 
 	leafNodes, err = tree.ndb.leafNodes()
 	require.Nil(t, err)

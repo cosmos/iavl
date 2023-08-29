@@ -269,7 +269,6 @@ func (ndb *nodeDB) writeFastNode(node *fastnode.Node) error {
 
 // saveVersion lets the async write goroutine know to commit the batch.
 func (ndb *nodeDB) saveVersion(version int64) {
-	ndb.resetLatestVersion(version)
 	ndb.incrVersionReaderWriters(version)
 	// push the version to the async write channel
 	ndb.chWrite <- version
