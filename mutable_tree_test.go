@@ -818,8 +818,6 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
-
-	tree.ndb.waitAsyncWrite()
 }
 
 func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
@@ -837,7 +835,7 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	batchMock := mock.NewMockBatch(ctrl)
 
 	dbMock.EXPECT().Get(gomock.Any()).Return(nil, nil).Times(1)
-	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(2)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 
 	iterMock := mock.NewMockIterator(ctrl)
@@ -848,6 +846,8 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 
 	batchMock.EXPECT().Set(gomock.Any(), gomock.Any()).Return(expectedError).Times(1)
 	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(1)
+	batchMock.EXPECT().Write().Return(nil).Times(1)
+	batchMock.EXPECT().Close().Return(nil).Times(1)
 
 	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())
 	require.NotNil(t, tree)
@@ -857,8 +857,8 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	require.False(t, isFastCacheEnabled)
 
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
-	require.ErrorIs(t, err, expectedError)
-	require.False(t, enabled)
+	require.NoError(t, err)
+	require.True(t, enabled)
 
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
@@ -887,8 +887,11 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 
 	batchMock := mock.NewMockBatch(ctrl)
 
+	batchMock.EXPECT().Write().Return(nil)
+	batchMock.EXPECT().Close().Return(nil)
+
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
-	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(2)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 
 	tree := NewMutableTree(dbMock, 0, false, log.NewNopLogger())

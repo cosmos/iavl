@@ -26,6 +26,7 @@ func TestDiffRoundTrip(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(i+1), v)
 	}
+	tree.ndb.waitAsyncWrite()
 
 	// extract change sets from db
 	var extractChangeSets []*ChangeSet

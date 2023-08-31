@@ -247,6 +247,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	}
 	singleVersionTree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
 	for _, i := range iavlrand.RandPerm(versions - 1) {
 		tree.DeleteVersionsTo(int64(i + 1))
 	}
