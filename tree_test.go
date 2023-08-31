@@ -911,6 +911,8 @@ func TestVersionedCheckpointsSpecialCase2(_ *testing.T) {
 	tree.Set([]byte("X"), []byte("New"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
+
 	tree.DeleteVersionsTo(1)
 	tree.DeleteVersionsTo(2)
 }
@@ -929,6 +931,8 @@ func TestVersionedCheckpointsSpecialCase3(_ *testing.T) {
 	tree.Set([]byte("l"), []byte("bhIpltPM"))
 	tree.Set([]byte("B"), []byte("rj97IKZh"))
 	tree.SaveVersion()
+
+	tree.ndb.waitAsyncWrite()
 
 	tree.DeleteVersionsTo(2)
 
@@ -985,6 +989,8 @@ func TestVersionedCheckpointsSpecialCase5(_ *testing.T) {
 	tree.Set([]byte("R"), []byte("vQDaoz6Z"))
 	tree.SaveVersion()
 
+	tree.ndb.waitAsyncWrite()
+
 	tree.DeleteVersionsTo(1)
 
 	tree.GetVersioned([]byte("R"), 2)
@@ -1009,6 +1015,8 @@ func TestVersionedCheckpointsSpecialCase6(_ *testing.T) {
 	tree.Set([]byte("7"), []byte("bn62vWbq"))
 	tree.Set([]byte("5"), []byte("wZuLGDkZ"))
 	tree.SaveVersion()
+
+	tree.ndb.waitAsyncWrite()
 
 	tree.DeleteVersionsTo(1)
 	tree.DeleteVersionsTo(2)
@@ -1049,6 +1057,8 @@ func TestVersionedCheckpointsSpecialCase7(_ *testing.T) {
 
 	tree.Set([]byte("A"), []byte("tWQgbFCY"))
 	tree.SaveVersion()
+
+	tree.ndb.waitAsyncWrite()
 
 	tree.DeleteVersionsTo(4)
 
@@ -1199,6 +1209,8 @@ func TestOrphans(t *testing.T) {
 		_, _, err := tree.SaveVersion()
 		require.NoError(err, "SaveVersion should not error")
 	}
+
+	tree.ndb.waitAsyncWrite()
 
 	for v := 1; v < NUMVERSIONS; v++ {
 		err := tree.DeleteVersionsTo(int64(v))

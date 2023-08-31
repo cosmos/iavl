@@ -93,7 +93,6 @@ func TestSetStorageVersion_Success(t *testing.T) {
 	latestVersion, err := ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), ndb.getStorageVersion())
-	require.NoError(t, ndb.batch.Write())
 }
 
 func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
