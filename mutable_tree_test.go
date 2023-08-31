@@ -1018,7 +1018,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testing.T) {
 	// Setup
-	tree, mirror := setupTreeAndMirror(t, 100, false)
+	tree, mirror := setupTreeAndMirror(t, 200, false)
 
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 	require.NoError(t, err)

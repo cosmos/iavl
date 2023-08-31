@@ -777,7 +777,6 @@ func (tree *MutableTree) saveFastNodeVersion() error {
 	return tree.ndb.setFastStorageVersionToBatch()
 }
 
-// nolint: unused
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
 	additions := make(map[string]*fastnode.Node)
 	tree.unsavedFastNodeAdditions.Range(func(key, value interface{}) bool {
@@ -788,7 +787,6 @@ func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node
 }
 
 // getUnsavedFastNodeRemovals returns unsaved FastNodes to remove
-
 func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 	removals := make(map[string]interface{})
 	tree.unsavedFastNodeRemovals.Range(func(key, value interface{}) bool {
