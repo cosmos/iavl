@@ -536,6 +536,9 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) error {
 		}
 	}
 
+	tree.ndb.waitAsyncWrite()
+	tree.ndb.startAsyncWrite()
+
 	return nil
 }
 
@@ -717,15 +720,12 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.logger.Debug("SAVE TREE", "version", version)
 	// save new nodes
 	if tree.root == nil {
-		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
-			return nil, 0, err
-		}
+		tree.ndb.SaveEmptyRoot(version)
 	} else {
 		if tree.root.nodeKey != nil {
 			// it means there is no updated
-			if err := tree.ndb.SaveRoot(version, tree.root.nodeKey.version); err != nil {
-				return nil, 0, err
-			}
+			tree.ndb.SaveRoot(version, tree.root.nodeKey.version)
+
 			// it means the reference node is a legacy node
 			if tree.root.nodeKey.nonce == 0 {
 				// it will update the legacy node to the new format

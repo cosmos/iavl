@@ -257,6 +257,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	}
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
+	tree.ndb.waitAsyncWrite()
 	err = tree.DeleteVersionsTo(prevVersion)
 	require.NoError(t, err)
 	assertEmptyDatabase(t, tree)

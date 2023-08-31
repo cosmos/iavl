@@ -89,6 +89,11 @@ type nodeDB struct {
 	fastNodeCache        cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 }
 
+// element is a key-value pair for atomic batch writes.
+type element struct {
+	key, value []byte
+}
+
 func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
 	storeVersion, err := db.Get(metadataKeyFormat.Key([]byte(storageVersionKey)))
 
@@ -287,8 +292,11 @@ func (ndb *nodeDB) asyncWrite() {
 			ndb.nodeCache.SetVersion(v)
 			ndb.decrVersionReaderWriters(v)
 			continue
-		}
-		if n, ok := node.(*Node); ok {
+		} else if e, ok := node.(element); ok {
+			if err := ndb.batch.Set(e.key, e.value); err != nil {
+				ndb.logger.Error("failed to set element", "err", err)
+			}
+		} else if n, ok := node.(*Node); ok {
 			if err := ndb.writeNode(n); err != nil {
 				ndb.logger.Error("failed to write node", "err", err)
 			}
@@ -349,9 +357,7 @@ func (ndb *nodeDB) setFastStorageVersionToBatch() error {
 
 	newVersion += fastStorageVersionDelimiter + strconv.Itoa(int(latestVersion))
 
-	if err := ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(newVersion)); err != nil {
-		return err
-	}
+	ndb.chWrite <- element{metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(newVersion)}
 	ndb.storageVersion = newVersion
 	return nil
 }
@@ -417,26 +423,6 @@ func (ndb *nodeDB) Has(nk []byte) (bool, error) {
 	}
 
 	return value != nil, nil
-}
-
-func (ndb *nodeDB) writeBatch() error {
-	var err error
-	if ndb.opts.Sync {
-		err = ndb.batch.WriteSync()
-	} else {
-		err = ndb.batch.Write()
-	}
-	if err != nil {
-		return err
-	}
-	err = ndb.batch.Close()
-	if err != nil {
-		return err
-	}
-
-	ndb.batch = NewBatchWithFlusher(ndb.db, ndb.opts.FlushThreshold)
-
-	return nil
 }
 
 // deleteVersion deletes a tree version from disk.
@@ -843,13 +829,13 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 }
 
 // SaveEmptyRoot saves the empty root.
-func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
-	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), []byte{})
+func (ndb *nodeDB) SaveEmptyRoot(version int64) {
+	ndb.chWrite <- element{nodeKeyFormat.Key(GetRootKey(version)), []byte{}}
 }
 
 // SaveRoot saves the root when no updates.
-func (ndb *nodeDB) SaveRoot(version, prevVersion int64) error {
-	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), ndb.nodeKeyPrefix(prevVersion))
+func (ndb *nodeDB) SaveRoot(version, prevVersion int64) {
+	ndb.chWrite <- element{nodeKeyFormat.Key(GetRootKey(version)), ndb.nodeKeyPrefix(prevVersion)}
 }
 
 // Traverse fast nodes and return error if any, nil otherwise

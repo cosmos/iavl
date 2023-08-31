@@ -198,7 +198,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	}
 	singleVersionTree.SaveVersion()
 
-	// tree.ndb.asyncWrite()
+	tree.ndb.waitAsyncWrite()
 	for i := 1; i < versions; i++ {
 		tree.DeleteVersionsTo(int64(i))
 	}
@@ -1415,6 +1415,7 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 		require.NoError(err, "SaveVersion should not fail")
 	}
 
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(mdb, 0, false, log.NewNopLogger())
 	require.Error(tree.LoadVersionForOverwriting(int64(maxLength * 2)))
 
@@ -1441,6 +1442,7 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 	require.NoError(err, "SaveVersion should not fail, overwrite was allowed")
 
 	// Reload tree at version 50, the latest tree version is 52
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(mdb, 0, false, log.NewNopLogger())
 	_, err = tree.LoadVersion(int64(maxLength / 2))
 	require.NoError(err, "LoadVersion should not fail")
@@ -1631,6 +1633,7 @@ func TestIterate_ImmutableTree_Version1(t *testing.T) {
 	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	immutableTree, err := tree.GetImmutable(1)
 	require.NoError(t, err)
 
@@ -1648,6 +1651,7 @@ func TestIterate_ImmutableTree_Version2(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
+	tree.ndb.waitAsyncWrite()
 	immutableTree, err := tree.GetImmutable(2)
 	require.NoError(t, err)
 
@@ -1817,15 +1821,15 @@ func TestNodeCacheStatisic(t *testing.T) {
 			cacheSize:              numKeyVals,
 			expectFastCacheHitCnt:  numKeyVals,
 			expectFastCacheMissCnt: 0,
-			expectCacheHitCnt:      0,
-			expectCacheMissCnt:     1,
+			expectCacheHitCnt:      1,
+			expectCacheMissCnt:     0,
 		},
 		"without_cache": {
 			cacheSize:              0,
 			expectFastCacheHitCnt:  100000, // this value is hardcoded in nodedb for fast cache.
 			expectFastCacheMissCnt: 0,
-			expectCacheHitCnt:      0,
-			expectCacheMissCnt:     1,
+			expectCacheHitCnt:      1,
+			expectCacheMissCnt:     0,
 		},
 	}
 

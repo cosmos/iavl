@@ -188,9 +188,7 @@ func TestTraverse(t *testing.T) {
 }
 
 func TestMutableTree_DeleteVersionsTo(t *testing.T) {
-	memDB := db.NewMemDB()
-	tree := NewMutableTree(memDB, 0, false, log.NewTestLogger(t))
-	// tree := setupMutableTree(false)
+	tree := setupMutableTree(false)
 
 	type entry struct {
 		key   []byte
@@ -755,6 +753,8 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.True(t, isFastCacheEnabled)
+
+	tree.ndb.waitAsyncWrite()
 }
 
 func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
@@ -792,6 +792,8 @@ func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.True(t, isFastCacheEnabled)
+
+	tree.ndb.waitAsyncWrite()
 }
 
 func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
@@ -816,6 +818,8 @@ func TestUpgradeStorageToFast_DbErrorConstructor_Failure(t *testing.T) {
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
+
+	tree.ndb.waitAsyncWrite()
 }
 
 func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
@@ -859,6 +863,8 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
+
+	tree.ndb.waitAsyncWrite()
 }
 
 func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
@@ -905,6 +911,8 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 	enabled, err := tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
 	require.False(t, enabled)
+
+	tree.ndb.waitAsyncWrite()
 }
 
 func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_Success(t *testing.T) {
@@ -923,14 +931,10 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	// Setup db for iterator and reverse iterator mocks
 	expectedStorageVersion := []byte(fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(latestFastStorageVersionOnDisk))
 
-	// Setup fake reverse iterator db to traverse root versions, called by ndb's getLatestVersion
-	// rItr, err := db.ReverseIterator(rootKeyFormat.Key(1), rootKeyFormat.Key(latestTreeVersion + 1))
-	// require.NoError(t, err)
-
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
 
-	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(3)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(2)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -952,8 +956,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(2)
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
-	batchMock.EXPECT().Write().Return(nil).Times(2)
-	batchMock.EXPECT().Close().Return(nil).Times(2)
+	batchMock.EXPECT().Write().Return(nil).Times(1)
+	batchMock.EXPECT().Close().Return(nil).Times(1)
 
 	// iterMock is used to mock the underlying db iterator behing fast iterator
 	// Here, we want to mock the behavior of deleting fast nodes from disk when
@@ -1005,6 +1009,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	enabled, err = tree.enableFastStorageAndCommitIfNotEnabled()
 	require.NoError(t, err)
 	require.False(t, enabled)
+
+	tree.ndb.waitAsyncWrite()
 }
 
 func TestUpgradeStorageToFast_Integration_Upgraded_FastIterator_Success(t *testing.T) {
