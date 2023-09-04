@@ -3,13 +3,11 @@ package iavl
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
 	dbm "github.com/cometbft/cometbft-db"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
-	"github.com/cosmos/iavl/internal/logger"
 
 	"github.com/cosmos/iavl/fastnode"
 )
@@ -42,9 +40,6 @@ type UnsavedFastIterator struct {
 var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
 
 func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions, unsavedFastNodeRemovals *sync.Map) *UnsavedFastIterator {
-	logger.Debug("Starting NewUnsavedFastIterator")
-	fmt.Println("Starting NewUnsavedFastIterator")
-
 	iter := &UnsavedFastIterator{
 		start:                    start,
 		end:                      end,
@@ -58,11 +53,7 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 		fastIterator:             NewFastIterator(start, end, ascending, ndb),
 	}
 
-	logger.Debug("Finished Creating unsaved fast iterator instance")
-	fmt.Println("Finished Creating unsaved fast iterator instance")
 	if iter.ndb == nil {
-		logger.Debug("Inside iter")
-		fmt.Println("Inside iter")
 		iter.err = errFastIteratorNilNdbGiven
 		iter.valid = false
 		return iter
