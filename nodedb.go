@@ -1114,3 +1114,38 @@ var (
 	ErrNodeAlreadyPersisted = fmt.Errorf("shouldn't be calling save on an already persisted node")
 	ErrRootMissingHash      = fmt.Errorf("root hash must not be empty")
 )
+
+// traverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// endVersion is exclusive, set to `math.MaxInt64` to cover the latest version.
+func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
+	predecessor, err := ndb.getPreviousVersion(startVersion)
+	if err != nil {
+		return err
+	}
+	prevRoot, err := ndb.getRoot(predecessor)
+	if err != nil {
+		return err
+	}
+	return ndb.traverseRange(rootKeyFormat.Key(startVersion), rootKeyFormat.Key(endVersion), func(k, hash []byte) error {
+		var version int64
+		rootKeyFormat.Scan(k, &version)
+
+		var changeSet ChangeSet
+		receiveKVPair := func(pair *KVPair) error {
+			changeSet.Pairs = append(changeSet.Pairs, pair)
+			return nil
+		}
+
+		if err := ndb.extractStateChanges(predecessor, prevRoot, hash, receiveKVPair); err != nil {
+			return err
+		}
+
+		if err := fn(version, &changeSet); err != nil {
+			return err
+		}
+
+		predecessor = version
+		prevRoot = hash
+		return nil
+	})
+}

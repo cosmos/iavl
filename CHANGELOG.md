@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- [#654](https://github.com/cosmos/iavl/pull/654) Add API `TraverseStateChanges` to extract state changes from iavl versions.
+- [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
+- [#795](https://github.com/cosmos/iavl/pull/795) Use gogofaster buf plugin.
+
+### Bug Fixes
+
+- [#801](https://github.com/cosmos/iavl/pull/801) Fix rootKey empty check by len equals 0.
+
 ## 0.20.0 (March 14, 2023)
 
 - [#622](https://github.com/cosmos/iavl/pull/622) `export/newExporter()` and `ImmutableTree.Export()` returns error for nil arguements

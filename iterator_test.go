@@ -339,3 +339,13 @@ func syncMapCount(m *sync.Map) int {
 	})
 	return count
 }
+
+func TestNodeIterator_WithEmptyRoot(t *testing.T) {
+	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, nil))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+
+	itr, err = NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, nil))
+	require.NoError(t, err)
+	require.False(t, itr.Valid())
+}
