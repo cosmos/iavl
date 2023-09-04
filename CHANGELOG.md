@@ -26,7 +26,7 @@
 - [#815](https://github.com/cosmos/iavl/pull/815) `NewMutableTreeWithOpts` was removed in favour of accepting options via a variadic in `NewMutableTree`
 - [#815](https://github.com/cosmos/iavl/pull/815) `NewImmutableTreeWithOpts` is removed in favour of accepting options via a variadic in `NewImmutableTree`
 - [#646](https://github.com/cosmos/iavl/pull/646) Remove the `DeleteVersion`, `DeleteVersions`, `DeleteVersionsRange` and introduce a new endpoint of `DeleteVersionsTo` instead
-- [#]() Protect the concurrent readers using ImmutableTree
+- [#827](https://github.com/cosmos/iavl/pull/827) Protect the concurrent readers using ImmutableTree
 
 ## 0.20.0 (March 14, 2023)
 
