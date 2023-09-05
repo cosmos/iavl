@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.20.1 (September 5, 2023)
+
 ### Improvements
 
 - [#654](https://github.com/cosmos/iavl/pull/654) Add API `TraverseStateChanges` to extract state changes from iavl versions.
@@ -11,6 +13,7 @@
 ### Bug Fixes
 
 - [#801](https://github.com/cosmos/iavl/pull/801) Fix rootKey empty check by len equals 0.
+- [#829](https://github.com/cosmos/iavl/pull/829) Fix fastnode concurrency panic.
 
 ## 0.20.0 (March 14, 2023)
 
