@@ -2,6 +2,10 @@
 
 ## UNRELEASED
 
+## 0.19.7 (September 5, 2023)
+
+- [#829](https://github.com/cosmos/iavl/pull/829) Fix fastnode concurrency panic.
+
 ## 0.19.6 (May 25, 2023)
 
 ### Improvements
