@@ -909,9 +909,6 @@ func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Itera
 
 // Write to disk.
 func (ndb *nodeDB) Commit() error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
