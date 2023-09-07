@@ -80,6 +80,7 @@ func TestLazySet(t *testing.T) {
 		require.NoError(t, err)
 	}
 
+	tree.ndb.waitAsyncWrite()
 	tree = NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Verify that the latest legacy version can still be loaded
