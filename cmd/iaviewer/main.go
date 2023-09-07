@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/tendermint/tm-db"
 
 	"github.com/cosmos/iavl"
 )
@@ -49,7 +49,11 @@ func main() {
 	switch args[0] {
 	case "data":
 		PrintKeys(tree)
-		hash := tree.Hash()
+		hash, err := tree.Hash()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error hashing tree: %s\n", err)
+			os.Exit(1)
+		}
 		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
 	case "shape":
@@ -80,7 +84,7 @@ func OpenDB(dir string) (dbm.DB, error) {
 		return nil, fmt.Errorf("cannot cut paths on %s", dir)
 	}
 	name := dir[cut+1:]
-	db, err := dbm.NewGoLevelDB(name, dir[:cut], nil)
+	db, err := dbm.NewGoLevelDB(name, dir[:cut])
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +126,10 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
-	tree := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
+	tree, err := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
+	if err != nil {
+		return nil, err
+	}
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err

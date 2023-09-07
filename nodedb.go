@@ -12,7 +12,7 @@ import (
 	"sync"
 
 	"cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/tendermint/tm-db"
 
 	"github.com/cosmos/iavl/cache"
 	"github.com/cosmos/iavl/fastnode"
@@ -384,7 +384,7 @@ func (ndb *nodeDB) writeBatch() error {
 
 // deleteVersion deletes a tree version from disk.
 // deletes orphans
-func (ndb *nodeDB) deleteVersion(version int64) error {
+func (ndb *nodeDB) DeleteVersion(version int64) error {
 	rootKey, err := ndb.GetRoot(version)
 	if err != nil {
 		return err
@@ -580,7 +580,7 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 	}
 
 	for version := first; version <= toVersion; version++ {
-		if err := ndb.deleteVersion(version); err != nil {
+		if err := ndb.DeleteVersion(version); err != nil {
 			return err
 		}
 		ndb.resetFirstVersion(version + 1)

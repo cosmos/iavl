@@ -1,7 +1,7 @@
 package iavl
 
 import (
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // BatchWithFlusher is a wrapper

@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	ics23 "github.com/cosmos/ics23/go"
+	ics23 "github.com/confio/ics23/go"
 )
 
 /*
@@ -30,7 +30,10 @@ func (t *ImmutableTree) VerifyMembership(proof *ics23.CommitmentProof, key []byt
 	if err != nil {
 		return false, err
 	}
-	root := t.Hash()
+	root, err := t.Hash()
+	if err != nil {
+		return false, err
+	}
 
 	return ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val), nil
 }
@@ -90,7 +93,10 @@ func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProo
 
 // VerifyNonMembership returns true iff proof is a NonExistenceProof for the given key.
 func (t *ImmutableTree) VerifyNonMembership(proof *ics23.CommitmentProof, key []byte) (bool, error) {
-	root := t.Hash()
+	root, err := t.Hash()
+	if err != nil {
+		return false, err
+	}
 
 	return ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key), nil
 }
@@ -98,7 +104,10 @@ func (t *ImmutableTree) VerifyNonMembership(proof *ics23.CommitmentProof, key []
 // createExistenceProof will get the proof from the tree and convert the proof into a valid
 // existence proof, if that's what it is.
 func (t *ImmutableTree) createExistenceProof(key []byte) (*ics23.ExistenceProof, error) {
-	t.Hash()
+	_, err := t.Hash()
+	if err != nil {
+		return nil, err
+	}
 	path, node, err := t.root.PathToLeaf(t, key, t.version+1)
 	nodeVersion := t.version + 1
 	if node.nodeKey != nil {

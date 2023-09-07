@@ -111,7 +111,7 @@ import (
 	"log"
 
 	"github.com/cosmos/iavl"
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/tendermint/tm-db"
 )
 
 func main() {

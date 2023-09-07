@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
+	dbm "github.com/tendermint/tm-db"
 )
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
@@ -149,7 +149,7 @@ func (t *ImmutableTree) Has(key []byte) (bool, error) {
 }
 
 // Hash returns the root hash.
-func (t *ImmutableTree) Hash() []byte {
+func (t *ImmutableTree) Hash() ([]byte, error) {
 	return t.root.hashWithCount(t.version + 1)
 }
 

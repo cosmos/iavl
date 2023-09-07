@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
-	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+	db "github.com/tendermint/tm-db"
 )
 
 // TestDiffRoundTrip generate random change sets, build an iavl tree versions,

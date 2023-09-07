@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	db "github.com/cosmos/cosmos-db"
+	db "github.com/tendermint/tm-db"
 )
 
 // maxBatchSize is the maximum size of the import batch before flushing it to the database
@@ -59,7 +59,9 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 
 // writeNode writes the node content to the storage.
 func (i *Importer) writeNode(node *Node) error {
-	node._hash(node.nodeKey.version)
+	if _, err := node._hash(node.nodeKey.version); err != nil {
+		return err
+	}
 	if err := node.validate(); err != nil {
 		return err
 	}
