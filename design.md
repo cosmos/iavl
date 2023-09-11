@@ -27,7 +27,7 @@ IAVL (SC) persistence operating modes:
   removed at checkpoints where `orphan.version <= lastCheckpointVersion`. this has the effect of slowly
   collapsing and shrinking past checkpoints. it uses the least amount of disk space. highest throughput,
   probably useful for validators or query nodes which don't need to maintain a full history in SC. similar
-  to `pruning = nothing` but an order of magnitude faster.
+  to `pruning=everything` but an order of magnitude faster.
 
 - `snapshot` - each checkpoint materializes a full snapshot to disk, that is, all nodes where
   `node.version > lastCheckpointVersion`. checkpoint interval will always be honored, but the soft memory
@@ -41,7 +41,7 @@ IAVL (SC) persistence operating modes:
   loading a root node and iterating a tree with one disk read per node.  same behavior as `pruning=default`
 
 - `full` - all nodes are persisted to disk at every version. this is the legacy archive node behavior
-  `pruning = nothing` of IAVL.
+  `pruning=nothing` of IAVL.
 
 ## cache full
 
