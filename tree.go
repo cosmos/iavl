@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/iavl/v2/metrics"
 )
 
-type MutableTree struct {
+type Tree struct {
 	version int64
 	root    *Node
 	rootKey *nodeKey
@@ -21,7 +21,7 @@ type MutableTree struct {
 	checkpointInterval int64
 }
 
-func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 	var sequence uint32
 
@@ -42,7 +42,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	return tree.root.hash, tree.version, nil
 }
 
-func (tree *MutableTree) Checkpoint() error {
+func (tree *Tree) Checkpoint() error {
 	fmt.Printf("checkpointing at version %d\n", tree.version)
 	err := tree.pool.checkpoint(tree.overflow)
 	if err != nil {
@@ -71,7 +71,7 @@ func (tree *MutableTree) Checkpoint() error {
 // key/value byte slices must not be modified after this call, since they point
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
-func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
+func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -86,7 +86,7 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
 
 // Get returns the value of the specified key if it exists, or nil otherwise.
 // The returned value must not be modified, since it may point to data stored within IAVL.
-func (tree *MutableTree) Get(key []byte) ([]byte, error) {
+func (tree *Tree) Get(key []byte) ([]byte, error) {
 	if tree.root == nil {
 		return nil, nil
 	}
@@ -96,7 +96,7 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 
 // Remove removes a key from the working tree. The given key byte slice should not be modified
 // after this call, since it may point to data stored inside IAVL.
-func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
+func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.root == nil {
 		return nil, false, nil
 	}
@@ -115,15 +115,15 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 	return value, true, nil
 }
 
-func (tree *MutableTree) Size() int64 {
+func (tree *Tree) Size() int64 {
 	return tree.root.size
 }
 
-func (tree *MutableTree) Height() int8 {
+func (tree *Tree) Height() int8 {
 	return tree.root.subtreeHeight
 }
 
-func (tree *MutableTree) shouldCheckpoint() bool {
+func (tree *Tree) shouldCheckpoint() bool {
 	if tree.overflow != nil {
 		return true
 	}
@@ -139,7 +139,7 @@ func (tree *MutableTree) shouldCheckpoint() bool {
 // - the node that replaces the orig. node after remove
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
-func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
+func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			tree.addOrphan(node)
@@ -228,7 +228,7 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 	return node, nil, value, removed, nil
 }
 
-func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error) {
+func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	if value == nil {
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
@@ -250,7 +250,7 @@ func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error)
 	return updated, err
 }
 
-func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
+func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
 	if node.isLeaf() {
@@ -321,7 +321,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 	}
 }
 
-func (tree *MutableTree) deepHash(sequence *uint32, node *Node) *nodeKey {
+func (tree *Tree) deepHash(sequence *uint32, node *Node) *nodeKey {
 	if node == nil {
 		panic("nil node in deepHash")
 	}
@@ -358,14 +358,14 @@ func (tree *MutableTree) deepHash(sequence *uint32, node *Node) *nodeKey {
 	return node.nodeKey
 }
 
-func (tree *MutableTree) addOrphan(n *Node) {
+func (tree *Tree) addOrphan(n *Node) {
 	// orphans which never made it to the db don't need to be deleted from it.
 	if n.nodeKey != nil && n.nodeKey.Version() <= tree.db.lastCheckpoint {
 		tree.orphans = append(tree.orphans, n.nodeKey)
 	}
 }
 
-func (tree *MutableTree) mutateNode(node *Node) {
+func (tree *Tree) mutateNode(node *Node) {
 	node.hash = nil
 	node.nodeKey = nil
 	tree.pool.dirtyNode(node)

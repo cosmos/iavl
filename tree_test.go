@@ -1,3 +1,5 @@
+// TODO move to package v6_test
+// this means an audit of exported fields and types.
 package v6
 
 import (
@@ -12,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testTreeBuild(t *testing.T, tree *MutableTree, opts testutil.TreeBuildOptions) {
+func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
 	var (
 		hash    []byte
 		version int64
@@ -74,7 +76,7 @@ func TestTree_Build(t *testing.T) {
 	poolSize := 100_000
 
 	db := newMemDB()
-	tree := &MutableTree{
+	tree := &Tree{
 		pool:               newNodePool(db, poolSize),
 		metrics:            &metrics.TreeMetrics{},
 		db:                 db,
@@ -125,7 +127,7 @@ func treeCount(node *Node) int {
 	return 1 + treeCount(node.leftNode) + treeCount(node.rightNode)
 }
 
-func pooledTreeCount(tree *MutableTree, node Node) int {
+func pooledTreeCount(tree *Tree, node Node) int {
 	if node.isLeaf() {
 		return 1
 	}
@@ -134,7 +136,7 @@ func pooledTreeCount(tree *MutableTree, node Node) int {
 	return 1 + pooledTreeCount(tree, left) + pooledTreeCount(tree, right)
 }
 
-func pooledTreeHeight(tree *MutableTree, node Node) int8 {
+func pooledTreeHeight(tree *Tree, node Node) int8 {
 	if node.isLeaf() {
 		return 1
 	}
@@ -143,7 +145,7 @@ func pooledTreeHeight(tree *MutableTree, node Node) int8 {
 	return 1 + maxInt8(pooledTreeHeight(tree, left), pooledTreeHeight(tree, right))
 }
 
-func treeAndDbEqual(t *testing.T, tree *MutableTree, node Node) {
+func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
 	dbNode := tree.db.Get(*node.nodeKey)
 	require.NotNil(t, dbNode)
 	require.Equal(t, dbNode.hash, node.hash)

@@ -52,7 +52,7 @@ func (nk *nodeKey) String() string {
 }
 
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
-func (node *Node) getLeftNode(t *MutableTree) (*Node, error) {
+func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no left node")
 	}
@@ -73,7 +73,7 @@ func (node *Node) getLeftNode(t *MutableTree) (*Node, error) {
 	return node.leftNode, nil
 }
 
-func (node *Node) left(t *MutableTree) *Node {
+func (node *Node) left(t *Tree) *Node {
 	leftNode, err := node.getLeftNode(t)
 	if err != nil {
 		panic(err)
@@ -86,7 +86,7 @@ func (node *Node) setLeft(leftNode *Node) {
 	node.leftNode = leftNode
 }
 
-func (node *Node) getRightNode(t *MutableTree) (*Node, error) {
+func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no right node")
 	}
@@ -106,7 +106,7 @@ func (node *Node) getRightNode(t *MutableTree) (*Node, error) {
 	return node.rightNode, nil
 }
 
-func (node *Node) right(t *MutableTree) *Node {
+func (node *Node) right(t *Tree) *Node {
 	rightNode, err := node.getRightNode(t)
 	if err != nil {
 		panic(err)
@@ -120,7 +120,7 @@ func (node *Node) setRight(rightNode *Node) {
 }
 
 // NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(t *MutableTree) error {
+func (node *Node) calcHeightAndSize(t *Tree) error {
 	leftNode, err := node.getLeftNode(t)
 	if err != nil {
 		return err
@@ -145,7 +145,7 @@ func maxInt8(a, b int8) int8 {
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
+func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 	if node.nodeKey != nil {
 		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
@@ -217,7 +217,7 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-func (node *Node) calcBalance(t *MutableTree) (int, error) {
+func (node *Node) calcBalance(t *Tree) (int, error) {
 	leftNode, err := node.getLeftNode(t)
 	if err != nil {
 		return 0, err
@@ -232,7 +232,7 @@ func (node *Node) calcBalance(t *MutableTree) (int, error) {
 }
 
 // Rotate right and return the new node and orphan.
-func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
+func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 	var err error
 	// TODO: optimize balance & rotate.
 	tree.addOrphan(node)
@@ -259,7 +259,7 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
 }
 
 // Rotate left and return the new node and orphan.
-func (tree *MutableTree) rotateLeft(node *Node) (*Node, error) {
+func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	var err error
 	// TODO: optimize balance & rotate.
 	tree.addOrphan(node)
@@ -287,7 +287,7 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, error) {
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash(tree *MutableTree, version int64) []byte {
+func (node *Node) _hash(tree *Tree, version int64) []byte {
 	if node.hash != nil {
 		return node.hash
 	}
@@ -301,7 +301,7 @@ func (node *Node) _hash(tree *MutableTree, version int64) []byte {
 	return node.hash
 }
 
-func (node *Node) writeHashBytes(tree *MutableTree, w io.Writer, version int64) error {
+func (node *Node) writeHashBytes(tree *Tree, w io.Writer, version int64) error {
 	var (
 		n   int
 		buf [binary.MaxVarintLen64]byte
