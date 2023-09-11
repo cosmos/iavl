@@ -1,6 +1,49 @@
 # Design doom thoughts
 
-### cache full
+## checkpoint
+
+Also called snapshot.
+
+A checkpoint occurs when the pool working set is in an overflow state (dirty node size > soft ceiling),
+or a specified number of blocks have elapsed since the last checkpoint.  The pool is briefly locked so
+that a `lock` bit can be set on each node pending checkpoint write.  `node.mutate` should refuse to
+mutate a node with `lock = true`, instead returning a new node from the pool. Checkpoints are running
+async.  Atomic bool performance should be tested, if used `lock = false` may be set as nodes are written,
+otherwise a second global lock after the checkpoint is done can update `lock = false`.
+
+`overflow` nodes are always included in the checkpoint.  Since these are outside of the pool (managed by
+go GC) they must be collected in `tree.SaveVersion`.  An alternate design could have these accumulate in
+a `pool.overflow []*Node` field.
+
+Generally this mimics the behavior of a double buffer so long as there is space in the pool.
+
+`lock` and `dirty` are beginning to look like `refCount int`.
+
+## modes of operation
+
+IAVL (SC) persistence operating modes:
+
+- `latest` - only the latest version is persisted at checkpoints. orphans are collected in memory and
+  removed at checkpoints where `orphan.version <= lastCheckpointVersion`. this has the effect of slowly
+  collapsing and shrinking past checkpoints. it uses the least amount of disk space. highest throughput,
+  probably useful for validators or query nodes which don't need to maintain a full history in SC. similar
+  to `pruning = nothing` but an order of magnitude faster.
+
+- `snapshot` - each checkpoint materializes a full snapshot to disk, that is, all nodes where
+  `node.version > lastCheckpointVersion`. checkpoint interval will always be honored, but the soft memory
+  ceiling may cause additional checkpoints to occur. a pruning process should run periodically to collapse
+  checkpoints into the desired cadence. a good balance between disk space, throughput, and replayability
+  when used with SS. proofs can be generated for any _v_ where there is a snapshot version _v' <= v_ by
+  replaying the changelog in SS.
+
+- `head` - the last _n_ states are persisted to disk. this is a the legacy pruning behavior of IAVL. a
+  pruning process manages removing old states from disk. proofs just fetch tree nodes directly from disk by
+  loading a root node and iterating a tree with one disk read per node.  same behavior as `pruning=default`
+
+- `full` - all nodes are persisted to disk at every version. this is the legacy archive node behavior
+  `pruning = nothing` of IAVL.
+
+## cache full
 
 Question: when the cache is full, how do we proceed? large working sets are a problem.
 
