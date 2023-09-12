@@ -10,6 +10,10 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
-func New(name, dir string, options *opt.Options) (*dbm.GoLevelDB, error) {
+func NewWithOptions(name, dir string, options *opt.Options) (*dbm.GoLevelDB, error) {
 	return dbm.NewGoLevelDBWithOpts(name, dir, options)
+}
+
+func New(name, dir string) (*dbm.GoLevelDB, error) {
+	return dbm.NewGoLevelDB(name, dir, nil)
 }

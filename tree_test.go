@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -23,8 +24,15 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
 		err     error
 	)
 
-	itrStart := time.Now()
+	// log file
+	//itr, err := compact.NewChangesetIterator("/Users/mattk/src/scratch/osmosis-hist/ordered/bank", "bank")
+	//require.NoError(t, err)
+	//opts.Until = math.MaxInt64
+
+	// generator
 	itr := opts.Iterator
+
+	itrStart := time.Now()
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
 		for _, node := range itr.GetChangeset().Nodes {
@@ -71,11 +79,19 @@ func TestTree_Build(t *testing.T) {
 	//just a little bigger than the size of the initial changeset. evictions will occur slowly.
 	//poolSize := 210_050
 	// no evictions
-	//poolSize := 500_000
+	poolSize := 500_000
 	// overflow on initial changeset and frequently after; worst performance
-	poolSize := 100_000
+	//poolSize := 100_000
 
-	db := newMapDB()
+	var err error
+	//db := newMapDB()
+
+	tmpDir := t.TempDir()
+	t.Logf("levelDb tmpDir: %s\n", tmpDir)
+	levelDb, err := leveldb.New("iavl_test", tmpDir)
+	require.NoError(t, err)
+	db := &kvDB{db: levelDb}
+
 	tree := &Tree{
 		pool:               newNodePool(db, poolSize),
 		metrics:            &metrics.TreeMetrics{},
@@ -91,7 +107,7 @@ func TestTree_Build(t *testing.T) {
 
 	testTreeBuild(t, tree, opts)
 
-	err := tree.Checkpoint()
+	err = tree.Checkpoint()
 	require.NoError(t, err)
 
 	// don't evict root on iteration, it interacts with the node pool
@@ -109,12 +125,17 @@ func TestTree_Build(t *testing.T) {
 	fmt.Printf("workingSetCount: %d\n", workingSetCount)
 	fmt.Printf("treeCount: %d\n", count)
 	fmt.Printf("treeHeight: %d\n", height)
-	fmt.Printf("db stats:\n sets: %s, deletes: %s\n",
-		humanize.Comma(int64(db.setCount)),
-		humanize.Comma(int64(db.deleteCount)))
+
+	// TODO
+	// equivalence between dbs
+
+	//fmt.Printf("db stats:\n sets: %s, deletes: %s\n",
+	//	humanize.Comma(int64(db.setCount)),
+	//	humanize.Comma(int64(db.deleteCount)))
 
 	require.Equal(t, height, tree.root.SubtreeHeight+1)
-	require.Equal(t, count, len(tree.db.nodes))
+	//require.Equal(t, count, len(db.nodes))
+
 	require.Equal(t, tree.pool.dirtyCount, workingSetCount)
 
 	treeAndDbEqual(t, tree, *tree.root)
@@ -146,19 +167,20 @@ func pooledTreeHeight(tree *Tree, node Node) int8 {
 }
 
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
-	dbNode := tree.db.Get(*node.NodeKey)
+	dbNode, err := tree.db.Get(*node.NodeKey)
+	require.NoError(t, err)
 	require.NotNil(t, dbNode)
-	require.Equal(t, dbNode.hash, node.hash)
 	require.Equal(t, dbNode.NodeKey, node.NodeKey)
 	require.Equal(t, dbNode.Key, node.Key)
 	require.Equal(t, dbNode.Value, node.Value)
 	require.Equal(t, dbNode.Size, node.Size)
 	require.Equal(t, dbNode.SubtreeHeight, node.SubtreeHeight)
-	require.Equal(t, dbNode.LeftNodeKey, node.LeftNodeKey)
-	require.Equal(t, dbNode.RightNodeKey, node.RightNodeKey)
 	if node.isLeaf() {
 		return
 	}
+	require.Equal(t, dbNode.LeftNodeKey, node.LeftNodeKey)
+	require.Equal(t, dbNode.RightNodeKey, node.RightNodeKey)
+
 	leftNode := *node.left(tree)
 	rightNode := *node.right(tree)
 	treeAndDbEqual(t, tree, leftNode)

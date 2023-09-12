@@ -7,7 +7,7 @@ import (
 )
 
 type nodePool struct {
-	db        *mapDB
+	db        nodeDB
 	free      chan int
 	nodes     []*Node
 	metrics   *metrics.TreeMetrics
@@ -50,7 +50,7 @@ func (np *nodePool) clockEvict() *Node {
 	}
 }
 
-func newNodePool(db *mapDB, size int) *nodePool {
+func newNodePool(db nodeDB, size int) *nodePool {
 	np := &nodePool{
 		nodes: make([]*Node, size),
 		free:  make(chan int, size),
@@ -123,12 +123,19 @@ func (np *nodePool) Put(n *Node) {
 }
 
 func (np *nodePool) FlushNode(n *Node) {
+	// TODO errors
 	switch {
 	case n.dirty:
-		np.db.Set(n)
+		err := np.db.Set(n)
+		if err != nil {
+			panic(err)
+		}
 		np.cleanNode(n)
 	case n.overflow:
-		np.db.Set(n)
+		err := np.db.Set(n)
+		if err != nil {
+			panic(err)
+		}
 	default:
 		panic("strange, flushing a clean node")
 	}

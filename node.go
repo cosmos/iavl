@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -61,14 +62,16 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no left node")
 	}
-	//if node.leftNode == nil {
-	//	return nil, fmt.Errorf("left node is nil")
-	//}
 	if node.leftNode == nil || node.LeftNodeKey != node.leftNode.NodeKey {
 		if node.LeftNodeKey == nil {
 			return nil, fmt.Errorf("left node key is nil")
 		}
-		node.leftNode = t.db.Get(*node.LeftNodeKey)
+		var err error
+		node.leftNode, err = t.db.Get(*node.LeftNodeKey)
+		if err != nil {
+			return nil, err
+		}
+
 		if node.leftNode == nil {
 			return nil, fmt.Errorf("left node is nil; fetch failed")
 		}
@@ -101,7 +104,11 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 		if node.RightNodeKey == nil {
 			return nil, fmt.Errorf("right node key is nil")
 		}
-		node.rightNode = t.db.Get(*node.RightNodeKey)
+		var err error
+		node.rightNode, err = t.db.Get(*node.RightNodeKey)
+		if err != nil {
+			return nil, err
+		}
 		if node.rightNode == nil {
 			return nil, fmt.Errorf("right node is nil; fetch failed")
 		}
@@ -469,4 +476,13 @@ func (node *Node) WriteBytes(w io.Writer) error {
 		}
 	}
 	return nil
+}
+
+func (node *Node) Bytes() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	err := node.WriteBytes(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

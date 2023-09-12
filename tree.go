@@ -13,12 +13,13 @@ type Tree struct {
 	rootKey *NodeKey
 	pool    *nodePool
 	metrics *metrics.TreeMetrics
-	db      *mapDB
+	db      nodeDB
 
 	// should be part of pool?
 	orphans            []*NodeKey
 	overflow           []*Node
 	checkpointInterval int64
+	lastCheckpoint     int64
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
@@ -52,15 +53,21 @@ func (tree *Tree) Checkpoint() error {
 		tree.pool.FlushNode(overflow)
 	}
 	for _, orphan := range tree.orphans {
-		tree.db.Delete(*orphan)
+		err = tree.db.Delete(*orphan)
+		if err != nil {
+			return err
+		}
 	}
-	tree.db.lastCheckpoint = tree.version
+	tree.lastCheckpoint = tree.version
 	tree.orphans = nil
 	tree.overflow = nil
 
 	// keep the root node in the pool if it ended up in overflow
 	if tree.root.overflow {
-		tree.root = tree.db.Get(*tree.rootKey)
+		tree.root, err = tree.db.Get(*tree.rootKey)
+		if err != nil {
+			return err
+		}
 		tree.pool.Put(tree.root)
 	}
 
@@ -127,7 +134,7 @@ func (tree *Tree) shouldCheckpoint() bool {
 	if tree.overflow != nil {
 		return true
 	}
-	if tree.version-tree.db.lastCheckpoint > tree.checkpointInterval {
+	if tree.version-tree.lastCheckpoint > tree.checkpointInterval {
 		return true
 	}
 	return false
@@ -359,8 +366,8 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 }
 
 func (tree *Tree) addOrphan(n *Node) {
-	// orphans which never made it to the db don't need to be deleted from it.
-	if n.NodeKey != nil && n.NodeKey.Version() <= tree.db.lastCheckpoint {
+	//orphans which never made it to the db don't need to be deleted from it.
+	if n.NodeKey != nil && n.NodeKey.Version() <= tree.lastCheckpoint {
 		tree.orphans = append(tree.orphans, n.NodeKey)
 	}
 }

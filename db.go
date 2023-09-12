@@ -13,17 +13,33 @@ type DB interface {
 }
 
 type nodeDB interface {
-	Set(node *Node)
-	Get(nk NodeKey) *Node
-	Delete(nk NodeKey)
+	Set(node *Node) error
+	Get(nk NodeKey) (*Node, error)
+	Delete(nk NodeKey) error
 }
 
 type kvDB struct {
-	db             DB
-	lastCheckpoint int64
+	db DB
 }
 
-func (kv *kvDB) Set(node *Node) {
+func (kv *kvDB) Set(node *Node) error {
+	bz, err := node.Bytes()
+	if err != nil {
+		return err
+	}
+	return kv.db.Set(node.NodeKey[:], bz)
+}
+
+func (kv *kvDB) Get(nk NodeKey) (*Node, error) {
+	bz, err := kv.db.Get(nk[:])
+	if err != nil {
+		return nil, err
+	}
+	return MakeNode(nk[:], bz)
+}
+
+func (kv *kvDB) Delete(nk NodeKey) error {
+	return kv.db.Delete(nk[:])
 }
 
 // mapDB approximates a database with a map.
@@ -41,7 +57,7 @@ func newMapDB() *mapDB {
 	}
 }
 
-func (db *mapDB) Set(node *Node) {
+func (db *mapDB) Set(node *Node) error {
 	nk := *node.NodeKey
 	n := *node
 	n.overflow = false
@@ -51,17 +67,19 @@ func (db *mapDB) Set(node *Node) {
 	n.frameId = -1
 	db.nodes[nk] = n
 	db.setCount++
+	return nil
 }
 
-func (db *mapDB) Get(nk NodeKey) *Node {
+func (db *mapDB) Get(nk NodeKey) (*Node, error) {
 	n, ok := db.nodes[nk]
 	if !ok {
-		return nil
+		return nil, nil
 	}
-	return &n
+	return &n, nil
 }
 
-func (db *mapDB) Delete(nk NodeKey) {
+func (db *mapDB) Delete(nk NodeKey) error {
 	delete(db.nodes, nk)
 	db.deleteCount++
+	return nil
 }
