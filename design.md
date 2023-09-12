@@ -19,6 +19,13 @@ Generally this mimics the behavior of a double buffer so long as there is space 
 
 `lock` and `dirty` are beginning to look like `refCount int`.
 
+checkpoint options:
+- make memory copy of all dirty nodes for checkpoint. cannot evict locked nodes.
+- atomic bool on each node. lock before checkpoint, checkpointer unlocks. cannot evict locked nodes.
+- bool on each node. lock each node before checkpoint, wait for signal done on checkpointer to unlock 
+  nodes. cannot evict locked nodes.
+
+
 ## modes of operation
 
 IAVL (SC) persistence operating modes:

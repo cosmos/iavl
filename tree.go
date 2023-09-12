@@ -3,9 +3,18 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 )
+
+var log = zlog.Output(zerolog.ConsoleWriter{
+	Out:        os.Stderr,
+	TimeFormat: time.Stamp,
+})
 
 type Tree struct {
 	version int64
@@ -30,8 +39,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.rootKey = tree.deepHash(&sequence, tree.root)
 
 	if tree.shouldCheckpoint() {
-		err := tree.Checkpoint()
-		if err != nil {
+		if err := tree.Checkpoint(); err != nil {
 			return nil, 0, err
 		}
 	}
@@ -44,32 +52,37 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 }
 
 func (tree *Tree) Checkpoint() error {
-	fmt.Printf("checkpointing at version %d\n", tree.version)
-	err := tree.pool.checkpoint(tree.overflow)
-	if err != nil {
-		return err
-	}
-	for _, overflow := range tree.overflow {
-		tree.pool.FlushNode(overflow)
-	}
-	for _, orphan := range tree.orphans {
-		err = tree.db.Delete(*orphan)
-		if err != nil {
-			return err
-		}
-	}
-	tree.lastCheckpoint = tree.version
-	tree.orphans = nil
-	tree.overflow = nil
+	log.Info().Msgf("checkpointing at version %d", tree.version)
+	sets := tree.overflow
+	for _, poolNode := range tree.pool.nodes {
+		if poolNode.dirty {
+			n := *poolNode
+			n.leftNode = nil
+			n.rightNode = nil
+			n.hash = nil
 
-	// keep the root node in the pool if it ended up in overflow
-	if tree.root.overflow {
-		tree.root, err = tree.db.Get(*tree.rootKey)
-		if err != nil {
-			return err
+			sets = append(sets, &n)
+			poolNode.dirty = false
+			tree.pool.dirtyCount--
 		}
-		tree.pool.Put(tree.root)
 	}
+
+	if tree.root.overflow {
+		rootNode := &(*tree.root)
+		rootNode.overflow = false
+		rootNode.dirty = false
+		tree.pool.Put(rootNode)
+	}
+
+	tree.pool.checkpointCh <- &checkpointArgs{
+		set:     sets,
+		delete:  tree.orphans,
+		version: tree.version,
+	}
+
+	tree.overflow = nil
+	tree.orphans = nil
+	tree.lastCheckpoint = tree.version
 
 	return nil
 }

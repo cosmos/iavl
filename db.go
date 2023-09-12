@@ -35,7 +35,11 @@ func (kv *kvDB) Get(nk NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	return MakeNode(nk[:], bz)
+	n, err := MakeNode(nk[:], bz)
+	if err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func (kv *kvDB) Delete(nk NodeKey) error {

@@ -362,6 +362,20 @@ func (node *Node) isLeaf() bool {
 	return node.SubtreeHeight == 0
 }
 
+func (node *Node) clear() {
+	node.Key = nil
+	node.Value = nil
+	node.hash = nil
+	node.NodeKey = nil
+	node.leftNode = nil
+	node.rightNode = nil
+	node.RightNodeKey = nil
+	node.LeftNodeKey = nil
+	node.SubtreeHeight = 0
+	node.Size = 0
+	node.use = false
+}
+
 // EncodeBytes writes a varint length-prefixed byte slice to the writer,
 // it's used for hash computation, must be compatible with the official IAVL implementation.
 func EncodeBytes(w io.Writer, bz []byte) error {

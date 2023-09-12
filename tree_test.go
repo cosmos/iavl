@@ -4,6 +4,7 @@ package iavl
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -77,9 +78,9 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
 
 func TestTree_Build(t *testing.T) {
 	//just a little bigger than the size of the initial changeset. evictions will occur slowly.
-	//poolSize := 210_050
+	poolSize := 210_050
 	// no evictions
-	poolSize := 500_000
+	//poolSize := 500_000
 	// overflow on initial changeset and frequently after; worst performance
 	//poolSize := 100_000
 
@@ -105,10 +106,20 @@ func TestTree_Build(t *testing.T) {
 		tree.metrics.Report()
 	}
 
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		checkpointErr := tree.pool.CheckpointRunner(ctx)
+		require.NoError(t, checkpointErr)
+	}()
+
 	testTreeBuild(t, tree, opts)
 
 	err = tree.Checkpoint()
 	require.NoError(t, err)
+	// wait
+	tree.pool.checkpointCh <- &checkpointArgs{version: -1}
 
 	// don't evict root on iteration, it interacts with the node pool
 	tree.root.dirty = true
@@ -168,6 +179,9 @@ func pooledTreeHeight(tree *Tree, node Node) int8 {
 
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
 	dbNode, err := tree.db.Get(*node.NodeKey)
+	if err != nil {
+		t.Fatalf("error getting node from db: %s", err)
+	}
 	require.NoError(t, err)
 	require.NotNil(t, dbNode)
 	require.Equal(t, dbNode.NodeKey, node.NodeKey)

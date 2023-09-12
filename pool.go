@@ -1,21 +1,33 @@
 package iavl
 
 import (
+	"context"
 	"fmt"
+	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
 )
+
+type checkpointArgs struct {
+	overflow []*Node
+	set      []*Node
+	delete   []*NodeKey
+	version  int64
+}
 
 type nodePool struct {
 	db        nodeDB
 	free      chan int
 	nodes     []*Node
 	metrics   *metrics.TreeMetrics
-	evict     func(*nodePool) *Node
 	clockHand int
 
 	dirtyCount int
 	lockCount  int
+
+	// checkpoint
+	lastCheckpoint int64
+	checkpointCh   chan *checkpointArgs
 }
 
 func (np *nodePool) clockEvict() *Node {
@@ -52,9 +64,10 @@ func (np *nodePool) clockEvict() *Node {
 
 func newNodePool(db nodeDB, size int) *nodePool {
 	np := &nodePool{
-		nodes: make([]*Node, size),
-		free:  make(chan int, size),
-		db:    db,
+		nodes:        make([]*Node, size),
+		free:         make(chan int, size),
+		db:           db,
+		checkpointCh: make(chan *checkpointArgs),
 	}
 	for i := 0; i < size; i++ {
 		np.free <- i
@@ -196,16 +209,34 @@ func (np *nodePool) checkpoint(overflow []*Node) error {
 	return nil
 }
 
-func (node *Node) clear() {
-	node.Key = nil
-	node.Value = nil
-	node.hash = nil
-	node.NodeKey = nil
-	node.leftNode = nil
-	node.rightNode = nil
-	node.RightNodeKey = nil
-	node.LeftNodeKey = nil
-	node.SubtreeHeight = 0
-	node.Size = 0
-	node.use = false
+func (np *nodePool) CheckpointRunner(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Info().Msg("node pool checkpoint runner exiting")
+			return nil
+		case args := <-np.checkpointCh:
+			if args.version == -1 {
+				continue
+			}
+			start := time.Now()
+			var setCount, deleteCount int
+			log.Info().Msgf("checkpoint [%d-%d]", np.lastCheckpoint, args.version)
+			for _, n := range args.set {
+				if err := np.db.Set(n); err != nil {
+					return err
+				}
+				setCount++
+			}
+			for _, nk := range args.delete {
+				if err := np.db.Delete(*nk); err != nil {
+					return err
+				}
+				deleteCount++
+			}
+			log.Info().Msgf("checkpoint [%d-%d] complete. sets: %d, deletes: %d, elapsed: %s",
+				np.lastCheckpoint, args.version, setCount, deleteCount, time.Since(start))
+			np.lastCheckpoint = args.version
+		}
+	}
 }
