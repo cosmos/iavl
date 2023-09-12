@@ -1,4 +1,10 @@
-package v6
+package iavl
+
+import "crypto/sha256"
+
+const (
+	hashSize = sha256.Size
+)
 
 type DB interface {
 	Get(key []byte) ([]byte, error)
@@ -8,8 +14,8 @@ type DB interface {
 
 type nodeDB interface {
 	Set(node *Node)
-	Get(nk nodeKey) *Node
-	Delete(nk nodeKey)
+	Get(nk NodeKey) *Node
+	Delete(nk NodeKey)
 }
 
 type kvDB struct {
@@ -23,7 +29,7 @@ func (kv *kvDB) Set(node *Node) {
 // mapDB approximates a database with a map.
 // it used to store nodes in memory so that pool size can be constrained and tested.
 type mapDB struct {
-	nodes          map[nodeKey]Node
+	nodes          map[NodeKey]Node
 	setCount       int
 	deleteCount    int
 	lastCheckpoint int64
@@ -31,12 +37,12 @@ type mapDB struct {
 
 func newMapDB() *mapDB {
 	return &mapDB{
-		nodes: make(map[nodeKey]Node),
+		nodes: make(map[NodeKey]Node),
 	}
 }
 
 func (db *mapDB) Set(node *Node) {
-	nk := *node.nodeKey
+	nk := *node.NodeKey
 	n := *node
 	n.overflow = false
 	n.dirty = false
@@ -47,7 +53,7 @@ func (db *mapDB) Set(node *Node) {
 	db.setCount++
 }
 
-func (db *mapDB) Get(nk nodeKey) *Node {
+func (db *mapDB) Get(nk NodeKey) *Node {
 	n, ok := db.nodes[nk]
 	if !ok {
 		return nil
@@ -55,7 +61,7 @@ func (db *mapDB) Get(nk nodeKey) *Node {
 	return &n
 }
 
-func (db *mapDB) Delete(nk nodeKey) {
+func (db *mapDB) Delete(nk NodeKey) {
 	delete(db.nodes, nk)
 	db.deleteCount++
 }

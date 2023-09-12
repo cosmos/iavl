@@ -1,4 +1,4 @@
-package v6
+package iavl
 
 import (
 	"fmt"
@@ -190,15 +190,15 @@ func (np *nodePool) checkpoint(overflow []*Node) error {
 }
 
 func (node *Node) clear() {
-	node.key = nil
-	node.value = nil
+	node.Key = nil
+	node.Value = nil
 	node.hash = nil
-	node.nodeKey = nil
+	node.NodeKey = nil
 	node.leftNode = nil
 	node.rightNode = nil
-	node.rightNodeKey = nil
-	node.leftNodeKey = nil
-	node.subtreeHeight = 0
-	node.size = 0
+	node.RightNodeKey = nil
+	node.LeftNodeKey = nil
+	node.SubtreeHeight = 0
+	node.Size = 0
 	node.use = false
 }

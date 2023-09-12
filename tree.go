@@ -1,4 +1,4 @@
-package v6
+package iavl
 
 import (
 	"bytes"
@@ -10,13 +10,13 @@ import (
 type Tree struct {
 	version int64
 	root    *Node
-	rootKey *nodeKey
+	rootKey *NodeKey
 	pool    *nodePool
 	metrics *metrics.TreeMetrics
 	db      *mapDB
 
 	// should be part of pool?
-	orphans            []*nodeKey
+	orphans            []*NodeKey
 	overflow           []*Node
 	checkpointInterval int64
 }
@@ -116,11 +116,11 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 }
 
 func (tree *Tree) Size() int64 {
-	return tree.root.size
+	return tree.root.Size
 }
 
 func (tree *Tree) Height() int8 {
-	return tree.root.subtreeHeight
+	return tree.root.SubtreeHeight
 }
 
 func (tree *Tree) shouldCheckpoint() bool {
@@ -141,10 +141,10 @@ func (tree *Tree) shouldCheckpoint() bool {
 // - the removed value
 func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
 	if node.isLeaf() {
-		if bytes.Equal(key, node.key) {
+		if bytes.Equal(key, node.Key) {
 			tree.addOrphan(node)
 			tree.pool.Return(node)
-			return nil, nil, node.value, true, nil
+			return nil, nil, node.Value, true, nil
 		}
 		return node, nil, nil, false, nil
 	}
@@ -154,7 +154,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 	}
 
 	// node.key < key; we go to the left to find the key:
-	if bytes.Compare(key, node.key) < 0 {
+	if bytes.Compare(key, node.Key) < 0 {
 		newLeftNode, newKey, value, removed, err := tree.recursiveRemove(node.left(tree), key)
 		if err != nil {
 			return nil, nil, nil, false, err
@@ -170,7 +170,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 		// collapse `node.rightNode` into `node`
 		if newLeftNode == nil {
 			right := node.right(tree)
-			k := node.key
+			k := node.Key
 			tree.pool.Return(node)
 			return right, k, value, removed, nil
 		}
@@ -213,7 +213,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 
 	node.setRight(newRightNode)
 	if newKey != nil {
-		node.key = newKey
+		node.Key = newKey
 	}
 	err = node.calcHeightAndSize(tree)
 	if err != nil {
@@ -235,9 +235,9 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 
 	if tree.root == nil {
 		tree.root = tree.pool.Get()
-		tree.root.key = key
-		tree.root.value = value
-		tree.root.size = 1
+		tree.root.Key = key
+		tree.root.Value = value
+		tree.root.Size = 1
 		return updated, nil
 	}
 
@@ -254,36 +254,36 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
 	if node.isLeaf() {
-		switch bytes.Compare(key, node.key) {
+		switch bytes.Compare(key, node.Key) {
 		case -1: // setKey < leafKey
 			n := tree.pool.Get()
-			n.key = node.key
-			n.subtreeHeight = 1
-			n.size = 2
+			n.Key = node.Key
+			n.SubtreeHeight = 1
+			n.Size = 2
 			n.setRight(node)
 
 			n.leftNode = tree.pool.Get()
-			n.leftNode.key = key
-			n.leftNode.value = value
-			n.leftNode.size = 1
+			n.leftNode.Key = key
+			n.leftNode.Value = value
+			n.leftNode.Size = 1
 			return n, false, nil
 		case 1: // setKey > leafKey
 			n := tree.pool.Get()
-			n.key = key
-			n.subtreeHeight = 1
-			n.size = 2
+			n.Key = key
+			n.SubtreeHeight = 1
+			n.Size = 2
 			n.setLeft(node)
 
 			n.rightNode = tree.pool.Get()
-			n.rightNode.key = key
-			n.rightNode.value = value
-			n.rightNode.size = 1
+			n.rightNode.Key = key
+			n.rightNode.Value = value
+			n.rightNode.Size = 1
 			return n, false, nil
 		default:
 			tree.addOrphan(node)
 			node.hash = nil
-			node.nodeKey = nil
-			node.value = value
+			node.NodeKey = nil
+			node.Value = value
 			tree.pool.dirtyNode(node)
 			return node, true, nil
 		}
@@ -292,7 +292,7 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 		tree.mutateNode(node)
 
 		var newChild *Node
-		if bytes.Compare(key, node.key) < 0 {
+		if bytes.Compare(key, node.Key) < 0 {
 			newChild, updated, err = tree.recursiveSet(node.left(tree), key, value)
 			if err != nil {
 				return nil, updated, err
@@ -321,7 +321,7 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	}
 }
 
-func (tree *Tree) deepHash(sequence *uint32, node *Node) *nodeKey {
+func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 	if node == nil {
 		panic("nil node in deepHash")
 	}
@@ -329,14 +329,14 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *nodeKey {
 	if node.overflow {
 		tree.overflow = append(tree.overflow, node)
 	}
-	if node.nodeKey != nil {
-		return node.nodeKey
+	if node.NodeKey != nil {
+		return node.NodeKey
 	}
 	*sequence++
-	node.nodeKey = newNodeKey(tree.version, *sequence)
+	node.NodeKey = NewNodeKey(tree.version, *sequence)
 	if !node.isLeaf() {
-		node.leftNodeKey = tree.deepHash(sequence, node.left(tree))
-		node.rightNodeKey = tree.deepHash(sequence, node.right(tree))
+		node.LeftNodeKey = tree.deepHash(sequence, node.left(tree))
+		node.RightNodeKey = tree.deepHash(sequence, node.right(tree))
 	}
 	node._hash(tree.version)
 
@@ -355,18 +355,18 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *nodeKey {
 		}
 	}
 
-	return node.nodeKey
+	return node.NodeKey
 }
 
 func (tree *Tree) addOrphan(n *Node) {
 	// orphans which never made it to the db don't need to be deleted from it.
-	if n.nodeKey != nil && n.nodeKey.Version() <= tree.db.lastCheckpoint {
-		tree.orphans = append(tree.orphans, n.nodeKey)
+	if n.NodeKey != nil && n.NodeKey.Version() <= tree.db.lastCheckpoint {
+		tree.orphans = append(tree.orphans, n.NodeKey)
 	}
 }
 
 func (tree *Tree) mutateNode(node *Node) {
 	node.hash = nil
-	node.nodeKey = nil
+	node.NodeKey = nil
 	tree.pool.dirtyNode(node)
 }

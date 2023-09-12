@@ -1,6 +1,6 @@
-// TODO move to package v6_test
+// TODO move to package iavl_test
 // this means an audit of exported fields and types.
-package v6
+package iavl
 
 import (
 	"bytes"
@@ -113,7 +113,7 @@ func TestTree_Build(t *testing.T) {
 		humanize.Comma(int64(db.setCount)),
 		humanize.Comma(int64(db.deleteCount)))
 
-	require.Equal(t, height, tree.root.subtreeHeight+1)
+	require.Equal(t, height, tree.root.SubtreeHeight+1)
 	require.Equal(t, count, len(tree.db.nodes))
 	require.Equal(t, tree.pool.dirtyCount, workingSetCount)
 
@@ -146,16 +146,16 @@ func pooledTreeHeight(tree *Tree, node Node) int8 {
 }
 
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
-	dbNode := tree.db.Get(*node.nodeKey)
+	dbNode := tree.db.Get(*node.NodeKey)
 	require.NotNil(t, dbNode)
 	require.Equal(t, dbNode.hash, node.hash)
-	require.Equal(t, dbNode.nodeKey, node.nodeKey)
-	require.Equal(t, dbNode.key, node.key)
-	require.Equal(t, dbNode.value, node.value)
-	require.Equal(t, dbNode.size, node.size)
-	require.Equal(t, dbNode.subtreeHeight, node.subtreeHeight)
-	require.Equal(t, dbNode.leftNodeKey, node.leftNodeKey)
-	require.Equal(t, dbNode.rightNodeKey, node.rightNodeKey)
+	require.Equal(t, dbNode.NodeKey, node.NodeKey)
+	require.Equal(t, dbNode.Key, node.Key)
+	require.Equal(t, dbNode.Value, node.Value)
+	require.Equal(t, dbNode.Size, node.Size)
+	require.Equal(t, dbNode.SubtreeHeight, node.SubtreeHeight)
+	require.Equal(t, dbNode.LeftNodeKey, node.LeftNodeKey)
+	require.Equal(t, dbNode.RightNodeKey, node.RightNodeKey)
 	if node.isLeaf() {
 		return
 	}
