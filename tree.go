@@ -338,7 +338,7 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *nodeKey {
 		node.leftNodeKey = tree.deepHash(sequence, node.left(tree))
 		node.rightNodeKey = tree.deepHash(sequence, node.right(tree))
 	}
-	node._hash(tree, tree.version)
+	node._hash(tree.version)
 
 	// TODO remove
 	// only flush in checkpoint

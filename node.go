@@ -287,13 +287,13 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash(tree *Tree, version int64) []byte {
+func (node *Node) _hash(version int64) []byte {
 	if node.hash != nil {
 		return node.hash
 	}
 
 	h := sha256.New()
-	if err := node.writeHashBytes(tree, h, version); err != nil {
+	if err := node.writeHashBytes(h, version); err != nil {
 		return nil
 	}
 	node.hash = h.Sum(nil)
@@ -301,7 +301,7 @@ func (node *Node) _hash(tree *Tree, version int64) []byte {
 	return node.hash
 }
 
-func (node *Node) writeHashBytes(tree *Tree, w io.Writer, version int64) error {
+func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 	var (
 		n   int
 		buf [binary.MaxVarintLen64]byte
@@ -335,10 +335,10 @@ func (node *Node) writeHashBytes(tree *Tree, w io.Writer, version int64) error {
 			return fmt.Errorf("writing value, %w", err)
 		}
 	} else {
-		if err := EncodeBytes(w, node.left(tree).hash); err != nil {
+		if err := EncodeBytes(w, node.leftNode.hash); err != nil {
 			return fmt.Errorf("writing left hash, %w", err)
 		}
-		if err := EncodeBytes(w, node.right(tree).hash); err != nil {
+		if err := EncodeBytes(w, node.rightNode.hash); err != nil {
 			return fmt.Errorf("writing right hash, %w", err)
 		}
 	}
@@ -361,3 +361,181 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 	_, err := w.Write(bz)
 	return err
 }
+
+/*
+// MakeNode constructs an *Node from an encoded byte slice.
+func MakeNode(nk, buf []byte) (*Node, error) {
+	// Read node header (height, size, key).
+	height, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.height, %w", err)
+	}
+	buf = buf[n:]
+	height8 := int8(height)
+	if height != int64(height8) {
+		return nil, errors.New("invalid height, out of int8 range")
+	}
+
+	size, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.size, %w", err)
+	}
+	buf = buf[n:]
+
+	key, n, err := encoding.DecodeBytes(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.key, %w", err)
+	}
+	buf = buf[n:]
+
+	node := &Node{
+		subtreeHeight: height8,
+		size:          size,
+		key:           key,
+	}
+	copy(node.nodeKey[:], nk)
+
+	// Read node body.
+	if node.isLeaf() {
+		val, _, err := encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.value, %w", err)
+		}
+		node.value = val
+		// ensure take the hash for the leaf node
+		node._hash(node.nodeKey.Version())
+	} else { // Read children.
+		node.hash, n, err = encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.hash, %w", err)
+		}
+		buf = buf[n:]
+
+		mode, n, err := encoding.DecodeVarint(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding mode, %w", err)
+		}
+		buf = buf[n:]
+		if mode < 0 || mode > 3 {
+			return nil, errors.New("invalid mode")
+		}
+
+		if mode&ModeLegacyLeftNode != 0 { // legacy leftNodeKey
+			node.leftNodeKey, n, err = encoding.DecodeBytes(buf)
+			if err != nil {
+				return nil, fmt.Errorf("decoding legacy node.leftNodeKey, %w", err)
+			}
+			buf = buf[n:]
+		} else {
+			var (
+				leftNodeKey NodeKey
+				nonce       int64
+			)
+			leftNodeKey.version, n, err = encoding.DecodeVarint(buf)
+			if err != nil {
+				return nil, fmt.Errorf("decoding node.leftNodeKey.version, %w", err)
+			}
+			buf = buf[n:]
+			nonce, n, err = encoding.DecodeVarint(buf)
+			if err != nil {
+				return nil, fmt.Errorf("decoding node.leftNodeKey.nonce, %w", err)
+			}
+			buf = buf[n:]
+			leftNodeKey.nonce = uint32(nonce)
+			if nonce != int64(leftNodeKey.nonce) {
+				return nil, errors.New("invalid leftNodeKey.nonce, out of int32 range")
+			}
+			node.leftNodeKey = leftNodeKey.GetKey()
+		}
+		if mode&ModeLegacyRightNode != 0 { // legacy rightNodeKey
+			node.rightNodeKey, _, err = encoding.DecodeBytes(buf)
+			if err != nil {
+				return nil, fmt.Errorf("decoding legacy node.rightNodeKey, %w", err)
+			}
+		} else {
+			var (
+				rightNodeKey NodeKey
+				nonce        int64
+			)
+			rightNodeKey.version, n, err = encoding.DecodeVarint(buf)
+			if err != nil {
+				return nil, fmt.Errorf("decoding node.rightNodeKey.version, %w", err)
+			}
+			buf = buf[n:]
+			nonce, _, err = encoding.DecodeVarint(buf)
+			if err != nil {
+				return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", err)
+			}
+			rightNodeKey.nonce = uint32(nonce)
+			if nonce != int64(rightNodeKey.nonce) {
+				return nil, errors.New("invalid rightNodeKey.nonce, out of int32 range")
+			}
+			node.rightNodeKey = rightNodeKey.GetKey()
+		}
+	}
+	return node, nil
+}
+
+// MakeLegacyNode constructs a legacy *Node from an encoded byte slice.
+func MakeLegacyNode(hash, buf []byte) (*Node, error) {
+	// Read node header (height, size, version, key).
+	height, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.height, %w", err)
+	}
+	buf = buf[n:]
+	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
+		return nil, errors.New("invalid height, must be int8")
+	}
+
+	size, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.size, %w", err)
+	}
+	buf = buf[n:]
+
+	ver, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.version, %w", err)
+	}
+	buf = buf[n:]
+
+	key, n, err := encoding.DecodeBytes(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.key, %w", err)
+	}
+	buf = buf[n:]
+
+	node := &Node{
+		subtreeHeight: int8(height),
+		size:          size,
+		nodeKey:       &NodeKey{version: ver},
+		key:           key,
+		hash:          hash,
+	}
+
+	// Read node body.
+
+	if node.isLeaf() {
+		val, _, err := encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.value, %w", err)
+		}
+		node.value = val
+	} else { // Read children.
+		leftHash, n, err := encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.leftHash, %w", err)
+		}
+		buf = buf[n:]
+
+		rightHash, _, err := encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.rightHash, %w", err)
+		}
+		node.leftNodeKey = leftHash
+		node.rightNodeKey = rightHash
+	}
+	return node, nil
+}
+*/
