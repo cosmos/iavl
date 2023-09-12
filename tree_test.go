@@ -75,7 +75,7 @@ func TestTree_Build(t *testing.T) {
 	// overflow on initial changeset and frequently after; worst performance
 	poolSize := 100_000
 
-	db := newMemDB()
+	db := newMapDB()
 	tree := &Tree{
 		pool:               newNodePool(db, poolSize),
 		metrics:            &metrics.TreeMetrics{},

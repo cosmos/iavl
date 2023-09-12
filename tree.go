@@ -13,7 +13,7 @@ type Tree struct {
 	rootKey *nodeKey
 	pool    *nodePool
 	metrics *metrics.TreeMetrics
-	db      *memDB
+	db      *mapDB
 
 	// should be part of pool?
 	orphans            []*nodeKey

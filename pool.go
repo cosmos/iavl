@@ -7,7 +7,7 @@ import (
 )
 
 type nodePool struct {
-	db        *memDB
+	db        *mapDB
 	free      chan int
 	nodes     []*Node
 	metrics   *metrics.TreeMetrics
@@ -50,7 +50,7 @@ func (np *nodePool) clockEvict() *Node {
 	}
 }
 
-func newNodePool(db *memDB, size int) *nodePool {
+func newNodePool(db *mapDB, size int) *nodePool {
 	np := &nodePool{
 		nodes: make([]*Node, size),
 		free:  make(chan int, size),

@@ -1,21 +1,41 @@
 package v6
 
-// memDB approximates a database with a map.
+type DB interface {
+	Get(key []byte) ([]byte, error)
+	Set(key []byte, value []byte) error
+	Delete(key []byte) error
+}
+
+type nodeDB interface {
+	Set(node *Node)
+	Get(nk nodeKey) *Node
+	Delete(nk nodeKey)
+}
+
+type kvDB struct {
+	db             DB
+	lastCheckpoint int64
+}
+
+func (kv *kvDB) Set(node *Node) {
+}
+
+// mapDB approximates a database with a map.
 // it used to store nodes in memory so that pool size can be constrained and tested.
-type memDB struct {
+type mapDB struct {
 	nodes          map[nodeKey]Node
 	setCount       int
 	deleteCount    int
 	lastCheckpoint int64
 }
 
-func newMemDB() *memDB {
-	return &memDB{
+func newMapDB() *mapDB {
+	return &mapDB{
 		nodes: make(map[nodeKey]Node),
 	}
 }
 
-func (db *memDB) Set(node *Node) {
+func (db *mapDB) Set(node *Node) {
 	nk := *node.nodeKey
 	n := *node
 	n.overflow = false
@@ -27,7 +47,7 @@ func (db *memDB) Set(node *Node) {
 	db.setCount++
 }
 
-func (db *memDB) Get(nk nodeKey) *Node {
+func (db *mapDB) Get(nk nodeKey) *Node {
 	n, ok := db.nodes[nk]
 	if !ok {
 		return nil
@@ -35,7 +55,7 @@ func (db *memDB) Get(nk nodeKey) *Node {
 	return &n
 }
 
-func (db *memDB) Delete(nk nodeKey) {
+func (db *mapDB) Delete(nk nodeKey) {
 	delete(db.nodes, nk)
 	db.deleteCount++
 }
