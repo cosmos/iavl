@@ -733,6 +733,8 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 }
 
 func (ndb *nodeDB) resetLatestVersion(version int64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	ndb.latestVersion = version
 }
 
