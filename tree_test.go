@@ -78,9 +78,9 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
 
 func TestTree_Build(t *testing.T) {
 	//just a little bigger than the size of the initial changeset. evictions will occur slowly.
-	poolSize := 210_050
+	//poolSize := 210_050
 	// no evictions
-	//poolSize := 500_000
+	poolSize := 500_000
 	// overflow on initial changeset and frequently after; worst performance
 	//poolSize := 100_000
 
@@ -178,7 +178,7 @@ func pooledTreeHeight(tree *Tree, node Node) int8 {
 }
 
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
-	dbNode, err := tree.db.Get(*node.NodeKey)
+	dbNode, err := tree.db.Get(node.NodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)
 	}

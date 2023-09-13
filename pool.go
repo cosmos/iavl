@@ -11,7 +11,7 @@ import (
 type checkpointArgs struct {
 	overflow []*Node
 	set      []*Node
-	delete   []*NodeKey
+	delete   []NodeKey
 	version  int64
 }
 
@@ -24,6 +24,9 @@ type nodePool struct {
 
 	dirtyCount int
 	lockCount  int
+
+	poolSize  int64
+	dirtySize int64
 
 	// checkpoint
 	lastCheckpoint int64
@@ -72,11 +75,12 @@ func newNodePool(db nodeDB, size int) *nodePool {
 	for i := 0; i < size; i++ {
 		np.free <- i
 		np.nodes[i] = &Node{frameId: i}
+		np.poolSize += nodeSize
 	}
 	return np
 }
 
-func (np *nodePool) Get() *Node {
+func (np *nodePool) Get(key, value []byte) *Node {
 	np.metrics.PoolGet++
 
 	// TODO
@@ -97,6 +101,11 @@ func (np *nodePool) Get() *Node {
 	}
 	n.use = true
 	np.dirtyNode(n)
+	n.Key = key
+	n.Value = value
+	varSz := n.varSize()
+	np.poolSize += varSz
+	np.dirtySize += varSz
 
 	return n
 }
@@ -229,7 +238,7 @@ func (np *nodePool) CheckpointRunner(ctx context.Context) error {
 				setCount++
 			}
 			for _, nk := range args.delete {
-				if err := np.db.Delete(*nk); err != nil {
+				if err := np.db.Delete(nk); err != nil {
 					return err
 				}
 				deleteCount++

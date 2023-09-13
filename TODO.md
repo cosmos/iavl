@@ -24,3 +24,7 @@ more graceful handling of overflow. as-is overflow may cause many nodes in the t
 and `rightNode` which results in a fault and db lookup on next iteration.  this is a performance hit, and
 the result of using go managed memory for overflow nodes.  ideally the overflow nodes would be managed by
 the node pool, but then we need to shrink the pool after it has grown which is tricky.
+
+## overflow
+
+overflow nodes into a read-only ring buffer.  

@@ -2,8 +2,11 @@ package iavl_test
 
 import (
 	"bytes"
+	"crypto/rand"
 	"encoding/binary"
+	"fmt"
 	"testing"
+	"unsafe"
 
 	"github.com/cosmos/iavl/v2"
 	"github.com/stretchr/testify/require"
@@ -62,6 +65,47 @@ func Benchmark_NodeKey_Overwrite(b *testing.B) {
 	}
 }
 
+func Benchmark_NodeKey_StdCompare(b *testing.B) {
+	emptyNk := nodeKey{}
+	nk := nodeKey{}
+	for i := 0; i < b.N; i++ {
+		//j := byte(i%255) + 1
+		//nk := nodeKey{0, 0, 0, 0, 0, 0, 0, j, j, j, j, j}
+		_, err := rand.Read(nk[:])
+		if err != nil {
+			b.Fail()
+		}
+		if emptyNk == nk {
+			panic("equal")
+		}
+	}
+}
+
+func Benchmark_NodeKey_FastCompare(b *testing.B) {
+	emptyNk := nodeKey{}
+	nk := nodeKey{}
+	for i := 0; i < b.N; i++ {
+		//j := byte(i%255) + 1
+		//nk := nodeKey{0, 0, 0, 0, 0, 0, 0, j, j, j, j, j}
+		_, err := rand.Read(nk[:])
+		if err != nil {
+			b.Fail()
+		}
+		if fastCompare(emptyNk, nk) {
+			panic("equal")
+		}
+	}
+}
+
+func fastCompare(a nodeKey, b nodeKey) bool {
+	for i := 0; i < 12; i++ {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 func Test_ReadWriteNode(t *testing.T) {
 	nk := iavl.NewNodeKey(101, 777)
 	n := &iavl.Node{
@@ -87,8 +131,8 @@ func Test_ReadWriteNode(t *testing.T) {
 	// leaf node
 	n.Value = []byte("value")
 	n.SubtreeHeight = 0
-	n.LeftNodeKey = nil
-	n.RightNodeKey = nil
+	n.LeftNodeKey = iavl.NodeKey{}
+	n.RightNodeKey = iavl.NodeKey{}
 	bz = &bytes.Buffer{}
 	err = n.WriteBytes(bz)
 	require.NoError(t, err)
@@ -101,4 +145,11 @@ func Test_ReadWriteNode(t *testing.T) {
 	require.Equal(t, n.RightNodeKey, n2.RightNodeKey)
 	require.Equal(t, n.Size, n2.Size)
 	require.Equal(t, n.SubtreeHeight, n2.SubtreeHeight)
+}
+
+func Test_NodeSize(t *testing.T) {
+	n1 := struct {
+		Key []byte
+	}{}
+	fmt.Printf("n1: %d\n", unsafe.Sizeof(n1))
 }

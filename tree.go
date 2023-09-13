@@ -19,13 +19,13 @@ var log = zlog.Output(zerolog.ConsoleWriter{
 type Tree struct {
 	version int64
 	root    *Node
-	rootKey *NodeKey
+	rootKey NodeKey
 	pool    *nodePool
 	metrics *metrics.TreeMetrics
 	db      nodeDB
 
 	// should be part of pool?
-	orphans            []*NodeKey
+	orphans            []NodeKey
 	overflow           []*Node
 	checkpointInterval int64
 	lastCheckpoint     int64
@@ -254,9 +254,7 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	}
 
 	if tree.root == nil {
-		tree.root = tree.pool.Get()
-		tree.root.Key = key
-		tree.root.Value = value
+		tree.root = tree.pool.Get(key, value)
 		tree.root.Size = 1
 		return updated, nil
 	}
@@ -276,33 +274,28 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.Key) {
 		case -1: // setKey < leafKey
-			n := tree.pool.Get()
-			n.Key = node.Key
+			n := tree.pool.Get(node.Key, nil)
 			n.SubtreeHeight = 1
 			n.Size = 2
 			n.setRight(node)
 
-			n.leftNode = tree.pool.Get()
-			n.leftNode.Key = key
-			n.leftNode.Value = value
+			n.leftNode = tree.pool.Get(key, value)
 			n.leftNode.Size = 1
 			return n, false, nil
 		case 1: // setKey > leafKey
-			n := tree.pool.Get()
+			n := tree.pool.Get(key, nil)
 			n.Key = key
 			n.SubtreeHeight = 1
 			n.Size = 2
 			n.setLeft(node)
 
-			n.rightNode = tree.pool.Get()
-			n.rightNode.Key = key
-			n.rightNode.Value = value
+			n.rightNode = tree.pool.Get(key, value)
 			n.rightNode.Size = 1
 			return n, false, nil
 		default:
 			tree.addOrphan(node)
 			node.hash = nil
-			node.NodeKey = nil
+			node.NodeKey = NodeKey{}
 			node.Value = value
 			tree.pool.dirtyNode(node)
 			return node, true, nil
@@ -341,7 +334,7 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	}
 }
 
-func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
+func (tree *Tree) deepHash(sequence *uint32, node *Node) NodeKey {
 	if node == nil {
 		panic("nil node in deepHash")
 	}
@@ -349,7 +342,7 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 	if node.overflow {
 		tree.overflow = append(tree.overflow, node)
 	}
-	if node.NodeKey != nil {
+	if !node.NodeKey.IsEmpty() {
 		return node.NodeKey
 	}
 	*sequence++
@@ -380,13 +373,13 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 
 func (tree *Tree) addOrphan(n *Node) {
 	//orphans which never made it to the db don't need to be deleted from it.
-	if n.NodeKey != nil && n.NodeKey.Version() <= tree.lastCheckpoint {
+	if !n.NodeKey.IsEmpty() && n.NodeKey.Version() <= tree.lastCheckpoint {
 		tree.orphans = append(tree.orphans, n.NodeKey)
 	}
 }
 
 func (tree *Tree) mutateNode(node *Node) {
 	node.hash = nil
-	node.NodeKey = nil
+	node.NodeKey = NodeKey{}
 	tree.pool.dirtyNode(node)
 }

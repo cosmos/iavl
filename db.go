@@ -62,14 +62,13 @@ func newMapDB() *mapDB {
 }
 
 func (db *mapDB) Set(node *Node) error {
-	nk := *node.NodeKey
 	n := *node
 	n.overflow = false
 	n.dirty = false
 	n.leftNode = nil
 	n.rightNode = nil
 	n.frameId = -1
-	db.nodes[nk] = n
+	db.nodes[node.NodeKey] = n
 	db.setCount++
 	return nil
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"unsafe"
 
 	encoding "github.com/cosmos/iavl/v2/internal"
 )
@@ -16,28 +17,39 @@ const nodeKeySize = 12
 
 type NodeKey [nodeKeySize]byte
 
-func NewNodeKey(version int64, sequence uint32) *NodeKey {
+var emptyNodeKey = NodeKey{}
+
+func NewNodeKey(version int64, sequence uint32) NodeKey {
 	nk := NodeKey{}
 	binary.BigEndian.PutUint64(nk[:], uint64(version))
 	binary.BigEndian.PutUint32(nk[8:], sequence)
-	return &nk
+	return nk
 }
 
-func (nk *NodeKey) Version() int64 {
+func (nk NodeKey) Version() int64 {
 	return int64(binary.BigEndian.Uint64(nk[:]))
 }
 
-func (nk *NodeKey) Sequence() uint32 {
+func (nk NodeKey) Sequence() uint32 {
 	return binary.BigEndian.Uint32(nk[8:])
+}
+
+func (nk NodeKey) IsEmpty() bool {
+	return nk == emptyNodeKey
+}
+
+// String returns a string representation of the node key.
+func (nk NodeKey) String() string {
+	return fmt.Sprintf("(%d, %d)", nk.Version(), nk.Sequence())
 }
 
 // Node represents a node in a Tree.
 type Node struct {
 	Key           []byte
 	Value         []byte
-	NodeKey       *NodeKey
-	LeftNodeKey   *NodeKey
-	RightNodeKey  *NodeKey
+	NodeKey       NodeKey
+	LeftNodeKey   NodeKey
+	RightNodeKey  NodeKey
 	Size          int64
 	SubtreeHeight int8
 
@@ -52,9 +64,10 @@ type Node struct {
 	lock     bool
 }
 
-// String returns a string representation of the node key.
-func (nk *NodeKey) String() string {
-	return fmt.Sprintf("(%d, %d)", nk.Version(), nk.Sequence())
+var nodeSize = int64(unsafe.Sizeof(Node{})) + hashSize
+
+func (node *Node) varSize() int64 {
+	return int64(len(node.Key)) + int64(len(node.Value))
 }
 
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
@@ -63,11 +76,11 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 		return nil, fmt.Errorf("leaf node has no left node")
 	}
 	if node.leftNode == nil || node.LeftNodeKey != node.leftNode.NodeKey {
-		if node.LeftNodeKey == nil {
+		if node.LeftNodeKey.IsEmpty() {
 			return nil, fmt.Errorf("left node key is nil")
 		}
 		var err error
-		node.leftNode, err = t.db.Get(*node.LeftNodeKey)
+		node.leftNode, err = t.db.Get(node.LeftNodeKey)
 		if err != nil {
 			return nil, err
 		}
@@ -101,11 +114,11 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.rightNode == nil || node.RightNodeKey != node.rightNode.NodeKey {
 		// return nil, fmt.Errorf("right node key mismatch; expected %v, got %v",
 		//	node.RightNodeKey, node.rightNode.NodeKey)
-		if node.RightNodeKey == nil {
+		if node.RightNodeKey.IsEmpty() {
 			return nil, fmt.Errorf("right node key is nil")
 		}
 		var err error
-		node.rightNode, err = t.db.Get(*node.RightNodeKey)
+		node.rightNode, err = t.db.Get(node.RightNodeKey)
 		if err != nil {
 			return nil, err
 		}
@@ -158,7 +171,7 @@ func maxInt8(a, b int8) int8 {
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
 func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
-	if node.NodeKey != nil {
+	if !node.NodeKey.IsEmpty() {
 		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
 	balance, err := node.calcBalance(tree)
@@ -366,11 +379,11 @@ func (node *Node) clear() {
 	node.Key = nil
 	node.Value = nil
 	node.hash = nil
-	node.NodeKey = nil
+	node.NodeKey = NodeKey{}
 	node.leftNode = nil
 	node.rightNode = nil
-	node.RightNodeKey = nil
-	node.LeftNodeKey = nil
+	node.RightNodeKey = NodeKey{}
+	node.LeftNodeKey = NodeKey{}
 	node.SubtreeHeight = 0
 	node.Size = 0
 	node.use = false
@@ -414,7 +427,7 @@ func MakeNode(nodeKey, buf []byte) (*Node, error) {
 
 	node := &Node{
 		SubtreeHeight: int8(height),
-		NodeKey:       &NodeKey{},
+		NodeKey:       NodeKey{},
 		Size:          size,
 		Key:           key,
 	}
@@ -440,8 +453,8 @@ func MakeNode(nodeKey, buf []byte) (*Node, error) {
 		if err != nil {
 			return nil, fmt.Errorf("decoding node.rightHash, %w", err)
 		}
-		node.LeftNodeKey = &NodeKey{}
-		node.RightNodeKey = &NodeKey{}
+		node.LeftNodeKey = NodeKey{}
+		node.RightNodeKey = NodeKey{}
 		copy(node.LeftNodeKey[:], leftNodeKey)
 		copy(node.RightNodeKey[:], rightNodeKey)
 	}
@@ -473,7 +486,7 @@ func (node *Node) WriteBytes(w io.Writer) error {
 			return fmt.Errorf("writing value; %w", cause)
 		}
 	} else {
-		if node.LeftNodeKey == nil {
+		if node.LeftNodeKey.IsEmpty() {
 			return fmt.Errorf("left node key is nil")
 		}
 		cause = encoding.EncodeBytes(w, node.LeftNodeKey[:])
@@ -481,7 +494,7 @@ func (node *Node) WriteBytes(w io.Writer) error {
 			return fmt.Errorf("writing left node key; %w", cause)
 		}
 
-		if node.RightNodeKey == nil {
+		if node.RightNodeKey.IsEmpty() {
 			return fmt.Errorf("right node key is nil")
 		}
 		cause = encoding.EncodeBytes(w, node.RightNodeKey[:])

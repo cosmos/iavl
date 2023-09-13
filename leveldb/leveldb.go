@@ -1,6 +1,3 @@
-//go:build leveldb
-// +build leveldb
-
 // Package leveldb provides a leveldb implementation of the database interface. It should not be in this module but is
 // included here for now for benchmarks and testing.
 package leveldb
