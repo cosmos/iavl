@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 )
@@ -26,7 +27,6 @@ type Tree struct {
 
 	// should be part of pool?
 	orphans            []NodeKey
-	overflow           []*Node
 	checkpointInterval int64
 	lastCheckpoint     int64
 }
@@ -52,26 +52,20 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 }
 
 func (tree *Tree) Checkpoint() error {
-	log.Info().Msgf("checkpointing at version %d", tree.version)
-	sets := tree.overflow
+	log.Info().Msgf("requesting checkpoint at version %d", tree.version)
+	var sets []*Node
 	for _, poolNode := range tree.pool.nodes {
-		if poolNode.dirty {
+		if poolNode.dirty && poolNode.NodeKey.Version() > tree.lastCheckpoint {
 			n := *poolNode
 			n.leftNode = nil
 			n.rightNode = nil
 			n.hash = nil
 
 			sets = append(sets, &n)
-			poolNode.dirty = false
-			tree.pool.dirtyCount--
+			//poolNode.dirty = false
+			//tree.pool.dirtyCount--
+			tree.pool.dirtySize = 0
 		}
-	}
-
-	if tree.root.overflow {
-		rootNode := &(*tree.root)
-		rootNode.overflow = false
-		rootNode.dirty = false
-		tree.pool.Put(rootNode)
 	}
 
 	tree.pool.checkpointCh <- &checkpointArgs{
@@ -80,7 +74,6 @@ func (tree *Tree) Checkpoint() error {
 		version: tree.version,
 	}
 
-	tree.overflow = nil
 	tree.orphans = nil
 	tree.lastCheckpoint = tree.version
 
@@ -144,7 +137,9 @@ func (tree *Tree) Height() int8 {
 }
 
 func (tree *Tree) shouldCheckpoint() bool {
-	if tree.overflow != nil {
+	if tree.pool.dirtySize > tree.pool.maxWorkingSetSize {
+		log.Info().Msgf("working set size %s > max working set size %s",
+			humanize.Comma(tree.pool.dirtySize), humanize.Comma(tree.pool.maxWorkingSetSize))
 		return true
 	}
 	if tree.version-tree.lastCheckpoint > tree.checkpointInterval {
@@ -339,9 +334,6 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) NodeKey {
 		panic("nil node in deepHash")
 	}
 
-	if node.overflow {
-		tree.overflow = append(tree.overflow, node)
-	}
 	if !node.NodeKey.IsEmpty() {
 		return node.NodeKey
 	}
@@ -356,17 +348,6 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) NodeKey {
 	// TODO remove
 	// only flush in checkpoint
 	// tree.pool.FlushNode(node)
-
-	if !node.isLeaf() {
-		// remove un-managed overflow nodes by setting to nil. will be garbage collected.
-		// leftNode and rightNode will fault and be replaced on next fetch.
-		if node.leftNode.overflow {
-			node.leftNode = nil
-		}
-		if node.rightNode.overflow {
-			node.rightNode = nil
-		}
-	}
 
 	return node.NodeKey
 }

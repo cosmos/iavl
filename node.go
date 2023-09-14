@@ -57,11 +57,9 @@ type Node struct {
 	rightNode *Node
 	hash      []byte
 
-	frameId  int
-	use      bool
-	dirty    bool
-	overflow bool
-	lock     bool
+	frameId int
+	use     bool
+	dirty   bool
 }
 
 var nodeSize = int64(unsafe.Sizeof(Node{})) + hashSize
@@ -79,15 +77,15 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 		if node.LeftNodeKey.IsEmpty() {
 			return nil, fmt.Errorf("left node key is nil")
 		}
-		var err error
-		node.leftNode, err = t.db.Get(node.LeftNodeKey)
+		leftNode, err := t.db.Get(node.LeftNodeKey)
 		if err != nil {
 			return nil, err
 		}
-
-		if node.leftNode == nil {
+		if leftNode == nil {
 			return nil, fmt.Errorf("left node is nil; fetch failed")
 		}
+
+		node.leftNode = leftNode
 		t.pool.Put(node.leftNode)
 	}
 	node.leftNode.use = true
@@ -112,19 +110,18 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 		return nil, fmt.Errorf("leaf node has no right node")
 	}
 	if node.rightNode == nil || node.RightNodeKey != node.rightNode.NodeKey {
-		// return nil, fmt.Errorf("right node key mismatch; expected %v, got %v",
-		//	node.RightNodeKey, node.rightNode.NodeKey)
 		if node.RightNodeKey.IsEmpty() {
 			return nil, fmt.Errorf("right node key is nil")
 		}
-		var err error
-		node.rightNode, err = t.db.Get(node.RightNodeKey)
+
+		rightNode, err := t.db.Get(node.RightNodeKey)
 		if err != nil {
 			return nil, err
 		}
-		if node.rightNode == nil {
+		if rightNode == nil {
 			return nil, fmt.Errorf("right node is nil; fetch failed")
 		}
+		node.rightNode = rightNode
 		t.pool.Put(node.rightNode)
 	}
 	node.rightNode.use = true

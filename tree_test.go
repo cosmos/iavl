@@ -16,14 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
+func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
 		hash    []byte
 		version int64
-		cnt     int64 = 1
-		since         = time.Now()
+		since   = time.Now()
 		err     error
 	)
+	cnt = 1
 
 	// log file
 	//itr, err := compact.NewChangesetIterator("/Users/mattk/src/scratch/osmosis-hist/ordered/bank", "bank")
@@ -51,10 +51,11 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
 			}
 
 			if cnt%100_000 == 0 {
-				fmt.Printf("processed %s leaves in %s; %s leaves/s; version=%d\n",
+				fmt.Printf("processed %s leaves in %s; leaves/s last=%s μ=%s; version=%d\n",
 					humanize.Comma(int64(cnt)),
 					time.Since(since),
 					humanize.Comma(int64(100_000/time.Since(since).Seconds())),
+					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
 					version)
 				since = time.Now()
 			}
@@ -74,13 +75,14 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) {
 	}
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", hash))
 	require.Equal(t, version, opts.Until)
+	return cnt
 }
 
 func TestTree_Build(t *testing.T) {
 	//just a little bigger than the size of the initial changeset. evictions will occur slowly.
 	//poolSize := 210_050
 	// no evictions
-	poolSize := 500_000
+	poolSize := 10_000
 	// overflow on initial changeset and frequently after; worst performance
 	//poolSize := 100_000
 
@@ -97,11 +99,13 @@ func TestTree_Build(t *testing.T) {
 		pool:               newNodePool(db, poolSize),
 		metrics:            &metrics.TreeMetrics{},
 		db:                 db,
-		checkpointInterval: 10_000,
+		checkpointInterval: 100_000,
 	}
 	tree.pool.metrics = tree.metrics
+	tree.pool.maxWorkingSetSize = 3 * 1024 * 1024 * 1024
 
-	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.BankLockup25_000()
+	opts := testutil.NewTreeBuildOptions().With1_500_000()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
@@ -114,25 +118,28 @@ func TestTree_Build(t *testing.T) {
 		require.NoError(t, checkpointErr)
 	}()
 
-	testTreeBuild(t, tree, opts)
+	testStart := time.Now()
+	leaves := testTreeBuild(t, tree, opts)
 
 	err = tree.Checkpoint()
 	require.NoError(t, err)
 	// wait
 	tree.pool.checkpointCh <- &checkpointArgs{version: -1}
+	treeDuration := time.Since(testStart)
 
 	// don't evict root on iteration, it interacts with the node pool
 	tree.root.dirty = true
 	count := pooledTreeCount(tree, *tree.root)
 	height := pooledTreeHeight(tree, *tree.root)
 
-	workingSetCount := -1 // offset the dirty root above.
+	workingSetCount := 0 // offset the dirty root above.
 	for _, n := range tree.pool.nodes {
 		if n.dirty {
 			workingSetCount++
 		}
 	}
 
+	fmt.Printf("mean leaves/s: %s\n", humanize.Comma(int64(float64(leaves)/treeDuration.Seconds())))
 	fmt.Printf("workingSetCount: %d\n", workingSetCount)
 	fmt.Printf("treeCount: %d\n", count)
 	fmt.Printf("treeHeight: %d\n", height)

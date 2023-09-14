@@ -53,7 +53,11 @@ func NewTreeBuildOptions() TreeBuildOptions {
 	//lockupGen.InitialSize = 10_000
 	stakingGen := bench.StakingLikeGenerator(seed, versions)
 	//stakingGen.InitialSize = 10_000
-	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{bankGen, lockupGen, stakingGen})
+	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{
+		bankGen,
+		lockupGen,
+		stakingGen,
+	})
 	if err != nil {
 		panic(err)
 	}
@@ -61,4 +65,24 @@ func NewTreeBuildOptions() TreeBuildOptions {
 		Iterator: itr,
 	}
 	return opts.With25_000()
+}
+
+func BankLockup25_000() TreeBuildOptions {
+	var seed int64 = 1234
+	var versions int64 = 10_000_000
+	bankGen := bench.BankLikeGenerator(seed, versions)
+	lockupGen := bench.LockupLikeGenerator(seed, versions)
+	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{
+		bankGen,
+		lockupGen,
+	})
+	if err != nil {
+		panic(err)
+	}
+	opts := TreeBuildOptions{
+		Iterator:  itr,
+		Until:     25_000,
+		UntilHash: "c1dc9dc7d3a8ae025d2a347eea19121e98435b06b421607119bc3cf3cf79be05",
+	}
+	return opts
 }

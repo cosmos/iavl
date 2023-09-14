@@ -1,6 +1,9 @@
 package iavl
 
-import "crypto/sha256"
+import (
+	"crypto/sha256"
+	"fmt"
+)
 
 const (
 	hashSize = sha256.Size
@@ -35,6 +38,9 @@ func (kv *kvDB) Get(nk NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	if bz == nil {
+		return nil, fmt.Errorf("node not found: %s", nk.String())
+	}
 	n, err := MakeNode(nk[:], bz)
 	if err != nil {
 		return nil, err
@@ -63,7 +69,6 @@ func newMapDB() *mapDB {
 
 func (db *mapDB) Set(node *Node) error {
 	n := *node
-	n.overflow = false
 	n.dirty = false
 	n.leftNode = nil
 	n.rightNode = nil

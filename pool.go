@@ -2,17 +2,20 @@ package iavl
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
 )
 
 type checkpointArgs struct {
-	overflow []*Node
-	set      []*Node
-	delete   []NodeKey
-	version  int64
+	set     []*Node
+	delete  []NodeKey
+	version int64
+}
+
+type cleanArgs struct {
+	nk      NodeKey
+	frameId int
 }
 
 type nodePool struct {
@@ -25,20 +28,52 @@ type nodePool struct {
 	dirtyCount int
 	lockCount  int
 
-	poolSize  int64
-	dirtySize int64
+	poolSize          int64
+	dirtySize         int64
+	maxWorkingSetSize int64
 
 	// checkpoint
 	lastCheckpoint int64
 	checkpointCh   chan *checkpointArgs
+	cleaned        chan []*cleanArgs
+}
+
+func (np *nodePool) grow(amount int) int {
+	log.Warn().Msgf("growing node pool amount=%d; size=%d", amount, len(np.nodes)+amount)
+	var frameId int
+	for i := 0; i < amount; i++ {
+		frameId = len(np.nodes)
+		if i != amount-1 {
+			np.free <- frameId
+		}
+		np.nodes = append(np.nodes, &Node{frameId: frameId})
+	}
+	return frameId
 }
 
 func (np *nodePool) clockEvict() *Node {
+
 	itr := 0
 	for {
 		itr++
+
+		select {
+		case cleaned := <-np.cleaned:
+			for _, clean := range cleaned {
+				if clean == nil {
+					continue
+				}
+				n := np.nodes[clean.frameId]
+				if n.NodeKey == clean.nk {
+					np.cleanNode(n)
+				}
+			}
+		default:
+		}
+
 		if itr > len(np.nodes)*2 {
-			panic("eviction failed, pool exhausted")
+			frameId := np.grow(len(np.nodes))
+			return np.nodes[frameId]
 		}
 
 		n := np.nodes[np.clockHand]
@@ -68,7 +103,8 @@ func (np *nodePool) clockEvict() *Node {
 func newNodePool(db nodeDB, size int) *nodePool {
 	np := &nodePool{
 		nodes:        make([]*Node, size),
-		free:         make(chan int, size),
+		free:         make(chan int, 20_000_000),
+		cleaned:      make(chan []*cleanArgs, 20_000_000),
 		db:           db,
 		checkpointCh: make(chan *checkpointArgs),
 	}
@@ -83,54 +119,44 @@ func newNodePool(db nodeDB, size int) *nodePool {
 func (np *nodePool) Get(key, value []byte) *Node {
 	np.metrics.PoolGet++
 
-	// TODO
-	// soft ceiling: test/configure different fractions
-	if np.dirtyCount > len(np.nodes)/2 {
-		np.metrics.PoolDirtyOverflow++
-		// allocate a new node. it will be discarded on next flush
-		n := &Node{overflow: true}
-		return n
-	}
-
 	var n *Node
 	if len(np.free) == 0 {
 		n = np.clockEvict()
+		np.poolSize -= n.varSize()
 	} else {
 		id := <-np.free
 		n = np.nodes[id]
 	}
 	n.use = true
 	np.dirtyNode(n)
+
 	n.Key = key
 	n.Value = value
+
 	varSz := n.varSize()
-	np.poolSize += varSz
 	np.dirtySize += varSz
+	np.poolSize += varSz
 
 	return n
 }
 
 func (np *nodePool) Return(n *Node) {
-	if n.overflow {
-		// this un-managed node had `mutateNode` called on it
-		if n.dirty {
-			np.dirtyCount--
-		}
-
-		// overflow nodes are not managed
-		return
-	}
-	np.free <- n.frameId
 	np.metrics.PoolReturn++
-	n.clear()
+
 	np.cleanNode(n)
+	np.poolSize -= n.varSize()
+	np.free <- n.frameId
+	n.clear()
 }
 
 func (np *nodePool) Put(n *Node) {
 	np.metrics.PoolFault++
+
 	var frameId int
 	if len(np.free) == 0 {
-		frameId = np.clockEvict().frameId
+		evicted := np.clockEvict()
+		np.poolSize -= evicted.varSize()
+		frameId = evicted.frameId
 	} else {
 		frameId = <-np.free
 	}
@@ -142,25 +168,7 @@ func (np *nodePool) Put(n *Node) {
 	}
 	n.frameId = frameId
 	n.use = true
-}
-
-func (np *nodePool) FlushNode(n *Node) {
-	// TODO errors
-	switch {
-	case n.dirty:
-		err := np.db.Set(n)
-		if err != nil {
-			panic(err)
-		}
-		np.cleanNode(n)
-	case n.overflow:
-		err := np.db.Set(n)
-		if err != nil {
-			panic(err)
-		}
-	default:
-		panic("strange, flushing a clean node")
-	}
+	np.poolSize += n.varSize()
 }
 
 func (np *nodePool) cleanNode(n *Node) {
@@ -179,44 +187,7 @@ func (np *nodePool) dirtyNode(n *Node) {
 	np.dirtyCount++
 }
 
-func (np *nodePool) lockDirty() {
-	for _, n := range np.nodes {
-		if n.dirty {
-			n.lock = true
-			np.lockCount++
-		}
-	}
-}
-
-func (np *nodePool) unlockDirty() error {
-	lockCount := 0
-	for _, n := range np.nodes {
-		if n.lock {
-			n.lock = false
-			lockCount++
-		}
-	}
-	if lockCount != np.lockCount {
-		return fmt.Errorf("lock count mismatch: %d != %d", lockCount, np.lockCount)
-	}
-	np.lockCount = 0
-	return nil
-}
-
-func (np *nodePool) checkpoint(overflow []*Node) error {
-	for _, n := range np.nodes {
-		if n.dirty {
-			np.FlushNode(n)
-		}
-	}
-	for _, n := range overflow {
-		np.FlushNode(n)
-	}
-	//if np.dirtyCount != 0 {
-	//	return fmt.Errorf("dirty count mismatch: %d != 0", np.dirtyCount)
-	//}
-	return nil
-}
+const cleanBatch = 1000
 
 func (np *nodePool) CheckpointRunner(ctx context.Context) error {
 	for {
@@ -230,13 +201,18 @@ func (np *nodePool) CheckpointRunner(ctx context.Context) error {
 			}
 			start := time.Now()
 			var setCount, deleteCount int
-			log.Info().Msgf("checkpoint [%d-%d]", np.lastCheckpoint, args.version)
-			for _, n := range args.set {
+			log.Info().Msgf("begin checkpoint [%d-%d]", np.lastCheckpoint, args.version)
+
+			cleaned := make([]*cleanArgs, len(args.set))
+			for i, n := range args.set {
 				if err := np.db.Set(n); err != nil {
 					return err
 				}
 				setCount++
+				cleaned[i] = &cleanArgs{nk: n.NodeKey, frameId: n.frameId}
 			}
+			np.cleaned <- cleaned
+
 			for _, nk := range args.delete {
 				if err := np.db.Delete(nk); err != nil {
 					return err
