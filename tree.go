@@ -56,15 +56,21 @@ func (tree *Tree) Checkpoint() error {
 	var sets []*Node
 	for _, poolNode := range tree.pool.nodes {
 		if poolNode.dirty && poolNode.NodeKey.Version() > tree.lastCheckpoint {
+			// copy entire working set for checkpoint. this allows mutate replace dirty nodes. if we passed by
+			// reference then mutate would replace dirty nodes in the working set and the checkpoint would be
+			// invalid.
+			// Alternative: mutate refuses to replace dirty in working set being checkpointed and instead fetches
+			// a new node from the pool.
+			// Hypothesis: this would result in the same amount of memory allocation but is operationally more complex.
 			n := *poolNode
 			n.leftNode = nil
 			n.rightNode = nil
-			n.hash = nil
+			n.Value = nil
 
 			sets = append(sets, &n)
 			//poolNode.dirty = false
 			//tree.pool.dirtyCount--
-			tree.pool.dirtySize = 0
+			tree.pool.workingSize = 0
 		}
 	}
 
@@ -137,9 +143,13 @@ func (tree *Tree) Height() int8 {
 }
 
 func (tree *Tree) shouldCheckpoint() bool {
-	if tree.pool.dirtySize > tree.pool.maxWorkingSetSize {
-		log.Info().Msgf("working set size %s > max working set size %s",
-			humanize.Comma(tree.pool.dirtySize), humanize.Comma(tree.pool.maxWorkingSetSize))
+	if tree.pool.workingSize > tree.pool.maxWorkingSize {
+		log.Info().Msgf("working set size %s > max working set size %s; dirtySize=%s poolSize=%s; time evicting=%s",
+			humanize.IBytes(tree.pool.workingSize),
+			humanize.IBytes(tree.pool.maxWorkingSize),
+			humanize.IBytes(tree.pool.dirtySize),
+			humanize.IBytes(tree.pool.poolSize),
+			tree.pool.timeEvicting.Round(time.Second))
 		return true
 	}
 	if tree.version-tree.lastCheckpoint > tree.checkpointInterval {
@@ -249,7 +259,7 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	}
 
 	if tree.root == nil {
-		tree.root = tree.pool.Get(key, value)
+		tree.root = tree.pool.Get(key, value, tree.version)
 		tree.root.Size = 1
 		return updated, nil
 	}
@@ -269,29 +279,30 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.Key) {
 		case -1: // setKey < leafKey
-			n := tree.pool.Get(node.Key, nil)
+			n := tree.pool.Get(node.Key, nil, tree.version)
 			n.SubtreeHeight = 1
 			n.Size = 2
 			n.setRight(node)
 
-			n.leftNode = tree.pool.Get(key, value)
+			n.leftNode = tree.pool.Get(key, value, tree.version)
 			n.leftNode.Size = 1
 			return n, false, nil
 		case 1: // setKey > leafKey
-			n := tree.pool.Get(key, nil)
+			n := tree.pool.Get(key, nil, tree.version)
 			n.Key = key
 			n.SubtreeHeight = 1
 			n.Size = 2
 			n.setLeft(node)
 
-			n.rightNode = tree.pool.Get(key, value)
+			n.rightNode = tree.pool.Get(key, value, tree.version)
 			n.rightNode.Size = 1
 			return n, false, nil
 		default:
 			tree.addOrphan(node)
-			node.hash = nil
 			node.NodeKey = NodeKey{}
 			node.Value = value
+			node._hash(tree.version)
+			node.Value = nil
 			tree.pool.dirtyNode(node)
 			return node, true, nil
 		}
@@ -342,8 +353,8 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) NodeKey {
 	if !node.isLeaf() {
 		node.LeftNodeKey = tree.deepHash(sequence, node.left(tree))
 		node.RightNodeKey = tree.deepHash(sequence, node.right(tree))
+		node._hash(tree.version)
 	}
-	node._hash(tree.version)
 
 	// TODO remove
 	// only flush in checkpoint
@@ -362,5 +373,9 @@ func (tree *Tree) addOrphan(n *Node) {
 func (tree *Tree) mutateNode(node *Node) {
 	node.hash = nil
 	node.NodeKey = NodeKey{}
+	if node.work == false {
+		node.work = true
+		tree.pool.workingSize += node.sizeBytes()
+	}
 	tree.pool.dirtyNode(node)
 }

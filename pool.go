@@ -28,9 +28,11 @@ type nodePool struct {
 	dirtyCount int
 	lockCount  int
 
-	poolSize          int64
-	dirtySize         int64
-	maxWorkingSetSize int64
+	poolSize       uint64
+	dirtySize      uint64
+	workingSize    uint64
+	maxWorkingSize uint64
+	timeEvicting   time.Duration
 
 	// checkpoint
 	lastCheckpoint int64
@@ -47,6 +49,7 @@ func (np *nodePool) grow(amount int) int {
 			np.free <- frameId
 		}
 		np.nodes = append(np.nodes, &Node{frameId: frameId})
+		np.poolSize += nodeSize
 	}
 	return frameId
 }
@@ -54,16 +57,16 @@ func (np *nodePool) grow(amount int) int {
 func (np *nodePool) clockEvict() *Node {
 
 	itr := 0
+	start := time.Now()
 	for {
 		itr++
 
 		select {
 		case cleaned := <-np.cleaned:
 			for _, clean := range cleaned {
-				if clean == nil {
-					continue
-				}
 				n := np.nodes[clean.frameId]
+				// inverse case: node in same frame had mutate called on it, so it's dirty in the next working set,
+				// therefore don't clean.
 				if n.NodeKey == clean.nk {
 					np.cleanNode(n)
 				}
@@ -73,6 +76,7 @@ func (np *nodePool) clockEvict() *Node {
 
 		if itr > len(np.nodes)*2 {
 			frameId := np.grow(len(np.nodes))
+			np.timeEvicting += time.Since(start)
 			return np.nodes[frameId]
 		}
 
@@ -94,7 +98,9 @@ func (np *nodePool) clockEvict() *Node {
 			continue
 		default:
 			np.metrics.PoolEvict++
+			np.poolSize -= n.varSize()
 			n.clear()
+			np.timeEvicting += time.Since(start)
 			return n
 		}
 	}
@@ -102,39 +108,39 @@ func (np *nodePool) clockEvict() *Node {
 
 func newNodePool(db nodeDB, size int) *nodePool {
 	np := &nodePool{
-		nodes:        make([]*Node, size),
 		free:         make(chan int, 20_000_000),
 		cleaned:      make(chan []*cleanArgs, 20_000_000),
 		db:           db,
 		checkpointCh: make(chan *checkpointArgs),
 	}
-	for i := 0; i < size; i++ {
-		np.free <- i
-		np.nodes[i] = &Node{frameId: i}
-		np.poolSize += nodeSize
-	}
+	np.free <- np.grow(size)
 	return np
 }
 
-func (np *nodePool) Get(key, value []byte) *Node {
+func (np *nodePool) Get(key, value []byte, version int64) *Node {
 	np.metrics.PoolGet++
 
 	var n *Node
 	if len(np.free) == 0 {
 		n = np.clockEvict()
-		np.poolSize -= n.varSize()
 	} else {
 		id := <-np.free
 		n = np.nodes[id]
 	}
-	n.use = true
-	np.dirtyNode(n)
-
 	n.Key = key
 	n.Value = value
 
+	if n.Value != nil {
+		n._hash(version)
+		n.Value = nil
+	}
+
+	n.use = true
+	n.work = true
+	np.dirtyNode(n)
+
 	varSz := n.varSize()
-	np.dirtySize += varSz
+	np.workingSize += n.sizeBytes()
 	np.poolSize += varSz
 
 	return n
@@ -142,10 +148,9 @@ func (np *nodePool) Get(key, value []byte) *Node {
 
 func (np *nodePool) Return(n *Node) {
 	np.metrics.PoolReturn++
-
 	np.cleanNode(n)
-	np.poolSize -= n.varSize()
 	np.free <- n.frameId
+	np.poolSize -= n.varSize()
 	n.clear()
 }
 
@@ -155,7 +160,6 @@ func (np *nodePool) Put(n *Node) {
 	var frameId int
 	if len(np.free) == 0 {
 		evicted := np.clockEvict()
-		np.poolSize -= evicted.varSize()
 		frameId = evicted.frameId
 	} else {
 		frameId = <-np.free
@@ -177,6 +181,7 @@ func (np *nodePool) cleanNode(n *Node) {
 	}
 	n.dirty = false
 	np.dirtyCount--
+	np.dirtySize -= n.sizeBytes()
 }
 
 func (np *nodePool) dirtyNode(n *Node) {
@@ -184,10 +189,9 @@ func (np *nodePool) dirtyNode(n *Node) {
 		return
 	}
 	n.dirty = true
+	np.dirtySize += n.sizeBytes()
 	np.dirtyCount++
 }
-
-const cleanBatch = 1000
 
 func (np *nodePool) CheckpointRunner(ctx context.Context) error {
 	for {

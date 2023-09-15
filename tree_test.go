@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"runtime"
 	"testing"
 	"time"
 
@@ -15,6 +16,16 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/stretchr/testify/require"
 )
+
+func PrintMemUsage() {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	fmt.Printf("*** Memory Stats; Alloc = %s", humanize.Bytes(m.Alloc))
+	fmt.Printf("\tTotalAlloc = %s", humanize.Bytes(m.TotalAlloc))
+	fmt.Printf("\tSys = %s", humanize.Bytes(m.Sys))
+	fmt.Printf("\tNumGC = %v\n", humanize.Comma(int64(m.NumGC)))
+}
 
 func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
@@ -33,10 +44,16 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 	// generator
 	itr := opts.Iterator
 
+	fmt.Printf("Initial memory usage from generators:\n")
+	PrintMemUsage()
+
 	itrStart := time.Now()
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
-		for _, node := range itr.GetChangeset().Nodes {
+		changeset := itr.Nodes()
+		for ; changeset.Valid(); err = changeset.Next() {
+			require.NoError(t, err)
+			node := changeset.GetNode()
 			var keyBz bytes.Buffer
 			keyBz.Write([]byte(node.StoreKey))
 			keyBz.Write(node.Key)
@@ -58,6 +75,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
 					version)
 				since = time.Now()
+				PrintMemUsage()
 			}
 			cnt++
 		}
@@ -73,7 +91,6 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 	if opts.Report != nil {
 		opts.Report()
 	}
-	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", hash))
 	require.Equal(t, version, opts.Until)
 	return cnt
 }
@@ -102,10 +119,11 @@ func TestTree_Build(t *testing.T) {
 		checkpointInterval: 100_000,
 	}
 	tree.pool.metrics = tree.metrics
-	tree.pool.maxWorkingSetSize = 3 * 1024 * 1024 * 1024
+	tree.pool.maxWorkingSize = 200 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	opts := testutil.NewTreeBuildOptions().With1_500_000()
+	//opts := testutil.NewTreeBuildOptions()
+	opts := testutil.BigStartOptions()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
@@ -157,6 +175,8 @@ func TestTree_Build(t *testing.T) {
 	require.Equal(t, tree.pool.dirtyCount, workingSetCount)
 
 	treeAndDbEqual(t, tree, *tree.root)
+
+	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", tree.root.hash))
 }
 
 func treeCount(node *Node) int {
@@ -193,7 +213,7 @@ func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
 	require.NotNil(t, dbNode)
 	require.Equal(t, dbNode.NodeKey, node.NodeKey)
 	require.Equal(t, dbNode.Key, node.Key)
-	require.Equal(t, dbNode.Value, node.Value)
+	require.Equal(t, dbNode.hash, node.hash)
 	require.Equal(t, dbNode.Size, node.Size)
 	require.Equal(t, dbNode.SubtreeHeight, node.SubtreeHeight)
 	if node.isLeaf() {

@@ -60,12 +60,18 @@ type Node struct {
 	frameId int
 	use     bool
 	dirty   bool
+	// required for working set size tracking
+	work bool
 }
 
-var nodeSize = int64(unsafe.Sizeof(Node{})) + hashSize
+var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize
 
-func (node *Node) varSize() int64 {
-	return int64(len(node.Key)) + int64(len(node.Value))
+func (node *Node) varSize() uint64 {
+	return uint64(len(node.Key))
+}
+
+func (node *Node) sizeBytes() uint64 {
+	return nodeSize + node.varSize()
 }
 
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
@@ -422,33 +428,31 @@ func MakeNode(nodeKey, buf []byte) (*Node, error) {
 	}
 	buf = buf[n:]
 
+	hash, n, err := encoding.DecodeBytes(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.hash, %w", err)
+	}
+	buf = buf[n:]
+
 	node := &Node{
 		SubtreeHeight: int8(height),
 		NodeKey:       NodeKey{},
 		Size:          size,
 		Key:           key,
+		hash:          hash,
 	}
 	copy(node.NodeKey[:], nodeKey)
 
-	// Read node body.
-
-	if node.isLeaf() {
-		val, _, err := encoding.DecodeBytes(buf)
-		if err != nil {
-			return nil, fmt.Errorf("decoding node.value, %w", err)
-		}
-		node.Value = val
-		node._hash(node.NodeKey.Version())
-	} else { // Read children.
+	if !node.isLeaf() {
 		leftNodeKey, n, err := encoding.DecodeBytes(buf)
 		if err != nil {
-			return nil, fmt.Errorf("decoding node.leftHash, %w", err)
+			return nil, fmt.Errorf("decoding node.leftKey, %w", err)
 		}
 		buf = buf[n:]
 
 		rightNodeKey, _, err := encoding.DecodeBytes(buf)
 		if err != nil {
-			return nil, fmt.Errorf("decoding node.rightHash, %w", err)
+			return nil, fmt.Errorf("decoding node.rightKey, %w", err)
 		}
 		node.LeftNodeKey = NodeKey{}
 		node.RightNodeKey = NodeKey{}
@@ -471,18 +475,20 @@ func (node *Node) WriteBytes(w io.Writer) error {
 		return fmt.Errorf("writing size; %w", cause)
 	}
 
-	// Unlike writeHashBytes, key is written for inner nodes.
 	cause = encoding.EncodeBytes(w, node.Key)
 	if cause != nil {
 		return fmt.Errorf("writing key; %w", cause)
 	}
 
-	if node.isLeaf() {
-		cause = encoding.EncodeBytes(w, node.Value)
-		if cause != nil {
-			return fmt.Errorf("writing value; %w", cause)
-		}
-	} else {
+	if len(node.hash) != hashSize {
+		return fmt.Errorf("hash has unexpected length: %d", len(node.hash))
+	}
+	cause = encoding.EncodeBytes(w, node.hash)
+	if cause != nil {
+		return fmt.Errorf("writing hash; %w", cause)
+	}
+
+	if !node.isLeaf() {
 		if node.LeftNodeKey.IsEmpty() {
 			return fmt.Errorf("left node key is nil")
 		}
