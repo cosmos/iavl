@@ -57,7 +57,4 @@ flushed at checkpoint intervals to disk and the WAL truncated.  This presumes th
 is more performant than every block, which may the case for certain SS backends, or due to the decreased
 disk read IO resulting from the in-memory working set.
 
-## Open questions
-
-- Should leaf nodes values only be stored in SS and never in SC? This could reduce the size of SC
-  significantly.
+Should leaf nodes values only be stored in SS and never in SC.
