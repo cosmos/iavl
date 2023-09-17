@@ -112,7 +112,7 @@ func BigTreeOptions_100_000() TreeBuildOptions {
 func BigStartOptions() TreeBuildOptions {
 	initialSize := 1_000_000
 	var seed int64 = 1234
-	var versions int64 = 50_000
+	var versions int64 = 10_000
 	bankGen := bench.BankLikeGenerator(seed, versions)
 	bankGen.InitialSize = initialSize
 	lockupGen := bench.LockupLikeGenerator(seed, versions)

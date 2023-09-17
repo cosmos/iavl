@@ -119,7 +119,7 @@ func TestTree_Build(t *testing.T) {
 		checkpointInterval: 100_000,
 	}
 	tree.pool.metrics = tree.metrics
-	tree.pool.maxWorkingSize = 200 * 1024 * 1024
+	tree.pool.maxWorkingSize = 1 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
 	//opts := testutil.NewTreeBuildOptions()
@@ -174,7 +174,10 @@ func TestTree_Build(t *testing.T) {
 
 	require.Equal(t, tree.pool.dirtyCount, workingSetCount)
 
-	treeAndDbEqual(t, tree, *tree.root)
+	ts := &treeStat{}
+	treeAndDbEqual(t, tree, *tree.root, ts)
+
+	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
 
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", tree.root.hash))
 }
@@ -204,11 +207,16 @@ func pooledTreeHeight(tree *Tree, node Node) int8 {
 	return 1 + maxInt8(pooledTreeHeight(tree, left), pooledTreeHeight(tree, right))
 }
 
-func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
+type treeStat struct {
+	size uint64
+}
+
+func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
 	dbNode, err := tree.db.Get(node.NodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)
 	}
+	stat.size += node.sizeBytes()
 	require.NoError(t, err)
 	require.NotNil(t, dbNode)
 	require.Equal(t, dbNode.NodeKey, node.NodeKey)
@@ -224,6 +232,6 @@ func treeAndDbEqual(t *testing.T, tree *Tree, node Node) {
 
 	leftNode := *node.left(tree)
 	rightNode := *node.right(tree)
-	treeAndDbEqual(t, tree, leftNode)
-	treeAndDbEqual(t, tree, rightNode)
+	treeAndDbEqual(t, tree, leftNode, stat)
+	treeAndDbEqual(t, tree, rightNode, stat)
 }
