@@ -79,22 +79,14 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no left node")
 	}
-	if node.leftNode == nil || node.LeftNodeKey != node.leftNode.NodeKey {
-		if node.LeftNodeKey.IsEmpty() {
-			return nil, fmt.Errorf("left node key is nil")
-		}
-		leftNode, err := t.db.Get(node.LeftNodeKey)
-		if err != nil {
-			return nil, err
-		}
-		if leftNode == nil {
-			return nil, fmt.Errorf("left node is nil; fetch failed")
-		}
-
-		node.leftNode = leftNode
-		t.pool.Put(node.leftNode)
+	if node.leftNode != nil {
+		return node.leftNode, nil
 	}
-	node.leftNode.use = true
+	var err error
+	node.leftNode, err = t.db.Get(node.LeftNodeKey)
+	if err != nil {
+		return nil, err
+	}
 	return node.leftNode, nil
 }
 
@@ -115,22 +107,17 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no right node")
 	}
-	if node.rightNode == nil || node.RightNodeKey != node.rightNode.NodeKey {
-		if node.RightNodeKey.IsEmpty() {
-			return nil, fmt.Errorf("right node key is nil")
-		}
-
-		rightNode, err := t.db.Get(node.RightNodeKey)
-		if err != nil {
-			return nil, err
-		}
-		if rightNode == nil {
-			return nil, fmt.Errorf("right node is nil; fetch failed")
-		}
-		node.rightNode = rightNode
-		t.pool.Put(node.rightNode)
+	if node.isLeaf() {
+		return nil, fmt.Errorf("leaf node has no left node")
 	}
-	node.rightNode.use = true
+	if node.rightNode != nil {
+		return node.rightNode, nil
+	}
+	var err error
+	node.rightNode, err = t.db.Get(node.RightNodeKey)
+	if err != nil {
+		return nil, err
+	}
 	return node.rightNode, nil
 }
 

@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -38,6 +39,9 @@ type nodePool struct {
 	lastCheckpoint int64
 	checkpointCh   chan *checkpointArgs
 	cleaned        chan []*cleanArgs
+
+	// sync pool
+	pool sync.Pool
 }
 
 func (np *nodePool) grow(amount int) int {
@@ -116,8 +120,7 @@ func newNodePool(db nodeDB, size int) *nodePool {
 	np.free <- np.grow(size)
 	return np
 }
-
-func (np *nodePool) Get(key, value []byte, version int64) *Node {
+func (np *nodePool) poolGet(key, value []byte, version int64) *Node {
 	np.metrics.PoolGet++
 
 	var n *Node
@@ -146,12 +149,35 @@ func (np *nodePool) Get(key, value []byte, version int64) *Node {
 	return n
 }
 
-func (np *nodePool) Return(n *Node) {
+func (np *nodePool) syncPoolGet(key, value []byte, version int64) (*Node, error) {
+	return nil, nil
+}
+
+func (np *nodePool) gcGet(key, value []byte, version int64) *Node {
+	n := &Node{Key: key, Value: value}
+	if n.Value != nil {
+		n._hash(version)
+		n.Value = nil
+	}
+
+	np.workingSize += n.sizeBytes()
+	return n
+}
+
+func (np *nodePool) Get(key, value []byte, version int64) *Node {
+	return np.gcGet(key, value, version)
+}
+
+func (np *nodePool) poolReturn(n *Node) {
 	np.metrics.PoolReturn++
 	np.cleanNode(n)
 	np.free <- n.frameId
 	np.poolSize -= n.varSize()
 	n.clear()
+}
+
+func (np *nodePool) Return(n *Node) {
+
 }
 
 func (np *nodePool) Put(n *Node) {

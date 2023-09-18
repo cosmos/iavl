@@ -29,24 +29,55 @@ type Tree struct {
 	orphans            []NodeKey
 	checkpointInterval int64
 	lastCheckpoint     int64
+
+	checkpointing      bool
+	checkpointSetCount int64
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 	var sequence uint32
 
+	if tree.shouldCheckpoint() {
+		//if err := tree.Checkpoint(); err != nil {
+		//	return nil, 0, err
+		//}
+		tree.pool.workingSize = 0
+		tree.checkpointing = true
+		log.Info().Msgf("checkpoint version %d", tree.version)
+	}
+
 	// deepHash flushes to disk and clears overflowed nodes for GC
 	tree.rootKey = tree.deepHash(&sequence, tree.root)
 
-	if tree.shouldCheckpoint() {
-		if err := tree.Checkpoint(); err != nil {
-			return nil, 0, err
+	if tree.checkpointing {
+		setCount, err := tree.deepSave(tree.root)
+		if err != nil {
+			return nil, tree.version, err
 		}
-	}
 
-	// uncomment below to really exercise the pool
-	// tree.root.leftNode = nil
-	// tree.root.rightNode = nil
+		deleteMap := make(map[NodeKey]bool)
+		for _, o := range tree.orphans {
+			deleteMap[o] = true
+			if err := tree.db.Delete(o); err != nil {
+				return nil, tree.version, err
+			}
+		}
+
+		log.Info().Msgf("checkpointed version %d; sets %s, deletes %s, real deletes: %s",
+			tree.version, humanize.Comma(setCount),
+			humanize.Comma(int64(len(tree.orphans))),
+			humanize.Comma(int64(len(deleteMap))),
+		)
+
+		tree.orphans = nil
+		tree.checkpointing = false
+		tree.checkpointSetCount = 0
+		tree.lastCheckpoint = tree.version
+		// free all nodes for GC
+		tree.root.leftNode = nil
+		tree.root.rightNode = nil
+	}
 
 	return tree.root.hash, tree.version, nil
 }
@@ -348,6 +379,7 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) NodeKey {
 	if !node.NodeKey.IsEmpty() {
 		return node.NodeKey
 	}
+
 	*sequence++
 	node.NodeKey = NewNodeKey(tree.version, *sequence)
 	if !node.isLeaf() {
@@ -356,11 +388,31 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) NodeKey {
 		node._hash(tree.version)
 	}
 
-	// TODO remove
-	// only flush in checkpoint
-	// tree.pool.FlushNode(node)
-
 	return node.NodeKey
+}
+
+func (tree *Tree) deepSave(node *Node) (count int64, err error) {
+	if node.NodeKey.Version() <= tree.lastCheckpoint {
+		return 0, nil
+	}
+
+	if err := tree.db.Set(node); err != nil {
+		return count, err
+	}
+
+	if !node.isLeaf() {
+		leftCount, err := tree.deepSave(node.left(tree))
+		if err != nil {
+			return count, err
+		}
+		rightCount, err := tree.deepSave(node.right(tree))
+		if err != nil {
+			return count, err
+		}
+		return leftCount + rightCount + 1, nil
+	} else {
+		return 1, nil
+	}
 }
 
 func (tree *Tree) addOrphan(n *Node) {
@@ -371,11 +423,11 @@ func (tree *Tree) addOrphan(n *Node) {
 }
 
 func (tree *Tree) mutateNode(node *Node) {
+	if node.hash == nil {
+		return
+	}
 	node.hash = nil
 	node.NodeKey = NodeKey{}
-	if node.work == false {
-		node.work = true
-		tree.pool.workingSize += node.sizeBytes()
-	}
-	tree.pool.dirtyNode(node)
+	tree.pool.workingSize += node.sizeBytes()
+	//tree.pool.dirtyNode(node)
 }

@@ -17,14 +17,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func PrintMemUsage() {
+func MemUsage() string {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	fmt.Printf("*** Memory Stats; Alloc = %s", humanize.Bytes(m.Alloc))
-	fmt.Printf("\tTotalAlloc = %s", humanize.Bytes(m.TotalAlloc))
-	fmt.Printf("\tSys = %s", humanize.Bytes(m.Sys))
-	fmt.Printf("\tNumGC = %v\n", humanize.Comma(int64(m.NumGC)))
+	s := fmt.Sprintf(" alloc=%s, sys=%s, gc=%d",
+		humanize.Bytes(m.Alloc),
+		//humanize.Bytes(m.TotalAlloc),
+		humanize.Bytes(m.Sys),
+		m.NumGC)
+	return s
 }
 
 func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
@@ -44,8 +46,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 	// generator
 	itr := opts.Iterator
 
-	fmt.Printf("Initial memory usage from generators:\n")
-	PrintMemUsage()
+	fmt.Printf("Initial memory usage from generators:\n%s\n", MemUsage())
 
 	itrStart := time.Now()
 	for ; itr.Valid(); err = itr.Next() {
@@ -68,14 +69,15 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 			}
 
 			if cnt%100_000 == 0 {
-				fmt.Printf("processed %s leaves in %s; leaves/s last=%s μ=%s; version=%d\n",
+				dur := time.Since(since)
+				fmt.Printf("processed %s leaves in %s; leaves/s last=%s μ=%s; version=%d; %s\n",
 					humanize.Comma(int64(cnt)),
-					time.Since(since),
+					dur.Round(time.Millisecond),
 					humanize.Comma(int64(100_000/time.Since(since).Seconds())),
 					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
-					version)
+					version,
+					MemUsage())
 				since = time.Now()
-				PrintMemUsage()
 			}
 			cnt++
 		}
@@ -119,7 +121,7 @@ func TestTree_Build(t *testing.T) {
 		checkpointInterval: 100_000,
 	}
 	tree.pool.metrics = tree.metrics
-	tree.pool.maxWorkingSize = 1 * 1024 * 1024 * 1024
+	tree.pool.maxWorkingSize = 2 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
 	//opts := testutil.NewTreeBuildOptions()
