@@ -3,31 +3,88 @@ package iavl
 import (
 	"bytes"
 	"fmt"
+	"os"
+	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 )
+
+var log = zlog.Output(zerolog.ConsoleWriter{
+	Out:        os.Stderr,
+	TimeFormat: time.Stamp,
+})
 
 type Tree struct {
 	version        int64
 	root           *Node
 	metrics        *metrics.TreeMetrics
-	db             nodeDB
+	db             *kvDB
 	lastCheckpoint int64
-	orphans        []*Node
+	orphans        [][]byte
+	cache          *NodeCache
+
+	workingSetSize uint64
+	maxWorkingSize uint64
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
+
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
+
+	if tree.workingSetSize > tree.maxWorkingSize {
+		log.Info().Msgf("working set size %s > max %s; checkpointing",
+			humanize.IBytes(tree.workingSetSize),
+			humanize.IBytes(tree.maxWorkingSize),
+		)
+		if err := tree.checkpoint(); err != nil {
+			return nil, tree.version, err
+		}
+	}
 
 	return tree.root.hash, tree.version, nil
 }
 
-func (tree *Tree) deepHash(sequence *uint32, node *Node) (hash []byte) {
-	if node.hash != nil {
-		return node.hash
+func (tree *Tree) checkpoint() error {
+	start := time.Now()
+
+	setCount, err := tree.deepSave(tree.root)
+	if err != nil {
+		return err
 	}
+	for _, nk := range tree.orphans {
+		if err := tree.db.Delete(nk); err != nil {
+			return err
+		}
+	}
+
+	log.Info().Msgf("checkpoint; version=%s, sets=%s, deletes=%s, dur=%s",
+		humanize.Comma(tree.version),
+		humanize.Comma(setCount),
+		humanize.Comma(int64(len(tree.orphans))),
+		time.Since(start).Round(time.Millisecond),
+	)
+
+	tree.lastCheckpoint = tree.version
+	tree.orphans = nil
+	tree.workingSetSize = 0
+	tree.cache.Swap()
+
+	tree.root.leftNode = nil
+	tree.root.rightNode = nil
+
+	return nil
+}
+
+func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
+	if node.nodeKey != nil {
+		return node.nodeKey
+	}
+
 	*sequence++
 	node.nodeKey = &NodeKey{
 		version:  tree.version,
@@ -35,13 +92,13 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) (hash []byte) {
 	}
 	if !node.isLeaf() {
 		// wrong, should be nodekey assignment, but just profiling for now.
-		node.leftNodeKey = tree.deepHash(sequence, node.leftNode)
-		node.rightNodeKey = tree.deepHash(sequence, node.rightNode)
+		node.leftNodeKey = tree.deepHash(sequence, node.left(tree)).GetKey()
+		node.rightNodeKey = tree.deepHash(sequence, node.right(tree)).GetKey()
 	}
 
 	node._hash(tree.version)
 
-	return node.hash
+	return node.nodeKey
 }
 
 func (tree *Tree) deepSave(node *Node) (count int64, err error) {
@@ -52,7 +109,7 @@ func (tree *Tree) deepSave(node *Node) (count int64, err error) {
 	if err := tree.db.Set(node); err != nil {
 		return count, err
 	}
-	//tree.cache.Set(node)
+	tree.cache.Set(node)
 
 	if !node.isLeaf() {
 		leftCount, err := tree.deepSave(node.left(tree))
@@ -86,23 +143,13 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	return updated, nil
 }
 
-// Get returns the value of the specified key if it exists, or nil otherwise.
-// The returned value must not be modified, since it may point to data stored within IAVL.
-func (tree *Tree) Get(key []byte) ([]byte, error) {
-	if tree.root == nil {
-		return nil, nil
-	}
-
-	return tree.Get(key)
-}
-
 func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	if value == nil {
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
 
 	if tree.root == nil {
-		tree.root = NewNode(key, value, tree.version)
+		tree.root = tree.NewNode(key, value, tree.version)
 		return updated, nil
 	}
 
@@ -113,41 +160,50 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
+	if node == nil {
+		panic("node is nil")
+	}
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1: // setKey < leafKey
 			tree.metrics.PoolGet += 2
-			return &Node{
+			n := &Node{
 				key:           node.key,
 				subtreeHeight: 1,
 				size:          2,
 				nodeKey:       nil,
-				leftNode:      NewNode(key, value, tree.version),
+				leftNode:      tree.NewNode(key, value, tree.version),
 				rightNode:     node,
-			}, false, nil
+			}
+			tree.workingSetSize += n.sizeBytes()
+			return n, false, nil
 		case 1: // setKey > leafKey
 			tree.metrics.PoolGet += 2
-			return &Node{
+			n := &Node{
 				key:           key,
 				subtreeHeight: 1,
 				size:          2,
 				nodeKey:       nil,
 				leftNode:      node,
-				rightNode:     NewNode(key, value, tree.version),
-			}, false, nil
+				rightNode:     tree.NewNode(key, value, tree.version),
+			}
+			tree.workingSetSize += n.sizeBytes()
+			return n, false, nil
 		default:
-			return NewNode(key, value, tree.version), true, nil
+			tree.addOrphan(node)
+			return tree.NewNode(key, value, tree.version), true, nil
 		}
 	} else {
+		tree.addOrphan(node)
 		tree.mutateNode(node)
 
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
+			node.leftNode, updated, err = tree.recursiveSet(node.left(tree), key, value)
 			if err != nil {
 				return nil, updated, err
 			}
 		} else {
-			node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
+			node.rightNode, updated, err = tree.recursiveSet(node.right(tree), key, value)
 			if err != nil {
 				return nil, updated, err
 			}
@@ -292,13 +348,35 @@ func (tree *Tree) Height() int8 {
 }
 
 func (tree *Tree) mutateNode(node *Node) {
+	// node has already been mutated in working set
+	if node.nodeKey == nil {
+		return
+	}
 	node.hash = nil
 	node.nodeKey = nil
+	tree.workingSetSize += node.sizeBytes()
 }
 
 func (tree *Tree) addOrphan(node *Node) {
-	if node.nodeKey == nil || node.nodeKey.version > tree.lastCheckpoint {
+	if node.nodeKey == nil {
 		return
 	}
-	tree.orphans = append(tree.orphans, node)
+	if node.nodeKey.version > tree.lastCheckpoint {
+		return
+	}
+	tree.orphans = append(tree.orphans, node.nodeKey.GetKey())
+}
+
+// NewNode returns a new node from a key, value and version.
+func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
+	node := &Node{
+		key:           key,
+		value:         value,
+		subtreeHeight: 0,
+		size:          1,
+	}
+	node._hash(version + 1)
+	node.value = nil
+	tree.workingSetSize += node.sizeBytes()
+	return node
 }

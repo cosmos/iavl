@@ -34,21 +34,24 @@ func (kv *kvDB) Set(node *Node) error {
 }
 
 func (kv *kvDB) Get(nodeKey *NodeKey) (*Node, error) {
-	nk := nodeKey.GetKey()
-	bz, err := kv.db.Get(nk)
+	return kv.GetByKeyBytes(nodeKey.GetKey())
+}
+
+func (kv *kvDB) GetByKeyBytes(key []byte) (*Node, error) {
+	bz, err := kv.db.Get(key)
 	if err != nil {
 		return nil, err
 	}
 	if bz == nil {
-		return nil, fmt.Errorf("node not found: %s", nodeKey.String())
+		return nil, fmt.Errorf("node not found: %x", key)
 	}
-	n, err := MakeNode(nk, bz)
+	n, err := MakeNode(key, bz)
 	if err != nil {
 		return nil, err
 	}
 	return n, nil
 }
 
-func (kv *kvDB) Delete(nk *NodeKey) error {
-	return kv.db.Delete(nk.GetKey())
+func (kv *kvDB) Delete(nodeKey []byte) error {
+	return kv.db.Delete(nodeKey)
 }

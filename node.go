@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"unsafe"
 
 	encoding "github.com/cosmos/iavl/v2/internal"
 )
@@ -57,19 +58,6 @@ func (nk *NodeKey) String() string {
 	return fmt.Sprintf("(%d, %d)", nk.version, nk.sequence)
 }
 
-// NewNode returns a new node from a key, value and version.
-func NewNode(key []byte, value []byte, version int64) *Node {
-	node := &Node{
-		key:           key,
-		value:         value,
-		subtreeHeight: 0,
-		size:          1,
-	}
-	node._hash(version + 1)
-	node.value = nil
-	return node
-}
-
 func (node *Node) setLeft(leftNode *Node) {
 	node.leftNode = leftNode
 	if leftNode.nodeKey != nil {
@@ -100,28 +88,41 @@ func (node *Node) right(t *Tree) *Node {
 	return rightNode
 }
 
+// getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
 func (node *Node) getLeftNode(t *Tree) (*Node, error) {
+	if node.isLeaf() {
+		return nil, fmt.Errorf("leaf node has no left node")
+	}
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
-	return nil, fmt.Errorf("node not found")
-	//leftNode, err := t.ndb.GetNode(node.leftNodeKey)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return leftNode, nil
+	node.leftNode = t.cache.GetByKeyBytes(node.leftNodeKey)
+	if node.leftNode == nil {
+		var err error
+		node.leftNode, err = t.db.GetByKeyBytes(node.leftNodeKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return node.leftNode, nil
 }
 
 func (node *Node) getRightNode(t *Tree) (*Node, error) {
+	if node.isLeaf() {
+		return nil, fmt.Errorf("leaf node has no right node")
+	}
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
-	return nil, fmt.Errorf("node not found")
-	//rightNode, err := t.ndb.GetNode(node.rightNodeKey)
-	//if err != nil {
-	//	return nil, err
-	//}
-	//return rightNode, nil
+	node.rightNode = t.cache.GetByKeyBytes(node.rightNodeKey)
+	if node.rightNode == nil {
+		var err error
+		node.rightNode, err = t.db.GetByKeyBytes(node.rightNodeKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return node.rightNode, nil
 }
 
 // NOTE: mutates height and size
@@ -471,4 +472,19 @@ func (node *Node) Bytes() ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+var nodeKeySize = uint64(unsafe.Sizeof(NodeKey{}))
+var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize + nodeKeySize
+
+func (node *Node) varSize() uint64 {
+	keyLen := uint64(len(node.key))
+	if node.isLeaf() {
+		return keyLen
+	}
+	return keyLen + 2*12 // add 2 nodekeys
+}
+
+func (node *Node) sizeBytes() uint64 {
+	return nodeSize + node.varSize()
 }

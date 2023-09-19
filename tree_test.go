@@ -115,8 +115,10 @@ func TestTree_Build(t *testing.T) {
 	require.NoError(t, err)
 
 	tree := &Tree{
-		metrics: &metrics.TreeMetrics{},
-		db:      &kvDB{db: levelDb},
+		metrics:        &metrics.TreeMetrics{},
+		db:             &kvDB{db: levelDb},
+		cache:          NewNodeCache(),
+		maxWorkingSize: 500 * 1024 * 1024,
 	}
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
