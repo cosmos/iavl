@@ -43,7 +43,7 @@ func (kv *kvDB) GetByKeyBytes(key []byte) (*Node, error) {
 		return nil, err
 	}
 	if bz == nil {
-		return nil, fmt.Errorf("node not found: %x", key)
+		return nil, fmt.Errorf("node not found: %v", GetNodeKey(key))
 	}
 	n, err := MakeNode(key, bz)
 	if err != nil {

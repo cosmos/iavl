@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -115,28 +116,49 @@ func TestTree_Build(t *testing.T) {
 	levelDb, err := leveldb.New("iavl_test", tmpDir)
 	require.NoError(t, err)
 
+	pool := &sync.Pool{
+		New: func() interface{} {
+			return &Node{}
+		},
+	}
+
 	tree := &Tree{
 		metrics:        &metrics.TreeMetrics{},
 		db:             &kvDB{db: levelDb},
 		cache:          NewNodeCache(),
-		maxWorkingSize: 50 * 1024 * 1024,
+		maxWorkingSize: 1 * 1024 * 1024 * 1024,
+		pool:           pool,
 	}
+	tree.checkpointer = newCheckpointer(tree.db, tree.cache)
+
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	opts := testutil.NewTreeBuildOptions()
-	//opts := testutil.BigStartOptions()
+	//opts := testutil.NewTreeBuildOptions()
+	opts := testutil.BigStartOptions()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
-		checkpointErr := metrics.Default.Run(ctx)
+		metricsErr := metrics.Default.Run(ctx)
+		require.NoError(t, metricsErr)
+		log.Info().Msg("metrics dump:")
+		fmt.Print(metrics.Default.Print())
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		checkpointErr := tree.checkpointer.run(ctx)
 		require.NoError(t, checkpointErr)
+		wg.Done()
 	}()
 
 	testStart := time.Now()
@@ -175,6 +197,9 @@ func TestTree_Build(t *testing.T) {
 	treeAndDbEqual(t, tree, *tree.root, ts)
 
 	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
+
+	cancel()
+	wg.Wait()
 
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", tree.root.hash))
 }

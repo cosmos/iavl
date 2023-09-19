@@ -132,8 +132,8 @@ func BigStartOptions() TreeBuildOptions {
 
 	opts := TreeBuildOptions{
 		Iterator:  itr,
-		Until:     5_000,
-		UntilHash: "c1dc9dc7d3a8ae025d2a347eea19121e98435b06b421607119bc3cf3cf79be05",
+		Until:     9_000,
+		UntilHash: "b7266b2b30979e1415bcb8ef7fed9637b542213fefd1bb77374aa1f14442aa50",
 	}
 
 	return opts

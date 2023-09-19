@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -25,6 +26,8 @@ type Tree struct {
 	lastCheckpoint int64
 	orphans        [][]byte
 	cache          *NodeCache
+	pool           *sync.Pool
+	checkpointer   *checkpointer
 
 	workingBytes uint64
 	workingSize  int64
@@ -40,12 +43,31 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.deepHash(&sequence, tree.root)
 
 	if tree.workingBytes > tree.maxWorkingSize {
-		if err := tree.checkpoint(); err != nil {
+		if err := tree.asyncCheckpoint(); err != nil {
 			return nil, tree.version, err
 		}
+
+		tree.lastCheckpoint = tree.version
+		tree.orphans = nil
+		tree.workingBytes = 0
+		tree.workingSize = 0
+		tree.cache.Swap()
+
+		tree.root.leftNode = nil
+		tree.root.rightNode = nil
+
 	}
 
 	return tree.root.hash, tree.version, nil
+}
+
+func (tree *Tree) asyncCheckpoint() error {
+	tree.checkpointer.ch <- &checkpointArgs{
+		set:     tree.buildCheckpoint(tree.root),
+		delete:  tree.orphans,
+		version: tree.version,
+	}
+	return nil
 }
 
 func (tree *Tree) checkpoint() error {
@@ -58,6 +80,12 @@ func (tree *Tree) checkpoint() error {
 	if err != nil {
 		return err
 	}
+
+	//sets := tree.buildCheckpoint(tree.root)
+	//if len(sets) != int(setCount) {
+	//	return fmt.Errorf("set count mismatch; expected=%d, actual=%d", len(sets), setCount)
+	//}
+
 	for _, nk := range tree.orphans {
 		if err := tree.db.Delete(nk); err != nil {
 			return err
@@ -74,15 +102,6 @@ func (tree *Tree) checkpoint() error {
 		humanize.IBytes(stats.dbBz),
 		time.Since(start).Round(time.Millisecond),
 	)
-
-	tree.lastCheckpoint = tree.version
-	tree.orphans = nil
-	tree.workingBytes = 0
-	tree.workingSize = 0
-	tree.cache.Swap()
-
-	tree.root.leftNode = nil
-	tree.root.rightNode = nil
 
 	return nil
 }
@@ -124,6 +143,30 @@ func (tree *Tree) dirtyCount(node *Node) int64 {
 		return n + tree.dirtyCount(node.left(tree)) + tree.dirtyCount(node.right(tree))
 	} else {
 		return n
+	}
+}
+
+func (tree *Tree) buildCheckpoint(node *Node) (sets []*Node) {
+	if node.nodeKey.version <= tree.lastCheckpoint {
+		return nil
+	}
+
+	tree.cache.Set(node)
+	node.dirty = false
+
+	n := *node
+
+	if node.isLeaf() {
+		return []*Node{&n}
+	} else {
+		sets = append(sets, &n)
+		sets = append(sets, tree.buildCheckpoint(node.left(tree))...)
+		sets = append(sets, tree.buildCheckpoint(node.right(tree))...)
+
+		node.leftNode = nil
+		node.rightNode = nil
+
+		return sets
 	}
 }
 
@@ -196,9 +239,9 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
-	if tree.version == 6 && tree.workingSize == 2861 && node.isLeaf() {
-		fmt.Println("here")
-	}
+	//if tree.version == 6 && tree.workingSize == 2861 && node.isLeaf() {
+	//	fmt.Println("here")
+	//}
 	if node == nil {
 		panic("node is nil")
 	}
@@ -206,29 +249,27 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 		switch bytes.Compare(key, node.key) {
 		case -1: // setKey < leafKey
 			tree.metrics.PoolGet += 2
-			n := &Node{
-				key:           node.key,
-				subtreeHeight: 1,
-				size:          2,
-				nodeKey:       nil,
-				leftNode:      tree.NewNode(key, value, tree.version),
-				rightNode:     node,
-				dirty:         true,
-			}
+			n := tree.poolGet()
+			n.key = node.key
+			n.subtreeHeight = 1
+			n.size = 2
+			n.leftNode = tree.NewNode(key, value, tree.version)
+			n.rightNode = node
+			n.dirty = true
+
 			tree.workingBytes += n.sizeBytes()
 			tree.workingSize++
 			return n, false, nil
 		case 1: // setKey > leafKey
 			tree.metrics.PoolGet += 2
-			n := &Node{
-				key:           key,
-				subtreeHeight: 1,
-				size:          2,
-				nodeKey:       nil,
-				leftNode:      node,
-				rightNode:     tree.NewNode(key, value, tree.version),
-				dirty:         true,
-			}
+			n := tree.poolGet()
+			n.key = key
+			n.subtreeHeight = 1
+			n.size = 2
+			n.leftNode = node
+			n.rightNode = tree.NewNode(key, value, tree.version)
+			n.dirty = true
+
 			tree.workingBytes += n.sizeBytes()
 			tree.workingSize++
 			return n, false, nil
@@ -242,19 +283,19 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			//node.value = nil
 			//return node, true, nil
 
-			n := &Node{
-				key:           key,
-				value:         value,
-				subtreeHeight: 0,
-				size:          1,
-			}
+			n := tree.poolGet()
+			n.key = key
+			n.value = value
+			n.subtreeHeight = 0
+			n.size = 1
 			n._hash(tree.version + 1)
 			n.value = nil
+			n.dirty = true
+
 			if !node.dirty {
 				tree.workingBytes += n.sizeBytes()
 				tree.workingSize++
 			}
-			n.dirty = true
 			return n, true, nil
 		}
 
@@ -438,14 +479,37 @@ func (tree *Tree) addOrphan(node *Node) {
 	tree.orphans = append(tree.orphans, node.nodeKey.GetKey())
 }
 
+func (tree *Tree) poolGet() *Node {
+	tree.metrics.PoolGet++
+	node := tree.pool.Get().(*Node)
+	node.leftNodeKey = nil
+	node.rightNodeKey = nil
+	node.rightNode = nil
+	node.leftNode = nil
+	node.nodeKey = nil
+	node.hash = nil
+	node.key = nil
+	node.value = nil
+	node.subtreeHeight = 0
+	node.size = 0
+	node.dirty = false
+	return node
+}
+
 // NewNode returns a new node from a key, value and version.
 func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
-	node := &Node{
-		key:           key,
-		value:         value,
-		subtreeHeight: 0,
-		size:          1,
-	}
+	//node := &Node{
+	//	key:           key,
+	//	value:         value,
+	//	subtreeHeight: 0,
+	//	size:          1,
+	//}
+	node := tree.poolGet()
+	node.key = key
+	node.value = value
+	node.subtreeHeight = 0
+	node.size = 1
+
 	node._hash(version + 1)
 	node.value = nil
 	node.dirty = true
@@ -459,4 +523,5 @@ func (tree *Tree) returnNode(node *Node) {
 		tree.workingBytes -= node.sizeBytes()
 		tree.workingSize--
 	}
+	tree.pool.Put(node)
 }

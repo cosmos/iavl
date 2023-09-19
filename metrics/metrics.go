@@ -73,7 +73,7 @@ type MetricPoint struct {
 }
 
 func (m *Metrics) Run(ctx context.Context) error {
-	ticker := time.NewTicker(time.Second * 5)
+	ticker := time.NewTicker(time.Second * 2)
 	flush := func() {
 		t := time.Now().Unix()
 		for _, c := range m.metrics {
