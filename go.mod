@@ -3,7 +3,7 @@ module github.com/cosmos/iavl
 go 1.21
 
 require (
-	cosmossdk.io/log v1.2.0
+	cosmossdk.io/log v1.2.1
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/emicklei/dot v1.6.0
@@ -48,8 +48,8 @@ require (
 )
 
 retract (
-	v0.18.0
 	// This version is not used by the Cosmos SDK and adds a maintenance burden.
 	// Use v1.x.x instead.
 	[v0.21.0, v0.21.2]
+	v0.18.0
 )
