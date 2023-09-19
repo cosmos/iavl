@@ -21,7 +21,7 @@ func MemUsage() string {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	s := fmt.Sprintf(" alloc=%s, sys=%s, gc=%d",
+	s := fmt.Sprintf("alloc=%s, sys=%s, gc=%d",
 		humanize.Bytes(m.Alloc),
 		//humanize.Bytes(m.TotalAlloc),
 		humanize.Bytes(m.Sys),
@@ -119,14 +119,14 @@ func TestTree_Build(t *testing.T) {
 		metrics:        &metrics.TreeMetrics{},
 		db:             &kvDB{db: levelDb},
 		cache:          NewNodeCache(),
-		maxWorkingSize: 2 * 1024 * 1024 * 1024,
+		maxWorkingSize: 50 * 1024 * 1024,
 	}
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	//opts := testutil.NewTreeBuildOptions()
-	opts := testutil.BigStartOptions()
+	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.BigStartOptions()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}

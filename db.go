@@ -25,12 +25,12 @@ type kvDB struct {
 	db DB
 }
 
-func (kv *kvDB) Set(node *Node) error {
+func (kv *kvDB) Set(node *Node) (int, error) {
 	bz, err := node.Bytes()
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return kv.db.Set(node.nodeKey.GetKey(), bz)
+	return len(bz), kv.db.Set(node.nodeKey.GetKey(), bz)
 }
 
 func (kv *kvDB) Get(nodeKey *NodeKey) (*Node, error) {

@@ -327,8 +327,6 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 		return fmt.Errorf("writing version, %w", err)
 	}
 
-	// Key is not written for inner nodes, unlike writeBytes.
-
 	if node.isLeaf() {
 		if err := EncodeBytes(w, node.key); err != nil {
 			return fmt.Errorf("writing key, %w", err)
@@ -353,8 +351,6 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 	return nil
 }
 
-// EncodeBytes writes a varint length-prefixed byte slice to the writer,
-// it's used for hash computation, must be compactible with the official IAVL implementation.
 func EncodeBytes(w io.Writer, bz []byte) error {
 	var buf [binary.MaxVarintLen64]byte
 	n := binary.PutUvarint(buf[:], uint64(len(bz)))

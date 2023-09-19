@@ -26,7 +26,8 @@ type Tree struct {
 	orphans        [][]byte
 	cache          *NodeCache
 
-	workingSetSize uint64
+	workingBytes uint64
+	workingSize  int64
 
 	// options
 	maxWorkingSize uint64
@@ -38,11 +39,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
 
-	if tree.workingSetSize > tree.maxWorkingSize {
-		log.Info().Msgf("working set size %s > max %s; checkpointing",
-			humanize.IBytes(tree.workingSetSize),
-			humanize.IBytes(tree.maxWorkingSize),
-		)
+	if tree.workingBytes > tree.maxWorkingSize {
 		if err := tree.checkpoint(); err != nil {
 			return nil, tree.version, err
 		}
@@ -53,8 +50,11 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 func (tree *Tree) checkpoint() error {
 	start := time.Now()
+	stats := &saveStats{}
 
-	setCount, err := tree.deepSave(tree.root)
+	//log.Info().Msgf("dirty_count=%s", humanize.Comma(tree.dirtyCount(tree.root)))
+
+	setCount, err := tree.deepSave(tree.root, stats)
 	if err != nil {
 		return err
 	}
@@ -64,22 +64,33 @@ func (tree *Tree) checkpoint() error {
 		}
 	}
 
-	log.Info().Msgf("checkpoint; version=%s, sets=%s, deletes=%s, dur=%s",
+	log.Info().Msgf("checkpoint; version=%s, set=%s, del=%s, ws_size=%s, ws_bz=%s, save_bz=%s, db_bz=%s, dur=%s",
 		humanize.Comma(tree.version),
 		humanize.Comma(setCount),
 		humanize.Comma(int64(len(tree.orphans))),
+		humanize.Comma(tree.workingSize),
+		humanize.IBytes(tree.workingBytes),
+		humanize.IBytes(stats.nodeBz),
+		humanize.IBytes(stats.dbBz),
 		time.Since(start).Round(time.Millisecond),
 	)
 
 	tree.lastCheckpoint = tree.version
 	tree.orphans = nil
-	tree.workingSetSize = 0
+	tree.workingBytes = 0
+	tree.workingSize = 0
 	tree.cache.Swap()
 
 	tree.root.leftNode = nil
 	tree.root.rightNode = nil
 
 	return nil
+}
+
+type saveStats struct {
+	nodeBz uint64
+	dbBz   uint64
+	count  int64
 }
 
 func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
@@ -103,23 +114,40 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 	return node.nodeKey
 }
 
-func (tree *Tree) deepSave(node *Node) (count int64, err error) {
+func (tree *Tree) dirtyCount(node *Node) int64 {
+	var n int64
+	if node.dirty {
+		n = 1
+	}
+
+	if !node.isLeaf() {
+		return n + tree.dirtyCount(node.left(tree)) + tree.dirtyCount(node.right(tree))
+	} else {
+		return n
+	}
+}
+
+func (tree *Tree) deepSave(node *Node, stats *saveStats) (count int64, err error) {
 	if node.nodeKey.version <= tree.lastCheckpoint {
 		return 0, nil
 	}
 
-	if err := tree.db.Set(node); err != nil {
+	if n, err := tree.db.Set(node); err != nil {
 		return count, err
+	} else {
+		stats.dbBz += uint64(n)
 	}
+	stats.nodeBz += node.sizeBytes()
+
 	node.dirty = false
 	tree.cache.Set(node)
 
-	if !node.isLeaf() {
-		leftCount, err := tree.deepSave(node.left(tree))
+	if !node.isLeaf() && node.leftNode != nil {
+		leftCount, err := tree.deepSave(node.leftNode, stats)
 		if err != nil {
 			return count, err
 		}
-		rightCount, err := tree.deepSave(node.right(tree))
+		rightCount, err := tree.deepSave(node.rightNode, stats)
 		if err != nil {
 			return count, err
 		}
@@ -168,6 +196,9 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
+	if tree.version == 6 && tree.workingSize == 2861 && node.isLeaf() {
+		fmt.Println("here")
+	}
 	if node == nil {
 		panic("node is nil")
 	}
@@ -182,8 +213,10 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 				nodeKey:       nil,
 				leftNode:      tree.NewNode(key, value, tree.version),
 				rightNode:     node,
+				dirty:         true,
 			}
-			tree.workingSetSize += n.sizeBytes()
+			tree.workingBytes += n.sizeBytes()
+			tree.workingSize++
 			return n, false, nil
 		case 1: // setKey > leafKey
 			tree.metrics.PoolGet += 2
@@ -194,13 +227,37 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 				nodeKey:       nil,
 				leftNode:      node,
 				rightNode:     tree.NewNode(key, value, tree.version),
+				dirty:         true,
 			}
-			tree.workingSetSize += n.sizeBytes()
+			tree.workingBytes += n.sizeBytes()
+			tree.workingSize++
 			return n, false, nil
 		default:
 			tree.addOrphan(node)
-			return tree.NewNode(key, value, tree.version), true, nil
+			//return tree.NewNode(key, value, tree.version), true, nil
+
+			//tree.mutateNode(node)
+			//node.value = value
+			//node._hash(tree.version + 1)
+			//node.value = nil
+			//return node, true, nil
+
+			n := &Node{
+				key:           key,
+				value:         value,
+				subtreeHeight: 0,
+				size:          1,
+			}
+			n._hash(tree.version + 1)
+			n.value = nil
+			if !node.dirty {
+				tree.workingBytes += n.sizeBytes()
+				tree.workingSize++
+			}
+			n.dirty = true
+			return n, true, nil
 		}
+
 	} else {
 		tree.addOrphan(node)
 		tree.mutateNode(node)
@@ -367,7 +424,8 @@ func (tree *Tree) mutateNode(node *Node) {
 	}
 
 	node.dirty = true
-	tree.workingSetSize += node.sizeBytes()
+	tree.workingBytes += node.sizeBytes()
+	tree.workingSize++
 }
 
 func (tree *Tree) addOrphan(node *Node) {
@@ -390,10 +448,15 @@ func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
 	}
 	node._hash(version + 1)
 	node.value = nil
-	tree.workingSetSize += node.sizeBytes()
+	node.dirty = true
+	tree.workingBytes += node.sizeBytes()
+	tree.workingSize++
 	return node
 }
 
 func (tree *Tree) returnNode(node *Node) {
-	tree.workingSetSize -= node.sizeBytes()
+	if node.dirty {
+		tree.workingBytes -= node.sizeBytes()
+		tree.workingSize--
+	}
 }
