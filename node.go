@@ -362,7 +362,7 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 }
 
 // MakeNode constructs a *Node from an encoded byte slice.
-func MakeNode(nodeKey, buf []byte) (*Node, error) {
+func MakeNode(pool *nodePool, nodeKey, buf []byte) (*Node, error) {
 	// Read node header (height, size, version, key).
 	height, n, err := encoding.DecodeVarint(buf)
 	if err != nil {
@@ -391,13 +391,12 @@ func MakeNode(nodeKey, buf []byte) (*Node, error) {
 	}
 	buf = buf[n:]
 
-	node := &Node{
-		subtreeHeight: int8(height),
-		nodeKey:       GetNodeKey(nodeKey),
-		size:          size,
-		key:           key,
-		hash:          hash,
-	}
+	node := pool.Get()
+	node.subtreeHeight = int8(height)
+	node.nodeKey = GetNodeKey(nodeKey)
+	node.size = size
+	node.key = key
+	node.hash = hash
 
 	if !node.isLeaf() {
 		leftNodeKey, n, err := encoding.DecodeBytes(buf)

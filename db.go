@@ -22,7 +22,8 @@ type nodeDB interface {
 }
 
 type kvDB struct {
-	db DB
+	db   DB
+	pool *nodePool
 }
 
 func (kv *kvDB) Set(node *Node) (int, error) {
@@ -45,7 +46,7 @@ func (kv *kvDB) GetByKeyBytes(key []byte) (*Node, error) {
 	if bz == nil {
 		return nil, fmt.Errorf("node not found: %v", GetNodeKey(key))
 	}
-	n, err := MakeNode(key, bz)
+	n, err := MakeNode(kv.pool, key, bz)
 	if err != nil {
 		return nil, err
 	}

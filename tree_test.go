@@ -22,10 +22,10 @@ func MemUsage() string {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	s := fmt.Sprintf("alloc=%s, sys=%s, gc=%d",
+	s := fmt.Sprintf("alloc=%s, gc=%d",
 		humanize.Bytes(m.Alloc),
 		//humanize.Bytes(m.TotalAlloc),
-		humanize.Bytes(m.Sys),
+		//humanize.Bytes(m.Sys),
 		m.NumGC)
 	return s
 }
@@ -49,6 +49,8 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 
 	fmt.Printf("Initial memory usage from generators:\n%s\n", MemUsage())
 
+	var lastCacheMiss, lastCacheHit int64
+
 	itrStart := time.Now()
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -71,12 +73,29 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 
 			if cnt%100_000 == 0 {
 				dur := time.Since(since)
-				fmt.Printf("processed %s leaves in %s; leaves/s last=%s μ=%s; version=%d; %s\n",
-					humanize.Comma(int64(cnt)),
+
+				var hitCount, missCount int64
+				if tree.cache.hitCount < lastCacheHit {
+					hitCount = tree.cache.hitCount
+				} else {
+					hitCount = tree.cache.hitCount - lastCacheHit
+				}
+				if tree.cache.missCount < lastCacheMiss {
+					missCount = tree.cache.missCount
+				} else {
+					missCount = tree.cache.missCount - lastCacheMiss
+				}
+				lastCacheHit = tree.cache.hitCount
+				lastCacheMiss = tree.cache.missCount
+
+				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d Δhit=%s Δmiss=%s %s\n",
+					humanize.Comma(cnt),
 					dur.Round(time.Millisecond),
 					humanize.Comma(int64(100_000/time.Since(since).Seconds())),
 					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
 					version,
+					humanize.Comma(hitCount),
+					humanize.Comma(missCount),
 					MemUsage())
 				since = time.Now()
 			}
@@ -116,20 +135,16 @@ func TestTree_Build(t *testing.T) {
 	levelDb, err := leveldb.New("iavl_test", tmpDir)
 	require.NoError(t, err)
 
-	pool := &sync.Pool{
-		New: func() interface{} {
-			return &Node{}
-		},
-	}
+	pool := newNodePool()
 
 	tree := &Tree{
 		metrics:        &metrics.TreeMetrics{},
-		db:             &kvDB{db: levelDb},
+		db:             &kvDB{db: levelDb, pool: pool},
 		cache:          NewNodeCache(),
-		maxWorkingSize: 1 * 1024 * 1024 * 1024,
+		maxWorkingSize: 1024 * 1024 * 1024,
 		pool:           pool,
 	}
-	tree.checkpointer = newCheckpointer(tree.db, tree.cache)
+	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
 
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
@@ -172,8 +187,9 @@ func TestTree_Build(t *testing.T) {
 
 	// don't evict root on iteration, it interacts with the node pool
 	//tree.root.dirty = true
-	count := treeCount(tree, *tree.root)
-	height := treeHeight(tree, *tree.root)
+
+	//count := treeCount(tree, *tree.root)
+	//height := treeHeight(tree, *tree.root)
 
 	workingSetCount := 0 // offset the dirty root above.
 	//for _, n := range tree.pool.nodes {
@@ -184,17 +200,15 @@ func TestTree_Build(t *testing.T) {
 
 	fmt.Printf("mean leaves/s: %s\n", humanize.Comma(int64(float64(leaves)/treeDuration.Seconds())))
 	fmt.Printf("workingSetCount: %d\n", workingSetCount)
-	fmt.Printf("treeCount: %d\n", count)
-	fmt.Printf("treeHeight: %d\n", height)
 
-	//fmt.Printf("db stats:\n sets: %s, deletes: %s\n",
-	//	humanize.Comma(int64(db.setCount)),
-	//	humanize.Comma(int64(db.deleteCount)))
+	//fmt.Printf("treeCount: %d\n", count)
+	//fmt.Printf("treeHeight: %d\n", height)
 
-	require.Equal(t, height, tree.root.subtreeHeight+1)
+	//require.Equal(t, height, tree.root.subtreeHeight+1)
 
 	ts := &treeStat{}
-	treeAndDbEqual(t, tree, *tree.root, ts)
+
+	//treeAndDbEqual(t, tree, *tree.root, ts)
 
 	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
 

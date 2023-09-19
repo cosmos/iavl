@@ -2,8 +2,6 @@ package iavl
 
 import (
 	"sync"
-
-	"github.com/cosmos/iavl/v2/metrics"
 )
 
 type nodeCacheKey [12]byte
@@ -14,21 +12,28 @@ type NodeCache struct {
 	pool      sync.Pool
 	nodes     []*Node
 
-	missCount metrics.Counter
-	hitCount  metrics.Counter
+	//missCount metrics.Counter
+	//hitCount  metrics.Counter
+	missCount int64
+	hitCount  int64
 }
 
 func NewNodeCache() *NodeCache {
 	return &NodeCache{
 		nextCache: make(map[nodeCacheKey]*Node),
-		missCount: metrics.Default.NewCounter("node_cache.miss"),
-		hitCount:  metrics.Default.NewCounter("node_cache.hit"),
+		//missCount: metrics.Default.NewCounter("node_cache.miss"),
+		//hitCount:  metrics.Default.NewCounter("node_cache.hit"),
 	}
 }
 
 func (nc *NodeCache) Swap() {
 	nc.cache = nc.nextCache
+	for _, n := range nc.nextCache {
+		nc.pool.Put(n)
+	}
 	nc.nextCache = make(map[nodeCacheKey]*Node)
+	nc.hitCount = 0
+	nc.missCount = 0
 }
 
 func (nc *NodeCache) Get(nk *NodeKey) *Node {
@@ -40,9 +45,9 @@ func (nc *NodeCache) GetByKeyBytes(key []byte) *Node {
 	copy(k[:], key)
 	n, ok := nc.cache[k]
 	if ok {
-		nc.hitCount.Inc()
+		nc.hitCount++
 	} else {
-		nc.missCount.Inc()
+		nc.missCount++
 	}
 	return n
 }
