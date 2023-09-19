@@ -47,6 +47,8 @@ type Node struct {
 	leftNode      *Node
 	rightNode     *Node
 	subtreeHeight int8
+
+	dirty bool
 }
 
 func (node *Node) isLeaf() bool {

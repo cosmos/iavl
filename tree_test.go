@@ -4,6 +4,7 @@ package iavl
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"runtime"
 	"testing"
@@ -118,25 +119,25 @@ func TestTree_Build(t *testing.T) {
 		metrics:        &metrics.TreeMetrics{},
 		db:             &kvDB{db: levelDb},
 		cache:          NewNodeCache(),
-		maxWorkingSize: 500 * 1024 * 1024,
+		maxWorkingSize: 2 * 1024 * 1024 * 1024,
 	}
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	opts := testutil.NewTreeBuildOptions()
-	//opts := testutil.BigStartOptions()
+	//opts := testutil.NewTreeBuildOptions()
+	opts := testutil.BigStartOptions()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
 
-	//ctx := context.Background()
-	//ctx, cancel := context.WithCancel(ctx)
-	//defer cancel()
-	//go func() {
-	//	checkpointErr := tree.pool.CheckpointRunner(ctx)
-	//	require.NoError(t, checkpointErr)
-	//}()
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	go func() {
+		checkpointErr := metrics.Default.Run(ctx)
+		require.NoError(t, checkpointErr)
+	}()
 
 	testStart := time.Now()
 	leaves := testTreeBuild(t, tree, opts)

@@ -27,6 +27,8 @@ type Tree struct {
 	cache          *NodeCache
 
 	workingSetSize uint64
+
+	// options
 	maxWorkingSize uint64
 }
 
@@ -109,6 +111,7 @@ func (tree *Tree) deepSave(node *Node) (count int64, err error) {
 	if err := tree.db.Set(node); err != nil {
 		return count, err
 	}
+	node.dirty = false
 	tree.cache.Set(node)
 
 	if !node.isLeaf() {
@@ -120,6 +123,11 @@ func (tree *Tree) deepSave(node *Node) (count int64, err error) {
 		if err != nil {
 			return count, err
 		}
+
+		// clear children to prevent memory leaks here. after each checkpoint the tree is purged.
+		node.leftNode = nil
+		node.rightNode = nil
+
 		return leftCount + rightCount + 1, nil
 	} else {
 		return 1, nil
@@ -254,7 +262,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			tree.addOrphan(node)
-			//tree.pool.Return(node)
+			tree.returnNode(node)
 			return nil, nil, node.value, true, nil
 		}
 		return node, nil, nil, false, nil
@@ -282,7 +290,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 		if newLeftNode == nil {
 			right := node.right(tree)
 			k := node.key
-			//tree.pool.Return(node)
+			tree.returnNode(node)
 			return right, k, value, removed, nil
 		}
 
@@ -316,7 +324,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 	// collapse `node.leftNode` into `node`
 	if newRightNode == nil {
 		left := node.left(tree)
-		//tree.pool.Return(node)
+		tree.returnNode(node)
 		return left, nil, value, removed, nil
 	}
 
@@ -354,6 +362,11 @@ func (tree *Tree) mutateNode(node *Node) {
 	}
 	node.hash = nil
 	node.nodeKey = nil
+	if node.dirty {
+		return
+	}
+
+	node.dirty = true
 	tree.workingSetSize += node.sizeBytes()
 }
 
@@ -379,4 +392,8 @@ func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
 	node.value = nil
 	tree.workingSetSize += node.sizeBytes()
 	return node
+}
+
+func (tree *Tree) returnNode(node *Node) {
+	tree.workingSetSize -= node.sizeBytes()
 }
