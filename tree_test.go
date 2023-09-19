@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -27,7 +28,7 @@ func MemUsage() string {
 	return s
 }
 
-func testTreeBuild(t *testing.T, tree *MutableTree, opts testutil.TreeBuildOptions) (cnt int64) {
+func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
 		hash    []byte
 		version int64
@@ -110,11 +111,12 @@ func TestTree_Build(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
-	//levelDb, err := leveldb.New("iavl_test", tmpDir)
+	levelDb, err := leveldb.New("iavl_test", tmpDir)
 	require.NoError(t, err)
 
-	tree := &MutableTree{
+	tree := &Tree{
 		metrics: &metrics.TreeMetrics{},
+		db:      &kvDB{db: levelDb},
 	}
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
@@ -187,7 +189,7 @@ func treeCount(node *Node) int {
 	return 1 + treeCount(node.leftNode) + treeCount(node.rightNode)
 }
 
-func pooledTreeCount(tree *MutableTree, node Node) int {
+func pooledTreeCount(tree *Tree, node Node) int {
 	if node.isLeaf() {
 		return 1
 	}
@@ -196,7 +198,7 @@ func pooledTreeCount(tree *MutableTree, node Node) int {
 	return 1 + pooledTreeCount(tree, *left) + pooledTreeCount(tree, *right)
 }
 
-func pooledTreeHeight(tree *MutableTree, node Node) int8 {
+func pooledTreeHeight(tree *Tree, node Node) int8 {
 	if node.isLeaf() {
 		return 1
 	}
@@ -210,7 +212,7 @@ type treeStat struct {
 }
 
 /*
-func treeAndDbEqual(t *testing.T, tree *MutableTree, node Node, stat *treeStat) {
+func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
 	dbNode, err := tree.db.Get(node.NodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)

@@ -7,13 +7,16 @@ import (
 	"github.com/cosmos/iavl/v2/metrics"
 )
 
-type MutableTree struct {
-	version int64
-	root    *Node
-	metrics *metrics.TreeMetrics
+type Tree struct {
+	version        int64
+	root           *Node
+	metrics        *metrics.TreeMetrics
+	db             nodeDB
+	lastCheckpoint int64
+	orphans        []*Node
 }
 
-func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
@@ -21,14 +24,14 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	return tree.root.hash, tree.version, nil
 }
 
-func (tree *MutableTree) deepHash(sequence *uint32, node *Node) (hash []byte) {
+func (tree *Tree) deepHash(sequence *uint32, node *Node) (hash []byte) {
 	if node.hash != nil {
 		return node.hash
 	}
 	*sequence++
 	node.nodeKey = &NodeKey{
-		version: tree.version,
-		nonce:   *sequence,
+		version:  tree.version,
+		sequence: *sequence,
 	}
 	if !node.isLeaf() {
 		// wrong, should be nodekey assignment, but just profiling for now.
@@ -41,15 +44,36 @@ func (tree *MutableTree) deepHash(sequence *uint32, node *Node) (hash []byte) {
 	return node.hash
 }
 
-func (node *Node) isLeaf() bool {
-	return node.subtreeHeight == 0
+func (tree *Tree) deepSave(node *Node) (count int64, err error) {
+	if node.nodeKey.version <= tree.lastCheckpoint {
+		return 0, nil
+	}
+
+	if err := tree.db.Set(node); err != nil {
+		return count, err
+	}
+	//tree.cache.Set(node)
+
+	if !node.isLeaf() {
+		leftCount, err := tree.deepSave(node.left(tree))
+		if err != nil {
+			return count, err
+		}
+		rightCount, err := tree.deepSave(node.right(tree))
+		if err != nil {
+			return count, err
+		}
+		return leftCount + rightCount + 1, nil
+	} else {
+		return 1, nil
+	}
 }
 
 // Set sets a key in the working tree. Nil values are invalid. The given
 // key/value byte slices must not be modified after this call, since they point
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
-func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
+func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -64,7 +88,7 @@ func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
 
 // Get returns the value of the specified key if it exists, or nil otherwise.
 // The returned value must not be modified, since it may point to data stored within IAVL.
-func (tree *MutableTree) Get(key []byte) ([]byte, error) {
+func (tree *Tree) Get(key []byte) ([]byte, error) {
 	if tree.root == nil {
 		return nil, nil
 	}
@@ -72,7 +96,7 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	return tree.Get(key)
 }
 
-func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error) {
+func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	if value == nil {
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
@@ -86,7 +110,7 @@ func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error)
 	return updated, err
 }
 
-func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
+func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
 	if node.isLeaf() {
@@ -115,7 +139,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 			return NewNode(key, value, tree.version), true, nil
 		}
 	} else {
-		node.reset()
+		tree.mutateNode(node)
 
 		if bytes.Compare(key, node.key) < 0 {
 			node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
@@ -146,7 +170,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 
 // Remove removes a key from the working tree. The given key byte slice should not be modified
 // after this call, since it may point to data stored inside IAVL.
-func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
+func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.root == nil {
 		return nil, false, nil
 	}
@@ -170,10 +194,11 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 // - the node that replaces the orig. node after remove
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
-func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
+func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
 	if node.isLeaf() {
-		tree.metrics.PoolReturn++
 		if bytes.Equal(key, node.key) {
+			tree.addOrphan(node)
+			//tree.pool.Return(node)
 			return nil, nil, node.value, true, nil
 		}
 		return node, nil, nil, false, nil
@@ -185,7 +210,7 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 
 	// node.key < key; we go to the left to find the key:
 	if bytes.Compare(key, node.key) < 0 {
-		newLeftNode, newKey, value, removed, err := tree.recursiveRemove(node.leftNode, key)
+		newLeftNode, newKey, value, removed, err := tree.recursiveRemove(node.left(tree), key)
 		if err != nil {
 			return nil, nil, nil, false, err
 		}
@@ -194,13 +219,20 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 			return node, nil, value, removed, nil
 		}
 
-		if newLeftNode == nil { // left node held value, was removed
-			return node.rightNode, node.key, value, removed, nil
+		tree.addOrphan(node)
+
+		// left node held value, was removed
+		// collapse `node.rightNode` into `node`
+		if newLeftNode == nil {
+			right := node.right(tree)
+			k := node.key
+			//tree.pool.Return(node)
+			return right, k, value, removed, nil
 		}
 
-		node.reset()
+		tree.mutateNode(node)
 
-		node.leftNode = newLeftNode
+		node.setLeft(newLeftNode)
 		err = node.calcHeightAndSize(tree)
 		if err != nil {
 			return nil, nil, nil, false, err
@@ -213,7 +245,7 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 		return node, newKey, value, removed, nil
 	}
 	// node.key >= key; either found or look to the right:
-	newRightNode, newKey, value, removed, err := tree.recursiveRemove(node.rightNode, key)
+	newRightNode, newKey, value, removed, err := tree.recursiveRemove(node.right(tree), key)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -222,13 +254,19 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 		return node, nil, value, removed, nil
 	}
 
-	if newRightNode == nil { // right node held value, was removed
-		return node.leftNode, nil, value, removed, nil
+	tree.addOrphan(node)
+
+	// right node held value, was removed
+	// collapse `node.leftNode` into `node`
+	if newRightNode == nil {
+		left := node.left(tree)
+		//tree.pool.Return(node)
+		return left, nil, value, removed, nil
 	}
 
-	node.reset()
+	tree.mutateNode(node)
 
-	node.rightNode = newRightNode
+	node.setRight(newRightNode)
 	if newKey != nil {
 		node.key = newKey
 	}
@@ -245,10 +283,22 @@ func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node,
 	return node, nil, value, removed, nil
 }
 
-func (tree *MutableTree) Size() int64 {
+func (tree *Tree) Size() int64 {
 	return tree.root.size
 }
 
-func (tree *MutableTree) Height() int8 {
+func (tree *Tree) Height() int8 {
 	return tree.root.subtreeHeight
+}
+
+func (tree *Tree) mutateNode(node *Node) {
+	node.hash = nil
+	node.nodeKey = nil
+}
+
+func (tree *Tree) addOrphan(node *Node) {
+	if node.nodeKey == nil || node.nodeKey.version > tree.lastCheckpoint {
+		return
+	}
+	tree.orphans = append(tree.orphans, node)
 }

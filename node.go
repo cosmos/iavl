@@ -1,40 +1,37 @@
 package iavl
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
+	"math"
+
+	encoding "github.com/cosmos/iavl/v2/internal"
 )
 
 // NodeKey represents a key of node in the DB.
 type NodeKey struct {
-	version int64
-	nonce   uint32
+	version  int64
+	sequence uint32
 }
 
 // GetKey returns a byte slice of the NodeKey.
 func (nk *NodeKey) GetKey() []byte {
 	b := make([]byte, 12)
 	binary.BigEndian.PutUint64(b, uint64(nk.version))
-	binary.BigEndian.PutUint32(b[8:], nk.nonce)
+	binary.BigEndian.PutUint32(b[8:], nk.sequence)
 	return b
 }
 
 // GetNodeKey returns a NodeKey from a byte slice.
 func GetNodeKey(key []byte) *NodeKey {
 	return &NodeKey{
-		version: int64(binary.BigEndian.Uint64(key)),
-		nonce:   binary.BigEndian.Uint32(key[8:]),
+		version:  int64(binary.BigEndian.Uint64(key)),
+		sequence: binary.BigEndian.Uint32(key[8:]),
 	}
-}
-
-// GetRootKey returns a byte slice of the root node key for the given version.
-func GetRootKey(version int64) []byte {
-	b := make([]byte, 12)
-	binary.BigEndian.PutUint64(b, uint64(version))
-	binary.BigEndian.PutUint32(b[8:], 1)
-	return b
 }
 
 // Node represents a node in a Tree.
@@ -51,9 +48,13 @@ type Node struct {
 	subtreeHeight int8
 }
 
+func (node *Node) isLeaf() bool {
+	return node.subtreeHeight == 0
+}
+
 // String returns a string representation of the node key.
 func (nk *NodeKey) String() string {
-	return fmt.Sprintf("(%d, %d)", nk.version, nk.nonce)
+	return fmt.Sprintf("(%d, %d)", nk.version, nk.sequence)
 }
 
 // NewNode returns a new node from a key, value and version.
@@ -69,12 +70,37 @@ func NewNode(key []byte, value []byte, version int64) *Node {
 	return node
 }
 
-func (node *Node) reset() {
-	node.hash = nil
-	node.nodeKey = nil
+func (node *Node) setLeft(leftNode *Node) {
+	node.leftNode = leftNode
+	if leftNode.nodeKey != nil {
+		node.leftNodeKey = leftNode.nodeKey.GetKey()
+	}
 }
 
-func (node *Node) getLeftNode(t *MutableTree) (*Node, error) {
+func (node *Node) setRight(rightNode *Node) {
+	node.rightNode = rightNode
+	if rightNode.nodeKey != nil {
+		node.rightNodeKey = rightNode.nodeKey.GetKey()
+	}
+}
+
+func (node *Node) left(t *Tree) *Node {
+	leftNode, err := node.getLeftNode(t)
+	if err != nil {
+		panic(err)
+	}
+	return leftNode
+}
+
+func (node *Node) right(t *Tree) *Node {
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		panic(err)
+	}
+	return rightNode
+}
+
+func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
@@ -86,7 +112,7 @@ func (node *Node) getLeftNode(t *MutableTree) (*Node, error) {
 	//return leftNode, nil
 }
 
-func (node *Node) getRightNode(t *MutableTree) (*Node, error) {
+func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
@@ -99,7 +125,7 @@ func (node *Node) getRightNode(t *MutableTree) (*Node, error) {
 }
 
 // NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(t *MutableTree) error {
+func (node *Node) calcHeightAndSize(t *Tree) error {
 	leftNode, err := node.getLeftNode(t)
 	if err != nil {
 		return err
@@ -124,7 +150,7 @@ func maxInt8(a, b int8) int8 {
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
+func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 	if node.nodeKey != nil {
 		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
@@ -195,7 +221,7 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-func (node *Node) calcBalance(t *MutableTree) (int, error) {
+func (node *Node) calcBalance(t *Tree) (int, error) {
 	leftNode, err := node.getLeftNode(t)
 	if err != nil {
 		return 0, err
@@ -210,16 +236,18 @@ func (node *Node) calcBalance(t *MutableTree) (int, error) {
 }
 
 // Rotate right and return the new node and orphan.
-func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
+func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 	var err error
 	// TODO: optimize balance & rotate.
-	node.reset()
+	tree.addOrphan(node)
+	tree.mutateNode(node)
 
-	newNode := node.leftNode
-	newNode.reset()
+	tree.addOrphan(node.left(tree))
+	newNode := node.left(tree)
+	tree.mutateNode(newNode)
 
-	node.leftNode = newNode.rightNode
-	newNode.rightNode = node
+	node.setLeft(newNode.right(tree))
+	newNode.setRight(node)
 
 	err = node.calcHeightAndSize(tree)
 	if err != nil {
@@ -235,15 +263,18 @@ func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
 }
 
 // Rotate left and return the new node and orphan.
-func (tree *MutableTree) rotateLeft(node *Node) (*Node, error) {
+func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	var err error
 	// TODO: optimize balance & rotate.
-	node.reset()
-	newNode := node.rightNode
-	newNode.reset()
+	tree.addOrphan(node)
+	tree.mutateNode(node)
 
-	node.rightNode = newNode.leftNode
-	newNode.leftNode = node
+	tree.addOrphan(node.right(tree))
+	newNode := node.right(tree)
+	tree.mutateNode(newNode)
+
+	node.setRight(newNode.left(tree))
+	newNode.setLeft(node)
 
 	err = node.calcHeightAndSize(tree)
 	if err != nil {
@@ -329,4 +360,115 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 	}
 	_, err := w.Write(bz)
 	return err
+}
+
+// MakeNode constructs a *Node from an encoded byte slice.
+func MakeNode(nodeKey, buf []byte) (*Node, error) {
+	// Read node header (height, size, version, key).
+	height, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.height, %w", err)
+	}
+	buf = buf[n:]
+	if height < int64(math.MinInt8) || height > int64(math.MaxInt8) {
+		return nil, errors.New("invalid height, must be int8")
+	}
+
+	size, n, err := encoding.DecodeVarint(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.size, %w", err)
+	}
+	buf = buf[n:]
+
+	key, n, err := encoding.DecodeBytes(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.key, %w", err)
+	}
+	buf = buf[n:]
+
+	hash, n, err := encoding.DecodeBytes(buf)
+	if err != nil {
+		return nil, fmt.Errorf("decoding node.hash, %w", err)
+	}
+	buf = buf[n:]
+
+	node := &Node{
+		subtreeHeight: int8(height),
+		nodeKey:       GetNodeKey(nodeKey),
+		size:          size,
+		key:           key,
+		hash:          hash,
+	}
+
+	if !node.isLeaf() {
+		leftNodeKey, n, err := encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.leftKey, %w", err)
+		}
+		buf = buf[n:]
+
+		rightNodeKey, _, err := encoding.DecodeBytes(buf)
+		if err != nil {
+			return nil, fmt.Errorf("decoding node.rightKey, %w", err)
+		}
+
+		node.leftNodeKey = leftNodeKey
+		node.rightNodeKey = rightNodeKey
+	}
+	return node, nil
+}
+
+func (node *Node) WriteBytes(w io.Writer) error {
+	if node == nil {
+		return errors.New("cannot write nil node")
+	}
+	cause := encoding.EncodeVarint(w, int64(node.subtreeHeight))
+	if cause != nil {
+		return fmt.Errorf("writing height; %w", cause)
+	}
+	cause = encoding.EncodeVarint(w, node.size)
+	if cause != nil {
+		return fmt.Errorf("writing size; %w", cause)
+	}
+
+	cause = encoding.EncodeBytes(w, node.key)
+	if cause != nil {
+		return fmt.Errorf("writing key; %w", cause)
+	}
+
+	if len(node.hash) != hashSize {
+		return fmt.Errorf("hash has unexpected length: %d", len(node.hash))
+	}
+	cause = encoding.EncodeBytes(w, node.hash)
+	if cause != nil {
+		return fmt.Errorf("writing hash; %w", cause)
+	}
+
+	if !node.isLeaf() {
+		if node.leftNodeKey == nil {
+			return fmt.Errorf("left node key is nil")
+		}
+		cause = encoding.EncodeBytes(w, node.leftNodeKey)
+		if cause != nil {
+			return fmt.Errorf("writing left node key; %w", cause)
+		}
+
+		if node.rightNodeKey == nil {
+			return fmt.Errorf("right node key is nil")
+		}
+		cause = encoding.EncodeBytes(w, node.rightNodeKey)
+		if cause != nil {
+			return fmt.Errorf("writing right node key; %w", cause)
+		}
+	}
+	return nil
+}
+
+func (node *Node) Bytes() ([]byte, error) {
+	buf := &bytes.Buffer{}
+	err := node.WriteBytes(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
