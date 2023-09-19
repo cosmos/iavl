@@ -141,7 +141,7 @@ func TestTree_Build(t *testing.T) {
 	testStart := time.Now()
 	leaves := testTreeBuild(t, tree, opts)
 
-	//err = tree.Checkpoint()
+	err = tree.checkpoint()
 	require.NoError(t, err)
 	// wait
 	//tree.pool.checkpointCh <- &checkpointArgs{version: -1}
@@ -149,8 +149,8 @@ func TestTree_Build(t *testing.T) {
 
 	// don't evict root on iteration, it interacts with the node pool
 	//tree.root.dirty = true
-	count := pooledTreeCount(tree, *tree.root)
-	height := pooledTreeHeight(tree, *tree.root)
+	count := treeCount(tree, *tree.root)
+	height := treeHeight(tree, *tree.root)
 
 	workingSetCount := 0 // offset the dirty root above.
 	//for _, n := range tree.pool.nodes {
@@ -164,78 +164,63 @@ func TestTree_Build(t *testing.T) {
 	fmt.Printf("treeCount: %d\n", count)
 	fmt.Printf("treeHeight: %d\n", height)
 
-	// TODO
-	// equivalence between dbs
-
 	//fmt.Printf("db stats:\n sets: %s, deletes: %s\n",
 	//	humanize.Comma(int64(db.setCount)),
 	//	humanize.Comma(int64(db.deleteCount)))
 
 	require.Equal(t, height, tree.root.subtreeHeight+1)
-	//require.Equal(t, count, len(db.nodes))
-
-	//require.Equal(t, tree.pool.dirtyCount, workingSetCount)
 
 	ts := &treeStat{}
-	//treeAndDbEqual(t, tree, *tree.root, ts)
+	treeAndDbEqual(t, tree, *tree.root, ts)
 
 	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
 
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", tree.root.hash))
 }
 
-func treeCount(node *Node) int {
-	if node == nil {
-		return 0
-	}
-	return 1 + treeCount(node.leftNode) + treeCount(node.rightNode)
-}
-
-func pooledTreeCount(tree *Tree, node Node) int {
+func treeCount(tree *Tree, node Node) int {
 	if node.isLeaf() {
 		return 1
 	}
-	left, _ := node.getLeftNode(tree)
-	right, _ := node.getRightNode(tree)
-	return 1 + pooledTreeCount(tree, *left) + pooledTreeCount(tree, *right)
+	left := node.left(tree)
+	right := node.right(tree)
+	return 1 + treeCount(tree, *left) + treeCount(tree, *right)
 }
 
-func pooledTreeHeight(tree *Tree, node Node) int8 {
+func treeHeight(tree *Tree, node Node) int8 {
 	if node.isLeaf() {
 		return 1
 	}
-	left, _ := node.getLeftNode(tree)
-	right, _ := node.getRightNode(tree)
-	return 1 + maxInt8(pooledTreeHeight(tree, *left), pooledTreeHeight(tree, *right))
+	left := node.left(tree)
+	right := node.right(tree)
+	return 1 + maxInt8(treeHeight(tree, *left), treeHeight(tree, *right))
 }
 
 type treeStat struct {
 	size uint64
 }
 
-/*
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
-	dbNode, err := tree.db.Get(node.NodeKey)
+	dbNode, err := tree.db.Get(node.nodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)
 	}
 	stat.size += node.sizeBytes()
 	require.NoError(t, err)
 	require.NotNil(t, dbNode)
-	require.Equal(t, dbNode.NodeKey, node.NodeKey)
-	require.Equal(t, dbNode.Key, node.Key)
+	require.Equal(t, dbNode.nodeKey, node.nodeKey)
+	require.Equal(t, dbNode.key, node.key)
 	require.Equal(t, dbNode.hash, node.hash)
-	require.Equal(t, dbNode.Size, node.Size)
-	require.Equal(t, dbNode.SubtreeHeight, node.SubtreeHeight)
+	require.Equal(t, dbNode.size, node.size)
+	require.Equal(t, dbNode.subtreeHeight, node.subtreeHeight)
 	if node.isLeaf() {
 		return
 	}
-	require.Equal(t, dbNode.LeftNodeKey, node.LeftNodeKey)
-	require.Equal(t, dbNode.RightNodeKey, node.RightNodeKey)
+	require.Equal(t, dbNode.leftNodeKey, node.leftNodeKey)
+	require.Equal(t, dbNode.rightNodeKey, node.rightNodeKey)
 
 	leftNode := *node.left(tree)
 	rightNode := *node.right(tree)
 	treeAndDbEqual(t, tree, leftNode, stat)
 	treeAndDbEqual(t, tree, rightNode, stat)
 }
-*/
