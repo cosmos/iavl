@@ -19,7 +19,8 @@ func (opts TreeBuildOptions) With10_000() TreeBuildOptions {
 func (opts TreeBuildOptions) With25_000() TreeBuildOptions {
 	o := &opts
 	o.Until = 25_000
-	o.UntilHash = "a41235be12a8eedd007740ffc29fc55a5a169d693b1b3171982fe9c9034d55d6"
+	// verified against cosmos/iavl-bench on 2023-09-18
+	o.UntilHash = "f1283df353b4766c938d75982c3d69b1eeb7a3c9eea006376ecf7feeab1b9743"
 	return *o
 }
 

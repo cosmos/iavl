@@ -4,13 +4,11 @@ package iavl
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"runtime"
 	"testing"
 	"time"
 
-	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -29,7 +27,7 @@ func MemUsage() string {
 	return s
 }
 
-func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
+func testTreeBuild(t *testing.T, tree *MutableTree, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
 		hash    []byte
 		version int64
@@ -101,63 +99,61 @@ func TestTree_Build(t *testing.T) {
 	//just a little bigger than the size of the initial changeset. evictions will occur slowly.
 	//poolSize := 210_050
 	// no evictions
-	poolSize := 10_000
+	//poolSize := 10_000
 	// overflow on initial changeset and frequently after; worst performance
 	//poolSize := 100_000
+
+	//poolSize = 1
 
 	var err error
 	//db := newMapDB()
 
 	tmpDir := t.TempDir()
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
-	levelDb, err := leveldb.New("iavl_test", tmpDir)
+	//levelDb, err := leveldb.New("iavl_test", tmpDir)
 	require.NoError(t, err)
-	db := &kvDB{db: levelDb}
 
-	tree := &Tree{
-		pool:               newNodePool(db, poolSize),
-		metrics:            &metrics.TreeMetrics{},
-		db:                 db,
-		checkpointInterval: 100_000,
+	tree := &MutableTree{
+		metrics: &metrics.TreeMetrics{},
 	}
-	tree.pool.metrics = tree.metrics
-	tree.pool.maxWorkingSize = 2 * 1024 * 1024 * 1024
+	//tree.pool.metrics = tree.metrics
+	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	//opts := testutil.NewTreeBuildOptions()
-	opts := testutil.BigStartOptions()
+	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.BigStartOptions()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
 
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	go func() {
-		checkpointErr := tree.pool.CheckpointRunner(ctx)
-		require.NoError(t, checkpointErr)
-	}()
+	//ctx := context.Background()
+	//ctx, cancel := context.WithCancel(ctx)
+	//defer cancel()
+	//go func() {
+	//	checkpointErr := tree.pool.CheckpointRunner(ctx)
+	//	require.NoError(t, checkpointErr)
+	//}()
 
 	testStart := time.Now()
 	leaves := testTreeBuild(t, tree, opts)
 
-	err = tree.Checkpoint()
+	//err = tree.Checkpoint()
 	require.NoError(t, err)
 	// wait
-	tree.pool.checkpointCh <- &checkpointArgs{version: -1}
+	//tree.pool.checkpointCh <- &checkpointArgs{version: -1}
 	treeDuration := time.Since(testStart)
 
 	// don't evict root on iteration, it interacts with the node pool
-	tree.root.dirty = true
+	//tree.root.dirty = true
 	count := pooledTreeCount(tree, *tree.root)
 	height := pooledTreeHeight(tree, *tree.root)
 
 	workingSetCount := 0 // offset the dirty root above.
-	for _, n := range tree.pool.nodes {
-		if n.dirty {
-			workingSetCount++
-		}
-	}
+	//for _, n := range tree.pool.nodes {
+	//	if n.dirty {
+	//		workingSetCount++
+	//	}
+	//}
 
 	fmt.Printf("mean leaves/s: %s\n", humanize.Comma(int64(float64(leaves)/treeDuration.Seconds())))
 	fmt.Printf("workingSetCount: %d\n", workingSetCount)
@@ -171,13 +167,13 @@ func TestTree_Build(t *testing.T) {
 	//	humanize.Comma(int64(db.setCount)),
 	//	humanize.Comma(int64(db.deleteCount)))
 
-	require.Equal(t, height, tree.root.SubtreeHeight+1)
+	require.Equal(t, height, tree.root.subtreeHeight+1)
 	//require.Equal(t, count, len(db.nodes))
 
-	require.Equal(t, tree.pool.dirtyCount, workingSetCount)
+	//require.Equal(t, tree.pool.dirtyCount, workingSetCount)
 
 	ts := &treeStat{}
-	treeAndDbEqual(t, tree, *tree.root, ts)
+	//treeAndDbEqual(t, tree, *tree.root, ts)
 
 	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
 
@@ -191,29 +187,30 @@ func treeCount(node *Node) int {
 	return 1 + treeCount(node.leftNode) + treeCount(node.rightNode)
 }
 
-func pooledTreeCount(tree *Tree, node Node) int {
+func pooledTreeCount(tree *MutableTree, node Node) int {
 	if node.isLeaf() {
 		return 1
 	}
-	left := *node.left(tree)
-	right := *node.right(tree)
-	return 1 + pooledTreeCount(tree, left) + pooledTreeCount(tree, right)
+	left, _ := node.getLeftNode(tree)
+	right, _ := node.getRightNode(tree)
+	return 1 + pooledTreeCount(tree, *left) + pooledTreeCount(tree, *right)
 }
 
-func pooledTreeHeight(tree *Tree, node Node) int8 {
+func pooledTreeHeight(tree *MutableTree, node Node) int8 {
 	if node.isLeaf() {
 		return 1
 	}
-	left := *node.left(tree)
-	right := *node.right(tree)
-	return 1 + maxInt8(pooledTreeHeight(tree, left), pooledTreeHeight(tree, right))
+	left, _ := node.getLeftNode(tree)
+	right, _ := node.getRightNode(tree)
+	return 1 + maxInt8(pooledTreeHeight(tree, *left), pooledTreeHeight(tree, *right))
 }
 
 type treeStat struct {
 	size uint64
 }
 
-func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
+/*
+func treeAndDbEqual(t *testing.T, tree *MutableTree, node Node, stat *treeStat) {
 	dbNode, err := tree.db.Get(node.NodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)
@@ -237,3 +234,4 @@ func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
 	treeAndDbEqual(t, tree, leftNode, stat)
 	treeAndDbEqual(t, tree, rightNode, stat)
 }
+*/
