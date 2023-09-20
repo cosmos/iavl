@@ -14,13 +14,6 @@ type sqliteDb struct {
 	write      *sqlite3.Conn
 	read       *sqlite3.Conn
 
-	treeInsert *sqlite3.Stmt
-	treeQuery  *sqlite3.Stmt
-	treeDelete *sqlite3.Stmt
-
-	nodeInsert *sqlite3.Stmt
-	nodeQuery  *sqlite3.Stmt
-
 	pool *nodePool
 
 	shardId      int64
@@ -43,6 +36,12 @@ func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
 
 	err = sql.write.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
+		return nil, err
+	}
+
+	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
+	maxWalSizeBytes := 1024 * 1024 * 500
+	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
 		return nil, err
 	}
 
@@ -116,25 +115,7 @@ CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 		return err
 	}
 
-	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
-	maxWalSizeBytes := 1024 * 1024 * 500
-	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/pageSize)); err != nil {
-		return err
-	}
-
 	return nil
-}
-
-func (sql *sqliteDb) Set(node *Node) (int, error) {
-	bz, err := node.Bytes()
-	if err != nil {
-		return 0, err
-	}
-	err = sql.treeInsert.Exec(node.nodeKey.GetKey(), bz)
-	if err != nil {
-		return 0, err
-	}
-	return len(bz), nil
 }
 
 func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err error) {
@@ -242,12 +223,7 @@ func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 	return q, nil
 }
 
-func (sql *sqliteDb) Get(nodeKey *NodeKey) (*Node, error) {
-	q, err := sql.GetShardQuery(nodeKey.version)
-	if err != nil {
-		return nil, err
-	}
-
+func (sql *sqliteDb) getNode(nodeKey *NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	key := nodeKey.GetKey()
 	if err := q.Bind(nodeKey.version, int(nodeKey.sequence)); err != nil {
 		return nil, err
@@ -270,6 +246,14 @@ func (sql *sqliteDb) Get(nodeKey *NodeKey) (*Node, error) {
 		return nil, err
 	}
 	return node, nil
+}
+
+func (sql *sqliteDb) Get(nodeKey *NodeKey) (*Node, error) {
+	q, err := sql.GetShardQuery(nodeKey.version)
+	if err != nil {
+		return nil, err
+	}
+	return sql.getNode(nodeKey, q)
 }
 
 func (sql *sqliteDb) Delete(nodeKey []byte) error {
@@ -313,18 +297,17 @@ func (sql *sqliteDb) NextShard() error {
 		if err != nil {
 			return err
 		}
-		ok, err := q.Step()
+		_, err = q.Step()
 		if err != nil {
 			return err
 		}
-		if !ok {
-			sql.shardId = 1
-		} else {
-			err = q.Scan(&sql.shardId)
-			if err != nil {
-				return err
-			}
+
+		// if table is empty MAX query will bind sql.shardId to zero
+		err = q.Scan(&sql.shardId)
+		if err != nil {
+			return err
 		}
+
 		if err := q.Close(); err != nil {
 			return err
 		}
@@ -334,6 +317,14 @@ func (sql *sqliteDb) NextShard() error {
 	}
 
 	sql.shardId++
+
+	// hack to maintain 1 shard for testing
+	//if sql.shardId > 1 {
+	//	sql.shardId = 1
+	//	return nil
+	//}
+
+	log.Info().Msgf("creating shard %d", sql.shardId)
 
 	err := sql.write.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);",
 		sql.shardId))
@@ -378,18 +369,42 @@ func (sql *sqliteDb) LoadRoot(version int64) (*Node, error) {
 		return nil, err
 	}
 	root.sequence = uint32(seq)
+	if err := rootQuery.Close(); err != nil {
+		return nil, err
+	}
+
+	// TODO this placement seems wrong?
+	if err := sql.resetShardQueries(); err != nil {
+		return nil, err
+	}
 
 	rootNode, err := sql.Get(root)
 	if err != nil {
-		return nil, err
-	}
-	if err := rootQuery.Close(); err != nil {
 		return nil, err
 	}
 	if err := conn.Close(); err != nil {
 		return nil, err
 	}
 	return rootNode, nil
+}
+
+func (sql *sqliteDb) addShardQuery() error {
+	if _, ok := sql.shards[sql.shardId]; ok {
+		return nil
+	}
+	if sql.read == nil {
+		if err := sql.resetReadConn(); err != nil {
+			return err
+		}
+	}
+
+	q, err := sql.read.Prepare(fmt.Sprintf(
+		"SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", sql.shardId))
+	if err != nil {
+		return err
+	}
+	sql.shards[sql.shardId] = q
+	return nil
 }
 
 func (sql *sqliteDb) resetShardQueries() error {
@@ -400,9 +415,11 @@ func (sql *sqliteDb) resetShardQueries() error {
 		}
 	}
 
-	// single reader conn for all shards
-	if err := sql.resetReadConn(); err != nil {
-		return err
+	if sql.read == nil {
+		// single reader conn for all shards. keep open to fill mmap, but reset queries periodically to flush WAL
+		if err := sql.resetReadConn(); err != nil {
+			return err
+		}
 	}
 
 	q, err := sql.read.Prepare("SELECT DISTINCT id FROM shard")

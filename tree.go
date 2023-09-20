@@ -125,7 +125,12 @@ func (tree *Tree) sqlCheckpoint() error {
 	}
 
 	// this will pause async readers and flush the WAL
-	err = tree.sql.resetShardQueries()
+	//err = tree.sql.resetShardQueries()
+	//if err != nil {
+	//	return err
+	//}
+
+	err = tree.sql.addShardQuery()
 	if err != nil {
 		return err
 	}
