@@ -142,7 +142,7 @@ func BigStartOptions() TreeBuildOptions {
 }
 
 func OsmoLike() TreeBuildOptions {
-	initialSize := 20_000_000
+	initialSize := 20_000_000 // revert to 20M!!
 	finalSize := int(1.5 * float64(initialSize))
 	var seed int64 = 1234
 	var versions int64 = 1_000_000

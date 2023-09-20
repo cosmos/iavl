@@ -32,24 +32,16 @@ func MemUsage() string {
 
 func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
-		hash    []byte
-		version int64
-		since   = time.Now()
-		err     error
+		hash                        []byte
+		version                     int64
+		err                         error
+		lastCacheMiss, lastCacheHit int64
 	)
 	cnt = 1
 
-	// log file
-	//itr, err := compact.NewChangesetIterator("/Users/mattk/src/scratch/osmosis-hist/ordered/bank", "bank")
-	//require.NoError(t, err)
-	//opts.Until = math.MaxInt64
-
 	// generator
 	itr := opts.Iterator
-
 	fmt.Printf("Initial memory usage from generators:\n%s\n", MemUsage())
-
-	var lastCacheMiss, lastCacheHit int64
 
 	if opts.LoadVersion != 0 {
 		require.NoError(t, tree.LoadVersion(opts.LoadVersion))
@@ -77,6 +69,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 		sampleRate = opts.SampleRate
 	}
 
+	since := time.Now()
 	itrStart := time.Now()
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)

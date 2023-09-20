@@ -96,7 +96,7 @@ func (cp *checkpointer) sqliteRun(ctx context.Context) error {
 
 			sql := cp.sqliteDb
 			//var memSize, dbSize uint64
-			err := sql.CreateShard()
+			err := sql.NextShard()
 			if err != nil {
 				return err
 			}

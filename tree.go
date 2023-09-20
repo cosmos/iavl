@@ -109,27 +109,23 @@ func (tree *Tree) sqlCheckpoint() error {
 	}
 
 	//var memSize, dbSize uint64
-	//err := tree.sql.CreateShard()
-	//if err != nil {
-	//	return err
-	//}
-
-	dbSize, _, err := tree.sql.BatchSet(args.set)
+	err := tree.sql.NextShard()
 	if err != nil {
 		return err
 	}
 
-	//err = tree.sql.MapVersions(versions, tree.sql.shardId)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//err = tree.sql.IndexShard(tree.sql.shardId)
-	//if err != nil {
-	//	return err
-	//}
+	dbSize, versions, err := tree.sql.BatchSet(args.set)
+	if err != nil {
+		return err
+	}
 
-	err = tree.sql.resetTreeQuery()
+	err = tree.sql.MapVersions(versions, tree.sql.shardId)
+	if err != nil {
+		return err
+	}
+
+	// this will pause async readers and flush the WAL
+	err = tree.sql.resetShardQueries()
 	if err != nil {
 		return err
 	}
