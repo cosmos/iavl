@@ -3,9 +3,11 @@ module github.com/cosmos/iavl/v2
 go 1.21.0
 
 require (
+	github.com/bvinc/go-sqlite-lite v0.6.1
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/iavl-bench/bench v0.0.2
 	github.com/dustin/go-humanize v1.0.1
+	github.com/rs/zerolog v1.30.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
@@ -44,7 +46,6 @@ require (
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	github.com/rs/zerolog v1.30.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect

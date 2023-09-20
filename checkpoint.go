@@ -16,10 +16,11 @@ type checkpointArgs struct {
 }
 
 type checkpointer struct {
-	db    *kvDB
-	cache *NodeCache
-	ch    chan *checkpointArgs
-	pool  *nodePool
+	db       *kvDB
+	sqliteDb *sqliteDb
+	cache    *NodeCache
+	ch       chan *checkpointArgs
+	pool     *nodePool
 }
 
 func newCheckpointer(db *kvDB, cache *NodeCache, pool *nodePool) *checkpointer {
@@ -81,6 +82,47 @@ func (cp *checkpointer) run(ctx context.Context) error {
 				humanize.IBytes(memSize),
 				humanize.IBytes(dbSize),
 			)
+		}
+	}
+}
+func (cp *checkpointer) sqliteRun(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case args := <-cp.ch:
+			start := time.Now()
+			log.Info().Msgf("checkpoint start ver=%d", args.version)
+
+			sql := cp.sqliteDb
+			//var memSize, dbSize uint64
+			err := sql.CreateShard()
+			if err != nil {
+				return err
+			}
+
+			dbSize, versions, err := sql.BatchSet(args.set)
+			if err != nil {
+				return err
+			}
+			err = sql.MapVersions(versions, sql.shardId)
+			if err != nil {
+				return err
+			}
+
+			err = sql.IndexShard(sql.shardId)
+			if err != nil {
+				return err
+			}
+
+			log.Info().Msgf("checkpoint done ver=%d dur=%s set=%s del=%s db_sz=%s",
+				args.version,
+				time.Since(start).Round(time.Millisecond),
+				humanize.Comma(int64(len(args.set))),
+				humanize.Comma(int64(len(args.delete))),
+				humanize.IBytes(uint64(dbSize)),
+			)
+
 		}
 	}
 }

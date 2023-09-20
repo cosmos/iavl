@@ -136,22 +136,28 @@ func TestTree_Build(t *testing.T) {
 	require.NoError(t, err)
 
 	pool := newNodePool()
+	sql, err := newSqliteDb("/tmp", true)
+	require.NoError(t, err)
+	sql.pool = pool
 
 	tree := &Tree{
 		metrics:        &metrics.TreeMetrics{},
 		db:             &kvDB{db: levelDb, pool: pool},
+		sql:            sql,
 		cache:          NewNodeCache(),
-		maxWorkingSize: 1024 * 1024 * 1024,
+		maxWorkingSize: 50 * 1024 * 1024,
 		pool:           pool,
 	}
 	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
+	tree.checkpointer.sqliteDb = sql
 
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	//opts := testutil.NewTreeBuildOptions()
-	opts := testutil.BigStartOptions()
+	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.BigStartOptions()
+	//opts := testutil.OsmoLike()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
@@ -171,7 +177,7 @@ func TestTree_Build(t *testing.T) {
 
 	wg.Add(1)
 	go func() {
-		checkpointErr := tree.checkpointer.run(ctx)
+		checkpointErr := tree.checkpointer.sqliteRun(ctx)
 		require.NoError(t, checkpointErr)
 		wg.Done()
 	}()
@@ -179,7 +185,7 @@ func TestTree_Build(t *testing.T) {
 	testStart := time.Now()
 	leaves := testTreeBuild(t, tree, opts)
 
-	err = tree.checkpoint()
+	err = tree.sqlCheckpoint()
 	require.NoError(t, err)
 	// wait
 	//tree.pool.checkpointCh <- &checkpointArgs{version: -1}

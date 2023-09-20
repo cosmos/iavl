@@ -22,6 +22,7 @@ type Tree struct {
 	root           *Node
 	metrics        *metrics.TreeMetrics
 	db             *kvDB
+	sql            *sqliteDb
 	lastCheckpoint int64
 	orphans        [][]byte
 	cache          *NodeCache
@@ -42,7 +43,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.deepHash(&sequence, tree.root)
 
 	if tree.workingBytes > tree.maxWorkingSize {
-		if err := tree.asyncCheckpoint(); err != nil {
+		if err := tree.sqlCheckpoint(); err != nil {
 			return nil, tree.version, err
 		}
 
@@ -54,7 +55,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 		tree.root.leftNode = nil
 		tree.root.rightNode = nil
-
 	}
 
 	return tree.root.hash, tree.version, nil
@@ -70,6 +70,45 @@ func (tree *Tree) asyncCheckpoint() error {
 		return fmt.Errorf("set count mismatch; expected=%d, actual=%d", tree.workingSize, len(args.set))
 	}
 	tree.checkpointer.ch <- args
+	return nil
+}
+
+func (tree *Tree) sqlCheckpoint() error {
+	start := time.Now()
+	args := &checkpointArgs{}
+	tree.buildCheckpoint(tree.root, args)
+	if int64(len(args.set)) != tree.workingSize {
+		return fmt.Errorf("set count mismatch; expected=%d, actual=%d", tree.workingSize, len(args.set))
+	}
+
+	//var memSize, dbSize uint64
+	err := tree.sql.CreateShard()
+	if err != nil {
+		return err
+	}
+
+	dbSize, versions, err := tree.sql.BatchSet(args.set)
+	if err != nil {
+		return err
+	}
+	err = tree.sql.MapVersions(versions, tree.sql.shardId)
+	if err != nil {
+		return err
+	}
+
+	err = tree.sql.IndexShard(tree.sql.shardId)
+	if err != nil {
+		return err
+	}
+
+	log.Info().Msgf("checkpoint done ver=%d dur=%s set=%s del=%s db_sz=%s",
+		tree.version,
+		time.Since(start).Round(time.Millisecond),
+		humanize.Comma(int64(len(args.set))),
+		humanize.Comma(int64(len(args.delete))),
+		humanize.IBytes(uint64(dbSize)),
+	)
+
 	return nil
 }
 

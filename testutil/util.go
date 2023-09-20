@@ -138,3 +138,36 @@ func BigStartOptions() TreeBuildOptions {
 
 	return opts
 }
+
+func OsmoLike() TreeBuildOptions {
+	initialSize := 40_000_000
+	finalSize := int(1.5 * float64(initialSize))
+	var seed int64 = 1234
+	var versions int64 = 1_000_000
+	bankGen := bench.BankLikeGenerator(seed, versions)
+	bankGen.InitialSize = initialSize
+	bankGen.FinalSize = finalSize
+	bankGen2 := bench.BankLikeGenerator(seed+1, versions)
+	bankGen2.InitialSize = initialSize
+	bankGen2.FinalSize = finalSize
+	//lockupGen := bench.LockupLikeGenerator(seed, versions)
+	//lockupGen.InitialSize = initialSize
+	//stakingGen := bench.StakingLikeGenerator(seed, versions)
+	//stakingGen.InitialSize = initialSize
+
+	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{
+		bankGen,
+		bankGen2,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	opts := TreeBuildOptions{
+		Iterator:  itr,
+		Until:     10_000,
+		UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // 10000
+	}
+
+	return opts
+}
