@@ -3,10 +3,12 @@ package testutil
 import "github.com/cosmos/iavl-bench/bench"
 
 type TreeBuildOptions struct {
-	Until     int64
-	UntilHash string
-	Iterator  bench.ChangesetIterator
-	Report    func()
+	Until       int64
+	UntilHash   string
+	LoadVersion int64
+	Iterator    bench.ChangesetIterator
+	Report      func()
+	SampleRate  int64
 }
 
 func (opts TreeBuildOptions) With10_000() TreeBuildOptions {
@@ -140,7 +142,7 @@ func BigStartOptions() TreeBuildOptions {
 }
 
 func OsmoLike() TreeBuildOptions {
-	initialSize := 40_000_000
+	initialSize := 20_000_000
 	finalSize := int(1.5 * float64(initialSize))
 	var seed int64 = 1234
 	var versions int64 = 1_000_000

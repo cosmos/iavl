@@ -53,6 +53,9 @@ func (nc *NodeCache) GetByKeyBytes(key []byte) *Node {
 }
 
 func (nc *NodeCache) Set(node *Node) {
+	if len(nc.nextCache) > 10_000_000 {
+		return
+	}
 	var k nodeCacheKey
 	copy(k[:], node.nodeKey.GetKey())
 	nc.nextCache[k] = node

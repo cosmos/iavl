@@ -36,13 +36,40 @@ type Tree struct {
 	maxWorkingSize uint64
 }
 
+func (tree *Tree) LoadVersion(version int64) error {
+	if tree.sql == nil {
+		return fmt.Errorf("sql is nil")
+	}
+
+	tree.version = version
+	tree.root = nil
+	tree.orphans = nil
+	tree.workingBytes = 0
+	tree.workingSize = 0
+	tree.cache.Swap()
+
+	var err error
+	tree.root, err = tree.sql.LoadRoot(version)
+	// TODO
+	tree.lastCheckpoint = version
+	return err
+}
+
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
 
+	if tree.sql != nil {
+		err := tree.sql.SaveRoot(tree.version, tree.root)
+		if err != nil {
+			return nil, tree.version, err
+		}
+	}
+
 	if tree.workingBytes > tree.maxWorkingSize {
+		log.Info().Msgf("checkpointing tree version=%d", tree.version)
 		if err := tree.sqlCheckpoint(); err != nil {
 			return nil, tree.version, err
 		}
@@ -82,31 +109,38 @@ func (tree *Tree) sqlCheckpoint() error {
 	}
 
 	//var memSize, dbSize uint64
-	err := tree.sql.CreateShard()
+	//err := tree.sql.CreateShard()
+	//if err != nil {
+	//	return err
+	//}
+
+	dbSize, _, err := tree.sql.BatchSet(args.set)
 	if err != nil {
 		return err
 	}
 
-	dbSize, versions, err := tree.sql.BatchSet(args.set)
-	if err != nil {
-		return err
-	}
-	err = tree.sql.MapVersions(versions, tree.sql.shardId)
+	//err = tree.sql.MapVersions(versions, tree.sql.shardId)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//err = tree.sql.IndexShard(tree.sql.shardId)
+	//if err != nil {
+	//	return err
+	//}
+
+	err = tree.sql.resetTreeQuery()
 	if err != nil {
 		return err
 	}
 
-	err = tree.sql.IndexShard(tree.sql.shardId)
-	if err != nil {
-		return err
-	}
-
-	log.Info().Msgf("checkpoint done ver=%d dur=%s set=%s del=%s db_sz=%s",
+	log.Info().Msgf("checkpoint done ver=%d dur=%s set=%s del=%s db_sz=%s rate=%s",
 		tree.version,
 		time.Since(start).Round(time.Millisecond),
 		humanize.Comma(int64(len(args.set))),
 		humanize.Comma(int64(len(args.delete))),
 		humanize.IBytes(uint64(dbSize)),
+		humanize.Comma(int64(float64(len(args.set))/time.Since(start).Seconds())),
 	)
 
 	return nil
@@ -189,7 +223,7 @@ func (tree *Tree) dirtyCount(node *Node) int64 {
 }
 
 func (tree *Tree) buildCheckpoint(node *Node, args *checkpointArgs) {
-	if node.nodeKey.version <= tree.lastCheckpoint {
+	if node == nil || node.nodeKey.version <= tree.lastCheckpoint {
 		return
 	}
 
@@ -209,8 +243,8 @@ func (tree *Tree) buildCheckpoint(node *Node, args *checkpointArgs) {
 		args.set = append(args.set, n)
 	} else {
 		args.set = append(args.set, n)
-		tree.buildCheckpoint(node.left(tree), args)
-		tree.buildCheckpoint(node.right(tree), args)
+		tree.buildCheckpoint(node.leftNode, args)
+		tree.buildCheckpoint(node.rightNode, args)
 
 		node.leftNode = nil
 		node.rightNode = nil

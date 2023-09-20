@@ -51,12 +51,40 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 
 	var lastCacheMiss, lastCacheHit int64
 
+	if opts.LoadVersion != 0 {
+		require.NoError(t, tree.LoadVersion(opts.LoadVersion))
+		log.Info().Msgf("fast forwarding changesets to version %d...", opts.LoadVersion+1)
+		i := 1
+		for ; itr.Valid(); err = itr.Next() {
+			if itr.Version() > opts.LoadVersion {
+				break
+			}
+			require.NoError(t, err)
+			nodes := itr.Nodes()
+			for ; nodes.Valid(); err = nodes.Next() {
+				require.NoError(t, err)
+				if i%5_000_000 == 0 {
+					fmt.Printf("fast forward %s nodes\n", humanize.Comma(int64(i)))
+				}
+				i++
+			}
+		}
+		log.Info().Msgf("fast forward complete")
+	}
+
+	sampleRate := int64(100_000)
+	if opts.SampleRate != 0 {
+		sampleRate = opts.SampleRate
+	}
+
 	itrStart := time.Now()
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
 		changeset := itr.Nodes()
 		for ; changeset.Valid(); err = changeset.Next() {
+			cnt++
 			require.NoError(t, err)
+
 			node := changeset.GetNode()
 			var keyBz bytes.Buffer
 			keyBz.Write([]byte(node.StoreKey))
@@ -71,7 +99,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 				require.NoError(t, err)
 			}
 
-			if cnt%100_000 == 0 {
+			if cnt%sampleRate == 0 {
 				dur := time.Since(since)
 
 				var hitCount, missCount int64
@@ -91,7 +119,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d Δhit=%s Δmiss=%s %s\n",
 					humanize.Comma(cnt),
 					dur.Round(time.Millisecond),
-					humanize.Comma(int64(100_000/time.Since(since).Seconds())),
+					humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
 					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
 					version,
 					humanize.Comma(hitCount),
@@ -99,7 +127,6 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					MemUsage())
 				since = time.Now()
 			}
-			cnt++
 		}
 		hash, version, err = tree.SaveVersion()
 		require.NoError(t, err)
@@ -145,7 +172,7 @@ func TestTree_Build(t *testing.T) {
 		db:             &kvDB{db: levelDb, pool: pool},
 		sql:            sql,
 		cache:          NewNodeCache(),
-		maxWorkingSize: 50 * 1024 * 1024,
+		maxWorkingSize: 2 * 1024 * 1024 * 1024,
 		pool:           pool,
 	}
 	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
@@ -155,9 +182,9 @@ func TestTree_Build(t *testing.T) {
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.NewTreeBuildOptions()
 	//opts := testutil.BigStartOptions()
-	//opts := testutil.OsmoLike()
+	opts := testutil.OsmoLike()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
@@ -269,4 +296,86 @@ func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
 	rightNode := *node.right(tree)
 	treeAndDbEqual(t, tree, leftNode, stat)
 	treeAndDbEqual(t, tree, rightNode, stat)
+}
+
+const osmoScalePath = "/Users/mattk/src/scratch/sqlite-osmo"
+
+func TestBuild_OsmoScale(t *testing.T) {
+	tmpDir := osmoScalePath
+
+	pool := newNodePool()
+	sql, err := newSqliteDb(tmpDir, true)
+	require.NoError(t, err)
+	sql.pool = pool
+
+	tree := &Tree{
+		metrics:        &metrics.TreeMetrics{},
+		sql:            sql,
+		cache:          NewNodeCache(),
+		maxWorkingSize: 1024 * 1024 * 1024,
+		pool:           pool,
+	}
+
+	opts := testutil.OsmoLike()
+	opts.Report = func() {
+		tree.metrics.Report()
+	}
+	version1 := opts.Iterator.Nodes()
+	i := 0
+	start := time.Now()
+	for ; version1.Valid(); err = version1.Next() {
+		require.NoError(t, err)
+		node := version1.GetNode()
+		var keyBz bytes.Buffer
+		keyBz.Write([]byte(node.StoreKey))
+		keyBz.Write(node.Key)
+		key := keyBz.Bytes()
+		require.NoError(t, err)
+
+		if node.Delete {
+			t.Fatalf("unexpected delete in version 1")
+		}
+
+		_, err = tree.Set(key, node.Value)
+		require.NoError(t, err)
+
+		i++
+		if i%500_000 == 0 {
+			log.Info().Msgf("leaves=%s dur=%s; rate=%s",
+				humanize.Comma(int64(i)),
+				time.Since(start),
+				humanize.Comma(int64(500_000/time.Since(start).Seconds())))
+			start = time.Now()
+		}
+	}
+
+	hash, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+	fmt.Printf("version 1 hash: %x\n", hash)
+
+	err = tree.LoadVersion(1)
+	require.NoError(t, err)
+
+	require.Equal(t, "fc76563ecf35d5f3df940198e9789eb01c524635671ac2905032696144360841",
+		fmt.Sprintf("%x", hash))
+}
+
+func TestOsmoScaleTree(t *testing.T) {
+	tmpDir := "/tmp"
+
+	pool := newNodePool()
+	sql, err := newSqliteDb(tmpDir, false)
+	require.NoError(t, err)
+	sql.pool = pool
+
+	tree := &Tree{
+		metrics:        &metrics.TreeMetrics{},
+		sql:            sql,
+		cache:          NewNodeCache(),
+		maxWorkingSize: 2 * 1024 * 1024 * 1024,
+		pool:           pool,
+	}
+	opts := testutil.OsmoLike()
+	opts.LoadVersion = 1
+	testTreeBuild(t, tree, opts)
 }
