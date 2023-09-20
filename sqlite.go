@@ -42,34 +42,25 @@ func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
 		return nil, err
 	}
 
-	//err = sql.write.Exec("PRAGMA synchronous=OFF;")
-	//if err != nil {
-	//	return nil, err
-	//}
+	err = sql.write.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return nil, err
+	}
+
 	if newDb {
-		err = sql.write.Exec("PRAGMA journal_mode=WAL;")
-		if err != nil {
-			return nil, err
-		}
 		if err := sql.initNewDb(); err != nil {
 			return nil, err
 		}
 	}
 
-	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
-	maxWalSizeBytes := 1024 * 1024 * 500
-	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
-		return nil, err
-	}
-
-	sql.treeInsert, err = sql.write.Prepare("INSERT INTO tree(node_key, bytes) VALUES (?, ?)")
-	if err != nil {
-		return nil, err
-	}
-	sql.treeQuery, err = sql.write.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
-	if err != nil {
-		return nil, err
-	}
+	//sql.treeInsert, err = sql.write.Prepare("INSERT INTO tree(node_key, bytes) VALUES (?, ?)")
+	//if err != nil {
+	//	return nil, err
+	//}
+	//sql.treeQuery, err = sql.write.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
+	//if err != nil {
+	//	return nil, err
+	//}
 
 	return sql, nil
 }
@@ -89,19 +80,8 @@ CREATE TABLE node
 			,r_seq int
 			,r_version int
 		);
-CREATE TABLE tree (node_key blob, bytes blob);
+CREATE TABLE tree (version int, sequence int, bytes blob);
 CREATE TABLE shard (version int, id string, PRIMARY KEY (version, id));`)
-	if err != nil {
-		return err
-	}
-
-	pagesize := os.Getpagesize()
-
-	err = sql.write.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pagesize))
-	if err != nil {
-		return err
-	}
-	err = sql.write.Exec("PRAGMA journal_mode=WAL;")
 	if err != nil {
 		return err
 	}
@@ -110,6 +90,16 @@ CREATE TABLE shard (version int, id string, PRIMARY KEY (version, id));`)
 	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
 	err = sql.write.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 	if err != nil {
+		return err
+	}
+	err = sql.write.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		return err
+	}
+
+	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
+	maxWalSizeBytes := 1024 * 1024 * 500
+	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/pageSize)); err != nil {
 		return err
 	}
 

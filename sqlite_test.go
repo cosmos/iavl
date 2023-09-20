@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testTreeTable = false
+var testTreeTable = true
 
 func TestBuildSqlite(t *testing.T) {
 	dir := "/tmp"
@@ -37,7 +37,7 @@ func TestBuildSqlite(t *testing.T) {
 
 		var stmt *sqlite3.Stmt
 		if testTreeTable {
-			stmt, err = sql.write.Prepare("INSERT INTO tree(node_key, bytes) VALUES (?, ?)")
+			stmt, err = sql.write.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
 		} else {
 			stmt, err = sql.write.Prepare("INSERT INTO node(seq, version, hash, key, height, size, l_seq, l_version, r_seq, r_version) " +
 				"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -48,10 +48,14 @@ func TestBuildSqlite(t *testing.T) {
 		}
 		return stmt, nil
 	}
+
+	err = sql.write.Exec("CREATE INDEX IF NOT EXISTS tree_idx ON tree (version, sequence)")
+	require.NoError(t, err)
+
 	stmt, err := newBatch()
 	require.NoError(t, err)
 
-	batchSize := 500_000
+	batchSize := 200_000
 	for ; version1.Valid(); err = version1.Next() {
 		node := version1.GetNode()
 		if testTreeTable {
@@ -62,7 +66,8 @@ func TestBuildSqlite(t *testing.T) {
 				leftNodeKey: lnk.GetKey(), rightNodeKey: rnk.GetKey()}
 			nodeBz, err := node.Bytes()
 			require.NoError(t, err)
-			err = stmt.Exec(nk.GetKey(), nodeBz)
+			err = stmt.Exec(nk.version, int(nk.sequence), nodeBz)
+			require.NoError(t, err)
 		} else {
 			err = stmt.Exec(
 				count,         // seq
