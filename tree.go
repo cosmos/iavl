@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aybabtme/uniplot/histogram"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
@@ -143,6 +144,29 @@ func (tree *Tree) sqlCheckpoint() error {
 		humanize.IBytes(uint64(dbSize)),
 		humanize.Comma(int64(float64(len(args.set))/time.Since(start).Seconds())),
 	)
+
+	fmt.Printf("queries=%s q/s=%s\n",
+		humanize.Comma(int64(len(tree.sql.queryDurations))),
+		humanize.Commaf(
+			float64(len(tree.sql.queryDurations))/tree.sql.querySeconds),
+	)
+
+	var histData []float64
+	for _, d := range tree.sql.queryDurations {
+		if d > 50*time.Microsecond {
+			continue
+		}
+		histData = append(histData, float64(d))
+	}
+	hist := histogram.Hist(20, histData)
+	err = histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
+		return time.Duration(v).String()
+	})
+	if err != nil {
+		return err
+	}
+	tree.sql.queryDurations = nil
+	tree.sql.querySeconds = 0
 
 	return nil
 }

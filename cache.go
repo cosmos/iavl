@@ -2,6 +2,8 @@ package iavl
 
 import (
 	"sync"
+
+	"github.com/dustin/go-humanize"
 )
 
 type nodeCacheKey [12]byte
@@ -27,7 +29,12 @@ func NewNodeCache() *NodeCache {
 }
 
 func (nc *NodeCache) Swap() {
-	nc.cache = nc.nextCache
+	l := log.With().Str("module", "node_cache").Logger()
+	nc.cache, nc.nextCache = nc.nextCache, nc.cache
+	l.Info().Msgf("emptying %s cache=%s",
+		humanize.Comma(int64(len(nc.nextCache))),
+		humanize.Comma(int64(len(nc.cache))),
+	)
 	for _, n := range nc.nextCache {
 		nc.pool.Put(n)
 	}

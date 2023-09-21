@@ -1,10 +1,13 @@
 package iavl
 
 import (
+	"fmt"
 	"math/rand"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/aybabtme/uniplot/histogram"
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/testutil"
@@ -221,4 +224,21 @@ func TestReadLevelDB(t *testing.T) {
 			since = time.Now()
 		}
 	}
+}
+
+func TestNodeKeyFormat(t *testing.T) {
+	nk := &NodeKey{version: 100, sequence: 2}
+	k := (int(nk.version) << 32) | int(nk.sequence)
+	fmt.Printf("k: %d - %x\n", k, k)
+}
+
+func TestHistogramPlot(t *testing.T) {
+	bins := 9
+	var data []float64
+	for i := 0; i < 8_000_000; i++ {
+		data = append(data, rand.Float64()*1000)
+	}
+
+	hist := histogram.Hist(bins, data)
+	histogram.Fprint(os.Stdout, hist, histogram.Linear(10))
 }

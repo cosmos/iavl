@@ -348,6 +348,7 @@ func TestBuild_OsmoScale(t *testing.T) {
 
 	err = tree.LoadVersion(1)
 	require.NoError(t, err)
+	require.NoError(t, sql.Close())
 
 	require.Equal(t, "fc76563ecf35d5f3df940198e9789eb01c524635671ac2905032696144360841",
 		fmt.Sprintf("%x", hash))
@@ -371,4 +372,5 @@ func TestOsmoScaleTree(t *testing.T) {
 	opts := testutil.OsmoLike()
 	opts.LoadVersion = 1
 	testTreeBuild(t, tree, opts)
+	require.NoError(t, sql.Close())
 }

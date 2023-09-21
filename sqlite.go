@@ -19,6 +19,9 @@ type sqliteDb struct {
 	shardId      int64
 	shards       map[int64]*sqlite3.Stmt
 	versionShard map[int64]int64
+
+	queryDurations []time.Duration
+	querySeconds   float64
 }
 
 func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
@@ -224,6 +227,8 @@ func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 }
 
 func (sql *sqliteDb) getNode(nodeKey *NodeKey, q *sqlite3.Stmt) (*Node, error) {
+	start := time.Now()
+
 	key := nodeKey.GetKey()
 	if err := q.Bind(nodeKey.version, int(nodeKey.sequence)); err != nil {
 		return nil, err
@@ -245,6 +250,11 @@ func (sql *sqliteDb) getNode(nodeKey *NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	dur := time.Since(start)
+	sql.queryDurations = append(sql.queryDurations, dur)
+	sql.querySeconds += dur.Seconds()
+
 	return node, nil
 }
 
@@ -261,8 +271,19 @@ func (sql *sqliteDb) Delete(nodeKey []byte) error {
 }
 
 func (sql *sqliteDb) Close() error {
-	// TODO close all connections
-	return sql.write.Close()
+	for _, q := range sql.shards {
+		err := q.Close()
+		if err != nil {
+			return err
+		}
+	}
+	if err := sql.read.Close(); err != nil {
+		return err
+	}
+	if err := sql.write.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sql *sqliteDb) MapVersions(versions []int64, shardId int64) error {

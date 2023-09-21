@@ -3,6 +3,7 @@ module github.com/cosmos/iavl/v2
 go 1.21.0
 
 require (
+	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bvinc/go-sqlite-lite v0.6.1
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/iavl-bench/bench v0.0.2
