@@ -87,20 +87,8 @@ func (sql *sqliteDb) resetReadConn() (err error) {
 
 func (sql *sqliteDb) initNewDb() error {
 	err := sql.write.Exec(`
-CREATE TABLE node
-		(
-			 seq   int
-			,version int
-		    ,hash blob
-			,key blob
-		    ,height int
-			,size int
-			,l_seq int
-		    ,l_version int
-			,r_seq int
-			,r_version int
-		);
 CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
+CREATE TABLE leaf (version int, sequence int, bytes blob, PRIMARY KEY (version, sequence));
 CREATE TABLE tree (version int, sequence int, bytes blob);
 CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 	if err != nil {
@@ -340,10 +328,10 @@ func (sql *sqliteDb) NextShard() error {
 	sql.shardId++
 
 	// hack to maintain 1 shard for testing
-	//if sql.shardId > 1 {
-	//	sql.shardId = 1
-	//	return nil
-	//}
+	if sql.shardId > 1 {
+		sql.shardId = 1
+		return nil
+	}
 
 	log.Info().Msgf("creating shard %d", sql.shardId)
 

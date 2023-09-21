@@ -35,6 +35,9 @@ type Tree struct {
 
 	// options
 	maxWorkingSize uint64
+
+	leaves   []*Node
+	sequence uint32
 }
 
 func (tree *Tree) LoadVersion(version int64) error {
@@ -58,16 +61,17 @@ func (tree *Tree) LoadVersion(version int64) error {
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
+	tree.sequence = 0
 
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
 
-	if tree.sql != nil {
-		err := tree.sql.SaveRoot(tree.version, tree.root)
-		if err != nil {
-			return nil, tree.version, err
-		}
-	}
+	//if tree.sql != nil {
+	//	err := tree.sql.SaveRoot(tree.version, tree.root)
+	//	if err != nil {
+	//		return nil, tree.version, err
+	//	}
+	//}
 
 	if tree.workingBytes > tree.maxWorkingSize {
 		log.Info().Msgf("checkpointing tree version=%d", tree.version)
@@ -234,22 +238,23 @@ func (tree *Tree) hashSequence(node *Node, sequence *uint32, nodes *[]*Node) *No
 }
 
 func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
-	if node.nodeKey != nil {
+	if node.hash != nil {
+		if node.nodeKey == nil {
+			panic("nodeKey is nil")
+		}
 		return node.nodeKey
 	}
 
-	*sequence++
-	node.nodeKey = &NodeKey{
-		version:  tree.version,
-		sequence: *sequence,
-	}
 	if !node.isLeaf() {
-		// wrong, should be nodekey assignment, but just profiling for now.
 		node.leftNodeKey = tree.deepHash(sequence, node.left(tree)).GetKey()
 		node.rightNodeKey = tree.deepHash(sequence, node.right(tree)).GetKey()
 	}
 
 	node._hash(tree.version)
+
+	if node.nodeKey == nil {
+		panic("nodeKey is nil")
+	}
 
 	return node.nodeKey
 }
@@ -376,6 +381,7 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 		case -1: // setKey < leafKey
 			tree.metrics.PoolGet += 2
 			parent := tree.pool.Get()
+			parent.nodeKey = tree.nextNodeKey()
 			parent.key = node.key
 			parent.subtreeHeight = 1
 			parent.size = 2
@@ -388,17 +394,18 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			return parent, false, nil
 		case 1: // setKey > leafKey
 			tree.metrics.PoolGet += 2
-			n := tree.pool.Get()
-			n.key = key
-			n.subtreeHeight = 1
-			n.size = 2
-			n.leftNode = node
-			n.rightNode = tree.NewNode(key, value, tree.version)
-			n.dirty = true
+			parent := tree.pool.Get()
+			parent.nodeKey = tree.nextNodeKey()
+			parent.key = key
+			parent.subtreeHeight = 1
+			parent.size = 2
+			parent.leftNode = node
+			parent.rightNode = tree.NewNode(key, value, tree.version)
+			parent.dirty = true
 
-			tree.workingBytes += n.sizeBytes()
+			tree.workingBytes += parent.sizeBytes()
 			tree.workingSize++
-			return n, false, nil
+			return parent, false, nil
 		default:
 			tree.addOrphan(node)
 			//return tree.NewNode(key, value, tree.version), true, nil
@@ -410,6 +417,9 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			//return node, true, nil
 
 			n := tree.pool.Get()
+
+			n.nodeKey = tree.nextNodeKey()
+
 			n.key = key
 			n.value = value
 			n.subtreeHeight = 0
@@ -579,13 +589,22 @@ func (tree *Tree) Height() int8 {
 	return tree.root.subtreeHeight
 }
 
+func (tree *Tree) nextNodeKey() *NodeKey {
+	tree.sequence++
+	return &NodeKey{
+		version:  tree.version + 1,
+		sequence: tree.sequence,
+	}
+}
+
 func (tree *Tree) mutateNode(node *Node) {
 	// node has already been mutated in working set
-	if node.nodeKey == nil {
+	if node.hash == nil {
 		return
 	}
 	node.hash = nil
-	node.nodeKey = nil
+	node.nodeKey = tree.nextNodeKey()
+
 	if node.dirty {
 		return
 	}
@@ -614,6 +633,9 @@ func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
 	//	size:          1,
 	//}
 	node := tree.pool.Get()
+
+	node.nodeKey = tree.nextNodeKey()
+
 	node.key = key
 	node.value = value
 	node.subtreeHeight = 0

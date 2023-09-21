@@ -154,7 +154,7 @@ func maxInt8(a, b int8) int8 {
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
 func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
-	if node.nodeKey != nil {
+	if node.hash != nil {
 		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
 	balance, err := node.calcBalance(tree)

@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"runtime"
-	"sync"
 	"testing"
 	"time"
 
@@ -156,7 +155,7 @@ func TestTree_Build(t *testing.T) {
 	require.NoError(t, err)
 
 	pool := newNodePool()
-	sql, err := newSqliteDb("/tmp", true)
+	sql, err := newSqliteDb(tmpDir, true)
 	require.NoError(t, err)
 	sql.pool = pool
 
@@ -165,7 +164,7 @@ func TestTree_Build(t *testing.T) {
 		db:             &kvDB{db: levelDb, pool: pool},
 		sql:            sql,
 		cache:          NewNodeCache(),
-		maxWorkingSize: 2 * 1024 * 1024 * 1024,
+		maxWorkingSize: 1024 * 1024 * 1024,
 		pool:           pool,
 	}
 	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
@@ -175,9 +174,9 @@ func TestTree_Build(t *testing.T) {
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	//opts := testutil.NewTreeBuildOptions()
+	opts := testutil.NewTreeBuildOptions()
 	//opts := testutil.BigStartOptions()
-	opts := testutil.OsmoLike()
+	//opts := testutil.OsmoLike()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
@@ -185,22 +184,22 @@ func TestTree_Build(t *testing.T) {
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		metricsErr := metrics.Default.Run(ctx)
-		require.NoError(t, metricsErr)
-		log.Info().Msg("metrics dump:")
-		fmt.Print(metrics.Default.Print())
-		wg.Done()
-	}()
-
-	wg.Add(1)
-	go func() {
-		checkpointErr := tree.checkpointer.sqliteRun(ctx)
-		require.NoError(t, checkpointErr)
-		wg.Done()
-	}()
+	//wg := &sync.WaitGroup{}
+	//wg.Add(1)
+	//go func() {
+	//	metricsErr := metrics.Default.Run(ctx)
+	//	require.NoError(t, metricsErr)
+	//	log.Info().Msg("metrics dump:")
+	//	fmt.Print(metrics.Default.Print())
+	//	wg.Done()
+	//}()
+	//
+	//wg.Add(1)
+	//go func() {
+	//	checkpointErr := tree.checkpointer.sqliteRun(ctx)
+	//	require.NoError(t, checkpointErr)
+	//	wg.Done()
+	//}()
 
 	testStart := time.Now()
 	leaves := testTreeBuild(t, tree, opts)
@@ -239,7 +238,7 @@ func TestTree_Build(t *testing.T) {
 	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
 
 	cancel()
-	wg.Wait()
+	//wg.Wait()
 
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", tree.root.hash))
 }
