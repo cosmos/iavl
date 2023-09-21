@@ -213,6 +213,26 @@ type saveStats struct {
 	count  int64
 }
 
+func (tree *Tree) hashSequence(node *Node, sequence *uint32, nodes *[]*Node) *NodeKey {
+	if node == nil {
+		return nil
+	}
+	*sequence++
+	node.nodeKey = &NodeKey{
+		version:  tree.version,
+		sequence: *sequence,
+	}
+	*nodes = append(*nodes, node)
+	if !node.isLeaf() {
+		node.leftNodeKey = tree.hashSequence(node.leftNode, sequence, nodes).GetKey()
+		node.rightNodeKey = tree.hashSequence(node.rightNode, sequence, nodes).GetKey()
+	}
+
+	node._hash(tree.version)
+
+	return node.nodeKey
+}
+
 func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 	if node.nodeKey != nil {
 		return node.nodeKey
@@ -355,17 +375,17 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 		switch bytes.Compare(key, node.key) {
 		case -1: // setKey < leafKey
 			tree.metrics.PoolGet += 2
-			n := tree.pool.Get()
-			n.key = node.key
-			n.subtreeHeight = 1
-			n.size = 2
-			n.leftNode = tree.NewNode(key, value, tree.version)
-			n.rightNode = node
-			n.dirty = true
+			parent := tree.pool.Get()
+			parent.key = node.key
+			parent.subtreeHeight = 1
+			parent.size = 2
+			parent.leftNode = tree.NewNode(key, value, tree.version)
+			parent.rightNode = node
+			parent.dirty = true
 
-			tree.workingBytes += n.sizeBytes()
+			tree.workingBytes += parent.sizeBytes()
 			tree.workingSize++
-			return n, false, nil
+			return parent, false, nil
 		case 1: // setKey > leafKey
 			tree.metrics.PoolGet += 2
 			n := tree.pool.Get()
