@@ -23,6 +23,7 @@ type NodeCache struct {
 func NewNodeCache() *NodeCache {
 	return &NodeCache{
 		nextCache: make(map[nodeCacheKey]*Node),
+		cache:     make(map[nodeCacheKey]*Node),
 		//missCount: metrics.Default.NewCounter("node_cache.miss"),
 		//hitCount:  metrics.Default.NewCounter("node_cache.hit"),
 	}
@@ -57,6 +58,12 @@ func (nc *NodeCache) GetByKeyBytes(key []byte) *Node {
 		nc.missCount++
 	}
 	return n
+}
+
+func (nc *NodeCache) SetThis(node *Node) {
+	var k nodeCacheKey
+	copy(k[:], node.nodeKey.GetKey())
+	nc.cache[k] = node
 }
 
 func (nc *NodeCache) Set(node *Node) {

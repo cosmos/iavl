@@ -20,6 +20,8 @@ type sqliteDb struct {
 	shards       map[int64]*sqlite3.Stmt
 	versionShard map[int64]int64
 
+	queryLeaf *sqlite3.Stmt
+
 	queryDurations []time.Duration
 	querySeconds   float64
 }
@@ -88,7 +90,7 @@ func (sql *sqliteDb) resetReadConn() (err error) {
 func (sql *sqliteDb) initNewDb() error {
 	err := sql.write.Exec(`
 CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
-CREATE TABLE leaf (version int, sequence int, bytes blob, PRIMARY KEY (version, sequence));
+CREATE TABLE leaf (version int, sequence int, bytes blob);
 CREATE TABLE tree (version int, sequence int, bytes blob);
 CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 	if err != nil {
@@ -126,11 +128,14 @@ func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err err
 		var stmt *sqlite3.Stmt
 
 		// sharded
-		stmt, err = sql.write.Prepare(fmt.Sprintf(
-			"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", sql.shardId))
+		//stmt, err = sql.write.Prepare(fmt.Sprintf(
+		//	"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", sql.shardId))
 
 		// no Shard
 		//stmt, err = sql.write.Prepare(fmt.Sprintf("INSERT INTO tree (sequence, version, bytes) VALUES (?, ?, ?)"))
+
+		// leaves
+		stmt, err = sql.write.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
 
 		if err != nil {
 			return nil, err
@@ -153,7 +158,7 @@ func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err err
 		if err != nil {
 			return 0, versions, err
 		}
-		if i%batchSize == 0 {
+		if i != 0 && i%batchSize == 0 {
 			err := sql.write.Commit()
 			if err != nil {
 				return 0, versions, err
@@ -184,12 +189,11 @@ func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err err
 		return 0, versions, err
 	}
 
-	// TODO
-	err = sql.write.Exec(fmt.Sprintf(
-		"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", sql.shardId, sql.shardId))
-	if err != nil {
-		return 0, versions, err
-	}
+	//err = sql.write.Exec(fmt.Sprintf(
+	//	"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", sql.shardId, sql.shardId))
+	//if err != nil {
+	//	return 0, versions, err
+	//}
 
 	err = sql.write.Exec("PRAGMA wal_checkpoint(RESTART);")
 	if err != nil {
@@ -212,6 +216,42 @@ func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 		return nil, fmt.Errorf("shard query not found for id %d", id)
 	}
 	return q, nil
+}
+
+func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
+	var err error
+	if sql.queryLeaf == nil {
+		if err = sql.resetReadConn(); err != nil {
+			return nil, err
+		}
+		sql.queryLeaf, err = sql.read.Prepare("SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err = sql.queryLeaf.Bind(nodeKey.version, int(nodeKey.sequence)); err != nil {
+		return nil, err
+	}
+	hasRow, err := sql.queryLeaf.Step()
+	if !hasRow {
+		return nil, fmt.Errorf("leaf not found: %v", GetNodeKey(nodeKey.GetKey()))
+	}
+	if err != nil {
+		return nil, err
+	}
+	nodeBz, err := sql.queryLeaf.ColumnBlob(0)
+	if err != nil {
+		return nil, err
+	}
+	node, err := MakeNode(sql.pool, nodeKey.GetKey(), nodeBz)
+	if err != nil {
+		return nil, err
+	}
+	err = sql.queryLeaf.Reset()
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
 }
 
 func (sql *sqliteDb) getNode(nodeKey *NodeKey, q *sqlite3.Stmt) (*Node, error) {

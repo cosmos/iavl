@@ -150,6 +150,7 @@ func TestTree_Build(t *testing.T) {
 	//db := newMapDB()
 
 	tmpDir := t.TempDir()
+	//tmpDir := "/tmp/leaves"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 	levelDb, err := leveldb.New("iavl_test", tmpDir)
 	require.NoError(t, err)
@@ -164,8 +165,9 @@ func TestTree_Build(t *testing.T) {
 		db:             &kvDB{db: levelDb, pool: pool},
 		sql:            sql,
 		cache:          NewNodeCache(),
-		maxWorkingSize: 1024 * 1024 * 1024,
+		maxWorkingSize: 5 * 1024 * 1024 * 1024,
 		pool:           pool,
+		leafCache:      make(map[nodeCacheKey]*Node),
 	}
 	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
 	tree.checkpointer.sqliteDb = sql
@@ -174,9 +176,9 @@ func TestTree_Build(t *testing.T) {
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.NewTreeBuildOptions()
 	//opts := testutil.BigStartOptions()
-	//opts := testutil.OsmoLike()
+	opts := testutil.OsmoLike()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}

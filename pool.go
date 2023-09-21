@@ -17,21 +17,22 @@ func newNodePool() *nodePool {
 }
 
 func (np *nodePool) Get() *Node {
-	node := np.pool.Get().(*Node)
-	node.leftNodeKey = nil
-	node.rightNodeKey = nil
-	node.rightNode = nil
-	node.leftNode = nil
-	node.nodeKey = nil
-	node.hash = nil
-	node.key = nil
-	node.value = nil
-	node.subtreeHeight = 0
-	node.size = 0
-	node.dirty = false
-	return node
+	return &Node{}
+	//node := np.pool.Get().(*Node)
+	//node.leftNodeKey = nil
+	//node.rightNodeKey = nil
+	//node.rightNode = nil
+	//node.leftNode = nil
+	//node.nodeKey = nil
+	//node.hash = nil
+	//node.key = nil
+	//node.value = nil
+	//node.subtreeHeight = 0
+	//node.size = 0
+	//node.dirty = false
+	//return node
 }
 
 func (np *nodePool) Put(node *Node) {
-	np.pool.Put(node)
+	//np.pool.Put(node)
 }

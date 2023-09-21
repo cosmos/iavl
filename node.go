@@ -63,6 +63,10 @@ func (nk *NodeKey) String() string {
 func (node *Node) setLeft(leftNode *Node) {
 	node.leftNode = leftNode
 	if leftNode.nodeKey != nil {
+		if leftNode.nodeKey.sequence == 225 && leftNode.nodeKey.version == 73 {
+			fmt.Println("here")
+		}
+
 		node.leftNodeKey = leftNode.nodeKey.GetKey()
 	}
 }
@@ -70,6 +74,9 @@ func (node *Node) setLeft(leftNode *Node) {
 func (node *Node) setRight(rightNode *Node) {
 	node.rightNode = rightNode
 	if rightNode.nodeKey != nil {
+		if rightNode.nodeKey.sequence == 225 && rightNode.nodeKey.version == 73 {
+			fmt.Println("here")
+		}
 		node.rightNodeKey = rightNode.nodeKey.GetKey()
 	}
 }
@@ -101,7 +108,7 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	node.leftNode = t.cache.GetByKeyBytes(node.leftNodeKey)
 	if node.leftNode == nil {
 		var err error
-		node.leftNode, err = t.sql.Get(GetNodeKey(node.leftNodeKey))
+		node.leftNode, err = t.sql.getLeaf(GetNodeKey(node.leftNodeKey))
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +126,7 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	node.rightNode = t.cache.GetByKeyBytes(node.rightNodeKey)
 	if node.rightNode == nil {
 		var err error
-		node.rightNode, err = t.sql.Get(GetNodeKey(node.rightNodeKey))
+		node.rightNode, err = t.sql.getLeaf(GetNodeKey(node.rightNodeKey))
 		if err != nil {
 			return nil, err
 		}

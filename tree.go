@@ -36,8 +36,9 @@ type Tree struct {
 	// options
 	maxWorkingSize uint64
 
-	leaves   []*Node
-	sequence uint32
+	leaves    []*Node
+	leafCache map[nodeCacheKey]*Node
+	sequence  uint32
 }
 
 func (tree *Tree) LoadVersion(version int64) error {
@@ -65,29 +66,49 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
-
-	//if tree.sql != nil {
-	//	err := tree.sql.SaveRoot(tree.version, tree.root)
-	//	if err != nil {
-	//		return nil, tree.version, err
-	//	}
+	//for _, node := range tree.leaves {
+	//	tree.cache.SetThis(node)
 	//}
-
-	if tree.workingBytes > tree.maxWorkingSize {
-		log.Info().Msgf("checkpointing tree version=%d", tree.version)
-		if err := tree.sqlCheckpoint(); err != nil {
+	_, _, err := tree.sql.BatchSet(tree.leaves)
+	if err != nil {
+		return nil, tree.version, err
+	}
+	if tree.version == 1 {
+		log.Info().Msg("creating index")
+		err := tree.sql.write.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
+		if err != nil {
 			return nil, tree.version, err
 		}
-
-		tree.lastCheckpoint = tree.version
-		tree.orphans = nil
-		tree.workingBytes = 0
-		tree.workingSize = 0
-		tree.cache.Swap()
-
-		tree.root.leftNode = nil
-		tree.root.rightNode = nil
+		log.Info().Msg("creating index done")
 	}
+	tree.leaves = nil
+	tree.orphans = nil
+	tree.leafCache = make(map[nodeCacheKey]*Node)
+
+	if tree.sql != nil {
+		err := tree.sql.SaveRoot(tree.version, tree.root)
+		if err != nil {
+			return nil, tree.version, err
+		}
+	}
+
+	/*
+		if tree.workingBytes > tree.maxWorkingSize {
+			log.Info().Msgf("checkpointing tree version=%d", tree.version)
+			if err := tree.sqlCheckpoint(); err != nil {
+				return nil, tree.version, err
+			}
+
+			tree.lastCheckpoint = tree.version
+			tree.orphans = nil
+			tree.workingBytes = 0
+			tree.workingSize = 0
+			tree.cache.Swap()
+
+			tree.root.leftNode = nil
+			tree.root.rightNode = nil
+		}
+	*/
 
 	return tree.root.hash, tree.version, nil
 }
@@ -238,10 +259,20 @@ func (tree *Tree) hashSequence(node *Node, sequence *uint32, nodes *[]*Node) *No
 }
 
 func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
+	if node.isLeaf() && node.nodeKey.version == tree.version {
+		//if node.nodeKey.sequence == 225 && node.nodeKey.version == 73 {
+		//	fmt.Println("here")
+		//}
+		tree.leaves = append(tree.leaves, node)
+		//ck := nodeCacheKey{}
+		//copy(ck[:], node.nodeKey.GetKey())
+		//if _, ok := tree.leafCache[ck]; ok {
+		//	panic(fmt.Sprintf("leaf cache collision: %s", node.nodeKey))
+		//}
+		//tree.leafCache[ck] = node
+	}
+
 	if node.hash != nil {
-		if node.nodeKey == nil {
-			panic("nodeKey is nil")
-		}
 		return node.nodeKey
 	}
 
@@ -252,8 +283,9 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
 
 	node._hash(tree.version)
 
-	if node.nodeKey == nil {
-		panic("nodeKey is nil")
+	if node.subtreeHeight == 1 {
+		node.leftNode = nil
+		node.rightNode = nil
 	}
 
 	return node.nodeKey
@@ -591,10 +623,14 @@ func (tree *Tree) Height() int8 {
 
 func (tree *Tree) nextNodeKey() *NodeKey {
 	tree.sequence++
-	return &NodeKey{
+	nk := &NodeKey{
 		version:  tree.version + 1,
 		sequence: tree.sequence,
 	}
+	if nk.sequence == 225 && nk.version == 73 {
+		fmt.Println("here")
+	}
+	return nk
 }
 
 func (tree *Tree) mutateNode(node *Node) {
@@ -615,7 +651,7 @@ func (tree *Tree) mutateNode(node *Node) {
 }
 
 func (tree *Tree) addOrphan(node *Node) {
-	if node.nodeKey == nil {
+	if node.hash == nil {
 		return
 	}
 	if node.nodeKey.version > tree.lastCheckpoint {
