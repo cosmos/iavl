@@ -80,8 +80,7 @@ func (tree *Tree) loadTree(i *int, node *Node) *Node {
 		log.Info().Msgf("loadTree i=%s", humanize.Comma(int64(*i)))
 	}
 	// balanced subtree with two leaves, skip 2 queries
-	// TODO heuristic for unbalance subtree; height=2 and size=3; or just skip?
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 && node.size == 3 {
+	if node.subtreeHeight == 1 || (node.subtreeHeight == 2 && node.size == 3) {
 		return node
 	}
 

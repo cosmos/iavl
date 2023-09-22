@@ -46,7 +46,7 @@ func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
 	}
 
 	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
-	maxWalSizeBytes := 1024 * 1024 * 50
+	maxWalSizeBytes := 1024 * 1024 * 500
 	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
 		return nil, err
 	}
