@@ -6,11 +6,9 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-type nodeCacheKey [12]byte
-
 type NodeCache struct {
-	cache     map[nodeCacheKey]*Node
-	nextCache map[nodeCacheKey]*Node
+	cache     map[NodeKey]*Node
+	nextCache map[NodeKey]*Node
 	pool      sync.Pool
 	nodes     []*Node
 
@@ -22,8 +20,8 @@ type NodeCache struct {
 
 func NewNodeCache() *NodeCache {
 	return &NodeCache{
-		nextCache: make(map[nodeCacheKey]*Node),
-		cache:     make(map[nodeCacheKey]*Node),
+		nextCache: make(map[NodeKey]*Node),
+		cache:     make(map[NodeKey]*Node),
 		//missCount: metrics.Default.NewCounter("node_cache.miss"),
 		//hitCount:  metrics.Default.NewCounter("node_cache.hit"),
 	}
@@ -39,19 +37,13 @@ func (nc *NodeCache) Swap() {
 	for _, n := range nc.nextCache {
 		nc.pool.Put(n)
 	}
-	nc.nextCache = make(map[nodeCacheKey]*Node)
+	nc.nextCache = make(map[NodeKey]*Node)
 	nc.hitCount = 0
 	nc.missCount = 0
 }
 
-func (nc *NodeCache) Get(nk *NodeKey) *Node {
-	return nc.GetByKeyBytes(nk.GetKey())
-}
-
-func (nc *NodeCache) GetByKeyBytes(key []byte) *Node {
-	var k nodeCacheKey
-	copy(k[:], key)
-	n, ok := nc.cache[k]
+func (nc *NodeCache) Get(nodeKey NodeKey) *Node {
+	n, ok := nc.cache[nodeKey]
 	if ok {
 		nc.hitCount++
 	} else {
@@ -61,16 +53,12 @@ func (nc *NodeCache) GetByKeyBytes(key []byte) *Node {
 }
 
 func (nc *NodeCache) SetThis(node *Node) {
-	var k nodeCacheKey
-	copy(k[:], node.nodeKey.GetKey())
-	nc.cache[k] = node
+	nc.cache[node.nodeKey] = node
 }
 
 func (nc *NodeCache) Set(node *Node) {
 	if len(nc.nextCache) > 10_000_000 {
 		return
 	}
-	var k nodeCacheKey
-	copy(k[:], node.nodeKey.GetKey())
-	nc.nextCache[k] = node
+	nc.nextCache[node.nodeKey] = node
 }

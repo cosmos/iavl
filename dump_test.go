@@ -12,9 +12,9 @@ func TestDumpNode(t *testing.T) {
 	dumper := &dumper{}
 	node := &Node{
 		key:           []byte("1234"),
-		nodeKey:       GetNodeKey([]byte("123456789012")),
-		leftNodeKey:   []byte("123456789012"),
-		rightNodeKey:  []byte("123456789012"),
+		nodeKey:       NewNodeKey(1234, 1),
+		leftNodeKey:   NewNodeKey(1234, 2),
+		rightNodeKey:  NewNodeKey(1234, 3),
 		hash:          []byte("123456789012"),
 		size:          1234,
 		subtreeHeight: int8(123),

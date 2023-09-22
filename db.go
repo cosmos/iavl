@@ -17,8 +17,8 @@ type DB interface {
 
 type nodeDB interface {
 	Set(node *Node) error
-	Get(nk *NodeKey) (*Node, error)
-	Delete(nk *NodeKey) error
+	Get(nk NodeKey) (*Node, error)
+	Delete(nk NodeKey) error
 }
 
 type kvDB struct {
@@ -31,28 +31,24 @@ func (kv *kvDB) Set(node *Node) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	return len(bz), kv.db.Set(node.nodeKey.GetKey(), bz)
+	return len(bz), kv.db.Set(node.nodeKey[:], bz)
 }
 
-func (kv *kvDB) Get(nodeKey *NodeKey) (*Node, error) {
-	return kv.GetByKeyBytes(nodeKey.GetKey())
-}
-
-func (kv *kvDB) GetByKeyBytes(key []byte) (*Node, error) {
-	bz, err := kv.db.Get(key)
+func (kv *kvDB) Get(nodeKey NodeKey) (*Node, error) {
+	bz, err := kv.db.Get(nodeKey[:])
 	if err != nil {
 		return nil, err
 	}
 	if bz == nil {
-		return nil, fmt.Errorf("node not found: %v", GetNodeKey(key))
+		return nil, fmt.Errorf("node not found: %v", nodeKey)
 	}
-	n, err := MakeNode(kv.pool, key, bz)
+	n, err := MakeNode(kv.pool, nodeKey, bz)
 	if err != nil {
 		return nil, err
 	}
 	return n, nil
 }
 
-func (kv *kvDB) Delete(nodeKey []byte) error {
-	return kv.db.Delete(nodeKey)
+func (kv *kvDB) Delete(nodeKey NodeKey) error {
+	return kv.db.Delete(nodeKey[:])
 }

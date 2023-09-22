@@ -62,14 +62,14 @@ func TestBuildSqlite(t *testing.T) {
 	for ; version1.Valid(); err = version1.Next() {
 		node := version1.GetNode()
 		if testTreeTable {
-			nk := &NodeKey{version: 1, sequence: uint32(count)}
-			lnk := &NodeKey{version: 1, sequence: uint32(count + 1)}
-			rnk := &NodeKey{version: 1, sequence: uint32(count + 2)}
-			node := &Node{key: node.Key, hash: node.Key[:32], subtreeHeight: 13, size: 4,
-				leftNodeKey: lnk.GetKey(), rightNodeKey: rnk.GetKey()}
+			nk := NewNodeKey(1, uint32(count))
+			lnk := NewNodeKey(1, uint32(count+1))
+			rnk := NewNodeKey(1, uint32(count+2))
+			node := &Node{key: node.Key, hash: node.Key[:32],
+				subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
 			nodeBz, err := node.Bytes()
 			require.NoError(t, err)
-			err = stmt.Exec(nk.version, int(nk.sequence), nodeBz)
+			err = stmt.Exec(nk, int(nk.Sequence()), nodeBz)
 			require.NoError(t, err)
 		} else {
 			err = stmt.Exec(
@@ -128,15 +128,15 @@ func TestReadSqlite(t *testing.T) {
 		j := rand.Intn(80_000_000)
 
 		if testTreeTable {
-			nk := &NodeKey{version: 1, sequence: uint32(j)}
-			nkbz := nk.GetKey()
-			require.NoError(t, stmt.Bind(nkbz))
+			nk := NewNodeKey(1, uint32(j))
+
+			require.NoError(t, stmt.Bind(nk))
 			hasRow, err := stmt.Step()
 			require.True(t, hasRow)
 			require.NoError(t, err)
 			nodeBz, err := stmt.ColumnBlob(0)
 			require.NoError(t, err)
-			_, err = MakeNode(pool, nkbz, nodeBz)
+			_, err = MakeNode(pool, nk, nodeBz)
 			require.NoError(t, err)
 		} else {
 			require.NoError(t, stmt.Bind(j, 1))
@@ -178,15 +178,15 @@ func TestBuildLevelDb(t *testing.T) {
 	since := time.Now()
 	for ; version1.Valid(); err = version1.Next() {
 		node := version1.GetNode()
-		nk := &NodeKey{version: 1, sequence: uint32(count)}
-		lnk := &NodeKey{version: 1, sequence: uint32(count + 1)}
-		rnk := &NodeKey{version: 1, sequence: uint32(count + 2)}
+		nk := NewNodeKey(1, uint32(count))
+		lnk := NewNodeKey(1, uint32(count+1))
+		rnk := NewNodeKey(1, uint32(count+2))
 		n := &Node{key: node.Key,
 			nodeKey:       nk,
 			hash:          node.Key[:32],
 			subtreeHeight: 13, size: 4,
-			leftNodeKey:  lnk.GetKey(),
-			rightNodeKey: rnk.GetKey(),
+			leftNodeKey:  lnk,
+			rightNodeKey: rnk,
 		}
 		_, err = db.Set(n)
 		require.NoError(t, err)
@@ -212,7 +212,7 @@ func TestReadLevelDB(t *testing.T) {
 	since := time.Now()
 	for i := 1; i < 80_000_000; i++ {
 		j := rand.Intn(80_000_000)
-		nk := &NodeKey{version: 1, sequence: uint32(j)}
+		nk := NewNodeKey(1, uint32(j))
 		node, err := db.Get(nk)
 		require.NoError(t, err)
 		require.NotNil(t, node)
@@ -227,8 +227,8 @@ func TestReadLevelDB(t *testing.T) {
 }
 
 func TestNodeKeyFormat(t *testing.T) {
-	nk := &NodeKey{version: 100, sequence: 2}
-	k := (int(nk.version) << 32) | int(nk.sequence)
+	nk := NewNodeKey(100, 2)
+	k := (int(nk.Version()) << 32) | int(nk.Sequence())
 	fmt.Printf("k: %d - %x\n", k, k)
 }
 
@@ -255,8 +255,8 @@ func TestFetchNode(t *testing.T) {
 	require.True(t, hasRow)
 	nodeBz, err := stmt.ColumnBlob(0)
 	require.NoError(t, err)
-	nk := &NodeKey{version: 1, sequence: 15297589}
-	node, err := MakeNode(pool, nk.GetKey(), nodeBz)
+	nk := NewNodeKey(1, 6756148)
+	node, err := MakeNode(pool, nk, nodeBz)
 	require.NoError(t, err)
 	fmt.Printf("node: %v\n", node)
 }

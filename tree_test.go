@@ -180,7 +180,6 @@ func TestTree_Build(t *testing.T) {
 		cache:          NewNodeCache(),
 		maxWorkingSize: 5 * 1024 * 1024 * 1024,
 		pool:           pool,
-		leafCache:      make(map[nodeCacheKey]*Node),
 	}
 	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
 	tree.checkpointer.sqliteDb = sql

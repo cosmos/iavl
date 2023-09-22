@@ -22,8 +22,8 @@ func newDumper(keyDump io.Writer, nodeDump io.Writer) *dumper {
 
 func (d *dumper) DumpNode(node *Node) error {
 	d.nodeSeq++
-	if d.nodeSeq != node.nodeKey.sequence {
-		return fmt.Errorf("node sequence mismatch: %d != %d", d.nodeSeq, node.nodeKey.sequence)
+	if d.nodeSeq != node.nodeKey.Sequence() {
+		return fmt.Errorf("node sequence mismatch: %d != %d", d.nodeSeq, node.nodeKey.Sequence())
 	}
 
 	bz, err := d.MarshalNode(node)
@@ -47,9 +47,9 @@ func (d *dumper) MarshalNode(node *Node) ([]byte, error) {
 	}
 
 	var buf [77]byte
-	copy(buf[:], node.nodeKey.GetKey())
-	copy(buf[12:], node.leftNodeKey)
-	copy(buf[24:], node.rightNodeKey)
+	copy(buf[:], node.nodeKey[:])
+	copy(buf[12:], node.leftNodeKey[:])
+	copy(buf[24:], node.rightNodeKey[:])
 	copy(buf[36:], node.hash)
 	binary.BigEndian.PutUint32(buf[68:], uint32(node.size))
 	binary.BigEndian.PutUint32(buf[72:], uint32(keyOffset))
@@ -58,10 +58,14 @@ func (d *dumper) MarshalNode(node *Node) ([]byte, error) {
 }
 
 func (d *dumper) ReadNode(bz []byte) (*Node, error) {
+	var nk, lnk, rnk NodeKey
+	copy(nk[:], bz[:12])
+	copy(lnk[:], bz[12:24])
+	copy(rnk[:], bz[24:36])
 	n := &Node{
-		nodeKey:       GetNodeKey(bz[:12]),
-		leftNodeKey:   bz[12:24],
-		rightNodeKey:  bz[24:36],
+		nodeKey:       nk,
+		leftNodeKey:   lnk,
+		rightNodeKey:  rnk,
 		hash:          bz[36:68],
 		size:          int64(binary.BigEndian.Uint32(bz[68:72])),
 		subtreeHeight: int8(bz[76]),

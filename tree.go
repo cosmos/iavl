@@ -24,7 +24,7 @@ type Tree struct {
 	db             *kvDB
 	sql            *sqliteDb
 	lastCheckpoint int64
-	orphans        [][]byte
+	orphans        []NodeKey
 	cache          *NodeCache
 	pool           *nodePool
 	checkpointer   *checkpointer
@@ -35,10 +35,9 @@ type Tree struct {
 	// options
 	maxWorkingSize uint64
 
-	branches  []*Node
-	leaves    []*Node
-	leafCache map[nodeCacheKey]*Node
-	sequence  uint32
+	branches []*Node
+	leaves   []*Node
+	sequence uint32
 }
 
 func (tree *Tree) LoadVersion(version int64) error {
@@ -143,7 +142,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.leaves = nil
 	tree.branches = nil
 	tree.orphans = nil
-	tree.leafCache = make(map[nodeCacheKey]*Node)
 
 	if tree.sql != nil {
 		err := tree.sql.SaveRoot(tree.version, tree.root)
@@ -279,29 +277,9 @@ type saveStats struct {
 	count  int64
 }
 
-func (tree *Tree) hashSequence(node *Node, sequence *uint32, nodes *[]*Node) *NodeKey {
-	if node == nil {
-		return nil
-	}
-	*sequence++
-	node.nodeKey = &NodeKey{
-		version:  tree.version,
-		sequence: *sequence,
-	}
-	*nodes = append(*nodes, node)
-	if !node.isLeaf() {
-		node.leftNodeKey = tree.hashSequence(node.leftNode, sequence, nodes).GetKey()
-		node.rightNodeKey = tree.hashSequence(node.rightNode, sequence, nodes).GetKey()
-	}
-
-	node._hash(tree.version)
-
-	return node.nodeKey
-}
-
-func (tree *Tree) deepHash(sequence *uint32, node *Node) (nk *NodeKey, isLeaf bool) {
+func (tree *Tree) deepHash(sequence *uint32, node *Node) (nk NodeKey, isLeaf bool) {
 	isLeaf = node.isLeaf()
-	if node.nodeKey.version == tree.version {
+	if node.nodeKey.Version() == tree.version {
 		if isLeaf {
 			tree.leaves = append(tree.leaves, node)
 		} else {
@@ -315,11 +293,8 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) (nk *NodeKey, isLeaf bo
 
 	var leftIsLeaf, rightIsLeaf bool
 	if !isLeaf {
-		var nk *NodeKey
-		nk, leftIsLeaf = tree.deepHash(sequence, node.left(tree))
-		node.leftNodeKey = nk.GetKey()
-		nk, rightIsLeaf = tree.deepHash(sequence, node.right(tree))
-		node.rightNodeKey = nk.GetKey()
+		node.leftNodeKey, leftIsLeaf = tree.deepHash(sequence, node.left(tree))
+		node.rightNodeKey, rightIsLeaf = tree.deepHash(sequence, node.right(tree))
 	}
 
 	node._hash(tree.version)
@@ -347,7 +322,7 @@ func (tree *Tree) dirtyCount(node *Node) int64 {
 }
 
 func (tree *Tree) buildCheckpoint(node *Node, args *checkpointArgs) {
-	if node == nil || node.nodeKey.version <= tree.lastCheckpoint {
+	if node == nil || node.nodeKey.Version() <= tree.lastCheckpoint {
 		return
 	}
 
@@ -376,7 +351,7 @@ func (tree *Tree) buildCheckpoint(node *Node, args *checkpointArgs) {
 }
 
 func (tree *Tree) deepSave(node *Node, stats *saveStats) (count int64, err error) {
-	if node.nodeKey.version <= tree.lastCheckpoint {
+	if node.nodeKey.Version() <= tree.lastCheckpoint {
 		return 0, nil
 	}
 
@@ -663,13 +638,9 @@ func (tree *Tree) Height() int8 {
 	return tree.root.subtreeHeight
 }
 
-func (tree *Tree) nextNodeKey() *NodeKey {
+func (tree *Tree) nextNodeKey() NodeKey {
 	tree.sequence++
-	nk := &NodeKey{
-		version:  tree.version + 1,
-		sequence: tree.sequence,
-	}
-	return nk
+	return NewNodeKey(tree.version+1, tree.sequence)
 }
 
 func (tree *Tree) mutateNode(node *Node) {
@@ -693,10 +664,10 @@ func (tree *Tree) addOrphan(node *Node) {
 	if node.hash == nil {
 		return
 	}
-	if node.nodeKey.version > tree.lastCheckpoint {
+	if node.nodeKey.Version() > tree.lastCheckpoint {
 		return
 	}
-	tree.orphans = append(tree.orphans, node.nodeKey.GetKey())
+	tree.orphans = append(tree.orphans, node.nodeKey)
 }
 
 // NewNode returns a new node from a key, value and version.

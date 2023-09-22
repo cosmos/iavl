@@ -11,7 +11,7 @@ import (
 
 type checkpointArgs struct {
 	set     []*Node
-	delete  [][]byte
+	delete  []NodeKey
 	version int64
 }
 
@@ -44,16 +44,15 @@ func (cp *checkpointer) run(ctx context.Context) error {
 			var memSize, dbSize uint64
 
 			sort.Slice(args.set, func(i, j int) bool {
-				a := args.set[i]
-				b := args.set[j]
-				if a.nodeKey.version != b.nodeKey.version {
-					return a.nodeKey.version < b.nodeKey.version
-				}
-				return a.nodeKey.sequence < b.nodeKey.sequence
+				x := args.set[i].nodeKey[:]
+				y := args.set[j].nodeKey[:]
+				return bytes.Compare(x, y) < 0
 			})
 
 			sort.Slice(args.delete, func(i, j int) bool {
-				return bytes.Compare(args.delete[i], args.delete[j]) < 0
+				x := args.set[i].nodeKey[:]
+				y := args.set[j].nodeKey[:]
+				return bytes.Compare(x, y) < 0
 			})
 
 			for _, nodeKey := range args.delete {

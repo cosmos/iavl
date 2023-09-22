@@ -14,25 +14,32 @@ import (
 )
 
 // NodeKey represents a key of node in the DB.
-type NodeKey struct {
-	version  int64
-	sequence uint32
+type NodeKey [12]byte
+
+func (nk NodeKey) Version() int64 {
+	return int64(binary.BigEndian.Uint64(nk[:]))
 }
 
-// GetKey returns a byte slice of the NodeKey.
-func (nk *NodeKey) GetKey() []byte {
-	b := make([]byte, 12)
-	binary.BigEndian.PutUint64(b, uint64(nk.version))
-	binary.BigEndian.PutUint32(b[8:], nk.sequence)
-	return b
+func (nk NodeKey) Sequence() uint32 {
+	return binary.BigEndian.Uint32(nk[8:])
 }
 
-// GetNodeKey returns a NodeKey from a byte slice.
-func GetNodeKey(key []byte) *NodeKey {
-	return &NodeKey{
-		version:  int64(binary.BigEndian.Uint64(key)),
-		sequence: binary.BigEndian.Uint32(key[8:]),
-	}
+func NewNodeKey(version int64, sequence uint32) NodeKey {
+	var nk NodeKey
+	binary.BigEndian.PutUint64(nk[:], uint64(version))
+	binary.BigEndian.PutUint32(nk[8:], sequence)
+	return nk
+}
+
+// String returns a string representation of the node key.
+func (nk NodeKey) String() string {
+	return fmt.Sprintf("(%d, %d)", nk.Version(), nk.Sequence())
+}
+
+var emptyNodeKey = NodeKey{}
+
+func (nk NodeKey) IsEmpty() bool {
+	return nk == emptyNodeKey
 }
 
 // Node represents a node in a Tree.
@@ -40,9 +47,9 @@ type Node struct {
 	key           []byte
 	value         []byte
 	hash          []byte
-	nodeKey       *NodeKey
-	leftNodeKey   []byte
-	rightNodeKey  []byte
+	nodeKey       NodeKey
+	leftNodeKey   NodeKey
+	rightNodeKey  NodeKey
 	size          int64
 	leftNode      *Node
 	rightNode     *Node
@@ -55,23 +62,14 @@ func (node *Node) isLeaf() bool {
 	return node.subtreeHeight == 0
 }
 
-// String returns a string representation of the node key.
-func (nk *NodeKey) String() string {
-	return fmt.Sprintf("(%d, %d)", nk.version, nk.sequence)
-}
-
 func (node *Node) setLeft(leftNode *Node) {
 	node.leftNode = leftNode
-	if leftNode.nodeKey != nil {
-		node.leftNodeKey = leftNode.nodeKey.GetKey()
-	}
+	node.leftNodeKey = leftNode.nodeKey
 }
 
 func (node *Node) setRight(rightNode *Node) {
 	node.rightNode = rightNode
-	if rightNode.nodeKey != nil {
-		node.rightNodeKey = rightNode.nodeKey.GetKey()
-	}
+	node.rightNodeKey = rightNode.nodeKey
 }
 
 func (node *Node) left(t *Tree) *Node {
@@ -98,13 +96,12 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
-	node.leftNode = t.cache.GetByKeyBytes(node.leftNodeKey)
+	node.leftNode = t.cache.Get(node.leftNodeKey)
 	if node.leftNode == nil {
 		var err error
-		nk := GetNodeKey(node.leftNodeKey)
 
 		if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-			node.leftNode, err = t.sql.getLeaf(nk)
+			node.leftNode, err = t.sql.getLeaf(node.leftNodeKey)
 			if err != nil {
 				return nil, err
 			}
@@ -113,7 +110,7 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 			}
 		}
 
-		node.leftNode, err = t.sql.Get(nk)
+		node.leftNode, err = t.sql.Get(node.leftNodeKey)
 		if err != nil {
 			return nil, err
 		}
@@ -128,12 +125,11 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
-	node.rightNode = t.cache.GetByKeyBytes(node.rightNodeKey)
+	node.rightNode = t.cache.Get(node.rightNodeKey)
 	if node.rightNode == nil {
 		var err error
-		nk := GetNodeKey(node.rightNodeKey)
 		if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-			node.rightNode, err = t.sql.getLeaf(nk)
+			node.rightNode, err = t.sql.getLeaf(node.rightNodeKey)
 			if err != nil {
 				return nil, err
 			}
@@ -142,7 +138,7 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 			}
 		}
 
-		node.rightNode, err = t.sql.Get(nk)
+		node.rightNode, err = t.sql.Get(node.rightNodeKey)
 		if err != nil {
 			return nil, err
 		}
@@ -200,7 +196,8 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 			return newNode, nil
 		}
 		// Left Right Case
-		node.leftNodeKey = nil
+		// TODO should be mutate? ref v1 and v0
+		node.leftNodeKey = tree.nextNodeKey()
 		node.leftNode, err = tree.rotateLeft(node.leftNode)
 		if err != nil {
 			return nil, err
@@ -232,7 +229,8 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 			return newNode, nil
 		}
 		// Right Left Case
-		node.rightNodeKey = nil
+		// TODO should be mutate? ref v1 and v0
+		node.rightNodeKey = tree.nextNodeKey()
 		node.rightNode, err = tree.rotateRight(rightNode)
 		if err != nil {
 			return nil, err
@@ -264,7 +262,6 @@ func (node *Node) calcBalance(t *Tree) (int, error) {
 // Rotate right and return the new node and orphan.
 func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 	var err error
-	// TODO: optimize balance & rotate.
 	tree.addOrphan(node)
 	tree.mutateNode(node)
 
@@ -291,7 +288,6 @@ func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 // Rotate left and return the new node and orphan.
 func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	var err error
-	// TODO: optimize balance & rotate.
 	tree.addOrphan(node)
 	tree.mutateNode(node)
 
@@ -385,7 +381,7 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 }
 
 // MakeNode constructs a *Node from an encoded byte slice.
-func MakeNode(pool *nodePool, nodeKey, buf []byte) (*Node, error) {
+func MakeNode(pool *nodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
 	// Read node header (height, size, version, key).
 	height, n, err := encoding.DecodeVarint(buf)
 	if err != nil {
@@ -416,7 +412,7 @@ func MakeNode(pool *nodePool, nodeKey, buf []byte) (*Node, error) {
 
 	node := pool.Get()
 	node.subtreeHeight = int8(height)
-	node.nodeKey = GetNodeKey(nodeKey)
+	node.nodeKey = nodeKey
 	node.size = size
 	node.key = key
 	node.hash = hash
@@ -433,8 +429,11 @@ func MakeNode(pool *nodePool, nodeKey, buf []byte) (*Node, error) {
 			return nil, fmt.Errorf("decoding node.rightKey, %w", err)
 		}
 
-		node.leftNodeKey = leftNodeKey
-		node.rightNodeKey = rightNodeKey
+		var leftNk, rightNk NodeKey
+		copy(leftNk[:], leftNodeKey)
+		copy(rightNk[:], rightNodeKey)
+		node.leftNodeKey = leftNk
+		node.rightNodeKey = rightNk
 	}
 	return node, nil
 }
@@ -466,18 +465,18 @@ func (node *Node) WriteBytes(w io.Writer) error {
 	}
 
 	if !node.isLeaf() {
-		if node.leftNodeKey == nil {
+		if node.leftNodeKey.IsEmpty() {
 			return fmt.Errorf("left node key is nil")
 		}
-		cause = encoding.EncodeBytes(w, node.leftNodeKey)
+		cause = encoding.EncodeBytes(w, node.leftNodeKey[:])
 		if cause != nil {
 			return fmt.Errorf("writing left node key; %w", cause)
 		}
 
-		if node.rightNodeKey == nil {
+		if node.rightNodeKey.IsEmpty() {
 			return fmt.Errorf("right node key is nil")
 		}
-		cause = encoding.EncodeBytes(w, node.rightNodeKey)
+		cause = encoding.EncodeBytes(w, node.rightNodeKey[:])
 		if cause != nil {
 			return fmt.Errorf("writing right node key; %w", cause)
 		}

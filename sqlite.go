@@ -151,13 +151,13 @@ func (sql *sqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 	}
 	since := time.Now()
 	for i, node := range nodes {
-		versionMap[node.nodeKey.version] = true
+		versionMap[node.nodeKey.Version()] = true
 		bz, err := node.Bytes()
 		byteCount += int64(len(bz))
 		if err != nil {
 			return 0, versions, err
 		}
-		err = stmt.Exec(node.nodeKey.version, int(node.nodeKey.sequence), bz)
+		err = stmt.Exec(node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz)
 		if err != nil {
 			return 0, versions, err
 		}
@@ -223,7 +223,7 @@ func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 	return q, nil
 }
 
-func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
+func (sql *sqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	start := time.Now()
 
 	var err error
@@ -236,7 +236,7 @@ func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
 			return nil, err
 		}
 	}
-	if err = sql.queryLeaf.Bind(nodeKey.version, int(nodeKey.sequence)); err != nil {
+	if err = sql.queryLeaf.Bind(nodeKey.Version(), int(nodeKey.Sequence())); err != nil {
 		return nil, err
 	}
 	hasRow, err := sql.queryLeaf.Step()
@@ -250,7 +250,7 @@ func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	node, err := MakeNode(sql.pool, nodeKey.GetKey(), nodeBz)
+	node, err := MakeNode(sql.pool, nodeKey, nodeBz)
 	if err != nil {
 		return nil, err
 	}
@@ -266,23 +266,21 @@ func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
 	return node, nil
 }
 
-func (sql *sqliteDb) getNode(nodeKey *NodeKey, q *sqlite3.Stmt) (*Node, error) {
+func (sql *sqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	start := time.Now()
 
-	key := nodeKey.GetKey()
-	if err := q.Bind(nodeKey.version, int(nodeKey.sequence)); err != nil {
+	if err := q.Bind(nodeKey.Version(), int(nodeKey.Sequence())); err != nil {
 		return nil, err
 	}
 	hasRow, err := q.Step()
 	if !hasRow {
-		return nil, fmt.Errorf("node not found: %v; shard=%d", GetNodeKey(key),
-			sql.versionShard[nodeKey.version])
+		return nil, fmt.Errorf("node not found: %v; shard=%d", nodeKey, sql.versionShard[nodeKey.Version()])
 	}
 	if err != nil {
 		return nil, err
 	}
 	nodeBz, err := q.ColumnBlob(0)
-	node, err := MakeNode(sql.pool, key, nodeBz)
+	node, err := MakeNode(sql.pool, nodeKey, nodeBz)
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +296,8 @@ func (sql *sqliteDb) getNode(nodeKey *NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	return node, nil
 }
 
-func (sql *sqliteDb) Get(nodeKey *NodeKey) (*Node, error) {
-	q, err := sql.GetShardQuery(nodeKey.version)
+func (sql *sqliteDb) Get(nodeKey NodeKey) (*Node, error) {
+	q, err := sql.GetShardQuery(nodeKey.Version())
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +407,7 @@ func (sql *sqliteDb) IndexShard(shardId int64) error {
 
 func (sql *sqliteDb) SaveRoot(version int64, node *Node) error {
 	err := sql.write.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
-		version, node.nodeKey.version, int(node.nodeKey.sequence))
+		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()))
 	return err
 }
 
@@ -430,13 +428,14 @@ func (sql *sqliteDb) LoadRoot(version int64) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	root := &NodeKey{}
 	var seq int
-	err = rootQuery.Scan(&root.version, &seq)
+	var rootVersion int64
+	err = rootQuery.Scan(&rootVersion, &seq)
 	if err != nil {
 		return nil, err
 	}
-	root.sequence = uint32(seq)
+	root := NewNodeKey(rootVersion, uint32(seq))
+
 	if err := rootQuery.Close(); err != nil {
 		return nil, err
 	}
