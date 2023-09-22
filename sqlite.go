@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/aybabtme/uniplot/histogram"
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
 )
@@ -111,7 +112,7 @@ CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 	return nil
 }
 
-func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err error) {
+func (sql *sqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []int64, err error) {
 	batchSize := 200_000
 	var byteCount int64
 	versionMap := make(map[int64]bool)
@@ -126,16 +127,18 @@ func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err err
 		}
 
 		var stmt *sqlite3.Stmt
-
-		// sharded
-		//stmt, err = sql.write.Prepare(fmt.Sprintf(
-		//	"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", sql.shardId))
+		if leaves {
+			stmt, err = sql.write.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
+		} else {
+			// sharded
+			stmt, err = sql.write.Prepare(fmt.Sprintf(
+				"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", sql.shardId))
+		}
 
 		// no Shard
 		//stmt, err = sql.write.Prepare(fmt.Sprintf("INSERT INTO tree (sequence, version, bytes) VALUES (?, ?, ?)"))
 
 		// leaves
-		stmt, err = sql.write.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
 
 		if err != nil {
 			return nil, err
@@ -189,11 +192,13 @@ func (sql *sqliteDb) BatchSet(nodes []*Node) (n int64, versions []int64, err err
 		return 0, versions, err
 	}
 
-	//err = sql.write.Exec(fmt.Sprintf(
-	//	"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", sql.shardId, sql.shardId))
-	//if err != nil {
-	//	return 0, versions, err
-	//}
+	if !leaves {
+		err = sql.write.Exec(fmt.Sprintf(
+			"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", sql.shardId, sql.shardId))
+		if err != nil {
+			return 0, versions, err
+		}
+	}
 
 	err = sql.write.Exec("PRAGMA wal_checkpoint(RESTART);")
 	if err != nil {
@@ -219,11 +224,13 @@ func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 }
 
 func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
+	start := time.Now()
+
 	var err error
 	if sql.queryLeaf == nil {
-		if err = sql.resetReadConn(); err != nil {
-			return nil, err
-		}
+		//if err = sql.resetReadConn(); err != nil {
+		//	return nil, err
+		//}
 		sql.queryLeaf, err = sql.read.Prepare("SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
 		if err != nil {
 			return nil, err
@@ -234,7 +241,7 @@ func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
 	}
 	hasRow, err := sql.queryLeaf.Step()
 	if !hasRow {
-		return nil, fmt.Errorf("leaf not found: %v", GetNodeKey(nodeKey.GetKey()))
+		return nil, sql.queryLeaf.Reset()
 	}
 	if err != nil {
 		return nil, err
@@ -251,6 +258,11 @@ func (sql *sqliteDb) getLeaf(nodeKey *NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	dur := time.Since(start)
+	sql.queryDurations = append(sql.queryDurations, dur)
+	sql.querySeconds += dur.Seconds()
+
 	return node, nil
 }
 
@@ -305,8 +317,15 @@ func (sql *sqliteDb) Close() error {
 			return err
 		}
 	}
-	if err := sql.read.Close(); err != nil {
-		return err
+	if sql.read != nil {
+		if sql.queryLeaf != nil {
+			if err := sql.queryLeaf.Close(); err != nil {
+				return err
+			}
+		}
+		if err := sql.read.Close(); err != nil {
+			return err
+		}
 	}
 	if err := sql.write.Close(); err != nil {
 		return err
@@ -517,4 +536,32 @@ func (sql *sqliteDb) resetShardQueries() error {
 	}
 
 	return q.Close()
+}
+
+func (sql *sqliteDb) queryReport() error {
+	fmt.Printf("queries=%s q/s=%s\n",
+		humanize.Comma(int64(len(sql.queryDurations))),
+		humanize.Commaf(
+			float64(len(sql.queryDurations))/sql.querySeconds),
+	)
+
+	var histData []float64
+	for _, d := range sql.queryDurations {
+		if d > 50*time.Microsecond {
+			continue
+		}
+		histData = append(histData, float64(d))
+	}
+	hist := histogram.Hist(20, histData)
+	err := histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
+		return time.Duration(v).String()
+	})
+	if err != nil {
+		return err
+	}
+
+	sql.queryDurations = nil
+	sql.querySeconds = 0
+
+	return nil
 }

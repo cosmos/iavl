@@ -22,6 +22,10 @@ type TreeMetrics struct {
 	TreeNewNode       int64
 	TreeDelete        int64
 	PoolDirtyOverflow int64
+
+	WriteDurations []time.Duration
+	WriteSeconds   float64
+	WriteLeaves    int64
 }
 
 func (m *TreeMetrics) Report() {

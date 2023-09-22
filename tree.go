@@ -6,7 +6,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/aybabtme/uniplot/histogram"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
@@ -36,6 +35,7 @@ type Tree struct {
 	// options
 	maxWorkingSize uint64
 
+	branches  []*Node
 	leaves    []*Node
 	leafCache map[nodeCacheKey]*Node
 	sequence  uint32
@@ -55,9 +55,38 @@ func (tree *Tree) LoadVersion(version int64) error {
 
 	var err error
 	tree.root, err = tree.sql.LoadRoot(version)
+	if err != nil {
+		return err
+	}
 	// TODO
 	tree.lastCheckpoint = version
-	return err
+
+	var i int
+	start := time.Now()
+	log.Info().Msgf("loading tree into memory version=%d", version)
+	tree.loadTree(&i, tree.root)
+	log.Info().Msgf("loaded %s tree nodes into memory version=%d dur=%s",
+		humanize.Comma(int64(i)),
+		version, time.Since(start).Round(time.Millisecond))
+	return tree.sql.queryReport()
+}
+
+func (tree *Tree) loadTree(i *int, node *Node) *Node {
+	if node.isLeaf() {
+		return nil
+	}
+	*i++
+	if *i%1_000_000 == 0 {
+		log.Info().Msgf("loadTree i=%s", humanize.Comma(int64(*i)))
+	}
+	// balanced subtree with two leaves, skip 2 queries
+	if node.subtreeHeight == 1 || (node.subtreeHeight == 2 && node.size == 3) {
+		return node
+	}
+
+	node.leftNode = tree.loadTree(i, node.left(tree))
+	node.rightNode = tree.loadTree(i, node.right(tree))
+	return node
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
@@ -69,19 +98,50 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	//for _, node := range tree.leaves {
 	//	tree.cache.SetThis(node)
 	//}
-	_, _, err := tree.sql.BatchSet(tree.leaves)
+
+	start := time.Now()
+	_, _, err := tree.sql.BatchSet(tree.leaves, true)
 	if err != nil {
 		return nil, tree.version, err
 	}
+	dur := time.Since(start)
+	tree.metrics.WriteDurations = append(tree.metrics.WriteDurations, dur)
+	tree.metrics.WriteSeconds += dur.Seconds()
+	tree.metrics.WriteLeaves += int64(len(tree.leaves))
+
 	if tree.version == 1 {
-		log.Info().Msg("creating index")
-		err := tree.sql.write.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
+		// TODO
+		// psuedo hacky checkpoint here
+		err := tree.sql.NextShard()
+		if err != nil {
+			return nil, 0, nil
+		}
+
+		_, versions, err := tree.sql.BatchSet(tree.branches, false)
 		if err != nil {
 			return nil, tree.version, err
 		}
-		log.Info().Msg("creating index done")
+
+		err = tree.sql.MapVersions(versions, tree.sql.shardId)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		err = tree.sql.addShardQuery()
+		if err != nil {
+			return nil, 0, err
+		}
+
+		log.Info().Msg("creating leaf index")
+		err = tree.sql.write.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
+		if err != nil {
+			return nil, tree.version, err
+		}
+		log.Info().Msg("creating leaf index done")
 	}
+
 	tree.leaves = nil
+	tree.branches = nil
 	tree.orphans = nil
 	tree.leafCache = make(map[nodeCacheKey]*Node)
 
@@ -140,7 +200,7 @@ func (tree *Tree) sqlCheckpoint() error {
 		return err
 	}
 
-	dbSize, versions, err := tree.sql.BatchSet(args.set)
+	dbSize, versions, err := tree.sql.BatchSet(args.set, false)
 	if err != nil {
 		return err
 	}
@@ -170,28 +230,9 @@ func (tree *Tree) sqlCheckpoint() error {
 		humanize.Comma(int64(float64(len(args.set))/time.Since(start).Seconds())),
 	)
 
-	fmt.Printf("queries=%s q/s=%s\n",
-		humanize.Comma(int64(len(tree.sql.queryDurations))),
-		humanize.Commaf(
-			float64(len(tree.sql.queryDurations))/tree.sql.querySeconds),
-	)
-
-	var histData []float64
-	for _, d := range tree.sql.queryDurations {
-		if d > 50*time.Microsecond {
-			continue
-		}
-		histData = append(histData, float64(d))
-	}
-	hist := histogram.Hist(20, histData)
-	err = histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
-		return time.Duration(v).String()
-	})
-	if err != nil {
+	if err := tree.sql.queryReport(); err != nil {
 		return err
 	}
-	tree.sql.queryDurations = nil
-	tree.sql.querySeconds = 0
 
 	return nil
 }
@@ -258,37 +299,38 @@ func (tree *Tree) hashSequence(node *Node, sequence *uint32, nodes *[]*Node) *No
 	return node.nodeKey
 }
 
-func (tree *Tree) deepHash(sequence *uint32, node *Node) *NodeKey {
-	if node.isLeaf() && node.nodeKey.version == tree.version {
-		//if node.nodeKey.sequence == 225 && node.nodeKey.version == 73 {
-		//	fmt.Println("here")
-		//}
-		tree.leaves = append(tree.leaves, node)
-		//ck := nodeCacheKey{}
-		//copy(ck[:], node.nodeKey.GetKey())
-		//if _, ok := tree.leafCache[ck]; ok {
-		//	panic(fmt.Sprintf("leaf cache collision: %s", node.nodeKey))
-		//}
-		//tree.leafCache[ck] = node
+func (tree *Tree) deepHash(sequence *uint32, node *Node) (nk *NodeKey, isLeaf bool) {
+	isLeaf = node.isLeaf()
+	if node.nodeKey.version == tree.version {
+		if isLeaf {
+			tree.leaves = append(tree.leaves, node)
+		} else {
+			tree.branches = append(tree.branches, node)
+		}
 	}
 
 	if node.hash != nil {
-		return node.nodeKey
+		return node.nodeKey, isLeaf
 	}
 
-	if !node.isLeaf() {
-		node.leftNodeKey = tree.deepHash(sequence, node.left(tree)).GetKey()
-		node.rightNodeKey = tree.deepHash(sequence, node.right(tree)).GetKey()
+	var leftIsLeaf, rightIsLeaf bool
+	if !isLeaf {
+		var nk *NodeKey
+		nk, leftIsLeaf = tree.deepHash(sequence, node.left(tree))
+		node.leftNodeKey = nk.GetKey()
+		nk, rightIsLeaf = tree.deepHash(sequence, node.right(tree))
+		node.rightNodeKey = nk.GetKey()
 	}
 
 	node._hash(tree.version)
-
-	if node.subtreeHeight == 1 {
+	if leftIsLeaf {
 		node.leftNode = nil
+	}
+	if rightIsLeaf {
 		node.rightNode = nil
 	}
 
-	return node.nodeKey
+	return node.nodeKey, isLeaf
 }
 
 func (tree *Tree) dirtyCount(node *Node) int64 {
@@ -626,9 +668,6 @@ func (tree *Tree) nextNodeKey() *NodeKey {
 	nk := &NodeKey{
 		version:  tree.version + 1,
 		sequence: tree.sequence,
-	}
-	if nk.sequence == 225 && nk.version == 73 {
-		fmt.Println("here")
 	}
 	return nk
 }

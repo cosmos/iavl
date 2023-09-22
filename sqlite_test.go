@@ -242,3 +242,21 @@ func TestHistogramPlot(t *testing.T) {
 	hist := histogram.Hist(bins, data)
 	histogram.Fprint(os.Stdout, hist, histogram.Linear(10))
 }
+
+func TestFetchNode(t *testing.T) {
+	pool := newNodePool()
+	conn, err := sqlite3.Open("/tmp/iavl-v2.db")
+	require.NoError(t, err)
+	q := "SELECT bytes FROM tree_1 WHERE version = 1 and sequence = 6756148"
+	stmt, err := conn.Prepare(q)
+	require.NoError(t, err)
+	hasRow, err := stmt.Step()
+	require.NoError(t, err)
+	require.True(t, hasRow)
+	nodeBz, err := stmt.ColumnBlob(0)
+	require.NoError(t, err)
+	nk := &NodeKey{version: 1, sequence: 15297589}
+	node, err := MakeNode(pool, nk.GetKey(), nodeBz)
+	require.NoError(t, err)
+	fmt.Printf("node: %v\n", node)
+}

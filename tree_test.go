@@ -21,7 +21,7 @@ func MemUsage() string {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	s := fmt.Sprintf("alloc=%s, gc=%d",
+	s := fmt.Sprintf("alloc=%s gc=%d",
 		humanize.Bytes(m.Alloc),
 		//humanize.Bytes(m.TotalAlloc),
 		//humanize.Bytes(m.Sys),
@@ -117,7 +117,13 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					humanize.Comma(hitCount),
 					humanize.Comma(missCount),
 					MemUsage())
+				fmt.Printf("leaf wr/s=%s\n",
+					humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteSeconds)))
 				since = time.Now()
+
+				tree.metrics.WriteDurations = nil
+				tree.metrics.WriteLeaves = 0
+				tree.metrics.WriteSeconds = 0
 			}
 		}
 		hash, version, err = tree.SaveVersion()
@@ -177,8 +183,8 @@ func TestTree_Build(t *testing.T) {
 
 	//opts := testutil.BankLockup25_000()
 	//opts := testutil.NewTreeBuildOptions()
-	//opts := testutil.BigStartOptions()
-	opts := testutil.OsmoLike()
+	opts := testutil.BigStartOptions()
+	//opts := testutil.OsmoLike()
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
