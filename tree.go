@@ -67,7 +67,7 @@ func (tree *Tree) LoadVersion(version int64) error {
 	log.Info().Msgf("loaded %s tree nodes into memory version=%d dur=%s",
 		humanize.Comma(int64(i)),
 		version, time.Since(start).Round(time.Millisecond))
-	return tree.sql.queryReport()
+	return tree.sql.queryReport(5)
 }
 
 func (tree *Tree) loadTree(i *int, node *Node) *Node {
@@ -228,7 +228,7 @@ func (tree *Tree) sqlCheckpoint() error {
 		humanize.Comma(int64(float64(len(args.set))/time.Since(start).Seconds())),
 	)
 
-	if err := tree.sql.queryReport(); err != nil {
+	if err := tree.sql.queryReport(10); err != nil {
 		return err
 	}
 
@@ -277,9 +277,14 @@ type saveStats struct {
 	count  int64
 }
 
-func (tree *Tree) deepHash(sequence *uint32, node *Node) (nk NodeKey, isLeaf bool) {
+func (tree *Tree) deepHash(sequence *uint32, node *Node) (isLeaf bool, isDirty bool) {
+
 	isLeaf = node.isLeaf()
+
+	// if the node version is equal to the tree version, then this node was updated in this tree version (batch)
+	// and must be written to storage.
 	if node.nodeKey.Version() == tree.version {
+		isDirty = true
 		if isLeaf {
 			tree.leaves = append(tree.leaves, node)
 		} else {
@@ -287,25 +292,36 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) (nk NodeKey, isLeaf boo
 		}
 	}
 
+	// tree nodes with a hash are already persisted.
+	// leaf nodes with a hash may or may not be persisted.
+	// either way we end recursion here.
 	if node.hash != nil {
-		return node.nodeKey, isLeaf
+		return isLeaf, isDirty
 	}
 
-	var leftIsLeaf, rightIsLeaf bool
-	if !isLeaf {
-		node.leftNodeKey, leftIsLeaf = tree.deepHash(sequence, node.left(tree))
-		node.rightNodeKey, rightIsLeaf = tree.deepHash(sequence, node.right(tree))
-	}
+	// When reading leaves, this will initiate a read from storage for the sole purpose of producing a hash.
+	// we can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
+	// format to iavl v0 where left/right hash are stored in the node.
+	leftIsLeaf, leftisDirty := tree.deepHash(sequence, node.left(tree))
+	rightIsLeaf, rightIsDirty := tree.deepHash(sequence, node.right(tree))
 
 	node._hash(tree.version)
+
+	// will be returned to the pool in BatchSet if not below
 	if leftIsLeaf {
+		if !leftisDirty {
+			tree.pool.Put(node.leftNode)
+		}
 		node.leftNode = nil
 	}
 	if rightIsLeaf {
+		if !rightIsDirty {
+			tree.pool.Put(node.rightNode)
+		}
 		node.rightNode = nil
 	}
 
-	return node.nodeKey, isLeaf
+	return false, isDirty
 }
 
 func (tree *Tree) dirtyCount(node *Node) int64 {
@@ -390,6 +406,7 @@ func (tree *Tree) deepSave(node *Node, stats *saveStats) (count int64, err error
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
 func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
+
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -419,9 +436,6 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
-	//if tree.version == 6 && tree.workingSize == 2861 && node.isLeaf() {
-	//	fmt.Println("here")
-	//}
 	if node == nil {
 		panic("node is nil")
 	}
@@ -434,9 +448,9 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			parent.key = node.key
 			parent.subtreeHeight = 1
 			parent.size = 2
-			parent.leftNode = tree.NewNode(key, value, tree.version)
-			parent.rightNode = node
 			parent.dirty = true
+			parent.setLeft(tree.NewNode(key, value, tree.version))
+			parent.setRight(node)
 
 			tree.workingBytes += parent.sizeBytes()
 			tree.workingSize++
@@ -448,9 +462,9 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			parent.key = key
 			parent.subtreeHeight = 1
 			parent.size = 2
-			parent.leftNode = node
-			parent.rightNode = tree.NewNode(key, value, tree.version)
 			parent.dirty = true
+			parent.setLeft(node)
+			parent.setRight(tree.NewNode(key, value, tree.version))
 
 			tree.workingBytes += parent.sizeBytes()
 			tree.workingSize++
@@ -459,45 +473,48 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			tree.addOrphan(node)
 			//return tree.NewNode(key, value, tree.version), true, nil
 
-			//tree.mutateNode(node)
-			//node.value = value
-			//node._hash(tree.version + 1)
-			//node.value = nil
-			//return node, true, nil
+			tree.mutateNode(node)
+			node.value = value
+			node._hash(tree.version + 1)
+			node.value = nil
+			return node, true, nil
 
-			n := tree.pool.Get()
-
-			n.nodeKey = tree.nextNodeKey()
-
-			n.key = key
-			n.value = value
-			n.subtreeHeight = 0
-			n.size = 1
-			n._hash(tree.version + 1)
-			n.value = nil
-			n.dirty = true
-
-			if !node.dirty {
-				tree.workingBytes += n.sizeBytes()
-				tree.workingSize++
-			}
-			return n, true, nil
+			//n := tree.pool.Get()
+			//n.nodeKey = tree.nextNodeKey()
+			//
+			//n.key = key
+			//n.value = value
+			//n.subtreeHeight = 0
+			//n.size = 1
+			//n._hash(tree.version + 1)
+			//n.value = nil
+			//n.dirty = true
+			//
+			//if !node.dirty {
+			//	tree.workingBytes += n.sizeBytes()
+			//	tree.workingSize++
+			//}
+			//tree.pool.Put(node)
+			//return n, true, nil
 		}
 
 	} else {
 		tree.addOrphan(node)
 		tree.mutateNode(node)
 
+		var child *Node
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated, err = tree.recursiveSet(node.left(tree), key, value)
+			child, updated, err = tree.recursiveSet(node.left(tree), key, value)
 			if err != nil {
 				return nil, updated, err
 			}
+			node.setLeft(child)
 		} else {
-			node.rightNode, updated, err = tree.recursiveSet(node.right(tree), key, value)
+			child, updated, err = tree.recursiveSet(node.right(tree), key, value)
 			if err != nil {
 				return nil, updated, err
 			}
+			node.setRight(child)
 		}
 
 		if updated {
@@ -640,7 +657,8 @@ func (tree *Tree) Height() int8 {
 
 func (tree *Tree) nextNodeKey() NodeKey {
 	tree.sequence++
-	return NewNodeKey(tree.version+1, tree.sequence)
+	nk := NewNodeKey(tree.version+1, tree.sequence)
+	return nk
 }
 
 func (tree *Tree) mutateNode(node *Node) {

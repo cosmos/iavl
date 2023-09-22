@@ -24,7 +24,9 @@ type sqliteDb struct {
 	queryLeaf *sqlite3.Stmt
 
 	queryDurations []time.Duration
-	querySeconds   float64
+	queryTime      time.Duration
+	queryCount     int64
+	queryLeafMiss  int64
 }
 
 func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
@@ -181,7 +183,9 @@ func (sql *sqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 				humanize.Comma(int64(float64(batchSize)/time.Since(since).Seconds())))
 			since = time.Now()
 		}
-		sql.pool.Put(node)
+		if leaves {
+			sql.pool.Put(node)
+		}
 	}
 	err = sql.write.Commit()
 	if err != nil {
@@ -261,7 +265,8 @@ func (sql *sqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 
 	dur := time.Since(start)
 	sql.queryDurations = append(sql.queryDurations, dur)
-	sql.querySeconds += dur.Seconds()
+	sql.queryTime += dur
+	sql.queryCount++
 
 	return node, nil
 }
@@ -291,7 +296,8 @@ func (sql *sqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 
 	dur := time.Since(start)
 	sql.queryDurations = append(sql.queryDurations, dur)
-	sql.querySeconds += dur.Seconds()
+	sql.queryTime += dur
+	sql.queryCount++
 
 	return node, nil
 }
@@ -537,11 +543,13 @@ func (sql *sqliteDb) resetShardQueries() error {
 	return q.Close()
 }
 
-func (sql *sqliteDb) queryReport() error {
-	fmt.Printf("queries=%s q/s=%s\n",
-		humanize.Comma(int64(len(sql.queryDurations))),
-		humanize.Commaf(
-			float64(len(sql.queryDurations))/sql.querySeconds),
+func (sql *sqliteDb) queryReport(bins int) error {
+	fmt.Printf("queries=%s q/s=%s dur/q=%s leaf-miss=%s, dur=%s\n",
+		humanize.Comma(sql.queryCount),
+		humanize.Comma(int64(float64(sql.queryCount)/sql.queryTime.Seconds())),
+		time.Duration(int64(sql.queryTime)/sql.queryCount),
+		humanize.Comma(sql.queryLeafMiss),
+		sql.queryTime,
 	)
 
 	var histData []float64
@@ -551,7 +559,7 @@ func (sql *sqliteDb) queryReport() error {
 		}
 		histData = append(histData, float64(d))
 	}
-	hist := histogram.Hist(20, histData)
+	hist := histogram.Hist(bins, histData)
 	err := histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
 		return time.Duration(v).String()
 	})
@@ -560,7 +568,9 @@ func (sql *sqliteDb) queryReport() error {
 	}
 
 	sql.queryDurations = nil
-	sql.querySeconds = 0
+	sql.queryTime = 0
+	sql.queryCount = 0
+	sql.queryLeafMiss = 0
 
 	return nil
 }

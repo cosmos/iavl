@@ -121,7 +121,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 
 				if tree.metrics.WriteTime > 0 {
 					fmt.Printf("leaves: wr/ms=%d dur/wr=%s dur=%s\n",
-						tree.metrics.WriteLeaves/int64(tree.metrics.WriteTime/time.Millisecond),
+						tree.metrics.WriteLeaves/tree.metrics.WriteTime.Milliseconds(),
 						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
 						tree.metrics.WriteTime,
 					)
@@ -131,6 +131,11 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 				tree.metrics.WriteDurations = nil
 				tree.metrics.WriteLeaves = 0
 				tree.metrics.WriteTime = 0
+			}
+			if cnt%(sampleRate*4) == 0 {
+				if err := tree.sql.queryReport(4); err != nil {
+					t.Fatalf("query report err %v", err)
+				}
 			}
 		}
 		hash, version, err = tree.SaveVersion()

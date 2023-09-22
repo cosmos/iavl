@@ -55,7 +55,8 @@ type Node struct {
 	rightNode     *Node
 	subtreeHeight int8
 
-	dirty bool
+	dirty  bool
+	poolId int
 }
 
 func (node *Node) isLeaf() bool {
@@ -107,6 +108,8 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 			}
 			if node.leftNode != nil {
 				return node.leftNode, nil
+			} else {
+				t.sql.queryLeafMiss++
 			}
 		}
 
@@ -135,6 +138,8 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 			}
 			if node.rightNode != nil {
 				return node.rightNode, nil
+			} else {
+				t.sql.queryLeafMiss++
 			}
 		}
 
@@ -196,12 +201,11 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 			return newNode, nil
 		}
 		// Left Right Case
-		// TODO should be mutate? ref v1 and v0
-		node.leftNodeKey = tree.nextNodeKey()
-		node.leftNode, err = tree.rotateLeft(node.leftNode)
+		newLeftNode, err := tree.rotateLeft(node.leftNode)
 		if err != nil {
 			return nil, err
 		}
+		node.setLeft(newLeftNode)
 
 		newNode, err := tree.rotateRight(node)
 		if err != nil {
@@ -230,11 +234,12 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 		}
 		// Right Left Case
 		// TODO should be mutate? ref v1 and v0
-		node.rightNodeKey = tree.nextNodeKey()
-		node.rightNode, err = tree.rotateRight(rightNode)
+		newRightNode, err := tree.rotateRight(rightNode)
 		if err != nil {
 			return nil, err
 		}
+		node.setRight(newRightNode)
+
 		newNode, err := tree.rotateLeft(node)
 		if err != nil {
 			return nil, err
@@ -314,6 +319,9 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash(version int64) []byte {
+	if node.poolId == 326784 {
+		fmt.Println("hashing node", node.poolId)
+	}
 	if node.hash != nil {
 		return node.hash
 	}
@@ -493,15 +501,10 @@ func (node *Node) Bytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-var nodeKeySize = uint64(unsafe.Sizeof(NodeKey{}))
-var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize + nodeKeySize
+var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize
 
 func (node *Node) varSize() uint64 {
-	keyLen := uint64(len(node.key))
-	if node.isLeaf() {
-		return keyLen
-	}
-	return keyLen + 2*12 // add 2 nodekeys
+	return uint64(len(node.key))
 }
 
 func (node *Node) sizeBytes() uint64 {
