@@ -106,7 +106,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 	dur := time.Since(start)
 	tree.metrics.WriteDurations = append(tree.metrics.WriteDurations, dur)
-	tree.metrics.WriteSeconds += dur.Seconds()
+	tree.metrics.WriteTime += dur
 	tree.metrics.WriteLeaves += int64(len(tree.leaves))
 
 	if tree.version == 1 {

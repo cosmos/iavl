@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"runtime"
 	"testing"
 	"time"
@@ -117,13 +118,19 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					humanize.Comma(hitCount),
 					humanize.Comma(missCount),
 					MemUsage())
-				fmt.Printf("leaf wr/s=%s\n",
-					humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteSeconds)))
+
+				if tree.metrics.WriteTime > 0 {
+					fmt.Printf("leaves: wr/ms=%d dur/wr=%s dur=%s\n",
+						tree.metrics.WriteLeaves/int64(tree.metrics.WriteTime/time.Millisecond),
+						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
+						tree.metrics.WriteTime,
+					)
+				}
 				since = time.Now()
 
 				tree.metrics.WriteDurations = nil
 				tree.metrics.WriteLeaves = 0
-				tree.metrics.WriteSeconds = 0
+				tree.metrics.WriteTime = 0
 			}
 		}
 		hash, version, err = tree.SaveVersion()
@@ -182,8 +189,8 @@ func TestTree_Build(t *testing.T) {
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
 
 	//opts := testutil.BankLockup25_000()
-	//opts := testutil.NewTreeBuildOptions()
-	opts := testutil.BigStartOptions()
+	opts := testutil.NewTreeBuildOptions()
+	//opts := testutil.BigStartOptions()
 	//opts := testutil.OsmoLike()
 	opts.Report = func() {
 		tree.metrics.Report()
@@ -298,7 +305,7 @@ func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
 	treeAndDbEqual(t, tree, rightNode, stat)
 }
 
-const osmoScalePath = "/Users/mattk/src/scratch/sqlite-osmo"
+var osmoScalePath = fmt.Sprintf("%s/src/scratch/sqlite-osmo", os.Getenv("HOME"))
 
 func TestBuild_OsmoScale(t *testing.T) {
 	tmpDir := osmoScalePath

@@ -24,7 +24,7 @@ type TreeMetrics struct {
 	PoolDirtyOverflow int64
 
 	WriteDurations []time.Duration
-	WriteSeconds   float64
+	WriteTime      time.Duration
 	WriteLeaves    int64
 }
 
