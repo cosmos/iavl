@@ -8,7 +8,9 @@ require (
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/iavl-bench/bench v0.0.2
 	github.com/dustin/go-humanize v1.0.1
+	github.com/kocubinski/costor-api v1.1.1
 	github.com/rs/zerolog v1.30.0
+	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
@@ -31,7 +33,6 @@ require (
 	github.com/google/btree v1.1.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
-	github.com/kocubinski/costor-api v1.1.0 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/linxGnu/grocksdb v1.7.15 // indirect
@@ -48,7 +49,6 @@ require (
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/spf13/cobra v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/sys v0.10.0 // indirect

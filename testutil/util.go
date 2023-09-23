@@ -1,6 +1,9 @@
 package testutil
 
-import "github.com/cosmos/iavl-bench/bench"
+import (
+	"github.com/cosmos/iavl-bench/bench"
+	"github.com/kocubinski/costor-api/compact"
+)
 
 type TreeBuildOptions struct {
 	Until       int64
@@ -172,4 +175,16 @@ func OsmoLike() TreeBuildOptions {
 	}
 
 	return opts
+}
+
+func CompactedChangelogs(logDir string) TreeBuildOptions {
+	itr, err := compact.NewChangesetIterator(logDir)
+	if err != nil {
+		panic(err)
+	}
+	return TreeBuildOptions{
+		Iterator:  itr,
+		Until:     10_000,
+		UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // OsmoLike, 10000
+	}
 }

@@ -202,6 +202,7 @@ func TestTree_Build(t *testing.T) {
 	opts := testutil.NewTreeBuildOptions()
 	//opts := testutil.BigStartOptions()
 	//opts := testutil.OsmoLike()
+	//opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 	opts.Report = func() {
 		tree.metrics.Report()
 	}
@@ -393,8 +394,8 @@ func TestOsmoScaleTree(t *testing.T) {
 		maxWorkingSize: 2 * 1024 * 1024 * 1024,
 		pool:           pool,
 	}
-	opts := testutil.OsmoLike()
-	opts.LoadVersion = 1
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
+	require.NoError(t, tree.LoadVersion(1))
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
 }
