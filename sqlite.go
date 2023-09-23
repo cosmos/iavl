@@ -552,19 +552,21 @@ func (sql *sqliteDb) queryReport(bins int) error {
 		sql.queryTime,
 	)
 
-	var histData []float64
-	for _, d := range sql.queryDurations {
-		if d > 50*time.Microsecond {
-			continue
+	if bins > 0 {
+		var histData []float64
+		for _, d := range sql.queryDurations {
+			if d > 50*time.Microsecond {
+				continue
+			}
+			histData = append(histData, float64(d))
 		}
-		histData = append(histData, float64(d))
-	}
-	hist := histogram.Hist(bins, histData)
-	err := histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
-		return time.Duration(v).String()
-	})
-	if err != nil {
-		return err
+		hist := histogram.Hist(bins, histData)
+		err := histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
+			return time.Duration(v).String()
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	sql.queryDurations = nil

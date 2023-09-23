@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"math"
 	"sync"
 )
 
@@ -9,9 +10,11 @@ type nodePool struct {
 	free     chan int
 	nodes    []Node
 	poolSize uint64
+
+	poolId uint64
 }
 
-const initialNodePoolSize = 1_000_000
+const initialNodePoolSize = 1_000
 
 func newNodePool() *nodePool {
 	np := &nodePool{
@@ -20,7 +23,7 @@ func newNodePool() *nodePool {
 				return &Node{}
 			},
 		},
-		free: make(chan int, 100_000_000),
+		free: make(chan int, 1000),
 	}
 	np.grow(initialNodePoolSize)
 	return np
@@ -31,26 +34,39 @@ func (np *nodePool) grow(amount int) {
 	log.Warn().Msgf("growing node pool amount=%d; size=%d", amount, startSize+amount)
 	for i := startSize; i < startSize+amount; i++ {
 		np.free <- i
-		np.nodes = append(np.nodes, Node{poolId: i})
+		//np.nodes = append(np.nodes, Node{poolId: i})
 		np.poolSize += nodeSize
 	}
 }
 
 func (np *nodePool) Get() *Node {
-	if len(np.free) == 0 {
-		np.grow(len(np.nodes))
+	if np.poolId == math.MaxUint64 {
+		np.poolId = 1
+	} else {
+		np.poolId++
 	}
-	poolId := <-np.free
-	node := &np.nodes[poolId]
-	if node.hash != nil {
-		panic("invariant violated: node hash should be nil when fetched from pool")
-	}
-	return node
+	n := np.syncPool.Get().(*Node)
+	n.poolId = np.poolId
+	return n
+
+	//return &Node{}
+
+	//if len(np.free) == 0 {
+	//	np.grow(len(np.nodes))
+	//}
+	//poolId := <-np.free
+	//node := &np.nodes[poolId]
+	//if node.hash != nil {
+	//	panic("invariant violated: node hash should be nil when fetched from pool")
+	//}
+	//return node
 }
 
 func (np *nodePool) Put(node *Node) {
 	np.resetNode(node)
-	np.free <- node.poolId
+	node.poolId = 0
+	np.syncPool.Put(node)
+	//np.free <- node.poolId
 }
 
 func (np *nodePool) resetNode(node *Node) {

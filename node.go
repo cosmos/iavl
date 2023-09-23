@@ -56,7 +56,7 @@ type Node struct {
 	subtreeHeight int8
 
 	dirty  bool
-	poolId int
+	poolId uint64
 }
 
 func (node *Node) isLeaf() bool {
@@ -319,9 +319,6 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash(version int64) []byte {
-	if node.poolId == 326784 {
-		fmt.Println("hashing node", node.poolId)
-	}
 	if node.hash != nil {
 		return node.hash
 	}
