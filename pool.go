@@ -6,7 +6,10 @@ import (
 )
 
 type NodePool struct {
-	syncPool *sync.Pool
+	syncPool      *sync.Pool
+	hashBytesPool *sync.Pool
+	keyBytesPool  *sync.Pool
+
 	free     chan int
 	nodes    []Node
 	poolSize uint64
@@ -23,9 +26,19 @@ func NewNodePool() *NodePool {
 				return &Node{}
 			},
 		},
+		hashBytesPool: &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 0, 32)
+			},
+		},
+		keyBytesPool: &sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 0)
+			},
+		},
 		free: make(chan int, 1000),
 	}
-	np.grow(initialNodePoolSize)
+	//np.grow(initialNodePoolSize)
 	return np
 }
 

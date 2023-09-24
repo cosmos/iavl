@@ -123,7 +123,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 						humanize.Comma(tree.metrics.WriteLeaves),
 						humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteTime.Seconds())),
 						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
-						tree.metrics.WriteTime,
+						tree.metrics.WriteTime.Round(time.Millisecond),
 					)
 				}
 
@@ -384,14 +384,20 @@ func TestOsmoScaleTree(t *testing.T) {
 	require.NoError(t, err)
 
 	tree := &Tree{
+		pool:           pool,
 		metrics:        &metrics.TreeMetrics{},
 		sql:            sql,
 		cache:          NewNodeCache(),
 		maxWorkingSize: 2 * 1024 * 1024 * 1024,
 	}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
+	root, err := sql.ImportSnapshot(1, false)
+
 	require.NoError(t, tree.LoadVersion(1))
-	require.NoError(t, tree.WarmTree())
+	require.NoError(t, err)
+	tree.root = root
+
+	require.NoError(t, sql.WarmLeaves())
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
 }
@@ -403,7 +409,7 @@ func TestTree_Import(t *testing.T) {
 	sql, err := NewSqliteDb(pool, tmpDir, false)
 	require.NoError(t, err)
 
-	root, err := sql.ImportSnapshot(1)
+	root, err := sql.ImportSnapshot(1, true)
 	require.NoError(t, err)
 	require.NotNil(t, root)
 }

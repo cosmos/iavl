@@ -162,9 +162,9 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.orphans = nil
 
 	if tree.sql != nil {
-		err := tree.sql.SaveRoot(tree.version, tree.root)
+		err = tree.sql.SaveRoot(tree.version, tree.root)
 		if err != nil {
-			return nil, tree.version, err
+			return nil, tree.version, fmt.Errorf("failed to save root: %w", err)
 		}
 	}
 
@@ -318,7 +318,8 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) (isLeaf bool, isDirty b
 	}
 
 	// When reading leaves, this will initiate a read from storage for the sole purpose of producing a hash.
-	// we can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
+	// Recall that a terminal tree node may have only updated one leaf this version.
+	// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
 	// format to iavl v0 where left/right hash are stored in the node.
 	leftIsLeaf, leftisDirty := tree.deepHash(sequence, node.left(tree))
 	rightIsLeaf, rightIsDirty := tree.deepHash(sequence, node.right(tree))

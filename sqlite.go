@@ -94,6 +94,14 @@ func (sql *SqliteDb) resetReadConn() (err error) {
 	return err
 }
 
+func (sql *SqliteDb) getReadConn() (*sqlite3.Conn, error) {
+	var err error
+	if sql.read == nil {
+		sql.read, err = sql.newReadConn()
+	}
+	return sql.read, err
+}
+
 func (sql *SqliteDb) initNewDb() error {
 	err := sql.write.Exec(`
 CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
@@ -557,7 +565,7 @@ func (sql *SqliteDb) queryReport(bins int) error {
 		humanize.Comma(int64(float64(sql.queryCount)/sql.queryTime.Seconds())),
 		time.Duration(int64(sql.queryTime)/sql.queryCount),
 		humanize.Comma(sql.queryLeafMiss),
-		sql.queryTime,
+		sql.queryTime.Round(time.Millisecond),
 	)
 
 	if bins > 0 {
@@ -587,12 +595,11 @@ func (sql *SqliteDb) queryReport(bins int) error {
 
 func (sql *SqliteDb) WarmLeaves() error {
 	start := time.Now()
-	if sql.read == nil {
-		if err := sql.resetReadConn(); err != nil {
-			return err
-		}
+	read, err := sql.getReadConn()
+	if err != nil {
+		return err
 	}
-	stmt, err := sql.read.Prepare("SELECT version, sequence, bytes FROM leaf")
+	stmt, err := read.Prepare("SELECT version, sequence, bytes FROM leaf")
 	if err != nil {
 		return err
 	}
@@ -755,20 +762,38 @@ func (snap *sqliteSnapshot) prepareWrite() error {
 	return err
 }
 
-func (sql *SqliteDb) ImportSnapshot(version int64) (*Node, error) {
-	if err := sql.resetReadConn(); err != nil {
+func (sql *SqliteDb) ImportSnapshot(version int64, loadLeaves bool) (*Node, error) {
+	read, err := sql.getReadConn()
+	if err != nil {
 		return nil, err
 	}
-	q, err := sql.read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal", version))
+	q, err := read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal", version))
+	if err != nil {
+		return nil, err
+	}
+	defer func(q *sqlite3.Stmt) {
+		err = q.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("error closing import query")
+		}
+	}(q)
+
+	imp := &sqliteImport{
+		query:      q,
+		pool:       sql.pool,
+		loadLeaves: loadLeaves,
+		since:      time.Now(),
+	}
+	root, err := imp.step()
 	if err != nil {
 		return nil, err
 	}
 
-	root, err := sql.importStep(q)
-	if err != nil {
-		return nil, err
+	if !loadLeaves {
+		return root, nil
 	}
 
+	// if full tree was loaded then rehash the full tree to validate integrity of the snapshot
 	tree := NewTree(sql, sql.pool)
 	if err = tree.LoadVersion(version); err != nil {
 		return nil, err
@@ -794,35 +819,57 @@ func rehashTree(version int64, node *Node) {
 	node._hash(version)
 }
 
-func (sql *SqliteDb) importStep(q *sqlite3.Stmt) (node *Node, err error) {
-	hasRow, err := q.Step()
+type sqliteImport struct {
+	query      *sqlite3.Stmt
+	pool       *NodePool
+	loadLeaves bool
+
+	i     int64
+	since time.Time
+}
+
+func (sqlImport *sqliteImport) step() (node *Node, err error) {
+	sqlImport.i++
+	if sqlImport.i%1_000_000 == 0 {
+		log.Debug().Msgf("import: nodes=%s, node/s=%s",
+			humanize.Comma(sqlImport.i),
+			humanize.Comma(int64(float64(1_000_000)/time.Since(sqlImport.since).Seconds())),
+		)
+		sqlImport.since = time.Now()
+	}
+
+	hasRow, err := sqlImport.query.Step()
 	if !hasRow {
-		return nil, q.Reset()
+		return nil, sqlImport.query.Reset()
 	}
 	if err != nil {
 		return nil, err
 	}
 	var bz sqlite3.RawBytes
 	var version, seq int
-	err = q.Scan(&version, &seq, &bz)
+	err = sqlImport.query.Scan(&version, &seq, &bz)
 	if err != nil {
 		return nil, err
 	}
 	nodeKey := NewNodeKey(int64(version), uint32(seq))
-	node, err = MakeNode(sql.pool, nodeKey, bz)
+	node, err = MakeNode(sqlImport.pool, nodeKey, bz)
 	if err != nil {
 		return nil, err
 	}
 
 	if node.isLeaf() {
-		return node, nil
+		if sqlImport.loadLeaves {
+			return node, nil
+		}
+		sqlImport.pool.Put(node)
+		return nil, nil
 	}
 
-	node.leftNode, err = sql.importStep(q)
+	node.leftNode, err = sqlImport.step()
 	if err != nil {
 		return nil, err
 	}
-	node.rightNode, err = sql.importStep(q)
+	node.rightNode, err = sqlImport.step()
 	if err != nil {
 		return nil, err
 	}

@@ -6,8 +6,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"math"
+	"sync"
 	"unsafe"
 
 	encoding "github.com/cosmos/iavl/v2/internal"
@@ -316,6 +318,12 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	return newNode, nil
 }
 
+var hashPool = &sync.Pool{
+	New: func() any {
+		return sha256.New()
+	},
+}
+
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash(version int64) []byte {
@@ -323,11 +331,13 @@ func (node *Node) _hash(version int64) []byte {
 		return node.hash
 	}
 
-	h := sha256.New()
+	h := hashPool.Get().(hash.Hash)
 	if err := node.writeHashBytes(h, version); err != nil {
 		return nil
 	}
 	node.hash = h.Sum(nil)
+	h.Reset()
+	hashPool.Put(h)
 
 	return node.hash
 }
