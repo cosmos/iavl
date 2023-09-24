@@ -397,7 +397,7 @@ func TestOsmoScaleTree(t *testing.T) {
 }
 
 func TestTree_Import(t *testing.T) {
-	tmpDir := "/tmp"
+	tmpDir := "/Users/mattk/src/scratch/sqlite/height-zero"
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, false)
@@ -410,7 +410,7 @@ func TestTree_Import(t *testing.T) {
 
 func TestTree_Rehash(t *testing.T) {
 	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, "/tmp", false)
+	sql, err := NewSqliteDb(pool, "/Users/mattk/src/scratch/sqlite/height-zero", false)
 	require.NoError(t, err)
 	tree := NewTree(sql, pool)
 	require.NoError(t, tree.LoadVersion(1))

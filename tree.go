@@ -45,6 +45,7 @@ func NewTree(sql *SqliteDb, pool *NodePool) *Tree {
 		sql:            sql,
 		pool:           pool,
 		cache:          NewNodeCache(),
+		metrics:        &metrics.TreeMetrics{},
 		maxWorkingSize: 2 * 1024 * 1024 * 1024,
 	}
 	return tree
