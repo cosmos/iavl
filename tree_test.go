@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -120,9 +119,9 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					MemUsage())
 
 				if tree.metrics.WriteTime > 0 {
-					fmt.Printf("writes: cnt=%s wr/ms=%d dur/wr=%s dur=%s\n",
+					fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s\n",
 						humanize.Comma(tree.metrics.WriteLeaves),
-						tree.metrics.WriteLeaves/tree.metrics.WriteTime.Milliseconds(),
+						humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteTime.Seconds())),
 						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
 						tree.metrics.WriteTime,
 					)
@@ -176,24 +175,23 @@ func TestTree_Build(t *testing.T) {
 	tmpDir := t.TempDir()
 	//tmpDir := "/tmp/leaves"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
-	levelDb, err := leveldb.New("iavl_test", tmpDir)
-	require.NoError(t, err)
+	//levelDb, err := leveldb.New("iavl_test", tmpDir)
+	//require.NoError(t, err)
 
-	pool := newNodePool()
-	sql, err := newSqliteDb(tmpDir, true)
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, true)
 	require.NoError(t, err)
-	sql.pool = pool
 
 	tree := &Tree{
-		metrics:        &metrics.TreeMetrics{},
-		db:             &kvDB{db: levelDb, pool: pool},
+		metrics: &metrics.TreeMetrics{},
+		//db:             &kvDB{db: levelDb, pool: pool},
 		sql:            sql,
 		cache:          NewNodeCache(),
 		maxWorkingSize: 5 * 1024 * 1024 * 1024,
 		pool:           pool,
 	}
-	tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
-	tree.checkpointer.sqliteDb = sql
+	//tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
+	//tree.checkpointer.sqliteDb = sql
 
 	//tree.pool.metrics = tree.metrics
 	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
@@ -321,17 +319,16 @@ var osmoScalePath = fmt.Sprintf("%s/src/scratch/sqlite-osmo", os.Getenv("HOME"))
 func TestBuild_OsmoScale(t *testing.T) {
 	tmpDir := osmoScalePath
 
-	pool := newNodePool()
-	sql, err := newSqliteDb(tmpDir, true)
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, true)
 	require.NoError(t, err)
-	sql.pool = pool
 
 	tree := &Tree{
+		pool:           pool,
 		metrics:        &metrics.TreeMetrics{},
 		sql:            sql,
 		cache:          NewNodeCache(),
 		maxWorkingSize: 1024 * 1024 * 1024,
-		pool:           pool,
 	}
 
 	opts := testutil.OsmoLike()
@@ -382,20 +379,55 @@ func TestBuild_OsmoScale(t *testing.T) {
 func TestOsmoScaleTree(t *testing.T) {
 	tmpDir := "/tmp"
 
-	pool := newNodePool()
-	sql, err := newSqliteDb(tmpDir, false)
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, false)
 	require.NoError(t, err)
-	sql.pool = pool
 
 	tree := &Tree{
 		metrics:        &metrics.TreeMetrics{},
 		sql:            sql,
 		cache:          NewNodeCache(),
 		maxWorkingSize: 2 * 1024 * 1024 * 1024,
-		pool:           pool,
 	}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 	require.NoError(t, tree.LoadVersion(1))
+	require.NoError(t, tree.WarmTree())
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
+}
+
+func TestTree_Import(t *testing.T) {
+	tmpDir := "/tmp"
+
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, false)
+	require.NoError(t, err)
+
+	root, err := sql.ImportSnapshot(1)
+	require.NoError(t, err)
+	require.NotNil(t, root)
+}
+
+func TestTree_Rehash(t *testing.T) {
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, "/tmp", false)
+	require.NoError(t, err)
+	tree := NewTree(sql, pool)
+	require.NoError(t, tree.LoadVersion(1))
+
+	savedHash := make([]byte, 32)
+	n := copy(savedHash, tree.root.hash)
+	require.Equal(t, 32, n)
+	var step func(node *Node)
+	step = func(node *Node) {
+		if node.isLeaf() {
+			return
+		}
+		node.hash = nil
+		step(node.left(tree))
+		step(node.right(tree))
+		node._hash(1)
+	}
+	step(tree.root)
+	require.Equal(t, savedHash, tree.root.hash)
 }

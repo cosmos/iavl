@@ -1,6 +1,9 @@
 package iavl
 
 import (
+	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -10,12 +13,12 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
-type sqliteDb struct {
+type SqliteDb struct {
 	connString string
 	write      *sqlite3.Conn
 	read       *sqlite3.Conn
 
-	pool *nodePool
+	pool *NodePool
 
 	shardId      int64
 	shards       map[int64]*sqlite3.Stmt
@@ -29,11 +32,12 @@ type sqliteDb struct {
 	queryLeafMiss  int64
 }
 
-func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
-	sql := &sqliteDb{
+func NewSqliteDb(pool *NodePool, path string, newDb bool) (*SqliteDb, error) {
+	sql := &SqliteDb{
 		shards:       make(map[int64]*sqlite3.Stmt),
 		versionShard: make(map[int64]int64),
 		connString:   fmt.Sprintf("file:%s/iavl-v2.db", path),
+		pool:         pool,
 	}
 
 	var err error
@@ -67,7 +71,7 @@ func newSqliteDb(path string, newDb bool) (*sqliteDb, error) {
 	return sql, nil
 }
 
-func (sql *sqliteDb) newReadConn() (*sqlite3.Conn, error) {
+func (sql *SqliteDb) newReadConn() (*sqlite3.Conn, error) {
 	conn, err := sqlite3.Open(sql.connString)
 	if err != nil {
 		return nil, err
@@ -79,7 +83,7 @@ func (sql *sqliteDb) newReadConn() (*sqlite3.Conn, error) {
 	return conn, nil
 }
 
-func (sql *sqliteDb) resetReadConn() (err error) {
+func (sql *SqliteDb) resetReadConn() (err error) {
 	if sql.read != nil {
 		err = sql.read.Close()
 		if err != nil {
@@ -90,7 +94,7 @@ func (sql *sqliteDb) resetReadConn() (err error) {
 	return err
 }
 
-func (sql *sqliteDb) initNewDb() error {
+func (sql *SqliteDb) initNewDb() error {
 	err := sql.write.Exec(`
 CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
 CREATE TABLE leaf (version int, sequence int, bytes blob);
@@ -114,7 +118,7 @@ CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 	return nil
 }
 
-func (sql *sqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []int64, err error) {
+func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []int64, err error) {
 	batchSize := 200_000
 	var byteCount int64
 	versionMap := make(map[int64]bool)
@@ -215,7 +219,7 @@ func (sql *sqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 	return byteCount, versions, nil
 }
 
-func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
+func (sql *SqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 	id, ok := sql.versionShard[version]
 	if !ok {
 		return nil, fmt.Errorf("shard not found for version %d", version)
@@ -227,7 +231,7 @@ func (sql *sqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
 	return q, nil
 }
 
-func (sql *sqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
+func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	start := time.Now()
 
 	var err error
@@ -250,7 +254,9 @@ func (sql *sqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeBz, err := sql.queryLeaf.ColumnBlob(0)
+	//nodeBz, err := sql.queryLeaf.ColumnBlob(0)
+	var nodeBz sqlite3.RawBytes
+	err = sql.queryLeaf.Scan(&nodeBz)
 	if err != nil {
 		return nil, err
 	}
@@ -271,7 +277,7 @@ func (sql *sqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	return node, nil
 }
 
-func (sql *sqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
+func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	start := time.Now()
 
 	if err := q.Bind(nodeKey.Version(), int(nodeKey.Sequence())); err != nil {
@@ -284,7 +290,9 @@ func (sql *sqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeBz, err := q.ColumnBlob(0)
+	//nodeBz, err := q.ColumnBlob(0)
+	var nodeBz sqlite3.RawBytes
+	err = q.Scan(&nodeBz)
 	node, err := MakeNode(sql.pool, nodeKey, nodeBz)
 	if err != nil {
 		return nil, err
@@ -302,7 +310,7 @@ func (sql *sqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	return node, nil
 }
 
-func (sql *sqliteDb) Get(nodeKey NodeKey) (*Node, error) {
+func (sql *SqliteDb) Get(nodeKey NodeKey) (*Node, error) {
 	q, err := sql.GetShardQuery(nodeKey.Version())
 	if err != nil {
 		return nil, err
@@ -310,11 +318,11 @@ func (sql *sqliteDb) Get(nodeKey NodeKey) (*Node, error) {
 	return sql.getNode(nodeKey, q)
 }
 
-func (sql *sqliteDb) Delete(nodeKey []byte) error {
+func (sql *SqliteDb) Delete(nodeKey []byte) error {
 	return nil
 }
 
-func (sql *sqliteDb) Close() error {
+func (sql *SqliteDb) Close() error {
 	for _, q := range sql.shards {
 		err := q.Close()
 		if err != nil {
@@ -337,7 +345,7 @@ func (sql *sqliteDb) Close() error {
 	return nil
 }
 
-func (sql *sqliteDb) MapVersions(versions []int64, shardId int64) error {
+func (sql *SqliteDb) MapVersions(versions []int64, shardId int64) error {
 	err := sql.write.Begin()
 	if err != nil {
 		return err
@@ -358,7 +366,7 @@ func (sql *sqliteDb) MapVersions(versions []int64, shardId int64) error {
 	return sql.write.Commit()
 }
 
-func (sql *sqliteDb) NextShard() error {
+func (sql *SqliteDb) NextShard() error {
 	// initialize shardId if not done so. done with a new connection.
 	if sql.shardId == 0 {
 		conn, err := sqlite3.Open(sql.connString)
@@ -406,18 +414,18 @@ func (sql *sqliteDb) NextShard() error {
 	return err
 }
 
-func (sql *sqliteDb) IndexShard(shardId int64) error {
+func (sql *SqliteDb) IndexShard(shardId int64) error {
 	err := sql.write.Exec(fmt.Sprintf("CREATE INDEX tree_%d_node_key_idx ON tree_%d (node_key);", shardId, shardId))
 	return err
 }
 
-func (sql *sqliteDb) SaveRoot(version int64, node *Node) error {
+func (sql *SqliteDb) SaveRoot(version int64, node *Node) error {
 	err := sql.write.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
 		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()))
 	return err
 }
 
-func (sql *sqliteDb) LoadRoot(version int64) (*Node, error) {
+func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 	conn, err := sql.newReadConn()
 	if err != nil {
 		return nil, err
@@ -461,7 +469,7 @@ func (sql *sqliteDb) LoadRoot(version int64) (*Node, error) {
 	return rootNode, nil
 }
 
-func (sql *sqliteDb) addShardQuery() error {
+func (sql *SqliteDb) addShardQuery() error {
 	if _, ok := sql.shards[sql.shardId]; ok {
 		return nil
 	}
@@ -480,7 +488,7 @@ func (sql *sqliteDb) addShardQuery() error {
 	return nil
 }
 
-func (sql *sqliteDb) resetShardQueries() error {
+func (sql *SqliteDb) resetShardQueries() error {
 	for _, q := range sql.shards {
 		err := q.Close()
 		if err != nil {
@@ -543,7 +551,7 @@ func (sql *sqliteDb) resetShardQueries() error {
 	return q.Close()
 }
 
-func (sql *sqliteDb) queryReport(bins int) error {
+func (sql *SqliteDb) queryReport(bins int) error {
 	fmt.Printf("queries=%s q/s=%s dur/q=%s leaf-miss=%s, dur=%s\n",
 		humanize.Comma(sql.queryCount),
 		humanize.Comma(int64(float64(sql.queryCount)/sql.queryTime.Seconds())),
@@ -575,4 +583,246 @@ func (sql *sqliteDb) queryReport(bins int) error {
 	sql.queryLeafMiss = 0
 
 	return nil
+}
+
+func (sql *SqliteDb) WarmLeaves() error {
+	start := time.Now()
+	if sql.read == nil {
+		if err := sql.resetReadConn(); err != nil {
+			return err
+		}
+	}
+	stmt, err := sql.read.Prepare("SELECT version, sequence, bytes FROM leaf")
+	if err != nil {
+		return err
+	}
+	var cnt int64
+	for {
+		cnt++
+		ok, err := stmt.Step()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		var version, seq int64
+		var bz sqlite3.RawBytes
+		err = stmt.Scan(&version, &seq, &bz)
+		if err != nil {
+			return err
+		}
+		if cnt%5_000_000 == 0 {
+			log.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+		}
+	}
+
+	log.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
+	return stmt.Close()
+}
+
+type sqliteNode struct {
+	ordinal  int
+	version  int
+	sequence int
+	bz       []byte
+}
+
+func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) error {
+	err := sql.write.Exec(
+		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
+	if err != nil {
+		return err
+	}
+	err = tree.LoadVersion(version)
+	if err != nil {
+		return err
+	}
+
+	snapshot := &sqliteSnapshot{
+		ctx:       ctx,
+		conn:      sql.write,
+		batchSize: 200_000,
+		version:   version,
+		getLeft: func(node *Node) *Node {
+			return node.left(tree)
+		},
+		getRight: func(node *Node) *Node {
+			return node.right(tree)
+		},
+	}
+	if err = snapshot.prepareWrite(); err != nil {
+		return err
+	}
+	if err = snapshot.writeStep(tree.root); err != nil {
+		return err
+	}
+	if err = snapshot.flush(); err != nil {
+		return err
+	}
+	log.Info().Msgf("creating index on snapshot_%d", version)
+	err = sql.write.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
+	return err
+}
+
+type sqliteSnapshot struct {
+	ctx       context.Context
+	conn      *sqlite3.Conn
+	batch     *sqlite3.Stmt
+	lastWrite time.Time
+	ordinal   int
+	batchSize int
+	version   int64
+	getLeft   func(*Node) *Node
+	getRight  func(*Node) *Node
+}
+
+func (snap *sqliteSnapshot) writeStep(node *Node) error {
+	snap.ordinal++
+	// Pre-order, NLR traversal
+	// Visit this node
+	nodeBz, err := node.Bytes()
+	if err != nil {
+		return err
+	}
+	err = snap.batch.Exec(snap.ordinal, node.nodeKey.Version(), int(node.nodeKey.Sequence()), nodeBz)
+	if err != nil {
+		return err
+	}
+
+	if snap.ordinal%snap.batchSize == 0 {
+		if err = snap.flush(); err != nil {
+			return err
+		}
+		if err = snap.prepareWrite(); err != nil {
+			return err
+		}
+	}
+
+	if node.isLeaf() {
+		return nil
+	}
+
+	// traverse left
+	err = snap.writeStep(snap.getLeft(node))
+	if err != nil {
+		return err
+	}
+
+	// traverse right
+	return snap.writeStep(snap.getRight(node))
+}
+
+func (snap *sqliteSnapshot) flush() error {
+	select {
+	case <-snap.ctx.Done():
+		log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
+		return errors.Join(
+			snap.batch.Reset(),
+			snap.batch.Close(),
+			snap.conn.Rollback(),
+			snap.conn.Close())
+	default:
+	}
+
+	log.Info().Msgf("flush total=%s, batch=%s, dur=%s, wr/s=%s",
+		humanize.Comma(int64(snap.ordinal)),
+		humanize.Comma(int64(snap.batchSize)),
+		time.Since(snap.lastWrite).Round(time.Millisecond),
+		humanize.Comma(int64(float64(snap.batchSize)/time.Since(snap.lastWrite).Seconds())),
+	)
+
+	err := snap.conn.Commit()
+	if err != nil {
+		return err
+	}
+	err = snap.batch.Close()
+	if err != nil {
+		return err
+	}
+	snap.lastWrite = time.Now()
+	return nil
+}
+
+func (snap *sqliteSnapshot) prepareWrite() error {
+	err := snap.conn.Begin()
+	if err != nil {
+		return err
+	}
+	insert := fmt.Sprintf("INSERT INTO snapshot_%d (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);",
+		snap.version)
+	snap.batch, err = snap.conn.Prepare(insert)
+	return err
+}
+
+func (sql *SqliteDb) ImportSnapshot(version int64) (*Node, error) {
+	if err := sql.resetReadConn(); err != nil {
+		return nil, err
+	}
+	q, err := sql.read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal", version))
+	if err != nil {
+		return nil, err
+	}
+	root, err := sql.importStep(q)
+	if err != nil {
+		return nil, err
+	}
+
+	tree := NewTree(sql, sql.pool)
+	if err = tree.LoadVersion(version); err != nil {
+		return nil, err
+	}
+	rehashTree(version, root)
+	if !bytes.Equal(root.hash, tree.root.hash) {
+		return nil, fmt.Errorf("root hash mismatch: %x != %x", root.hash, tree.root.hash)
+	}
+
+	return root, nil
+}
+
+func rehashTree(version int64, node *Node) {
+	if node == nil {
+		return
+	}
+	node.hash = nil
+
+	rehashTree(version, node.leftNode)
+	rehashTree(version, node.rightNode)
+
+	node._hash(version)
+}
+
+func (sql *SqliteDb) importStep(q *sqlite3.Stmt) (node *Node, err error) {
+	hasRow, err := q.Step()
+	if !hasRow {
+		return nil, q.Reset()
+	}
+	if err != nil {
+		return nil, err
+	}
+	var bz sqlite3.RawBytes
+	var version, seq int
+	err = q.Scan(&version, &seq, &bz)
+	if err != nil {
+		return nil, err
+	}
+	nodeKey := NewNodeKey(int64(version), uint32(seq))
+	node, err = MakeNode(sql.pool, nodeKey, bz)
+	if err != nil {
+		return nil, err
+	}
+
+	if node.isLeaf() {
+		return node, nil
+	}
+
+	node.leftNode, err = sql.importStep(q)
+	if err != nil {
+		return nil, err
+	}
+	node.rightNode, err = sql.importStep(q)
+	if err != nil {
+		return nil, err
+	}
+	return node, nil
 }

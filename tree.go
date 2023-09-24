@@ -22,11 +22,11 @@ type Tree struct {
 	root           *Node
 	metrics        *metrics.TreeMetrics
 	db             *kvDB
-	sql            *sqliteDb
+	sql            *SqliteDb
 	lastCheckpoint int64
 	orphans        []NodeKey
 	cache          *NodeCache
-	pool           *nodePool
+	pool           *NodePool
 	checkpointer   *checkpointer
 
 	workingBytes uint64
@@ -38,6 +38,16 @@ type Tree struct {
 	branches []*Node
 	leaves   []*Node
 	sequence uint32
+}
+
+func NewTree(sql *SqliteDb, pool *NodePool) *Tree {
+	tree := &Tree{
+		sql:            sql,
+		pool:           pool,
+		cache:          NewNodeCache(),
+		maxWorkingSize: 2 * 1024 * 1024 * 1024,
+	}
+	return tree
 }
 
 func (tree *Tree) LoadVersion(version int64) error {
@@ -59,14 +69,21 @@ func (tree *Tree) LoadVersion(version int64) error {
 	}
 	// TODO
 	tree.lastCheckpoint = version
+	return nil
+}
 
+func (tree *Tree) WarmTree() error {
 	var i int
 	start := time.Now()
-	log.Info().Msgf("loading tree into memory version=%d", version)
+	log.Info().Msgf("loading tree into memory version=%d", tree.version)
 	tree.loadTree(&i, tree.root)
 	log.Info().Msgf("loaded %s tree nodes into memory version=%d dur=%s",
 		humanize.Comma(int64(i)),
-		version, time.Since(start).Round(time.Millisecond))
+		tree.version, time.Since(start).Round(time.Millisecond))
+	err := tree.sql.WarmLeaves()
+	if err != nil {
+		return err
+	}
 	return tree.sql.queryReport(5)
 }
 

@@ -21,7 +21,8 @@ func TestBuildSqlite(t *testing.T) {
 	dir := "/tmp"
 	//dir := t.TempDir()
 	t.Logf("using temp dir %s", dir)
-	sql, err := newSqliteDb(dir, true)
+
+	sql, err := NewSqliteDb(NewNodePool(), dir, true)
 
 	require.NoError(t, err)
 
@@ -106,12 +107,12 @@ func TestBuildSqlite(t *testing.T) {
 }
 
 func TestReadSqlite(t *testing.T) {
-	pool := newNodePool()
+	pool := NewNodePool()
 	//dir := t.TempDir()
 	var err error
 	dir := "/tmp"
 	t.Logf("using temp dir %s", dir)
-	sql, err := newSqliteDb(dir, false)
+	sql, err := NewSqliteDb(NewNodePool(), dir, false)
 	require.NoError(t, err)
 
 	var stmt *sqlite3.Stmt
@@ -207,7 +208,7 @@ func TestReadLevelDB(t *testing.T) {
 	t.Logf("using temp dir %s", dir)
 	levelDb, err := leveldb.New("iavl_test", dir)
 	require.NoError(t, err)
-	db := &kvDB{db: levelDb, pool: newNodePool()}
+	db := &kvDB{db: levelDb, pool: NewNodePool()}
 
 	since := time.Now()
 	for i := 1; i < 80_000_000; i++ {
@@ -244,7 +245,7 @@ func TestHistogramPlot(t *testing.T) {
 }
 
 func TestFetchNode(t *testing.T) {
-	pool := newNodePool()
+	pool := NewNodePool()
 	conn, err := sqlite3.Open("/tmp/iavl-v2.db")
 	require.NoError(t, err)
 	q := "SELECT bytes FROM tree_1 WHERE version = 1 and sequence = 6756148"

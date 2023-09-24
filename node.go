@@ -386,7 +386,7 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 }
 
 // MakeNode constructs a *Node from an encoded byte slice.
-func MakeNode(pool *nodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
+func MakeNode(pool *NodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
 	// Read node header (height, size, version, key).
 	height, n, err := encoding.DecodeVarint(buf)
 	if err != nil {

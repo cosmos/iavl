@@ -7,7 +7,7 @@ import (
 )
 
 func TestNodePool_Get(t *testing.T) {
-	pool := newNodePool()
+	pool := NewNodePool()
 	node := pool.Get()
 	node.key = []byte("hello")
 	require.Equal(t, node.key, pool.nodes[node.poolId].key)

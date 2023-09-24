@@ -23,7 +23,7 @@ type nodeDB interface {
 
 type kvDB struct {
 	db   DB
-	pool *nodePool
+	pool *NodePool
 }
 
 func (kv *kvDB) Set(node *Node) (int, error) {

@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-type nodePool struct {
+type NodePool struct {
 	syncPool *sync.Pool
 	free     chan int
 	nodes    []Node
@@ -16,8 +16,8 @@ type nodePool struct {
 
 const initialNodePoolSize = 1_000
 
-func newNodePool() *nodePool {
-	np := &nodePool{
+func NewNodePool() *NodePool {
+	np := &NodePool{
 		syncPool: &sync.Pool{
 			New: func() interface{} {
 				return &Node{}
@@ -29,7 +29,7 @@ func newNodePool() *nodePool {
 	return np
 }
 
-func (np *nodePool) grow(amount int) {
+func (np *NodePool) grow(amount int) {
 	startSize := len(np.nodes)
 	log.Warn().Msgf("growing node pool amount=%d; size=%d", amount, startSize+amount)
 	for i := startSize; i < startSize+amount; i++ {
@@ -39,7 +39,7 @@ func (np *nodePool) grow(amount int) {
 	}
 }
 
-func (np *nodePool) Get() *Node {
+func (np *NodePool) Get() *Node {
 	if np.poolId == math.MaxUint64 {
 		np.poolId = 1
 	} else {
@@ -62,14 +62,14 @@ func (np *nodePool) Get() *Node {
 	//return node
 }
 
-func (np *nodePool) Put(node *Node) {
+func (np *NodePool) Put(node *Node) {
 	np.resetNode(node)
 	node.poolId = 0
 	np.syncPool.Put(node)
 	//np.free <- node.poolId
 }
 
-func (np *nodePool) resetNode(node *Node) {
+func (np *NodePool) resetNode(node *Node) {
 	node.leftNodeKey = emptyNodeKey
 	node.rightNodeKey = emptyNodeKey
 	node.rightNode = nil
