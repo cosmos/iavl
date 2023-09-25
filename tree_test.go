@@ -128,12 +128,14 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					)
 				}
 
-				if err = tree.KV.readReport(); err != nil {
-					t.Fatalf("read report err %v", err)
-				}
-
-				if err := tree.sql.queryReport(0); err != nil {
-					t.Fatalf("query report err %v", err)
+				if tree.KV == nil {
+					if err := tree.sql.queryReport(0); err != nil {
+						t.Fatalf("query report err %v", err)
+					}
+				} else {
+					if err = tree.KV.readReport(); err != nil {
+						t.Fatalf("read report err %v", err)
+					}
 				}
 
 				fmt.Println()
@@ -148,7 +150,12 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 			//if cnt%(sampleRate*4) == 0 {
 			//}
 		}
-		hash, version, err = tree.SaveVersionKV()
+		if tree.KV == nil {
+			hash, version, err = tree.SaveVersion()
+		} else {
+			hash, version, err = tree.SaveVersionKV()
+		}
+
 		require.NoError(t, err)
 		if version == opts.Until {
 			break
@@ -381,20 +388,14 @@ func TestBuild_OsmoScale(t *testing.T) {
 		fmt.Sprintf("%x", hash))
 }
 
-func TestOsmoScaleTree(t *testing.T) {
+func TestOsmoLike(t *testing.T) {
 	tmpDir := "/tmp"
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, false)
 	require.NoError(t, err)
+	tree := NewTree(sql, pool)
 
-	tree := &Tree{
-		pool:           pool,
-		metrics:        &metrics.TreeMetrics{},
-		sql:            sql,
-		cache:          NewNodeCache(),
-		maxWorkingSize: 2 * 1024 * 1024 * 1024,
-	}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 	root, err := sql.ImportSnapshot(1, false)
 
@@ -407,7 +408,24 @@ func TestOsmoScaleTree(t *testing.T) {
 	require.NoError(t, sql.Close())
 }
 
-func TestOsmoScaleTree_LevelDb(t *testing.T) {
+func TestOsmoLike_ColdStart(t *testing.T) {
+	tmpDir := "/tmp"
+
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, false)
+	require.NoError(t, err)
+	tree := NewTree(sql, pool)
+	require.NoError(t, tree.LoadVersion(1))
+
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
+
+	require.NoError(t, err)
+
+	testTreeBuild(t, tree, opts)
+	require.NoError(t, sql.Close())
+}
+
+func TestOsmoLike_LevelDb(t *testing.T) {
 	tmpDir := "/tmp/leveldb"
 
 	pool := NewNodePool()

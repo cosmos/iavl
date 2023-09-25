@@ -609,7 +609,6 @@ func (sql *SqliteDb) WarmLeaves() error {
 	}
 	var cnt int64
 	for {
-		cnt++
 		ok, err := stmt.Step()
 		if err != nil {
 			return err
@@ -617,6 +616,7 @@ func (sql *SqliteDb) WarmLeaves() error {
 		if !ok {
 			break
 		}
+		cnt++
 		var version, seq int64
 		var bz sqlite3.RawBytes
 		err = stmt.Scan(&version, &seq, &bz)
