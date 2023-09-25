@@ -376,20 +376,14 @@ func TestBuild_OsmoScale(t *testing.T) {
 		fmt.Sprintf("%x", hash))
 }
 
-func TestOsmoScaleTree(t *testing.T) {
+func TestOsmoLike(t *testing.T) {
 	tmpDir := "/tmp"
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, false)
 	require.NoError(t, err)
+	tree := NewTree(sql, pool)
 
-	tree := &Tree{
-		pool:           pool,
-		metrics:        &metrics.TreeMetrics{},
-		sql:            sql,
-		cache:          NewNodeCache(),
-		maxWorkingSize: 2 * 1024 * 1024 * 1024,
-	}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 	root, err := sql.ImportSnapshot(1, false)
 
@@ -398,6 +392,23 @@ func TestOsmoScaleTree(t *testing.T) {
 	tree.root = root
 
 	require.NoError(t, sql.WarmLeaves())
+	testTreeBuild(t, tree, opts)
+	require.NoError(t, sql.Close())
+}
+
+func TestOsmoLike_ColdStart(t *testing.T) {
+	tmpDir := "/tmp"
+
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, false)
+	require.NoError(t, err)
+	tree := NewTree(sql, pool)
+	require.NoError(t, tree.LoadVersion(1))
+
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
+
+	require.NoError(t, err)
+
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
 }
