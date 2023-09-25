@@ -5,6 +5,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"time"
+
+	"github.com/dustin/go-humanize"
 )
 
 const (
@@ -26,6 +29,10 @@ type nodeDB interface {
 type KvDB struct {
 	db   DB
 	pool *NodePool
+
+	readCount    int64
+	readTime     time.Duration
+	readLeafMiss int64
 }
 
 func NewKvDB(db DB, pool *NodePool) *KvDB {
@@ -75,6 +82,7 @@ func (kv *KvDB) setNode(key []byte, node *Node) error {
 }
 
 func (kv *KvDB) getNode(prefix []byte, nodeKey NodeKey) (*Node, error) {
+	start := time.Now()
 	var k bytes.Buffer
 	k.Write(prefix)
 	k.Write(nodeKey[:])
@@ -90,6 +98,8 @@ func (kv *KvDB) getNode(prefix []byte, nodeKey NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+	kv.readCount++
+	kv.readTime += time.Since(start)
 	return n, nil
 }
 
@@ -149,6 +159,7 @@ func (kv *KvDB) getRightNode(node *Node) (*Node, error) {
 			return node.rightNode, nil
 		}
 	}
+	kv.readLeafMiss++
 
 	node.rightNode, err = kv.getBranch(node.rightNodeKey)
 	if err != nil {
@@ -168,10 +179,29 @@ func (kv *KvDB) getLeftNode(node *Node) (*Node, error) {
 			return node.leftNode, nil
 		}
 	}
+	kv.readLeafMiss++
 
 	node.leftNode, err = kv.getBranch(node.leftNodeKey)
 	if err != nil {
 		return nil, err
 	}
 	return node.leftNode, err
+}
+
+func (kv *KvDB) readReport() error {
+	if kv.readCount == 0 {
+		return nil
+	}
+
+	fmt.Printf("reads=%s r/s=%s dur/q=%s leaf-miss=%s, dur=%s\n",
+		humanize.Comma(kv.readCount),
+		humanize.Comma(int64(float64(kv.readCount)/kv.readTime.Seconds())),
+		time.Duration(int64(kv.readTime)/kv.readCount),
+		humanize.Comma(kv.readLeafMiss),
+		kv.readTime.Round(time.Millisecond),
+	)
+
+	kv.readCount, kv.readTime, kv.readLeafMiss = 0, 0, 0
+
+	return nil
 }

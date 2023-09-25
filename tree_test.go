@@ -128,6 +128,10 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					)
 				}
 
+				if err = tree.KV.readReport(); err != nil {
+					t.Fatalf("read report err %v", err)
+				}
+
 				if err := tree.sql.queryReport(0); err != nil {
 					t.Fatalf("query report err %v", err)
 				}
@@ -421,16 +425,10 @@ func TestOsmoScaleTree_LevelDb(t *testing.T) {
 		KV:             NewKvDB(levelDb, pool),
 	}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
-	//root, err := sql.ImportSnapshot(1, false)
 
 	require.NoError(t, tree.LoadVersionKV(1))
 	require.NoError(t, err)
-	var i int
-	loadTreeSince := time.Now()
-	tree.loadTree(&i, &loadTreeSince, tree.root)
-	//tree.root = root
 
-	//require.NoError(t, sql.WarmLeaves())
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
 }
