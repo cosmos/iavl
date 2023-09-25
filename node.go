@@ -102,20 +102,8 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	node.leftNode = t.cache.Get(node.leftNodeKey)
 	if node.leftNode == nil {
 		var err error
-
-		if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-			node.leftNode, err = t.sql.getLeaf(node.leftNodeKey)
-			if err != nil {
-				return nil, err
-			}
-			if node.leftNode != nil {
-				return node.leftNode, nil
-			} else {
-				t.sql.queryLeafMiss++
-			}
-		}
-
-		node.leftNode, err = t.sql.Get(node.leftNodeKey)
+		//node.leftNode, err = t.sql.getLeftNode(node)
+		node.leftNode, err = t.KV.getLeftNode(node)
 		if err != nil {
 			return nil, err
 		}
@@ -133,19 +121,8 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	node.rightNode = t.cache.Get(node.rightNodeKey)
 	if node.rightNode == nil {
 		var err error
-		if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-			node.rightNode, err = t.sql.getLeaf(node.rightNodeKey)
-			if err != nil {
-				return nil, err
-			}
-			if node.rightNode != nil {
-				return node.rightNode, nil
-			} else {
-				t.sql.queryLeafMiss++
-			}
-		}
-
-		node.rightNode, err = t.sql.Get(node.rightNodeKey)
+		//node.rightNode, err = t.sql.getRightNode(node)
+		node.rightNode, err = t.KV.getRightNode(node)
 		if err != nil {
 			return nil, err
 		}

@@ -169,7 +169,7 @@ func TestBuildLevelDb(t *testing.T) {
 	t.Logf("using temp dir %s", dir)
 	levelDb, err := leveldb.New("iavl_test", dir)
 	require.NoError(t, err)
-	db := &kvDB{db: levelDb}
+	db := &KvDB{db: levelDb}
 
 	gen := testutil.OsmoLike()
 	version1 := gen.Iterator.Nodes()
@@ -208,7 +208,7 @@ func TestReadLevelDB(t *testing.T) {
 	t.Logf("using temp dir %s", dir)
 	levelDb, err := leveldb.New("iavl_test", dir)
 	require.NoError(t, err)
-	db := &kvDB{db: levelDb, pool: NewNodePool()}
+	db := &KvDB{db: levelDb, pool: NewNodePool()}
 
 	since := time.Now()
 	for i := 1; i < 80_000_000; i++ {

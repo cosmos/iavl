@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -143,7 +144,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 			//if cnt%(sampleRate*4) == 0 {
 			//}
 		}
-		hash, version, err = tree.SaveVersion()
+		hash, version, err = tree.SaveVersionKV()
 		require.NoError(t, err)
 		if version == opts.Until {
 			break
@@ -290,7 +291,7 @@ type treeStat struct {
 }
 
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
-	dbNode, err := tree.db.Get(node.nodeKey)
+	dbNode, err := tree.KV.Get(node.nodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)
 	}
@@ -398,6 +399,38 @@ func TestOsmoScaleTree(t *testing.T) {
 	tree.root = root
 
 	require.NoError(t, sql.WarmLeaves())
+	testTreeBuild(t, tree, opts)
+	require.NoError(t, sql.Close())
+}
+
+func TestOsmoScaleTree_LevelDb(t *testing.T) {
+	tmpDir := "/tmp/leveldb"
+
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, tmpDir, false)
+	require.NoError(t, err)
+	levelDb, err := leveldb.New("iavl-leveldb", tmpDir)
+	require.NoError(t, err)
+
+	tree := &Tree{
+		pool:           pool,
+		metrics:        &metrics.TreeMetrics{},
+		sql:            sql,
+		cache:          NewNodeCache(),
+		maxWorkingSize: 2 * 1024 * 1024 * 1024,
+		KV:             NewKvDB(levelDb, pool),
+	}
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
+	//root, err := sql.ImportSnapshot(1, false)
+
+	require.NoError(t, tree.LoadVersionKV(1))
+	require.NoError(t, err)
+	var i int
+	loadTreeSince := time.Now()
+	tree.loadTree(&i, &loadTreeSince, tree.root)
+	//tree.root = root
+
+	//require.NoError(t, sql.WarmLeaves())
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
 }

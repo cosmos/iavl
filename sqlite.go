@@ -560,6 +560,10 @@ func (sql *SqliteDb) resetShardQueries() error {
 }
 
 func (sql *SqliteDb) queryReport(bins int) error {
+	if sql.queryCount == 0 {
+		return nil
+	}
+
 	fmt.Printf("queries=%s q/s=%s dur/q=%s leaf-miss=%s, dur=%s\n",
 		humanize.Comma(sql.queryCount),
 		humanize.Comma(int64(float64(sql.queryCount)/sql.queryTime.Seconds())),
@@ -874,4 +878,46 @@ func (sqlImport *sqliteImport) step() (node *Node, err error) {
 		return nil, err
 	}
 	return node, nil
+}
+
+func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
+	var err error
+	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+		node.rightNode, err = sql.getLeaf(node.rightNodeKey)
+		if err != nil {
+			return nil, err
+		}
+		if node.rightNode != nil {
+			return node.rightNode, nil
+		} else {
+			sql.queryLeafMiss++
+		}
+	}
+
+	node.rightNode, err = sql.Get(node.rightNodeKey)
+	if err != nil {
+		return nil, err
+	}
+	return node.rightNode, nil
+}
+
+func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
+	var err error
+	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+		node.leftNode, err = sql.getLeaf(node.leftNodeKey)
+		if err != nil {
+			return nil, err
+		}
+		if node.leftNode != nil {
+			return node.leftNode, nil
+		} else {
+			sql.queryLeafMiss++
+		}
+	}
+
+	node.leftNode, err = sql.Get(node.leftNodeKey)
+	if err != nil {
+		return nil, err
+	}
+	return node.leftNode, err
 }

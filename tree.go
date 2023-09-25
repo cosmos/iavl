@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -21,7 +22,7 @@ type Tree struct {
 	version        int64
 	root           *Node
 	metrics        *metrics.TreeMetrics
-	db             *kvDB
+	KV             *KvDB
 	sql            *SqliteDb
 	lastCheckpoint int64
 	orphans        []NodeKey
@@ -73,11 +74,17 @@ func (tree *Tree) LoadVersion(version int64) error {
 	return nil
 }
 
+func (tree *Tree) LoadVersionKV(version int64) (err error) {
+	tree.root, err = tree.KV.getRoot(version)
+	return err
+}
+
 func (tree *Tree) WarmTree() error {
 	var i int
 	start := time.Now()
 	log.Info().Msgf("loading tree into memory version=%d", tree.version)
-	tree.loadTree(&i, tree.root)
+	loadTreeSince := time.Now()
+	tree.loadTree(&i, &loadTreeSince, tree.root)
 	log.Info().Msgf("loaded %s tree nodes into memory version=%d dur=%s",
 		humanize.Comma(int64(i)),
 		tree.version, time.Since(start).Round(time.Millisecond))
@@ -88,22 +95,82 @@ func (tree *Tree) WarmTree() error {
 	return tree.sql.queryReport(5)
 }
 
-func (tree *Tree) loadTree(i *int, node *Node) *Node {
+func (tree *Tree) loadTree(i *int, since *time.Time, node *Node) *Node {
 	if node.isLeaf() {
 		return nil
 	}
 	*i++
 	if *i%1_000_000 == 0 {
-		log.Info().Msgf("loadTree i=%s", humanize.Comma(int64(*i)))
+		log.Info().Msgf("loadTree i=%s, r/s=%s",
+			humanize.Comma(int64(*i)),
+			humanize.Comma(int64(1_000_000/time.Since(*since).Seconds())),
+		)
+		*since = time.Now()
 	}
 	// balanced subtree with two leaves, skip 2 queries
 	if node.subtreeHeight == 1 || (node.subtreeHeight == 2 && node.size == 3) {
 		return node
 	}
 
-	node.leftNode = tree.loadTree(i, node.left(tree))
-	node.rightNode = tree.loadTree(i, node.right(tree))
+	node.leftNode = tree.loadTree(i, since, node.left(tree))
+	node.rightNode = tree.loadTree(i, since, node.right(tree))
 	return node
+}
+
+func (tree *Tree) SaveVersionKV() ([]byte, int64, error) {
+	tree.version++
+	tree.sequence = 0
+
+	var sequence uint32
+	tree.deepHash(&sequence, tree.root)
+
+	since := time.Now()
+	if tree.version == 1 {
+		sort.Slice(tree.branches, func(i, j int) bool {
+			return bytes.Compare(tree.branches[i].nodeKey[:], tree.branches[j].nodeKey[:]) < 0
+		})
+		for i, node := range tree.branches {
+			err := tree.KV.setBranch(node)
+			if err != nil {
+				return nil, tree.version, err
+			}
+			if i != 0 && i%100_000 == 0 {
+				log.Debug().Msgf("setBranch i=%s, wr/s=%s",
+					humanize.Comma(int64(i)),
+					humanize.Comma(int64(100_000/time.Since(since).Seconds())),
+				)
+				since = time.Now()
+			}
+		}
+	}
+
+	sort.Slice(tree.leaves, func(i, j int) bool {
+		return bytes.Compare(tree.leaves[i].nodeKey[:], tree.leaves[j].nodeKey[:]) < 0
+	})
+	for i, node := range tree.leaves {
+		err := tree.KV.setLeaf(node)
+		if err != nil {
+			return nil, tree.version, err
+		}
+		if i != 0 && i%100_000 == 0 {
+			log.Debug().Msgf("setLeaf i=%s, wr/s=%s",
+				humanize.Comma(int64(i)),
+				humanize.Comma(int64(100_000/time.Since(since).Seconds())),
+			)
+			since = time.Now()
+		}
+	}
+
+	err := tree.KV.setRoot(tree.root, tree.version)
+	if err != nil {
+		return nil, tree.version, err
+	}
+
+	tree.leaves = nil
+	tree.branches = nil
+	tree.orphans = nil
+
+	return tree.root.hash, tree.version, nil
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
@@ -270,7 +337,7 @@ func (tree *Tree) checkpoint() error {
 	//}
 
 	for _, nk := range tree.orphans {
-		if err := tree.db.Delete(nk); err != nil {
+		if err := tree.KV.Delete(nk); err != nil {
 			return err
 		}
 	}
@@ -390,7 +457,7 @@ func (tree *Tree) deepSave(node *Node, stats *saveStats) (count int64, err error
 		return 0, nil
 	}
 
-	if n, err := tree.db.Set(node); err != nil {
+	if n, err := tree.KV.Set(node); err != nil {
 		return count, err
 	} else {
 		stats.dbBz += uint64(n)

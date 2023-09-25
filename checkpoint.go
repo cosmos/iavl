@@ -16,14 +16,14 @@ type checkpointArgs struct {
 }
 
 type checkpointer struct {
-	db       *kvDB
+	db       *KvDB
 	sqliteDb *SqliteDb
 	cache    *NodeCache
 	ch       chan *checkpointArgs
 	pool     *NodePool
 }
 
-func newCheckpointer(db *kvDB, cache *NodeCache, pool *NodePool) *checkpointer {
+func newCheckpointer(db *KvDB, cache *NodeCache, pool *NodePool) *checkpointer {
 	return &checkpointer{
 		db:    db,
 		cache: cache,
