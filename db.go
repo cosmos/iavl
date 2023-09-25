@@ -44,13 +44,17 @@ func NewKvDB(db DB, pool *NodePool) *KvDB {
 
 func (kv *KvDB) setLeaf(node *Node) error {
 	var k bytes.Buffer
-	k.Write([]byte("l"))
+	// TODO I Hacked this to 'b' from 'l' for making a benchmark
+	// long story short, a miss in leveldb is 10x (guessing) slower than a hit since the entire
+	// LSM tree needs to be scanned, so the sqlite strategy just make no sense.
+	// I'd remove all this code separating branches from leaves if i were to develop the idea further for LSM.
+	k.Write([]byte("b"))
 	k.Write(node.nodeKey[:])
 	return kv.setNode(k.Bytes(), node)
 }
 
 func (kv *KvDB) getLeaf(nodeKey NodeKey) (*Node, error) {
-	return kv.getNode([]byte("l"), nodeKey)
+	return kv.getNode([]byte("b"), nodeKey)
 }
 
 func (kv *KvDB) setBranch(node *Node) error {
@@ -150,17 +154,6 @@ func (kv *KvDB) Delete(nodeKey NodeKey) error {
 
 func (kv *KvDB) getRightNode(node *Node) (*Node, error) {
 	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-		node.rightNode, err = kv.getLeaf(node.rightNodeKey)
-		if err != nil {
-			return nil, err
-		}
-		if node.rightNode != nil {
-			return node.rightNode, nil
-		}
-	}
-	kv.readLeafMiss++
-
 	node.rightNode, err = kv.getBranch(node.rightNodeKey)
 	if err != nil {
 		return nil, err
@@ -170,17 +163,6 @@ func (kv *KvDB) getRightNode(node *Node) (*Node, error) {
 
 func (kv *KvDB) getLeftNode(node *Node) (*Node, error) {
 	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-		node.leftNode, err = kv.getLeaf(node.leftNodeKey)
-		if err != nil {
-			return nil, err
-		}
-		if node.leftNode != nil {
-			return node.leftNode, nil
-		}
-	}
-	kv.readLeafMiss++
-
 	node.leftNode, err = kv.getBranch(node.leftNodeKey)
 	if err != nil {
 		return nil, err

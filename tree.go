@@ -22,7 +22,7 @@ type Tree struct {
 	version        int64
 	root           *Node
 	metrics        *metrics.TreeMetrics
-	KV             *KvDB
+	kv             *KvDB
 	sql            *SqliteDb
 	lastCheckpoint int64
 	orphans        []NodeKey
@@ -52,6 +52,10 @@ func NewTree(sql *SqliteDb, pool *NodePool) *Tree {
 	return tree
 }
 
+func (tree *Tree) SetKV(kv *KvDB) {
+	tree.kv = kv
+}
+
 func (tree *Tree) LoadVersion(version int64) error {
 	if tree.sql == nil {
 		return fmt.Errorf("sql is nil")
@@ -75,7 +79,8 @@ func (tree *Tree) LoadVersion(version int64) error {
 }
 
 func (tree *Tree) LoadVersionKV(version int64) (err error) {
-	tree.root, err = tree.KV.getRoot(version)
+	tree.root, err = tree.kv.getRoot(version)
+	tree.version = version
 	return err
 }
 
@@ -130,7 +135,7 @@ func (tree *Tree) SaveVersionKV() ([]byte, int64, error) {
 			return bytes.Compare(tree.branches[i].nodeKey[:], tree.branches[j].nodeKey[:]) < 0
 		})
 		for i, node := range tree.branches {
-			err := tree.KV.setBranch(node)
+			err := tree.kv.setBranch(node)
 			if err != nil {
 				return nil, tree.version, err
 			}
@@ -148,7 +153,7 @@ func (tree *Tree) SaveVersionKV() ([]byte, int64, error) {
 		return bytes.Compare(tree.leaves[i].nodeKey[:], tree.leaves[j].nodeKey[:]) < 0
 	})
 	for i, node := range tree.leaves {
-		err := tree.KV.setLeaf(node)
+		err := tree.kv.setLeaf(node)
 		if err != nil {
 			return nil, tree.version, err
 		}
@@ -161,7 +166,7 @@ func (tree *Tree) SaveVersionKV() ([]byte, int64, error) {
 		}
 	}
 
-	err := tree.KV.setRoot(tree.root, tree.version)
+	err := tree.kv.setRoot(tree.root, tree.version)
 	if err != nil {
 		return nil, tree.version, err
 	}
@@ -337,7 +342,7 @@ func (tree *Tree) checkpoint() error {
 	//}
 
 	for _, nk := range tree.orphans {
-		if err := tree.KV.Delete(nk); err != nil {
+		if err := tree.kv.Delete(nk); err != nil {
 			return err
 		}
 	}
@@ -457,7 +462,7 @@ func (tree *Tree) deepSave(node *Node, stats *saveStats) (count int64, err error
 		return 0, nil
 	}
 
-	if n, err := tree.KV.Set(node); err != nil {
+	if n, err := tree.kv.Set(node); err != nil {
 		return count, err
 	} else {
 		stats.dbBz += uint64(n)

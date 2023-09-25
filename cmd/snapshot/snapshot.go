@@ -22,7 +22,7 @@ func Command() *cobra.Command {
 	)
 	cmd := &cobra.Command{
 		Use:   "snapshot",
-		Short: "take a snapshot of the tree at version n",
+		Short: "take a snapshot of the tree at version n and write to SQLite",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pool := iavl.NewNodePool()
 			sql, err := iavl.NewSqliteDb(pool, dbPath, false)
@@ -43,10 +43,10 @@ func Command() *cobra.Command {
 			return sql.Snapshot(cmd.Context(), tree, version)
 		},
 	}
-	cmd.Flags().Int64Var(&version, "version", 0, "the version to snapshot")
+	cmd.Flags().Int64Var(&version, "version", 0, "version to snapshot")
 	if err := cmd.MarkFlagRequired("version"); err != nil {
 		panic(err)
 	}
-	cmd.Flags().StringVar(&dbPath, "db", "/tmp", "the path to the database")
+	cmd.Flags().StringVar(&dbPath, "db", "/tmp", "path to the sqlite database")
 	return cmd
 }

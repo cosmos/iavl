@@ -79,10 +79,11 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 			require.NoError(t, err)
 
 			node := changeset.GetNode()
-			var keyBz bytes.Buffer
-			keyBz.Write([]byte(node.StoreKey))
-			keyBz.Write(node.Key)
-			key := keyBz.Bytes()
+			//var keyBz bytes.Buffer
+			//keyBz.Write([]byte(node.StoreKey))
+			//keyBz.Write(node.Key)
+			//key := keyBz.Bytes()
+			key := node.Key
 
 			if !node.Delete {
 				_, err = tree.Set(key, node.Value)
@@ -128,12 +129,12 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					)
 				}
 
-				if tree.KV == nil {
+				if tree.kv == nil {
 					if err := tree.sql.queryReport(0); err != nil {
 						t.Fatalf("query report err %v", err)
 					}
 				} else {
-					if err = tree.KV.readReport(); err != nil {
+					if err = tree.kv.readReport(); err != nil {
 						t.Fatalf("read report err %v", err)
 					}
 				}
@@ -150,7 +151,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 			//if cnt%(sampleRate*4) == 0 {
 			//}
 		}
-		if tree.KV == nil {
+		if tree.kv == nil {
 			hash, version, err = tree.SaveVersion()
 		} else {
 			hash, version, err = tree.SaveVersionKV()
@@ -302,7 +303,7 @@ type treeStat struct {
 }
 
 func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
-	dbNode, err := tree.KV.Get(node.nodeKey)
+	dbNode, err := tree.kv.Get(node.nodeKey)
 	if err != nil {
 		t.Fatalf("error getting node from db: %s", err)
 	}
@@ -384,12 +385,12 @@ func TestBuild_OsmoScale(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, sql.Close())
 
-	require.Equal(t, "fc76563ecf35d5f3df940198e9789eb01c524635671ac2905032696144360841",
+	require.Equal(t, "bc4bc22437cc71b4ff8e6735ca27757b1bd6a6285c872bbf8d77007e864b5877",
 		fmt.Sprintf("%x", hash))
 }
 
-func TestOsmoLike(t *testing.T) {
-	tmpDir := "/tmp"
+func TestOsmoLike_HotStart(t *testing.T) {
+	tmpDir := "/tmp/iavl-init"
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, false)
@@ -409,7 +410,7 @@ func TestOsmoLike(t *testing.T) {
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
-	tmpDir := "/tmp"
+	tmpDir := "/tmp/iavl-init"
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, false)
@@ -426,7 +427,7 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 }
 
 func TestOsmoLike_LevelDb(t *testing.T) {
-	tmpDir := "/tmp/leveldb"
+	tmpDir := "/tmp/iavl-init"
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, false)
@@ -440,7 +441,7 @@ func TestOsmoLike_LevelDb(t *testing.T) {
 		sql:            sql,
 		cache:          NewNodeCache(),
 		maxWorkingSize: 2 * 1024 * 1024 * 1024,
-		KV:             NewKvDB(levelDb, pool),
+		kv:             NewKvDB(levelDb, pool),
 	}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 

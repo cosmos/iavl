@@ -26,10 +26,12 @@ type SqliteDb struct {
 
 	queryLeaf *sqlite3.Stmt
 
-	queryDurations []time.Duration
-	queryTime      time.Duration
-	queryCount     int64
-	queryLeafMiss  int64
+	queryDurations   []time.Duration
+	queryTime        time.Duration
+	queryCount       int64
+	queryLeafMiss    int64
+	queryLeafCount   int64
+	queryBranchCount int64
 }
 
 func NewSqliteDb(pool *NodePool, path string, newDb bool) (*SqliteDb, error) {
@@ -281,6 +283,7 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	sql.queryDurations = append(sql.queryDurations, dur)
 	sql.queryTime += dur
 	sql.queryCount++
+	sql.queryLeafCount++
 
 	return node, nil
 }
@@ -314,6 +317,7 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	sql.queryDurations = append(sql.queryDurations, dur)
 	sql.queryTime += dur
 	sql.queryCount++
+	sql.queryBranchCount++
 
 	return node, nil
 }
@@ -564,12 +568,14 @@ func (sql *SqliteDb) queryReport(bins int) error {
 		return nil
 	}
 
-	fmt.Printf("queries=%s q/s=%s dur/q=%s leaf-miss=%s, dur=%s\n",
+	fmt.Printf("queries=%s q/s=%s dur/q=%s dur=%s leaf-q=%s branch-q=%s leaf-miss=%s\n",
 		humanize.Comma(sql.queryCount),
 		humanize.Comma(int64(float64(sql.queryCount)/sql.queryTime.Seconds())),
 		time.Duration(int64(sql.queryTime)/sql.queryCount),
-		humanize.Comma(sql.queryLeafMiss),
 		sql.queryTime.Round(time.Millisecond),
+		humanize.Comma(sql.queryLeafCount),
+		humanize.Comma(sql.queryBranchCount),
+		humanize.Comma(sql.queryLeafMiss),
 	)
 
 	if bins > 0 {
@@ -593,6 +599,8 @@ func (sql *SqliteDb) queryReport(bins int) error {
 	sql.queryTime = 0
 	sql.queryCount = 0
 	sql.queryLeafMiss = 0
+	sql.queryLeafCount = 0
+	sql.queryBranchCount = 0
 
 	return nil
 }

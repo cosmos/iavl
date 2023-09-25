@@ -169,9 +169,12 @@ func OsmoLike() TreeBuildOptions {
 	}
 
 	opts := TreeBuildOptions{
-		Iterator:  itr,
-		Until:     10_000,
-		UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // 10000
+		Iterator: itr,
+		Until:    10_000,
+		// hash for 10k WITHOUT a store key prefix on the key
+		UntilHash: "e996df6099bc4b6e8a723dc551af4fa7cfab50e3a182ab1e21f5e90e5e7124cd", // 10000
+		// hash for 10k WITH store key prefix on key
+		//UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // OsmoLike, 10000
 	}
 
 	return opts
@@ -183,8 +186,11 @@ func CompactedChangelogs(logDir string) TreeBuildOptions {
 		panic(err)
 	}
 	return TreeBuildOptions{
-		Iterator:  itr,
-		Until:     10_000,
-		UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // OsmoLike, 10000
+		Iterator: itr,
+		Until:    10_000,
+		// hash for 10k WITHOUT a store key prefix on the key
+		UntilHash: "e996df6099bc4b6e8a723dc551af4fa7cfab50e3a182ab1e21f5e90e5e7124cd", // 10000
+		// hash for 10k WITH store key prefix on key
+		//UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // OsmoLike, 10000
 	}
 }
