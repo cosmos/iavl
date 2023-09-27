@@ -18,8 +18,8 @@ import (
 var testTreeTable = true
 
 func TestBuildSqlite(t *testing.T) {
-	dir := "/tmp"
-	//dir := t.TempDir()
+	//dir := "/tmp"
+	dir := t.TempDir()
 	t.Logf("using temp dir %s", dir)
 
 	sql, err := NewSqliteDb(NewNodePool(), dir, true)
@@ -70,7 +70,7 @@ func TestBuildSqlite(t *testing.T) {
 				subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
 			nodeBz, err := node.Bytes()
 			require.NoError(t, err)
-			err = stmt.Exec(nk, int(nk.Sequence()), nodeBz)
+			err = stmt.Exec(nk[:], int(nk.Sequence()), nodeBz)
 			require.NoError(t, err)
 		} else {
 			err = stmt.Exec(
