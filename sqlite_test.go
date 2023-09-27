@@ -261,3 +261,24 @@ func TestFetchNode(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Printf("node: %v\n", node)
 }
+
+func TestMmap(t *testing.T) {
+	tmpDir := t.TempDir()
+	conn, err := sqlite3.Open(tmpDir + "/test.db")
+	require.NoError(t, err)
+	stmt, err := conn.Prepare("PRAGMA mmap_size=1000000000000")
+	require.NoError(t, err)
+	ok, err := stmt.Step()
+	require.NoError(t, err)
+	require.True(t, ok)
+
+	stmt, err = conn.Prepare("PRAGMA mmap_size")
+	require.NoError(t, err)
+	ok, err = stmt.Step()
+	require.NoError(t, err)
+	require.True(t, ok)
+	res, ok, err := stmt.ColumnRawString(0)
+	require.True(t, ok)
+	require.NoError(t, err)
+	fmt.Printf("res: %s\n", res)
+}
