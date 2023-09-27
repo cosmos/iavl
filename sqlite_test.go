@@ -3,11 +3,9 @@ package iavl
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/aybabtme/uniplot/histogram"
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/testutil"
@@ -15,11 +13,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testTreeTable = true
+/*
+Benchmarks measured from these read-write tests below:
+
+# SQLite
+
+## Writes
+
+no index:
+- structured batch insert (node table) - 507,700 nodes/sec
+- unstructured batch insert (tree table) re-use same bytes.Buffer - 444,000 nodes/sec
+- unstructured batch insert (tree table) alloc new bytes.Buffer - 473,800 nodes/sec
+  - !! surprising, why? because GC is async? probably worse in long tail run?
+
+indexed:
+- structured batch insert (node table) - 441,000 nodes/sec
+  - the difference between indexed and not is not significant.  the only way I can explain this is that the writes
+    below are sequential proceeding version number.  this will always be the case with the current node key.
+- unstructured batch insert (tree table) - 414,000 nodes/sec
+
+writing into a trie based table (indexed on key) will likely be *much* slower since it requires an order insertion
+and potentially re-balancing the BTree index.
+^^^ True, initial test started at 200k and quickly declined to 75k
+
+## Reads
+
+- fully memory mapped unstructured (tree table) - ~160,000 nodes/sec
+- fully memory mapped structured (node table;f - ~172,000 nodes/sec
+
+# LevelDB
+Writes: 245,000 nodes/sec
+Reads: 30,000 nodes/sec !!!
+
+*/
+
+var testDbLocation = "/tmp/sqlite_test"
 
 func TestBuildSqlite(t *testing.T) {
-	//dir := "/tmp"
-	dir := t.TempDir()
+	//dir := t.TempDir()
+	dir := testDbLocation
 	t.Logf("using temp dir %s", dir)
 
 	sql, err := NewSqliteDb(NewNodePool(), dir, true)
@@ -32,69 +64,68 @@ func TestBuildSqlite(t *testing.T) {
 	require.Equal(t, int64(1), gen.Iterator.Version())
 
 	since := time.Now()
-	newBatch := func() (*sqlite3.Stmt, error) {
-		var err error
-		err = sql.write.Begin()
-		if err != nil {
-			return nil, err
-		}
 
-		var stmt *sqlite3.Stmt
-		if testTreeTable {
-			stmt, err = sql.write.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
-		} else {
-			stmt, err = sql.write.Prepare("INSERT INTO node(seq, version, hash, key, height, size, l_seq, l_version, r_seq, r_version) " +
-				"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-		}
-
-		if err != nil {
-			return nil, err
-		}
-		return stmt, nil
-	}
-
-	err = sql.write.Exec("CREATE INDEX IF NOT EXISTS tree_idx ON tree (version, sequence)")
+	err = sql.write.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
 	require.NoError(t, err)
 
-	stmt, err := newBatch()
+	//err = sql.write.Exec("CREATE INDEX trie_idx ON node (key)")
+	//err = sql.write.Exec("CREATE INDEX node_idx ON node (version, seq)")
+	require.NoError(t, err)
+	err = sql.write.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
 	require.NoError(t, err)
 
+	require.NoError(t, sql.write.Begin())
+
+	var stmt *sqlite3.Stmt
+	//stmt, err = sql.write.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
+	stmt, err = sql.write.Prepare("INSERT INTO node(version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version)" +
+		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+
+	require.NoError(t, err)
+
+	startTime := time.Now()
 	batchSize := 200_000
+	//nodeBz := new(bytes.Buffer)
 	for ; version1.Valid(); err = version1.Next() {
 		node := version1.GetNode()
-		if testTreeTable {
-			nk := NewNodeKey(1, uint32(count))
-			lnk := NewNodeKey(1, uint32(count+1))
-			rnk := NewNodeKey(1, uint32(count+2))
-			node := &Node{key: node.Key, hash: node.Key[:32],
-				subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
-			nodeBz, err := node.Bytes()
-			require.NoError(t, err)
-			err = stmt.Exec(nk[:], int(nk.Sequence()), nodeBz)
-			require.NoError(t, err)
-		} else {
-			err = stmt.Exec(
-				count,         // seq
-				1,             // version
-				node.Key[:32], // hash
-				node.Key,      // key
-				13,            // height
-				4,             // size
-				count+1,       // l_seq
-				1,             // l_version
-				count+2,       // r_seq
-				1,             // r_version
-			)
-		}
+		lnk := NewNodeKey(1, uint32(count+1))
+		rnk := NewNodeKey(1, uint32(count+2))
+		n := &Node{key: node.Key, hash: node.Key[:32],
+			subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
+
+		//nodeBz.Reset()
+		//require.NoError(t, n.WriteBytes(nodeBz))
+
+		// tree table
+		//nk := NewNodeKey(1, uint32(count))
+		//nodeBz, err := n.Bytes()
+		//require.NoError(t, err)
+		//err = stmt.Exec(int(nk.Version()), int(nk.Sequence()), nodeBz)
+		//require.NoError(t, err)
+
+		// node table
+		err = stmt.Exec(
+			1,          // version
+			count,      // seq
+			n.key[:32], // hash
+			n.key,      // key
+			13,         // height
+			4,          // size
+			count+1,    // l_seq
+			1,          // l_version
+			count+2,    // r_seq
+			1,          // r_version
+		)
 
 		if count%batchSize == 0 {
 			err := sql.write.Commit()
 			require.NoError(t, err)
-			stmt, err = newBatch()
-			require.NoError(t, err)
+			//stmt, err = newBatch()
+			//require.NoError(t, err)
+			require.NoError(t, sql.write.Begin())
 			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(count)),
-				time.Since(since),
+				time.Since(since).Round(time.Millisecond),
 				humanize.Comma(int64(float64(batchSize)/time.Since(since).Seconds())))
 			since = time.Now()
 		}
@@ -104,48 +135,81 @@ func TestBuildSqlite(t *testing.T) {
 
 	log.Info().Msg("final commit")
 	require.NoError(t, sql.write.Commit())
+	log.Info().Msgf("total dur=%s rate=%s",
+		time.Since(startTime).Round(time.Millisecond),
+		humanize.Comma(int64(40_000_000/time.Since(startTime).Seconds())),
+	)
+	require.NoError(t, stmt.Close())
+	require.NoError(t, sql.Close())
+}
+
+func TestReadSqlite_Trie(t *testing.T) {
+	dir := testDbLocation
+	sql, err := NewSqliteDb(NewNodePool(), dir, false)
+	require.NoError(t, err)
+
+	read, err := sql.getReadConn()
+	require.NoError(t, err)
+
+	query, err := read.Prepare("SELECT version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version FROM node WHERE key = ?")
+	require.NoError(t, err)
+
+	var hash, key []byte
+	var version, seq, height, size, lSeq, lVersion, rSeq, rVersion int
+
+	gen := testutil.OsmoLike()
+	version1 := gen.Iterator.Nodes()
+	for ; version1.Valid(); err = version1.Next() {
+		node := version1.GetNode()
+		nk := NewNodeKey(1, uint32(1))
+		_, err = sql.Get(nk)
+		require.NoError(t, err)
+	}
+
 }
 
 func TestReadSqlite(t *testing.T) {
-	pool := NewNodePool()
+	//pool := NewNodePool()
 	//dir := t.TempDir()
 	var err error
-	dir := "/tmp"
+	dir := testDbLocation
 	t.Logf("using temp dir %s", dir)
 	sql, err := NewSqliteDb(NewNodePool(), dir, false)
 	require.NoError(t, err)
 
 	var stmt *sqlite3.Stmt
-	if testTreeTable {
-		stmt, err = sql.write.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
-	} else {
-		stmt, err = sql.write.Prepare("SELECT * FROM node WHERE seq = ? AND version = ?")
-	}
+	//stmt, err = sql.write.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
+
+	sqlRead, err := sql.getReadConn()
+	require.NoError(t, err)
+	//stmt, err = sqlRead.Prepare("SELECT bytes FROM tree WHERE version = ? AND sequence = ?")
+	stmt, err = sqlRead.Prepare("SELECT hash, key, height, size, l_seq, l_version, r_seq, r_version FROM node WHERE seq = ? AND version = ?")
+	require.NoError(t, err)
 
 	var hash, key []byte
 	var height, size, lSeq, lVersion, rSeq, rVersion int
+
 	since := time.Now()
-	for i := 1; i < 80_000_000; i++ {
-		j := rand.Intn(80_000_000)
+	for i := 1; i < 40_000_000; i++ {
+		j := rand.Intn(40_000_000)
 
-		if testTreeTable {
-			nk := NewNodeKey(1, uint32(j))
+		// unstructured read:
+		//nk := NewNodeKey(1, uint32(j))
+		//require.NoError(t, stmt.Bind(1, j))
+		//hasRow, err := stmt.Step()
+		//require.Truef(t, hasRow, "no row for %d", j)
+		//require.NoError(t, err)
+		//nodeBz, err := stmt.ColumnBlob(0)
+		//require.NoError(t, err)
+		//_, err = MakeNode(pool, nk, nodeBz)
+		//require.NoError(t, err)
 
-			require.NoError(t, stmt.Bind(nk))
-			hasRow, err := stmt.Step()
-			require.True(t, hasRow)
-			require.NoError(t, err)
-			nodeBz, err := stmt.ColumnBlob(0)
-			require.NoError(t, err)
-			_, err = MakeNode(pool, nk, nodeBz)
-			require.NoError(t, err)
-		} else {
-			require.NoError(t, stmt.Bind(j, 1))
-			hasRow, err := stmt.Step()
-			require.NoError(t, err)
-			require.True(t, hasRow)
-			require.NoError(t, stmt.Scan(&hash, &key, &height, &size, &lSeq, &lVersion, &rSeq, &rVersion))
-		}
+		// structured read:
+		require.NoError(t, stmt.Bind(j, 1))
+		hasRow, err := stmt.Step()
+		require.NoError(t, err)
+		require.True(t, hasRow)
+		require.NoError(t, stmt.Scan(&hash, &key, &height, &size, &lSeq, &lVersion, &rSeq, &rVersion))
 
 		if i%100_000 == 0 {
 			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
@@ -165,7 +229,7 @@ func TestReadSqlite(t *testing.T) {
 
 func TestBuildLevelDb(t *testing.T) {
 	//dir := t.TempDir()
-	dir := "/tmp"
+	dir := "/tmp/leveldb_test"
 	t.Logf("using temp dir %s", dir)
 	levelDb, err := leveldb.New("iavl_test", dir)
 	require.NoError(t, err)
@@ -182,12 +246,14 @@ func TestBuildLevelDb(t *testing.T) {
 		nk := NewNodeKey(1, uint32(count))
 		lnk := NewNodeKey(1, uint32(count+1))
 		rnk := NewNodeKey(1, uint32(count+2))
-		n := &Node{key: node.Key,
+		n := &Node{
+			key:           node.Key,
 			nodeKey:       nk,
 			hash:          node.Key[:32],
-			subtreeHeight: 13, size: 4,
-			leftNodeKey:  lnk,
-			rightNodeKey: rnk,
+			subtreeHeight: 13,
+			size:          4,
+			leftNodeKey:   lnk,
+			rightNodeKey:  rnk,
 		}
 		_, err = db.Set(n)
 		require.NoError(t, err)
@@ -204,15 +270,15 @@ func TestBuildLevelDb(t *testing.T) {
 }
 
 func TestReadLevelDB(t *testing.T) {
-	dir := "/tmp"
+	dir := "/tmp/leveldb_test"
 	t.Logf("using temp dir %s", dir)
 	levelDb, err := leveldb.New("iavl_test", dir)
 	require.NoError(t, err)
 	db := &KvDB{db: levelDb, pool: NewNodePool()}
 
 	since := time.Now()
-	for i := 1; i < 80_000_000; i++ {
-		j := rand.Intn(80_000_000)
+	for i := 1; i < 40_000_000; i++ {
+		j := rand.Intn(40_000_000)
 		nk := NewNodeKey(1, uint32(j))
 		node, err := db.Get(nk)
 		require.NoError(t, err)
@@ -231,17 +297,6 @@ func TestNodeKeyFormat(t *testing.T) {
 	nk := NewNodeKey(100, 2)
 	k := (int(nk.Version()) << 32) | int(nk.Sequence())
 	fmt.Printf("k: %d - %x\n", k, k)
-}
-
-func TestHistogramPlot(t *testing.T) {
-	bins := 9
-	var data []float64
-	for i := 0; i < 8_000_000; i++ {
-		data = append(data, rand.Float64()*1000)
-	}
-
-	hist := histogram.Hist(bins, data)
-	histogram.Fprint(os.Stdout, hist, histogram.Linear(10))
 }
 
 func TestFetchNode(t *testing.T) {
