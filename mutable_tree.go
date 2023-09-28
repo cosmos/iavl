@@ -615,7 +615,12 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	if err = tree.ndb.setFastStorageVersionToBatch(); err != nil {
+	latestVersion, err := tree.ndb.getLatestVersion()
+	if err != nil {
+		return err
+	}
+
+	if err = tree.ndb.setFastStorageVersionToBatch(latestVersion); err != nil {
 		return err
 	}
 
@@ -733,10 +738,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	tree.logger.Debug("SAVE TREE", "version", version)
-	tree.ndb.resetLatestVersion(version)
+
 	// save new fast nodes
 	if !tree.skipFastStorageUpgrade {
-		if err := tree.saveFastNodeVersion(isGenesis); err != nil {
+		if err := tree.saveFastNodeVersion(version, isGenesis); err != nil {
 			return nil, version, err
 		}
 	}
@@ -771,6 +776,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		return nil, version, err
 	}
 
+	tree.ndb.resetLatestVersion(version)
 	tree.version = version
 
 	// set new working tree
@@ -784,14 +790,14 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	return tree.Hash(), version, nil
 }
 
-func (tree *MutableTree) saveFastNodeVersion(isGenesis bool) error {
+func (tree *MutableTree) saveFastNodeVersion(latestVersion int64, isGenesis bool) error {
 	if err := tree.saveFastNodeAdditions(isGenesis); err != nil {
 		return err
 	}
 	if err := tree.saveFastNodeRemovals(); err != nil {
 		return err
 	}
-	return tree.ndb.setFastStorageVersionToBatch()
+	return tree.ndb.setFastStorageVersionToBatch(latestVersion)
 }
 
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
