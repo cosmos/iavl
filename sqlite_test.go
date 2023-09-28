@@ -39,7 +39,8 @@ and potentially re-balancing the BTree index.
 ## Reads
 
 - fully memory mapped unstructured (tree table) - ~160,000 nodes/sec
-- fully memory mapped structured (node table;f - ~172,000 nodes/sec
+- fully memory mapped structured (node table) - ~172,000 nodes/sec
+- fully memory mapped structured (node table) read by key []byte - ~160,000 nodes/sec
 
 # LevelDB
 Writes: 245,000 nodes/sec
@@ -68,7 +69,7 @@ func TestBuildSqlite(t *testing.T) {
 	err = sql.write.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
 	require.NoError(t, err)
 
-	//err = sql.write.Exec("CREATE INDEX trie_idx ON node (key)")
+	err = sql.write.Exec("CREATE INDEX trie_idx ON node (key)")
 	//err = sql.write.Exec("CREATE INDEX node_idx ON node (version, seq)")
 	require.NoError(t, err)
 	err = sql.write.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
@@ -157,13 +158,29 @@ func TestReadSqlite_Trie(t *testing.T) {
 	var hash, key []byte
 	var version, seq, height, size, lSeq, lVersion, rSeq, rVersion int
 
+	i := int64(1)
+	since := time.Now()
 	gen := testutil.OsmoLike()
 	version1 := gen.Iterator.Nodes()
 	for ; version1.Valid(); err = version1.Next() {
 		node := version1.GetNode()
-		nk := NewNodeKey(1, uint32(1))
-		_, err = sql.Get(nk)
+		require.NoError(t, query.Bind(node.Key))
+		hasRow, err := query.Step()
 		require.NoError(t, err)
+		require.True(t, hasRow)
+		require.NoError(t, query.Scan(&version, &seq, &hash, &key, &height, &size, &lSeq, &lVersion, &rSeq, &rVersion))
+		require.NoError(t, err)
+
+		if i%100_000 == 0 {
+			i++
+			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
+				humanize.Comma(i),
+				time.Since(since),
+				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))
+			since = time.Now()
+		}
+		require.NoError(t, query.Reset())
+		i++
 	}
 
 }
