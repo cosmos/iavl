@@ -25,7 +25,9 @@ func (opts TreeBuildOptions) With25_000() TreeBuildOptions {
 	o := &opts
 	o.Until = 25_000
 	// verified against cosmos/iavl-bench on 2023-09-18
-	o.UntilHash = "f1283df353b4766c938d75982c3d69b1eeb7a3c9eea006376ecf7feeab1b9743"
+	//o.UntilHash = "f1283df353b4766c938d75982c3d69b1eeb7a3c9eea006376ecf7feeab1b9743"
+	// removed module prefix from keys in test
+	o.UntilHash = "0b75e7a3e9f1573b44584d7a9947778ce8e6ed62d27967a68f7fa8800156a360"
 	return *o
 }
 

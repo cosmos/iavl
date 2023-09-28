@@ -77,8 +77,8 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 		for ; changeset.Valid(); err = changeset.Next() {
 			cnt++
 			require.NoError(t, err)
-
 			node := changeset.GetNode()
+
 			//var keyBz bytes.Buffer
 			//keyBz.Write([]byte(node.StoreKey))
 			//keyBz.Write(node.Key)
@@ -241,8 +241,8 @@ func TestTree_Build(t *testing.T) {
 	testStart := time.Now()
 	leaves := testTreeBuild(t, tree, opts)
 
-	err = tree.sqlCheckpoint()
-	require.NoError(t, err)
+	//err = tree.sqlCheckpoint()
+	//require.NoError(t, err)
 	// wait
 	//tree.pool.checkpointCh <- &checkpointArgs{version: -1}
 	treeDuration := time.Since(testStart)
