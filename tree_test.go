@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
@@ -195,6 +194,7 @@ func TestTree_Build(t *testing.T) {
 
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, tmpDir, true)
+	//sql, err := NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
 
 	tree := &Tree{
@@ -500,13 +500,8 @@ func TestTreeSanity(t *testing.T) {
 			name: "sqlite",
 			treeFn: func() *Tree {
 				pool := NewNodePool()
-				sql := &SqliteDb{
-					shards:       make(map[int64]*sqlite3.Stmt),
-					versionShard: make(map[int64]int64),
-					connString:   "file::memory:?cache=shared",
-					pool:         pool,
-				}
-				require.NoError(t, sql.init(true))
+				sql, err := NewInMemorySqliteDb(pool)
+				require.NoError(t, err)
 				return NewTree(sql, pool)
 			},
 			hashFn: func(tree *Tree) []byte {

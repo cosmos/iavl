@@ -61,6 +61,19 @@ func (sql *SqliteDb) init(newDb bool) error {
 	return nil
 }
 
+func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
+	sql := &SqliteDb{
+		shards:       make(map[int64]*sqlite3.Stmt),
+		versionShard: make(map[int64]int64),
+		connString:   "file::memory:?cache=shared",
+		pool:         pool,
+	}
+	if err := sql.init(true); err != nil {
+		return nil, err
+	}
+	return sql, nil
+}
+
 func NewSqliteDb(pool *NodePool, path string, newDb bool) (*SqliteDb, error) {
 	sql := &SqliteDb{
 		shards:       make(map[int64]*sqlite3.Stmt),
