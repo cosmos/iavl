@@ -34,6 +34,33 @@ type SqliteDb struct {
 	queryBranchCount int64
 }
 
+func (sql *SqliteDb) init(newDb bool) error {
+	var err error
+	sql.write, err = sqlite3.Open(sql.connString)
+	if err != nil {
+		return err
+	}
+
+	err = sql.write.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return err
+	}
+
+	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
+	maxWalSizeBytes := 1024 * 1024 * 500
+	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
+		return err
+	}
+
+	if newDb {
+		if err = sql.initNewDb(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func NewSqliteDb(pool *NodePool, path string, newDb bool) (*SqliteDb, error) {
 	sql := &SqliteDb{
 		shards:       make(map[int64]*sqlite3.Stmt),
@@ -42,33 +69,9 @@ func NewSqliteDb(pool *NodePool, path string, newDb bool) (*SqliteDb, error) {
 		pool:         pool,
 	}
 
-	var err error
-	sql.write, err = sqlite3.Open(sql.connString)
-	if err != nil {
+	if err := sql.init(newDb); err != nil {
 		return nil, err
 	}
-
-	err = sql.write.Exec("PRAGMA synchronous=OFF;")
-	if err != nil {
-		return nil, err
-	}
-
-	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
-	maxWalSizeBytes := 1024 * 1024 * 500
-	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
-		return nil, err
-	}
-
-	if newDb {
-		if err := sql.initNewDb(); err != nil {
-			return nil, err
-		}
-	}
-
-	//sql.treeInsert, err = sql.write.Prepare("INSERT INTO tree(node_key, bytes) VALUES (?, ?)")
-	//if err != nil {
-	//	return nil, err
-	//}
 
 	return sql, nil
 }
@@ -811,7 +814,8 @@ func (sql *SqliteDb) ImportSnapshot(version int64, loadLeaves bool) (*Node, erro
 		return nil, err
 	}
 
-	rehashTree(version, root)
+	// TODO ensure node.NodeKey.Version() is correct
+	rehashTree(root)
 	if !bytes.Equal(root.hash, tree.root.hash) {
 		return nil, fmt.Errorf("root hash mismatch: %x != %x", root.hash, tree.root.hash)
 	}
@@ -819,16 +823,16 @@ func (sql *SqliteDb) ImportSnapshot(version int64, loadLeaves bool) (*Node, erro
 	return root, nil
 }
 
-func rehashTree(version int64, node *Node) {
+func rehashTree(node *Node) {
 	if node.isLeaf() {
 		return
 	}
 	node.hash = nil
 
-	rehashTree(version, node.leftNode)
-	rehashTree(version, node.rightNode)
+	rehashTree(node.leftNode)
+	rehashTree(node.rightNode)
 
-	node._hash(version)
+	node._hash(node.nodeKey.Version())
 }
 
 type sqliteImport struct {

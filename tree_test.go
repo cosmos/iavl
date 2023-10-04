@@ -5,13 +5,14 @@ package iavl
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"runtime"
 	"testing"
 	"time"
 
-	"github.com/cosmos/iavl-bench/bench"
+	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
@@ -490,36 +491,80 @@ func TestTree_Rehash(t *testing.T) {
 }
 
 func TestTreeSanity(t *testing.T) {
-	gen := bench.ChangesetGenerator{
-		Seed:             77,
-		KeyMean:          4,
-		KeyStdDev:        1,
-		ValueMean:        50,
-		ValueStdDev:      15,
-		InitialSize:      10,
-		FinalSize:        50,
-		Versions:         5,
-		ChangePerVersion: 10,
-		DeleteFraction:   0.2,
+	cases := []struct {
+		name   string
+		treeFn func() *Tree
+		hashFn func(*Tree) []byte
+	}{
+		{
+			name: "sqlite",
+			treeFn: func() *Tree {
+				pool := NewNodePool()
+				sql := &SqliteDb{
+					shards:       make(map[int64]*sqlite3.Stmt),
+					versionShard: make(map[int64]int64),
+					connString:   "file::memory:?cache=shared",
+					pool:         pool,
+				}
+				require.NoError(t, sql.init(true))
+				return NewTree(sql, pool)
+			},
+			hashFn: func(tree *Tree) []byte {
+				hash, _, err := tree.SaveVersion()
+				require.NoError(t, err)
+				return hash
+			},
+		},
+		{
+			name: "no db",
+			treeFn: func() *Tree {
+				pool := NewNodePool()
+				return NewTree(nil, pool)
+			},
+			hashFn: func(tree *Tree) []byte {
+				rehashTree(tree.root)
+				tree.version++
+				return tree.root.hash
+			},
+		},
 	}
-	itr, err := gen.Iterator()
-	require.NoError(t, err)
-	tree := NewTree(nil, NewNodePool())
-	for ; itr.Valid(); err = itr.Next() {
-		require.NoError(t, err)
-		nodes := itr.Nodes()
-		for ; nodes.Valid(); err = nodes.Next() {
-			require.NoError(t, err)
-			node := nodes.GetNode()
-			if node.Delete {
-				_, _, err := tree.Remove(node.Key)
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tree := tc.treeFn()
+			opts := testutil.NewTreeBuildOptions()
+			itr := opts.Iterator
+			var err error
+			for ; itr.Valid(); err = itr.Next() {
+				if itr.Version() > 150 {
+					break
+				}
 				require.NoError(t, err)
-			} else {
-				_, err := tree.Set(node.Key, node.Value)
-				require.NoError(t, err)
+				nodes := itr.Nodes()
+				for ; nodes.Valid(); err = nodes.Next() {
+					require.NoError(t, err)
+					node := nodes.GetNode()
+					if node.Delete {
+						_, _, err := tree.Remove(node.Key)
+						require.NoError(t, err)
+					} else {
+						_, err := tree.Set(node.Key, node.Value)
+						require.NoError(t, err)
+					}
+				}
+				switch itr.Version() {
+				case 1:
+					h := tc.hashFn(tree)
+					require.Equal(t, "48c3113b8ba523d3d539d8aea6fce28814e5688340ba7334935c1248b6c11c7a", hex.EncodeToString(h))
+					require.Equal(t, int64(104938), tree.root.size)
+					fmt.Printf("version=%d, hash=%x size=%d\n", itr.Version(), h, tree.root.size)
+				case 150:
+					h := tc.hashFn(tree)
+					require.Equal(t, "04c42dd1cec683cbbd4974027e4b003b848e389a33d03d7a9105183e6d108dd9", hex.EncodeToString(h))
+					require.Equal(t, int64(105030), tree.root.size)
+					fmt.Printf("version=%d, hash=%x size=%d\n", itr.Version(), h, tree.root.size)
+				}
 			}
-		}
-		rehashTree(tree.version, tree.root)
-		fmt.Printf("version=%d, hash=%x size=%d\n", itr.Version(), tree.root.hash, tree.root.size)
+		})
 	}
 }

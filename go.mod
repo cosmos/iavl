@@ -8,11 +8,13 @@ require (
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/iavl-bench/bench v0.0.2
 	github.com/dustin/go-humanize v1.0.1
+	github.com/emicklei/dot v1.6.0
 	github.com/kocubinski/costor-api v1.1.1
 	github.com/rs/zerolog v1.30.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
+	gonum.org/v1/gonum v0.8.2
 )
 
 require (
