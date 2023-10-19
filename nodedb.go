@@ -488,6 +488,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	ndb.mtx.Lock()
 	for v, r := range ndb.versionReaders {
 		if v >= fromVersion && r != 0 {
+			ndb.mtx.Unlock() // Unlock before exiting
 			return fmt.Errorf("unable to delete version %v with %v active readers", v, r)
 		}
 	}

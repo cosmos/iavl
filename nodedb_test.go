@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	log "cosmossdk.io/log"
 	db "github.com/cosmos/cosmos-db"
@@ -391,4 +392,48 @@ func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 	_, _, err := tree.SaveVersion()
 	require.Nil(tb, err, "Expected .SaveVersion to succeed")
 	return tree
+}
+
+func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
+	const expectedVersion = fastStorageVersionValue
+
+	db := db.NewMemDB()
+
+	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
+	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
+
+	err := ndb.setFastStorageVersionToBatch()
+	require.NoError(t, err)
+
+	latestVersion, err := ndb.getLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, expectedVersion+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), ndb.getStorageVersion())
+	require.NoError(t, ndb.batch.Write())
+
+	// Reported in https://github.com/cosmos/iavl/issues/842
+	// there was a deadlock that triggered on an invalid version being
+	// checked for deletion.
+	// Now add in data to trigger the error path.
+	ndb.versionReaders[latestVersion+1] = 2
+
+	errCh := make(chan error)
+	targetVersion := latestVersion - 1
+
+	go func() {
+		defer close(errCh)
+		errCh <- ndb.DeleteVersionsFrom(targetVersion)
+	}()
+
+	select {
+	case err = <-errCh:
+		// Happy path, the mutex was unlocked fast enough.
+
+	case <-time.After(2 * time.Second):
+		t.Error("code did not return even after 2 seconds")
+	}
+
+	require.True(t, ndb.mtx.TryLock(), "tryLock failed mutex was still locked")
+	ndb.mtx.Unlock() // Since TryLock passed, the lock is now solely being held by us.
+	require.Error(t, err, "")
+	require.Contains(t, err.Error(), fmt.Sprintf("unable to delete version %v with 2 active readers", targetVersion+2))
 }
