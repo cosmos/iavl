@@ -88,11 +88,12 @@ func TestSetStorageVersion_Success(t *testing.T) {
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
-	err := ndb.setFastStorageVersionToBatch()
-	require.NoError(t, err)
-
 	latestVersion, err := ndb.getLatestVersion()
 	require.NoError(t, err)
+
+	err = ndb.setFastStorageVersionToBatch(latestVersion)
+	require.NoError(t, err)
+
 	require.Equal(t, expectedVersion+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), ndb.getStorageVersion())
 	require.NoError(t, ndb.batch.Write())
 }
@@ -101,7 +102,6 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	dbMock := mock.NewMockDB(ctrl)
 	batchMock := mock.NewMockBatch(ctrl)
-	rIterMock := mock.NewMockIterator(ctrl)
 
 	expectedErrorMsg := "some db error"
 
@@ -110,19 +110,13 @@ func TestSetStorageVersion_DBFailure_OldKept(t *testing.T) {
 	dbMock.EXPECT().Get(gomock.Any()).Return([]byte(defaultStorageVersionValue), nil).Times(1)
 	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(1)
 
-	// rIterMock is used to get the latest version from disk. We are mocking that rIterMock returns latestTreeVersion from disk
-	rIterMock.EXPECT().Valid().Return(true).Times(1)
-	rIterMock.EXPECT().Key().Return(nodeKeyFormat.Key(GetRootKey(int64(expectedFastCacheVersion)))).Times(1)
-	rIterMock.EXPECT().Close().Return(nil).Times(1)
-
-	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1)
 	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(expectedFastCacheVersion))).Return(errors.New(expectedErrorMsg)).Times(1)
 
 	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(int64(expectedFastCacheVersion))
 	require.Error(t, err)
 	require.Equal(t, expectedErrorMsg, err.Error())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
@@ -143,7 +137,7 @@ func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
 	ndb := newNodeDB(dbMock, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, invalidStorageVersion, ndb.getStorageVersion())
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(0)
 	require.Error(t, err)
 	require.Equal(t, expectedErrorMsg, err)
 	require.Equal(t, invalidStorageVersion, ndb.getStorageVersion())
@@ -155,7 +149,7 @@ func TestSetStorageVersion_FastVersionFirst_VersionAppended(t *testing.T) {
 	ndb.storageVersion = fastStorageVersionValue
 	ndb.latestVersion = 100
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(ndb.latestVersion)), ndb.storageVersion)
 }
@@ -169,7 +163,7 @@ func TestSetStorageVersion_FastVersionSecond_VersionAppended(t *testing.T) {
 	storageVersionBytes[len(fastStorageVersionValue)-1]++ // increment last byte
 	ndb.storageVersion = string(storageVersionBytes)
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 	require.Equal(t, string(storageVersionBytes)+fastStorageVersionDelimiter+strconv.Itoa(int(ndb.latestVersion)), ndb.storageVersion)
 }
@@ -183,12 +177,12 @@ func TestSetStorageVersion_SameVersionTwice(t *testing.T) {
 	storageVersionBytes[len(fastStorageVersionValue)-1]++ // increment last byte
 	ndb.storageVersion = string(storageVersionBytes)
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 	newStorageVersion := string(storageVersionBytes) + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion))
 	require.Equal(t, newStorageVersion, ndb.storageVersion)
 
-	err = ndb.setFastStorageVersionToBatch()
+	err = ndb.setFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 	require.Equal(t, newStorageVersion, ndb.storageVersion)
 }
@@ -408,7 +402,7 @@ func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 
 	latestVersion, err := ndb.getLatestVersion()

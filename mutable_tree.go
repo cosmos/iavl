@@ -615,7 +615,12 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	if err = tree.ndb.setFastStorageVersionToBatch(); err != nil {
+	latestVersion, err := tree.ndb.getLatestVersion()
+	if err != nil {
+		return err
+	}
+
+	if err = tree.ndb.setFastStorageVersionToBatch(latestVersion); err != nil {
 		return err
 	}
 
@@ -733,6 +738,13 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	tree.logger.Debug("SAVE TREE", "version", version)
+
+	// save new fast nodes
+	if !tree.skipFastStorageUpgrade {
+		if err := tree.saveFastNodeVersion(version, isGenesis); err != nil {
+			return nil, version, err
+		}
+	}
 	// save new nodes
 	if tree.root == nil {
 		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
@@ -760,18 +772,11 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	tree.ndb.resetLatestVersion(version)
-
-	if !tree.skipFastStorageUpgrade {
-		if err := tree.saveFastNodeVersion(isGenesis); err != nil {
-			return nil, version, err
-		}
-	}
-
 	if err := tree.ndb.Commit(); err != nil {
 		return nil, version, err
 	}
 
+	tree.ndb.resetLatestVersion(version)
 	tree.version = version
 
 	// set new working tree
@@ -782,19 +787,17 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		tree.unsavedFastNodeRemovals = &sync.Map{}
 	}
 
-	hash := tree.Hash()
-
-	return hash, version, nil
+	return tree.Hash(), version, nil
 }
 
-func (tree *MutableTree) saveFastNodeVersion(isGenesis bool) error {
+func (tree *MutableTree) saveFastNodeVersion(latestVersion int64, isGenesis bool) error {
 	if err := tree.saveFastNodeAdditions(isGenesis); err != nil {
 		return err
 	}
 	if err := tree.saveFastNodeRemovals(); err != nil {
 		return err
 	}
-	return tree.ndb.setFastStorageVersionToBatch()
+	return tree.ndb.setFastStorageVersionToBatch(latestVersion)
 }
 
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
@@ -1039,7 +1042,6 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 			version: version,
 			nonce:   nonce,
 		}
-		newNodes = append(newNodes, node)
 
 		var err error
 		// the inner nodes should have two children.
@@ -1055,6 +1057,8 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		}
 
 		node._hash(version)
+		newNodes = append(newNodes, node)
+
 		return node.nodeKey.GetKey(), nil
 	}
 

@@ -1780,8 +1780,8 @@ func TestNodeCacheStatisic(t *testing.T) {
 			cacheSize:              numKeyVals,
 			expectFastCacheHitCnt:  numKeyVals,
 			expectFastCacheMissCnt: 0,
-			expectCacheHitCnt:      0,
-			expectCacheMissCnt:     1,
+			expectCacheHitCnt:      1,
+			expectCacheMissCnt:     0,
 		},
 		"without_cache": {
 			cacheSize:              0,
