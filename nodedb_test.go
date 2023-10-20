@@ -402,7 +402,7 @@ func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
-	err := ndb.setFastStorageVersionToBatch()
+	err := ndb.setFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 
 	latestVersion, err := ndb.getLatestVersion()
