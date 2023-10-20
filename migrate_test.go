@@ -88,7 +88,7 @@ func TestLazySet(t *testing.T) {
 }
 
 func TestLegacyReferenceNode(t *testing.T) {
-	legacyVersion := 10
+	legacyVersion := 20
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
