@@ -438,7 +438,7 @@ func MakeNode(pool *NodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
 
 func (node *Node) WriteBytes(w io.Writer) error {
 	if node == nil {
-		return errors.New("cannot write nil node")
+		return errors.New("cannot leafWrite nil node")
 	}
 	cause := encoding.EncodeVarint(w, int64(node.subtreeHeight))
 	if cause != nil {

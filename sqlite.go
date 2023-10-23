@@ -11,12 +11,32 @@ import (
 	"github.com/aybabtme/uniplot/histogram"
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
+	api "github.com/kocubinski/costor-api"
 )
 
+const (
+	sqliteModeLatest  = iota
+	sqliteModeArchive = iota
+)
+
+type SqliteDbOptions struct {
+	Path      string
+	Mode      int
+	MmapSize  int
+	CacheSize int
+	ConnArgs  string
+}
+
 type SqliteDb struct {
-	connString string
-	write      *sqlite3.Conn
-	read       *sqlite3.Conn
+	opts SqliteDbOptions
+
+	// 2 separate databases and 2 separate connections.  the underlying databases have different WAL policies
+	// therefore separation is required.
+	leafWrite *sqlite3.Conn
+	treeWrite *sqlite3.Conn
+
+	leafRead *sqlite3.Conn
+	treeRead *sqlite3.Conn
 
 	pool *NodePool
 
@@ -34,67 +54,146 @@ type SqliteDb struct {
 	queryBranchCount int64
 }
 
-func (sql *SqliteDb) init(newDb bool) error {
+func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
+	if opts.Path == "" {
+		opts.Path = "/tmp/iavl-v2"
+	}
+	if opts.MmapSize == 0 {
+		opts.MmapSize = 8 * 1024 * 1024 * 1024
+	}
+	return opts
+}
+
+func (opts SqliteDbOptions) leafConnectionString() string {
+	return fmt.Sprintf("file:%s/changelog.sqlite?%s", opts.Path, opts.ConnArgs)
+}
+
+func (opts SqliteDbOptions) treeConnectionString() string {
+	return fmt.Sprintf("file:%s/tree.sqlite?%s", opts.Path, opts.ConnArgs)
+}
+
+func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
+	opts := defaultSqliteDbOptions(SqliteDbOptions{ConnArgs: "mode=memory"})
+	return NewSqliteDb(pool, opts)
+}
+
+func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
+	sql := &SqliteDb{
+		shards:       make(map[int64]*sqlite3.Stmt),
+		versionShard: make(map[int64]int64),
+		opts:         opts,
+		pool:         pool,
+	}
+
+	if !api.IsFileExistent(opts.Path) {
+		if err := os.MkdirAll(opts.Path, 0755); err != nil {
+			return nil, err
+		}
+	}
+
 	var err error
-	sql.write, err = sqlite3.Open(sql.connString)
+	sql.leafWrite, err = sqlite3.Open(opts.leafConnectionString())
 	if err != nil {
-		return err
+		return nil, err
+	}
+	sql.treeWrite, err = sqlite3.Open(opts.treeConnectionString())
+	if err != nil {
+		return nil, err
 	}
 
-	err = sql.write.Exec("PRAGMA synchronous=OFF;")
+	err = sql.leafWrite.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
-		return err
+		return nil, err
+	}
+	err = sql.treeWrite.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return nil, err
 	}
 
-	// wal_autocheckpoint is in pages, so we need to convert maxWalSizeBytes to pages
 	maxWalSizeBytes := 1024 * 1024 * 500
-	if err = sql.write.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
-		return err
+	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
+		return nil, err
 	}
 
-	if newDb {
-		if err = sql.initNewDb(); err != nil {
+	// TODO, hinge on different modes
+	if err = sql.treeWrite.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
+		return nil, err
+	}
+
+	if err = sql.init(); err != nil {
+		return nil, err
+	}
+
+	return sql, nil
+}
+
+func (sql *SqliteDb) init() error {
+	q, err := sql.treeWrite.Prepare("SELECT name from sqlite_master WHERE type='table' AND name='root'")
+	if err != nil {
+		return err
+	}
+	hasRow, err := q.Step()
+	if err != nil {
+		return err
+	}
+	if !hasRow {
+		err = sql.treeWrite.Exec(`
+CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
+CREATE TABLE tree (version int, sequence int, bytes blob);
+CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
+		if err != nil {
 			return err
 		}
+
+		pageSize := os.Getpagesize()
+		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+		err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
+		if err != nil {
+			return err
+		}
+		err = sql.treeWrite.Exec("PRAGMA journal_mode=WAL;")
+		if err != nil {
+			return err
+		}
+	}
+	if err = q.Close(); err != nil {
+		return err
+	}
+
+	q, err = sql.leafWrite.Prepare("SELECT name from sqlite_master WHERE type='table' AND name='leaf'")
+	if err != nil {
+		return err
+	}
+	if !hasRow {
+		err = sql.leafWrite.Exec(`CREATE TABLE leaf (version int, sequence int, bytes blob);`)
+		if err != nil {
+			return err
+		}
+
+		pageSize := os.Getpagesize()
+		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+		err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
+		if err != nil {
+			return err
+		}
+		err = sql.leafWrite.Exec("PRAGMA journal_mode=WAL;")
+		if err != nil {
+			return err
+		}
+	}
+	if err = q.Close(); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
-	sql := &SqliteDb{
-		shards:       make(map[int64]*sqlite3.Stmt),
-		versionShard: make(map[int64]int64),
-		connString:   "file::memory:?cache=shared",
-		pool:         pool,
-	}
-	if err := sql.init(true); err != nil {
-		return nil, err
-	}
-	return sql, nil
-}
-
-func NewSqliteDb(pool *NodePool, path string, newDb bool) (*SqliteDb, error) {
-	sql := &SqliteDb{
-		shards:       make(map[int64]*sqlite3.Stmt),
-		versionShard: make(map[int64]int64),
-		connString:   fmt.Sprintf("file:%s/iavl-v2.db", path),
-		pool:         pool,
-	}
-
-	if err := sql.init(newDb); err != nil {
-		return nil, err
-	}
-
-	return sql, nil
-}
-
 func (sql *SqliteDb) newReadConn() (*sqlite3.Conn, error) {
-	conn, err := sqlite3.Open(sql.connString)
+	conn, err := sqlite3.Open(sql.opts.leafConnectionString())
 	if err != nil {
 		return nil, err
 	}
-	err = conn.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", 8*1024*1024*1024))
+	err = conn.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", sql.opts.MmapSize))
 	if err != nil {
 		return nil, err
 	}
@@ -102,46 +201,22 @@ func (sql *SqliteDb) newReadConn() (*sqlite3.Conn, error) {
 }
 
 func (sql *SqliteDb) resetReadConn() (err error) {
-	if sql.read != nil {
-		err = sql.read.Close()
+	if sql.leafRead != nil {
+		err = sql.leafRead.Close()
 		if err != nil {
 			return err
 		}
 	}
-	sql.read, err = sql.newReadConn()
+	sql.leafRead, err = sql.newReadConn()
 	return err
 }
 
 func (sql *SqliteDb) getReadConn() (*sqlite3.Conn, error) {
 	var err error
-	if sql.read == nil {
-		sql.read, err = sql.newReadConn()
+	if sql.leafRead == nil {
+		sql.leafRead, err = sql.newReadConn()
 	}
-	return sql.read, err
-}
-
-func (sql *SqliteDb) initNewDb() error {
-	err := sql.write.Exec(`
-CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
-CREATE TABLE leaf (version int, sequence int, bytes blob);
-CREATE TABLE tree (version int, sequence int, bytes blob);
-CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
-	if err != nil {
-		return err
-	}
-
-	pageSize := os.Getpagesize()
-	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
-	err = sql.write.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
-	if err != nil {
-		return err
-	}
-	err = sql.write.Exec("PRAGMA journal_mode=WAL;")
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return sql.leafRead, err
 }
 
 func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []int64, err error) {
@@ -153,22 +228,22 @@ func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 
 	newBatch := func() (*sqlite3.Stmt, error) {
 		var err error
-		err = sql.write.Begin()
+		err = sql.leafWrite.Begin()
 		if err != nil {
 			return nil, err
 		}
 
 		var stmt *sqlite3.Stmt
 		if leaves {
-			stmt, err = sql.write.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
+			stmt, err = sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
 		} else {
 			// sharded
-			stmt, err = sql.write.Prepare(fmt.Sprintf(
+			stmt, err = sql.leafWrite.Prepare(fmt.Sprintf(
 				"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", sql.shardId))
 		}
 
 		// no Shard
-		//stmt, err = sql.write.Prepare(fmt.Sprintf("INSERT INTO tree (sequence, version, bytes) VALUES (?, ?, ?)"))
+		//stmt, err = sql.leafWrite.Prepare(fmt.Sprintf("INSERT INTO tree (sequence, version, bytes) VALUES (?, ?, ?)"))
 
 		// leaves
 
@@ -194,7 +269,7 @@ func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 			return 0, versions, err
 		}
 		if i != 0 && i%batchSize == 0 {
-			err := sql.write.Commit()
+			err := sql.leafWrite.Commit()
 			if err != nil {
 				return 0, versions, err
 			}
@@ -217,7 +292,7 @@ func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 			sql.pool.Put(node)
 		}
 	}
-	err = sql.write.Commit()
+	err = sql.leafWrite.Commit()
 	if err != nil {
 		return 0, versions, err
 	}
@@ -227,14 +302,14 @@ func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []i
 	}
 
 	if !leaves {
-		err = sql.write.Exec(fmt.Sprintf(
+		err = sql.leafWrite.Exec(fmt.Sprintf(
 			"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", sql.shardId, sql.shardId))
 		if err != nil {
 			return 0, versions, err
 		}
 	}
 
-	err = sql.write.Exec("PRAGMA wal_checkpoint(RESTART);")
+	err = sql.leafWrite.Exec("PRAGMA wal_checkpoint(RESTART);")
 	if err != nil {
 		return 0, versions, err
 	}
@@ -265,7 +340,7 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 		//if err = sql.resetReadConn(); err != nil {
 		//	return nil, err
 		//}
-		sql.queryLeaf, err = sql.read.Prepare("SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
+		sql.queryLeaf, err = sql.leafRead.Prepare("SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
 		if err != nil {
 			return nil, err
 		}
@@ -357,28 +432,28 @@ func (sql *SqliteDb) Close() error {
 			return err
 		}
 	}
-	if sql.read != nil {
+	if sql.leafRead != nil {
 		if sql.queryLeaf != nil {
 			if err := sql.queryLeaf.Close(); err != nil {
 				return err
 			}
 		}
-		if err := sql.read.Close(); err != nil {
+		if err := sql.leafRead.Close(); err != nil {
 			return err
 		}
 	}
-	if err := sql.write.Close(); err != nil {
+	if err := sql.leafWrite.Close(); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (sql *SqliteDb) MapVersions(versions []int64, shardId int64) error {
-	err := sql.write.Begin()
+	err := sql.leafWrite.Begin()
 	if err != nil {
 		return err
 	}
-	stmt, err := sql.write.Prepare("INSERT INTO shard(version, id) VALUES (?, ?)")
+	stmt, err := sql.leafWrite.Prepare("INSERT INTO shard(version, id) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
@@ -391,13 +466,13 @@ func (sql *SqliteDb) MapVersions(versions []int64, shardId int64) error {
 		}
 		sql.versionShard[version] = shardId
 	}
-	return sql.write.Commit()
+	return sql.leafWrite.Commit()
 }
 
 func (sql *SqliteDb) NextShard() error {
 	// initialize shardId if not done so. done with a new connection.
 	if sql.shardId == 0 {
-		conn, err := sqlite3.Open(sql.connString)
+		conn, err := sqlite3.Open(sql.opts.treeConnectionString())
 		if err != nil {
 			return err
 		}
@@ -434,7 +509,7 @@ func (sql *SqliteDb) NextShard() error {
 
 	log.Info().Msgf("creating shard %d", sql.shardId)
 
-	err := sql.write.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);",
+	err := sql.leafWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);",
 		sql.shardId))
 	if err != nil {
 		return err
@@ -443,12 +518,12 @@ func (sql *SqliteDb) NextShard() error {
 }
 
 func (sql *SqliteDb) IndexShard(shardId int64) error {
-	err := sql.write.Exec(fmt.Sprintf("CREATE INDEX tree_%d_node_key_idx ON tree_%d (node_key);", shardId, shardId))
+	err := sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX tree_%d_node_key_idx ON tree_%d (node_key);", shardId, shardId))
 	return err
 }
 
 func (sql *SqliteDb) SaveRoot(version int64, node *Node) error {
-	err := sql.write.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
+	err := sql.leafWrite.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
 		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()))
 	return err
 }
@@ -501,13 +576,13 @@ func (sql *SqliteDb) addShardQuery() error {
 	if _, ok := sql.shards[sql.shardId]; ok {
 		return nil
 	}
-	if sql.read == nil {
+	if sql.leafRead == nil {
 		if err := sql.resetReadConn(); err != nil {
 			return err
 		}
 	}
 
-	q, err := sql.read.Prepare(fmt.Sprintf(
+	q, err := sql.leafRead.Prepare(fmt.Sprintf(
 		"SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", sql.shardId))
 	if err != nil {
 		return err
@@ -524,14 +599,14 @@ func (sql *SqliteDb) resetShardQueries() error {
 		}
 	}
 
-	if sql.read == nil {
+	if sql.leafRead == nil {
 		// single reader conn for all shards. keep open to fill mmap, but reset queries periodically to flush WAL
 		if err := sql.resetReadConn(); err != nil {
 			return err
 		}
 	}
 
-	q, err := sql.read.Prepare("SELECT DISTINCT id FROM shard")
+	q, err := sql.leafRead.Prepare("SELECT DISTINCT id FROM shard")
 	if err != nil {
 		return err
 	}
@@ -548,7 +623,7 @@ func (sql *SqliteDb) resetShardQueries() error {
 		if err != nil {
 			return err
 		}
-		sql.shards[shardId], err = sql.read.Prepare(
+		sql.shards[shardId], err = sql.leafRead.Prepare(
 			fmt.Sprintf("SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", shardId))
 		if err != nil {
 			return err
@@ -559,7 +634,7 @@ func (sql *SqliteDb) resetShardQueries() error {
 		return err
 	}
 
-	q, err = sql.read.Prepare("SELECT version, id FROM shard")
+	q, err = sql.leafRead.Prepare("SELECT version, id FROM shard")
 	for {
 		ok, err := q.Step()
 		if err != nil {
@@ -664,7 +739,7 @@ type sqliteNode struct {
 }
 
 func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) error {
-	err := sql.write.Exec(
+	err := sql.leafWrite.Exec(
 		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
 	if err != nil {
 		return err
@@ -676,7 +751,7 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 
 	snapshot := &sqliteSnapshot{
 		ctx:       ctx,
-		conn:      sql.write,
+		conn:      sql.leafWrite,
 		batchSize: 200_000,
 		version:   version,
 		getLeft: func(node *Node) *Node {
@@ -696,7 +771,7 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 		return err
 	}
 	log.Info().Msgf("creating index on snapshot_%d", version)
-	err = sql.write.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
+	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
 	return err
 }
 

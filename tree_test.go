@@ -12,7 +12,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -31,7 +30,7 @@ func MemUsage() string {
 	return s
 }
 
-func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cnt int64) {
+func testTreeBuild(t *testing.T, sqlOpts SqliteDbOptions, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
 		hash                        []byte
 		version                     int64
@@ -40,30 +39,37 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 	)
 	cnt = 1
 
+	multiTree := NewStdMultiTree(sqlOpts, NewNodePool())
+
 	// generator
 	itr := opts.Iterator
 	fmt.Printf("Initial memory usage from generators:\n%s\n", MemUsage())
 
-	if opts.LoadVersion != 0 {
-		require.NoError(t, tree.LoadVersion(opts.LoadVersion))
-		log.Info().Msgf("fast forwarding changesets to version %d...", opts.LoadVersion+1)
-		i := 1
-		for ; itr.Valid(); err = itr.Next() {
-			if itr.Version() > opts.LoadVersion {
-				break
-			}
-			require.NoError(t, err)
-			nodes := itr.Nodes()
-			for ; nodes.Valid(); err = nodes.Next() {
-				require.NoError(t, err)
-				if i%5_000_000 == 0 {
-					fmt.Printf("fast forward %s nodes\n", humanize.Comma(int64(i)))
-				}
-				i++
-			}
-		}
-		log.Info().Msgf("fast forward complete")
-	}
+	// not supported in multi tree yet, may revive.
+	//
+	//if opts.LoadVersion != 0 {
+	//	for _, tree := range multiTree.Trees {
+	//		require.NoError(t, tree.LoadVersion(opts.LoadVersion))
+	//	}
+	//
+	//	log.Info().Msgf("fast forwarding changesets to version %d...", opts.LoadVersion+1)
+	//	i := 1
+	//	for ; itr.Valid(); err = itr.Next() {
+	//		if itr.Version() > opts.LoadVersion {
+	//			break
+	//		}
+	//		require.NoError(t, err)
+	//		nodes := itr.Nodes()
+	//		for ; nodes.Valid(); err = nodes.Next() {
+	//			require.NoError(t, err)
+	//			if i%5_000_000 == 0 {
+	//				fmt.Printf("fast forward %s nodes\n", humanize.Comma(int64(i)))
+	//			}
+	//			i++
+	//		}
+	//	}
+	//	log.Info().Msgf("fast forward complete")
+	//}
 
 	sampleRate := int64(100_000)
 	if opts.SampleRate != 0 {
@@ -85,6 +91,12 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 			//keyBz.Write(node.Key)
 			//key := keyBz.Bytes()
 			key := node.Key
+
+			tree, ok := multiTree.Trees[node.StoreKey]
+			if !ok {
+				require.NoError(t, multiTree.AddTree(node.StoreKey))
+				tree = multiTree.Trees[node.StoreKey]
+			}
 
 			if !node.Delete {
 				_, err = tree.Set(key, node.Value)
@@ -136,7 +148,7 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 					}
 				} else {
 					if err = tree.kv.readReport(); err != nil {
-						t.Fatalf("read report err %v", err)
+						t.Fatalf("leafRead report err %v", err)
 					}
 				}
 
@@ -148,14 +160,11 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 				tree.metrics.WriteLeaves = 0
 				tree.metrics.WriteTime = 0
 			}
-
-			//if cnt%(sampleRate*4) == 0 {
-			//}
 		}
-		if tree.kv == nil {
-			hash, version, err = tree.SaveVersion()
-		} else {
-			hash, version, err = tree.SaveVersionKV()
+
+		for _, tree := range multiTree.Trees {
+			_, _, err = tree.SaveVersion()
+			require.NoError(t, err)
 		}
 
 		require.NoError(t, err)
@@ -164,122 +173,42 @@ func testTreeBuild(t *testing.T, tree *Tree, opts testutil.TreeBuildOptions) (cn
 		}
 	}
 	fmt.Printf("final version: %d, hash: %x\n", version, hash)
-	fmt.Printf("height: %d, size: %d\n", tree.Height(), tree.Size())
-	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
-	if opts.Report != nil {
-		opts.Report()
+	for sk, tree := range multiTree.Trees {
+		fmt.Printf("storekey: %s height: %d, size: %d\n", sk, tree.Height(), tree.Size())
 	}
+	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
+	multiTree.metrics.Report()
 	require.Equal(t, version, opts.Until)
+	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
 	return cnt
 }
 
 func TestTree_Build(t *testing.T) {
-	//just a little bigger than the size of the initial changeset. evictions will occur slowly.
-	//poolSize := 210_050
-	// no evictions
-	//poolSize := 10_000
-	// overflow on initial changeset and frequently after; worst performance
-	//poolSize := 100_000
-
-	//poolSize = 1
-
 	var err error
-	//db := newMapDB()
 
 	tmpDir := t.TempDir()
-	//tmpDir := "/tmp/leaves"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
-	//levelDb, err := leveldb.New("iavl_test", tmpDir)
-	//require.NoError(t, err)
 
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, tmpDir, true)
-	//sql, err := NewInMemorySqliteDb(pool)
+	sqlOpts := SqliteDbOptions{Path: tmpDir}
 	require.NoError(t, err)
 
-	tree := &Tree{
-		metrics: &metrics.TreeMetrics{},
-		//db:             &kvDB{db: levelDb, pool: pool},
-		sql:            sql,
-		cache:          NewNodeCache(),
-		maxWorkingSize: 5 * 1024 * 1024 * 1024,
-		pool:           pool,
-	}
-	//tree.checkpointer = newCheckpointer(tree.db, tree.cache, pool)
-	//tree.checkpointer.sqliteDb = sql
-
-	//tree.pool.metrics = tree.metrics
-	//tree.pool.maxWorkingSize = 5 * 1024 * 1024 * 1024
-
-	//opts := testutil.BankLockup25_000()
 	opts := testutil.NewTreeBuildOptions()
-	//opts := testutil.BigStartOptions()
-	//opts := testutil.OsmoLike()
-	//opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
-	opts.Report = func() {
-		tree.metrics.Report()
-	}
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
-	//wg := &sync.WaitGroup{}
-	//wg.Add(1)
-	//go func() {
-	//	metricsErr := metrics.Default.Run(ctx)
-	//	require.NoError(t, metricsErr)
-	//	log.Info().Msg("metrics dump:")
-	//	fmt.Print(metrics.Default.Print())
-	//	wg.Done()
-	//}()
-	//
-	//wg.Add(1)
-	//go func() {
-	//	checkpointErr := tree.checkpointer.sqliteRun(ctx)
-	//	require.NoError(t, checkpointErr)
-	//	wg.Done()
-	//}()
-
 	testStart := time.Now()
-	leaves := testTreeBuild(t, tree, opts)
+	leaves := testTreeBuild(t, sqlOpts, opts)
 
-	//err = tree.sqlCheckpoint()
-	//require.NoError(t, err)
-	// wait
-	//tree.pool.checkpointCh <- &checkpointArgs{version: -1}
 	treeDuration := time.Since(testStart)
 
-	// don't evict root on iteration, it interacts with the node pool
-	//tree.root.dirty = true
-
-	//count := treeCount(tree, *tree.root)
-	//height := treeHeight(tree, *tree.root)
-
-	workingSetCount := 0 // offset the dirty root above.
-	//for _, n := range tree.pool.nodes {
-	//	if n.dirty {
-	//		workingSetCount++
-	//	}
-	//}
-
 	fmt.Printf("mean leaves/s: %s\n", humanize.Comma(int64(float64(leaves)/treeDuration.Seconds())))
-	fmt.Printf("workingSetCount: %d\n", workingSetCount)
-
-	//fmt.Printf("treeCount: %d\n", count)
-	//fmt.Printf("treeHeight: %d\n", height)
-
-	//require.Equal(t, height, tree.root.subtreeHeight+1)
 
 	ts := &treeStat{}
-
-	//treeAndDbEqual(t, tree, *tree.root, ts)
 
 	fmt.Printf("tree size: %s\n", humanize.Bytes(ts.size))
 
 	cancel()
-	//wg.Wait()
-
-	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", tree.root.hash))
 }
 
 func treeCount(tree *Tree, node Node) int {
@@ -335,7 +264,7 @@ func TestBuild_OsmoScale(t *testing.T) {
 	tmpDir := osmoScalePath
 
 	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, tmpDir, true)
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 
 	tree := &Tree{
@@ -392,11 +321,11 @@ func TestBuild_OsmoScale(t *testing.T) {
 }
 
 func TestOsmoLike_HotStart(t *testing.T) {
+	/* One big TODO for snapshot import
 	tmpDir := "/tmp/iavl-init"
 
 	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, tmpDir, false)
-	require.NoError(t, err)
+	sqlOpts := SqliteDbOptions{Path: tmpDir}
 	tree := NewTree(sql, pool)
 
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
@@ -409,56 +338,23 @@ func TestOsmoLike_HotStart(t *testing.T) {
 	require.NoError(t, sql.WarmLeaves())
 	testTreeBuild(t, tree, opts)
 	require.NoError(t, sql.Close())
+	*/
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-init"
 
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, tmpDir, false)
-	require.NoError(t, err)
-	tree := NewTree(sql, pool)
-	require.NoError(t, tree.LoadVersion(1))
-
+	sqlOpts := SqliteDbOptions{Path: tmpDir}
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 
-	require.NoError(t, err)
-
-	testTreeBuild(t, tree, opts)
-	require.NoError(t, sql.Close())
-}
-
-func TestOsmoLike_LevelDb(t *testing.T) {
-	tmpDir := "/tmp/iavl-init"
-
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, tmpDir, false)
-	require.NoError(t, err)
-	levelDb, err := leveldb.New("iavl-leveldb", tmpDir)
-	require.NoError(t, err)
-
-	tree := &Tree{
-		pool:           pool,
-		metrics:        &metrics.TreeMetrics{},
-		sql:            sql,
-		cache:          NewNodeCache(),
-		maxWorkingSize: 2 * 1024 * 1024 * 1024,
-		kv:             NewKvDB(levelDb, pool),
-	}
-	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
-
-	require.NoError(t, tree.LoadVersionKV(1))
-	require.NoError(t, err)
-
-	testTreeBuild(t, tree, opts)
-	require.NoError(t, sql.Close())
+	testTreeBuild(t, sqlOpts, opts)
 }
 
 func TestTree_Import(t *testing.T) {
 	tmpDir := "/Users/mattk/src/scratch/sqlite/height-zero"
 
 	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, tmpDir, false)
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 
 	root, err := sql.ImportSnapshot(1, true)
@@ -468,7 +364,7 @@ func TestTree_Import(t *testing.T) {
 
 func TestTree_Rehash(t *testing.T) {
 	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, "/Users/mattk/src/scratch/sqlite/height-zero", false)
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/sqlite/height-zero"})
 	require.NoError(t, err)
 	tree := NewTree(sql, pool)
 	require.NoError(t, tree.LoadVersion(1))

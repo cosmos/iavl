@@ -182,6 +182,90 @@ func OsmoLike() TreeBuildOptions {
 	return opts
 }
 
+func OsmoLikeManyTrees() TreeBuildOptions {
+	seed := int64(1234)
+	versions := int64(10_000)
+	changes := int(versions / 100)
+	deleteFrac := 0.2
+
+	wasm := bench.ChangesetGenerator{
+		StoreKey:         "wasm",
+		Seed:             seed,
+		KeyMean:          79,
+		KeyStdDev:        23,
+		ValueMean:        170,
+		ValueStdDev:      202,
+		InitialSize:      8_500_000,
+		FinalSize:        8_600_000,
+		Versions:         versions,
+		ChangePerVersion: changes,
+		DeleteFraction:   deleteFrac,
+	}
+	ibc := bench.ChangesetGenerator{
+		StoreKey:         "ibc",
+		Seed:             seed,
+		KeyMean:          58,
+		KeyStdDev:        4,
+		ValueMean:        22,
+		ValueStdDev:      29,
+		InitialSize:      23_400_000,
+		FinalSize:        23_500_000,
+		Versions:         versions,
+		ChangePerVersion: changes,
+		DeleteFraction:   deleteFrac,
+	}
+	upgrade := bench.ChangesetGenerator{
+		StoreKey:         "upgrade",
+		Seed:             seed,
+		KeyMean:          8,
+		KeyStdDev:        1,
+		ValueMean:        8,
+		ValueStdDev:      0,
+		InitialSize:      60,
+		FinalSize:        62,
+		ChangePerVersion: 1,
+		DeleteFraction:   0,
+	}
+	concentratedliquidity := bench.ChangesetGenerator{
+		StoreKey:         "concentratedliquidity",
+		Seed:             seed,
+		KeyMean:          25,
+		KeyStdDev:        11,
+		ValueMean:        44,
+		ValueStdDev:      48,
+		InitialSize:      600_000,
+		FinalSize:        610_000,
+		ChangePerVersion: changes,
+		DeleteFraction:   deleteFrac,
+	}
+	icahost := bench.ChangesetGenerator{
+		StoreKey:         "icahost",
+		Seed:             seed,
+		KeyMean:          103,
+		KeyStdDev:        11,
+		ValueMean:        37,
+		ValueStdDev:      25,
+		InitialSize:      1_500,
+		FinalSize:        1_600,
+		ChangePerVersion: changes,
+		DeleteFraction:   deleteFrac,
+	}
+	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{
+		wasm,
+		ibc,
+		upgrade,
+		concentratedliquidity,
+		icahost,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return TreeBuildOptions{
+		Iterator: itr,
+		Until:    versions,
+	}
+}
+
 func CompactedChangelogs(logDir string) TreeBuildOptions {
 	itr, err := compact.NewChangesetIterator(logDir)
 	if err != nil {

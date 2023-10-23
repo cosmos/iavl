@@ -222,7 +222,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		}
 
 		log.Info().Msg("creating leaf index")
-		err = tree.sql.write.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
+		err = tree.sql.leafWrite.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
 		if err != nil {
 			return nil, tree.version, err
 		}
@@ -389,7 +389,7 @@ func (tree *Tree) deepHash(sequence *uint32, node *Node) (isLeaf bool, isDirty b
 		return isLeaf, isDirty
 	}
 
-	// When reading leaves, this will initiate a read from storage for the sole purpose of producing a hash.
+	// When reading leaves, this will initiate a leafRead from storage for the sole purpose of producing a hash.
 	// Recall that a terminal tree node may have only updated one leaf this version.
 	// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
 	// format to iavl v0 where left/right hash are stored in the node.

@@ -14,7 +14,7 @@ import (
 )
 
 /*
-Benchmarks measured from these read-write tests below:
+Benchmarks measured from these leafRead-leafWrite tests below:
 
 # SQLite
 
@@ -40,7 +40,7 @@ and potentially re-balancing the BTree index.
 
 - fully memory mapped unstructured (tree table) - ~160,000 nodes/sec
 - fully memory mapped structured (node table) - ~172,000 nodes/sec
-- fully memory mapped structured (node table) read by key []byte - ~160,000 nodes/sec
+- fully memory mapped structured (node table) leafRead by key []byte - ~160,000 nodes/sec
 
 # LevelDB
 Writes: 245,000 nodes/sec
@@ -55,7 +55,7 @@ func TestBuildSqlite(t *testing.T) {
 	dir := testDbLocation
 	t.Logf("using temp dir %s", dir)
 
-	sql, err := NewSqliteDb(NewNodePool(), dir, true)
+	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
 
 	require.NoError(t, err)
 
@@ -66,20 +66,20 @@ func TestBuildSqlite(t *testing.T) {
 
 	since := time.Now()
 
-	err = sql.write.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
+	err = sql.leafWrite.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
 	require.NoError(t, err)
 
-	err = sql.write.Exec("CREATE INDEX trie_idx ON node (key)")
-	//err = sql.write.Exec("CREATE INDEX node_idx ON node (version, seq)")
+	err = sql.leafWrite.Exec("CREATE INDEX trie_idx ON node (key)")
+	//err = sql.leafWrite.Exec("CREATE INDEX node_idx ON node (version, seq)")
 	require.NoError(t, err)
-	err = sql.write.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
+	err = sql.leafWrite.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
 	require.NoError(t, err)
 
-	require.NoError(t, sql.write.Begin())
+	require.NoError(t, sql.leafWrite.Begin())
 
 	var stmt *sqlite3.Stmt
-	//stmt, err = sql.write.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
-	stmt, err = sql.write.Prepare("INSERT INTO node(version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version)" +
+	//stmt, err = sql.leafWrite.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
+	stmt, err = sql.leafWrite.Prepare("INSERT INTO node(version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version)" +
 		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 
 	require.NoError(t, err)
@@ -119,11 +119,11 @@ func TestBuildSqlite(t *testing.T) {
 		)
 
 		if count%batchSize == 0 {
-			err := sql.write.Commit()
+			err := sql.leafWrite.Commit()
 			require.NoError(t, err)
 			//stmt, err = newBatch()
 			//require.NoError(t, err)
-			require.NoError(t, sql.write.Begin())
+			require.NoError(t, sql.leafWrite.Begin())
 			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(count)),
 				time.Since(since).Round(time.Millisecond),
@@ -135,7 +135,7 @@ func TestBuildSqlite(t *testing.T) {
 	}
 
 	log.Info().Msg("final commit")
-	require.NoError(t, sql.write.Commit())
+	require.NoError(t, sql.leafWrite.Commit())
 	log.Info().Msgf("total dur=%s rate=%s",
 		time.Since(startTime).Round(time.Millisecond),
 		humanize.Comma(int64(40_000_000/time.Since(startTime).Seconds())),
@@ -146,7 +146,7 @@ func TestBuildSqlite(t *testing.T) {
 
 func TestReadSqlite_Trie(t *testing.T) {
 	dir := testDbLocation
-	sql, err := NewSqliteDb(NewNodePool(), dir, false)
+	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
 	require.NoError(t, err)
 
 	read, err := sql.getReadConn()
@@ -191,11 +191,11 @@ func TestReadSqlite(t *testing.T) {
 	var err error
 	dir := testDbLocation
 	t.Logf("using temp dir %s", dir)
-	sql, err := NewSqliteDb(NewNodePool(), dir, false)
+	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
 	require.NoError(t, err)
 
 	var stmt *sqlite3.Stmt
-	//stmt, err = sql.write.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
+	//stmt, err = sql.leafWrite.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
 
 	sqlRead, err := sql.getReadConn()
 	require.NoError(t, err)
@@ -210,7 +210,7 @@ func TestReadSqlite(t *testing.T) {
 	for i := 1; i < 40_000_000; i++ {
 		j := rand.Intn(40_000_000)
 
-		// unstructured read:
+		// unstructured leafRead:
 		//nk := NewNodeKey(1, uint32(j))
 		//require.NoError(t, stmt.Bind(1, j))
 		//hasRow, err := stmt.Step()
@@ -221,7 +221,7 @@ func TestReadSqlite(t *testing.T) {
 		//_, err = MakeNode(pool, nk, nodeBz)
 		//require.NoError(t, err)
 
-		// structured read:
+		// structured leafRead:
 		require.NoError(t, stmt.Bind(j, 1))
 		hasRow, err := stmt.Step()
 		require.NoError(t, err)
@@ -353,4 +353,11 @@ func TestMmap(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, err)
 	fmt.Printf("res: %s\n", res)
+}
+
+func Test_NewSqliteDb(t *testing.T) {
+	dir := t.TempDir()
+	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
+	require.NoError(t, err)
+	require.NotNil(t, sql)
 }
