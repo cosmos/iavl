@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"os"
-	"sort"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -120,62 +119,6 @@ func (tree *Tree) loadTree(i *int, since *time.Time, node *Node) *Node {
 	node.leftNode = tree.loadTree(i, since, node.left(tree))
 	node.rightNode = tree.loadTree(i, since, node.right(tree))
 	return node
-}
-
-func (tree *Tree) SaveVersionKV() ([]byte, int64, error) {
-	tree.version++
-	tree.sequence = 0
-
-	var sequence uint32
-	tree.deepHash(&sequence, tree.root)
-
-	since := time.Now()
-	if tree.version == 1 {
-		sort.Slice(tree.branches, func(i, j int) bool {
-			return bytes.Compare(tree.branches[i].nodeKey[:], tree.branches[j].nodeKey[:]) < 0
-		})
-		for i, node := range tree.branches {
-			err := tree.kv.setBranch(node)
-			if err != nil {
-				return nil, tree.version, err
-			}
-			if i != 0 && i%100_000 == 0 {
-				log.Debug().Msgf("setBranch i=%s, wr/s=%s",
-					humanize.Comma(int64(i)),
-					humanize.Comma(int64(100_000/time.Since(since).Seconds())),
-				)
-				since = time.Now()
-			}
-		}
-	}
-
-	sort.Slice(tree.leaves, func(i, j int) bool {
-		return bytes.Compare(tree.leaves[i].nodeKey[:], tree.leaves[j].nodeKey[:]) < 0
-	})
-	for i, node := range tree.leaves {
-		err := tree.kv.setLeaf(node)
-		if err != nil {
-			return nil, tree.version, err
-		}
-		if i != 0 && i%100_000 == 0 {
-			log.Debug().Msgf("setLeaf i=%s, wr/s=%s",
-				humanize.Comma(int64(i)),
-				humanize.Comma(int64(100_000/time.Since(since).Seconds())),
-			)
-			since = time.Now()
-		}
-	}
-
-	err := tree.kv.setRoot(tree.root, tree.version)
-	if err != nil {
-		return nil, tree.version, err
-	}
-
-	tree.leaves = nil
-	tree.branches = nil
-	tree.orphans = nil
-
-	return tree.root.hash, tree.version, nil
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {

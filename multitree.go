@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"slices"
 
@@ -14,6 +15,9 @@ type MultiTree struct {
 	sqlOpts SqliteDbOptions
 	pool    *NodePool
 	metrics *metrics.TreeMetrics
+
+	doneCh  chan saveVersionResult
+	errorCh chan error
 }
 
 func NewMultiTree() *MultiTree {
@@ -28,6 +32,8 @@ func NewStdMultiTree(sqlOpts SqliteDbOptions, pool *NodePool) *MultiTree {
 		sqlOpts: sqlOpts,
 		pool:    pool,
 		metrics: &metrics.TreeMetrics{},
+		doneCh:  make(chan saveVersionResult, 1000),
+		errorCh: make(chan error, 1000),
 	}
 }
 
@@ -62,12 +68,51 @@ func (mt *MultiTree) SaveVersion() ([]byte, int64, error) {
 		if version != -1 && version != v {
 			return nil, 0, fmt.Errorf("unexpected; trees are at different versions: %d != %d", version, v)
 		}
+		version = v
 	}
 	return mt.Hash(), version, nil
 }
 
+type saveVersionResult struct {
+	version int64
+	hash    []byte
+}
+
+func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
+	treeCount := 0
+	for _, tree := range mt.Trees {
+		treeCount++
+		go func(t *Tree) {
+			h, v, err := t.SaveVersion()
+			if err != nil {
+				mt.errorCh <- err
+			}
+			mt.doneCh <- saveVersionResult{version: v, hash: h}
+		}(tree)
+	}
+
+	var (
+		errs    []error
+		version = int64(-1)
+	)
+	for i := 0; i < treeCount; i++ {
+		select {
+		case err := <-mt.errorCh:
+			errs = append(errs, err)
+		case result := <-mt.doneCh:
+			if version != -1 && version != result.version {
+				errs = append(errs, fmt.Errorf("unexpected; trees are at different versions: %d != %d",
+					version, result.version))
+			}
+			version = result.version
+		}
+	}
+	return mt.Hash(), version, errors.Join(errs...)
+}
+
 // Hash is a stand in for code at
 // https://github.com/cosmos/cosmos-sdk/blob/80dd55f79bba8ab675610019a5764470a3e2fef9/store/types/commit_info.go#L30
+// it used in testing. App chains should use the store hashing code referenced above instead.
 func (mt *MultiTree) Hash() []byte {
 	var (
 		storeKeys []string
@@ -84,4 +129,13 @@ func (mt *MultiTree) Hash() []byte {
 	}
 	hash := sha256.Sum256(hashes)
 	return hash[:]
+}
+
+func (mt *MultiTree) Close() error {
+	for _, tree := range mt.Trees {
+		if err := tree.sql.Close(); err != nil {
+			return err
+		}
+	}
+	return nil
 }

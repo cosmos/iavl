@@ -25,7 +25,8 @@ func Command() *cobra.Command {
 		Short: "take a snapshot of the tree at version n and write to SQLite",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pool := iavl.NewNodePool()
-			sql, err := iavl.NewSqliteDb(pool, dbPath, false)
+			sqlOpts := iavl.SqliteDbOptions{Path: dbPath}
+			sql, err := iavl.NewSqliteDb(pool, sqlOpts)
 			defer func(sql *iavl.SqliteDb) {
 				err = sql.Close()
 				if err != nil {

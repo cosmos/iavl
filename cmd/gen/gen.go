@@ -8,7 +8,6 @@ import (
 
 	"github.com/cosmos/iavl-bench/bench"
 	"github.com/cosmos/iavl/v2"
-	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
 	"github.com/kocubinski/costor-api/compact"
@@ -38,6 +37,8 @@ func getChangesetIterator(typ string) (bench.ChangesetIterator, error) {
 	switch typ {
 	case "osmo-like":
 		return testutil.OsmoLike().Iterator, nil
+	case "osmo-like-many":
+		return testutil.OsmoLikeManyTrees().Iterator, nil
 	case "height-zero":
 		return testutil.NewTreeBuildOptions().Iterator, nil
 	default:
@@ -143,41 +144,21 @@ func treeCommand() *cobra.Command {
 		dbPath  string
 		genType string
 		limit   int64
-		useKv   bool
 	)
 	cmd := &cobra.Command{
 		Use:   "tree",
 		Short: "build and save a Tree to disk, taking generated changesets as input",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			pool := iavl.NewNodePool()
-			newSqlDb := true
-			if useKv {
-				newSqlDb = false
-			}
+			sqlOpts := iavl.SqliteDbOptions{Path: dbPath}
 
-			sql, err := iavl.NewSqliteDb(pool, dbPath, newSqlDb)
-			if err != nil {
-				return err
-			}
-			defer func(sql *iavl.SqliteDb) {
-				err = sql.Close()
+			multiTree := iavl.NewStdMultiTree(sqlOpts, pool)
+			defer func(mt *iavl.MultiTree) {
+				err := mt.Close()
 				if err != nil {
 					log.Error().Err(err).Msg("failed to close db")
 				}
-			}(sql)
-
-			if err != nil {
-				return err
-			}
-			tree := iavl.NewTree(sql, pool)
-			levelDb, err := leveldb.New("iavl-leveldb", dbPath)
-			if err != nil {
-				return err
-			}
-
-			if useKv {
-				tree.SetKV(iavl.NewKvDB(levelDb, pool))
-			}
+			}(multiTree)
 
 			itr, err := getChangesetIterator(genType)
 			if err != nil {
@@ -204,6 +185,13 @@ func treeCommand() *cobra.Command {
 					node := changeset.GetNode()
 					key := node.Key
 
+					tree, ok := multiTree.Trees[node.StoreKey]
+					if !ok {
+						if err = multiTree.AddTree(node.StoreKey); err != nil {
+							return err
+						}
+						tree = multiTree.Trees[node.StoreKey]
+					}
 					if node.Delete {
 						_, _, err = tree.Remove(key)
 						if err != nil {
@@ -228,11 +216,7 @@ func treeCommand() *cobra.Command {
 					}
 				}
 
-				if useKv {
-					lastHash, lastVersion, err = tree.SaveVersionKV()
-				} else {
-					lastHash, lastVersion, err = tree.SaveVersion()
-				}
+				lastHash, lastVersion, err = multiTree.SaveVersionConcurrently()
 				if err != nil {
 					return err
 				}
@@ -249,6 +233,5 @@ func treeCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "/tmp", "the path to the database")
 	cmd.Flags().Int64Var(&limit, "limit", -1, "the version (inclusive) to halt generation at. -1 means no limit")
-	cmd.Flags().BoolVar(&useKv, "kv", false, "use leveldb as a kv database")
 	return cmd
 }

@@ -445,20 +445,28 @@ func (sql *SqliteDb) Close() error {
 	if err := sql.leafWrite.Close(); err != nil {
 		return err
 	}
+
+	if err := sql.treeWrite.Close(); err != nil {
+		return err
+	}
+	if sql.treeRead != nil {
+		if err := sql.treeRead.Close(); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (sql *SqliteDb) MapVersions(versions []int64, shardId int64) error {
-	err := sql.leafWrite.Begin()
+	err := sql.treeWrite.Begin()
 	if err != nil {
 		return err
 	}
-	stmt, err := sql.leafWrite.Prepare("INSERT INTO shard(version, id) VALUES (?, ?)")
+	stmt, err := sql.treeWrite.Prepare("INSERT INTO shard(version, id) VALUES (?, ?)")
 	if err != nil {
 		return err
 	}
 
-	defer stmt.Close()
 	for _, version := range versions {
 		err := stmt.Exec(version, shardId)
 		if err != nil {
@@ -466,7 +474,13 @@ func (sql *SqliteDb) MapVersions(versions []int64, shardId int64) error {
 		}
 		sql.versionShard[version] = shardId
 	}
-	return sql.leafWrite.Commit()
+	if err = sql.treeWrite.Commit(); err != nil {
+		return err
+	}
+	if err = stmt.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sql *SqliteDb) NextShard() error {
@@ -523,7 +537,7 @@ func (sql *SqliteDb) IndexShard(shardId int64) error {
 }
 
 func (sql *SqliteDb) SaveRoot(version int64, node *Node) error {
-	err := sql.leafWrite.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
+	err := sql.treeWrite.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
 		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()))
 	return err
 }

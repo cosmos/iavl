@@ -162,10 +162,8 @@ func testTreeBuild(t *testing.T, sqlOpts SqliteDbOptions, opts testutil.TreeBuil
 			}
 		}
 
-		for _, tree := range multiTree.Trees {
-			_, _, err = tree.SaveVersion()
-			require.NoError(t, err)
-		}
+		_, version, err = multiTree.SaveVersion()
+		require.NoError(t, err)
 
 		require.NoError(t, err)
 		if version == opts.Until {
@@ -192,7 +190,7 @@ func TestTree_Build(t *testing.T) {
 	sqlOpts := SqliteDbOptions{Path: tmpDir}
 	require.NoError(t, err)
 
-	opts := testutil.NewTreeBuildOptions()
+	opts := testutil.OsmoLikeManyTrees()
 
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)

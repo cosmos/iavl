@@ -223,6 +223,7 @@ func OsmoLikeManyTrees() TreeBuildOptions {
 		ValueStdDev:      0,
 		InitialSize:      60,
 		FinalSize:        62,
+		Versions:         versions,
 		ChangePerVersion: 1,
 		DeleteFraction:   0,
 	}
@@ -235,6 +236,7 @@ func OsmoLikeManyTrees() TreeBuildOptions {
 		ValueStdDev:      48,
 		InitialSize:      600_000,
 		FinalSize:        610_000,
+		Versions:         versions,
 		ChangePerVersion: changes,
 		DeleteFraction:   deleteFrac,
 	}
@@ -247,6 +249,7 @@ func OsmoLikeManyTrees() TreeBuildOptions {
 		ValueStdDev:      25,
 		InitialSize:      1_500,
 		FinalSize:        1_600,
+		Versions:         versions,
 		ChangePerVersion: changes,
 		DeleteFraction:   deleteFrac,
 	}
