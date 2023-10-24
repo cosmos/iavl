@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/cosmos/iavl/v2"
@@ -24,24 +25,59 @@ func Command() *cobra.Command {
 		Use:   "snapshot",
 		Short: "take a snapshot of the tree at version n and write to SQLite",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pool := iavl.NewNodePool()
-			sqlOpts := iavl.SqliteDbOptions{Path: dbPath}
-			sql, err := iavl.NewSqliteDb(pool, sqlOpts)
-			defer func(sql *iavl.SqliteDb) {
-				err = sql.Close()
+			var paths []string
+			err := filepath.Walk(dbPath, func(path string, info os.FileInfo, err error) error {
 				if err != nil {
-					log.Error().Err(err).Msg("failed to close db")
+					return err
 				}
-			}(sql)
-
+				if filepath.Base(path) == "changelog.sqlite" {
+					paths = append(paths, filepath.Dir(path))
+				}
+				return nil
+			})
 			if err != nil {
 				return err
 			}
-			tree := iavl.NewTree(sql, pool)
-			if err = tree.LoadVersion(version); err != nil {
-				return err
+			log.Info().Msgf("found db paths: %v", paths)
+
+			var (
+				pool   = iavl.NewNodePool()
+				done   = make(chan struct{})
+				errors = make(chan error)
+				cnt    = 0
+			)
+			for _, path := range paths {
+				cnt++
+				sqlOpts := iavl.SqliteDbOptions{Path: path}
+				sql, err := iavl.NewSqliteDb(pool, sqlOpts)
+				if err != nil {
+					return err
+				}
+				tree := iavl.NewTree(sql, pool)
+				if err := tree.LoadVersion(version); err != nil {
+					return err
+				}
+				go func() {
+					snapshotErr := sql.Snapshot(cmd.Context(), tree, version)
+					if snapshotErr != nil {
+						errors <- snapshotErr
+					}
+					snapshotErr = sql.Close()
+					if snapshotErr != nil {
+						errors <- snapshotErr
+					}
+					done <- struct{}{}
+				}()
 			}
-			return sql.Snapshot(cmd.Context(), tree, version)
+			for i := 0; i < cnt; i++ {
+				select {
+				case <-done:
+					continue
+				case err := <-errors:
+					return err
+				}
+			}
+			return nil
 		},
 	}
 	cmd.Flags().Int64Var(&version, "version", 0, "version to snapshot")
