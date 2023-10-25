@@ -14,7 +14,7 @@ type BatchWithFlusher struct {
 	flushThreshold int // The threshold to flush the batch to disk.
 }
 
-var _ dbm.Batch = &BatchWithFlusher{}
+var _ dbm.Batch = (*BatchWithFlusher)(nil)
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
 func NewBatchWithFlusher(db dbm.DB, flushThreshold int) *BatchWithFlusher {
@@ -45,27 +45,21 @@ func (b *BatchWithFlusher) estimateSizeAfterSetting(key []byte, value []byte) (i
 // If the set causes the underlying batch size to exceed flushThreshold,
 // the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
 // The addition entry is then added to the batch.
-func (b *BatchWithFlusher) Set(key []byte, value []byte) error {
+func (b *BatchWithFlusher) Set(key, value []byte) error {
 	batchSizeAfter, err := b.estimateSizeAfterSetting(key, value)
 	if err != nil {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
-		err = b.batch.Write()
-		if err != nil {
+		if err := b.batch.Write(); err != nil {
 			return err
 		}
-		err = b.batch.Close()
-		if err != nil {
+		if err := b.batch.Close(); err != nil {
 			return err
 		}
 		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
 	}
-	err = b.batch.Set(key, value)
-	if err != nil {
-		return err
-	}
-	return nil
+	return b.batch.Set(key, value)
 }
 
 // Delete delete value at the given key to the db.
@@ -78,21 +72,15 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
-		err = b.batch.Write()
-		if err != nil {
+		if err := b.batch.Write(); err != nil {
 			return err
 		}
-		err = b.batch.Close()
-		if err != nil {
+		if err := b.batch.Close(); err != nil {
 			return err
 		}
 		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
 	}
-	err = b.batch.Delete(key)
-	if err != nil {
-		return err
-	}
-	return nil
+	return b.batch.Delete(key)
 }
 
 func (b *BatchWithFlusher) Write() error {
