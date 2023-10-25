@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
 	"strings"
 	"sync/atomic"
 	"time"
 
+	"github.com/aybabtme/uniplot/histogram"
 	"github.com/dustin/go-humanize"
 )
 
@@ -26,6 +28,13 @@ type TreeMetrics struct {
 	WriteDurations []time.Duration
 	WriteTime      time.Duration
 	WriteLeaves    int64
+
+	QueryDurations   []time.Duration
+	QueryTime        time.Duration
+	QueryCount       int64
+	QueryLeafMiss    int64
+	QueryLeafCount   int64
+	QueryBranchCount int64
 }
 
 func (m *TreeMetrics) Report() {
@@ -41,6 +50,48 @@ func (m *TreeMetrics) Report() {
 		humanize.Comma(m.TreeUpdate),
 		humanize.Comma(m.TreeNewNode),
 		humanize.Comma(m.TreeDelete))
+}
+
+func (m *TreeMetrics) QueryReport(bins int) error {
+	if m.QueryCount == 0 {
+		return nil
+	}
+
+	fmt.Printf("queries=%s q/s=%s dur/q=%s dur=%s leaf-q=%s branch-q=%s leaf-miss=%s\n",
+		humanize.Comma(m.QueryCount),
+		humanize.Comma(int64(float64(m.QueryCount)/m.QueryTime.Seconds())),
+		time.Duration(int64(m.QueryTime)/m.QueryCount),
+		m.QueryTime.Round(time.Millisecond),
+		humanize.Comma(m.QueryLeafCount),
+		humanize.Comma(m.QueryBranchCount),
+		humanize.Comma(m.QueryLeafMiss),
+	)
+
+	if bins > 0 {
+		var histData []float64
+		for _, d := range m.QueryDurations {
+			if d > 50*time.Microsecond {
+				continue
+			}
+			histData = append(histData, float64(d))
+		}
+		hist := histogram.Hist(bins, histData)
+		err := histogram.Fprintf(os.Stdout, hist, histogram.Linear(10), func(v float64) string {
+			return time.Duration(v).String()
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	m.QueryDurations = nil
+	m.QueryTime = 0
+	m.QueryCount = 0
+	m.QueryLeafMiss = 0
+	m.QueryLeafCount = 0
+	m.QueryBranchCount = 0
+
+	return nil
 }
 
 type Counter interface {

@@ -184,7 +184,7 @@ func OsmoLike() TreeBuildOptions {
 
 func OsmoLikeManyTrees() TreeBuildOptions {
 	seed := int64(1234)
-	versions := int64(10_000)
+	versions := int64(100_000)
 	changes := int(versions / 100)
 	deleteFrac := 0.2
 

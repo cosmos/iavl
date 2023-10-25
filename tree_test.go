@@ -30,7 +30,7 @@ func MemUsage() string {
 	return s
 }
 
-func testTreeBuild(t *testing.T, sqlOpts SqliteDbOptions, opts testutil.TreeBuildOptions) (cnt int64) {
+func testTreeBuild(t *testing.T, multiTree *MultiTree, opts testutil.TreeBuildOptions) (cnt int64) {
 	var (
 		hash                        []byte
 		version                     int64
@@ -38,8 +38,6 @@ func testTreeBuild(t *testing.T, sqlOpts SqliteDbOptions, opts testutil.TreeBuil
 		lastCacheMiss, lastCacheHit int64
 	)
 	cnt = 1
-
-	multiTree := NewStdMultiTree(sqlOpts, NewNodePool())
 
 	// generator
 	itr := opts.Iterator
@@ -142,14 +140,8 @@ func testTreeBuild(t *testing.T, sqlOpts SqliteDbOptions, opts testutil.TreeBuil
 					)
 				}
 
-				if tree.kv == nil {
-					if err := tree.sql.queryReport(0); err != nil {
-						t.Fatalf("query report err %v", err)
-					}
-				} else {
-					if err = tree.kv.readReport(); err != nil {
-						t.Fatalf("leafRead report err %v", err)
-					}
+				if err := tree.metrics.QueryReport(0); err != nil {
+					t.Fatalf("query report err %v", err)
 				}
 
 				fmt.Println()
@@ -162,7 +154,7 @@ func testTreeBuild(t *testing.T, sqlOpts SqliteDbOptions, opts testutil.TreeBuil
 			}
 		}
 
-		_, version, err = multiTree.SaveVersion()
+		_, version, err = multiTree.SaveVersionConcurrently()
 		require.NoError(t, err)
 
 		require.NoError(t, err)
@@ -187,7 +179,6 @@ func TestTree_Build(t *testing.T) {
 	tmpDir := t.TempDir()
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 
-	sqlOpts := SqliteDbOptions{Path: tmpDir}
 	require.NoError(t, err)
 
 	opts := testutil.OsmoLikeManyTrees()
@@ -196,7 +187,9 @@ func TestTree_Build(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	testStart := time.Now()
-	leaves := testTreeBuild(t, sqlOpts, opts)
+	sqlOpts := SqliteDbOptions{Path: tmpDir}
+	multiTree := NewStdMultiTree(sqlOpts, NewNodePool())
+	leaves := testTreeBuild(t, multiTree, opts)
 
 	treeDuration := time.Since(testStart)
 
@@ -229,31 +222,6 @@ func treeHeight(tree *Tree, node Node) int8 {
 
 type treeStat struct {
 	size uint64
-}
-
-func treeAndDbEqual(t *testing.T, tree *Tree, node Node, stat *treeStat) {
-	dbNode, err := tree.kv.Get(node.nodeKey)
-	if err != nil {
-		t.Fatalf("error getting node from db: %s", err)
-	}
-	stat.size += node.sizeBytes()
-	require.NoError(t, err)
-	require.NotNil(t, dbNode)
-	require.Equal(t, dbNode.nodeKey, node.nodeKey)
-	require.Equal(t, dbNode.key, node.key)
-	require.Equal(t, dbNode.hash, node.hash)
-	require.Equal(t, dbNode.size, node.size)
-	require.Equal(t, dbNode.subtreeHeight, node.subtreeHeight)
-	if node.isLeaf() {
-		return
-	}
-	require.Equal(t, dbNode.leftNodeKey, node.leftNodeKey)
-	require.Equal(t, dbNode.rightNodeKey, node.rightNodeKey)
-
-	leftNode := *node.left(tree)
-	rightNode := *node.right(tree)
-	treeAndDbEqual(t, tree, leftNode, stat)
-	treeAndDbEqual(t, tree, rightNode, stat)
 }
 
 var osmoScalePath = fmt.Sprintf("%s/src/scratch/sqlite-osmo", os.Getenv("HOME"))
@@ -319,33 +287,24 @@ func TestBuild_OsmoScale(t *testing.T) {
 }
 
 func TestOsmoLike_HotStart(t *testing.T) {
-	/* One big TODO for snapshot import
-	tmpDir := "/tmp/iavl-init"
-
+	tmpDir := "/tmp/iavl-alpha6"
 	pool := NewNodePool()
-	sqlOpts := SqliteDbOptions{Path: tmpDir}
-	tree := NewTree(sql, pool)
-
-	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
-	root, err := sql.ImportSnapshot(1, false)
-
-	require.NoError(t, tree.LoadVersion(1))
+	multiTree, err := ImportMultiTree(pool, 1, tmpDir)
 	require.NoError(t, err)
-	tree.root = root
-
-	require.NoError(t, sql.WarmLeaves())
-	testTreeBuild(t, tree, opts)
-	require.NoError(t, sql.Close())
-	*/
+	require.NotNil(t, multiTree)
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
+	opts.SampleRate = 250_000
+	testTreeBuild(t, multiTree, opts)
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-init"
 
 	sqlOpts := SqliteDbOptions{Path: tmpDir}
+	multiTree := NewStdMultiTree(sqlOpts, NewNodePool())
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
 
-	testTreeBuild(t, sqlOpts, opts)
+	testTreeBuild(t, multiTree, opts)
 }
 
 func TestTree_Import(t *testing.T) {

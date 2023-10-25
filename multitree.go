@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -22,7 +23,10 @@ type MultiTree struct {
 
 func NewMultiTree() *MultiTree {
 	return &MultiTree{
-		Trees: make(map[string]*Tree),
+		Trees:   make(map[string]*Tree),
+		doneCh:  make(chan saveVersionResult, 1000),
+		errorCh: make(chan error, 1000),
+		metrics: &metrics.TreeMetrics{},
 	}
 }
 
@@ -35,6 +39,62 @@ func NewStdMultiTree(sqlOpts SqliteDbOptions, pool *NodePool) *MultiTree {
 		doneCh:  make(chan saveVersionResult, 1000),
 		errorCh: make(chan error, 1000),
 	}
+}
+
+func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, error) {
+	mt := NewMultiTree()
+	paths, err := FindDbsInPath(path)
+	if err != nil {
+		return nil, err
+	}
+	var (
+		cnt  = 0
+		done = make(chan struct {
+			path string
+			tree *Tree
+		})
+		errs = make(chan error)
+	)
+	for _, dbPath := range paths {
+		cnt++
+		sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath, Metrics: mt.metrics}))
+		if err != nil {
+			return nil, err
+		}
+		go func(p string) {
+			root, importErr := sql.ImportSnapshot(version, false)
+			tree := &Tree{
+				root:           root,
+				version:        version,
+				lastCheckpoint: version,
+				pool:           pool,
+				cache:          NewNodeCache(),
+				sql:            sql,
+				metrics:        mt.metrics,
+			}
+			if importErr != nil {
+				errs <- fmt.Errorf("err while importing %s; %w", p, importErr)
+				return
+			}
+			done <- struct {
+				path string
+				tree *Tree
+			}{p, tree}
+		}(dbPath)
+	}
+
+	for i := 0; i < cnt; i++ {
+		select {
+		case err = <-errs:
+			return nil, err
+		case res := <-done:
+			prefix := filepath.Base(res.path)
+			log.Info().Msgf("imported %s", prefix)
+			mt.Trees[prefix] = res.tree
+		}
+	}
+
+	return mt, nil
 }
 
 func (mt *MultiTree) AddTree(storeKey string) error {
@@ -98,6 +158,7 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	for i := 0; i < treeCount; i++ {
 		select {
 		case err := <-mt.errorCh:
+			log.Error().Err(err).Msg("failed to save version")
 			errs = append(errs, err)
 		case result := <-mt.doneCh:
 			if version != -1 && version != result.version {

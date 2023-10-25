@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/cosmos/iavl/v2"
@@ -25,16 +24,7 @@ func Command() *cobra.Command {
 		Use:   "snapshot",
 		Short: "take a snapshot of the tree at version n and write to SQLite",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var paths []string
-			err := filepath.Walk(dbPath, func(path string, info os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				if filepath.Base(path) == "changelog.sqlite" {
-					paths = append(paths, filepath.Dir(path))
-				}
-				return nil
-			})
+			paths, err := iavl.FindDbsInPath(dbPath)
 			if err != nil {
 				return err
 			}

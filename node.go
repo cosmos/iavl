@@ -102,11 +102,7 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	node.leftNode = t.cache.Get(node.leftNodeKey)
 	if node.leftNode == nil {
 		var err error
-		if t.kv == nil {
-			node.leftNode, err = t.sql.getLeftNode(node)
-		} else {
-			node.leftNode, err = t.kv.getLeftNode(node)
-		}
+		node.leftNode, err = t.sql.getLeftNode(node)
 		if err != nil {
 			return nil, err
 		}
@@ -124,11 +120,7 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	node.rightNode = t.cache.Get(node.rightNodeKey)
 	if node.rightNode == nil {
 		var err error
-		if t.kv == nil {
-			node.rightNode, err = t.sql.getRightNode(node)
-		} else {
-			node.rightNode, err = t.kv.getRightNode(node)
-		}
+		node.rightNode, err = t.sql.getRightNode(node)
 		if err != nil {
 			return nil, err
 		}

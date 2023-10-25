@@ -21,7 +21,6 @@ type Tree struct {
 	version        int64
 	root           *Node
 	metrics        *metrics.TreeMetrics
-	kv             *KvDB
 	sql            *SqliteDb
 	lastCheckpoint int64
 	orphans        []NodeKey
@@ -51,10 +50,6 @@ func NewTree(sql *SqliteDb, pool *NodePool) *Tree {
 	return tree
 }
 
-func (tree *Tree) SetKV(kv *KvDB) {
-	tree.kv = kv
-}
-
 func (tree *Tree) LoadVersion(version int64) error {
 	if tree.sql == nil {
 		return fmt.Errorf("sql is nil")
@@ -77,12 +72,6 @@ func (tree *Tree) LoadVersion(version int64) error {
 	return nil
 }
 
-func (tree *Tree) LoadVersionKV(version int64) (err error) {
-	tree.root, err = tree.kv.getRoot(version)
-	tree.version = version
-	return err
-}
-
 func (tree *Tree) WarmTree() error {
 	var i int
 	start := time.Now()
@@ -96,7 +85,7 @@ func (tree *Tree) WarmTree() error {
 	if err != nil {
 		return err
 	}
-	return tree.sql.queryReport(5)
+	return tree.metrics.QueryReport(5)
 }
 
 func (tree *Tree) loadTree(i *int, since *time.Time, node *Node) *Node {
@@ -261,45 +250,9 @@ func (tree *Tree) sqlCheckpoint() error {
 		humanize.Comma(int64(float64(len(args.set))/time.Since(start).Seconds())),
 	)
 
-	if err := tree.sql.queryReport(10); err != nil {
+	if err := tree.metrics.QueryReport(10); err != nil {
 		return err
 	}
-
-	return nil
-}
-
-func (tree *Tree) checkpoint() error {
-	start := time.Now()
-	stats := &saveStats{}
-
-	//log.Info().Msgf("dirty_count=%s", humanize.Comma(tree.dirtyCount(tree.root)))
-
-	setCount, err := tree.deepSave(tree.root, stats)
-	if err != nil {
-		return err
-	}
-
-	//sets := tree.buildCheckpoint(tree.root)
-	//if len(sets) != int(setCount) {
-	//	return fmt.Errorf("set count mismatch; expected=%d, actual=%d", len(sets), setCount)
-	//}
-
-	for _, nk := range tree.orphans {
-		if err := tree.kv.Delete(nk); err != nil {
-			return err
-		}
-	}
-
-	log.Info().Msgf("checkpoint; version=%s, set=%s, del=%s, ws_size=%s, ws_bz=%s, save_bz=%s, db_bz=%s, dur=%s",
-		humanize.Comma(tree.version),
-		humanize.Comma(setCount),
-		humanize.Comma(int64(len(tree.orphans))),
-		humanize.Comma(tree.workingSize),
-		humanize.IBytes(tree.workingBytes),
-		humanize.IBytes(stats.nodeBz),
-		humanize.IBytes(stats.dbBz),
-		time.Since(start).Round(time.Millisecond),
-	)
 
 	return nil
 }
@@ -397,41 +350,6 @@ func (tree *Tree) buildCheckpoint(node *Node, args *checkpointArgs) {
 
 		node.leftNode = nil
 		node.rightNode = nil
-	}
-}
-
-func (tree *Tree) deepSave(node *Node, stats *saveStats) (count int64, err error) {
-	if node.nodeKey.Version() <= tree.lastCheckpoint {
-		return 0, nil
-	}
-
-	if n, err := tree.kv.Set(node); err != nil {
-		return count, err
-	} else {
-		stats.dbBz += uint64(n)
-	}
-	stats.nodeBz += node.sizeBytes()
-
-	node.dirty = false
-	tree.cache.Set(node)
-
-	if !node.isLeaf() && node.leftNode != nil {
-		leftCount, err := tree.deepSave(node.leftNode, stats)
-		if err != nil {
-			return count, err
-		}
-		rightCount, err := tree.deepSave(node.rightNode, stats)
-		if err != nil {
-			return count, err
-		}
-
-		// clear children to prevent memory leaks here. after each checkpoint the tree is purged.
-		node.leftNode = nil
-		node.rightNode = nil
-
-		return leftCount + rightCount + 1, nil
-	} else {
-		return 1, nil
 	}
 }
 
