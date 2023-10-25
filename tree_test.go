@@ -298,11 +298,15 @@ func TestOsmoLike_HotStart(t *testing.T) {
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
-	tmpDir := "/tmp/iavl-init"
+	tmpDir := "/tmp/iavl-alpha6"
 
-	sqlOpts := SqliteDbOptions{Path: tmpDir}
+	sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Path: tmpDir})
 	multiTree := NewStdMultiTree(sqlOpts, NewNodePool())
-	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like/v2")
+	require.NoError(t, multiTree.MountTrees(tmpDir))
+	require.NoError(t, multiTree.LoadVersion(1))
+
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
+	opts.SampleRate = 250_000
 
 	testTreeBuild(t, multiTree, opts)
 }

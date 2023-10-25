@@ -16,6 +16,10 @@ type MultiTree struct {
 	sqlOpts SqliteDbOptions
 	pool    *NodePool
 	metrics *metrics.TreeMetrics
+	// TODO
+	// remove, each tree should get its own cache.
+	// pull cache metrics up
+	cache *NodeCache
 
 	doneCh  chan saveVersionResult
 	errorCh chan error
@@ -27,22 +31,20 @@ func NewMultiTree() *MultiTree {
 		doneCh:  make(chan saveVersionResult, 1000),
 		errorCh: make(chan error, 1000),
 		metrics: &metrics.TreeMetrics{},
+		cache:   NewNodeCache(),
 	}
 }
 
 func NewStdMultiTree(sqlOpts SqliteDbOptions, pool *NodePool) *MultiTree {
-	return &MultiTree{
-		Trees:   make(map[string]*Tree),
-		sqlOpts: sqlOpts,
-		pool:    pool,
-		metrics: &metrics.TreeMetrics{},
-		doneCh:  make(chan saveVersionResult, 1000),
-		errorCh: make(chan error, 1000),
-	}
+	tree := NewMultiTree()
+	tree.sqlOpts = sqlOpts
+	tree.pool = pool
+	return tree
 }
 
 func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, error) {
 	mt := NewMultiTree()
+	nodeCache := NewNodeCache()
 	paths, err := FindDbsInPath(path)
 	if err != nil {
 		return nil, err
@@ -68,7 +70,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, er
 				version:        version,
 				lastCheckpoint: version,
 				pool:           pool,
-				cache:          NewNodeCache(),
+				cache:          nodeCache,
 				sql:            sql,
 				metrics:        mt.metrics,
 			}
@@ -109,10 +111,31 @@ func (mt *MultiTree) AddTree(storeKey string) error {
 	return nil
 }
 
-func (mt *MultiTree) LoadVersion(version int64) error {
-	for _, tree := range mt.Trees {
-		if err := tree.LoadVersion(version); err != nil {
+func (mt *MultiTree) MountTrees(path string) error {
+	paths, err := FindDbsInPath(path)
+	if err != nil {
+		return err
+	}
+	sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Metrics: mt.metrics})
+	for _, dbPath := range paths {
+		prefix := filepath.Base(dbPath)
+		opts := *&sqlOpts
+		opts.Path = dbPath
+		log.Info().Msgf("mounting %s; opts %v", prefix, opts)
+		sql, err := NewSqliteDb(mt.pool, opts)
+		if err != nil {
 			return err
+		}
+		tree := &Tree{sql: sql, pool: mt.pool, metrics: mt.metrics, cache: mt.cache}
+		mt.Trees[prefix] = tree
+	}
+	return nil
+}
+
+func (mt *MultiTree) LoadVersion(version int64) error {
+	for k, tree := range mt.Trees {
+		if err := tree.LoadVersion(version); err != nil {
+			return fmt.Errorf("failed to load %s version %d; %w", k, version, err)
 		}
 	}
 	return nil
