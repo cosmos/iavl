@@ -40,11 +40,12 @@ type Tree struct {
 }
 
 func NewTree(sql *SqliteDb, pool *NodePool) *Tree {
+	m := &metrics.TreeMetrics{}
 	tree := &Tree{
 		sql:            sql,
 		pool:           pool,
-		cache:          NewNodeCache(),
-		metrics:        &metrics.TreeMetrics{},
+		cache:          NewNodeCache(m),
+		metrics:        m,
 		maxWorkingSize: 2 * 1024 * 1024 * 1024,
 	}
 	return tree

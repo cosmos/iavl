@@ -13,38 +13,28 @@ import (
 type MultiTree struct {
 	Trees map[string]*Tree
 
-	sqlOpts SqliteDbOptions
-	pool    *NodePool
-	metrics *metrics.TreeMetrics
-	// TODO
-	// remove, each tree should get its own cache.
-	// pull cache metrics up
-	cache *NodeCache
+	pool     *NodePool
+	metrics  *metrics.TreeMetrics
+	rootPath string
 
 	doneCh  chan saveVersionResult
 	errorCh chan error
 }
 
-func NewMultiTree() *MultiTree {
+func NewMultiTree(rootPath string) *MultiTree {
 	return &MultiTree{
-		Trees:   make(map[string]*Tree),
-		doneCh:  make(chan saveVersionResult, 1000),
-		errorCh: make(chan error, 1000),
-		metrics: &metrics.TreeMetrics{},
-		cache:   NewNodeCache(),
+		Trees:    make(map[string]*Tree),
+		doneCh:   make(chan saveVersionResult, 1000),
+		errorCh:  make(chan error, 1000),
+		metrics:  &metrics.TreeMetrics{},
+		pool:     NewNodePool(),
+		rootPath: rootPath,
 	}
 }
 
-func NewStdMultiTree(sqlOpts SqliteDbOptions, pool *NodePool) *MultiTree {
-	tree := NewMultiTree()
-	tree.sqlOpts = sqlOpts
-	tree.pool = pool
-	return tree
-}
-
 func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, error) {
-	mt := NewMultiTree()
-	nodeCache := NewNodeCache()
+	mt := NewMultiTree(path)
+	nodeCache := NewNodeCache(mt.metrics)
 	paths, err := FindDbsInPath(path)
 	if err != nil {
 		return nil, err
@@ -99,20 +89,22 @@ func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, er
 	return mt, nil
 }
 
-func (mt *MultiTree) AddTree(storeKey string) error {
-	opts := *&mt.sqlOpts
-	opts.Path = opts.Path + "/" + storeKey
+func (mt *MultiTree) MountTree(storeKey string) error {
+	opts := defaultSqliteDbOptions(SqliteDbOptions{
+		Metrics: mt.metrics,
+		Path:    mt.rootPath + "/" + storeKey,
+	})
 	sql, err := NewSqliteDb(mt.pool, opts)
 	if err != nil {
 		return err
 	}
-	tree := NewTree(sql, mt.pool)
+	tree := &Tree{sql: sql, pool: mt.pool, metrics: mt.metrics, cache: NewNodeCache(mt.metrics)}
 	mt.Trees[storeKey] = tree
 	return nil
 }
 
-func (mt *MultiTree) MountTrees(path string) error {
-	paths, err := FindDbsInPath(path)
+func (mt *MultiTree) MountTrees() error {
+	paths, err := FindDbsInPath(mt.rootPath)
 	if err != nil {
 		return err
 	}
@@ -126,7 +118,7 @@ func (mt *MultiTree) MountTrees(path string) error {
 		if err != nil {
 			return err
 		}
-		tree := &Tree{sql: sql, pool: mt.pool, metrics: mt.metrics, cache: mt.cache}
+		tree := &Tree{sql: sql, pool: mt.pool, metrics: mt.metrics, cache: NewNodeCache(mt.metrics)}
 		mt.Trees[prefix] = tree
 	}
 	return nil

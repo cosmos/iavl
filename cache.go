@@ -3,6 +3,7 @@ package iavl
 import (
 	"sync"
 
+	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 )
 
@@ -12,16 +13,14 @@ type NodeCache struct {
 	pool      sync.Pool
 	nodes     []*Node
 
-	//missCount metrics.Counter
-	//hitCount  metrics.Counter
-	missCount int64
-	hitCount  int64
+	metrics *metrics.TreeMetrics
 }
 
-func NewNodeCache() *NodeCache {
+func NewNodeCache(metrics *metrics.TreeMetrics) *NodeCache {
 	return &NodeCache{
 		nextCache: make(map[NodeKey]*Node),
 		cache:     make(map[NodeKey]*Node),
+		metrics:   metrics,
 		//missCount: metrics.Default.NewCounter("node_cache.miss"),
 		//hitCount:  metrics.Default.NewCounter("node_cache.hit"),
 	}
@@ -38,16 +37,16 @@ func (nc *NodeCache) Swap() {
 		nc.pool.Put(n)
 	}
 	nc.nextCache = make(map[NodeKey]*Node)
-	nc.hitCount = 0
-	nc.missCount = 0
+	nc.metrics.CacheHit = 0
+	nc.metrics.CacheMiss = 0
 }
 
 func (nc *NodeCache) Get(nodeKey NodeKey) *Node {
 	n, ok := nc.cache[nodeKey]
 	if ok {
-		nc.hitCount++
+		nc.metrics.CacheHit++
 	} else {
-		nc.missCount++
+		nc.metrics.CacheMiss++
 	}
 	return n
 }

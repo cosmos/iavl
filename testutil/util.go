@@ -111,7 +111,7 @@ func BigTreeOptions_100_000() TreeBuildOptions {
 	}
 	opts := TreeBuildOptions{
 		Iterator:  itr,
-		Until:     10_000,
+		Until:     100,
 		UntilHash: "c1dc9dc7d3a8ae025d2a347eea19121e98435b06b421607119bc3cf3cf79be05",
 	}
 	return opts
@@ -217,7 +217,7 @@ func OsmoLikeManyTrees() TreeBuildOptions {
 	upgrade := bench.ChangesetGenerator{
 		StoreKey:         "upgrade",
 		Seed:             seed,
-		KeyMean:          8,
+		KeyMean:          20,
 		KeyStdDev:        1,
 		ValueMean:        8,
 		ValueStdDev:      0,

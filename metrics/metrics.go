@@ -35,6 +35,9 @@ type TreeMetrics struct {
 	QueryLeafMiss    int64
 	QueryLeafCount   int64
 	QueryBranchCount int64
+
+	CacheHit  int64
+	CacheMiss int64
 }
 
 func (m *TreeMetrics) Report() {
