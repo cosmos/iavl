@@ -215,3 +215,26 @@ func (mt *MultiTree) Close() error {
 	}
 	return nil
 }
+
+func (mt *MultiTree) WarmLeaves() error {
+	var cnt int
+	for _, tree := range mt.Trees {
+		cnt++
+		go func(t *Tree) {
+			if err := t.sql.WarmLeaves(); err != nil {
+				mt.errorCh <- err
+			} else {
+				mt.doneCh <- saveVersionResult{}
+			}
+		}(tree)
+	}
+	for i := 0; i < cnt; i++ {
+		select {
+		case err := <-mt.errorCh:
+			log.Error().Err(err).Msg("failed to warm leaves")
+			return err
+		case <-mt.doneCh:
+		}
+	}
+	return nil
+}

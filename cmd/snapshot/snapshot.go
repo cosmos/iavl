@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/cosmos/iavl/v2"
+	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -38,7 +39,8 @@ func Command() *cobra.Command {
 			)
 			for _, path := range paths {
 				cnt++
-				sqlOpts := iavl.SqliteDbOptions{Path: path}
+				m := &metrics.TreeMetrics{}
+				sqlOpts := iavl.SqliteDbOptions{Path: path, Metrics: m}
 				sql, err := iavl.NewSqliteDb(pool, sqlOpts)
 				if err != nil {
 					return err

@@ -17,13 +17,19 @@ var log = zlog.Output(zerolog.ConsoleWriter{
 	TimeFormat: time.Stamp,
 })
 
+type nodeDelete struct {
+	// the node key to delete
+	nodeKey NodeKey
+	// the sequence in which this deletion was processed
+	deleteKey NodeKey
+}
+
 type Tree struct {
 	version        int64
 	root           *Node
 	metrics        *metrics.TreeMetrics
 	sql            *SqliteDb
 	lastCheckpoint int64
-	orphans        []NodeKey
 	cache          *NodeCache
 	pool           *NodePool
 	checkpointer   *checkpointer
@@ -36,6 +42,8 @@ type Tree struct {
 
 	branches []*Node
 	leaves   []*Node
+	orphans  []NodeKey
+	deletes  []*nodeDelete
 	sequence uint32
 }
 
@@ -117,12 +125,27 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	var sequence uint32
 	tree.deepHash(&sequence, tree.root)
+
 	//for _, node := range tree.leaves {
 	//	tree.cache.SetThis(node)
 	//}
 
 	start := time.Now()
-	_, _, err := tree.sql.BatchSet(tree.leaves, true)
+
+	// TODO
+	// psuedo hacky checkpoint here
+	shouldCheckpoint := tree.version == 1
+
+	if !shouldCheckpoint {
+		tree.branches = nil
+	} else {
+		if err := tree.sql.NextShard(); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	batch := newSqliteBatch(tree)
+	_, versions, err := batch.save()
 	if err != nil {
 		return nil, tree.version, err
 	}
@@ -131,19 +154,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.metrics.WriteTime += dur
 	tree.metrics.WriteLeaves += int64(len(tree.leaves))
 
-	if tree.version == 1 {
-		// TODO
-		// psuedo hacky checkpoint here
-		err := tree.sql.NextShard()
-		if err != nil {
-			return nil, 0, nil
-		}
-
-		_, versions, err := tree.sql.BatchSet(tree.branches, false)
-		if err != nil {
-			return nil, tree.version, err
-		}
-
+	if shouldCheckpoint {
 		err = tree.sql.MapVersions(versions, tree.sql.shardId)
 		if err != nil {
 			return nil, 0, err
@@ -165,12 +176,11 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.leaves = nil
 	tree.branches = nil
 	tree.orphans = nil
+	tree.deletes = nil
 
-	if tree.sql != nil {
-		err = tree.sql.SaveRoot(tree.version, tree.root)
-		if err != nil {
-			return nil, tree.version, fmt.Errorf("failed to save root: %w", err)
-		}
+	err = tree.sql.SaveRoot(tree.version, tree.root)
+	if err != nil {
+		return nil, tree.version, fmt.Errorf("failed to save root: %w", err)
 	}
 
 	/*
@@ -205,63 +215,6 @@ func (tree *Tree) asyncCheckpoint() error {
 	}
 	tree.checkpointer.ch <- args
 	return nil
-}
-
-func (tree *Tree) sqlCheckpoint() error {
-	start := time.Now()
-	args := &checkpointArgs{}
-	tree.buildCheckpoint(tree.root, args)
-	if int64(len(args.set)) != tree.workingSize {
-		return fmt.Errorf("set count mismatch; expected=%d, actual=%d", tree.workingSize, len(args.set))
-	}
-
-	//var memSize, dbSize uint64
-	err := tree.sql.NextShard()
-	if err != nil {
-		return err
-	}
-
-	dbSize, versions, err := tree.sql.BatchSet(args.set, false)
-	if err != nil {
-		return err
-	}
-
-	err = tree.sql.MapVersions(versions, tree.sql.shardId)
-	if err != nil {
-		return err
-	}
-
-	// this will pause async readers and flush the WAL
-	//err = tree.sql.resetShardQueries()
-	//if err != nil {
-	//	return err
-	//}
-
-	err = tree.sql.addShardQuery()
-	if err != nil {
-		return err
-	}
-
-	log.Info().Msgf("checkpoint done ver=%d dur=%s set=%s del=%s db_sz=%s rate=%s",
-		tree.version,
-		time.Since(start).Round(time.Millisecond),
-		humanize.Comma(int64(len(args.set))),
-		humanize.Comma(int64(len(args.delete))),
-		humanize.IBytes(uint64(dbSize)),
-		humanize.Comma(int64(float64(len(args.set))/time.Since(start).Seconds())),
-	)
-
-	if err := tree.metrics.QueryReport(10); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-type saveStats struct {
-	nodeBz uint64
-	dbBz   uint64
-	count  int64
 }
 
 func (tree *Tree) deepHash(sequence *uint32, node *Node) (isLeaf bool, isDirty bool) {
@@ -515,6 +468,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			tree.addOrphan(node)
+			tree.addDelete(node)
 			tree.returnNode(node)
 			return nil, nil, node.value, true, nil
 		}
@@ -639,6 +593,14 @@ func (tree *Tree) addOrphan(node *Node) {
 		return
 	}
 	tree.orphans = append(tree.orphans, node.nodeKey)
+}
+
+func (tree *Tree) addDelete(node *Node) {
+	// added and removed in the same version; no op.
+	if node.nodeKey.Version() == tree.version+1 {
+		return
+	}
+	tree.deletes = append(tree.deletes, &nodeDelete{nodeKey: node.nodeKey, deleteKey: tree.nextNodeKey()})
 }
 
 // NewNode returns a new node from a key, value and version.

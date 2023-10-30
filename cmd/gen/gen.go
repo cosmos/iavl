@@ -149,10 +149,7 @@ func treeCommand() *cobra.Command {
 		Use:   "tree",
 		Short: "build and save a Tree to disk, taking generated changesets as input",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pool := iavl.NewNodePool()
-			sqlOpts := iavl.SqliteDbOptions{Path: dbPath}
-
-			multiTree := iavl.NewStdMultiTree(sqlOpts, pool)
+			multiTree := iavl.NewMultiTree(dbPath)
 			defer func(mt *iavl.MultiTree) {
 				err := mt.Close()
 				if err != nil {
@@ -187,7 +184,7 @@ func treeCommand() *cobra.Command {
 
 					tree, ok := multiTree.Trees[node.StoreKey]
 					if !ok {
-						if err = multiTree.AddTree(node.StoreKey); err != nil {
+						if err = multiTree.MountTree(node.StoreKey); err != nil {
 							return err
 						}
 						tree = multiTree.Trees[node.StoreKey]

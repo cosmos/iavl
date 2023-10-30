@@ -167,7 +167,9 @@ CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 		return err
 	}
 	if !hasRow {
-		err = sql.leafWrite.Exec(`CREATE TABLE leaf (version int, sequence int, bytes blob);`)
+		err = sql.leafWrite.Exec(`
+CREATE TABLE leaf (version int, sequence int, bytes blob);
+CREATE TABLE leaf_delete (version int, sequence int, key_version int, key_sequence int, PRIMARY KEY (version, sequence));`)
 		if err != nil {
 			return err
 		}
@@ -223,121 +225,6 @@ func (sql *SqliteDb) getReadConn() (*sqlite3.Conn, error) {
 		sql.readConn, err = sql.newReadConn()
 	}
 	return sql.readConn, err
-}
-
-func (sql *SqliteDb) BatchSet(nodes []*Node, leaves bool) (n int64, versions []int64, err error) {
-	batchSize := 200_000
-	var byteCount int64
-	versionMap := make(map[int64]bool)
-
-	logger := log.With().
-		Str("op", "batch-set").
-		Str("path", sql.opts.Path).
-		Bool("leaves", leaves).
-		Logger()
-
-	newBatch := func() (*sqlite3.Stmt, error) {
-		var stmt *sqlite3.Stmt
-		if leaves {
-			if err = sql.leafWrite.Begin(); err != nil {
-				return nil, err
-			}
-			stmt, err = sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
-		} else {
-			if err = sql.treeWrite.Begin(); err != nil {
-				return nil, err
-			}
-			// sharded
-			stmt, err = sql.treeWrite.Prepare(fmt.Sprintf(
-				"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", sql.shardId))
-		}
-
-		// no Shard
-		//stmt, err = sql.leafWrite.Prepare(fmt.Sprintf("INSERT INTO tree (sequence, version, bytes) VALUES (?, ?, ?)"))
-
-		// leaves
-
-		if err != nil {
-			return nil, err
-		}
-		return stmt, nil
-	}
-
-	stmt, err := newBatch()
-	if err != nil {
-		return 0, versions, err
-	}
-	since := time.Now()
-	for i, node := range nodes {
-		versionMap[node.nodeKey.Version()] = true
-		var bz []byte
-		bz, err = node.Bytes()
-		byteCount += int64(len(bz))
-		if err != nil {
-			return 0, versions, err
-		}
-		err = stmt.Exec(node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz)
-		if err != nil {
-			return 0, versions, err
-		}
-		if i != 0 && i%batchSize == 0 {
-			if leaves {
-				err = sql.leafWrite.Commit()
-			} else {
-				err = sql.treeWrite.Commit()
-			}
-			if err != nil {
-				return 0, versions, err
-			}
-			err = stmt.Close()
-			if err != nil {
-				return 0, versions, err
-			}
-			stmt, err = newBatch()
-			if err != nil {
-				return 0, versions, err
-			}
-
-			logger.Info().Msgf("i=%s dur=%s rate=%s",
-				humanize.Comma(int64(i)),
-				time.Since(since).Round(time.Millisecond),
-				humanize.Comma(int64(float64(batchSize)/time.Since(since).Seconds())))
-			since = time.Now()
-		}
-		if leaves {
-			sql.pool.Put(node)
-		}
-	}
-	if leaves {
-		err = sql.leafWrite.Commit()
-	} else {
-		err = sql.treeWrite.Commit()
-	}
-	if err != nil {
-		return 0, versions, err
-	}
-	err = stmt.Close()
-	if err != nil {
-		return 0, versions, err
-	}
-
-	if !leaves {
-		err = sql.treeWrite.Exec(fmt.Sprintf(
-			"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", sql.shardId, sql.shardId))
-		if err != nil {
-			return 0, versions, err
-		}
-	}
-
-	err = sql.leafWrite.Exec("PRAGMA wal_checkpoint(RESTART);")
-	if err != nil {
-		return 0, versions, err
-	}
-
-	for version := range versionMap {
-		versions = append(versions, version)
-	}
-	return byteCount, versions, nil
 }
 
 func (sql *SqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {

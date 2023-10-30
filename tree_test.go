@@ -223,11 +223,12 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	multiTree := NewMultiTree(tmpDir)
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
+	require.NoError(t, multiTree.WarmLeaves())
 
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
 	opts.SampleRate = 250_000
 
-	opts.Until = 100
+	opts.Until = 10_000
 	opts.UntilHash = "2020d5d28e2636c537e644fce53f057a706316ad8092a015bcaf2a7e153de468"
 
 	testTreeBuild(t, multiTree, opts)
