@@ -52,14 +52,15 @@ func (b *sqliteBatch) changelogMaybeCommit() (err error) {
 		if err = b.changelogBatchCommit(); err != nil {
 			return err
 		}
-		if err = b.newChangeLogBatch(); err != nil {
-			return err
-		}
-		b.logger.Debug().Msgf("count=%s dur=%s rate=%s",
+
+		b.logger.Debug().Msgf("db=changelog count=%s dur=%s rate=%s",
 			humanize.Comma(int64(b.count)),
 			time.Since(b.since).Round(time.Millisecond),
 			humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
-		b.since = time.Now()
+
+		if err = b.newChangeLogBatch(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -105,7 +106,7 @@ func (b *sqliteBatch) treeMaybeCommit() (err error) {
 		if err = b.newTreeBatch(); err != nil {
 			return err
 		}
-		b.logger.Debug().Msgf("count=%s dur=%s rate=%s",
+		b.logger.Debug().Msgf("db=tree count=%s dur=%s rate=%s",
 			humanize.Comma(int64(b.count)),
 			time.Since(b.since).Round(time.Millisecond),
 			humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
@@ -161,6 +162,7 @@ func (b *sqliteBatch) save() (n int64, versions []int64, err error) {
 		}
 
 		for _, node := range b.tree.branches {
+			b.count++
 			versionMap[node.nodeKey.Version()] = true
 			var bz []byte
 			bz, err = node.Bytes()
