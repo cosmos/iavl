@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
-	"github.com/cosmos/iavl/v2/leveldb"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
 	"github.com/stretchr/testify/require"
@@ -242,72 +241,6 @@ func TestReadSqlite(t *testing.T) {
 	//version1 := gen.Iterator.Nodes()
 	//var count int
 	//require.Equal(t, int64(1), gen.Iterator.Version())
-}
-
-func TestBuildLevelDb(t *testing.T) {
-	//dir := t.TempDir()
-	dir := "/tmp/leveldb_test"
-	t.Logf("using temp dir %s", dir)
-	levelDb, err := leveldb.New("iavl_test", dir)
-	require.NoError(t, err)
-	db := &KvDB{db: levelDb}
-
-	gen := testutil.OsmoLike()
-	version1 := gen.Iterator.Nodes()
-	var count int
-	require.Equal(t, int64(1), gen.Iterator.Version())
-
-	since := time.Now()
-	for ; version1.Valid(); err = version1.Next() {
-		node := version1.GetNode()
-		nk := NewNodeKey(1, uint32(count))
-		lnk := NewNodeKey(1, uint32(count+1))
-		rnk := NewNodeKey(1, uint32(count+2))
-		n := &Node{
-			key:           node.Key,
-			nodeKey:       nk,
-			hash:          node.Key[:32],
-			subtreeHeight: 13,
-			size:          4,
-			leftNodeKey:   lnk,
-			rightNodeKey:  rnk,
-		}
-		_, err = db.Set(n)
-		require.NoError(t, err)
-
-		if count%100_000 == 0 {
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
-				humanize.Comma(int64(count)),
-				time.Since(since),
-				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))
-			since = time.Now()
-		}
-		count++
-	}
-}
-
-func TestReadLevelDB(t *testing.T) {
-	dir := "/tmp/leveldb_test"
-	t.Logf("using temp dir %s", dir)
-	levelDb, err := leveldb.New("iavl_test", dir)
-	require.NoError(t, err)
-	db := &KvDB{db: levelDb, pool: NewNodePool()}
-
-	since := time.Now()
-	for i := 1; i < 40_000_000; i++ {
-		j := rand.Intn(40_000_000)
-		nk := NewNodeKey(1, uint32(j))
-		node, err := db.Get(nk)
-		require.NoError(t, err)
-		require.NotNil(t, node)
-		if i%100_000 == 0 {
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
-				humanize.Comma(int64(i)),
-				time.Since(since),
-				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))
-			since = time.Now()
-		}
-	}
 }
 
 func TestNodeKeyFormat(t *testing.T) {

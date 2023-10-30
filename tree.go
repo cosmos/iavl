@@ -32,7 +32,6 @@ type Tree struct {
 	lastCheckpoint int64
 	cache          *NodeCache
 	pool           *NodePool
-	checkpointer   *checkpointer
 
 	workingBytes uint64
 	workingSize  int64
@@ -204,19 +203,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	return tree.root.hash, tree.version, nil
 }
 
-func (tree *Tree) asyncCheckpoint() error {
-	args := &checkpointArgs{
-		delete:  tree.orphans,
-		version: tree.version,
-	}
-	tree.buildCheckpoint(tree.root, args)
-	if int64(len(args.set)) != tree.workingSize {
-		return fmt.Errorf("set count mismatch; expected=%d, actual=%d", tree.workingSize, len(args.set))
-	}
-	tree.checkpointer.ch <- args
-	return nil
-}
-
 func (tree *Tree) deepHash(sequence *uint32, node *Node) (isLeaf bool, isDirty bool) {
 
 	isLeaf = node.isLeaf()
@@ -275,35 +261,6 @@ func (tree *Tree) dirtyCount(node *Node) int64 {
 		return n + tree.dirtyCount(node.left(tree)) + tree.dirtyCount(node.right(tree))
 	} else {
 		return n
-	}
-}
-
-func (tree *Tree) buildCheckpoint(node *Node, args *checkpointArgs) {
-	if node == nil || node.nodeKey.Version() <= tree.lastCheckpoint {
-		return
-	}
-
-	tree.cache.Set(node)
-	node.dirty = false
-
-	n := tree.pool.Get()
-	n.subtreeHeight = node.subtreeHeight
-	n.size = node.size
-	n.key = node.key
-	n.hash = node.hash
-	n.nodeKey = node.nodeKey
-	n.leftNodeKey = node.leftNodeKey
-	n.rightNodeKey = node.rightNodeKey
-
-	if node.isLeaf() {
-		args.set = append(args.set, n)
-	} else {
-		args.set = append(args.set, n)
-		tree.buildCheckpoint(node.leftNode, args)
-		tree.buildCheckpoint(node.rightNode, args)
-
-		node.leftNode = nil
-		node.rightNode = nil
 	}
 }
 

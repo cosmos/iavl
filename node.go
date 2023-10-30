@@ -15,6 +15,8 @@ import (
 	encoding "github.com/cosmos/iavl/v2/internal"
 )
 
+const hashSize = 32
+
 // NodeKey represents a key of node in the DB.
 type NodeKey [12]byte
 
