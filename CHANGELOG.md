@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.0-rc.0 (August 23, 2023)
+## v1.0.0 (October 30, 2023)
 
 ### Improvements
 
