@@ -82,7 +82,7 @@ func (sql *SqliteDb) ImportSnapshot(version int64, loadLeaves bool) (*Node, erro
 	}
 
 	// if full tree was loaded then rehash the full tree to validate integrity of the snapshot
-	tree := NewTree(sql, sql.pool)
+	tree := NewTree(sql, sql.pool, TreeOptions{})
 	if err = tree.LoadVersion(version); err != nil {
 		return nil, err
 	}

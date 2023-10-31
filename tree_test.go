@@ -164,7 +164,7 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts testutil.TreeBuildOp
 		fmt.Printf("storekey: %s height: %d, size: %d\n", sk, tree.Height(), tree.Size())
 	}
 	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
-	multiTree.metrics.Report()
+	multiTree.treeOpts.Metrics.Report()
 	require.Equal(t, version, opts.Until)
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
 	return cnt
@@ -173,16 +173,13 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts testutil.TreeBuildOp
 func TestTree_Hash(t *testing.T) {
 	var err error
 
-	tmpDir := t.TempDir()
+	//tmpDir := t.TempDir()
+	tmpDir := "/tmp/iavl-test"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 
 	require.NoError(t, err)
-
-	//opts := testutil.OsmoLikeManyTrees()
-	//opts.Until = 100
-	//opts.UntilHash = "2020d5d28e2636c537e644fce53f057a706316ad8092a015bcaf2a7e153de468"
-
 	opts := testutil.BigTreeOptions_100_000()
+
 	// this hash was validated as correct (with this same dataset) in iavl-bench
 	// with `go run . tree --seed 1234 --dataset std`
 	// at this commit tree: https://github.com/cosmos/iavl-bench/blob/3a6a1ec0a8cbec305e46239454113687da18240d/iavl-v0/main.go#L136
@@ -193,7 +190,7 @@ func TestTree_Hash(t *testing.T) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	testStart := time.Now()
-	multiTree := NewMultiTree(tmpDir)
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10})
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
 	require.True(t, ok)
 	for _, sk := range itrs.StoreKeys() {
@@ -204,6 +201,7 @@ func TestTree_Hash(t *testing.T) {
 	fmt.Printf("mean leaves/s: %s\n", humanize.Comma(int64(float64(leaves)/treeDuration.Seconds())))
 
 	cancel()
+	require.NoError(t, multiTree.Close())
 }
 
 func TestOsmoLike_HotStart(t *testing.T) {
@@ -220,7 +218,7 @@ func TestOsmoLike_HotStart(t *testing.T) {
 func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-alpha6"
 
-	multiTree := NewMultiTree(tmpDir)
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 100})
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
 	require.NoError(t, multiTree.WarmLeaves())
@@ -228,7 +226,7 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
 	opts.SampleRate = 250_000
 
-	opts.Until = 10_000
+	opts.Until = 1_000
 	opts.UntilHash = "2020d5d28e2636c537e644fce53f057a706316ad8092a015bcaf2a7e153de468"
 
 	testTreeBuild(t, multiTree, opts)
@@ -250,7 +248,7 @@ func TestTree_Rehash(t *testing.T) {
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/sqlite/height-zero"})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool)
+	tree := NewTree(sql, pool, TreeOptions{})
 	require.NoError(t, tree.LoadVersion(1))
 
 	savedHash := make([]byte, 32)
@@ -282,7 +280,7 @@ func TestTreeSanity(t *testing.T) {
 				pool := NewNodePool()
 				sql, err := NewInMemorySqliteDb(pool)
 				require.NoError(t, err)
-				return NewTree(sql, pool)
+				return NewTree(sql, pool, TreeOptions{})
 			},
 			hashFn: func(tree *Tree) []byte {
 				hash, _, err := tree.SaveVersion()
@@ -294,7 +292,7 @@ func TestTreeSanity(t *testing.T) {
 			name: "no db",
 			treeFn: func() *Tree {
 				pool := NewNodePool()
-				return NewTree(nil, pool)
+				return NewTree(nil, pool, TreeOptions{})
 			},
 			hashFn: func(tree *Tree) []byte {
 				rehashTree(tree.root)

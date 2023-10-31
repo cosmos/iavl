@@ -45,7 +45,7 @@ func Command() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				tree := iavl.NewTree(sql, pool)
+				tree := iavl.NewTree(sql, pool, iavl.TreeOptions{Metrics: m})
 				if err := tree.LoadVersion(version); err != nil {
 					return err
 				}

@@ -9,6 +9,7 @@ import (
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 	api "github.com/kocubinski/costor-api"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -42,8 +43,8 @@ type SqliteDb struct {
 	versionShard map[int64]int64
 
 	queryLeaf *sqlite3.Stmt
-
-	metrics *metrics.TreeMetrics
+	metrics   *metrics.TreeMetrics
+	logger    zerolog.Logger
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -76,12 +77,14 @@ func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
 }
 
 func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
+	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
 	sql := &SqliteDb{
 		shards:       make(map[int64]*sqlite3.Stmt),
 		versionShard: make(map[int64]int64),
 		opts:         opts,
 		pool:         pool,
 		metrics:      opts.Metrics,
+		logger:       logger,
 	}
 
 	if !api.IsFileExistent(opts.Path) {
@@ -415,12 +418,12 @@ func (sql *SqliteDb) NextShard() error {
 	sql.shardId++
 
 	// hack to maintain 1 shard for testing
-	if sql.shardId > 1 {
-		sql.shardId = 1
-		return nil
-	}
+	//if sql.shardId > 1 {
+	//	sql.shardId = 1
+	//	return nil
+	//}
 
-	log.Info().Msgf("creating shard %d", sql.shardId)
+	sql.logger.Info().Msgf("creating shard %d", sql.shardId)
 
 	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);",
 		sql.shardId))
@@ -641,4 +644,48 @@ func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
 		return nil, err
 	}
 	return node.leftNode, err
+}
+
+func (sql *SqliteDb) Revert(version int) error {
+	if err := sql.leafWrite.Exec("DELETE FROM leaf WHERE version > ?", version); err != nil {
+		return err
+	}
+	if err := sql.leafWrite.Exec("DELETE FROM leaf_delete WHERE version > ?", version); err != nil {
+		return err
+	}
+	if err := sql.treeWrite.Exec("DELETE FROM root WHERE version > ?", version); err != nil {
+		return err
+	}
+	q, err := sql.treeWrite.Prepare("SELECT DISTINCT id FROM shard WHERE version > ?", version)
+	if err != nil {
+		return err
+	}
+	var shards []int
+	for {
+		hasRow, err := q.Step()
+		if err != nil {
+			return err
+		}
+		if !hasRow {
+			break
+		}
+		var shard int
+		err = q.Scan(&shard)
+		if err != nil {
+			return err
+		}
+		shards = append(shards, shard)
+	}
+	if err = q.Close(); err != nil {
+		return err
+	}
+	for _, shard := range shards {
+		if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE tree_%d", shard)); err != nil {
+			return err
+		}
+	}
+	if err = sql.treeWrite.Exec("DELETE FROM shard WHERE version > ?", version); err != nil {
+		return err
+	}
+	return nil
 }
