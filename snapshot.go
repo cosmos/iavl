@@ -24,17 +24,11 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 		return err
 	}
 
-	snapshot := &sqliteSnapshot{
+	snapshot := &SqliteSnapshot{
 		ctx:       ctx,
 		conn:      sql.leafWrite,
 		batchSize: 200_000,
 		version:   version,
-		getLeft: func(node *Node) *Node {
-			return node.left(tree)
-		},
-		getRight: func(node *Node) *Node {
-			return node.right(tree)
-		},
 	}
 	if err = snapshot.prepareWrite(); err != nil {
 		return err
@@ -50,7 +44,117 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 	return err
 }
 
-func (sql *SqliteDb) ImportSnapshot(version int64, loadLeaves bool) (*Node, error) {
+func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, nextFn func() *SnapshotNode) (*Node, error) {
+	err := sql.leafWrite.Exec(
+		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
+	if err != nil {
+		return nil, err
+	}
+	snap := &SqliteSnapshot{
+		ctx:       ctx,
+		conn:      sql.leafWrite,
+		batchSize: 200_000,
+		version:   version,
+		lastWrite: time.Now(),
+	}
+	if err = snap.prepareWrite(); err != nil {
+		return nil, err
+	}
+
+	var (
+		step       func() (*Node, error)
+		maybeFlush func() error
+		count      int
+	)
+	maybeFlush = func() error {
+		count++
+		if count%snap.batchSize == 0 {
+			if err = snap.flush(); err != nil {
+				return err
+			}
+			if err = snap.prepareWrite(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	step = func() (*Node, error) {
+		snapshotNode := nextFn()
+		ordinal := snap.ordinal
+		snap.ordinal++
+
+		node := &Node{
+			key:           snapshotNode.Key,
+			subtreeHeight: snapshotNode.Height,
+			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(ordinal)),
+		}
+		if node.subtreeHeight == 0 {
+			node.value = snapshotNode.Value
+			node.size = 1
+			node._hash(snapshotNode.Version)
+			node.value = nil
+			nodeBz, err := node.Bytes()
+			if err != nil {
+				return nil, err
+			}
+			if err = snap.batch.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+				return nil, err
+			}
+			if err = maybeFlush(); err != nil {
+				return nil, err
+			}
+			return node, nil
+		}
+
+		node.leftNode, err = step()
+		if err != nil {
+			return nil, err
+		}
+		node.leftNodeKey = node.leftNode.nodeKey
+		node.rightNode, err = step()
+		if err != nil {
+			return nil, err
+		}
+		node.rightNodeKey = node.rightNode.nodeKey
+
+		node.size = node.leftNode.size + node.rightNode.size
+		node._hash(snapshotNode.Version)
+		node.leftNode = nil
+		node.rightNode = nil
+
+		nodeBz, err := node.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		if err = snap.batch.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+			return nil, err
+		}
+		if err = maybeFlush(); err != nil {
+			return nil, err
+		}
+		return node, nil
+	}
+	root, err := step()
+	if err != nil {
+		return nil, err
+	}
+
+	if err = snap.flush(); err != nil {
+		return nil, err
+	}
+
+	return root, nil
+}
+
+type SnapshotNode struct {
+	Key     []byte
+	Value   []byte
+	Version int64
+	Height  int8
+}
+
+func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*Node, error) {
 	read, err := sql.getReadConn()
 	if err != nil {
 		return nil, err
@@ -72,7 +176,7 @@ func (sql *SqliteDb) ImportSnapshot(version int64, loadLeaves bool) (*Node, erro
 		loadLeaves: loadLeaves,
 		since:      time.Now(),
 	}
-	root, err := imp.step()
+	root, err := imp.queryStep()
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +217,7 @@ func FindDbsInPath(path string) ([]string, error) {
 	return paths, nil
 }
 
-type sqliteSnapshot struct {
+type SqliteSnapshot struct {
 	ctx       context.Context
 	conn      *sqlite3.Conn
 	batch     *sqlite3.Stmt
@@ -125,7 +229,10 @@ type sqliteSnapshot struct {
 	getRight  func(*Node) *Node
 }
 
-func (snap *sqliteSnapshot) writeStep(node *Node) error {
+// TODO
+// merge these two functions
+
+func (snap *SqliteSnapshot) writeStep(node *Node) error {
 	snap.ordinal++
 	// Pre-order, NLR traversal
 	// Visit this node
@@ -161,7 +268,7 @@ func (snap *sqliteSnapshot) writeStep(node *Node) error {
 	return snap.writeStep(snap.getRight(node))
 }
 
-func (snap *sqliteSnapshot) flush() error {
+func (snap *SqliteSnapshot) flush() error {
 	select {
 	case <-snap.ctx.Done():
 		log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
@@ -192,7 +299,7 @@ func (snap *sqliteSnapshot) flush() error {
 	return nil
 }
 
-func (snap *sqliteSnapshot) prepareWrite() error {
+func (snap *SqliteSnapshot) prepareWrite() error {
 	err := snap.conn.Begin()
 	if err != nil {
 		return err
@@ -224,7 +331,7 @@ type sqliteImport struct {
 	since time.Time
 }
 
-func (sqlImport *sqliteImport) step() (node *Node, err error) {
+func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 	sqlImport.i++
 	if sqlImport.i%1_000_000 == 0 {
 		log.Debug().Msgf("import: nodes=%s, node/s=%s",
@@ -261,11 +368,11 @@ func (sqlImport *sqliteImport) step() (node *Node, err error) {
 		return nil, nil
 	}
 
-	node.leftNode, err = sqlImport.step()
+	node.leftNode, err = sqlImport.queryStep()
 	if err != nil {
 		return nil, err
 	}
-	node.rightNode, err = sqlImport.step()
+	node.rightNode, err = sqlImport.queryStep()
 	if err != nil {
 		return nil, err
 	}

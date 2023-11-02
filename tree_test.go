@@ -239,7 +239,7 @@ func TestTree_Import(t *testing.T) {
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 
-	root, err := sql.ImportSnapshot(1, true)
+	root, err := sql.ImportSnapshotFromTable(1, true)
 	require.NoError(t, err)
 	require.NotNil(t, root)
 }

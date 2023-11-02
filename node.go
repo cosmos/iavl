@@ -494,3 +494,7 @@ func (node *Node) varSize() uint64 {
 func (node *Node) sizeBytes() uint64 {
 	return nodeSize + node.varSize()
 }
+
+func (node *Node) GetHash() []byte {
+	return node.hash
+}

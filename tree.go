@@ -567,3 +567,7 @@ func (tree *Tree) returnNode(node *Node) {
 func (tree *Tree) Close() error {
 	return tree.sql.Close()
 }
+
+func (tree *Tree) GetSql() *SqliteDb {
+	return tree.sql
+}
