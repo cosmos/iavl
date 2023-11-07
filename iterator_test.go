@@ -29,6 +29,7 @@ func Test_Iterator(t *testing.T) {
 	cases := []struct {
 		name          string
 		start, end    []byte
+		inclusive     bool
 		ascending     bool
 		expectedCount int
 		expectedStart []byte
@@ -60,6 +61,56 @@ func Test_Iterator(t *testing.T) {
 			expectedCount: 6,
 			expectedStart: []byte("b"),
 			expectedEnd:   []byte("g"),
+		},
+		{
+			name:          "c end inclusive",
+			start:         nil,
+			end:           []byte("c"),
+			ascending:     true,
+			inclusive:     true,
+			expectedCount: 3,
+			expectedStart: []byte("a"),
+			expectedEnd:   []byte("c"),
+		},
+		{
+			name:          "d end exclusive",
+			start:         nil,
+			end:           []byte("c"),
+			ascending:     true,
+			inclusive:     false,
+			expectedCount: 3,
+			expectedStart: []byte("a"),
+			expectedEnd:   []byte("c"),
+		},
+		{
+			name:          "ce end inclusive",
+			start:         nil,
+			end:           []byte("c"),
+			ascending:     true,
+			inclusive:     true,
+			expectedCount: 3,
+			expectedStart: []byte("a"),
+			expectedEnd:   []byte("c"),
+		},
+		{
+			name:          "ce end exclusive",
+			start:         nil,
+			end:           []byte("c"),
+			ascending:     true,
+			inclusive:     false,
+			expectedCount: 3,
+			expectedStart: []byte("a"),
+			expectedEnd:   []byte("c"),
+		},
+		{
+			name:          "b to e",
+			start:         []byte("b"),
+			end:           []byte("e"),
+			inclusive:     true,
+			ascending:     true,
+			expectedCount: 4,
+			expectedStart: []byte("b"),
+			expectedEnd:   []byte("e"),
 		},
 	}
 

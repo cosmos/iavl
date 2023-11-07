@@ -84,16 +84,15 @@ func (i *Iterator) stepAscend() {
 	var n *Node
 	for {
 		n = i.pop()
-		if i.isPastEnd(n.key) {
-			i.valid = false
-			return
-		}
 		if n.isLeaf() {
 			if !i.started && bytes.Compare(n.key, i.start) < 0 {
 				continue
-			} else {
-				break
 			}
+			if i.isPastEnd(n.key) {
+				i.valid = false
+				return
+			}
+			break
 		}
 		right, err := n.getRightNode(i.tree)
 		if err != nil {
