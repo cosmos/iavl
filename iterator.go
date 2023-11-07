@@ -38,7 +38,8 @@ type Iterator struct {
 	ascending  bool   // ascending traversal
 	inclusive  bool   // end key inclusiveness
 
-	stack []*Node
+	stack   []*Node
+	started bool
 
 	key, value []byte // current key, value
 	err        error  // current error
@@ -66,6 +67,7 @@ func (i *Iterator) Next() {
 	} else {
 		i.stepDescend()
 	}
+	i.started = true
 }
 
 func (i *Iterator) push(node *Node) {
@@ -82,13 +84,15 @@ func (i *Iterator) stepAscend() {
 	var n *Node
 	for {
 		n = i.pop()
+		if i.isPastEnd(n.key) {
+			i.valid = false
+			return
+		}
 		if n.isLeaf() {
-			// todo
-			// only compare i.start until started
-			if bytes.Compare(i.start, n.key) <= 0 {
-				break
-			} else {
+			if !i.started && bytes.Compare(n.key, i.start) < 0 {
 				continue
+			} else {
+				break
 			}
 		}
 		right, err := n.getRightNode(i.tree)

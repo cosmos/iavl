@@ -2,7 +2,6 @@ package iavl_test
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 
 	"github.com/cosmos/iavl/v2"
@@ -27,49 +26,62 @@ func Test_Iterator(t *testing.T) {
 	set("f", "6")
 	set("g", "7")
 
-	itr, err := tree.Iterator(nil, nil, true)
-	require.NoError(t, err)
-	itr.Next()
-	require.NoError(t, itr.Error())
-	require.Equal(t, []byte("a"), itr.Key())
-	require.Equal(t, []byte("1"), itr.Value())
-
-	cnt := 0
-	for ; itr.Valid(); itr.Next() {
-		require.NoError(t, itr.Error())
-		cnt++
+	cases := []struct {
+		name          string
+		start, end    []byte
+		ascending     bool
+		expectedCount int
+		expectedStart []byte
+		expectedEnd   []byte
+	}{
+		{
+			name:          "all",
+			start:         nil,
+			end:           nil,
+			ascending:     true,
+			expectedCount: 7,
+			expectedStart: []byte("a"),
+			expectedEnd:   []byte("g"),
+		},
+		{
+			name:          "b start",
+			start:         []byte("b"),
+			end:           nil,
+			ascending:     true,
+			expectedCount: 6,
+			expectedStart: []byte("b"),
+			expectedEnd:   []byte("g"),
+		},
+		{
+			name:          "ab start",
+			start:         []byte("ab"),
+			end:           nil,
+			ascending:     true,
+			expectedCount: 6,
+			expectedStart: []byte("b"),
+			expectedEnd:   []byte("g"),
+		},
 	}
-	require.Equal(t, 7, cnt)
-	require.Equal(t, []byte("g"), itr.Key())
-	require.Equal(t, []byte("7"), itr.Value())
-	require.False(t, itr.Valid())
-	require.NoError(t, itr.Close())
 
-	itr, err = tree.Iterator([]byte("b"), nil, true)
-	require.NoError(t, err)
-	itr.Next()
-	require.NoError(t, itr.Error())
-	require.Equal(t, []byte("b"), itr.Key())
-	cnt = 0
-	for ; itr.Valid(); itr.Next() {
-		require.NoError(t, itr.Error())
-		fmt.Println(string(itr.Key()), string(itr.Value()))
-		cnt++
-	}
-	require.Equal(t, 6, cnt)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			itr, err := tree.Iterator(tc.start, tc.end, tc.ascending)
+			require.NoError(t, err)
+			itr.Next()
+			require.NoError(t, itr.Error())
+			require.Equal(t, tc.expectedStart, itr.Key())
 
-	itr, err = tree.Iterator([]byte("ab"), nil, true)
-	require.NoError(t, err)
-	itr.Next()
-	require.NoError(t, itr.Error())
-	require.Equal(t, []byte("b"), itr.Key())
-	cnt = 0
-	for ; itr.Valid(); itr.Next() {
-		require.NoError(t, itr.Error())
-		fmt.Println(string(itr.Key()), string(itr.Value()))
-		cnt++
+			cnt := 0
+			for ; itr.Valid(); itr.Next() {
+				require.NoError(t, itr.Error())
+				cnt++
+			}
+			require.Equal(t, tc.expectedCount, cnt)
+			require.Equal(t, tc.expectedEnd, itr.Key())
+			require.False(t, itr.Valid())
+			require.NoError(t, itr.Close())
+		})
 	}
-	require.Equal(t, 6, cnt)
 }
 
 func Test_Compare(t *testing.T) {
