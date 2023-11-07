@@ -1,6 +1,7 @@
 package iavl_test
 
 import (
+	"bytes"
 	"fmt"
 	"testing"
 
@@ -36,11 +37,44 @@ func Test_Iterator(t *testing.T) {
 	cnt := 0
 	for ; itr.Valid(); itr.Next() {
 		require.NoError(t, itr.Error())
-		fmt.Println(string(itr.Key()), string(itr.Value()))
 		cnt++
 	}
 	require.Equal(t, 7, cnt)
 	require.Equal(t, []byte("g"), itr.Key())
 	require.Equal(t, []byte("7"), itr.Value())
 	require.False(t, itr.Valid())
+	require.NoError(t, itr.Close())
+
+	itr, err = tree.Iterator([]byte("b"), nil, true)
+	require.NoError(t, err)
+	itr.Next()
+	require.NoError(t, itr.Error())
+	require.Equal(t, []byte("b"), itr.Key())
+	cnt = 0
+	for ; itr.Valid(); itr.Next() {
+		require.NoError(t, itr.Error())
+		fmt.Println(string(itr.Key()), string(itr.Value()))
+		cnt++
+	}
+	require.Equal(t, 6, cnt)
+
+	itr, err = tree.Iterator([]byte("ab"), nil, true)
+	require.NoError(t, err)
+	itr.Next()
+	require.NoError(t, itr.Error())
+	require.Equal(t, []byte("b"), itr.Key())
+	cnt = 0
+	for ; itr.Valid(); itr.Next() {
+		require.NoError(t, itr.Error())
+		fmt.Println(string(itr.Key()), string(itr.Value()))
+		cnt++
+	}
+	require.Equal(t, 6, cnt)
+}
+
+func Test_Compare(t *testing.T) {
+	res := bytes.Compare([]byte("a"), []byte("b"))
+	require.Negative(t, res)
+	res = bytes.Compare(nil, []byte("a"))
+	require.Negative(t, res)
 }

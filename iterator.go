@@ -1,5 +1,7 @@
 package iavl
 
+import "bytes"
+
 type iterator interface {
 	// Domain returns the start (inclusive) and end (exclusive) limits of the iterator.
 	// CONTRACT: start, end readonly []byte
@@ -36,10 +38,7 @@ type Iterator struct {
 	ascending  bool   // ascending traversal
 	inclusive  bool   // end key inclusiveness
 
-	init bool // iterator initialized
-
 	stack []*Node
-	cur   *Node
 
 	key, value []byte // current key, value
 	err        error  // current error
@@ -55,13 +54,8 @@ func (i *Iterator) Valid() bool {
 }
 
 func (i *Iterator) Next() {
-	if i.init && !i.valid {
+	if !i.valid {
 		return
-	}
-	if !i.init {
-		i.push(i.tree.root)
-		i.init = true
-		i.valid = true
 	}
 	if len(i.stack) == 0 {
 		i.valid = false
@@ -84,32 +78,39 @@ func (i *Iterator) pop() (node *Node) {
 	return
 }
 
-func (i *Iterator) peek() (node *Node) {
-	return i.stack[len(i.stack)-1]
-}
-
-func (i *Iterator) firstAscend() {
-
-}
-
 func (i *Iterator) stepAscend() {
 	var n *Node
-	for n = i.pop(); !n.isLeaf(); n = i.pop() {
+	for {
+		n = i.pop()
+		if n.isLeaf() {
+			// todo
+			// only compare i.start until started
+			if bytes.Compare(i.start, n.key) <= 0 {
+				break
+			} else {
+				continue
+			}
+		}
 		right, err := n.getRightNode(i.tree)
 		if err != nil {
 			i.err = err
 			i.valid = false
 			return
 		}
-		i.push(right)
 
-		left, err := n.getLeftNode(i.tree)
-		if err != nil {
-			i.err = err
-			i.valid = false
-			return
+		if bytes.Compare(i.start, n.key) < 0 {
+			left, err := n.getLeftNode(i.tree)
+			if err != nil {
+				i.err = err
+				i.valid = false
+				return
+			}
+			i.push(right)
+			i.push(left)
+		} else {
+			i.push(right)
 		}
-		i.push(left)
+
 	}
 	i.key = n.key
 	i.value = n.value
@@ -127,6 +128,16 @@ func (i *Iterator) firstDescend() {
 	}
 	i.key = n.key
 	i.value = n.value
+}
+
+func (i *Iterator) isPastEnd(key []byte) bool {
+	if i.end == nil {
+		return false
+	}
+	if i.inclusive {
+		return bytes.Compare(key, i.end) > 0
+	}
+	return bytes.Compare(key, i.end) >= 0
 }
 
 func (i *Iterator) Key() (key []byte) {
@@ -154,5 +165,7 @@ func (tree *Tree) Iterator(start, end []byte, ascending bool) (*Iterator, error)
 		end:       end,
 		ascending: ascending,
 		inclusive: true,
+		valid:     true,
+		stack:     []*Node{tree.root},
 	}, nil
 }
