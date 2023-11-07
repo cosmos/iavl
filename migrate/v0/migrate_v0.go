@@ -1,6 +1,8 @@
 package v0
 
 import (
+	"bytes"
+	"fmt"
 	"sync"
 
 	iavlv2 "github.com/cosmos/iavl/v2"
@@ -83,7 +85,8 @@ func Command() *cobra.Command {
 						}
 					}
 
-					root, err := v2Tree.GetSql().WriteSnapshot(cmd.Context(), tree.Version(), nextNodeFn)
+					sql := v2Tree.GetSql()
+					root, err := sql.WriteSnapshot(cmd.Context(), tree.Version(), true, nextNodeFn)
 					if err != nil {
 						panic(err)
 					}
@@ -92,21 +95,19 @@ func Command() *cobra.Command {
 					if err != nil {
 						panic(err)
 					}
-					log.Info().Msgf("v2 hash=%x  v0 hash=%x", root.GetHash(), v0Hash)
+					if !bytes.Equal(root.GetHash(), v0Hash) {
+						panic(fmt.Sprintf("v2 hash=%x != v0 hash=%x", root.GetHash(), v0Hash))
+					}
 
-					//if count%sampleRate == 0 {
-					//	log.Info().Msgf("processed %s nodes in %s; %s nodes/s",
-					//		humanize.Comma(count),
-					//		time.Since(since),
-					//		humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
-					//	)
-					//	since = time.Now()
+					if err = sql.SaveRoot(tree.Version(), root); err != nil {
+						panic(err)
+					}
 
-					//_, _, err = v2Tree.SaveVersion()
-					//if err != nil {
-					//	panic(err)
-					//}
-					//
+					_, err = sql.ImportSnapshotFromTable(tree.Version(), true)
+					if err != nil {
+						panic(err)
+					}
+
 					wg.Done()
 				}(storeKey)
 			}

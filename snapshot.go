@@ -11,6 +11,7 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog"
 )
 
 func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) error {
@@ -24,11 +25,12 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 		return err
 	}
 
-	snapshot := &SqliteSnapshot{
+	snapshot := &sqliteSnapshot{
 		ctx:       ctx,
 		conn:      sql.leafWrite,
 		batchSize: 200_000,
 		version:   version,
+		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
 	}
 	if err = snapshot.prepareWrite(); err != nil {
 		return err
@@ -44,18 +46,19 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 	return err
 }
 
-func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, nextFn func() *SnapshotNode) (*Node, error) {
+func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, storeLeafValues bool, nextFn func() *SnapshotNode) (*Node, error) {
 	err := sql.leafWrite.Exec(
 		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
 	if err != nil {
 		return nil, err
 	}
-	snap := &SqliteSnapshot{
+	snap := &sqliteSnapshot{
 		ctx:       ctx,
 		conn:      sql.leafWrite,
 		batchSize: 200_000,
 		version:   version,
 		lastWrite: time.Now(),
+		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
 	}
 	if err = snap.prepareWrite(); err != nil {
 		return nil, err
@@ -93,7 +96,9 @@ func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, nextFn fu
 			node.value = snapshotNode.Value
 			node.size = 1
 			node._hash(snapshotNode.Version)
-			node.value = nil
+			if !storeLeafValues {
+				node.value = nil
+			}
 			nodeBz, err := node.Bytes()
 			if err != nil {
 				return nil, err
@@ -185,16 +190,10 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*N
 		return root, nil
 	}
 
-	// if full tree was loaded then rehash the full tree to validate integrity of the snapshot
-	tree := NewTree(sql, sql.pool, TreeOptions{})
-	if err = tree.LoadVersion(version); err != nil {
-		return nil, err
-	}
-
-	// TODO ensure node.NodeKey.Version() is correct
+	h := root.hash
 	rehashTree(root)
-	if !bytes.Equal(root.hash, tree.root.hash) {
-		return nil, fmt.Errorf("root hash mismatch: %x != %x", root.hash, tree.root.hash)
+	if !bytes.Equal(h, root.hash) {
+		return nil, fmt.Errorf("rehash failed; expected=%x, got=%x", h, root.hash)
 	}
 
 	return root, nil
@@ -217,7 +216,7 @@ func FindDbsInPath(path string) ([]string, error) {
 	return paths, nil
 }
 
-type SqliteSnapshot struct {
+type sqliteSnapshot struct {
 	ctx       context.Context
 	conn      *sqlite3.Conn
 	batch     *sqlite3.Stmt
@@ -227,12 +226,13 @@ type SqliteSnapshot struct {
 	version   int64
 	getLeft   func(*Node) *Node
 	getRight  func(*Node) *Node
+	log       zerolog.Logger
 }
 
 // TODO
 // merge these two functions
 
-func (snap *SqliteSnapshot) writeStep(node *Node) error {
+func (snap *sqliteSnapshot) writeStep(node *Node) error {
 	snap.ordinal++
 	// Pre-order, NLR traversal
 	// Visit this node
@@ -268,10 +268,10 @@ func (snap *SqliteSnapshot) writeStep(node *Node) error {
 	return snap.writeStep(snap.getRight(node))
 }
 
-func (snap *SqliteSnapshot) flush() error {
+func (snap *sqliteSnapshot) flush() error {
 	select {
 	case <-snap.ctx.Done():
-		log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
+		snap.log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
 		return errors.Join(
 			snap.batch.Reset(),
 			snap.batch.Close(),
@@ -280,7 +280,7 @@ func (snap *SqliteSnapshot) flush() error {
 	default:
 	}
 
-	log.Info().Msgf("flush total=%s, batch=%s, dur=%s, wr/s=%s",
+	snap.log.Info().Msgf("flush total=%s batch=%s dur=%s wr/s=%s",
 		humanize.Comma(int64(snap.ordinal)),
 		humanize.Comma(int64(snap.batchSize)),
 		time.Since(snap.lastWrite).Round(time.Millisecond),
@@ -299,7 +299,7 @@ func (snap *SqliteSnapshot) flush() error {
 	return nil
 }
 
-func (snap *SqliteSnapshot) prepareWrite() error {
+func (snap *sqliteSnapshot) prepareWrite() error {
 	err := snap.conn.Begin()
 	if err != nil {
 		return err

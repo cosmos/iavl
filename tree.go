@@ -32,16 +32,18 @@ type Tree struct {
 	cache   *NodeCache
 	pool    *NodePool
 
-	lastCheckpoint     int64
-	checkpointInterval int64
-	shouldCheckpoint   bool
-
-	workingBytes uint64
-	workingSize  int64
+	lastCheckpoint   int64
+	shouldCheckpoint bool
 
 	// options
-	maxWorkingSize uint64
+	maxWorkingSize     uint64
+	workingBytes       uint64
+	checkpointInterval int64
+	workingSize        int64
+	storeLeafValues    bool
+	heightFilter       int8
 
+	// state
 	branches []*Node
 	leaves   []*Node
 	orphans  []NodeKey
@@ -52,6 +54,17 @@ type Tree struct {
 type TreeOptions struct {
 	CheckpointInterval int64
 	Metrics            *metrics.TreeMetrics
+	StateStorage       bool
+	HeightFilter       int8
+}
+
+func DefaultTreeOptions() TreeOptions {
+	return TreeOptions{
+		CheckpointInterval: 1000,
+		Metrics:            &metrics.TreeMetrics{},
+		StateStorage:       true,
+		HeightFilter:       0,
+	}
 }
 
 func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
@@ -65,6 +78,8 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		metrics:            opts.Metrics,
 		maxWorkingSize:     2 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
+		storeLeafValues:    opts.StateStorage,
+		heightFilter:       opts.HeightFilter,
 	}
 	return tree
 }
@@ -260,6 +275,14 @@ func (tree *Tree) dirtyCount(node *Node) int64 {
 	} else {
 		return n
 	}
+}
+
+func (tree *Tree) Get(key []byte) ([]byte, error) {
+	if tree.root == nil {
+		return nil, nil
+	}
+	_, res, err := tree.root.get(tree, key)
+	return res, err
 }
 
 // Set sets a key in the working tree. Nil values are invalid. The given
@@ -549,7 +572,9 @@ func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
 	node.size = 1
 
 	node._hash(version + 1)
-	node.value = nil
+	if !tree.storeLeafValues {
+		node.value = nil
+	}
 	node.dirty = true
 	tree.workingBytes += node.sizeBytes()
 	tree.workingSize++

@@ -295,6 +295,41 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	return newNode, nil
 }
 
+func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error) {
+	if node.isLeaf() {
+		switch bytes.Compare(node.key, key) {
+		case -1:
+			return 1, nil, nil
+		case 1:
+			return 0, nil, nil
+		default:
+			return 0, node.value, nil
+		}
+	}
+
+	if bytes.Compare(key, node.key) < 0 {
+		leftNode, err := node.getLeftNode(t)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		return leftNode.get(t, key)
+	}
+
+	rightNode, err := node.getRightNode(t)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	index, value, err = rightNode.get(t, key)
+	if err != nil {
+		return 0, nil, err
+	}
+
+	index += node.size - rightNode.size
+	return index, value, nil
+}
+
 var hashPool = &sync.Pool{
 	New: func() any {
 		return sha256.New()
@@ -409,7 +444,13 @@ func MakeNode(pool *NodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
 	node.key = key
 	node.hash = hash
 
-	if !node.isLeaf() {
+	if node.isLeaf() {
+		val, _, cause := encoding.DecodeBytes(buf)
+		if cause != nil {
+			return nil, fmt.Errorf("decoding node.value, %w", cause)
+		}
+		node.value = val
+	} else {
 		leftNodeKey, n, err := encoding.DecodeBytes(buf)
 		if err != nil {
 			return nil, fmt.Errorf("decoding node.leftKey, %w", err)
@@ -456,7 +497,12 @@ func (node *Node) WriteBytes(w io.Writer) error {
 		return fmt.Errorf("writing hash; %w", cause)
 	}
 
-	if !node.isLeaf() {
+	if node.isLeaf() {
+		cause = encoding.EncodeBytes(w, node.value)
+		if cause != nil {
+			return fmt.Errorf("writing value; %w", cause)
+		}
+	} else {
 		if node.leftNodeKey.IsEmpty() {
 			return fmt.Errorf("left node key is nil")
 		}

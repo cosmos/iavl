@@ -57,6 +57,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, er
 		}
 		go func(p string) {
 			root, importErr := sql.ImportSnapshotFromTable(version, false)
+
 			tree := NewTree(sql, pool, mt.treeOpts)
 			tree.root = root
 			tree.version = version
