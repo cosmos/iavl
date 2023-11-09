@@ -205,12 +205,12 @@ func TestTree_Hash(t *testing.T) {
 }
 
 func TestOsmoLike_HotStart(t *testing.T) {
-	tmpDir := "/tmp/iavl-alpha6"
+	tmpDir := "/tmp/iavl-v2"
 	pool := NewNodePool()
 	multiTree, err := ImportMultiTree(pool, 1, tmpDir)
 	require.NoError(t, err)
 	require.NotNil(t, multiTree)
-	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
+	opts := testutil.CompactedChangelogs("/tmp/osmo-like-many/v2")
 	opts.SampleRate = 250_000
 	testTreeBuild(t, multiTree, opts)
 }

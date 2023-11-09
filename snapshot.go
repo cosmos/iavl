@@ -32,6 +32,12 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 		batchSize: 200_000,
 		version:   version,
 		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
+		getLeft: func(node *Node) *Node {
+			return node.left(tree)
+		},
+		getRight: func(node *Node) *Node {
+			return node.right(tree)
+		},
 	}
 	if err = snapshot.prepareWrite(); err != nil {
 		return err
