@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -180,6 +181,7 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*N
 		pool:       sql.pool,
 		loadLeaves: loadLeaves,
 		since:      time.Now(),
+		log:        log.With().Str("path", sql.opts.Path).Logger(),
 	}
 	root, err := imp.queryStep()
 	if err != nil {
@@ -197,6 +199,58 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*N
 	}
 
 	return root, nil
+}
+
+func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, loadLeaves bool) (*Node, int64, error) {
+	read, err := sql.getReadConn()
+	if err != nil {
+		return nil, 0, err
+	}
+	q, err := read.Prepare("SELECT tbl_name FROM changelog.sqlite_master WHERE type='table' AND name LIKE 'snapshot_%' ORDER BY name DESC")
+	defer func(q *sqlite3.Stmt) {
+		err = q.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("error closing import query")
+		}
+	}(q)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var (
+		name    string
+		version int64
+	)
+	for {
+		ok, err := q.Step()
+		if err != nil {
+			return nil, 0, err
+		}
+		if !ok {
+			return nil, 0, fmt.Errorf("no prior snapshot found version=%d path=%s", targetVersion, sql.opts.Path)
+		}
+		err = q.Scan(&name)
+		if err != nil {
+			return nil, 0, err
+		}
+		vs := name[len("snapshot_"):]
+		if vs == "" {
+			return nil, 0, fmt.Errorf("unexpected snapshot table name %s", name)
+		}
+		version, err = strconv.ParseInt(vs, 10, 64)
+		if err != nil {
+			return nil, 0, err
+		}
+		if version <= targetVersion {
+			break
+		}
+	}
+
+	root, err := sql.ImportSnapshotFromTable(version, loadLeaves)
+	if err != nil {
+		return nil, 0, err
+	}
+	return root, version, err
 }
 
 func FindDbsInPath(path string) ([]string, error) {
@@ -329,12 +383,13 @@ type sqliteImport struct {
 
 	i     int64
 	since time.Time
+	log   zerolog.Logger
 }
 
 func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 	sqlImport.i++
 	if sqlImport.i%1_000_000 == 0 {
-		log.Debug().Msgf("import: nodes=%s, node/s=%s",
+		sqlImport.log.Debug().Msgf("import: nodes=%s, node/s=%s",
 			humanize.Comma(sqlImport.i),
 			humanize.Comma(int64(float64(1_000_000)/time.Since(sqlImport.since).Seconds())),
 		)

@@ -88,7 +88,7 @@ func (i *Iterator) stepAscend() {
 			if !i.started && bytes.Compare(n.key, i.start) < 0 {
 				continue
 			}
-			if i.isPastEnd(n.key) {
+			if i.isPastEndAscend(n.key) {
 				i.valid = false
 				return
 			}
@@ -120,20 +120,46 @@ func (i *Iterator) stepAscend() {
 }
 
 func (i *Iterator) stepDescend() {
-
-}
-
-func (i *Iterator) firstDescend() {
 	var n *Node
-	for n = i.tree.root; !n.isLeaf(); {
-		i.stack = append(i.stack, n)
-		n = n.rightNode
+	for {
+		n = i.pop()
+		if n.isLeaf() {
+			if !i.started && i.start != nil && bytes.Compare(i.start, n.key) < 0 {
+				continue
+			}
+			if i.isPastEndDescend(n.key) {
+				i.valid = false
+				return
+			}
+			break
+		}
+		left, err := n.getLeftNode(i.tree)
+		if err != nil {
+			i.err = err
+			i.valid = false
+			return
+		}
+
+		if i.start == nil || bytes.Compare(n.key, i.start) <= 0 {
+			right, err := n.getRightNode(i.tree)
+			if err != nil {
+				i.err = err
+				i.valid = false
+				return
+			}
+			i.push(left)
+			i.push(right)
+		} else {
+			i.push(left)
+		}
+
 	}
 	i.key = n.key
 	i.value = n.value
+
 }
 
-func (i *Iterator) isPastEnd(key []byte) bool {
+func (i *Iterator) isPastEndAscend(key []byte) bool {
 	if i.end == nil {
 		return false
 	}
@@ -141,6 +167,16 @@ func (i *Iterator) isPastEnd(key []byte) bool {
 		return bytes.Compare(key, i.end) > 0
 	}
 	return bytes.Compare(key, i.end) >= 0
+}
+
+func (i *Iterator) isPastEndDescend(key []byte) bool {
+	if i.end == nil {
+		return false
+	}
+	if i.inclusive {
+		return bytes.Compare(key, i.end) < 0
+	}
+	return bytes.Compare(key, i.end) <= 0
 }
 
 func (i *Iterator) Key() (key []byte) {
@@ -159,16 +195,4 @@ func (i *Iterator) Close() error {
 	i.stack = nil
 	i.valid = false
 	return i.err
-}
-
-func (tree *Tree) Iterator(start, end []byte, ascending bool) (*Iterator, error) {
-	return &Iterator{
-		tree:      tree,
-		start:     start,
-		end:       end,
-		ascending: ascending,
-		inclusive: true,
-		valid:     true,
-		stack:     []*Node{tree.root},
-	}, nil
 }

@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
-	"slices"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"golang.org/x/exp/slices"
 )
 
 type MultiTree struct {

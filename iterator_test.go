@@ -1,7 +1,7 @@
 package iavl_test
 
 import (
-	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/cosmos/iavl/v2"
@@ -75,7 +75,7 @@ func Test_Iterator(t *testing.T) {
 		{
 			name:          "d end exclusive",
 			start:         nil,
-			end:           []byte("c"),
+			end:           []byte("d"),
 			ascending:     true,
 			inclusive:     false,
 			expectedCount: 3,
@@ -95,7 +95,7 @@ func Test_Iterator(t *testing.T) {
 		{
 			name:          "ce end exclusive",
 			start:         nil,
-			end:           []byte("c"),
+			end:           []byte("ce"),
 			ascending:     true,
 			inclusive:     false,
 			expectedCount: 3,
@@ -112,18 +112,81 @@ func Test_Iterator(t *testing.T) {
 			expectedStart: []byte("b"),
 			expectedEnd:   []byte("e"),
 		},
+		{
+			name:          "all desc",
+			start:         nil,
+			end:           nil,
+			ascending:     false,
+			expectedCount: 7,
+			expectedStart: []byte("g"),
+			expectedEnd:   []byte("a"),
+		},
+		{
+			name:          "f start desc",
+			start:         []byte("f"),
+			end:           nil,
+			ascending:     false,
+			expectedCount: 6,
+			expectedStart: []byte("f"),
+			expectedEnd:   []byte("a"),
+		},
+		{
+			name:          "fe start desc",
+			start:         []byte("fe"),
+			end:           nil,
+			ascending:     false,
+			expectedCount: 6,
+			expectedStart: []byte("f"),
+			expectedEnd:   []byte("a"),
+		},
+		{
+			name:          "c stop desc",
+			start:         nil,
+			end:           []byte("c"),
+			ascending:     false,
+			expectedCount: 4,
+			expectedStart: []byte("g"),
+			expectedEnd:   []byte("d"),
+		},
+		{
+			name:          "ce stop desc",
+			start:         nil,
+			end:           []byte("ce"),
+			ascending:     false,
+			expectedCount: 4,
+			expectedStart: []byte("g"),
+			expectedEnd:   []byte("d"),
+		},
+		{
+			name:          "f to c desc",
+			start:         []byte("f"),
+			end:           []byte("c"),
+			ascending:     false,
+			expectedCount: 3,
+			expectedStart: []byte("f"),
+			expectedEnd:   []byte("d"),
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			itr, err := tree.Iterator(tc.start, tc.end, tc.ascending)
+			var (
+				itr *iavl.Iterator
+				err error
+			)
+			if tc.ascending {
+				itr, err = tree.Iterator(tc.start, tc.end, tc.inclusive)
+			} else {
+				itr, err = tree.ReverseIterator(tc.start, tc.end)
+			}
 			require.NoError(t, err)
-			itr.Next()
-			require.NoError(t, itr.Error())
-			require.Equal(t, tc.expectedStart, itr.Key())
 
 			cnt := 0
 			for ; itr.Valid(); itr.Next() {
+				if cnt == 0 {
+					require.Equal(t, tc.expectedStart, itr.Key())
+				}
+				fmt.Printf("%s %s\n", itr.Key(), itr.Value())
 				require.NoError(t, itr.Error())
 				cnt++
 			}
@@ -133,11 +196,4 @@ func Test_Iterator(t *testing.T) {
 			require.NoError(t, itr.Close())
 		})
 	}
-}
-
-func Test_Compare(t *testing.T) {
-	res := bytes.Compare([]byte("a"), []byte("b"))
-	require.Negative(t, res)
-	res = bytes.Compare(nil, []byte("a"))
-	require.Negative(t, res)
 }

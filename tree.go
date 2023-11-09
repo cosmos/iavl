@@ -106,6 +106,20 @@ func (tree *Tree) LoadVersion(version int64) error {
 	return nil
 }
 
+func (tree *Tree) LoadSnapshot(version int64) (err error) {
+	var v int64
+	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, true)
+	if err != nil {
+		return err
+	}
+	if v < version {
+		return fmt.Errorf("requested %d found snapshot %d, replay not yet supported", version, v)
+	}
+	tree.version = v
+	tree.lastCheckpoint = v
+	return nil
+}
+
 func (tree *Tree) WarmTree() error {
 	var i int
 	start := time.Now()
@@ -283,6 +297,17 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 	}
 	_, res, err := tree.root.get(tree, key)
 	return res, err
+}
+
+func (tree *Tree) Has(key []byte) (bool, error) {
+	if tree.root == nil {
+		return false, nil
+	}
+	_, val, err := tree.root.get(tree, key)
+	if err != nil {
+		return false, err
+	}
+	return val != nil, nil
 }
 
 // Set sets a key in the working tree. Nil values are invalid. The given
@@ -595,4 +620,40 @@ func (tree *Tree) Close() error {
 
 func (tree *Tree) GetSql() *SqliteDb {
 	return tree.sql
+}
+
+func (tree *Tree) Hash() []byte {
+	return tree.root.hash
+}
+
+func (tree *Tree) Version() int64 {
+	return tree.version
+}
+
+func (tree *Tree) Iterator(start, end []byte, inclusive bool) (*Iterator, error) {
+	itr := &Iterator{
+		tree:      tree,
+		start:     start,
+		end:       end,
+		ascending: true,
+		inclusive: inclusive,
+		valid:     true,
+		stack:     []*Node{tree.root},
+	}
+	itr.Next()
+	return itr, nil
+}
+
+func (tree *Tree) ReverseIterator(start, end []byte) (*Iterator, error) {
+	itr := &Iterator{
+		tree:      tree,
+		start:     start,
+		end:       end,
+		ascending: false,
+		inclusive: false,
+		valid:     true,
+		stack:     []*Node{tree.root},
+	}
+	itr.Next()
+	return itr, nil
 }

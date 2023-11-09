@@ -1,6 +1,6 @@
 module github.com/cosmos/iavl/v2/migrate
 
-go 1.21.1
+go 1.18
 
 require (
 	cosmossdk.io/api v0.7.2
