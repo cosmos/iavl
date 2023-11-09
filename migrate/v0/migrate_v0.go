@@ -8,6 +8,7 @@ import (
 	iavlv2 "github.com/cosmos/iavl/v2"
 	"github.com/cosmos/iavl/v2/migrate/core"
 	"github.com/kocubinski/costor-api/logz"
+	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -34,8 +35,9 @@ func Command() *cobra.Command {
 			if storekey != "" {
 				storeKeys = []string{storekey}
 			} else {
-				for k := range rs.CommitInfoByName() {
+				for k, ci := range rs.CommitInfoByName() {
 					storeKeys = append(storeKeys, k)
+					log.Info().Msgf("store %s has commit info %v", k, ci)
 				}
 			}
 
