@@ -90,7 +90,6 @@ func (tree *Tree) LoadVersion(version int64) error {
 	}
 
 	tree.version = version
-	tree.root = nil
 	tree.orphans = nil
 	tree.workingBytes = 0
 	tree.workingSize = 0
@@ -179,8 +178,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		tree.lastCheckpoint = tree.version
 	}
 
-	batch := newSqliteBatch(tree)
-	_, versions, err := batch.save()
+	batch := tree.sql.newSqliteBatch()
+	_, versions, err := batch.saveTree(tree)
 	if err != nil {
 		return nil, tree.version, err
 	}
@@ -223,6 +222,9 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 }
 
 func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
+	if node == nil {
+		panic("deepHash: node is nil")
+	}
 	isLeaf = node.isLeaf()
 
 	// new leaves are written every version

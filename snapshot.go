@@ -28,7 +28,7 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 
 	snapshot := &sqliteSnapshot{
 		ctx:       ctx,
-		conn:      sql.leafWrite,
+		sql:       sql,
 		batchSize: 200_000,
 		version:   version,
 		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
@@ -53,28 +53,41 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) er
 	return err
 }
 
-func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, storeLeafValues bool, nextFn func() *SnapshotNode) (*Node, error) {
-	err := sql.leafWrite.Exec(
-		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
-	if err != nil {
-		return nil, err
-	}
+type SnapshotOptions struct {
+	StoreLeafValues bool
+	SaveTree        bool
+}
+
+func (sql *SqliteDb) WriteSnapshot(
+	ctx context.Context, version int64, nextFn func() *SnapshotNode, opts SnapshotOptions,
+) (*Node, error) {
 	snap := &sqliteSnapshot{
 		ctx:       ctx,
-		conn:      sql.leafWrite,
+		sql:       sql,
 		batchSize: 200_000,
 		version:   version,
 		lastWrite: time.Now(),
 		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
+	}
+	if opts.SaveTree {
+		if err := sql.NextShard(); err != nil {
+			return nil, err
+		}
+	}
+	err := snap.sql.leafWrite.Exec(
+		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
+	if err != nil {
+		return nil, err
 	}
 	if err = snap.prepareWrite(); err != nil {
 		return nil, err
 	}
 
 	var (
-		step       func() (*Node, error)
-		maybeFlush func() error
-		count      int
+		step           func() (*Node, error)
+		maybeFlush     func() error
+		count          int
+		uniqueVersions = make(map[int64]struct{})
 	)
 	maybeFlush = func() error {
 		count++
@@ -103,14 +116,17 @@ func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, storeLeaf
 			node.value = snapshotNode.Value
 			node.size = 1
 			node._hash(snapshotNode.Version)
-			if !storeLeafValues {
+			if !opts.StoreLeafValues {
 				node.value = nil
 			}
 			nodeBz, err := node.Bytes()
 			if err != nil {
 				return nil, err
 			}
-			if err = snap.batch.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+			if err = snap.snapshotInsert.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+				return nil, err
+			}
+			if err = snap.leafInsert.Exec(snapshotNode.Version, ordinal, nodeBz); err != nil {
 				return nil, err
 			}
 			if err = maybeFlush(); err != nil {
@@ -139,9 +155,13 @@ func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, storeLeaf
 		if err != nil {
 			return nil, err
 		}
-		if err = snap.batch.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+		if err = snap.snapshotInsert.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
 			return nil, err
 		}
+		if err = snap.treeInsert.Exec(snapshotNode.Version, ordinal, nodeBz); err != nil {
+			return nil, err
+		}
+		uniqueVersions[snapshotNode.Version] = struct{}{}
 		if err = maybeFlush(); err != nil {
 			return nil, err
 		}
@@ -153,6 +173,26 @@ func (sql *SqliteDb) WriteSnapshot(ctx context.Context, version int64, storeLeaf
 	}
 
 	if err = snap.flush(); err != nil {
+		return nil, err
+	}
+
+	var versions []int64
+	for v := range uniqueVersions {
+		versions = append(versions, v)
+	}
+	if err = sql.MapVersions(versions, sql.shardId); err != nil {
+		return nil, err
+	}
+
+	log.Info().Str("path", sql.opts.Path).Msg("creating table indexes d")
+	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
+	if err != nil {
+		return nil, err
+	}
+	err = snap.sql.treeWrite.Exec(fmt.Sprintf(
+		"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);",
+		snap.sql.shardId, snap.sql.shardId))
+	if err != nil {
 		return nil, err
 	}
 
@@ -277,9 +317,13 @@ func FindDbsInPath(path string) ([]string, error) {
 }
 
 type sqliteSnapshot struct {
-	ctx       context.Context
-	conn      *sqlite3.Conn
-	batch     *sqlite3.Stmt
+	ctx context.Context
+	sql *SqliteDb
+
+	snapshotInsert *sqlite3.Stmt
+	leafInsert     *sqlite3.Stmt
+	treeInsert     *sqlite3.Stmt
+
 	lastWrite time.Time
 	ordinal   int
 	batchSize int
@@ -300,7 +344,7 @@ func (snap *sqliteSnapshot) writeStep(node *Node) error {
 	if err != nil {
 		return err
 	}
-	err = snap.batch.Exec(snap.ordinal, node.nodeKey.Version(), int(node.nodeKey.Sequence()), nodeBz)
+	err = snap.snapshotInsert.Exec(snap.ordinal, node.nodeKey.Version(), int(node.nodeKey.Sequence()), nodeBz)
 	if err != nil {
 		return err
 	}
@@ -333,40 +377,56 @@ func (snap *sqliteSnapshot) flush() error {
 	case <-snap.ctx.Done():
 		snap.log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
 		return errors.Join(
-			snap.batch.Reset(),
-			snap.batch.Close(),
-			snap.conn.Rollback(),
-			snap.conn.Close())
+			snap.snapshotInsert.Reset(),
+			snap.snapshotInsert.Close(),
+			snap.leafInsert.Reset(),
+			snap.leafInsert.Close(),
+			snap.treeInsert.Reset(),
+			snap.treeInsert.Close(),
+			snap.sql.leafWrite.Rollback(),
+			snap.sql.leafWrite.Close(),
+			snap.sql.treeWrite.Rollback(),
+			snap.sql.treeWrite.Close())
 	default:
 	}
 
-	snap.log.Info().Msgf("flush total=%s batch=%s dur=%s wr/s=%s",
+	snap.log.Info().Msgf("flush total=%s size=%s dur=%s wr/s=%s",
 		humanize.Comma(int64(snap.ordinal)),
 		humanize.Comma(int64(snap.batchSize)),
 		time.Since(snap.lastWrite).Round(time.Millisecond),
 		humanize.Comma(int64(float64(snap.batchSize)/time.Since(snap.lastWrite).Seconds())),
 	)
 
-	err := snap.conn.Commit()
-	if err != nil {
-		return err
-	}
-	err = snap.batch.Close()
-	if err != nil {
-		return err
-	}
+	err := errors.Join(
+		snap.sql.leafWrite.Commit(),
+		snap.sql.treeWrite.Commit(),
+		snap.snapshotInsert.Close(),
+		snap.leafInsert.Close(),
+		snap.treeInsert.Close(),
+	)
 	snap.lastWrite = time.Now()
-	return nil
+	return err
 }
 
 func (snap *sqliteSnapshot) prepareWrite() error {
-	err := snap.conn.Begin()
+	err := snap.sql.leafWrite.Begin()
 	if err != nil {
 		return err
 	}
-	insert := fmt.Sprintf("INSERT INTO snapshot_%d (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);",
-		snap.version)
-	snap.batch, err = snap.conn.Prepare(insert)
+	err = snap.sql.treeWrite.Begin()
+	if err != nil {
+		return err
+	}
+
+	snap.snapshotInsert, err = snap.sql.leafWrite.Prepare(
+		fmt.Sprintf("INSERT INTO snapshot_%d (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);",
+			snap.version))
+	snap.leafInsert, err = snap.sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
+	if err != nil {
+		return err
+	}
+	snap.treeInsert, err = snap.sql.treeWrite.Prepare(
+		fmt.Sprintf("INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", snap.sql.shardId))
 	return err
 }
 

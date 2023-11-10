@@ -11,7 +11,6 @@ import (
 
 type sqliteBatch struct {
 	sql    *SqliteDb
-	tree   *Tree
 	size   int
 	logger zerolog.Logger
 
@@ -23,14 +22,13 @@ type sqliteBatch struct {
 	treeInsert   *sqlite3.Stmt
 }
 
-func newSqliteBatch(tree *Tree) *sqliteBatch {
+func (sql *SqliteDb) newSqliteBatch() *sqliteBatch {
 	return &sqliteBatch{
-		sql:  tree.sql,
-		tree: tree,
+		sql:  sql,
 		size: 200_000,
 		logger: log.With().
-			Str("module", "batch").
-			Str("path", tree.sql.opts.Path).Logger(),
+			Str("module", "snapshotInsert").
+			Str("path", sql.opts.Path).Logger(),
 	}
 }
 
@@ -52,12 +50,6 @@ func (b *sqliteBatch) changelogMaybeCommit() (err error) {
 		if err = b.changelogBatchCommit(); err != nil {
 			return err
 		}
-
-		b.logger.Debug().Msgf("db=changelog count=%s dur=%s rate=%s",
-			humanize.Comma(int64(b.count)),
-			time.Since(b.since).Round(time.Millisecond),
-			humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
-
 		if err = b.newChangeLogBatch(); err != nil {
 			return err
 		}
@@ -75,6 +67,11 @@ func (b *sqliteBatch) changelogBatchCommit() error {
 	if err := b.deleteInsert.Close(); err != nil {
 		return err
 	}
+
+	b.logger.Debug().Msgf("db=changelog count=%s dur=%s rate=%s",
+		humanize.Comma(int64(b.count)),
+		time.Since(b.since).Round(time.Millisecond),
+		humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
 
 	return nil
 }
@@ -95,6 +92,10 @@ func (b *sqliteBatch) treeBatchCommit() error {
 	if err := b.treeInsert.Close(); err != nil {
 		return err
 	}
+	b.logger.Debug().Msgf("db=tree count=%s dur=%s rate=%s",
+		humanize.Comma(int64(b.count)),
+		time.Since(b.since).Round(time.Millisecond),
+		humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
 	return nil
 }
 
@@ -106,16 +107,12 @@ func (b *sqliteBatch) treeMaybeCommit() (err error) {
 		if err = b.newTreeBatch(); err != nil {
 			return err
 		}
-		b.logger.Debug().Msgf("db=tree count=%s dur=%s rate=%s",
-			humanize.Comma(int64(b.count)),
-			time.Since(b.since).Round(time.Millisecond),
-			humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
 		b.since = time.Now()
 	}
 	return nil
 }
 
-func (b *sqliteBatch) save() (n int64, versions []int64, err error) {
+func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error) {
 	var byteCount int64
 	versionMap := make(map[int64]bool)
 
@@ -124,7 +121,7 @@ func (b *sqliteBatch) save() (n int64, versions []int64, err error) {
 		return 0, versions, err
 	}
 
-	for _, leaf := range b.tree.leaves {
+	for _, leaf := range tree.leaves {
 		b.count++
 		var bz []byte
 		bz, err = leaf.Bytes()
@@ -138,7 +135,7 @@ func (b *sqliteBatch) save() (n int64, versions []int64, err error) {
 		b.sql.pool.Put(leaf)
 	}
 
-	for _, leafDelete := range b.tree.deletes {
+	for _, leafDelete := range tree.deletes {
 		b.count++
 		err = b.deleteInsert.Exec(
 			leafDelete.deleteKey.Version(), int(leafDelete.deleteKey.Sequence()),
@@ -156,12 +153,12 @@ func (b *sqliteBatch) save() (n int64, versions []int64, err error) {
 		return 0, versions, err
 	}
 
-	if len(b.tree.branches) > 0 {
+	if len(tree.branches) > 0 {
 		if err = b.newTreeBatch(); err != nil {
 			return 0, nil, err
 		}
 
-		for _, node := range b.tree.branches {
+		for _, node := range tree.branches {
 			b.count++
 			versionMap[node.nodeKey.Version()] = true
 			var bz []byte

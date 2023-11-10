@@ -77,6 +77,7 @@ func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
 }
 
 func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
+	opts = defaultSqliteDbOptions(opts)
 	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
 	sql := &SqliteDb{
 		shards:       make(map[int64]*sqlite3.Stmt),

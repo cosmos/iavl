@@ -22,7 +22,6 @@ func Command() *cobra.Command {
 		Use:   "v0",
 		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			multitree := iavlv2.NewMultiTree(dbv2, iavlv2.TreeOptions{})
 			rs, err := core.NewReadonlyStore(dbv0)
 			if err != nil {
 				return err
@@ -62,11 +61,10 @@ func Command() *cobra.Command {
 						wg.Done()
 						return
 					}
-					if err = multitree.MountTree(sk); err != nil {
+					sql, err := iavlv2.NewSqliteDb(iavlv2.NewNodePool(), iavlv2.SqliteDbOptions{Path: fmt.Sprintf("%s/%s", dbv2, sk)})
+					if err != nil {
 						panic(err)
 					}
-
-					v2Tree := multitree.Trees[sk]
 					exporter, err := tree.ExportPreOrder()
 					//exporter, err := tree.Export()
 					if err != nil {
@@ -87,8 +85,8 @@ func Command() *cobra.Command {
 						}
 					}
 
-					sql := v2Tree.GetSql()
-					root, err := sql.WriteSnapshot(cmd.Context(), tree.Version(), true, nextNodeFn)
+					root, err := sql.WriteSnapshot(cmd.Context(), tree.Version(), nextNodeFn,
+						iavlv2.SnapshotOptions{StoreLeafValues: true, SaveTree: true})
 					if err != nil {
 						panic(err)
 					}
@@ -101,12 +99,10 @@ func Command() *cobra.Command {
 						panic(fmt.Sprintf("v2 hash=%x != v0 hash=%x", root.GetHash(), v0Hash))
 					}
 
-					if err = sql.SaveRoot(tree.Version(), root); err != nil {
+					if err := sql.SaveRoot(tree.Version(), root); err != nil {
 						panic(err)
 					}
-
-					_, err = sql.ImportSnapshotFromTable(tree.Version(), true)
-					if err != nil {
+					if err := sql.Close(); err != nil {
 						panic(err)
 					}
 
@@ -115,14 +111,6 @@ func Command() *cobra.Command {
 			}
 
 			wg.Wait()
-
-			if err != nil {
-				return err
-			}
-			//logz.Logger.Info().Msgf("saved v2 with hash %x", multitree.Hash())
-			if err = multitree.Close(); err != nil {
-				return err
-			}
 			return nil
 		},
 	}
