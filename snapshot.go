@@ -15,13 +15,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree, version int64) error {
+func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
+	version := tree.version
 	err := sql.leafWrite.Exec(
 		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
-	if err != nil {
-		return err
-	}
-	err = tree.LoadVersion(version)
 	if err != nil {
 		return err
 	}
@@ -59,12 +56,12 @@ type SnapshotOptions struct {
 }
 
 func (sql *SqliteDb) WriteSnapshot(
-	ctx context.Context, version int64, nextFn func() *SnapshotNode, opts SnapshotOptions,
+	ctx context.Context, version int64, nextFn func() (*SnapshotNode, error), opts SnapshotOptions,
 ) (*Node, error) {
 	snap := &sqliteSnapshot{
 		ctx:       ctx,
 		sql:       sql,
-		batchSize: 200_000,
+		batchSize: 400_000,
 		version:   version,
 		lastWrite: time.Now(),
 		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
@@ -103,7 +100,10 @@ func (sql *SqliteDb) WriteSnapshot(
 	}
 
 	step = func() (*Node, error) {
-		snapshotNode := nextFn()
+		snapshotNode, err := nextFn()
+		if err != nil {
+			return nil, err
+		}
 		ordinal := snap.ordinal
 		snap.ordinal++
 
@@ -184,7 +184,11 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 
-	log.Info().Str("path", sql.opts.Path).Msg("creating table indexes d")
+	if err = sql.SaveRoot(version, root); err != nil {
+		return nil, err
+	}
+
+	log.Info().Str("path", sql.opts.Path).Msg("creating table indexes")
 	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
 	if err != nil {
 		return nil, err
@@ -192,6 +196,10 @@ func (sql *SqliteDb) WriteSnapshot(
 	err = snap.sql.treeWrite.Exec(fmt.Sprintf(
 		"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);",
 		snap.sql.shardId, snap.sql.shardId))
+	if err != nil {
+		return nil, err
+	}
+	err = snap.sql.leafWrite.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
 	if err != nil {
 		return nil, err
 	}

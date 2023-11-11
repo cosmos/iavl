@@ -28,7 +28,7 @@ func MemUsage() string {
 	return s
 }
 
-func testTreeBuild(t *testing.T, multiTree *MultiTree, opts testutil.TreeBuildOptions) (cnt int64) {
+func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildOptions) (cnt int64) {
 	var (
 		version                     int64
 		err                         error
@@ -39,32 +39,6 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts testutil.TreeBuildOp
 	// generator
 	itr := opts.Iterator
 	fmt.Printf("Initial memory usage from generators:\n%s\n", MemUsage())
-
-	// not supported in multi tree yet, may revive.
-	//
-	//if opts.LoadVersion != 0 {
-	//	for _, tree := range multiTree.Trees {
-	//		require.NoError(t, tree.LoadVersion(opts.LoadVersion))
-	//	}
-	//
-	//	log.Info().Msgf("fast forwarding changesets to version %d...", opts.LoadVersion+1)
-	//	i := 1
-	//	for ; itr.Valid(); err = itr.Next() {
-	//		if itr.Version() > opts.LoadVersion {
-	//			break
-	//		}
-	//		require.NoError(t, err)
-	//		nodes := itr.Nodes()
-	//		for ; nodes.Valid(); err = nodes.Next() {
-	//			require.NoError(t, err)
-	//			if i%5_000_000 == 0 {
-	//				fmt.Printf("fast forward %s nodes\n", humanize.Comma(int64(i)))
-	//			}
-	//			i++
-	//		}
-	//	}
-	//	log.Info().Msgf("fast forward complete")
-	//}
 
 	sampleRate := int64(100_000)
 	if opts.SampleRate != 0 {
@@ -173,8 +147,7 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts testutil.TreeBuildOp
 func TestTree_Hash(t *testing.T) {
 	var err error
 
-	//tmpDir := t.TempDir()
-	tmpDir := "/tmp/iavl-test"
+	tmpDir := t.TempDir()
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 
 	require.NoError(t, err)
@@ -202,6 +175,53 @@ func TestTree_Hash(t *testing.T) {
 
 	cancel()
 	require.NoError(t, multiTree.Close())
+}
+
+func TestTree_Build_Load(t *testing.T) {
+	// build the initial version of the tree with periodic checkpoints
+	tmpDir := t.TempDir()
+	opts := testutil.NewTreeBuildOptions().With10_000()
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 4000})
+	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
+	require.True(t, ok)
+	for _, sk := range itrs.StoreKeys() {
+		require.NoError(t, multiTree.MountTree(sk))
+	}
+	testTreeBuild(t, multiTree, opts)
+
+	// take a snapshot at version 10,000
+	require.NoError(t, multiTree.SnapshotConcurrently())
+
+	// import the snapshot into a new tree
+	mt, err := ImportMultiTree(multiTree.pool, 10_000, tmpDir)
+	require.NoError(t, err)
+
+	// build the tree to version 12,000
+	require.NoError(t, opts.Iterator.Next())
+	require.Equal(t, int64(10_001), opts.Iterator.Version())
+	opts.Until = 12_000
+	opts.UntilHash = "3a037f8dd67a5e1a9ef83a53b81c619c9ac0233abee6f34a400fb9b9dfbb4f8d"
+	testTreeBuild(t, mt, opts)
+
+	// export the tree at version 12,000 and import it into a sql db
+	ctx := context.Background()
+	restoreMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
+	for sk, tree := range multiTree.Trees {
+		require.NoError(t, restoreMt.MountTree(sk))
+		exporter := tree.ExportPreOrder()
+
+		restoreTree := restoreMt.Trees[sk]
+		_, err := restoreTree.sql.WriteSnapshot(ctx, tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true})
+		require.NoError(t, err)
+		require.NoError(t, restoreTree.LoadSnapshot(tree.Version()))
+	}
+
+	// play changes until version 20_000
+	require.NoError(t, opts.Iterator.Next())
+	require.Equal(t, int64(12_001), opts.Iterator.Version())
+	opts.Until = 20_000
+	opts.UntilHash = "25907b193c697903218d92fa70a87ef6cdd6fa5b9162d955a4d70a9d5d2c4824"
+	testTreeBuild(t, restoreMt, opts)
 }
 
 func TestOsmoLike_HotStart(t *testing.T) {

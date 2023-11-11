@@ -13,13 +13,34 @@ import (
 )
 
 func Command() *cobra.Command {
-	var (
-		dbv0     string
-		dbv2     string
-		storekey string
-	)
 	cmd := &cobra.Command{
 		Use:   "v0",
+		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
+	}
+	cmd.AddCommand(allCommand(), snapshotCommand())
+	return cmd
+}
+
+func snapshotCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "snapshot",
+		Short: "ingest latest iavl v0 application.db to a pre-order snapshot",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
+		},
+	}
+	return cmd
+}
+
+func allCommand() *cobra.Command {
+	var (
+		dbv0        string
+		dbv2        string
+		storekey    string
+		concurrency int
+	)
+	cmd := &cobra.Command{
+		Use:   "all",
 		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rs, err := core.NewReadonlyStore(dbv0)
@@ -40,6 +61,11 @@ func Command() *cobra.Command {
 				}
 			}
 
+			lock := make(chan struct{}, concurrency)
+			for i := 0; i < concurrency; i++ {
+				lock <- struct{}{}
+			}
+
 			for _, storeKey := range storeKeys {
 				wg.Add(1)
 				go func(sk string) {
@@ -47,6 +73,8 @@ func Command() *cobra.Command {
 						count int64
 						//since = time.Now()
 					)
+
+					<-lock
 
 					log := logz.Logger.With().Str("store", sk).Logger()
 					log.Info().Msgf("migrating %s", sk)
@@ -61,28 +89,32 @@ func Command() *cobra.Command {
 						wg.Done()
 						return
 					}
-					sql, err := iavlv2.NewSqliteDb(iavlv2.NewNodePool(), iavlv2.SqliteDbOptions{Path: fmt.Sprintf("%s/%s", dbv2, sk)})
+					sql, err := iavlv2.NewSqliteDb(iavlv2.NewNodePool(),
+						iavlv2.SqliteDbOptions{
+							Path:    fmt.Sprintf("%s/%s", dbv2, sk),
+							WalSize: 1024 * 1024 * 1024,
+						})
 					if err != nil {
 						panic(err)
 					}
 					exporter, err := tree.ExportPreOrder()
-					//exporter, err := tree.Export()
 					if err != nil {
 						panic(err)
 					}
 
-					nextNodeFn := func() *iavlv2.SnapshotNode {
+					nextNodeFn := func() (*iavlv2.SnapshotNode, error) {
 						count++
 						exportNode, err := exporter.Next()
 						if err != nil {
-							panic(err)
+							log.Warn().Err(err).Msgf("export err after %d", count)
+							return nil, err
 						}
 						return &iavlv2.SnapshotNode{
 							Key:     exportNode.Key,
 							Value:   exportNode.Value,
 							Height:  exportNode.Height,
 							Version: exportNode.Version,
-						}
+						}, nil
 					}
 
 					root, err := sql.WriteSnapshot(cmd.Context(), tree.Version(), nextNodeFn,
@@ -98,14 +130,11 @@ func Command() *cobra.Command {
 					if !bytes.Equal(root.GetHash(), v0Hash) {
 						panic(fmt.Sprintf("v2 hash=%x != v0 hash=%x", root.GetHash(), v0Hash))
 					}
-
-					if err := sql.SaveRoot(tree.Version(), root); err != nil {
-						panic(err)
-					}
 					if err := sql.Close(); err != nil {
 						panic(err)
 					}
 
+					lock <- struct{}{}
 					wg.Done()
 				}(storeKey)
 			}
@@ -123,6 +152,7 @@ func Command() *cobra.Command {
 	if err := cmd.MarkFlagRequired("db-v2"); err != nil {
 		panic(err)
 	}
+	cmd.Flags().IntVar(&concurrency, "concurrency", 6, "Number of concurrent migrations")
 
 	return cmd
 }

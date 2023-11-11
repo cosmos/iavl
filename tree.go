@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"time"
@@ -107,7 +108,7 @@ func (tree *Tree) LoadVersion(version int64) error {
 
 func (tree *Tree) LoadSnapshot(version int64) (err error) {
 	var v int64
-	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, true)
+	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, false)
 	if err != nil {
 		return err
 	}
@@ -117,6 +118,11 @@ func (tree *Tree) LoadSnapshot(version int64) (err error) {
 	tree.version = v
 	tree.lastCheckpoint = v
 	return nil
+}
+
+func (tree *Tree) SaveSnapshot() (err error) {
+	ctx := context.Background()
+	return tree.sql.Snapshot(ctx, tree)
 }
 
 func (tree *Tree) WarmTree() error {
@@ -630,32 +636,4 @@ func (tree *Tree) Hash() []byte {
 
 func (tree *Tree) Version() int64 {
 	return tree.version
-}
-
-func (tree *Tree) Iterator(start, end []byte, inclusive bool) (*Iterator, error) {
-	itr := &Iterator{
-		tree:      tree,
-		start:     start,
-		end:       end,
-		ascending: true,
-		inclusive: inclusive,
-		valid:     true,
-		stack:     []*Node{tree.root},
-	}
-	itr.Next()
-	return itr, nil
-}
-
-func (tree *Tree) ReverseIterator(start, end []byte) (*Iterator, error) {
-	itr := &Iterator{
-		tree:      tree,
-		start:     start,
-		end:       end,
-		ascending: false,
-		inclusive: false,
-		valid:     true,
-		stack:     []*Node{tree.root},
-	}
-	itr.Next()
-	return itr, nil
 }

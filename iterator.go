@@ -194,3 +194,31 @@ func (i *Iterator) Close() error {
 	i.valid = false
 	return i.err
 }
+
+func (tree *Tree) Iterator(start, end []byte, inclusive bool) (*Iterator, error) {
+	itr := &Iterator{
+		tree:      tree,
+		start:     start,
+		end:       end,
+		ascending: true,
+		inclusive: inclusive,
+		valid:     true,
+		stack:     []*Node{tree.root},
+	}
+	itr.Next()
+	return itr, nil
+}
+
+func (tree *Tree) ReverseIterator(start, end []byte) (*Iterator, error) {
+	itr := &Iterator{
+		tree:      tree,
+		start:     start,
+		end:       end,
+		ascending: false,
+		inclusive: false,
+		valid:     true,
+		stack:     []*Node{tree.root},
+	}
+	itr.Next()
+	return itr, nil
+}

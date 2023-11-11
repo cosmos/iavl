@@ -1,8 +1,12 @@
 package testutil
 
 import (
+	"fmt"
+
 	"github.com/cosmos/iavl-bench/bench"
+	"github.com/dustin/go-humanize"
 	"github.com/kocubinski/costor-api/compact"
+	"github.com/kocubinski/costor-api/logz"
 )
 
 type TreeBuildOptions struct {
@@ -14,45 +18,47 @@ type TreeBuildOptions struct {
 	SampleRate  int64
 }
 
-func (opts TreeBuildOptions) With10_000() TreeBuildOptions {
-	o := &opts
-	o.Until = 10_000
-	o.UntilHash = "460a9098015aef66f2da7f3d81fedf9a439ea3c3cf61723d535d2d94367858d5"
-	return *o
+func (opts *TreeBuildOptions) With10_000() *TreeBuildOptions {
+	opts.Until = 10_000
+	opts.UntilHash = "34d9a0d607ecd96ddbde4c0089ee4be633bf0b73b9b6c9da827f7305f1591044"
+	return opts
 }
 
-func (opts TreeBuildOptions) With25_000() TreeBuildOptions {
-	o := &opts
-	o.Until = 25_000
-	// verified against cosmos/iavl-bench on 2023-09-18
-	//o.UntilHash = "f1283df353b4766c938d75982c3d69b1eeb7a3c9eea006376ecf7feeab1b9743"
-	// removed module prefix from keys in test
-	o.UntilHash = "0b75e7a3e9f1573b44584d7a9947778ce8e6ed62d27967a68f7fa8800156a360"
-	return *o
+func (opts *TreeBuildOptions) With25_000() *TreeBuildOptions {
+	opts.Until = 25_000
+	opts.UntilHash = "08482db3715bef1f3251894b8c37901950a4787ac5f10d75ab4318e4fea91642"
+	return opts
 }
 
-func (opts TreeBuildOptions) With100_000() TreeBuildOptions {
-	o := &opts
-	o.Until = 100_000
-	o.UntilHash = "e57ab75990453235859416baaccedbaac7b721cd099709ee968321c7822766b1"
-	return *o
+func (opts *TreeBuildOptions) FastForward(version int64) error {
+	log := logz.Logger.With().Str("module", "fastForward").Logger()
+	log.Info().Msgf("fast forwarding changesets to version %d...", opts.LoadVersion+1)
+	i := 1
+	itr := opts.Iterator
+	var err error
+	for ; itr.Valid(); err = itr.Next() {
+		if itr.Version() > version {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		nodes := itr.Nodes()
+		for ; nodes.Valid(); err = nodes.Next() {
+			if err != nil {
+				return err
+			}
+			if i%5_000_000 == 0 {
+				fmt.Printf("fast forward %s nodes\n", humanize.Comma(int64(i)))
+			}
+			i++
+		}
+	}
+	log.Info().Msgf("fast forward complete")
+	return nil
 }
 
-func (opts TreeBuildOptions) With300_000() TreeBuildOptions {
-	o := &opts
-	o.Until = 300_000
-	o.UntilHash = "50a08008a29d76f3502d0a60c9e193a13efa6037a79a9f794652e1f97c2bbc16"
-	return *o
-}
-
-func (opts TreeBuildOptions) With1_500_000() TreeBuildOptions {
-	o := &opts
-	o.Until = 1_500_000
-	o.UntilHash = "ebc23d2e4e43075bae7ebc1e5db9d5e99acbafaa644b7c710213e109c8592099"
-	return *o
-}
-
-func NewTreeBuildOptions() TreeBuildOptions {
+func NewTreeBuildOptions() *TreeBuildOptions {
 	var seed int64 = 1234
 	var versions int64 = 10_000_000
 	bankGen := bench.BankLikeGenerator(seed, versions)
@@ -95,7 +101,7 @@ func BankLockup25_000() TreeBuildOptions {
 	return opts
 }
 
-func BigTreeOptions_100_000() TreeBuildOptions {
+func BigTreeOptions_100_000() *TreeBuildOptions {
 	var seed int64 = 1234
 	var versions int64 = 200_000
 	bankGen := bench.BankLikeGenerator(seed, versions)
@@ -109,7 +115,7 @@ func BigTreeOptions_100_000() TreeBuildOptions {
 	if err != nil {
 		panic(err)
 	}
-	opts := TreeBuildOptions{
+	opts := &TreeBuildOptions{
 		Iterator:  itr,
 		Until:     100,
 		UntilHash: "c1dc9dc7d3a8ae025d2a347eea19121e98435b06b421607119bc3cf3cf79be05",
@@ -146,7 +152,7 @@ func BigStartOptions() TreeBuildOptions {
 	return opts
 }
 
-func OsmoLike() TreeBuildOptions {
+func OsmoLike() *TreeBuildOptions {
 	initialSize := 20_000_000 // revert to 20M!!
 	finalSize := int(1.5 * float64(initialSize))
 	var seed int64 = 1234
@@ -170,7 +176,7 @@ func OsmoLike() TreeBuildOptions {
 		panic(err)
 	}
 
-	opts := TreeBuildOptions{
+	opts := &TreeBuildOptions{
 		Iterator: itr,
 		Until:    10_000,
 		// hash for 10k WITHOUT a store key prefix on the key
@@ -182,7 +188,7 @@ func OsmoLike() TreeBuildOptions {
 	return opts
 }
 
-func OsmoLikeManyTrees() TreeBuildOptions {
+func OsmoLikeManyTrees() *TreeBuildOptions {
 	seed := int64(1234)
 	versions := int64(100_000)
 	changes := int(versions / 100)
@@ -432,18 +438,18 @@ func OsmoLikeManyTrees() TreeBuildOptions {
 	if err != nil {
 		panic(err)
 	}
-	return TreeBuildOptions{
+	return &TreeBuildOptions{
 		Iterator: itr,
 		Until:    versions,
 	}
 }
 
-func CompactedChangelogs(logDir string) TreeBuildOptions {
+func CompactedChangelogs(logDir string) *TreeBuildOptions {
 	itr, err := compact.NewChangesetIterator(logDir)
 	if err != nil {
 		panic(err)
 	}
-	return TreeBuildOptions{
+	return &TreeBuildOptions{
 		Iterator: itr,
 		Until:    10_000,
 		// hash for 10k WITHOUT a store key prefix on the key

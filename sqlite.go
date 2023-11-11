@@ -21,6 +21,7 @@ type SqliteDbOptions struct {
 	Path      string
 	Mode      int
 	MmapSize  int
+	WalSize   int
 	CacheSize int
 	ConnArgs  string
 	Metrics   *metrics.TreeMetrics
@@ -59,6 +60,9 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	}
 	if opts.Metrics == nil {
 		opts.Metrics = &metrics.TreeMetrics{}
+	}
+	if opts.WalSize == 0 {
+		opts.WalSize = 1024 * 1024 * 500
 	}
 	return opts
 }
@@ -113,8 +117,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		return nil, err
 	}
 
-	maxWalSizeBytes := 1024 * 1024 * 500
-	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
+	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.WalSize/os.Getpagesize())); err != nil {
 		return nil, err
 	}
 
@@ -122,7 +125,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	//if err = sql.treeWrite.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
 	//	return nil, err
 	//}
-	if err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", maxWalSizeBytes/os.Getpagesize())); err != nil {
+	if err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.WalSize/os.Getpagesize())); err != nil {
 		return nil, err
 	}
 
@@ -144,7 +147,7 @@ func (sql *SqliteDb) init() error {
 	}
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
-CREATE TABLE root (version int, node_version int, node_sequence, PRIMARY KEY (version));
+CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, PRIMARY KEY (version));
 CREATE TABLE tree (version int, sequence int, bytes blob);
 CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 		if err != nil {
@@ -440,9 +443,12 @@ func (sql *SqliteDb) IndexShard(shardId int64) error {
 }
 
 func (sql *SqliteDb) SaveRoot(version int64, node *Node) error {
-	err := sql.treeWrite.Exec("INSERT INTO root(version, node_version, node_sequence) VALUES (?, ?, ?)",
-		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()))
-	return err
+	bz, err := node.Bytes()
+	if err != nil {
+		return err
+	}
+	return sql.treeWrite.Exec("INSERT INTO root(version, node_version, node_sequence, bytes) VALUES (?, ?, ?, ?)",
+		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz)
 }
 
 func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
@@ -450,7 +456,7 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootQuery, err := conn.Prepare("SELECT node_version, node_sequence FROM root WHERE version = ?", version)
+	rootQuery, err := conn.Prepare("SELECT node_version, node_sequence, bytes FROM root WHERE version = ?", version)
 	if err != nil {
 		return nil, err
 	}
@@ -462,31 +468,32 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	var seq int
-	var rootVersion int64
-	err = rootQuery.Scan(&rootVersion, &seq)
+	var (
+		nodeSeq     int
+		nodeVersion int64
+		nodeBz      []byte
+	)
+	err = rootQuery.Scan(&nodeVersion, &nodeSeq, &nodeBz)
 	if err != nil {
 		return nil, err
 	}
-	root := NewNodeKey(rootVersion, uint32(seq))
+	rootKey := NewNodeKey(nodeVersion, uint32(nodeSeq))
+	root, err := MakeNode(sql.pool, rootKey, nodeBz)
+	if err != nil {
+		return nil, err
+	}
 
 	if err := rootQuery.Close(); err != nil {
 		return nil, err
 	}
-
 	// TODO this placement seems wrong?
 	if err := sql.resetShardQueries(); err != nil {
-		return nil, err
-	}
-
-	rootNode, err := sql.Get(root)
-	if err != nil {
 		return nil, err
 	}
 	if err := conn.Close(); err != nil {
 		return nil, err
 	}
-	return rootNode, nil
+	return root, nil
 }
 
 func (sql *SqliteDb) addShardQuery() error {

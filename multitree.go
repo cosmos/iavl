@@ -185,6 +185,31 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	return mt.Hash(), version, errors.Join(errs...)
 }
 
+func (mt *MultiTree) SnapshotConcurrently() error {
+	treeCount := 0
+	for _, tree := range mt.Trees {
+		treeCount++
+		go func(t *Tree) {
+			if err := t.SaveSnapshot(); err != nil {
+				mt.errorCh <- err
+			} else {
+				mt.doneCh <- saveVersionResult{}
+			}
+		}(tree)
+	}
+
+	var errs []error
+	for i := 0; i < treeCount; i++ {
+		select {
+		case err := <-mt.errorCh:
+			log.Error().Err(err).Msg("failed to snapshot")
+			errs = append(errs, err)
+		case <-mt.doneCh:
+		}
+	}
+	return errors.Join(errs...)
+}
+
 // Hash is a stand in for code at
 // https://github.com/cosmos/cosmos-sdk/blob/80dd55f79bba8ab675610019a5764470a3e2fef9/store/types/commit_info.go#L30
 // it used in testing. App chains should use the store hashing code referenced above instead.
