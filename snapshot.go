@@ -12,8 +12,28 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
+	"github.com/kocubinski/costor-api/logz"
 	"github.com/rs/zerolog"
 )
+
+type sqliteSnapshot struct {
+	ctx context.Context
+
+	conn           *sqlite3.Conn
+	snapshotInsert *sqlite3.Stmt
+
+	sql        *SqliteDb
+	leafInsert *sqlite3.Stmt
+	treeInsert *sqlite3.Stmt
+
+	lastWrite time.Time
+	ordinal   int
+	batchSize int
+	version   int64
+	getLeft   func(*Node) *Node
+	getRight  func(*Node) *Node
+	log       zerolog.Logger
+}
 
 func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 	version := tree.version
@@ -53,6 +73,157 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 type SnapshotOptions struct {
 	StoreLeafValues bool
 	SaveTree        bool
+}
+
+func NewIngestSnapshotConnection(snapshotDbPath string) (*sqlite3.Conn, error) {
+	conn, err := sqlite3.Open(fmt.Sprintf("file:%s", snapshotDbPath))
+	if err != nil {
+		return nil, err
+	}
+	pageSize := os.Getpagesize()
+	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+	err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
+	if err != nil {
+		return nil, err
+	}
+	err = conn.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		return nil, err
+	}
+	err = conn.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return nil, err
+	}
+
+	walSize := 1024 * 1024 * 1024
+	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", walSize/os.Getpagesize())); err != nil {
+		return nil, err
+	}
+	return conn, err
+}
+
+func IngestSnapshot(conn *sqlite3.Conn, prefix string, version int64, nextFn func() (*SnapshotNode, error)) (*Node, error) {
+	var (
+		insert    *sqlite3.Stmt
+		tableName = fmt.Sprintf("snapshot_%s_%d", prefix, version)
+		ordinal   int
+		batchSize = 200_000
+		log       = logz.Logger.With().Str("prefix", prefix).Logger()
+		step      func() (*Node, error)
+		lastWrite = time.Now()
+	)
+
+	err := conn.Exec(fmt.Sprintf("CREATE TABLE %s (ordinal int, version int, sequence int, bytes blob);", tableName))
+	if err != nil {
+		return nil, err
+	}
+	prepare := func() error {
+		if err = conn.Begin(); err != nil {
+			return err
+		}
+		insert, err = conn.Prepare(
+			fmt.Sprintf("INSERT INTO %s (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);", tableName))
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	flush := func() error {
+		log.Info().Msgf("flush total=%s size=%s dur=%s wr/s=%s",
+			humanize.Comma(int64(ordinal)),
+			humanize.Comma(int64(batchSize)),
+			time.Since(lastWrite).Round(time.Millisecond),
+			humanize.Comma(int64(float64(batchSize)/time.Since(lastWrite).Seconds())),
+		)
+		err = errors.Join(conn.Commit(), insert.Close())
+		lastWrite = time.Now()
+		return err
+	}
+	maybeFlush := func() error {
+		if ordinal%batchSize == 0 {
+			if err = flush(); err != nil {
+				return err
+			}
+			if err = prepare(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	if err = prepare(); err != nil {
+		return nil, err
+	}
+	step = func() (*Node, error) {
+		snapshotNode, err := nextFn()
+		if err != nil {
+			return nil, err
+		}
+		ordinal++
+
+		node := &Node{
+			key:           snapshotNode.Key,
+			subtreeHeight: snapshotNode.Height,
+			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(ordinal)),
+		}
+		if node.subtreeHeight == 0 {
+			node.value = snapshotNode.Value
+			node.size = 1
+			node._hash(snapshotNode.Version)
+			nodeBz, err := node.Bytes()
+			if err != nil {
+				return nil, err
+			}
+			if err = insert.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+				return nil, err
+			}
+			if err = maybeFlush(); err != nil {
+				return nil, err
+			}
+			return node, nil
+		}
+
+		node.leftNode, err = step()
+		if err != nil {
+			return nil, err
+		}
+		node.leftNodeKey = node.leftNode.nodeKey
+		node.rightNode, err = step()
+		if err != nil {
+			return nil, err
+		}
+		node.rightNodeKey = node.rightNode.nodeKey
+
+		node.size = node.leftNode.size + node.rightNode.size
+		node._hash(snapshotNode.Version)
+		node.leftNode = nil
+		node.rightNode = nil
+
+		nodeBz, err := node.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		if err = insert.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
+			return nil, err
+		}
+		if err = maybeFlush(); err != nil {
+			return nil, err
+		}
+		return node, nil
+	}
+	root, err := step()
+	if err != nil {
+		return nil, err
+	}
+	if err = flush(); err != nil {
+		return nil, err
+	}
+	if err = conn.Exec(fmt.Sprintf("CREATE INDEX %s_idx ON %s (ordinal);", tableName, tableName)); err != nil {
+		return nil, err
+	}
+	if err = conn.Close(); err != nil {
+		return nil, err
+	}
+	return root, nil
 }
 
 func (sql *SqliteDb) WriteSnapshot(
@@ -322,23 +493,6 @@ func FindDbsInPath(path string) ([]string, error) {
 		return nil, err
 	}
 	return paths, nil
-}
-
-type sqliteSnapshot struct {
-	ctx context.Context
-	sql *SqliteDb
-
-	snapshotInsert *sqlite3.Stmt
-	leafInsert     *sqlite3.Stmt
-	treeInsert     *sqlite3.Stmt
-
-	lastWrite time.Time
-	ordinal   int
-	batchSize int
-	version   int64
-	getLeft   func(*Node) *Node
-	getRight  func(*Node) *Node
-	log       zerolog.Logger
 }
 
 // TODO

@@ -50,7 +50,7 @@ func Command() *cobra.Command {
 					return err
 				}
 				go func() {
-					snapshotErr := sql.Snapshot(cmd.Context(), tree, version)
+					snapshotErr := sql.Snapshot(cmd.Context(), tree)
 					if snapshotErr != nil {
 						errors <- snapshotErr
 					}
