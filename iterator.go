@@ -75,6 +75,9 @@ func (i *Iterator) push(node *Node) {
 }
 
 func (i *Iterator) pop() (node *Node) {
+	if len(i.stack) == 0 {
+		return nil
+	}
 	node = i.stack[len(i.stack)-1]
 	i.stack = i.stack[:len(i.stack)-1]
 	return
@@ -84,6 +87,10 @@ func (i *Iterator) stepAscend() {
 	var n *Node
 	for {
 		n = i.pop()
+		if n == nil {
+			i.valid = false
+			return
+		}
 		if n.isLeaf() {
 			if !i.started && bytes.Compare(n.key, i.start) < 0 {
 				continue
@@ -123,6 +130,10 @@ func (i *Iterator) stepDescend() {
 	var n *Node
 	for {
 		n = i.pop()
+		if n == nil {
+			i.valid = false
+			return
+		}
 		if n.isLeaf() {
 			if !i.started && i.end != nil {
 				res := bytes.Compare(i.end, n.key)
