@@ -124,8 +124,16 @@ func (i *Iterator) stepDescend() {
 	for {
 		n = i.pop()
 		if n.isLeaf() {
-			if !i.started && i.end != nil && bytes.Compare(i.end, n.key) < 0 {
-				continue
+			if !i.started && i.end != nil {
+				res := bytes.Compare(i.end, n.key)
+				// if end is inclusive and the key is greater than end, skip
+				if i.inclusive && res < 0 {
+					continue
+				}
+				// if end is not inclusive (default) and the key is greater than or equal to end, skip
+				if res <= 0 {
+					continue
+				}
 			}
 			if i.isPastEndDescend(n.key) {
 				i.valid = false
@@ -171,10 +179,7 @@ func (i *Iterator) isPastEndDescend(key []byte) bool {
 	if i.start == nil {
 		return false
 	}
-	if i.inclusive {
-		return bytes.Compare(key, i.start) < 0
-	}
-	return bytes.Compare(key, i.start) <= 0
+	return bytes.Compare(key, i.start) < 0
 }
 
 func (i *Iterator) Key() (key []byte) {
@@ -196,6 +201,7 @@ func (i *Iterator) Close() error {
 }
 
 func (tree *Tree) Iterator(start, end []byte, inclusive bool) (*Iterator, error) {
+	//log.Debug().Msgf("tree.Iterator start=%x end=%x inclusive=%t", start, end, inclusive)
 	itr := &Iterator{
 		tree:      tree,
 		start:     start,

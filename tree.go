@@ -390,7 +390,9 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			tree.mutateNode(node)
 			node.value = value
 			node._hash(tree.version + 1)
-			node.value = nil
+			if !tree.storeLeafValues {
+				node.value = nil
+			}
 			return node, true, nil
 		}
 

@@ -126,8 +126,8 @@ func Test_Iterator(t *testing.T) {
 			start:         nil,
 			end:           []byte("f"),
 			ascending:     false,
-			expectedCount: 6,
-			expectedStart: []byte("f"),
+			expectedCount: 5,
+			expectedStart: []byte("e"),
 			expectedEnd:   []byte("a"),
 		},
 		{
@@ -144,9 +144,9 @@ func Test_Iterator(t *testing.T) {
 			start:         []byte("c"),
 			end:           nil,
 			ascending:     false,
-			expectedCount: 4,
+			expectedCount: 5,
 			expectedStart: []byte("g"),
-			expectedEnd:   []byte("d"),
+			expectedEnd:   []byte("c"),
 		},
 		{
 			name:          "ce stop desc",
@@ -163,8 +163,103 @@ func Test_Iterator(t *testing.T) {
 			end:           []byte("f"),
 			ascending:     false,
 			expectedCount: 3,
+			expectedStart: []byte("e"),
+			expectedEnd:   []byte("c"),
+		},
+		{
+			name:          "fe to f should include f",
+			start:         []byte("f"),
+			end:           []byte("fe"),
+			ascending:     false,
+			expectedCount: 1,
 			expectedStart: []byte("f"),
-			expectedEnd:   []byte("d"),
+			expectedEnd:   []byte("f"),
+		},
+		{
+			name:          "no range",
+			start:         []byte("ce"),
+			end:           []byte("cf"),
+			ascending:     true,
+			expectedCount: 0,
+			expectedStart: nil,
+			expectedEnd:   nil,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var (
+				itr *iavl.Iterator
+				err error
+			)
+			if tc.ascending {
+				itr, err = tree.Iterator(tc.start, tc.end, tc.inclusive)
+			} else {
+				itr, err = tree.ReverseIterator(tc.start, tc.end)
+			}
+			require.NoError(t, err)
+
+			if tc.expectedCount == 0 {
+				require.False(t, itr.Valid())
+			}
+
+			cnt := 0
+			for ; itr.Valid(); itr.Next() {
+				if cnt == 0 {
+					require.Equal(t, tc.expectedStart, itr.Key())
+				}
+				fmt.Printf("%s %s\n", itr.Key(), itr.Value())
+				require.NoError(t, itr.Error())
+				cnt++
+			}
+			require.Equal(t, tc.expectedCount, cnt)
+			require.Equal(t, tc.expectedEnd, itr.Key())
+			require.False(t, itr.Valid())
+			require.NoError(t, itr.Close())
+		})
+	}
+}
+
+func Test_IteratorTree(t *testing.T) {
+	tmpDir := t.TempDir()
+	pool := iavl.NewNodePool()
+	sql, err := iavl.NewSqliteDb(pool, iavl.SqliteDbOptions{Path: tmpDir})
+	require.NoError(t, err)
+
+	tree := iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: true})
+	set := func(key string, value string) {
+		_, err := tree.Set([]byte(key), []byte(value))
+		require.NoError(t, err)
+	}
+	set("a", "1")
+	set("b", "2")
+	set("c", "3")
+	set("d", "4")
+	set("e", "5")
+	set("f", "6")
+	set("g", "7")
+
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	tree = iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: true})
+	require.NoError(t, tree.LoadVersion(version))
+	cases := []struct {
+		name          string
+		start, end    []byte
+		inclusive     bool
+		ascending     bool
+		expectedCount int
+		expectedStart []byte
+		expectedEnd   []byte
+	}{
+		{
+			name:          "all",
+			start:         nil,
+			end:           nil,
+			ascending:     true,
+			expectedCount: 7,
+			expectedStart: []byte("a"),
+			expectedEnd:   []byte("g"),
 		},
 	}
 
@@ -196,4 +291,5 @@ func Test_Iterator(t *testing.T) {
 			require.NoError(t, itr.Close())
 		})
 	}
+
 }
