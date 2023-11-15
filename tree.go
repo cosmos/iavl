@@ -229,7 +229,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 	if node == nil {
-		panic("deepHash: node is nil")
+		panic(fmt.Sprintf("node is nil; sql.path=%s", tree.sql.opts.Path))
 	}
 	isLeaf = node.isLeaf()
 

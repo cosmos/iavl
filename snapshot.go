@@ -12,6 +12,7 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
+	api "github.com/kocubinski/costor-api"
 	"github.com/kocubinski/costor-api/logz"
 	"github.com/rs/zerolog"
 )
@@ -76,27 +77,30 @@ type SnapshotOptions struct {
 }
 
 func NewIngestSnapshotConnection(snapshotDbPath string) (*sqlite3.Conn, error) {
+	newDb := !api.IsFileExistent(snapshotDbPath)
+
 	conn, err := sqlite3.Open(fmt.Sprintf("file:%s", snapshotDbPath))
 	if err != nil {
 		return nil, err
 	}
 	pageSize := os.Getpagesize()
-	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
-	err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
-	if err != nil {
-		return nil, err
-	}
-	err = conn.Exec("PRAGMA journal_mode=WAL;")
-	if err != nil {
-		return nil, err
+	if newDb {
+		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+		err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
+		if err != nil {
+			return nil, err
+		}
+		err = conn.Exec("PRAGMA journal_mode=WAL;")
+		if err != nil {
+			return nil, err
+		}
 	}
 	err = conn.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
 		return nil, err
 	}
-
 	walSize := 1024 * 1024 * 1024
-	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", walSize/os.Getpagesize())); err != nil {
+	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", walSize/pageSize)); err != nil {
 		return nil, err
 	}
 	return conn, err
@@ -626,7 +630,7 @@ func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 
 	hasRow, err := sqlImport.query.Step()
 	if !hasRow {
-		return nil, sqlImport.query.Reset()
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err
@@ -643,7 +647,7 @@ func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 		return nil, err
 	}
 
-	if node.isLeaf() {
+	if node.isLeaf() && sqlImport.i > 1 {
 		if sqlImport.loadLeaves {
 			return node, nil
 		}

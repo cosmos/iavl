@@ -27,7 +27,7 @@ func (sql *SqliteDb) newSqliteBatch() *sqliteBatch {
 		sql:  sql,
 		size: 200_000,
 		logger: log.With().
-			Str("module", "snapshotInsert").
+			Str("module", "sqlite-batch").
 			Str("path", sql.opts.Path).Logger(),
 	}
 }
