@@ -73,6 +73,7 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 type SnapshotOptions struct {
 	StoreLeafValues bool
 	SaveTree        bool
+	TraverseOrder   TraverseOrderType
 }
 
 func NewIngestSnapshotConnection(snapshotDbPath string) (*sqlite3.Conn, error) {
@@ -252,93 +253,14 @@ func (sql *SqliteDb) WriteSnapshot(
 	}
 
 	var (
-		step           func() (*Node, error)
-		maybeFlush     func() error
-		count          int
-		uniqueVersions = make(map[int64]struct{})
+		root           *Node
+		uniqueVersions map[int64]struct{}
 	)
-	maybeFlush = func() error {
-		count++
-		if count%snap.batchSize == 0 {
-			if err = snap.flush(); err != nil {
-				return err
-			}
-			if err = snap.prepareWrite(); err != nil {
-				return err
-			}
-		}
-		return nil
+	if opts.TraverseOrder == PostOrder {
+		root, uniqueVersions, err = snap.restorePostOrderStep(nextFn, opts.StoreLeafValues)
+	} else if opts.TraverseOrder == PreOrder {
+		root, uniqueVersions, err = snap.restorePreOrderStep(nextFn, opts.StoreLeafValues)
 	}
-
-	step = func() (*Node, error) {
-		snapshotNode, err := nextFn()
-		if err != nil {
-			return nil, err
-		}
-		ordinal := snap.ordinal
-		snap.ordinal++
-
-		node := &Node{
-			key:           snapshotNode.Key,
-			subtreeHeight: snapshotNode.Height,
-			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(ordinal)),
-		}
-		if node.subtreeHeight == 0 {
-			node.value = snapshotNode.Value
-			node.size = 1
-			node._hash(snapshotNode.Version)
-			if !opts.StoreLeafValues {
-				node.value = nil
-			}
-			nodeBz, err := node.Bytes()
-			if err != nil {
-				return nil, err
-			}
-			if err = snap.snapshotInsert.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
-				return nil, err
-			}
-			if err = snap.leafInsert.Exec(snapshotNode.Version, ordinal, nodeBz); err != nil {
-				return nil, err
-			}
-			if err = maybeFlush(); err != nil {
-				return nil, err
-			}
-			return node, nil
-		}
-
-		node.leftNode, err = step()
-		if err != nil {
-			return nil, err
-		}
-		node.leftNodeKey = node.leftNode.nodeKey
-		node.rightNode, err = step()
-		if err != nil {
-			return nil, err
-		}
-		node.rightNodeKey = node.rightNode.nodeKey
-
-		node.size = node.leftNode.size + node.rightNode.size
-		node._hash(snapshotNode.Version)
-		node.leftNode = nil
-		node.rightNode = nil
-
-		nodeBz, err := node.Bytes()
-		if err != nil {
-			return nil, err
-		}
-		if err = snap.snapshotInsert.Exec(ordinal, snapshotNode.Version, ordinal, nodeBz); err != nil {
-			return nil, err
-		}
-		if err = snap.treeInsert.Exec(snapshotNode.Version, ordinal, nodeBz); err != nil {
-			return nil, err
-		}
-		uniqueVersions[snapshotNode.Version] = struct{}{}
-		if err = maybeFlush(); err != nil {
-			return nil, err
-		}
-		return node, nil
-	}
-	root, err := step()
 	if err != nil {
 		return nil, err
 	}
@@ -590,6 +512,165 @@ func (snap *sqliteSnapshot) prepareWrite() error {
 	snap.treeInsert, err = snap.sql.treeWrite.Prepare(
 		fmt.Sprintf("INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", snap.sql.shardId))
 	return err
+}
+
+func (snap *sqliteSnapshot) restorePostOrderStep(nextFn func() (*SnapshotNode, error), isStoreLeafValues bool) (*Node, map[int64]struct{}, error) {
+	var (
+		snapshotNode   *SnapshotNode
+		err            error
+		count          int
+		stack          []*Node
+		uniqueVersions = make(map[int64]struct{})
+	)
+
+	for {
+		snapshotNode, err = nextFn()
+		if err != nil || snapshotNode == nil {
+			break
+		}
+
+		uniqueVersions[snapshotNode.Version] = struct{}{}
+		node := &Node{
+			key:           snapshotNode.Key,
+			subtreeHeight: snapshotNode.Height,
+			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(snap.ordinal)),
+		}
+
+		stackSize := len(stack)
+		if node.isLeaf() {
+			node.value = snapshotNode.Value
+			node.size = 1
+			node._hash(snapshotNode.Version)
+			if !isStoreLeafValues {
+				node.value = nil
+			}
+
+			count++
+			if err := snap.writeSnapNode(node, snapshotNode.Version, count); err != nil {
+				return nil, nil, err
+			}
+		} else if stackSize >= 2 && stack[stackSize-1].subtreeHeight < node.subtreeHeight && stack[stackSize-2].subtreeHeight < node.subtreeHeight {
+			node.leftNode = stack[stackSize-2]
+			node.leftNodeKey = node.leftNode.nodeKey
+			node.rightNode = stack[stackSize-1]
+			node.rightNodeKey = node.rightNode.nodeKey
+			node.size = node.leftNode.size + node.rightNode.size
+			node._hash(snapshotNode.Version)
+			stack = stack[:stackSize-2]
+
+			node.leftNode = nil
+			node.rightNode = nil
+
+			count++
+			if err := snap.writeSnapNode(node, snapshotNode.Version, count); err != nil {
+				return nil, nil, err
+			}
+		}
+
+		stack = append(stack, node)
+		snap.ordinal++
+	}
+
+	if err != nil && !errors.Is(err, ErrorExportDone) {
+		return nil, nil, err
+	}
+
+	if len(stack) != 1 {
+		return nil, nil, fmt.Errorf("expected stack size 1, got %d", len(stack))
+	}
+
+	return stack[0], uniqueVersions, nil
+}
+
+func (snap *sqliteSnapshot) restorePreOrderStep(nextFn func() (*SnapshotNode, error), isStoreLeafValues bool) (*Node, map[int64]struct{}, error) {
+	var (
+		count          int
+		step           func() (*Node, error)
+		uniqueVersions = make(map[int64]struct{})
+	)
+
+	step = func() (*Node, error) {
+		snapshotNode, err := nextFn()
+		if err != nil {
+			return nil, err
+		}
+
+		node := &Node{
+			key:           snapshotNode.Key,
+			subtreeHeight: snapshotNode.Height,
+			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(snap.ordinal)),
+		}
+
+		if node.isLeaf() {
+			node.value = snapshotNode.Value
+			node.size = 1
+			node._hash(snapshotNode.Version)
+			if !isStoreLeafValues {
+				node.value = nil
+			}
+		} else {
+			node.leftNode, err = step()
+			if err != nil {
+				return nil, err
+			}
+			node.leftNodeKey = node.leftNode.nodeKey
+			node.rightNode, err = step()
+			if err != nil {
+				return nil, err
+			}
+			node.rightNodeKey = node.rightNode.nodeKey
+
+			node.size = node.leftNode.size + node.rightNode.size
+			node._hash(snapshotNode.Version)
+			node.leftNode = nil
+			node.rightNode = nil
+			uniqueVersions[snapshotNode.Version] = struct{}{}
+		}
+
+		count++
+		if err := snap.writeSnapNode(node, snapshotNode.Version, count); err != nil {
+			return nil, err
+		}
+		snap.ordinal++
+
+		return node, nil
+	}
+
+	node, err := step()
+
+	return node, uniqueVersions, err
+}
+
+func (snap *sqliteSnapshot) writeSnapNode(node *Node, version int64, count int) error {
+	ordinal := snap.ordinal
+
+	nodeBz, err := node.Bytes()
+	if err != nil {
+		return err
+	}
+	if err = snap.snapshotInsert.Exec(ordinal, version, ordinal, nodeBz); err != nil {
+		return err
+	}
+	if node.isLeaf() {
+		if err = snap.leafInsert.Exec(version, ordinal, nodeBz); err != nil {
+			return err
+		}
+	} else {
+		if err = snap.treeInsert.Exec(version, ordinal, nodeBz); err != nil {
+			return err
+		}
+	}
+
+	if count%snap.batchSize == 0 {
+		if err := snap.flush(); err != nil {
+			return err
+		}
+		if err := snap.prepareWrite(); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func rehashTree(node *Node) {

@@ -159,8 +159,7 @@ func TestTree_Hash(t *testing.T) {
 	opts.Until = 100
 	opts.UntilHash = "0101e1d6f3158dcb7221acd7ed36ce19f2ef26847ffea7ce69232e362539e5cf"
 
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
+	_, cancel := context.WithCancel(context.Background())
 
 	testStart := time.Now()
 	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10})
@@ -205,13 +204,14 @@ func TestTree_Build_Load(t *testing.T) {
 
 	// export the tree at version 12,000 and import it into a sql db
 	ctx := context.Background()
+	traverseOrder := PreOrder
 	restoreMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
 	for sk, tree := range multiTree.Trees {
 		require.NoError(t, restoreMt.MountTree(sk))
-		exporter := tree.ExportPreOrder()
+		exporter := tree.Export(traverseOrder)
 
 		restoreTree := restoreMt.Trees[sk]
-		_, err := restoreTree.sql.WriteSnapshot(ctx, tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true})
+		_, err := restoreTree.sql.WriteSnapshot(ctx, tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true, TraverseOrder: traverseOrder})
 		require.NoError(t, err)
 		require.NoError(t, restoreTree.LoadSnapshot(tree.Version()))
 	}
