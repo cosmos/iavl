@@ -35,8 +35,8 @@ func NewMultiTree(rootPath string, opts TreeOptions) *MultiTree {
 	}
 }
 
-func ImportMultiTree(pool *NodePool, version int64, path string) (*MultiTree, error) {
-	mt := NewMultiTree(path, TreeOptions{})
+func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOptions) (*MultiTree, error) {
+	mt := NewMultiTree(path, treeOpts)
 	paths, err := FindDbsInPath(path)
 	if err != nil {
 		return nil, err

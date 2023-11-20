@@ -43,6 +43,7 @@ type Tree struct {
 	workingSize        int64
 	storeLeafValues    bool
 	heightFilter       int8
+	metricsProxy       metrics.Proxy
 
 	// state
 	branches []*Node
@@ -57,6 +58,7 @@ type TreeOptions struct {
 	Metrics            *metrics.TreeMetrics
 	StateStorage       bool
 	HeightFilter       int8
+	MetricsProxy       metrics.Proxy
 }
 
 func DefaultTreeOptions() TreeOptions {
@@ -64,7 +66,7 @@ func DefaultTreeOptions() TreeOptions {
 		CheckpointInterval: 1000,
 		Metrics:            &metrics.TreeMetrics{},
 		StateStorage:       true,
-		HeightFilter:       0,
+		HeightFilter:       1,
 	}
 }
 
@@ -81,6 +83,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		checkpointInterval: opts.CheckpointInterval,
 		storeLeafValues:    opts.StateStorage,
 		heightFilter:       opts.HeightFilter,
+		metricsProxy:       opts.MetricsProxy,
 	}
 	return tree
 }
@@ -108,7 +111,7 @@ func (tree *Tree) LoadVersion(version int64) error {
 
 func (tree *Tree) LoadSnapshot(version int64) (err error) {
 	var v int64
-	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, false)
+	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, true)
 	if err != nil {
 		return err
 	}
@@ -269,18 +272,20 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 
 	node._hash(tree.version)
 
-	// will be returned to the pool in BatchSet if not below
-	if leftIsLeaf {
-		if !leftisDirty {
-			tree.pool.Put(node.leftNode)
+	if tree.heightFilter > 0 {
+		// will be returned to the pool in BatchSet if not below
+		if leftIsLeaf {
+			if !leftisDirty {
+				tree.pool.Put(node.leftNode)
+			}
+			node.leftNode = nil
 		}
-		node.leftNode = nil
-	}
-	if rightIsLeaf {
-		if !rightIsDirty {
-			tree.pool.Put(node.rightNode)
+		if rightIsLeaf {
+			if !rightIsDirty {
+				tree.pool.Put(node.rightNode)
+			}
+			node.rightNode = nil
 		}
-		node.rightNode = nil
 	}
 
 	return false, isDirty
@@ -300,6 +305,9 @@ func (tree *Tree) dirtyCount(node *Node) int64 {
 }
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
+	if tree.metricsProxy != nil {
+		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "get")
+	}
 	if tree.root == nil {
 		return nil, nil
 	}
@@ -308,6 +316,9 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 }
 
 func (tree *Tree) Has(key []byte) (bool, error) {
+	if tree.metricsProxy != nil {
+		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "has")
+	}
 	if tree.root == nil {
 		return false, nil
 	}
@@ -323,6 +334,9 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
 func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
+	if tree.metricsProxy != nil {
+		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
+	}
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -433,6 +447,9 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 // Remove removes a key from the working tree. The given key byte slice should not be modified
 // after this call, since it may point to data stored inside IAVL.
 func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
+	if tree.metricsProxy != nil {
+		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
+	}
 	if tree.root == nil {
 		return nil, false, nil
 	}

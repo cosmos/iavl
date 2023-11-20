@@ -13,6 +13,17 @@ import (
 	"github.com/dustin/go-humanize"
 )
 
+type Label struct {
+	Name  string
+	Value string
+}
+
+type Proxy interface {
+	IncrCounter(val float32, keys ...string)
+	SetGauge(val float32, keys ...string)
+	MeasureSince(start time.Time, keys ...string)
+}
+
 type TreeMetrics struct {
 	PoolGet       int64
 	PoolReturn    int64
