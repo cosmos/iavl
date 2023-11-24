@@ -27,7 +27,7 @@ func (sql *SqliteDb) newSqliteBatch() *sqliteBatch {
 		sql:  sql,
 		size: 200_000,
 		logger: log.With().
-			Str("module", "snapshotInsert").
+			Str("module", "sqlite-batch").
 			Str("path", sql.opts.Path).Logger(),
 	}
 }
@@ -136,7 +136,9 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 		if err = b.changelogMaybeCommit(); err != nil {
 			return 0, versions, err
 		}
-		b.sql.pool.Put(leaf)
+		if tree.heightFilter > 0 {
+			b.sql.pool.Put(leaf)
+		}
 	}
 
 	for _, leafDelete := range tree.deletes {

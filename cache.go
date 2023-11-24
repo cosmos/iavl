@@ -3,7 +3,7 @@ package iavl
 import (
 	"sync"
 
-	"github.com/cosmos/iavl/v2/metrics"
+	metrics2 "github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 )
 
@@ -13,10 +13,10 @@ type NodeCache struct {
 	pool      sync.Pool
 	nodes     []*Node
 
-	metrics *metrics.TreeMetrics
+	metrics *metrics2.TreeMetrics
 }
 
-func NewNodeCache(metrics *metrics.TreeMetrics) *NodeCache {
+func NewNodeCache(metrics *metrics2.TreeMetrics) *NodeCache {
 	return &NodeCache{
 		nextCache: make(map[NodeKey]*Node),
 		cache:     make(map[NodeKey]*Node),

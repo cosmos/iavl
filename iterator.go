@@ -1,6 +1,11 @@
 package iavl
 
-import "bytes"
+import (
+	"bytes"
+	"time"
+
+	"github.com/cosmos/iavl/v2/metrics"
+)
 
 type iterator interface {
 	// Domain returns the start (inclusive) and end (exclusive) limits of the iterator.
@@ -44,6 +49,8 @@ type Iterator struct {
 	key, value []byte // current key, value
 	err        error  // current error
 	valid      bool   // iteration status
+
+	metrics metrics.Proxy
 }
 
 func (i *Iterator) Domain() (start []byte, end []byte) {
@@ -55,6 +62,9 @@ func (i *Iterator) Valid() bool {
 }
 
 func (i *Iterator) Next() {
+	if i.metrics != nil {
+		defer i.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
+	}
 	if !i.valid {
 		return
 	}
@@ -221,6 +231,7 @@ func (tree *Tree) Iterator(start, end []byte, inclusive bool) (*Iterator, error)
 		inclusive: inclusive,
 		valid:     true,
 		stack:     []*Node{tree.root},
+		metrics:   tree.metricsProxy,
 	}
 	itr.Next()
 	return itr, nil
@@ -235,6 +246,7 @@ func (tree *Tree) ReverseIterator(start, end []byte) (*Iterator, error) {
 		inclusive: false,
 		valid:     true,
 		stack:     []*Node{tree.root},
+		metrics:   tree.metricsProxy,
 	}
 	itr.Next()
 	return itr, nil

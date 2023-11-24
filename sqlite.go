@@ -67,12 +67,56 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	return opts
 }
 
+func (opts SqliteDbOptions) connArgs() string {
+	if opts.ConnArgs == "" {
+		return ""
+	}
+	return fmt.Sprintf("?%s", opts.ConnArgs)
+}
+
 func (opts SqliteDbOptions) leafConnectionString() string {
-	return fmt.Sprintf("file:%s/changelog.sqlite?%s", opts.Path, opts.ConnArgs)
+	return fmt.Sprintf("file:%s/changelog.sqlite%s", opts.Path, opts.connArgs())
 }
 
 func (opts SqliteDbOptions) treeConnectionString() string {
-	return fmt.Sprintf("file:%s/tree.sqlite?%s", opts.Path, opts.ConnArgs)
+	return fmt.Sprintf("file:%s/tree.sqlite%s", opts.Path, opts.connArgs())
+}
+
+func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
+	logger := log.With().Str("path", opts.Path).Logger()
+	logger.Info().Msgf("calculate mmap size")
+	logger.Info().Msgf("leaf connection string: %s", opts.leafConnectionString())
+	// mmap leaf table size * 1.5
+	conn, err := sqlite3.Open(opts.leafConnectionString())
+	if err != nil {
+		return 0, err
+	}
+	q, err := conn.Prepare("SELECT SUM(pgsize) FROM dbstat WHERE name = 'leaf'")
+	if err != nil {
+		return 0, err
+	}
+	hasRow, err := q.Step()
+	if err != nil {
+		return 0, err
+	}
+	if !hasRow {
+		return 0, fmt.Errorf("no row")
+	}
+	var leafSize int
+	err = q.Scan(&leafSize)
+	if err != nil {
+		return 0, err
+	}
+	if err = q.Close(); err != nil {
+		return 0, err
+	}
+	if err = conn.Close(); err != nil {
+		return 0, err
+	}
+	mmapSize := int(float64(leafSize) * 1.5)
+	logger.Info().Msgf("leaf mmap size: %s", humanize.Bytes(uint64(mmapSize)))
+
+	return mmapSize, nil
 }
 
 func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {

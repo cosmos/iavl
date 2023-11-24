@@ -7,8 +7,9 @@ import (
 
 	iavlv2 "github.com/cosmos/iavl/v2"
 	"github.com/cosmos/iavl/v2/migrate/core"
+	"github.com/gogo/protobuf/proto"
+	"github.com/gogo/protobuf/types"
 	"github.com/kocubinski/costor-api/logz"
-	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,80 @@ func Command() *cobra.Command {
 		Use:   "v0",
 		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
 	}
-	cmd.AddCommand(allCommand(), snapshotCommand())
+	cmd.AddCommand(allCommand(), snapshotCommand(), metadataCommand())
+	return cmd
+}
+
+func metadataCommand() *cobra.Command {
+	var (
+		dbv0 string
+		dbv2 string
+	)
+	const (
+		latestVersionKey = "s/latest"
+		commitInfoKeyFmt = "s/%d" // s/<version>
+		appVersionKey    = "s/appversion"
+	)
+	cmd := &cobra.Command{
+		Use:   "v45-metadata",
+		Short: "migrate CosmosSDK v0.45 store metadata stored in application.db state to iavl v2 in sqlite",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			log := logz.Logger.With().Str("op", "migrate").Logger()
+
+			v0, err := core.NewReadonlyStore(dbv0)
+			if err != nil {
+				return err
+			}
+			v2, err := iavlv2.NewSqliteKVStore(iavlv2.SqliteDbOptions{Path: dbv2})
+			if err != nil {
+				return err
+			}
+			bz, err := v0.Get([]byte(latestVersionKey))
+			if err != nil {
+				return err
+			}
+			i64 := &types.Int64Value{}
+			err = proto.Unmarshal(bz, i64)
+			if err != nil {
+				return err
+			}
+			log.Info().Msgf("latest version: %d\n", i64.Value)
+			if err = v2.Set([]byte(latestVersionKey), bz); err != nil {
+				return err
+			}
+
+			bz, err = v0.Get([]byte(fmt.Sprintf(commitInfoKeyFmt, i64.Value)))
+			if err != nil {
+				return err
+			}
+			commitInfo := &CommitInfo{}
+			if err = proto.Unmarshal(bz, commitInfo); err != nil {
+				return err
+			}
+			if err = v2.Set([]byte(fmt.Sprintf(commitInfoKeyFmt, i64.Value)), bz); err != nil {
+				return err
+			}
+
+			bz, err = v0.Get([]byte(appVersionKey))
+			if err != nil {
+				return err
+			}
+			if err = v2.Set([]byte(appVersionKey), bz); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&dbv0, "db-v0", "", "Path to the v0 application.db")
+	cmd.Flags().StringVar(&dbv2, "db-v2", "", "Path to the v2 root")
+	if err := cmd.MarkFlagRequired("db-v0"); err != nil {
+		panic(err)
+	}
+	if err := cmd.MarkFlagRequired("db-v2"); err != nil {
+		panic(err)
+	}
 	return cmd
 }
 
@@ -43,15 +117,23 @@ func snapshotCommand() *cobra.Command {
 			if storekey != "" {
 				storeKeys = []string{storekey}
 			} else {
-				for k, ci := range rs.CommitInfoByName() {
+				for k := range rs.CommitInfoByName() {
 					storeKeys = append(storeKeys, k)
-					log.Info().Msgf("store %s has commit info %v", k, ci)
 				}
 			}
 
 			lock := make(chan struct{}, concurrency)
 			for i := 0; i < concurrency; i++ {
 				lock <- struct{}{}
+			}
+
+			// init db and close
+			initConn, err := iavlv2.NewIngestSnapshotConnection(snapshotPath)
+			if err != nil {
+				return err
+			}
+			if err = initConn.Close(); err != nil {
+				return err
 			}
 
 			for _, storeKey := range storeKeys {
@@ -95,7 +177,11 @@ func snapshotCommand() *cobra.Command {
 						}, nil
 					}
 
-					root, err := iavlv2.IngestSnapshot(snapshotPath, sk, tree.Version(), nextNodeFn)
+					conn, err := iavlv2.NewIngestSnapshotConnection(snapshotPath)
+					if err != nil {
+						panic(err)
+					}
+					root, err := iavlv2.IngestSnapshot(conn, sk, tree.Version(), nextNodeFn)
 					if err != nil {
 						panic(err)
 					}
@@ -154,9 +240,8 @@ func allCommand() *cobra.Command {
 			if storekey != "" {
 				storeKeys = []string{storekey}
 			} else {
-				for k, ci := range rs.CommitInfoByName() {
+				for k := range rs.CommitInfoByName() {
 					storeKeys = append(storeKeys, k)
-					log.Info().Msgf("store %s has commit info %v", k, ci)
 				}
 			}
 

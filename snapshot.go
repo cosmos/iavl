@@ -12,6 +12,7 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
+	api "github.com/kocubinski/costor-api"
 	"github.com/kocubinski/costor-api/logz"
 	"github.com/rs/zerolog"
 )
@@ -25,6 +26,9 @@ type sqliteSnapshot struct {
 	sql        *SqliteDb
 	leafInsert *sqlite3.Stmt
 	treeInsert *sqlite3.Stmt
+
+	// if set will flush nodes to a tree & leaf tables as well as a snapshot table during import
+	writeTree bool
 
 	lastWrite time.Time
 	ordinal   int
@@ -77,27 +81,30 @@ type SnapshotOptions struct {
 }
 
 func NewIngestSnapshotConnection(snapshotDbPath string) (*sqlite3.Conn, error) {
+	newDb := !api.IsFileExistent(snapshotDbPath)
+
 	conn, err := sqlite3.Open(fmt.Sprintf("file:%s", snapshotDbPath))
 	if err != nil {
 		return nil, err
 	}
 	pageSize := os.Getpagesize()
-	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
-	err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
-	if err != nil {
-		return nil, err
-	}
-	err = conn.Exec("PRAGMA journal_mode=WAL;")
-	if err != nil {
-		return nil, err
+	if newDb {
+		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+		err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
+		if err != nil {
+			return nil, err
+		}
+		err = conn.Exec("PRAGMA journal_mode=WAL;")
+		if err != nil {
+			return nil, err
+		}
 	}
 	err = conn.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
 		return nil, err
 	}
-
 	walSize := 1024 * 1024 * 1024
-	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", walSize/os.Getpagesize())); err != nil {
+	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", walSize/pageSize)); err != nil {
 		return nil, err
 	}
 	return conn, err
@@ -237,6 +244,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		version:   version,
 		lastWrite: time.Now(),
 		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
+		writeTree: true,
 	}
 	if opts.SaveTree {
 		if err := sql.NextShard(); err != nil {
@@ -460,17 +468,38 @@ func (snap *sqliteSnapshot) flush() error {
 	select {
 	case <-snap.ctx.Done():
 		snap.log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
-		return errors.Join(
+		errs := errors.Join(
 			snap.snapshotInsert.Reset(),
 			snap.snapshotInsert.Close(),
-			snap.leafInsert.Reset(),
-			snap.leafInsert.Close(),
-			snap.treeInsert.Reset(),
-			snap.treeInsert.Close(),
+		)
+		if errs != nil {
+			return errs
+		}
+		if snap.writeTree {
+			errs = errors.Join(
+				snap.leafInsert.Reset(),
+				snap.leafInsert.Close(),
+				snap.treeInsert.Reset(),
+				snap.treeInsert.Close(),
+			)
+		}
+		errs = errors.Join(
+			errs,
 			snap.sql.leafWrite.Rollback(),
 			snap.sql.leafWrite.Close(),
-			snap.sql.treeWrite.Rollback(),
-			snap.sql.treeWrite.Close())
+		)
+		if errs != nil {
+			return errs
+		}
+		if snap.writeTree {
+			errs = errors.Join(
+				errs,
+				snap.sql.treeWrite.Rollback(),
+				snap.sql.treeWrite.Close(),
+			)
+		}
+
+		return errs
 	default:
 	}
 
@@ -483,11 +512,18 @@ func (snap *sqliteSnapshot) flush() error {
 
 	err := errors.Join(
 		snap.sql.leafWrite.Commit(),
-		snap.sql.treeWrite.Commit(),
 		snap.snapshotInsert.Close(),
-		snap.leafInsert.Close(),
-		snap.treeInsert.Close(),
 	)
+	if err != nil {
+		return err
+	}
+	if snap.writeTree {
+		err = errors.Join(
+			snap.leafInsert.Close(),
+			snap.sql.treeWrite.Commit(),
+			snap.treeInsert.Close(),
+		)
+	}
 	snap.lastWrite = time.Now()
 	return err
 }
@@ -497,20 +533,25 @@ func (snap *sqliteSnapshot) prepareWrite() error {
 	if err != nil {
 		return err
 	}
-	err = snap.sql.treeWrite.Begin()
-	if err != nil {
-		return err
-	}
 
 	snap.snapshotInsert, err = snap.sql.leafWrite.Prepare(
 		fmt.Sprintf("INSERT INTO snapshot_%d (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);",
 			snap.version))
-	snap.leafInsert, err = snap.sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
-	if err != nil {
-		return err
+
+	if snap.writeTree {
+		err = snap.sql.treeWrite.Begin()
+		if err != nil {
+			return err
+		}
+
+		snap.leafInsert, err = snap.sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
+		if err != nil {
+			return err
+		}
+		snap.treeInsert, err = snap.sql.treeWrite.Prepare(
+			fmt.Sprintf("INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", snap.sql.shardId))
 	}
-	snap.treeInsert, err = snap.sql.treeWrite.Prepare(
-		fmt.Sprintf("INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", snap.sql.shardId))
+
 	return err
 }
 
@@ -707,7 +748,7 @@ func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 
 	hasRow, err := sqlImport.query.Step()
 	if !hasRow {
-		return nil, sqlImport.query.Reset()
+		return nil, nil
 	}
 	if err != nil {
 		return nil, err
@@ -724,7 +765,7 @@ func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 		return nil, err
 	}
 
-	if node.isLeaf() {
+	if node.isLeaf() && sqlImport.i > 1 {
 		if sqlImport.loadLeaves {
 			return node, nil
 		}

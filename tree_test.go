@@ -162,7 +162,7 @@ func TestTree_Hash(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 
 	testStart := time.Now()
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10, HeightFilter: 0})
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
 	require.True(t, ok)
 	for _, sk := range itrs.StoreKeys() {
@@ -192,7 +192,7 @@ func TestTree_Build_Load(t *testing.T) {
 	require.NoError(t, multiTree.SnapshotConcurrently())
 
 	// import the snapshot into a new tree
-	mt, err := ImportMultiTree(multiTree.pool, 10_000, tmpDir)
+	mt, err := ImportMultiTree(multiTree.pool, 10_000, tmpDir, DefaultTreeOptions())
 	require.NoError(t, err)
 
 	// build the tree to version 12,000
@@ -227,7 +227,7 @@ func TestTree_Build_Load(t *testing.T) {
 func TestOsmoLike_HotStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 	pool := NewNodePool()
-	multiTree, err := ImportMultiTree(pool, 1, tmpDir)
+	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 1})
 	require.NoError(t, err)
 	require.NotNil(t, multiTree)
 	opts := testutil.CompactedChangelogs("/tmp/osmo-like-many/v2")
