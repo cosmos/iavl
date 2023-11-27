@@ -202,26 +202,39 @@ func TestTree_Build_Load(t *testing.T) {
 	opts.UntilHash = "3a037f8dd67a5e1a9ef83a53b81c619c9ac0233abee6f34a400fb9b9dfbb4f8d"
 	testTreeBuild(t, mt, opts)
 
-	// export the tree at version 12,000 and import it into a sql db
-	ctx := context.Background()
+	// export the tree at version 12,000 and import it into a sql db in pre-order
 	traverseOrder := PreOrder
-	restoreMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
+	restorePreOrderMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
 	for sk, tree := range multiTree.Trees {
-		require.NoError(t, restoreMt.MountTree(sk))
+		require.NoError(t, restorePreOrderMt.MountTree(sk))
 		exporter := tree.Export(traverseOrder)
 
-		restoreTree := restoreMt.Trees[sk]
-		_, err := restoreTree.sql.WriteSnapshot(ctx, tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true, TraverseOrder: traverseOrder})
+		restoreTree := restorePreOrderMt.Trees[sk]
+		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true, TraverseOrder: traverseOrder})
 		require.NoError(t, err)
-		require.NoError(t, restoreTree.LoadSnapshot(tree.Version()))
+		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
 	}
+
+	// export the tree at version 12,000 and import it into a sql db in post-order
+	traverseOrder = PostOrder
+	restorePostOrderMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
+	for sk, tree := range multiTree.Trees {
+		require.NoError(t, restorePostOrderMt.MountTree(sk))
+		exporter := tree.Export(traverseOrder)
+
+		restoreTree := restorePostOrderMt.Trees[sk]
+		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true, TraverseOrder: traverseOrder})
+		require.NoError(t, err)
+		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
+	}
+	require.Equal(t, restorePostOrderMt.Hash(), restorePreOrderMt.Hash())
 
 	// play changes until version 20_000
 	require.NoError(t, opts.Iterator.Next())
 	require.Equal(t, int64(12_001), opts.Iterator.Version())
 	opts.Until = 20_000
 	opts.UntilHash = "25907b193c697903218d92fa70a87ef6cdd6fa5b9162d955a4d70a9d5d2c4824"
-	testTreeBuild(t, restoreMt, opts)
+	testTreeBuild(t, restorePostOrderMt, opts)
 }
 
 func TestOsmoLike_HotStart(t *testing.T) {
@@ -259,7 +272,7 @@ func TestTree_Import(t *testing.T) {
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 
-	root, err := sql.ImportSnapshotFromTable(1, true)
+	root, err := sql.ImportSnapshotFromTable(1, PreOrder, true)
 	require.NoError(t, err)
 	require.NotNil(t, root)
 }

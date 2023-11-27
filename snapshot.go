@@ -315,12 +315,18 @@ type SnapshotNode struct {
 	Height  int8
 }
 
-func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*Node, error) {
+func (sql *SqliteDb) ImportSnapshotFromTable(version int64, traverseOrder TraverseOrderType, loadLeaves bool) (*Node, error) {
 	read, err := sql.getReadConn()
 	if err != nil {
 		return nil, err
 	}
-	q, err := read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal", version))
+
+	var q *sqlite3.Stmt
+	if traverseOrder == PostOrder {
+		q, err = read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal DESC", version))
+	} else if traverseOrder == PreOrder {
+		q, err = read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal ASC", version))
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +344,12 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*N
 		since:      time.Now(),
 		log:        log.With().Str("path", sql.opts.Path).Logger(),
 	}
-	root, err := imp.queryStep()
+	var root *Node
+	if traverseOrder == PostOrder {
+		root, err = imp.queryStepPostOrder()
+	} else if traverseOrder == PreOrder {
+		root, err = imp.queryStepPreOrder()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -356,7 +367,7 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, loadLeaves bool) (*N
 	return root, nil
 }
 
-func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, loadLeaves bool) (*Node, int64, error) {
+func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, traverseOrder TraverseOrderType, loadLeaves bool) (*Node, int64, error) {
 	read, err := sql.getReadConn()
 	if err != nil {
 		return nil, 0, err
@@ -401,7 +412,7 @@ func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, loadLeaves bo
 		}
 	}
 
-	root, err := sql.ImportSnapshotFromTable(version, loadLeaves)
+	root, err := sql.ImportSnapshotFromTable(version, traverseOrder, loadLeaves)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -570,11 +581,13 @@ func (snap *sqliteSnapshot) restorePostOrderStep(nextFn func() (*SnapshotNode, e
 			break
 		}
 
+		ordinal := snap.ordinal
+
 		uniqueVersions[snapshotNode.Version] = struct{}{}
 		node := &Node{
 			key:           snapshotNode.Key,
 			subtreeHeight: snapshotNode.Height,
-			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(snap.ordinal)),
+			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(ordinal)),
 		}
 
 		stackSize := len(stack)
@@ -587,7 +600,7 @@ func (snap *sqliteSnapshot) restorePostOrderStep(nextFn func() (*SnapshotNode, e
 			}
 
 			count++
-			if err := snap.writeSnapNode(node, snapshotNode.Version, count); err != nil {
+			if err := snap.writeSnapNode(node, snapshotNode.Version, count, ordinal, count); err != nil {
 				return nil, nil, err
 			}
 		} else if stackSize >= 2 && stack[stackSize-1].subtreeHeight < node.subtreeHeight && stack[stackSize-2].subtreeHeight < node.subtreeHeight {
@@ -603,7 +616,7 @@ func (snap *sqliteSnapshot) restorePostOrderStep(nextFn func() (*SnapshotNode, e
 			node.rightNode = nil
 
 			count++
-			if err := snap.writeSnapNode(node, snapshotNode.Version, count); err != nil {
+			if err := snap.writeSnapNode(node, snapshotNode.Version, count, ordinal, count); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -636,10 +649,13 @@ func (snap *sqliteSnapshot) restorePreOrderStep(nextFn func() (*SnapshotNode, er
 			return nil, err
 		}
 
+		ordinal := snap.ordinal
+		snap.ordinal++
+
 		node := &Node{
 			key:           snapshotNode.Key,
 			subtreeHeight: snapshotNode.Height,
-			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(snap.ordinal)),
+			nodeKey:       NewNodeKey(snapshotNode.Version, uint32(ordinal)),
 		}
 
 		if node.isLeaf() {
@@ -669,7 +685,7 @@ func (snap *sqliteSnapshot) restorePreOrderStep(nextFn func() (*SnapshotNode, er
 		}
 
 		count++
-		if err := snap.writeSnapNode(node, snapshotNode.Version, count); err != nil {
+		if err := snap.writeSnapNode(node, snapshotNode.Version, ordinal, ordinal, count); err != nil {
 			return nil, err
 		}
 		snap.ordinal++
@@ -682,14 +698,12 @@ func (snap *sqliteSnapshot) restorePreOrderStep(nextFn func() (*SnapshotNode, er
 	return node, uniqueVersions, err
 }
 
-func (snap *sqliteSnapshot) writeSnapNode(node *Node, version int64, count int) error {
-	ordinal := snap.ordinal
-
+func (snap *sqliteSnapshot) writeSnapNode(node *Node, version int64, ordinal, sequence, count int) error {
 	nodeBz, err := node.Bytes()
 	if err != nil {
 		return err
 	}
-	if err = snap.snapshotInsert.Exec(ordinal, version, ordinal, nodeBz); err != nil {
+	if err = snap.snapshotInsert.Exec(ordinal, version, sequence, nodeBz); err != nil {
 		return err
 	}
 	if node.isLeaf() {
@@ -697,7 +711,7 @@ func (snap *sqliteSnapshot) writeSnapNode(node *Node, version int64, count int) 
 			return err
 		}
 	} else {
-		if err = snap.treeInsert.Exec(version, ordinal, nodeBz); err != nil {
+		if err = snap.treeInsert.Exec(version, sequence, nodeBz); err != nil {
 			return err
 		}
 	}
@@ -736,7 +750,7 @@ type sqliteImport struct {
 	log   zerolog.Logger
 }
 
-func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
+func (sqlImport *sqliteImport) queryStepPreOrder() (node *Node, err error) {
 	sqlImport.i++
 	if sqlImport.i%1_000_000 == 0 {
 		sqlImport.log.Debug().Msgf("import: nodes=%s, node/s=%s",
@@ -773,13 +787,62 @@ func (sqlImport *sqliteImport) queryStep() (node *Node, err error) {
 		return nil, nil
 	}
 
-	node.leftNode, err = sqlImport.queryStep()
+	node.leftNode, err = sqlImport.queryStepPreOrder()
 	if err != nil {
 		return nil, err
 	}
-	node.rightNode, err = sqlImport.queryStep()
+	node.rightNode, err = sqlImport.queryStepPreOrder()
 	if err != nil {
 		return nil, err
 	}
+	return node, nil
+}
+
+func (sqlImport *sqliteImport) queryStepPostOrder() (node *Node, err error) {
+	sqlImport.i++
+	if sqlImport.i%1_000_000 == 0 {
+		sqlImport.log.Debug().Msgf("import: nodes=%s, node/s=%s",
+			humanize.Comma(sqlImport.i),
+			humanize.Comma(int64(float64(1_000_000)/time.Since(sqlImport.since).Seconds())),
+		)
+		sqlImport.since = time.Now()
+	}
+
+	hasRow, err := sqlImport.query.Step()
+	if !hasRow {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var bz sqlite3.RawBytes
+	var version, seq int
+	err = sqlImport.query.Scan(&version, &seq, &bz)
+	if err != nil {
+		return nil, err
+	}
+	nodeKey := NewNodeKey(int64(version), uint32(seq))
+	node, err = MakeNode(sqlImport.pool, nodeKey, bz)
+	if err != nil {
+		return nil, err
+	}
+
+	if node.isLeaf() && sqlImport.i > 1 {
+		if sqlImport.loadLeaves {
+			return node, nil
+		}
+		sqlImport.pool.Put(node)
+		return nil, nil
+	}
+
+	node.rightNode, err = sqlImport.queryStepPostOrder()
+	if err != nil {
+		return nil, err
+	}
+	node.leftNode, err = sqlImport.queryStepPostOrder()
+	if err != nil {
+		return nil, err
+	}
+
 	return node, nil
 }
