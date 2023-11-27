@@ -13,7 +13,7 @@ func Test_Iterator(t *testing.T) {
 	sql, err := iavl.NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
 
-	tree := iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: true})
+	tree := iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: false})
 	set := func(key string, value string) {
 		_, err := tree.Set([]byte(key), []byte(value))
 		require.NoError(t, err)
@@ -189,7 +189,7 @@ func Test_Iterator(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var (
-				itr *iavl.Iterator
+				itr iavl.Iterator
 				err error
 			)
 			if tc.ascending {
@@ -208,7 +208,7 @@ func Test_Iterator(t *testing.T) {
 				if cnt == 0 {
 					require.Equal(t, tc.expectedStart, itr.Key())
 				}
-				fmt.Printf("%s %s\n", itr.Key(), itr.Value())
+				//fmt.Printf("%s %s\n", itr.Key(), itr.Value())
 				require.NoError(t, itr.Error())
 				cnt++
 			}
@@ -261,12 +261,21 @@ func Test_IteratorTree(t *testing.T) {
 			expectedStart: []byte("a"),
 			expectedEnd:   []byte("g"),
 		},
+		{
+			name:          "all desc",
+			start:         nil,
+			end:           nil,
+			ascending:     false,
+			expectedCount: 7,
+			expectedStart: []byte("g"),
+			expectedEnd:   []byte("a"),
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			var (
-				itr *iavl.Iterator
+				itr iavl.Iterator
 				err error
 			)
 			if tc.ascending {
@@ -275,6 +284,10 @@ func Test_IteratorTree(t *testing.T) {
 				itr, err = tree.ReverseIterator(tc.start, tc.end)
 			}
 			require.NoError(t, err)
+
+			one, err := tree.Get([]byte("a"))
+			require.NoError(t, err)
+			require.Equal(t, []byte("1"), one)
 
 			cnt := 0
 			for ; itr.Valid(); itr.Next() {

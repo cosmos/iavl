@@ -13,6 +13,6 @@ func RootCommand() (*cobra.Command, error) {
 		Use:   "iavl",
 		Short: "benchmark cosmos/iavl",
 	}
-	cmd.AddCommand(gen.Command(), snapshot.Command(), rollback.Command(), scan.Command())
+	cmd.AddCommand(gen.Command(), snapshot.Command(), rollback.Command(), scan.Command(), latestCommand())
 	return cmd, nil
 }

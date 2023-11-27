@@ -32,8 +32,12 @@ type SqliteDb struct {
 
 	// 2 separate databases and 2 separate connections.  the underlying databases have different WAL policies
 	// therefore separation is required.
-	leafWrite *sqlite3.Conn
-	treeWrite *sqlite3.Conn
+	leafWrite    *sqlite3.Conn
+	treeWrite    *sqlite3.Conn
+	iteratorConn *sqlite3.Conn
+
+	itrIdx    int
+	iterators map[int]*sqlite3.Stmt
 
 	readConn *sqlite3.Conn
 
@@ -43,9 +47,11 @@ type SqliteDb struct {
 	shards       map[int64]*sqlite3.Stmt
 	versionShard map[int64]int64
 
-	queryLeaf *sqlite3.Stmt
-	metrics   *metrics.TreeMetrics
-	logger    zerolog.Logger
+	queryLatest *sqlite3.Stmt
+	queryLeaf   *sqlite3.Stmt
+
+	metrics *metrics.TreeMetrics
+	logger  zerolog.Logger
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -55,14 +61,14 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.MmapSize == 0 {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
-	if opts.ConnArgs == "" {
-		opts.ConnArgs = "cache=shared"
-	}
+	//if opts.ConnArgs == "" {
+	//	opts.ConnArgs = "cache=shared"
+	//}
 	if opts.Metrics == nil {
 		opts.Metrics = &metrics.TreeMetrics{}
 	}
 	if opts.WalSize == 0 {
-		opts.WalSize = 1024 * 1024 * 500
+		opts.WalSize = 1024 * 1024 * 100
 	}
 	return opts
 }
@@ -113,7 +119,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
 	if err = conn.Close(); err != nil {
 		return 0, err
 	}
-	mmapSize := int(float64(leafSize) * 1.5)
+	mmapSize := int(float64(leafSize) * 2)
 	logger.Info().Msgf("leaf mmap size: %s", humanize.Bytes(uint64(mmapSize)))
 
 	return mmapSize, nil
@@ -130,6 +136,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	sql := &SqliteDb{
 		shards:       make(map[int64]*sqlite3.Stmt),
 		versionShard: make(map[int64]int64),
+		iterators:    make(map[int]*sqlite3.Stmt),
 		opts:         opts,
 		pool:         pool,
 		metrics:      opts.Metrics,
@@ -192,7 +199,6 @@ func (sql *SqliteDb) init() error {
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
 CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, PRIMARY KEY (version));
-CREATE TABLE tree (version int, sequence int, bytes blob);
 CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 		if err != nil {
 			return err
@@ -219,6 +225,7 @@ CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 	}
 	if !hasRow {
 		err = sql.leafWrite.Exec(`
+CREATE TABLE latest (key blob, value blob, PRIMARY KEY (key));
 CREATE TABLE leaf (version int, sequence int, bytes blob);
 CREATE TABLE leaf_delete (version int, sequence int, key_version int, key_sequence int, PRIMARY KEY (version, sequence));`)
 		if err != nil {
@@ -545,7 +552,9 @@ func (sql *SqliteDb) addShardQuery() error {
 		return nil
 	}
 	if sql.readConn == nil {
-		if err := sql.resetReadConn(); err != nil {
+		var err error
+		sql.readConn, err = sql.getReadConn()
+		if err != nil {
 			return err
 		}
 	}
@@ -631,7 +640,10 @@ func (sql *SqliteDb) WarmLeaves() error {
 	if err != nil {
 		return err
 	}
-	var cnt int64
+	var (
+		cnt, version, seq int64
+		kz, vz            []byte
+	)
 	for {
 		ok, err := stmt.Step()
 		if err != nil {
@@ -641,18 +653,40 @@ func (sql *SqliteDb) WarmLeaves() error {
 			break
 		}
 		cnt++
-		var version, seq int64
-		var bz sqlite3.RawBytes
-		err = stmt.Scan(&version, &seq, &bz)
+		err = stmt.Scan(&version, &seq, &vz)
 		if err != nil {
 			return err
 		}
 		if cnt%5_000_000 == 0 {
-			log.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+			sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+		}
+	}
+	if err = stmt.Close(); err != nil {
+		return err
+	}
+	stmt, err = read.Prepare("SELECT key, value FROM latest")
+	if err != nil {
+		return err
+	}
+	for {
+		ok, err := stmt.Step()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		cnt++
+		err = stmt.Scan(&kz, &vz)
+		if err != nil {
+			return err
+		}
+		if cnt%5_000_000 == 0 {
+			sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
 		}
 	}
 
-	log.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
+	sql.logger.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
 	return stmt.Close()
 }
 
@@ -672,7 +706,8 @@ func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
 
 	node.rightNode, err = sql.Get(node.rightNodeKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get right node node_key=%s height=%d path=%s: %w",
+			node.rightNodeKey, node.subtreeHeight, sql.opts.Path, err)
 	}
 	return node.rightNode, nil
 }
@@ -740,4 +775,109 @@ func (sql *SqliteDb) Revert(version int) error {
 		return err
 	}
 	return nil
+}
+
+func (sql *SqliteDb) GetLatestLeaf(key []byte) ([]byte, error) {
+	if sql.queryLatest == nil {
+		var err error
+		sql.queryLatest, err = sql.readConn.Prepare("SELECT value FROM changelog.latest WHERE key = ?")
+		if err != nil {
+			return nil, err
+		}
+	}
+	defer sql.queryLatest.Reset()
+
+	if err := sql.queryLatest.Bind(key); err != nil {
+		return nil, err
+	}
+	hasRow, err := sql.queryLatest.Step()
+	if err != nil {
+		return nil, err
+	}
+	if !hasRow {
+		return nil, nil
+	}
+	var val []byte
+	err = sql.queryLatest.Scan(&val)
+	if err != nil {
+		return nil, err
+	}
+	return val, nil
+}
+
+func (sql *SqliteDb) closeHangingIterators() error {
+	for idx, stmt := range sql.iterators {
+		sql.logger.Warn().Msgf("closing hanging iterator idx=%d", idx)
+		if err := stmt.Close(); err != nil {
+			return err
+		}
+		delete(sql.iterators, idx)
+	}
+	sql.itrIdx = 0
+	return nil
+}
+
+func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) (stmt *sqlite3.Stmt, idx int, err error) {
+	var suffix string
+	if ascending {
+		suffix = "ASC"
+	} else {
+		suffix = "DESC"
+	}
+	//if sql.iteratorConn == nil {
+	//	sql.iteratorConn, err = sqlite3.Open(sql.opts.leafConnectionString())
+	//	if err != nil {
+	//		return nil, idx, err
+	//	}
+	//}
+
+	conn, err := sql.getReadConn()
+	if err != nil {
+		return nil, idx, err
+	}
+
+	sql.itrIdx++
+	idx = sql.itrIdx
+
+	switch {
+	case start == nil && end == nil:
+		stmt, err = conn.Prepare(
+			fmt.Sprintf("SELECT key, value FROM changelog.latest ORDER BY key %s", suffix))
+		if err != nil {
+			return nil, idx, err
+		}
+		if err = stmt.Bind(); err != nil {
+			return nil, idx, err
+		}
+	case start == nil:
+		stmt, err = conn.Prepare(
+			fmt.Sprintf("SELECT key, value FROM changelog.latest WHERE key < ? ORDER BY key %s", suffix))
+		if err != nil {
+			return nil, idx, err
+		}
+		if err = stmt.Bind(end); err != nil {
+			return nil, idx, err
+		}
+	case end == nil:
+		stmt, err = conn.Prepare(
+			fmt.Sprintf("SELECT key, value FROM changelog.latest WHERE key >= ? ORDER BY key %s", suffix))
+		if err != nil {
+			return nil, idx, err
+		}
+		if err = stmt.Bind(start); err != nil {
+			return nil, idx, err
+		}
+	default:
+		stmt, err = conn.Prepare(
+			fmt.Sprintf("SELECT key, value FROM changelog.latest WHERE key >= ? AND key < ? ORDER BY key %s", suffix))
+		if err != nil {
+			return nil, idx, err
+		}
+		if err = stmt.Bind(start, end); err != nil {
+			return nil, idx, err
+		}
+	}
+
+	sql.iterators[idx] = stmt
+	return stmt, idx, err
 }

@@ -238,9 +238,9 @@ func TestReadSqlite(t *testing.T) {
 	}
 
 	//gen := testutil.OsmoLike()
-	//version1 := gen.Iterator.Nodes()
+	//version1 := gen.TreeIterator.Nodes()
 	//var count int
-	//require.Equal(t, int64(1), gen.Iterator.Version())
+	//require.Equal(t, int64(1), gen.TreeIterator.Version())
 }
 
 func TestNodeKeyFormat(t *testing.T) {

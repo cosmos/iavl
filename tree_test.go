@@ -181,7 +181,7 @@ func TestTree_Build_Load(t *testing.T) {
 	// build the initial version of the tree with periodic checkpoints
 	tmpDir := t.TempDir()
 	opts := testutil.NewTreeBuildOptions().With10_000()
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 4000})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 4000, HeightFilter: 0, StateStorage: false})
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
 	require.True(t, ok)
 	for _, sk := range itrs.StoreKeys() {
@@ -205,7 +205,7 @@ func TestTree_Build_Load(t *testing.T) {
 
 	// export the tree at version 12,000 and import it into a sql db
 	ctx := context.Background()
-	restoreMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
+	restoreMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000, HeightFilter: 0, StateStorage: false})
 	for sk, tree := range multiTree.Trees {
 		require.NoError(t, restoreMt.MountTree(sk))
 		exporter := tree.ExportPreOrder()
@@ -226,11 +226,13 @@ func TestTree_Build_Load(t *testing.T) {
 
 func TestOsmoLike_HotStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
+	//logDir := "/tmp/osmo-like-many-v2"
+	logDir := "/Users/mattk/src/scratch/osmo-like-many/v2"
 	pool := NewNodePool()
-	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 1})
+	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 1, StateStorage: true})
 	require.NoError(t, err)
 	require.NotNil(t, multiTree)
-	opts := testutil.CompactedChangelogs("/tmp/osmo-like-many/v2")
+	opts := testutil.CompactedChangelogs(logDir)
 	opts.SampleRate = 250_000
 	testTreeBuild(t, multiTree, opts)
 }

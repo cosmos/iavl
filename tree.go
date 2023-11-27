@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
@@ -23,6 +24,8 @@ type nodeDelete struct {
 	nodeKey NodeKey
 	// the sequence in which this deletion was processed
 	deleteKey NodeKey
+	// the leaf key to delete in `latest` table (if maintained)
+	leafKey []byte
 }
 
 type Tree struct {
@@ -42,6 +45,7 @@ type Tree struct {
 	checkpointInterval int64
 	workingSize        int64
 	storeLeafValues    bool
+	storeLatestLeaves  bool
 	heightFilter       int8
 	metricsProxy       metrics.Proxy
 
@@ -82,6 +86,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		maxWorkingSize:     2 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
 		storeLeafValues:    opts.StateStorage,
+		storeLatestLeaves:  opts.StateStorage,
 		heightFilter:       opts.HeightFilter,
 		metricsProxy:       opts.MetricsProxy,
 	}
@@ -169,6 +174,17 @@ func (tree *Tree) loadTree(i *int, since *time.Time, node *Node) *Node {
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 	tree.sequence = 0
+
+	//if tree.sql.iteratorConn != nil {
+	//	if err := tree.sql.iteratorConn.Close(); err != nil {
+	//		return nil, 0, err
+	//	}
+	//	tree.sql.iteratorConn = nil
+	//}
+
+	if err := tree.sql.closeHangingIterators(); err != nil {
+		return nil, 0, err
+	}
 
 	tree.shouldCheckpoint = tree.version == 1 ||
 		(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval)
@@ -308,10 +324,18 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "get")
 	}
-	if tree.root == nil {
-		return nil, nil
+	var (
+		res []byte
+		err error
+	)
+	if tree.storeLatestLeaves {
+		res, err = tree.sql.GetLatestLeaf(key)
+	} else {
+		if tree.root == nil {
+			return nil, nil
+		}
+		_, res, err = tree.root.get(tree, key)
 	}
-	_, res, err := tree.root.get(tree, key)
 	return res, err
 }
 
@@ -319,10 +343,18 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "has")
 	}
-	if tree.root == nil {
-		return false, nil
+	var (
+		err error
+		val []byte
+	)
+	if tree.storeLatestLeaves {
+		val, err = tree.sql.GetLatestLeaf(key)
+	} else {
+		if tree.root == nil {
+			return false, nil
+		}
+		_, val, err = tree.root.get(tree, key)
 	}
-	_, val, err := tree.root.get(tree, key)
 	if err != nil {
 		return false, err
 	}
@@ -609,7 +641,11 @@ func (tree *Tree) addDelete(node *Node) {
 	if node.nodeKey.Version() == tree.version+1 {
 		return
 	}
-	tree.deletes = append(tree.deletes, &nodeDelete{nodeKey: node.nodeKey, deleteKey: tree.nextNodeKey()})
+	del := &nodeDelete{nodeKey: node.nodeKey, deleteKey: tree.nextNodeKey()}
+	if tree.storeLatestLeaves {
+		del.leafKey = node.key
+	}
+	tree.deletes = append(tree.deletes, del)
 }
 
 // NewNode returns a new node from a key, value and version.
@@ -655,4 +691,91 @@ func (tree *Tree) Hash() []byte {
 
 func (tree *Tree) Version() int64 {
 	return tree.version
+}
+
+func (tree *Tree) WriteLatestLeaves() (err error) {
+	var (
+		since        = time.Now()
+		batchSize    = 200_000
+		count        = 0
+		step         func(node *Node) error
+		lg           = log.With().Str("path", tree.sql.opts.Path).Logger()
+		latestInsert *sqlite3.Stmt
+	)
+	prepare := func() error {
+		latestInsert, err = tree.sql.leafWrite.Prepare("INSERT INTO latest (key, value) VALUES (?, ?)")
+		if err != nil {
+			return err
+		}
+		if err = tree.sql.leafWrite.Begin(); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	flush := func() error {
+		if err = tree.sql.leafWrite.Commit(); err != nil {
+			return err
+		}
+		if err = latestInsert.Close(); err != nil {
+			return err
+		}
+		var rate string
+		if time.Since(since).Seconds() > 0 {
+			rate = humanize.Comma(int64(float64(batchSize) / time.Since(since).Seconds()))
+		} else {
+			rate = "n/a"
+		}
+		lg.Info().Msgf("latest flush; count=%s dur=%s wr/s=%s",
+			humanize.Comma(int64(count)),
+			time.Since(since).Round(time.Millisecond),
+			rate,
+		)
+		since = time.Now()
+		return nil
+	}
+
+	maybeFlush := func() error {
+		count++
+		if count%batchSize == 0 {
+			err = flush()
+			if err != nil {
+				return err
+			}
+			return prepare()
+		}
+		return nil
+	}
+
+	if err = prepare(); err != nil {
+		return err
+	}
+
+	step = func(node *Node) error {
+		if node.isLeaf() {
+			err := latestInsert.Exec(node.key, node.value)
+			if err != nil {
+				return err
+			}
+			return maybeFlush()
+		}
+		if err = step(node.left(tree)); err != nil {
+			return err
+		}
+		if err = step(node.right(tree)); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	err = step(tree.root)
+	if err != nil {
+		return err
+	}
+	err = flush()
+	if err != nil {
+		return err
+	}
+
+	return latestInsert.Close()
 }
