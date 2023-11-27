@@ -114,9 +114,9 @@ func (tree *Tree) LoadVersion(version int64) error {
 	return nil
 }
 
-func (tree *Tree) LoadSnapshot(version int64) (err error) {
+func (tree *Tree) LoadSnapshot(version int64, traverseOrder TraverseOrderType) (err error) {
 	var v int64
-	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, true)
+	tree.root, v, err = tree.sql.ImportMostRecentSnapshot(version, traverseOrder, true)
 	if err != nil {
 		return err
 	}

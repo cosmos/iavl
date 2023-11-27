@@ -2,24 +2,62 @@ package iavl
 
 import "fmt"
 
+// TraverseOrderType is the type of the order in which the tree is traversed.
+type TraverseOrderType uint8
+
+const (
+	PreOrder TraverseOrderType = iota
+	PostOrder
+)
+
 type Exporter struct {
 	tree  *Tree
 	out   chan *Node
 	errCh chan error
 }
 
-func (tree *Tree) ExportPreOrder() *Exporter {
+func (tree *Tree) Export(order TraverseOrderType) *Exporter {
 	exporter := &Exporter{
 		tree:  tree,
 		out:   make(chan *Node),
 		errCh: make(chan error),
 	}
-	go func() {
+
+	go func(traverseOrder TraverseOrderType) {
 		defer close(exporter.out)
 		defer close(exporter.errCh)
-		exporter.preOrderNext(tree.root)
-	}()
+
+		if traverseOrder == PostOrder {
+			exporter.postOrderNext(tree.root)
+		} else if traverseOrder == PreOrder {
+			exporter.preOrderNext(tree.root)
+		}
+	}(order)
+
 	return exporter
+}
+
+func (e *Exporter) postOrderNext(node *Node) {
+	if node.isLeaf() {
+		e.out <- node
+		return
+	}
+
+	left, err := node.getLeftNode(e.tree)
+	if err != nil {
+		e.errCh <- err
+		return
+	}
+	e.postOrderNext(left)
+
+	right, err := node.getRightNode(e.tree)
+	if err != nil {
+		e.errCh <- err
+		return
+	}
+	e.postOrderNext(right)
+
+	e.out <- node
 }
 
 func (e *Exporter) preOrderNext(node *Node) {
@@ -27,6 +65,7 @@ func (e *Exporter) preOrderNext(node *Node) {
 	if node.isLeaf() {
 		return
 	}
+
 	left, err := node.getLeftNode(e.tree)
 	if err != nil {
 		e.errCh <- err
