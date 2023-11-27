@@ -706,13 +706,15 @@ func (snap *sqliteSnapshot) writeSnapNode(node *Node, version int64, ordinal, se
 	if err = snap.snapshotInsert.Exec(ordinal, version, sequence, nodeBz); err != nil {
 		return err
 	}
-	if node.isLeaf() {
-		if err = snap.leafInsert.Exec(version, ordinal, nodeBz); err != nil {
-			return err
-		}
-	} else {
-		if err = snap.treeInsert.Exec(version, sequence, nodeBz); err != nil {
-			return err
+	if snap.writeTree {
+		if node.isLeaf() {
+			if err = snap.leafInsert.Exec(version, ordinal, nodeBz); err != nil {
+				return err
+			}
+		} else {
+			if err = snap.treeInsert.Exec(version, sequence, nodeBz); err != nil {
+				return err
+			}
 		}
 	}
 
