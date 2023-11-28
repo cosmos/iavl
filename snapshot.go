@@ -20,7 +20,6 @@ import (
 type sqliteSnapshot struct {
 	ctx context.Context
 
-	conn           *sqlite3.Conn
 	snapshotInsert *sqlite3.Stmt
 
 	sql        *SqliteDb

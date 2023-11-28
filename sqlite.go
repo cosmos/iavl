@@ -12,11 +12,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const (
-	sqliteModeLatest  = iota
-	sqliteModeArchive = iota
-)
-
 type SqliteDbOptions struct {
 	Path      string
 	Mode      int
@@ -32,9 +27,8 @@ type SqliteDb struct {
 
 	// 2 separate databases and 2 separate connections.  the underlying databases have different WAL policies
 	// therefore separation is required.
-	leafWrite    *sqlite3.Conn
-	treeWrite    *sqlite3.Conn
-	iteratorConn *sqlite3.Conn
+	leafWrite *sqlite3.Conn
+	treeWrite *sqlite3.Conn
 
 	itrIdx    int
 	iterators map[int]*sqlite3.Stmt
@@ -61,9 +55,9 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.MmapSize == 0 {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
-	//if opts.ConnArgs == "" {
-	//	opts.ConnArgs = "cache=shared"
-	//}
+	// if opts.ConnArgs == "" {
+	// 	opts.ConnArgs = "cache=shared"
+	// }
 	if opts.Metrics == nil {
 		opts.Metrics = &metrics.TreeMetrics{}
 	}
@@ -172,10 +166,6 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		return nil, err
 	}
 
-	// TODO, hinge on different modes
-	//if err = sql.treeWrite.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
-	//	return nil, err
-	//}
 	if err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.WalSize/os.Getpagesize())); err != nil {
 		return nil, err
 	}
@@ -317,7 +307,6 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	//nodeBz, err := sql.queryLeaf.ColumnBlob(0)
 	var nodeBz sqlite3.RawBytes
 	err = sql.queryLeaf.Scan(&nodeBz)
 	if err != nil {
@@ -354,9 +343,11 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	//nodeBz, err := q.ColumnBlob(0)
 	var nodeBz sqlite3.RawBytes
 	err = q.Scan(&nodeBz)
+	if err != nil {
+		return nil, err
+	}
 	node, err := MakeNode(sql.pool, nodeKey, nodeBz)
 	if err != nil {
 		return nil, err
@@ -473,10 +464,10 @@ func (sql *SqliteDb) NextShard() error {
 	sql.shardId++
 
 	// hack to maintain 1 shard for testing
-	//if sql.shardId > 1 {
+	// if sql.shardId > 1 {
 	//	sql.shardId = 1
 	//	return nil
-	//}
+	// }
 
 	sql.logger.Info().Msgf("creating shard %d", sql.shardId)
 
@@ -642,6 +633,9 @@ func (sql *SqliteDb) resetShardQueries() error {
 	}
 
 	q, err = sql.readConn.Prepare("SELECT version, id FROM shard")
+	if err != nil {
+		return err
+	}
 	for {
 		ok, err := q.Step()
 		if err != nil {
@@ -855,12 +849,6 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 	} else {
 		suffix = "DESC"
 	}
-	//if sql.iteratorConn == nil {
-	//	sql.iteratorConn, err = sqlite3.Open(sql.opts.leafConnectionString())
-	//	if err != nil {
-	//		return nil, idx, err
-	//	}
-	//}
 
 	conn, err := sql.getReadConn()
 	if err != nil {

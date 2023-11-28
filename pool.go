@@ -38,7 +38,6 @@ func NewNodePool() *NodePool {
 		},
 		free: make(chan int, 1000),
 	}
-	//np.grow(initialNodePoolSize)
 	return np
 }
 
@@ -47,7 +46,6 @@ func (np *NodePool) grow(amount int) {
 	log.Warn().Msgf("growing node pool amount=%d; size=%d", amount, startSize+amount)
 	for i := startSize; i < startSize+amount; i++ {
 		np.free <- i
-		//np.nodes = append(np.nodes, Node{poolId: i})
 		np.poolSize += nodeSize
 	}
 }
@@ -61,25 +59,12 @@ func (np *NodePool) Get() *Node {
 	n := np.syncPool.Get().(*Node)
 	n.poolId = np.poolId
 	return n
-
-	//return &Node{}
-
-	//if len(np.free) == 0 {
-	//	np.grow(len(np.nodes))
-	//}
-	//poolId := <-np.free
-	//node := &np.nodes[poolId]
-	//if node.hash != nil {
-	//	panic("invariant violated: node hash should be nil when fetched from pool")
-	//}
-	//return node
 }
 
 func (np *NodePool) Put(node *Node) {
 	np.resetNode(node)
 	node.poolId = 0
 	np.syncPool.Put(node)
-	//np.free <- node.poolId
 }
 
 func (np *NodePool) resetNode(node *Node) {

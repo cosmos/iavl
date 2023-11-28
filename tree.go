@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -232,12 +231,10 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			return nil, 0, err
 		}
 
-		//log.Info().Msg("creating leaf index")
 		err = tree.sql.leafWrite.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
 		if err != nil {
 			return nil, tree.version, err
 		}
-		//log.Info().Msg("creating leaf index done")
 	}
 
 	err = tree.sql.SaveRoot(tree.version, tree.root, tree.shouldCheckpoint)
@@ -315,19 +312,6 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 	return false, isDirty
 }
 
-func (tree *Tree) dirtyCount(node *Node) int64 {
-	var n int64
-	if node.dirty {
-		n = 1
-	}
-
-	if !node.isLeaf() {
-		return n + tree.dirtyCount(node.left(tree)) + tree.dirtyCount(node.right(tree))
-	} else {
-		return n
-	}
-}
-
 func (tree *Tree) Get(key []byte) ([]byte, error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "get")
@@ -374,9 +358,6 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
 func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
-	if tree.version == 51 && strings.HasSuffix(tree.sql.opts.Path, "ibc") {
-		fmt.Printf("IAVLV2 set: %x\n", key)
-	}
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
 	}
@@ -490,9 +471,6 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 // Remove removes a key from the working tree. The given key byte slice should not be modified
 // after this call, since it may point to data stored inside IAVL.
 func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
-	if tree.version == 51 && strings.HasSuffix(tree.sql.opts.Path, "ibc") {
-		fmt.Printf("IAVLV2 Remove: %x\n", key)
-	}
 	if tree.metricsProxy != nil {
 		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
 	}

@@ -110,10 +110,9 @@ func (mt *MultiTree) MountTrees() error {
 	sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Metrics: mt.treeOpts.Metrics})
 	for _, dbPath := range paths {
 		prefix := filepath.Base(dbPath)
-		opts := *&sqlOpts
-		opts.Path = dbPath
-		log.Info().Msgf("mounting %s; opts %v", prefix, opts)
-		sql, err := NewSqliteDb(mt.pool, opts)
+		sqlOpts.Path = dbPath
+		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
+		sql, err := NewSqliteDb(mt.pool, sqlOpts)
 		if err != nil {
 			return err
 		}

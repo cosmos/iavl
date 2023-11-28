@@ -162,7 +162,7 @@ func TestTree_Hash(t *testing.T) {
 	_, cancel := context.WithCancel(context.Background())
 
 	testStart := time.Now()
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10, HeightFilter: 0})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10, HeightFilter: 0, StateStorage: true})
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
 	require.True(t, ok)
 	for _, sk := range itrs.StoreKeys() {
@@ -266,7 +266,7 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	opts.SampleRate = 250_000
 
 	opts.Until = 1_000
-	opts.UntilHash = "2020d5d28e2636c537e644fce53f057a706316ad8092a015bcaf2a7e153de468"
+	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda"
 
 	testTreeBuild(t, multiTree, opts)
 }

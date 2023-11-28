@@ -259,24 +259,22 @@ func (l *LeafIterator) Next() {
 	if err != nil {
 		closeErr := l.Close()
 		if closeErr != nil {
-			err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
+			l.err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
 		}
-		l.err = err
 		return
 	}
 	if !hasRow {
 		closeErr := l.Close()
 		if closeErr != nil {
-			err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
+			l.err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
 		}
 		return
 	}
 	if err = l.itrStmt.Scan(&l.key, &l.value); err != nil {
 		closeErr := l.Close()
 		if closeErr != nil {
-			err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
+			l.err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
 		}
-		l.err = err
 		return
 	}
 }
