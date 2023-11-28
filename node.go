@@ -338,14 +338,13 @@ var hashPool = &sync.Pool{
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-// TODO: this should not take version as an arg. instead nodekey.Version() should be used.
-func (node *Node) _hash(version int64) []byte {
+func (node *Node) _hash() []byte {
 	if node.hash != nil {
 		return node.hash
 	}
 
 	h := hashPool.Get().(hash.Hash)
-	if err := node.writeHashBytes(h, version); err != nil {
+	if err := node.writeHashBytes(h); err != nil {
 		return nil
 	}
 	node.hash = h.Sum(nil)
@@ -355,7 +354,7 @@ func (node *Node) _hash(version int64) []byte {
 	return node.hash
 }
 
-func (node *Node) writeHashBytes(w io.Writer, version int64) error {
+func (node *Node) writeHashBytes(w io.Writer) error {
 	var (
 		n   int
 		buf [binary.MaxVarintLen64]byte
@@ -369,7 +368,7 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 	if _, err := w.Write(buf[0:n]); err != nil {
 		return fmt.Errorf("writing size, %w", err)
 	}
-	n = binary.PutVarint(buf[:], version)
+	n = binary.PutVarint(buf[:], node.nodeKey.Version())
 	if _, err := w.Write(buf[0:n]); err != nil {
 		return fmt.Errorf("writing version, %w", err)
 	}

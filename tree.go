@@ -291,7 +291,7 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 	leftIsLeaf, leftisDirty := tree.deepHash(node.left(tree))
 	rightIsLeaf, rightIsDirty := tree.deepHash(node.right(tree))
 
-	node._hash(node.nodeKey.Version())
+	node._hash()
 
 	if tree.heightFilter > 0 {
 		// will be returned to the pool in BatchSet if not below
@@ -427,7 +427,7 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			tree.addOrphan(node)
 			tree.mutateNode(node)
 			node.value = value
-			node._hash(tree.version + 1)
+			node._hash()
 			if !tree.storeLeafValues {
 				node.value = nil
 			}
@@ -651,7 +651,7 @@ func (tree *Tree) NewNode(key []byte, value []byte, version int64) *Node {
 	node.subtreeHeight = 0
 	node.size = 1
 
-	node._hash(version + 1)
+	node._hash()
 	if !tree.storeLeafValues {
 		node.value = nil
 	}

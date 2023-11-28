@@ -175,7 +175,7 @@ func IngestSnapshot(conn *sqlite3.Conn, prefix string, version int64, nextFn fun
 		if node.subtreeHeight == 0 {
 			node.value = snapshotNode.Value
 			node.size = 1
-			node._hash(snapshotNode.Version)
+			node._hash()
 			nodeBz, err := node.Bytes()
 			if err != nil {
 				return nil, err
@@ -201,7 +201,7 @@ func IngestSnapshot(conn *sqlite3.Conn, prefix string, version int64, nextFn fun
 		node.rightNodeKey = node.rightNode.nodeKey
 
 		node.size = node.leftNode.size + node.rightNode.size
-		node._hash(snapshotNode.Version)
+		node._hash()
 		node.leftNode = nil
 		node.rightNode = nil
 
@@ -593,7 +593,7 @@ func (snap *sqliteSnapshot) restorePostOrderStep(nextFn func() (*SnapshotNode, e
 		if node.isLeaf() {
 			node.value = snapshotNode.Value
 			node.size = 1
-			node._hash(snapshotNode.Version)
+			node._hash()
 			if !isStoreLeafValues {
 				node.value = nil
 			}
@@ -608,7 +608,7 @@ func (snap *sqliteSnapshot) restorePostOrderStep(nextFn func() (*SnapshotNode, e
 			node.rightNode = stack[stackSize-1]
 			node.rightNodeKey = node.rightNode.nodeKey
 			node.size = node.leftNode.size + node.rightNode.size
-			node._hash(snapshotNode.Version)
+			node._hash()
 			stack = stack[:stackSize-2]
 
 			node.leftNode = nil
@@ -660,7 +660,7 @@ func (snap *sqliteSnapshot) restorePreOrderStep(nextFn func() (*SnapshotNode, er
 		if node.isLeaf() {
 			node.value = snapshotNode.Value
 			node.size = 1
-			node._hash(snapshotNode.Version)
+			node._hash()
 			if !isStoreLeafValues {
 				node.value = nil
 			}
@@ -677,7 +677,7 @@ func (snap *sqliteSnapshot) restorePreOrderStep(nextFn func() (*SnapshotNode, er
 			node.rightNodeKey = node.rightNode.nodeKey
 
 			node.size = node.leftNode.size + node.rightNode.size
-			node._hash(snapshotNode.Version)
+			node._hash()
 			node.leftNode = nil
 			node.rightNode = nil
 			uniqueVersions[snapshotNode.Version] = struct{}{}
@@ -738,7 +738,7 @@ func rehashTree(node *Node) {
 	rehashTree(node.leftNode)
 	rehashTree(node.rightNode)
 
-	node._hash(node.nodeKey.Version())
+	node._hash()
 }
 
 type sqliteImport struct {

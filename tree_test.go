@@ -315,7 +315,7 @@ func TestTree_Rehash(t *testing.T) {
 		node.hash = nil
 		step(node.left(tree))
 		step(node.right(tree))
-		node._hash(1)
+		node._hash()
 	}
 	step(tree.root)
 	require.Equal(t, savedHash, tree.root.hash)
