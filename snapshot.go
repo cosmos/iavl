@@ -285,7 +285,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 
-	if err = sql.SaveRoot(version, root); err != nil {
+	if err = sql.SaveRoot(version, root, false); err != nil {
 		return nil, err
 	}
 

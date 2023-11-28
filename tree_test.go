@@ -237,9 +237,12 @@ func TestTree_Build_Load(t *testing.T) {
 	testTreeBuild(t, restorePostOrderMt, opts)
 }
 
+// pre-requisites for the 2 tests below:
+// $ go run ./cmd gen tree --db /tmp/iavl-v2 --limit 1 --type osmo-like-many
+// mkdir -p /tmp/osmo-like-many/v2 && go run ./cmd gen emit --start 2 --limit 5000 --type osmo-like-many --out /tmp/osmo-like-many/v2
 func TestOsmoLike_HotStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
-	//logDir := "/tmp/osmo-like-many-v2"
+	// logDir := "/tmp/osmo-like-many-v2"
 	logDir := "/Users/mattk/src/scratch/osmo-like-many/v2"
 	pool := NewNodePool()
 	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 1, StateStorage: true})
@@ -251,13 +254,14 @@ func TestOsmoLike_HotStart(t *testing.T) {
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
-	tmpDir := "/tmp/iavl-alpha6"
+	tmpDir := "/tmp/iavl-v2"
 
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 100})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: true})
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
 	require.NoError(t, multiTree.WarmLeaves())
 
+	// logDir := "/tmp/osmo-like-many-v2"
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
 	opts.SampleRate = 250_000
 
@@ -265,6 +269,20 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	opts.UntilHash = "2020d5d28e2636c537e644fce53f057a706316ad8092a015bcaf2a7e153de468"
 
 	testTreeBuild(t, multiTree, opts)
+}
+
+func TestOsmoLike_Replay(t *testing.T) {
+	tmpDir := "/tmp/iavl-v2"
+
+	//multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: true})
+	//require.NoError(t, multiTree.MountTrees())
+	//require.NoError(t, multiTree.LoadVersion(352))
+	//require.NoError(t, multiTree.WarmLeaves())
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: fmt.Sprintf("%s/ibc", tmpDir)})
+	require.NoError(t, err)
+	tree := NewTree(sql, NewNodePool(), TreeOptions{StateStorage: true})
+	require.NoError(t, tree.LoadVersion(52))
 }
 
 func TestTree_Import(t *testing.T) {

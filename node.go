@@ -338,6 +338,7 @@ var hashPool = &sync.Pool{
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
+// TODO: this should not take version as an arg. instead nodekey.Version() should be used.
 func (node *Node) _hash(version int64) []byte {
 	if node.hash != nil {
 		return node.hash

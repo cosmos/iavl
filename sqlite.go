@@ -198,7 +198,7 @@ func (sql *SqliteDb) init() error {
 	}
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
-CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, PRIMARY KEY (version));
+CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, checkpoint bool, PRIMARY KEY (version));
 CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 		if err != nil {
 			return err
@@ -227,7 +227,7 @@ CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
 		err = sql.leafWrite.Exec(`
 CREATE TABLE latest (key blob, value blob, PRIMARY KEY (key));
 CREATE TABLE leaf (version int, sequence int, bytes blob);
-CREATE TABLE leaf_delete (version int, sequence int, key_version int, key_sequence int, PRIMARY KEY (version, sequence));`)
+CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));`)
 		if err != nil {
 			return err
 		}
@@ -493,13 +493,13 @@ func (sql *SqliteDb) IndexShard(shardId int64) error {
 	return err
 }
 
-func (sql *SqliteDb) SaveRoot(version int64, node *Node) error {
+func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) error {
 	bz, err := node.Bytes()
 	if err != nil {
 		return err
 	}
-	return sql.treeWrite.Exec("INSERT INTO root(version, node_version, node_sequence, bytes) VALUES (?, ?, ?, ?)",
-		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz)
+	return sql.treeWrite.Exec("INSERT INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
+		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz, isCheckpoint)
 }
 
 func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
@@ -545,6 +545,37 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 		return nil, err
 	}
 	return root, nil
+}
+
+// lastCheckpoint fetches the last checkpoint version from the shard table previous to the loaded root's version.
+func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error) {
+	conn, err := sqlite3.Open(sql.opts.treeConnectionString())
+	if err != nil {
+		return 0, err
+	}
+	rootQuery, err := conn.Prepare("SELECT MAX(version) FROM root WHERE checkpoint = true AND version <= ?", treeVersion)
+	if err != nil {
+		return 0, err
+	}
+	hasRow, err := rootQuery.Step()
+	if err != nil {
+		return 0, err
+	}
+	if !hasRow {
+		return 0, nil
+	}
+	err = rootQuery.Scan(&version)
+	if err != nil {
+		return 0, err
+	}
+
+	if err = rootQuery.Close(); err != nil {
+		return 0, err
+	}
+	if err = conn.Close(); err != nil {
+		return 0, err
+	}
+	return version, nil
 }
 
 func (sql *SqliteDb) addShardQuery() error {
@@ -767,7 +798,7 @@ func (sql *SqliteDb) Revert(version int) error {
 		return err
 	}
 	for _, shard := range shards {
-		if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE tree_%d", shard)); err != nil {
+		if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE IF EXISTS tree_%d", shard)); err != nil {
 			return err
 		}
 	}

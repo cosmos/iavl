@@ -42,7 +42,7 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 	if err != nil {
 		return err
 	}
-	b.deleteInsert, err = b.sql.leafWrite.Prepare("INSERT INTO leaf_delete (version, sequence, key_version, key_sequence) VALUES (?, ?, ?, ?)")
+	b.deleteInsert, err = b.sql.leafWrite.Prepare("INSERT INTO leaf_delete (version, sequence, key) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -155,6 +155,9 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 			leaf.value = nil
 		}
 		bz, err = leaf.Bytes()
+		if err != nil {
+			return 0, nil, err
+		}
 		byteCount += int64(len(bz))
 		if err = b.leafInsert.Exec(leaf.nodeKey.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
 			return 0, nil, err
@@ -174,10 +177,7 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 
 	for _, leafDelete := range tree.deletes {
 		b.count++
-		err = b.deleteInsert.Exec(
-			leafDelete.deleteKey.Version(), int(leafDelete.deleteKey.Sequence()),
-			leafDelete.nodeKey.Version(), int(leafDelete.nodeKey.Sequence()),
-		)
+		err = b.deleteInsert.Exec(leafDelete.deleteKey.Version(), int(leafDelete.deleteKey.Sequence()), leafDelete.leafKey)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -204,6 +204,9 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 			b.count++
 			versionMap[node.nodeKey.Version()] = true
 			bz, err = node.Bytes()
+			if err != nil {
+				return 0, nil, err
+			}
 			if err = b.treeInsert.Exec(node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz); err != nil {
 				return 0, nil, err
 			}

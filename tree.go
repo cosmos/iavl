@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -20,8 +21,6 @@ var log = zlog.Output(zerolog.ConsoleWriter{
 })
 
 type nodeDelete struct {
-	// the node key to delete
-	nodeKey NodeKey
 	// the sequence in which this deletion was processed
 	deleteKey NodeKey
 	// the leaf key to delete in `latest` table (if maintained)
@@ -86,31 +85,47 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		maxWorkingSize:     2 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
 		storeLeafValues:    opts.StateStorage,
-		storeLatestLeaves:  opts.StateStorage,
+		storeLatestLeaves:  false,
 		heightFilter:       opts.HeightFilter,
 		metricsProxy:       opts.MetricsProxy,
 	}
 	return tree
 }
 
-func (tree *Tree) LoadVersion(version int64) error {
+func (tree *Tree) LoadVersion(version int64) (err error) {
 	if tree.sql == nil {
 		return fmt.Errorf("sql is nil")
 	}
 
-	tree.version = version
 	tree.orphans = nil
 	tree.workingBytes = 0
 	tree.workingSize = 0
-	tree.cache.Swap()
 
-	var err error
-	tree.root, err = tree.sql.LoadRoot(version)
+	tree.lastCheckpoint, err = tree.sql.lastCheckpoint(version)
 	if err != nil {
 		return err
 	}
-	// TODO
-	tree.lastCheckpoint = version
+	tree.version = tree.lastCheckpoint
+
+	tree.root, err = tree.sql.LoadRoot(tree.version)
+	if err != nil {
+		return err
+	}
+	if version > tree.version {
+		targetRoot, err := tree.sql.LoadRoot(version)
+		if err != nil {
+			return err
+		}
+		if err = tree.replayChangelog(version); err != nil {
+			return err
+		}
+		tree.deepHash(tree.root)
+		if !bytes.Equal(targetRoot.hash, tree.root.hash) {
+			return fmt.Errorf("root hash mismatch; expected %x got %x", targetRoot.hash, tree.root.hash)
+		}
+		tree.version = version
+	}
+
 	return nil
 }
 
@@ -175,13 +190,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 	tree.sequence = 0
 
-	//if tree.sql.iteratorConn != nil {
-	//	if err := tree.sql.iteratorConn.Close(); err != nil {
-	//		return nil, 0, err
-	//	}
-	//	tree.sql.iteratorConn = nil
-	//}
-
 	if err := tree.sql.closeHangingIterators(); err != nil {
 		return nil, 0, err
 	}
@@ -232,16 +240,16 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		//log.Info().Msg("creating leaf index done")
 	}
 
+	err = tree.sql.SaveRoot(tree.version, tree.root, tree.shouldCheckpoint)
+	if err != nil {
+		return nil, tree.version, fmt.Errorf("failed to save root: %w", err)
+	}
+
 	tree.leaves = nil
 	tree.branches = nil
 	tree.orphans = nil
 	tree.deletes = nil
 	tree.shouldCheckpoint = false
-
-	err = tree.sql.SaveRoot(tree.version, tree.root)
-	if err != nil {
-		return nil, tree.version, fmt.Errorf("failed to save root: %w", err)
-	}
 
 	return tree.root.hash, tree.version, nil
 }
@@ -286,7 +294,7 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 	leftIsLeaf, leftisDirty := tree.deepHash(node.left(tree))
 	rightIsLeaf, rightIsDirty := tree.deepHash(node.right(tree))
 
-	node._hash(tree.version)
+	node._hash(node.nodeKey.Version())
 
 	if tree.heightFilter > 0 {
 		// will be returned to the pool in BatchSet if not below
@@ -366,6 +374,9 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
 func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
+	if tree.version == 51 && strings.HasSuffix(tree.sql.opts.Path, "ibc") {
+		fmt.Printf("IAVLV2 set: %x\n", key)
+	}
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
 	}
@@ -479,6 +490,9 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 // Remove removes a key from the working tree. The given key byte slice should not be modified
 // after this call, since it may point to data stored inside IAVL.
 func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
+	if tree.version == 51 && strings.HasSuffix(tree.sql.opts.Path, "ibc") {
+		fmt.Printf("IAVLV2 Remove: %x\n", key)
+	}
 	if tree.metricsProxy != nil {
 		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
 	}
@@ -641,9 +655,9 @@ func (tree *Tree) addDelete(node *Node) {
 	if node.nodeKey.Version() == tree.version+1 {
 		return
 	}
-	del := &nodeDelete{nodeKey: node.nodeKey, deleteKey: tree.nextNodeKey()}
-	if tree.storeLatestLeaves {
-		del.leafKey = node.key
+	del := &nodeDelete{
+		deleteKey: tree.nextNodeKey(),
+		leafKey:   node.key,
 	}
 	tree.deletes = append(tree.deletes, del)
 }
@@ -778,4 +792,80 @@ func (tree *Tree) WriteLatestLeaves() (err error) {
 	}
 
 	return latestInsert.Close()
+}
+
+func (tree *Tree) replayChangelog(toVersion int64) error {
+	var (
+		since = time.Now()
+		lg    = log.With().Str("path", tree.sql.opts.Path).Logger()
+	)
+	lg.Info().Msgf("replaying changelog from=%d to=%d", tree.version, toVersion)
+	conn, err := tree.sql.getReadConn()
+	if err != nil {
+		return err
+	}
+	q, err := conn.Prepare(`SELECT * FROM (
+		SELECT version, sequence, bytes, null AS key
+	FROM leaf WHERE version > ? AND version <= ?
+	UNION
+	SELECT version, sequence, null as bytes, key
+	FROM leaf_delete WHERE version > ? AND version <= ?
+	) as ops
+	ORDER BY version, sequence`)
+	if err != nil {
+		return err
+	}
+	if err = q.Bind(tree.version, toVersion, tree.version, toVersion); err != nil {
+		return err
+	}
+	var (
+		version     int
+		lastVersion int
+		sequence    int
+		bz          []byte
+		key         []byte
+		count       int64
+	)
+	for {
+		ok, err := q.Step()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		count++
+		if err = q.Scan(&version, &sequence, &bz, &key); err != nil {
+			return err
+		}
+		if version-1 != lastVersion {
+			tree.leaves, tree.branches, tree.orphans, tree.deletes = nil, nil, nil, nil
+			tree.version = int64(version - 1)
+			tree.sequence = 0
+			lastVersion = version - 1
+		}
+		if bz != nil {
+			nk := NewNodeKey(0, 0)
+			node, err := MakeNode(tree.pool, nk, bz)
+			if err != nil {
+				return err
+			}
+			if _, err = tree.Set(node.key, node.value); err != nil {
+				return err
+			}
+			if sequence != int(tree.sequence) {
+				return fmt.Errorf("sequence mismatch; expected %d got %d", tree.sequence, sequence)
+			}
+		} else {
+			if sequence != int(tree.sequence+1) {
+				return fmt.Errorf("sequence mismatch; expected %d got %d", tree.sequence+1, sequence)
+			}
+			if _, _, err = tree.Remove(key); err != nil {
+				return err
+			}
+		}
+	}
+	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s",
+		lastVersion, humanize.Comma(count), time.Since(since).Round(time.Millisecond))
+	return nil
 }
