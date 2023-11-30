@@ -4,6 +4,7 @@ package iavl
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"runtime"
@@ -210,7 +211,7 @@ func TestTree_Build_Load(t *testing.T) {
 		exporter := tree.Export(traverseOrder)
 
 		restoreTree := restorePreOrderMt.Trees[sk]
-		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true, TraverseOrder: traverseOrder})
+		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{WriteCheckpoint: true, TraverseOrder: traverseOrder})
 		require.NoError(t, err)
 		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
 	}
@@ -223,7 +224,7 @@ func TestTree_Build_Load(t *testing.T) {
 		exporter := tree.Export(traverseOrder)
 
 		restoreTree := restorePostOrderMt.Trees[sk]
-		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{SaveTree: true, TraverseOrder: traverseOrder})
+		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{WriteCheckpoint: true, TraverseOrder: traverseOrder})
 		require.NoError(t, err)
 		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
 	}
@@ -393,4 +394,42 @@ func TestTreeSanity(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_EmptyTree(t *testing.T) {
+	pool := NewNodePool()
+	sql, err := NewInMemorySqliteDb(pool)
+	require.NoError(t, err)
+	tree := NewTree(sql, pool, TreeOptions{})
+
+	_, err = tree.Set([]byte("foo"), []byte("bar"))
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("baz"), []byte("qux"))
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.Remove([]byte("foo"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.Remove([]byte("baz"))
+	require.NoError(t, err)
+	hash, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	require.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(sha256.New().Sum(nil)))
+	require.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
+
+	err = tree.LoadVersion(version)
+	require.NoError(t, err)
+}
+
+func Test_Replay_Tmp(t *testing.T) {
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/quicksync/osmosis-1-pruned.20231108.0910/transfer"})
+	require.NoError(t, err)
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
+	err = tree.LoadVersion(12272529)
+	require.NoError(t, err)
 }

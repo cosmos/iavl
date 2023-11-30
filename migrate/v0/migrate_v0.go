@@ -18,19 +18,20 @@ func Command() *cobra.Command {
 		Use:   "v0",
 		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
 	}
-	cmd.AddCommand(allCommand(), snapshotCommand(), metadataCommand())
+	cmd.AddCommand(allCommand(), snapshotCommand(), metadataCommand(), latestVersionCommand())
 	return cmd
 }
+
+const (
+	latestVersionKey = "s/latest"
+	commitInfoKeyFmt = "s/%d" // s/<version>
+	appVersionKey    = "s/appversion"
+)
 
 func metadataCommand() *cobra.Command {
 	var (
 		dbv0 string
 		dbv2 string
-	)
-	const (
-		latestVersionKey = "s/latest"
-		commitInfoKeyFmt = "s/%d" // s/<version>
-		appVersionKey    = "s/appversion"
 	)
 	cmd := &cobra.Command{
 		Use:   "v45-metadata",
@@ -92,6 +93,49 @@ func metadataCommand() *cobra.Command {
 	if err := cmd.MarkFlagRequired("db-v2"); err != nil {
 		panic(err)
 	}
+	return cmd
+}
+
+func latestVersionCommand() *cobra.Command {
+	var (
+		db      string
+		version int
+		set     bool
+	)
+	cmd := &cobra.Command{
+		Use:   "latest-version",
+		Short: "get/set the latest version in the metadata.sqlite",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			kv, err := iavlv2.NewSqliteKVStore(iavlv2.SqliteDbOptions{Path: db})
+			if err != nil {
+				return err
+			}
+			if set && version == -1 {
+				return fmt.Errorf("version must be set")
+			}
+			if set {
+
+			} else {
+				bz, err := kv.Get([]byte(latestVersionKey))
+				if err != nil {
+					return err
+				}
+				i64 := &types.Int64Value{}
+				err = proto.Unmarshal(bz, i64)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("latest version: %d\n", i64.Value)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&db, "db", "", "Path to the metadata.sqlite")
+	if err := cmd.MarkFlagRequired("db"); err != nil {
+		panic(err)
+	}
+	cmd.Flags().IntVar(&version, "version", -1, "Version to set")
+	cmd.Flags().BoolVar(&set, "set", false, "Set the latest version")
 	return cmd
 }
 
@@ -302,7 +346,7 @@ func allCommand() *cobra.Command {
 					}
 
 					root, err := sql.WriteSnapshot(cmd.Context(), tree.Version(), nextNodeFn,
-						iavlv2.SnapshotOptions{StoreLeafValues: true, SaveTree: true})
+						iavlv2.SnapshotOptions{StoreLeafValues: true, WriteCheckpoint: true})
 					if err != nil {
 						panic(err)
 					}

@@ -38,11 +38,11 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 	if err = b.sql.leafWrite.Begin(); err != nil {
 		return err
 	}
-	b.leafInsert, err = b.sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
+	b.leafInsert, err = b.sql.leafWrite.Prepare("INSERT OR REPLACE INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	b.deleteInsert, err = b.sql.leafWrite.Prepare("INSERT INTO leaf_delete (version, sequence, key) VALUES (?, ?, ?)")
+	b.deleteInsert, err = b.sql.leafWrite.Prepare("INSERT OR REPLACE INTO leaf_delete (version, sequence, key) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 		bz  []byte
 		val []byte
 	)
-	for _, leaf := range tree.leaves {
+	for i, leaf := range tree.leaves {
 		b.count++
 		if tree.storeLatestLeaves {
 			val = leaf.value
@@ -171,7 +171,13 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 			return 0, versions, err
 		}
 		if tree.heightFilter > 0 {
-			b.sql.pool.Put(leaf)
+			if i != 0 {
+				// evict leaf
+				b.sql.pool.Put(leaf)
+			} else if leaf.nodeKey != tree.root.nodeKey {
+				// never evict the root if it's a leaf
+				b.sql.pool.Put(leaf)
+			}
 		}
 	}
 

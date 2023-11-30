@@ -63,6 +63,11 @@ type Node struct {
 	poolId uint64
 }
 
+func (node *Node) String() string {
+	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolId: %d}",
+		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolId)
+}
+
 func (node *Node) isLeaf() bool {
 	return node.subtreeHeight == 0
 }
@@ -330,11 +335,14 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error
 	return index, value, nil
 }
 
-var hashPool = &sync.Pool{
-	New: func() any {
-		return sha256.New()
-	},
-}
+var (
+	hashPool = &sync.Pool{
+		New: func() any {
+			return sha256.New()
+		},
+	}
+	emptyHash = sha256.New().Sum(nil)
+)
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.

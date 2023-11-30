@@ -74,9 +74,10 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 }
 
 type SnapshotOptions struct {
-	StoreLeafValues bool
-	SaveTree        bool
-	TraverseOrder   TraverseOrderType
+	StoreLeafValues   bool
+	WriteCheckpoint   bool
+	DontWriteSnapshot bool
+	TraverseOrder     TraverseOrderType
 }
 
 func NewIngestSnapshotConnection(snapshotDbPath string) (*sqlite3.Conn, error) {
@@ -245,7 +246,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
 		writeTree: true,
 	}
-	if opts.SaveTree {
+	if opts.WriteCheckpoint {
 		if err := sql.NextShard(); err != nil {
 			return nil, err
 		}
@@ -284,7 +285,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 
-	if err = sql.SaveRoot(version, root, false); err != nil {
+	if err = sql.SaveRoot(version, root, true); err != nil {
 		return nil, err
 	}
 

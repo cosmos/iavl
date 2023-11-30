@@ -91,7 +91,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	q, err := conn.Prepare("SELECT SUM(pgsize) FROM dbstat WHERE name = 'leaf'")
+	q, err := conn.Prepare("SELECT SUM(pgsize) FROM dbstat WHERE name = 'latest'")
 	if err != nil {
 		return 0, err
 	}
@@ -120,7 +120,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
 }
 
 func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
-	opts := defaultSqliteDbOptions(SqliteDbOptions{ConnArgs: "mode=memory"})
+	opts := defaultSqliteDbOptions(SqliteDbOptions{ConnArgs: "mode=memory&cache=shared"})
 	return NewSqliteDb(pool, opts)
 }
 
@@ -245,7 +245,7 @@ func (sql *SqliteDb) newReadConn() (*sqlite3.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s/changelog.sqlite' AS changelog;", sql.opts.Path))
+	err = conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS changelog;", sql.opts.leafConnectionString()))
 	if err != nil {
 		return nil, err
 	}
@@ -485,12 +485,17 @@ func (sql *SqliteDb) IndexShard(shardId int64) error {
 }
 
 func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) error {
-	bz, err := node.Bytes()
-	if err != nil {
-		return err
+	if node != nil {
+		bz, err := node.Bytes()
+		if err != nil {
+			return err
+		}
+		return sql.treeWrite.Exec("INSERT OR REPLACE INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
+			version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz, isCheckpoint)
+	} else {
+		// for an empty root a sentinel is saved
+		return sql.treeWrite.Exec("INSERT OR REPLACE INTO root(version, checkpoint) VALUES (?, ?)", version, isCheckpoint)
 	}
-	return sql.treeWrite.Exec("INSERT INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
-		version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz, isCheckpoint)
 }
 
 func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
@@ -519,10 +524,15 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootKey := NewNodeKey(nodeVersion, uint32(nodeSeq))
-	root, err := MakeNode(sql.pool, rootKey, nodeBz)
-	if err != nil {
-		return nil, err
+
+	// if nodeBz is nil then a (valid) empty tree was saved, which a nil root represents
+	var root *Node
+	if nodeBz != nil {
+		rootKey := NewNodeKey(nodeVersion, uint32(nodeSeq))
+		root, err = MakeNode(sql.pool, rootKey, nodeBz)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if err := rootQuery.Close(); err != nil {
