@@ -3,6 +3,7 @@ package iavl
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -25,24 +26,23 @@ type SqliteDbOptions struct {
 type SqliteDb struct {
 	opts SqliteDbOptions
 
+	pool *NodePool
+
 	// 2 separate databases and 2 separate connections.  the underlying databases have different WAL policies
 	// therefore separation is required.
 	leafWrite *sqlite3.Conn
 	treeWrite *sqlite3.Conn
 
-	itrIdx    int
-	iterators map[int]*sqlite3.Stmt
-
-	readConn *sqlite3.Conn
-
-	pool *NodePool
-
-	shardId      int64
-	shards       map[int64]*sqlite3.Stmt
-	versionShard map[int64]int64
-
+	// for latest table queries
+	itrIdx      int
+	iterators   map[int]*sqlite3.Stmt
 	queryLatest *sqlite3.Stmt
-	queryLeaf   *sqlite3.Stmt
+
+	readConn  *sqlite3.Conn
+	queryLeaf *sqlite3.Stmt
+
+	versions     *VersionRange
+	shardQueries map[int64]*sqlite3.Stmt
 
 	metrics *metrics.TreeMetrics
 	logger  zerolog.Logger
@@ -128,8 +128,8 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
 	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
 	sql := &SqliteDb{
-		shards:       make(map[int64]*sqlite3.Stmt),
-		versionShard: make(map[int64]int64),
+		versions:     &VersionRange{},
+		shardQueries: make(map[int64]*sqlite3.Stmt),
 		iterators:    make(map[int]*sqlite3.Stmt),
 		opts:         opts,
 		pool:         pool,
@@ -188,8 +188,7 @@ func (sql *SqliteDb) init() error {
 	}
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
-CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, checkpoint bool, PRIMARY KEY (version));
-CREATE TABLE shard (version int, id int, PRIMARY KEY (version, id));`)
+CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, checkpoint bool, PRIMARY KEY (version))`)
 		if err != nil {
 			return err
 		}
@@ -275,18 +274,6 @@ func (sql *SqliteDb) getReadConn() (*sqlite3.Conn, error) {
 	return sql.readConn, err
 }
 
-func (sql *SqliteDb) GetShardQuery(version int64) (*sqlite3.Stmt, error) {
-	id, ok := sql.versionShard[version]
-	if !ok {
-		return nil, fmt.Errorf("shard not found for version %d", version)
-	}
-	q, ok := sql.shards[id]
-	if !ok {
-		return nil, fmt.Errorf("shard query not found for id %d", id)
-	}
-	return q, nil
-}
-
 func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	start := time.Now()
 
@@ -338,7 +325,7 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	}
 	hasRow, err := q.Step()
 	if !hasRow {
-		return nil, fmt.Errorf("node not found: %v; shard=%d", nodeKey, sql.versionShard[nodeKey.Version()])
+		return nil, fmt.Errorf("node not found: %v; shard=%d", nodeKey, sql.versions.Find(nodeKey.Version()))
 	}
 	if err != nil {
 		return nil, err
@@ -367,7 +354,7 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 }
 
 func (sql *SqliteDb) Get(nodeKey NodeKey) (*Node, error) {
-	q, err := sql.GetShardQuery(nodeKey.Version())
+	q, err := sql.getShardQuery(nodeKey.Version())
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +366,7 @@ func (sql *SqliteDb) Delete(nodeKey []byte) error {
 }
 
 func (sql *SqliteDb) Close() error {
-	for _, q := range sql.shards {
+	for _, q := range sql.shardQueries {
 		err := q.Close()
 		if err != nil {
 			return err
@@ -405,74 +392,10 @@ func (sql *SqliteDb) Close() error {
 	return nil
 }
 
-func (sql *SqliteDb) MapVersions(versions []int64, shardId int64) error {
-	err := sql.treeWrite.Begin()
-	if err != nil {
-		return err
-	}
-	stmt, err := sql.treeWrite.Prepare("INSERT INTO shard(version, id) VALUES (?, ?)")
-	if err != nil {
-		return err
-	}
+func (sql *SqliteDb) NextShard(version int64) error {
+	sql.logger.Info().Msgf("creating shard %d", version)
 
-	for _, version := range versions {
-		err := stmt.Exec(version, shardId)
-		if err != nil {
-			return err
-		}
-		sql.versionShard[version] = shardId
-	}
-	if err = sql.treeWrite.Commit(); err != nil {
-		return err
-	}
-	if err = stmt.Close(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (sql *SqliteDb) NextShard() error {
-	// initialize shardId if not done so. done with a new connection.
-	if sql.shardId == 0 {
-		conn, err := sqlite3.Open(sql.opts.treeConnectionString())
-		if err != nil {
-			return err
-		}
-		q, err := conn.Prepare("SELECT MAX(id) FROM shard")
-		if err != nil {
-			return err
-		}
-		_, err = q.Step()
-		if err != nil {
-			return err
-		}
-
-		// if table is empty MAX query will bind sql.shardId to zero
-		err = q.Scan(&sql.shardId)
-		if err != nil {
-			return err
-		}
-
-		if err := q.Close(); err != nil {
-			return err
-		}
-		if err := conn.Close(); err != nil {
-			return err
-		}
-	}
-
-	sql.shardId++
-
-	// hack to maintain 1 shard for testing
-	// if sql.shardId > 1 {
-	//	sql.shardId = 1
-	//	return nil
-	// }
-
-	sql.logger.Info().Msgf("creating shard %d", sql.shardId)
-
-	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);",
-		sql.shardId))
+	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);", version))
 	if err != nil {
 		return err
 	}
@@ -579,29 +502,25 @@ func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error
 	return version, nil
 }
 
-func (sql *SqliteDb) addShardQuery() error {
-	if _, ok := sql.shards[sql.shardId]; ok {
-		return nil
+func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
+	v := sql.versions.Find(version)
+	if v == -1 {
+		return nil, fmt.Errorf("version %d is before the first shard", version)
 	}
-	if sql.readConn == nil {
-		var err error
-		sql.readConn, err = sql.getReadConn()
-		if err != nil {
-			return err
-		}
+	if q, ok := sql.shardQueries[v]; ok {
+		return q, nil
 	}
-
 	q, err := sql.readConn.Prepare(fmt.Sprintf(
-		"SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", sql.shardId))
+		"SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", v))
 	if err != nil {
-		return err
+		return nil, err
 	}
-	sql.shards[sql.shardId] = q
-	return nil
+	sql.shardQueries[v] = q
+	return q, nil
 }
 
 func (sql *SqliteDb) resetShardQueries() error {
-	for _, q := range sql.shards {
+	for _, q := range sql.shardQueries {
 		err := q.Close()
 		if err != nil {
 			return err
@@ -614,55 +533,33 @@ func (sql *SqliteDb) resetShardQueries() error {
 		}
 	}
 
-	q, err := sql.readConn.Prepare("SELECT DISTINCT id FROM shard")
+	q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
 	if err != nil {
 		return err
 	}
 	for {
-		ok, err := q.Step()
+		hasRow, err := q.Step()
 		if err != nil {
 			return err
 		}
-		if !ok {
+		if !hasRow {
 			break
 		}
-		var shardId int64
-		err = q.Scan(&shardId)
+		var shard string
+		err = q.Scan(&shard)
 		if err != nil {
 			return err
 		}
-		sql.shards[shardId], err = sql.readConn.Prepare(
-			fmt.Sprintf("SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", shardId))
+		shardVersion, err := strconv.Atoi(shard[5:])
 		if err != nil {
 			return err
 		}
-	}
-	err = q.Close()
-	if err != nil {
-		return err
+		if err = sql.versions.Add(int64(shardVersion)); err != nil {
+			return err
+		}
 	}
 
-	q, err = sql.readConn.Prepare("SELECT version, id FROM shard")
-	if err != nil {
-		return err
-	}
-	for {
-		ok, err := q.Step()
-		if err != nil {
-			return err
-		}
-		if !ok {
-			break
-		}
-		var version, shardId int64
-		err = q.Scan(&version, &shardId)
-		if err != nil {
-			return err
-		}
-		sql.versionShard[version] = shardId
-	}
-
-	return q.Close()
+	return nil
 }
 
 func (sql *SqliteDb) WarmLeaves() error {
@@ -778,11 +675,12 @@ func (sql *SqliteDb) Revert(version int) error {
 	if err := sql.treeWrite.Exec("DELETE FROM root WHERE version > ?", version); err != nil {
 		return err
 	}
-	q, err := sql.treeWrite.Prepare("SELECT DISTINCT id FROM shard WHERE version > ?", version)
+
+	q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
 	if err != nil {
 		return err
 	}
-	var shards []int
+	var shards []string
 	for {
 		hasRow, err := q.Step()
 		if err != nil {
@@ -791,23 +689,26 @@ func (sql *SqliteDb) Revert(version int) error {
 		if !hasRow {
 			break
 		}
-		var shard int
+		var shard string
 		err = q.Scan(&shard)
 		if err != nil {
 			return err
 		}
-		shards = append(shards, shard)
+		shardVersion, err := strconv.Atoi(shard[5:])
+		if err != nil {
+			return err
+		}
+		if shardVersion > version {
+			shards = append(shards, shard)
+		}
 	}
 	if err = q.Close(); err != nil {
 		return err
 	}
 	for _, shard := range shards {
-		if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE IF EXISTS tree_%d", shard)); err != nil {
+		if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", shard)); err != nil {
 			return err
 		}
-	}
-	if err = sql.treeWrite.Exec("DELETE FROM shard WHERE version > ?", version); err != nil {
-		return err
 	}
 	return nil
 }

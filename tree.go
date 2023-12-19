@@ -86,7 +86,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		maxWorkingSize:     2 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
 		storeLeafValues:    opts.StateStorage,
-		storeLatestLeaves:  opts.StateStorage,
+		storeLatestLeaves:  false,
 		heightFilter:       opts.HeightFilter,
 		metricsProxy:       opts.MetricsProxy,
 	}
@@ -214,14 +214,14 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	writeStart := time.Now()
 	if needsCheckpoint {
 		log.Info().Msgf("checkpointing version=%d path=%s", tree.version, tree.sql.opts.Path)
-		if err := tree.sql.NextShard(); err != nil {
+		if err := tree.sql.NextShard(tree.version); err != nil {
 			return nil, 0, err
 		}
 		tree.lastCheckpoint = tree.version
 	}
 
 	batch := tree.sql.newSqliteBatch()
-	_, versions, err := batch.saveTree(tree)
+	_, err := batch.saveTree(tree)
 	if err != nil {
 		return nil, tree.version, err
 	}
@@ -231,16 +231,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.metrics.WriteLeaves += int64(len(tree.leaves))
 
 	if tree.shouldCheckpoint && len(tree.branches) > 0 {
-		err = tree.sql.MapVersions(versions, tree.sql.shardId)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		err = tree.sql.addShardQuery()
-		if err != nil {
-			return nil, 0, err
-		}
-
 		err = tree.sql.leafWrite.Exec("CREATE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
 		if err != nil {
 			return nil, tree.version, err

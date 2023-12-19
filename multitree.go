@@ -56,12 +56,8 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 			return nil, err
 		}
 		go func(p string) {
-			root, importErr := sql.ImportSnapshotFromTable(version, PreOrder, false)
-
 			tree := NewTree(sql, pool, mt.treeOpts)
-			tree.root = root
-			tree.version = version
-			tree.lastCheckpoint = version
+			importErr := tree.LoadSnapshot(version, PreOrder)
 
 			if importErr != nil {
 				errs <- fmt.Errorf("err while importing %s; %w", p, importErr)

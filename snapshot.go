@@ -247,12 +247,12 @@ func (sql *SqliteDb) WriteSnapshot(
 		writeTree: true,
 	}
 	if opts.WriteCheckpoint {
-		if err := sql.NextShard(); err != nil {
+		if err := sql.NextShard(version); err != nil {
 			return nil, err
 		}
 	}
 	err := snap.sql.leafWrite.Exec(
-		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
+		fmt.Sprintf(`CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);`, version))
 	if err != nil {
 		return nil, err
 	}
@@ -281,9 +281,6 @@ func (sql *SqliteDb) WriteSnapshot(
 	for v := range uniqueVersions {
 		versions = append(versions, v)
 	}
-	if err = sql.MapVersions(versions, sql.shardId); err != nil {
-		return nil, err
-	}
 
 	if err = sql.SaveRoot(version, root, true); err != nil {
 		return nil, err
@@ -295,8 +292,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 	err = snap.sql.treeWrite.Exec(fmt.Sprintf(
-		"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);",
-		snap.sql.shardId, snap.sql.shardId))
+		"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", snap.version, snap.version))
 	if err != nil {
 		return nil, err
 	}
@@ -560,7 +556,7 @@ func (snap *sqliteSnapshot) prepareWrite() error {
 			return err
 		}
 		snap.treeInsert, err = snap.sql.treeWrite.Prepare(
-			fmt.Sprintf("INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", snap.sql.shardId))
+			fmt.Sprintf("INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", snap.version))
 	}
 
 	return err

@@ -240,24 +240,29 @@ func TestTree_Build_Load(t *testing.T) {
 
 // pre-requisites for the 2 tests below:
 // $ go run ./cmd gen tree --db /tmp/iavl-v2 --limit 1 --type osmo-like-many
+// $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 // mkdir -p /tmp/osmo-like-many/v2 && go run ./cmd gen emit --start 2 --limit 5000 --type osmo-like-many --out /tmp/osmo-like-many/v2
 func TestOsmoLike_HotStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 	// logDir := "/tmp/osmo-like-many-v2"
 	logDir := "/Users/mattk/src/scratch/osmo-like-many/v2"
 	pool := NewNodePool()
-	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 1, StateStorage: true})
+	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 0, StateStorage: false})
 	require.NoError(t, err)
 	require.NotNil(t, multiTree)
 	opts := testutil.CompactedChangelogs(logDir)
 	opts.SampleRate = 250_000
+
+	opts.Until = 1_000
+	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda"
+
 	testTreeBuild(t, multiTree, opts)
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: true})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: false})
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
 	require.NoError(t, multiTree.WarmLeaves())

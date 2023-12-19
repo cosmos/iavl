@@ -97,12 +97,12 @@ func (b *sqliteBatch) changelogBatchCommit() error {
 	return nil
 }
 
-func (b *sqliteBatch) newTreeBatch() (err error) {
+func (b *sqliteBatch) newTreeBatch(checkpointVersion int64) (err error) {
 	if err = b.sql.treeWrite.Begin(); err != nil {
 		return err
 	}
 	b.treeInsert, err = b.sql.treeWrite.Prepare(fmt.Sprintf(
-		"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", b.sql.shardId))
+		"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", checkpointVersion))
 	return err
 }
 
@@ -122,12 +122,12 @@ func (b *sqliteBatch) treeBatchCommit() error {
 	return nil
 }
 
-func (b *sqliteBatch) treeMaybeCommit() (err error) {
+func (b *sqliteBatch) treeMaybeCommit(checkpointVersion int64) (err error) {
 	if b.count%b.size == 0 {
 		if err = b.treeBatchCommit(); err != nil {
 			return err
 		}
-		if err = b.newTreeBatch(); err != nil {
+		if err = b.newTreeBatch(checkpointVersion); err != nil {
 			return err
 		}
 		b.since = time.Now()
@@ -135,13 +135,13 @@ func (b *sqliteBatch) treeMaybeCommit() (err error) {
 	return nil
 }
 
-func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error) {
+func (b *sqliteBatch) saveTree(tree *Tree) (n int64, err error) {
 	var byteCount int64
 	versionMap := make(map[int64]bool)
 
 	err = b.newChangeLogBatch()
 	if err != nil {
-		return 0, versions, err
+		return 0, err
 	}
 
 	var (
@@ -156,19 +156,19 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 		}
 		bz, err = leaf.Bytes()
 		if err != nil {
-			return 0, nil, err
+			return 0, err
 		}
 		byteCount += int64(len(bz))
 		if err = b.leafInsert.Exec(leaf.nodeKey.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
-			return 0, nil, err
+			return 0, err
 		}
 		if tree.storeLatestLeaves {
 			if err = b.latestInsert.Exec(leaf.key, val); err != nil {
-				return 0, nil, err
+				return 0, err
 			}
 		}
 		if err = b.changelogMaybeCommit(); err != nil {
-			return 0, versions, err
+			return 0, err
 		}
 		if tree.heightFilter > 0 {
 			if i != 0 {
@@ -185,25 +185,25 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 		b.count++
 		err = b.deleteInsert.Exec(leafDelete.deleteKey.Version(), int(leafDelete.deleteKey.Sequence()), leafDelete.leafKey)
 		if err != nil {
-			return 0, nil, err
+			return 0, err
 		}
 		if tree.storeLatestLeaves {
 			if err = b.latestDelete.Exec(leafDelete.leafKey); err != nil {
-				return 0, nil, err
+				return 0, err
 			}
 		}
 		if err = b.changelogMaybeCommit(); err != nil {
-			return 0, versions, err
+			return 0, err
 		}
 	}
 
 	if err = b.changelogBatchCommit(); err != nil {
-		return 0, versions, err
+		return 0, err
 	}
 
 	if len(tree.branches) > 0 {
-		if err = b.newTreeBatch(); err != nil {
-			return 0, nil, err
+		if err = b.newTreeBatch(tree.version); err != nil {
+			return 0, err
 		}
 
 		for _, node := range tree.branches {
@@ -211,24 +211,23 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 			versionMap[node.nodeKey.Version()] = true
 			bz, err = node.Bytes()
 			if err != nil {
-				return 0, nil, err
+				return 0, err
 			}
 			if err = b.treeInsert.Exec(node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz); err != nil {
-				return 0, nil, err
+				return 0, err
 			}
-			if err = b.treeMaybeCommit(); err != nil {
-				return 0, versions, err
+			if err = b.treeMaybeCommit(tree.version); err != nil {
+				return 0, err
 			}
 		}
 
 		if err = b.treeBatchCommit(); err != nil {
-			return 0, versions, err
+			return 0, err
 		}
 		err = b.sql.treeWrite.Exec(fmt.Sprintf(
-			"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);",
-			b.sql.shardId, b.sql.shardId))
+			"CREATE INDEX IF NOT EXISTS tree_idx_%d ON tree_%d (version, sequence);", tree.version, tree.version))
 		if err != nil {
-			return 0, versions, err
+			return 0, err
 		}
 	}
 
@@ -237,8 +236,5 @@ func (b *sqliteBatch) saveTree(tree *Tree) (n int64, versions []int64, err error
 	//	return 0, versions, err
 	//}
 
-	for version := range versionMap {
-		versions = append(versions, version)
-	}
-	return byteCount, versions, nil
+	return byteCount, nil
 }
