@@ -22,6 +22,12 @@ func Test_versionRange(t *testing.T) {
 			want:     3,
 		},
 		{
+			name:     "first",
+			versions: []int64{1, 2, 3, 4, 5},
+			find:     1,
+			want:     1,
+		},
+		{
 			name:     "unordered",
 			versions: []int64{5, 3},
 			wantErr:  "unordered insert: version 3 is not greater than 5",
@@ -30,18 +36,30 @@ func Test_versionRange(t *testing.T) {
 			name:     "typical",
 			versions: []int64{1, 2, 10},
 			find:     3,
-			want:     2,
+			want:     10,
 		},
 		{
 			name:     "past last",
 			versions: []int64{1, 2, 10},
 			find:     11,
-			want:     10,
+			want:     -1,
 		},
 		{
 			name:     "before start",
 			versions: []int64{5, 10},
 			find:     3,
+			want:     5,
+		},
+		{
+			name:     "osmo like many",
+			versions: []int64{1, 51, 101, 151, 201, 251, 301, 351, 401},
+			find:     38,
+			want:     51,
+		},
+		{
+			name:     "osmo like many",
+			versions: []int64{1, 51, 101, 151, 201, 251, 301, 351, 401},
+			find:     408,
 			want:     -1,
 		},
 	}

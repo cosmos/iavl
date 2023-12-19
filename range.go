@@ -2,13 +2,10 @@ package iavl
 
 import (
 	"fmt"
-
-	"github.com/bvinc/go-sqlite-lite/sqlite3"
 )
 
 type VersionRange struct {
 	versions []int64
-	queries  map[int64]*sqlite3.Stmt
 }
 
 func (r *VersionRange) Add(version int64) error {
@@ -26,15 +23,15 @@ func (r *VersionRange) Add(version int64) error {
 	return nil
 }
 
-// Find returns the version of the shard that contains the given version by binary searching
-// the version range. If the version is before the first shard, -1 is returned.
+// Find returns the shard that contains the given version by binary searching
+// the version range. If the version is after the last shard, -1 is returned.
 func (r *VersionRange) Find(version int64) int64 {
 	vs := r.versions
-	if len(vs) == 0 || version < vs[0] {
+	if len(vs) == 0 || version > vs[len(vs)-1] {
 		return -1
 	}
-	if version > vs[len(vs)-1] {
-		return vs[len(vs)-1]
+	if version < vs[0] {
+		return vs[0]
 	}
 	low, high := 0, len(vs)-1
 	for low <= high {
@@ -48,5 +45,5 @@ func (r *VersionRange) Find(version int64) int64 {
 			high = mid - 1
 		}
 	}
-	return vs[high]
+	return vs[low]
 }

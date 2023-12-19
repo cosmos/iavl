@@ -890,5 +890,5 @@ func (tree *Tree) replayChangelog(toVersion int64) error {
 	tree.sequence = 0
 	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s",
 		lastVersion, humanize.Comma(count), time.Since(start).Round(time.Millisecond))
-	return nil
+	return q.Close()
 }

@@ -320,6 +320,9 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	start := time.Now()
 
+	if err := q.Reset(); err != nil {
+		return nil, err
+	}
 	if err := q.Bind(nodeKey.Version(), int(nodeKey.Sequence())); err != nil {
 		return nil, err
 	}
@@ -510,22 +513,26 @@ func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
 	if q, ok := sql.shardQueries[v]; ok {
 		return q, nil
 	}
-	q, err := sql.readConn.Prepare(fmt.Sprintf(
-		"SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", v))
+	sqlQuery := fmt.Sprintf("SELECT bytes FROM tree_%d WHERE version = ? AND sequence = ?", v)
+	q, err := sql.readConn.Prepare(sqlQuery)
 	if err != nil {
 		return nil, err
 	}
 	sql.shardQueries[v] = q
+	sql.logger.Debug().Msgf("added shard query: %s", sqlQuery)
 	return q, nil
 }
 
 func (sql *SqliteDb) resetShardQueries() error {
-	for _, q := range sql.shardQueries {
+	for k, q := range sql.shardQueries {
 		err := q.Close()
 		if err != nil {
 			return err
 		}
+		delete(sql.shardQueries, k)
 	}
+
+	sql.versions = &VersionRange{}
 
 	if sql.readConn == nil {
 		if err := sql.resetReadConn(); err != nil {
@@ -559,7 +566,7 @@ func (sql *SqliteDb) resetShardQueries() error {
 		}
 	}
 
-	return nil
+	return q.Close()
 }
 
 func (sql *SqliteDb) WarmLeaves() error {

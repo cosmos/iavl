@@ -280,15 +280,22 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 func TestOsmoLike_Replay(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
-	//multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: true})
-	//require.NoError(t, multiTree.MountTrees())
-	//require.NoError(t, multiTree.LoadVersion(352))
-	//require.NoError(t, multiTree.WarmLeaves())
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: fmt.Sprintf("%s/ibc", tmpDir)})
 	require.NoError(t, err)
-	tree := NewTree(sql, NewNodePool(), TreeOptions{StateStorage: true})
-	require.NoError(t, tree.LoadVersion(52))
+	tree := NewTree(sql, NewNodePool(), TreeOptions{StateStorage: false})
+	require.NoError(t, tree.LoadVersion(66))
+
+	tree = NewTree(sql, NewNodePool(), TreeOptions{StateStorage: false})
+	require.NoError(t, tree.LoadVersion(1_000))
+	require.NoError(t, sql.Close())
+
+	multiTree := NewMultiTree(tmpDir, TreeOptions{})
+	require.NoError(t, multiTree.MountTrees())
+	require.NoError(t, multiTree.LoadVersion(1_000))
+	require.Equal(t,
+		"557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda",
+		fmt.Sprintf("%x", multiTree.Hash()))
 }
 
 func TestTree_Import(t *testing.T) {
