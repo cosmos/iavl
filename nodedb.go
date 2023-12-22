@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"cosmossdk.io/log"
 	dbm "github.com/cosmos/cosmos-db"
@@ -470,9 +471,38 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 	ndb.legacyLatestVersion = -1
 
 	// Delete all orphan nodes of the legacy versions
-	return ndb.traversePrefix(legacyOrphanKeyFormat.Key(), func(key, value []byte) error {
-		return ndb.batch.Delete(key)
-	})
+	go func() {
+		if err := ndb.deleteOrphans(); err != nil {
+			ndb.logger.Error("failed to clean legacy orphans", "err", err)
+		}
+	}()
+
+	return nil
+}
+
+// deleteOrphans cleans all legacy orphans from the nodeDB.
+func (ndb *nodeDB) deleteOrphans() error {
+	itr, err := dbm.IteratePrefix(ndb.db, legacyOrphanKeyFormat.Key())
+	if err != nil {
+		return err
+	}
+	defer itr.Close()
+
+	count := 0
+	for ; itr.Valid(); itr.Next() {
+		if err := ndb.batch.Delete(itr.Key()); err != nil {
+			return err
+		}
+
+		// Sleep for a while to avoid blocking the main thread i/o.
+		count++
+		if count > 1000 {
+			count = 0
+			time.Sleep(100 * time.Millisecond)
+		}
+	}
+
+	return nil
 }
 
 // DeleteVersionsFrom permanently deletes all tree versions from the given version upwards.
