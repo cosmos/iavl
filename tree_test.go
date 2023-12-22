@@ -3,17 +3,20 @@
 package iavl
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"runtime"
+	"sort"
 	"testing"
 	"time"
 
 	"github.com/cosmos/iavl-bench/bench"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
+	api "github.com/kocubinski/costor-api"
 	"github.com/stretchr/testify/require"
 )
 
@@ -159,11 +162,10 @@ func TestTree_Hash(t *testing.T) {
 	// at this commit tree: https://github.com/cosmos/iavl-bench/blob/3a6a1ec0a8cbec305e46239454113687da18240d/iavl-v0/main.go#L136
 	opts.Until = 100
 	opts.UntilHash = "0101e1d6f3158dcb7221acd7ed36ce19f2ef26847ffea7ce69232e362539e5cf"
-
-	_, cancel := context.WithCancel(context.Background())
+	treeOpts := TreeOptions{CheckpointInterval: 10, HeightFilter: 0, StateStorage: true}
 
 	testStart := time.Now()
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10, HeightFilter: 0, StateStorage: true})
+	multiTree := NewMultiTree(tmpDir, treeOpts)
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
 	require.True(t, ok)
 	for _, sk := range itrs.StoreKeys() {
@@ -173,7 +175,6 @@ func TestTree_Hash(t *testing.T) {
 	treeDuration := time.Since(testStart)
 	fmt.Printf("mean leaves/s: %s\n", humanize.Comma(int64(float64(leaves)/treeDuration.Seconds())))
 
-	cancel()
 	require.NoError(t, multiTree.Close())
 }
 
@@ -275,27 +276,6 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda"
 
 	testTreeBuild(t, multiTree, opts)
-}
-
-func TestOsmoLike_Replay(t *testing.T) {
-	tmpDir := "/tmp/iavl-v2"
-
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: fmt.Sprintf("%s/ibc", tmpDir)})
-	require.NoError(t, err)
-	tree := NewTree(sql, NewNodePool(), TreeOptions{StateStorage: false})
-	require.NoError(t, tree.LoadVersion(66))
-
-	tree = NewTree(sql, NewNodePool(), TreeOptions{StateStorage: false})
-	require.NoError(t, tree.LoadVersion(1_000))
-	require.NoError(t, sql.Close())
-
-	multiTree := NewMultiTree(tmpDir, TreeOptions{})
-	require.NoError(t, multiTree.MountTrees())
-	require.NoError(t, multiTree.LoadVersion(1_000))
-	require.Equal(t,
-		"557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda",
-		fmt.Sprintf("%x", multiTree.Hash()))
 }
 
 func TestTree_Import(t *testing.T) {
@@ -439,9 +419,104 @@ func Test_EmptyTree(t *testing.T) {
 
 func Test_Replay_Tmp(t *testing.T) {
 	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/quicksync/osmosis-1-pruned.20231108.0910/transfer"})
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/quicksync/osmosis-1-pruned.20231108.0910/iavl-v2-synced/ibc"})
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
-	err = tree.LoadVersion(12272529)
+	err = tree.LoadVersion(12257792)
+	require.NoError(t, err)
+}
+
+func Test_Replay(t *testing.T) {
+	const versions = int64(10)
+	itr, err := bench.ChangesetGenerator{
+		StoreKey:         "replay",
+		Seed:             1,
+		KeyMean:          20,
+		KeyStdDev:        3,
+		ValueMean:        20,
+		ValueStdDev:      3,
+		InitialSize:      20,
+		FinalSize:        50,
+		Versions:         versions,
+		ChangePerVersion: 4,
+		DeleteFraction:   0.25,
+	}.Iterator()
+	require.NoError(t, err)
+
+	pool := NewNodePool()
+	tmpDir := t.TempDir()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	require.NoError(t, err)
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
+
+	// we must buffer all sets/deletes and order them first in order for replay to work properly.
+	// store v1 and v2 already do this via cachekv.
+	// an insert/delete of the same key in the same version may produce a different hash in IAVL
+	// when replayed.  The key is skipped in replay, but could have rebalanced the tree (resulting a different shape)
+	// when the set/delete originally happened, so this is disallowed.  This is an important caveat of the replay feature.
+	var (
+		set  = make(map[[60]byte]*api.Node)
+		del  = make(map[[60]byte]struct{})
+		sets []*api.Node
+		dels [][]byte
+		k    [60]byte
+	)
+
+	for ; itr.Valid(); err = itr.Next() {
+		require.NoError(t, err)
+		changeset := itr.Nodes()
+		for ; changeset.Valid(); err = changeset.Next() {
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			copy(k[:], node.Key)
+			if node.Delete {
+				_, _, err := tree.Remove(node.Key)
+				require.NoError(t, err)
+				if _, ok := set[k]; !ok {
+					delete(set, k)
+				} else {
+					del[k] = struct{}{}
+				}
+			} else {
+				_, err := tree.Set(node.Key, node.Value)
+				require.NoError(t, err)
+				if _, ok := del[k]; ok {
+					delete(del, k)
+				}
+				set[k] = node
+			}
+		}
+		for _, node := range set {
+			sets = append(sets, node)
+		}
+		for d := range del {
+			dels = append(dels, d[:])
+		}
+		sort.Slice(sets, func(i, j int) bool {
+			return bytes.Compare(sets[i].Key, sets[j].Key) < 0
+		})
+		sort.Slice(dels, func(i, j int) bool {
+			return bytes.Compare(dels[i], dels[j]) < 0
+		})
+
+		for _, node := range sets {
+			_, err = tree.Set(node.Key, node.Value)
+			require.NoError(t, err)
+		}
+		for _, key := range dels {
+			_, _, err := tree.Remove(key)
+			require.NoError(t, err)
+		}
+
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tree.Close())
+
+	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	require.NoError(t, err)
+	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	err = tree.LoadVersion(5)
 	require.NoError(t, err)
 }

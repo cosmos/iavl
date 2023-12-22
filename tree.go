@@ -374,6 +374,7 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
 	}
+	//tree.sql.logger.Debug().Msgf("set key=%x value=%x", key, value)
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -491,6 +492,8 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.metricsProxy != nil {
 		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
 	}
+	//tree.sql.logger.Debug().Msgf("delete key=%x", key)
+
 	if tree.root == nil {
 		return nil, false, nil
 	}
