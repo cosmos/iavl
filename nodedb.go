@@ -422,58 +422,73 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
-	// Check if we have a legacy version
-	itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
-	if err != nil {
-		return err
-	}
-	defer itr.Close()
+	go func() {
+		// Check if we have a legacy version
+		itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
+		if err != nil {
+			ndb.logger.Error(err.Error())
+			return
+		}
+		defer itr.Close()
 
-	// Delete orphans for all legacy versions
-	var prevVersion, curVersion int64
-	var rootKeys [][]byte
-	for ; itr.Valid(); itr.Next() {
-		legacyRootKeyFormat.Scan(itr.Key(), &curVersion)
-		rootKeys = append(rootKeys, itr.Key())
-		if prevVersion > 0 {
-			if err := ndb.traverseOrphans(prevVersion, curVersion, func(orphan *Node) error {
+		// Delete orphans for all legacy versions
+		var prevVersion, curVersion int64
+		var rootKeys [][]byte
+		counter := 0
+		for ; itr.Valid(); itr.Next() {
+			legacyRootKeyFormat.Scan(itr.Key(), &curVersion)
+			rootKeys = append(rootKeys, itr.Key())
+			if prevVersion > 0 {
+				if err := ndb.traverseOrphans(prevVersion, curVersion, func(orphan *Node) error {
+					counter += 1
+					if counter == 1000 {
+						counter = 0
+						time.Sleep(100 * time.Millisecond)
+						fmt.Println("IAVL sleep happening")
+					}
+					return ndb.batch.Delete(ndb.nodeKey(orphan.GetKey()))
+				}); err != nil {
+					ndb.logger.Error(err.Error())
+					return
+				}
+			}
+			prevVersion = curVersion
+		}
+		// Delete the last version for the legacyLastVersion
+		if curVersion > 0 {
+			legacyLatestVersion, err := ndb.getLegacyLatestVersion()
+			if err != nil {
+				ndb.logger.Error(err.Error())
+				return
+			}
+			if curVersion != legacyLatestVersion {
+				ndb.logger.Error("expected legacyLatestVersion to be %d, got %d", legacyLatestVersion, curVersion)
+				return
+			}
+			if err := ndb.traverseOrphans(curVersion, curVersion+1, func(orphan *Node) error {
 				return ndb.batch.Delete(ndb.nodeKey(orphan.GetKey()))
 			}); err != nil {
-				return err
+				ndb.logger.Error("failed to clean legacy orphans between versions", "err", err)
+				return
 			}
 		}
-		prevVersion = curVersion
-	}
-	// Delete the last version for the legacyLastVersion
-	if curVersion > 0 {
-		legacyLatestVersion, err := ndb.getLegacyLatestVersion()
-		if err != nil {
-			return err
-		}
-		if curVersion != legacyLatestVersion {
-			return fmt.Errorf("expected legacyLatestVersion to be %d, got %d", legacyLatestVersion, curVersion)
-		}
-		if err := ndb.traverseOrphans(curVersion, curVersion+1, func(orphan *Node) error {
-			return ndb.batch.Delete(ndb.nodeKey(orphan.GetKey()))
-		}); err != nil {
-			return err
-		}
-	}
 
-	// Delete all roots of the legacy versions
-	for _, rootKey := range rootKeys {
-		if err := ndb.batch.Delete(rootKey); err != nil {
-			return err
+		// Delete all roots of the legacy versions
+		for _, rootKey := range rootKeys {
+			if err := ndb.batch.Delete(rootKey); err != nil {
+				ndb.logger.Error("failed to clean legacy orphans root keys", "err", err)
+				return
+			}
 		}
-	}
 
-	// Initialize the legacy latest version to -1 to demonstrate that all legacy versions have been deleted
-	ndb.legacyLatestVersion = -1
+		// Initialize the legacy latest version to -1 to demonstrate that all legacy versions have been deleted
+		ndb.legacyLatestVersion = -1
 
-	// Delete all orphan nodes of the legacy versions
-	go func() {
+		// Delete all orphan nodes of the legacy versions
+		// TODO: Is this just deadcode?????
 		if err := ndb.deleteOrphans(); err != nil {
 			ndb.logger.Error("failed to clean legacy orphans", "err", err)
+			return
 		}
 	}()
 
