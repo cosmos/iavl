@@ -420,9 +420,27 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 	return ndb.batch.Delete(ndb.legacyNodeKey(nk))
 }
 
+var isDeletingLegacyVersionsMutex *sync.Mutex
+var isDeletingLegacyVersions bool = false
+
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
+	isDeletingLegacyVersionsMutex.Lock()
+	if isDeletingLegacyVersions {
+		isDeletingLegacyVersionsMutex.Unlock()
+		return nil
+	} else {
+		isDeletingLegacyVersions = true
+		isDeletingLegacyVersionsMutex.Unlock()
+	}
+
 	go func() {
+		defer func() {
+			isDeletingLegacyVersionsMutex.Lock()
+			isDeletingLegacyVersions = false
+			isDeletingLegacyVersionsMutex.Unlock()
+		}()
+
 		// Check if we have a legacy version
 		itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
 		if err != nil {
