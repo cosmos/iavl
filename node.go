@@ -57,11 +57,15 @@ func GetRootKey(version int64) []byte {
 
 // Node represents a node in a Tree.
 type Node struct {
-	key           []byte
-	value         []byte
-	hash          []byte
-	nodeKey       *NodeKey
-	leftNodeKey   []byte
+	key     []byte
+	value   []byte
+	hash    []byte
+	nodeKey *NodeKey
+	// Legacy: LeftNodeHash
+	// v1: Left node ptr via Version/key
+	leftNodeKey []byte
+	// Legacy: RightNodeHash
+	// v1: Right node ptr via Version/key
 	rightNodeKey  []byte
 	size          int64
 	leftNode      *Node
