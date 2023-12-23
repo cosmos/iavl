@@ -443,7 +443,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 					counter += 1
 					if counter == 1000 {
 						counter = 0
-						time.Sleep(100 * time.Millisecond)
+						time.Sleep(1000 * time.Millisecond)
 						fmt.Println("IAVL sleep happening")
 					}
 					return ndb.batch.Delete(ndb.nodeKey(orphan.GetKey()))
