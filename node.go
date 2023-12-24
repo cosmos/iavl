@@ -328,6 +328,9 @@ func (node *Node) cloneNoChildFetch(tree *MutableTree) (*Node, error) {
 	if node.isLeaf() {
 		return nil, ErrCloneLeafNode
 	}
+	// match compatability with old by clearing original node's pointer ref's. I don't really get why this is needed.
+	leftNode, rightNode := node.leftNode, node.rightNode
+	node.leftNode, node.rightNode = nil, nil
 
 	return &Node{
 		key:           node.key,
@@ -335,6 +338,8 @@ func (node *Node) cloneNoChildFetch(tree *MutableTree) (*Node, error) {
 		size:          node.size,
 		hash:          nil,
 		nodeKey:       nil,
+		leftNode:      leftNode,
+		rightNode:     rightNode,
 		leftNodeKey:   node.leftNodeKey,
 		rightNodeKey:  node.rightNodeKey,
 	}, nil
