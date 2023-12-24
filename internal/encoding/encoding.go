@@ -97,6 +97,23 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 	return err
 }
 
+var hashLenBz []byte
+
+func init() {
+	hashLenBz = make([]byte, 1)
+	binary.PutUvarint(hashLenBz, 32)
+}
+
+// Encode 32 byte long hash
+func Encode32BytesHash(w io.Writer, bz []byte) error {
+	_, err := w.Write(hashLenBz)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(bz)
+	return err
+}
+
 // encodeBytesSlice length-prefixes the byte slice and returns it.
 func EncodeBytesSlice(bz []byte) ([]byte, error) {
 	buf := bufPool.Get().(*bytes.Buffer)

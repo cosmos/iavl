@@ -266,34 +266,8 @@ func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error)
 func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
-	version := tree.version + 1
-
 	if node.isLeaf() {
-		if !tree.skipFastStorageUpgrade {
-			tree.addUnsavedAddition(key, fastnode.NewNode(key, value, version))
-		}
-		switch bytes.Compare(key, node.key) {
-		case -1: // setKey < leafKey
-			return &Node{
-				key:           node.key,
-				subtreeHeight: 1,
-				size:          2,
-				nodeKey:       nil,
-				leftNode:      NewNode(key, value),
-				rightNode:     node,
-			}, false, nil
-		case 1: // setKey > leafKey
-			return &Node{
-				key:           key,
-				subtreeHeight: 1,
-				size:          2,
-				nodeKey:       nil,
-				leftNode:      node,
-				rightNode:     NewNode(key, value),
-			}, false, nil
-		default:
-			return NewNode(key, value), true, nil
-		}
+		return tree.recursiveSetLeaf(node, key, value)
 	} else {
 		node, err = node.clone(tree)
 		if err != nil {
@@ -324,6 +298,37 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 			return nil, false, err
 		}
 		return newNode, updated, err
+	}
+}
+
+func (tree *MutableTree) recursiveSetLeaf(node *Node, key []byte, value []byte) (
+	newSelf *Node, updated bool, err error,
+) {
+	version := tree.version + 1
+	if !tree.skipFastStorageUpgrade {
+		tree.addUnsavedAddition(key, fastnode.NewNode(key, value, version))
+	}
+	switch bytes.Compare(key, node.key) {
+	case -1: // setKey < leafKey
+		return &Node{
+			key:           node.key,
+			subtreeHeight: 1,
+			size:          2,
+			nodeKey:       nil,
+			leftNode:      NewNode(key, value),
+			rightNode:     node,
+		}, false, nil
+	case 1: // setKey > leafKey
+		return &Node{
+			key:           key,
+			subtreeHeight: 1,
+			size:          2,
+			nodeKey:       nil,
+			leftNode:      node,
+			rightNode:     NewNode(key, value),
+		}, false, nil
+	default:
+		return NewNode(key, value), true, nil
 	}
 }
 
