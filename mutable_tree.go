@@ -267,10 +267,10 @@ func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error)
 func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
+	fmt.Println("Recursive Set cur_node=", string(node.key))
 	if node.isLeaf() {
 		return tree.recursiveSetLeaf(node, key, value)
 	}
-	fmt.Println("Recursive Set", node.key)
 	node, err = node.clone(tree)
 	if err != nil {
 		return nil, false, err
@@ -313,7 +313,7 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 func (tree *MutableTree) recursiveSetLeaf(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
-	fmt.Println("Recursive Set Leaf", node.key)
+	fmt.Println("Recursive Set Leaf, leaf node key=", string(node.key))
 	version := tree.version + 1
 	if !tree.skipFastStorageUpgrade {
 		tree.addUnsavedAddition(key, fastnode.NewNode(key, value, version))
@@ -350,10 +350,10 @@ func (tree *MutableTree) recursiveSetLeaf(node *Node, key []byte, value []byte) 
 func (tree *MutableTree) recursiveSetLegacy(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
+	fmt.Println("Recursive Set Legacy cur_node=", string(node.key))
 	if node.isLeaf() {
 		return tree.recursiveSetLeaf(node, key, value)
 	}
-	fmt.Println("Recursive Set Legacy", string(node.key))
 	node, err = node.cloneNoChildFetch(tree)
 	if err != nil {
 		return nil, false, err
@@ -425,7 +425,7 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 // - the removed value
 func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
 	tree.logger.Debug("recursiveRemove", "node", node, "key", key)
-	fmt.Println("Recursive remove", string(node.key))
+	fmt.Println("Recursive remove cur_node=", string(node.key))
 	if node.isLeaf() {
 
 		if bytes.Equal(key, node.key) {
