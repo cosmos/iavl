@@ -161,6 +161,7 @@ func (tree *MutableTree) String() (string, error) {
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
 func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
+	fmt.Println("Set", key)
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -268,50 +269,51 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 ) {
 	if node.isLeaf() {
 		return tree.recursiveSetLeaf(node, key, value)
-	} else {
-		node, err = node.clone(tree)
-		if err != nil {
-			return nil, false, err
-		}
-
-		if bytes.Compare(key, node.key) < 0 {
-			if len(node.leftNodeKey) == 32 {
-				node.leftNode, updated, err = tree.recursiveSetLegacy(node.leftNode, key, value)
-			} else {
-				node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
-			}
-			if err != nil {
-				return nil, updated, err
-			}
-		} else {
-			if len(node.rightNodeKey) == 32 {
-				node.rightNode, updated, err = tree.recursiveSetLegacy(node.rightNode, key, value)
-			} else {
-				node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
-			}
-			if err != nil {
-				return nil, updated, err
-			}
-		}
-
-		if updated {
-			return node, updated, nil
-		}
-		err = node.calcHeightAndSize(tree.ImmutableTree)
-		if err != nil {
-			return nil, false, err
-		}
-		newNode, err := tree.balance(node)
-		if err != nil {
-			return nil, false, err
-		}
-		return newNode, updated, err
 	}
+	fmt.Println("Recursive Set", node.key)
+	node, err = node.clone(tree)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if bytes.Compare(key, node.key) < 0 {
+		if len(node.leftNodeKey) == 32 {
+			node.leftNode, updated, err = tree.recursiveSetLegacy(node.leftNode, key, value)
+		} else {
+			node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
+		}
+		if err != nil {
+			return nil, updated, err
+		}
+	} else {
+		if len(node.rightNodeKey) == 32 {
+			node.rightNode, updated, err = tree.recursiveSetLegacy(node.rightNode, key, value)
+		} else {
+			node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
+		}
+		if err != nil {
+			return nil, updated, err
+		}
+	}
+
+	if updated {
+		return node, updated, nil
+	}
+	err = node.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, false, err
+	}
+	newNode, err := tree.balance(node)
+	if err != nil {
+		return nil, false, err
+	}
+	return newNode, updated, err
 }
 
 func (tree *MutableTree) recursiveSetLeaf(node *Node, key []byte, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
+	fmt.Println("Recursive Set Leaf", node.key)
 	version := tree.version + 1
 	if !tree.skipFastStorageUpgrade {
 		tree.addUnsavedAddition(key, fastnode.NewNode(key, value, version))
@@ -350,46 +352,46 @@ func (tree *MutableTree) recursiveSetLegacy(node *Node, key []byte, value []byte
 ) {
 	if node.isLeaf() {
 		return tree.recursiveSetLeaf(node, key, value)
-	} else {
-		node, err = node.cloneNoChildFetch(tree)
-		if err != nil {
-			return nil, false, err
-		}
-
-		recurseLeft := false
-		if bytes.Compare(key, node.key) < 0 {
-			recurseLeft = true
-		}
-		child, err := node.fetchOneChild(tree, recurseLeft)
-		if err != nil {
-			return nil, false, err
-		}
-
-		newChild, updated, err := tree.recursiveSetLegacy(child, key, value)
-		if err != nil {
-			return nil, updated, err
-		}
-		if recurseLeft {
-			node.leftNode = newChild
-		} else {
-			node.rightNode = newChild
-		}
-
-		if updated {
-			return node, updated, nil
-		}
-		node.fetchOneChild(tree, !recurseLeft)
-
-		err = node.calcHeightAndSize(tree.ImmutableTree)
-		if err != nil {
-			return nil, false, err
-		}
-		newNode, err := tree.balance(node)
-		if err != nil {
-			return nil, false, err
-		}
-		return newNode, updated, err
 	}
+	fmt.Println("Recursive Set Legacy", string(node.key))
+	node, err = node.cloneNoChildFetch(tree)
+	if err != nil {
+		return nil, false, err
+	}
+
+	recurseLeft := false
+	if bytes.Compare(key, node.key) < 0 {
+		recurseLeft = true
+	}
+	child, err := node.fetchOneChild(tree, recurseLeft)
+	if err != nil {
+		return nil, false, err
+	}
+
+	newChild, updated, err := tree.recursiveSetLegacy(child, key, value)
+	if err != nil {
+		return nil, updated, err
+	}
+	if recurseLeft {
+		node.leftNode = newChild
+	} else {
+		node.rightNode = newChild
+	}
+
+	if updated {
+		return node, updated, nil
+	}
+	node.fetchOneChild(tree, !recurseLeft)
+
+	err = node.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, false, err
+	}
+	newNode, err := tree.balance(node)
+	if err != nil {
+		return nil, false, err
+	}
+	return newNode, updated, err
 }
 
 // Remove removes a key from the working tree. The given key byte slice should not be modified
@@ -398,6 +400,7 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.root == nil {
 		return nil, false, nil
 	}
+	fmt.Println("Remove", string(key))
 	newRoot, _, value, removed, err := tree.recursiveRemove(tree.root, key)
 	if err != nil {
 		return nil, false, err
@@ -422,7 +425,9 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 // - the removed value
 func (tree *MutableTree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
 	tree.logger.Debug("recursiveRemove", "node", node, "key", key)
+	fmt.Println("Recursive remove", string(node.key))
 	if node.isLeaf() {
+
 		if bytes.Equal(key, node.key) {
 			return nil, nil, node.value, true, nil
 		}
