@@ -275,12 +275,20 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 		}
 
 		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
+			if len(node.leftNodeKey) == 32 {
+				node.leftNode, updated, err = tree.recursiveSetLegacy(node.leftNode, key, value)
+			} else {
+				node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
+			}
 			if err != nil {
 				return nil, updated, err
 			}
 		} else {
-			node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
+			if len(node.rightNodeKey) == 32 {
+				node.rightNode, updated, err = tree.recursiveSetLegacy(node.rightNode, key, value)
+			} else {
+				node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
+			}
 			if err != nil {
 				return nil, updated, err
 			}
@@ -329,6 +337,58 @@ func (tree *MutableTree) recursiveSetLeaf(node *Node, key []byte, value []byte) 
 		}, false, nil
 	default:
 		return NewNode(key, value), true, nil
+	}
+}
+
+// recursiveSetLegacy is the same as recursiveSet but takes an optimization where
+// if you are updating an existing leaf, you do not need to get both children, you only need one child.
+//
+// This operates on the assumption that when recursiveSet enters a legacy node,
+// all of the legacy nodes children will be legacy nodes.
+func (tree *MutableTree) recursiveSetLegacy(node *Node, key []byte, value []byte) (
+	newSelf *Node, updated bool, err error,
+) {
+	if node.isLeaf() {
+		return tree.recursiveSetLeaf(node, key, value)
+	} else {
+		node, err = node.cloneNoChildFetch(tree)
+		if err != nil {
+			return nil, false, err
+		}
+
+		recurseLeft := false
+		if bytes.Compare(key, node.key) < 0 {
+			recurseLeft = true
+		}
+		child, err := node.fetchOneChild(tree, recurseLeft)
+		if err != nil {
+			return nil, false, err
+		}
+
+		newChild, updated, err := tree.recursiveSetLegacy(child, key, value)
+		if err != nil {
+			return nil, updated, err
+		}
+		if recurseLeft {
+			node.leftNode = newChild
+		} else {
+			node.rightNode = newChild
+		}
+
+		if updated {
+			return node, updated, nil
+		}
+		node.fetchOneChild(tree, !recurseLeft)
+
+		err = node.calcHeightAndSize(tree.ImmutableTree)
+		if err != nil {
+			return nil, false, err
+		}
+		newNode, err := tree.balance(node)
+		if err != nil {
+			return nil, false, err
+		}
+		return newNode, updated, err
 	}
 }
 

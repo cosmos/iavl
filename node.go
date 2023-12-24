@@ -323,6 +323,43 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 	}, nil
 }
 
+// cloneNoChildFetch clones a node without fetching its children.
+func (node *Node) cloneNoChildFetch(tree *MutableTree) (*Node, error) {
+	if node.isLeaf() {
+		return nil, ErrCloneLeafNode
+	}
+
+	return &Node{
+		key:           node.key,
+		subtreeHeight: node.subtreeHeight,
+		size:          node.size,
+		hash:          nil,
+		nodeKey:       nil,
+		leftNodeKey:   node.leftNodeKey,
+		rightNodeKey:  node.rightNodeKey,
+	}, nil
+}
+
+func (node *Node) fetchOneChild(tree *MutableTree, left bool) (*Node, error) {
+	var err error
+	var child *Node
+	if left {
+		child, err = node.getLeftNode(tree.ImmutableTree)
+		if err != nil {
+			return nil, err
+		}
+		node.leftNode = child
+		return child, nil
+	}
+	child, err = node.getRightNode(tree.ImmutableTree)
+	if err != nil {
+		return nil, err
+	}
+	node.rightNode = child
+
+	return child, nil
+}
+
 func (node *Node) isLeaf() bool {
 	return node.subtreeHeight == 0
 }
@@ -629,7 +666,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 			return fmt.Errorf("writing mode, %w", err)
 		}
 		if mode&ModeLegacyLeftNode != 0 { // legacy leftNodeKey
-			err = encoding.EncodeBytes(w, node.leftNodeKey)
+			err = encoding.Encode32BytesHash(w, node.leftNodeKey)
 			if err != nil {
 				return fmt.Errorf("writing the legacy left node key, %w", err)
 			}
@@ -648,7 +685,7 @@ func (node *Node) writeBytes(w io.Writer) error {
 			return ErrRightNodeKeyEmpty
 		}
 		if mode&ModeLegacyRightNode != 0 { // legacy rightNodeKey
-			err = encoding.EncodeBytes(w, node.rightNodeKey)
+			err = encoding.Encode32BytesHash(w, node.rightNodeKey)
 			if err != nil {
 				return fmt.Errorf("writing the legacy right node key, %w", err)
 			}
