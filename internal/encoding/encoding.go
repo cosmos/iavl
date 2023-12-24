@@ -30,6 +30,7 @@ var uvarintPool = &sync.Pool{
 
 // decodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
 // of input bytes read.
+// Assumes bz will not be mutated.
 func DecodeBytes(bz []byte) ([]byte, int, error) {
 	s, n, err := DecodeUvarint(bz)
 	if err != nil {
@@ -51,9 +52,9 @@ func DecodeBytes(bz []byte) ([]byte, int, error) {
 	if len(bz) < end {
 		return nil, n, fmt.Errorf("insufficient bytes decoding []byte of length %v", size)
 	}
-	bz2 := make([]byte, size)
-	copy(bz2, bz[n:end])
-	return bz2, end, nil
+	// bz2 := make([]byte, size)
+	// copy(bz2, bz[n:end])
+	return bz[n:end], end, nil
 }
 
 // decodeUvarint decodes a varint-encoded unsigned integer from a byte slice, returning it and the
