@@ -350,7 +350,7 @@ func (tree *MutableTree) recursiveSetLegacy(node *Node, key []byte, value []byte
 	if node.isLeaf() {
 		return tree.recursiveSetLeaf(node, key, value)
 	}
-	node, err = node.cloneNoChildFetch(tree)
+	node, err = node.cloneNoChildFetch()
 	if err != nil {
 		return nil, false, err
 	}
@@ -377,7 +377,10 @@ func (tree *MutableTree) recursiveSetLegacy(node *Node, key []byte, value []byte
 	if updated {
 		return node, updated, nil
 	}
-	node.fetchOneChild(tree, !recurseLeft)
+	_, err = node.fetchOneChild(tree, !recurseLeft)
+	if err != nil {
+		return nil, false, err
+	}
 
 	err = node.calcHeightAndSize(tree.ImmutableTree)
 	if err != nil {

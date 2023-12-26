@@ -324,11 +324,11 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 }
 
 // cloneNoChildFetch clones a node without fetching its children.
-func (node *Node) cloneNoChildFetch(tree *MutableTree) (*Node, error) {
+func (node *Node) cloneNoChildFetch() (*Node, error) {
 	if node.isLeaf() {
 		return nil, ErrCloneLeafNode
 	}
-	// match compatability with old by clearing original node's pointer ref's. I don't really get why this is needed.
+	// match compatibility with old by clearing original node's pointer ref's. I don't really get why this is needed.
 	var leftNode, rightNode *Node
 	if node.nodeKey != nil {
 		leftNode, rightNode = node.leftNode, node.rightNode
