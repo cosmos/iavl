@@ -420,8 +420,10 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 	return ndb.batch.Delete(ndb.legacyNodeKey(nk))
 }
 
-var isDeletingLegacyVersionsMutex *sync.Mutex = &sync.Mutex{}
-var isDeletingLegacyVersions = false
+var (
+	isDeletingLegacyVersionsMutex = &sync.Mutex{}
+	isDeletingLegacyVersions      = false
+)
 
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
