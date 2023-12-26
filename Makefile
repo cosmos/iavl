@@ -48,11 +48,6 @@ lint-fix:
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
 	@$(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
 
-lint-all:
-	@echo "--> Running linter"
-	@go run github.com/golangci/golangci-lint/cmd/golangci-lint run --timeout=10m
-	@docker run -v $(PWD):/workdir ghcr.io/igorshubovych/markdownlint-cli:latest "**/*.md"
-
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
 	cd benchmarks && \
