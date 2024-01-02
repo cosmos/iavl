@@ -427,7 +427,7 @@ func Test_Replay_Tmp(t *testing.T) {
 }
 
 func Test_Replay(t *testing.T) {
-	const versions = int64(10)
+	const versions = int64(1_000)
 	itr, err := bench.ChangesetGenerator{
 		StoreKey:         "replay",
 		Seed:             1,
@@ -436,10 +436,10 @@ func Test_Replay(t *testing.T) {
 		ValueMean:        20,
 		ValueStdDev:      3,
 		InitialSize:      20,
-		FinalSize:        50,
+		FinalSize:        500,
 		Versions:         versions,
-		ChangePerVersion: 4,
-		DeleteFraction:   0.25,
+		ChangePerVersion: 10,
+		DeleteFraction:   0.2,
 	}.Iterator()
 	require.NoError(t, err)
 
@@ -447,7 +447,7 @@ func Test_Replay(t *testing.T) {
 	tmpDir := t.TempDir()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 
 	// we must buffer all sets/deletes and order them first for replay to work properly.
 	// store v1 and v2 already do this via cachekv write buffering.
@@ -470,15 +470,13 @@ func Test_Replay(t *testing.T) {
 			node := changeset.GetNode()
 			copy(k[:], node.Key)
 			if node.Delete {
-				_, _, err := tree.Remove(node.Key)
 				require.NoError(t, err)
-				if _, ok := set[k]; !ok {
+				if _, ok := set[k]; ok {
 					delete(set, k)
 				} else {
 					del[k] = struct{}{}
 				}
 			} else {
-				_, err := tree.Set(node.Key, node.Value)
 				require.NoError(t, err)
 				if _, ok := del[k]; ok {
 					delete(del, k)
@@ -486,11 +484,13 @@ func Test_Replay(t *testing.T) {
 				set[k] = node
 			}
 		}
-		for _, node := range set {
+		for sk, node := range set {
 			sets = append(sets, node)
+			delete(set, sk)
 		}
-		for d := range del {
-			dels = append(dels, d[:])
+		for dk := range del {
+			dels = append(dels, dk[:])
+			delete(del, dk)
 		}
 		sort.Slice(sets, func(i, j int) bool {
 			return bytes.Compare(sets[i].Key, sets[j].Key) < 0
@@ -503,10 +503,12 @@ func Test_Replay(t *testing.T) {
 			_, err = tree.Set(node.Key, node.Value)
 			require.NoError(t, err)
 		}
+		sets = sets[:0]
 		for _, key := range dels {
 			_, _, err := tree.Remove(key)
 			require.NoError(t, err)
 		}
+		dels = dels[:0]
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(t, err)
@@ -516,7 +518,20 @@ func Test_Replay(t *testing.T) {
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
+
 	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
 	err = tree.LoadVersion(5)
+	require.NoError(t, err)
+
+	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	err = tree.LoadVersion(99)
+	require.NoError(t, err)
+
+	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	err = tree.LoadVersion(555)
+	require.NoError(t, err)
+
+	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	err = tree.LoadVersion(1000)
 	require.NoError(t, err)
 }
