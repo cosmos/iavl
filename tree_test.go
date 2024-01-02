@@ -449,8 +449,8 @@ func Test_Replay(t *testing.T) {
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
 
-	// we must buffer all sets/deletes and order them first in order for replay to work properly.
-	// store v1 and v2 already do this via cachekv.
+	// we must buffer all sets/deletes and order them first for replay to work properly.
+	// store v1 and v2 already do this via cachekv write buffering.
 	// an insert/delete of the same key in the same version may produce a different hash in IAVL
 	// when replayed.  The key is skipped in replay, but could have rebalanced the tree (resulting a different shape)
 	// when the set/delete originally happened, so this is disallowed.  This is an important caveat of the replay feature.
