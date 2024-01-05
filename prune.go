@@ -74,8 +74,8 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 			w.leafResult <- res
 		case <-ctx.Done():
 			return nil
-		default:
-			time.Sleep(10 * time.Microsecond)
+			//default:
+			//time.Sleep(10 * time.Microsecond)
 			// prune
 		}
 	}
@@ -87,7 +87,9 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		pruneVersion     int64
 		orphanQuery      *sqlite3.Stmt
 		pruneCount       int64
+		pruneTick        = time.NewTicker(10 * time.Microsecond)
 	)
+	pruneTick.Stop()
 	for {
 		select {
 		case sig := <-w.treeCh:
@@ -112,11 +114,11 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				}
 				pruneVersion = sig.pruneVersion
 			}
+			pruneTick.Reset(10 * time.Microsecond)
 		case <-ctx.Done():
 			return nil
-		default:
+		case <-pruneTick.C:
 			if orphanQuery == nil {
-				time.Sleep(10 * time.Microsecond)
 				// nothing to do
 				continue
 			}
@@ -158,6 +160,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				pruneVersion = nextPruneVersion
 				nextPruneVersion = 0
 			} else {
+				pruneTick.Stop()
 				orphanQuery = nil
 				pruneVersion = 0
 			}
