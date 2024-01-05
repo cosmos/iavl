@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -41,11 +42,15 @@ type SqliteDb struct {
 	readConn  *sqlite3.Conn
 	queryLeaf *sqlite3.Stmt
 
-	versions     *VersionRange
+	shards       *VersionRange
 	shardQueries map[int64]*sqlite3.Stmt
 
 	metrics *metrics.TreeMetrics
 	logger  zerolog.Logger
+
+	pruningLock   sync.Mutex
+	tableSwapLock sync.Mutex
+	pruneCh       chan pruneSignal
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -55,9 +60,9 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.MmapSize == 0 {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
-	// if opts.ConnArgs == "" {
-	// 	opts.ConnArgs = "cache=shared"
-	// }
+	if opts.ConnArgs == "" {
+		opts.ConnArgs = "cache=shared"
+	}
 	if opts.Metrics == nil {
 		opts.Metrics = &metrics.TreeMetrics{}
 	}
@@ -128,13 +133,14 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
 	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
 	sql := &SqliteDb{
-		versions:     &VersionRange{},
+		shards:       &VersionRange{},
 		shardQueries: make(map[int64]*sqlite3.Stmt),
 		iterators:    make(map[int]*sqlite3.Stmt),
 		opts:         opts,
 		pool:         pool,
 		metrics:      opts.Metrics,
 		logger:       logger,
+		pruneCh:      make(chan pruneSignal),
 	}
 
 	if !api.IsFileExistent(opts.Path) {
@@ -188,7 +194,14 @@ func (sql *SqliteDb) init() error {
 	}
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
-CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob, checkpoint bool, PRIMARY KEY (version))`)
+CREATE TABLE orphan (version int, sequence int);
+CREATE TABLE root (
+	version int, 
+	node_version int, 
+	node_sequence int, 
+	bytes blob, 
+	checkpoint bool, 
+	PRIMARY KEY (version))`)
 		if err != nil {
 			return err
 		}
@@ -215,7 +228,7 @@ CREATE TABLE root (version int, node_version int, node_sequence int, bytes blob,
 	if !hasRow {
 		err = sql.leafWrite.Exec(`
 CREATE TABLE latest (key blob, value blob, PRIMARY KEY (key));
-CREATE TABLE leaf (version int, sequence int, bytes blob);
+CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned bool);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));`)
 		if err != nil {
 			return err
@@ -328,7 +341,7 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	}
 	hasRow, err := q.Step()
 	if !hasRow {
-		return nil, fmt.Errorf("node not found: %v; shard=%d", nodeKey, sql.versions.Find(nodeKey.Version()))
+		return nil, fmt.Errorf("node not found: %v; shard=%d", nodeKey, sql.shards.Find(nodeKey.Version()))
 	}
 	if err != nil {
 		return nil, err
@@ -357,15 +370,13 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 }
 
 func (sql *SqliteDb) Get(nodeKey NodeKey) (*Node, error) {
+	sql.tableSwapLock.Lock()
+	defer sql.tableSwapLock.Unlock()
 	q, err := sql.getShardQuery(nodeKey.Version())
 	if err != nil {
 		return nil, err
 	}
 	return sql.getNode(nodeKey, q)
-}
-
-func (sql *SqliteDb) Delete(nodeKey []byte) error {
-	return nil
 }
 
 func (sql *SqliteDb) Close() error {
@@ -398,11 +409,11 @@ func (sql *SqliteDb) Close() error {
 func (sql *SqliteDb) NextShard(version int64) error {
 	sql.logger.Info().Msgf("creating shard %d", version)
 
-	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob);", version))
+	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob, orphaned bool);", version))
 	if err != nil {
 		return err
 	}
-	return err
+	return sql.shards.Add(version)
 }
 
 func (sql *SqliteDb) IndexShard(shardId int64) error {
@@ -465,7 +476,7 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 		return nil, err
 	}
 	// TODO this placement seems wrong?
-	if err := sql.resetShardQueries(); err != nil {
+	if err := sql.ResetShardQueries(); err != nil {
 		return nil, err
 	}
 	if err := conn.Close(); err != nil {
@@ -506,7 +517,7 @@ func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error
 }
 
 func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
-	v := sql.versions.Find(version)
+	v := sql.shards.Find(version)
 	if v == -1 {
 		return nil, fmt.Errorf("version %d is before the first shard", version)
 	}
@@ -523,7 +534,7 @@ func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
 	return q, nil
 }
 
-func (sql *SqliteDb) resetShardQueries() error {
+func (sql *SqliteDb) ResetShardQueries() error {
 	for k, q := range sql.shardQueries {
 		err := q.Close()
 		if err != nil {
@@ -532,7 +543,7 @@ func (sql *SqliteDb) resetShardQueries() error {
 		delete(sql.shardQueries, k)
 	}
 
-	sql.versions = &VersionRange{}
+	sql.shards = &VersionRange{}
 
 	if sql.readConn == nil {
 		if err := sql.resetReadConn(); err != nil {
@@ -561,7 +572,7 @@ func (sql *SqliteDb) resetShardQueries() error {
 		if err != nil {
 			return err
 		}
-		if err = sql.versions.Add(int64(shardVersion)); err != nil {
+		if err = sql.shards.Add(int64(shardVersion)); err != nil {
 			return err
 		}
 	}
@@ -817,4 +828,232 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 
 	sql.iterators[idx] = stmt
 	return stmt, idx, err
+}
+
+// DeleteVersionsTo deletes all nodes with version up to and including the given version.  changelog entries with
+// version > toVersion but prior to the next checkpoint are not removed.
+func (sql *SqliteDb) DeleteVersionsTo(toVersion int64) error {
+	start := time.Now()
+	if err := sql.treeWrite.Exec("CREATE INDEX IF NOT EXISTS orphan_idx ON orphan (version, sequence);"); err != nil {
+		return err
+	}
+	sql.logger.Info().Msgf("created orphan_idx in %s", time.Since(start))
+	var checkpointVersion int64
+	if err := sql.treeWrite.Begin(); err != nil {
+		return err
+	}
+	for _, v := range sql.shards.versions {
+		if v > toVersion {
+			break
+		}
+		if err := sql.treeWrite.Exec(fmt.Sprintf(`
+		DELETE FROM tree_%d
+		WHERE ROWID IN (
+		    SELECT t.ROWID
+		    FROM orphan o
+		    INNER JOIN tree_1 t ON t.version = o.version AND t.sequence = o.sequence
+		);`, v)); err != nil {
+			return err
+		}
+
+		//if err := sql.treeWrite.Exec(fmt.Sprintf("DELETE FROM tree_%d WHERE orphaned = true", v)); err != nil {
+		//	return err
+		//}
+		if err := sql.treeWrite.Exec("DELETE FROM root WHERE version <= ?", v); err != nil {
+			return err
+		}
+		checkpointVersion = v
+	}
+
+	if err := sql.leafWrite.Exec("DELETE FROM leaf WHERE version <= ? AND orphaned = true", checkpointVersion); err != nil {
+		return err
+	}
+
+	// TODO: handle leaf_delete table
+
+	if err := sql.treeWrite.Exec("DELETE FROM orphan WHERE version <= ?", checkpointVersion); err != nil {
+		return err
+	}
+
+	if err := sql.treeWrite.Commit(); err != nil {
+		return err
+	}
+
+	if err := sql.treeWrite.Exec("DROP INDEX orphan_idx;"); err != nil {
+		return err
+	}
+
+	sql.logger.Info().Msgf("pruned versions <= %d in %s", toVersion, time.Since(start))
+
+	return nil
+}
+
+func (sql *SqliteDb) DeleteVersionsTo_v2(toVersion int64) error {
+	start := time.Now()
+	//if err := sql.treeWrite.Exec("CREATE INDEX IF NOT EXISTS orphan_idx ON orphan (version, sequence);"); err != nil {
+	//	return err
+	//}
+	//sql.logger.Info().Msgf("created orphan_idx in %s", time.Since(start))
+	var checkpointVersion int64
+
+	//if err := sql.treeWrite.Begin(); err != nil {
+	//	return err
+	//}
+
+	conn, err := sqlite3.Open(sql.opts.treeConnectionString())
+	if err != nil {
+		return err
+	}
+
+	shardQuery, err := conn.Prepare("SELECT * FROM orphan WHERE version <= ?", toVersion)
+	if err != nil {
+		return err
+	}
+
+	since := time.Now()
+	var (
+		version  int64
+		sequence int
+	)
+	deleteStmts := make(map[int64]*sqlite3.Stmt)
+	for {
+		hasRow, err := shardQuery.Step()
+		if err != nil {
+			return err
+		}
+		if !hasRow {
+			break
+		}
+		err = shardQuery.Scan(&version, &sequence)
+		if err != nil {
+			return err
+		}
+		cv := sql.shards.FindMemoized(version)
+		if cv == -1 {
+			return fmt.Errorf("checkpont for version %d not found", version)
+		}
+		stmt, ok := deleteStmts[cv]
+		if !ok {
+			sqlStmt := fmt.Sprintf("DELETE FROM tree_%d WHERE version = ? AND sequence = ?", cv)
+			stmt, err = conn.Prepare(sqlStmt)
+			if err != nil {
+				return err
+			}
+			deleteStmts[cv] = stmt
+		}
+		if err := stmt.Exec(version, sequence); err != nil {
+			return err
+		}
+		if err := stmt.Reset(); err != nil {
+			return err
+		}
+		if cv > checkpointVersion {
+			checkpointVersion = cv
+		}
+	}
+
+	if err := shardQuery.Close(); err != nil {
+		return err
+	}
+
+	for _, stmt := range deleteStmts {
+		if err := stmt.Close(); err != nil {
+			return err
+		}
+	}
+	sql.logger.Info().Msgf("deleted orphaned nodes in %s", time.Since(since))
+
+	//if err := sql.leafWrite.Exec("DELETE FROM leaf WHERE version <= ? AND orphaned = true", checkpointVersion); err != nil {
+	//	return err
+	//}
+	//sql.logger.Info().Msgf("deleted orphaned leaves in %s", time.Since(since))
+	//since = time.Now()
+	//
+	// TODO: handle leaf_delete table
+
+	//if err := sql.treeWrite.Exec("DELETE FROM orphan WHERE version <= ?", checkpointVersion); err != nil {
+	//	return err
+	//}
+	//sql.logger.Info().Msgf("deleted orphans in %s", time.Since(since))
+
+	//if err := sql.treeWrite.Exec("DROP INDEX orphan_idx;"); err != nil {
+	//	return err
+	//}
+
+	//if err := sql.treeWrite.Commit(); err != nil {
+	//	return err
+	//}
+
+	sql.logger.Info().Msgf("pruned versions <= %d in %s", toVersion, time.Since(start))
+
+	return nil
+}
+
+func (sql *SqliteDb) DeleteVersionsTo_V3(toVersion int64) error {
+	// TODO try a new connection
+	// review: https://www.sqlite.org/isolation.html
+	var (
+		start    = time.Now()
+		versions []int64
+	)
+	conn, err := sqlite3.Open(sql.opts.treeConnectionString())
+	if err != nil {
+		return err
+	}
+
+	sql.pruningLock.Lock()
+	defer sql.pruningLock.Unlock()
+
+	if err := conn.Exec("CREATE INDEX IF NOT EXISTS orphan_idx ON orphan (version, sequence);"); err != nil {
+		return err
+	}
+	sql.logger.Info().Msgf("created orphan_idx in %s", time.Since(start))
+
+	since := time.Now()
+	for _, v := range sql.shards.versions {
+		if v > toVersion {
+			break
+		}
+		versions = append(versions, v)
+		if err := conn.Exec(fmt.Sprintf(
+			"CREATE TABLE tree_%d_pruned (version int, sequence int, bytes blob, orphaned bool);", v)); err != nil {
+			return fmt.Errorf("failed to create pruned table version=%d path=%s: %w", v, sql.opts.Path, err)
+		}
+		if err := conn.Exec(fmt.Sprintf(`
+INSERT INTO tree_%d_pruned (version, sequence, bytes) 
+SELECT t.version, t.sequence, t.bytes
+FROM tree_%d t
+LEFT JOIN orphan o ON o.version = t.version AND o.sequence = t.sequence
+WHERE o.version IS NULL;`, v, v)); err != nil {
+			return err
+		}
+		if err := conn.Exec(fmt.Sprintf("CREATE INDEX tree_%d_idx_%d ON tree_%d_pruned (version, sequence);",
+			v, time.Now().UnixMilli(), v)); err != nil {
+			return fmt.Errorf("failed to create index version=%d path=%s: %w", v, sql.opts.Path, err)
+		}
+	}
+	sql.logger.Info().Msgf("copied nodes > %d in %s", toVersion, time.Since(since))
+	sql.tableSwapLock.Lock()
+	defer sql.tableSwapLock.Unlock()
+	for _, v := range versions {
+		if err := conn.Exec(fmt.Sprintf("DROP TABLE tree_%d", v)); err != nil {
+			return fmt.Errorf("failed to drop table version=%d path=%s: %w", v, sql.opts.Path, err)
+		}
+		if err := conn.Exec(fmt.Sprintf("ALTER TABLE tree_%d_pruned RENAME TO tree_%d", v, v)); err != nil {
+			return fmt.Errorf("failed to rename table version=%d path=%s: %w", v, sql.opts.Path, err)
+		}
+	}
+	if err := conn.Exec("DROP INDEX orphan_idx;"); err != nil {
+		return err
+	}
+	//sql.shards = &VersionRange{}
+	//if err := sql.ResetShardQueries(); err != nil {
+	//	return err
+	//}
+
+	// TODO need to synchronously back fill leaves since prune copy
+
+	sql.logger.Info().Msgf("pruned versions <= %d in %s", toVersion, time.Since(start))
+
+	return nil
 }
