@@ -180,10 +180,12 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	}
 	saveSig := &saveSignal{batch: batch, root: tree.root, version: tree.version, wantCheckpoint: tree.shouldCheckpoint}
 	w.treeCh <- saveSig
-	w.leafCh <- saveSig
+	//w.leafCh <- saveSig
 	treeResult := <-w.treeResult
-	leafResult := <-w.leafResult
-	err := errors.Join(treeResult.err, leafResult.err)
+	//leafResult := <-w.leafResult
+	//err := errors.Join(treeResult.err, leafResult.err)
+	_, leafErr := batch.saveLeaves()
+	err := errors.Join(treeResult.err, leafErr)
 
 	return err
 }
