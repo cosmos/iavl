@@ -88,13 +88,13 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		pruneVersion     int64
 		orphanQuery      *sqlite3.Stmt
 		pruneCount       int64
-		pruneTick        = time.NewTicker(10 * time.Microsecond)
 	)
-	pruneTick.Stop()
 	saveTree := func(sig *saveSignal) {
 		res := &saveResult{}
 		res.n, res.err = sig.batch.saveBranches()
 		if res.err == nil {
+			// TODO
+			// SaveRoot should run even when not checkpointing
 			err := w.sql.SaveRoot(sig.version, sig.root, sig.wantCheckpoint)
 			if err != nil {
 				res.err = fmt.Errorf("failed to save root path=%s version=%d: %w", w.sql.opts.Path, sig.version, err)
@@ -103,22 +103,27 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		w.treeResult <- res
 		if sig.batch.isCheckpoint() {
 			w.logger.Info().Msgf("checkpointed version=%d count=%s", sig.version, humanize.Comma(res.n))
+			if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+				return
+			}
 		}
 	}
-	startPrune := func(sig *pruneSignal) error {
-		w.logger.Info().Msgf("pruning version=%d", sig.pruneVersion)
+	startPrune := func(startPruningVersion int64) error {
+		w.logger.Info().Msgf("pruning version=%d", startPruningVersion)
 		if orphanQuery != nil {
 			w.logger.Warn().Msgf("prune signal received while pruning version=%d next=%d", pruneVersion, nextPruneVersion)
-			nextPruneVersion = sig.pruneVersion
+			nextPruneVersion = startPruningVersion
 		} else {
+			if err := w.sql.treeWrite.Begin(); err != nil {
+				return err
+			}
 			var err error
-			pruneVersion = sig.pruneVersion
+			pruneVersion = startPruningVersion
 			orphanQuery, err = w.sql.treeWrite.Prepare("SELECT version, sequence, at FROM orphan WHERE at <= ? ORDER BY at", pruneVersion)
 			if err != nil {
 				return fmt.Errorf("failed to prepare orphan query; %w", err)
 			}
 		}
-		pruneTick.Reset(10 * time.Microsecond)
 		return nil
 	}
 	stepPruning := func() error {
@@ -149,6 +154,18 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			if err := w.sql.treeWrite.Exec(fmt.Sprintf("DELETE FROM tree_%d WHERE version = ? AND sequence = ?", cv), version, sequence); err != nil {
 				return fmt.Errorf("failed to delete from tree_%d count=%d; %w", cv, pruneCount, err)
 			}
+			if pruneCount%150_000 == 0 {
+				if err = w.sql.treeWrite.Commit(); err != nil {
+					return err
+				}
+				w.logger.Info().Msgf("commit pruning count=%s", humanize.Comma(pruneCount))
+				//if err = w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+				//	return err
+				//}
+				if err = w.sql.treeWrite.Begin(); err != nil {
+					return err
+				}
+			}
 		} else {
 			if err = orphanQuery.Close(); err != nil {
 				return err
@@ -158,6 +175,9 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				return err
 			}
 			orphanDeleteDur := time.Since(orphanDeleteStart)
+			if err = w.sql.treeWrite.Commit(); err != nil {
+				return err
+			}
 			w.logger.Info().Msgf("done pruning count=%s delete-dur=%s", humanize.Comma(pruneCount), orphanDeleteDur)
 			pruneCount = 0
 			if nextPruneVersion != 0 {
@@ -169,7 +189,6 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				pruneVersion = nextPruneVersion
 				nextPruneVersion = 0
 			} else {
-				pruneTick.Stop()
 				orphanQuery = nil
 				pruneVersion = 0
 			}
@@ -180,12 +199,26 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 
 	for {
 		// if there is pruning in progress support interrupt and immediate continuation
-		if orphanQuery != nil {
+		if pruneVersion != 0 {
 			select {
 			case sig := <-w.treeCh:
-				saveTree(sig)
+				if sig.wantCheckpoint {
+					if err := orphanQuery.Close(); err != nil {
+						return err
+					}
+					orphanQuery = nil
+					if err := w.sql.treeWrite.Commit(); err != nil {
+						return err
+					}
+					saveTree(sig)
+					if err := startPrune(pruneVersion); err != nil {
+						return err
+					}
+				} else {
+					saveTree(sig)
+				}
 			case sig := <-w.pruneCh:
-				err := startPrune(sig)
+				err := startPrune(sig.pruneVersion)
 				if err != nil {
 					return err
 				}
@@ -203,7 +236,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			case sig := <-w.treeCh:
 				saveTree(sig)
 			case sig := <-w.pruneCh:
-				err := startPrune(sig)
+				err := startPrune(sig.pruneVersion)
 				if err != nil {
 					return err
 				}

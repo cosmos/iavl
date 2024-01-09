@@ -154,22 +154,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		return nil, err
 	}
 
-	var err error
-	sql.leafWrite, err = sqlite3.Open(opts.leafConnectionString())
-	if err != nil {
-		return nil, err
-	}
-
-	err = sql.leafWrite.Exec("PRAGMA synchronous=OFF;")
-	if err != nil {
-		return nil, err
-	}
-
-	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.walPages)); err != nil {
-		return nil, err
-	}
-
-	if err = sql.init(); err != nil {
+	if err := sql.init(); err != nil {
 		return nil, err
 	}
 
@@ -264,6 +249,20 @@ func (sql *SqliteDb) resetWriteConn() (err error) {
 	}
 
 	if err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
+		return err
+	}
+
+	sql.leafWrite, err = sqlite3.Open(sql.opts.leafConnectionString())
+	if err != nil {
+		return err
+	}
+
+	err = sql.leafWrite.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return err
+	}
+
+	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
 		return err
 	}
 
