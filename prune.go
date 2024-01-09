@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
 )
 
@@ -90,70 +91,78 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		pruneTick        = time.NewTicker(10 * time.Microsecond)
 	)
 	pruneTick.Stop()
-	for {
-		select {
-		case sig := <-w.treeCh:
-			res := &saveResult{}
-			res.n, res.err = sig.batch.saveBranches()
-			if res.err == nil {
-				err := w.sql.SaveRoot(sig.version, sig.root, sig.wantCheckpoint)
-				if err != nil {
-					res.err = fmt.Errorf("failed to save root path=%s version=%d: %w", w.sql.opts.Path, sig.version, err)
-				}
+	saveTree := func(sig *saveSignal) {
+		res := &saveResult{}
+		res.n, res.err = sig.batch.saveBranches()
+		if res.err == nil {
+			err := w.sql.SaveRoot(sig.version, sig.root, sig.wantCheckpoint)
+			if err != nil {
+				res.err = fmt.Errorf("failed to save root path=%s version=%d: %w", w.sql.opts.Path, sig.version, err)
 			}
-			w.treeResult <- res
-		case sig := <-w.pruneCh:
-			if orphanQuery != nil {
-				w.logger.Warn().Msgf("prune signal received while pruning version=%d next=%d", pruneVersion, nextPruneVersion)
-				nextPruneVersion = sig.pruneVersion
-			} else {
-				var err error
-				orphanQuery, err = w.sql.treeWrite.Prepare("SELECT * FROM orphan WHERE version <= ?", pruneVersion)
-				if err != nil {
-					return fmt.Errorf("failed to prepare orphan query; %w", err)
-				}
-				pruneVersion = sig.pruneVersion
+		}
+		w.treeResult <- res
+		if sig.batch.isCheckpoint() {
+			w.logger.Info().Msgf("checkpointed version=%d count=%s", sig.version, humanize.Comma(res.n))
+		}
+	}
+	startPrune := func(sig *pruneSignal) error {
+		w.logger.Info().Msgf("pruning version=%d", sig.pruneVersion)
+		if orphanQuery != nil {
+			w.logger.Warn().Msgf("prune signal received while pruning version=%d next=%d", pruneVersion, nextPruneVersion)
+			nextPruneVersion = sig.pruneVersion
+		} else {
+			var err error
+			pruneVersion = sig.pruneVersion
+			orphanQuery, err = w.sql.treeWrite.Prepare("SELECT version, sequence, at FROM orphan WHERE at <= ? ORDER BY at", pruneVersion)
+			if err != nil {
+				return fmt.Errorf("failed to prepare orphan query; %w", err)
 			}
-			pruneTick.Reset(10 * time.Microsecond)
-		case <-ctx.Done():
-			return nil
-		case <-pruneTick.C:
-			if orphanQuery == nil {
-				// nothing to do
-				continue
-			}
-			for {
-				hasRow, err := orphanQuery.Step()
-				if err != nil {
-					return fmt.Errorf("failed to step orphan query; %w", err)
-				}
-				if !hasRow {
-					break
-				}
-				pruneCount++
-				var (
-					version  int64
-					sequence int
-				)
-				err = orphanQuery.Scan(&version, &sequence)
-				if err != nil {
-					return err
-				}
-				cv := w.sql.shards.FindMemoized(version)
-				if cv == -1 {
-					return fmt.Errorf("checkpont for version %d not found", version)
-				}
-				if err := w.sql.treeWrite.Exec(fmt.Sprintf("DELETE FROM tree_%d WHERE version = ? AND sequence = ?", cv), version, sequence); err != nil {
-					return fmt.Errorf("failed to delete tree_%d count=%d; %w", cv, pruneCount, err)
-				}
-			}
-			if err := orphanQuery.Close(); err != nil {
+		}
+		pruneTick.Reset(10 * time.Microsecond)
+		return nil
+	}
+	stepPruning := func() error {
+		hasRow, err := orphanQuery.Step()
+		if err != nil {
+			return fmt.Errorf("failed to step orphan query; %w", err)
+		}
+		if hasRow {
+			pruneCount++
+			var (
+				version  int64
+				sequence int
+				at       int
+				lastAt   int
+			)
+			err = orphanQuery.Scan(&version, &sequence, &at)
+			if err != nil {
 				return err
 			}
+			if at > lastAt {
+				lastAt = at
+				//w.logger.Info().Msgf("pruning version=%d", version)
+			}
+			cv := w.sql.shards.FindMemoized(version)
+			if cv == -1 {
+				return fmt.Errorf("checkpont for version %d not found", version)
+			}
+			if err := w.sql.treeWrite.Exec(fmt.Sprintf("DELETE FROM tree_%d WHERE version = ? AND sequence = ?", cv), version, sequence); err != nil {
+				return fmt.Errorf("failed to delete from tree_%d count=%d; %w", cv, pruneCount, err)
+			}
+		} else {
+			if err = orphanQuery.Close(); err != nil {
+				return err
+			}
+			orphanDeleteStart := time.Now()
+			if err = w.sql.treeWrite.Exec("DELETE FROM orphan WHERE at <= ?", pruneVersion); err != nil {
+				return err
+			}
+			orphanDeleteDur := time.Since(orphanDeleteStart)
+			w.logger.Info().Msgf("done pruning count=%s delete-dur=%s", humanize.Comma(pruneCount), orphanDeleteDur)
 			pruneCount = 0
 			if nextPruneVersion != 0 {
 				var err error
-				orphanQuery, err = w.sql.treeWrite.Prepare("SELECT * FROM orphan WHERE version <= ?", pruneVersion)
+				orphanQuery, err = w.sql.treeWrite.Prepare("SELECT * FROM orphan WHERE at <= ?", pruneVersion)
 				if err != nil {
 					return fmt.Errorf("failed to prepare orphan query; %w", err)
 				}
@@ -163,6 +172,43 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				pruneTick.Stop()
 				orphanQuery = nil
 				pruneVersion = 0
+			}
+		}
+
+		return nil
+	}
+
+	for {
+		// if there is pruning in progress support interrupt and immediate continuation
+		if orphanQuery != nil {
+			select {
+			case sig := <-w.treeCh:
+				saveTree(sig)
+			case sig := <-w.pruneCh:
+				err := startPrune(sig)
+				if err != nil {
+					return err
+				}
+			case <-ctx.Done():
+				return nil
+			default:
+				// continue pruning if no signal
+				err := stepPruning()
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			select {
+			case sig := <-w.treeCh:
+				saveTree(sig)
+			case sig := <-w.pruneCh:
+				err := startPrune(sig)
+				if err != nil {
+					return err
+				}
+			case <-ctx.Done():
+				return nil
 			}
 		}
 	}
@@ -180,12 +226,13 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	}
 	saveSig := &saveSignal{batch: batch, root: tree.root, version: tree.version, wantCheckpoint: tree.shouldCheckpoint}
 	w.treeCh <- saveSig
-	//w.leafCh <- saveSig
+	w.leafCh <- saveSig
 	treeResult := <-w.treeResult
-	//leafResult := <-w.leafResult
-	//err := errors.Join(treeResult.err, leafResult.err)
-	_, leafErr := batch.saveLeaves()
-	err := errors.Join(treeResult.err, leafErr)
+	leafResult := <-w.leafResult
+	err := errors.Join(treeResult.err, leafResult.err)
+
+	//_, leafErr := batch.saveLeaves()
+	//err := errors.Join(treeResult.err, leafErr)
 
 	return err
 }

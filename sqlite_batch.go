@@ -49,7 +49,7 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 	if err != nil {
 		return err
 	}
-	b.leafOrphan, err = b.sql.leafWrite.Prepare("UPDATE leaf SET orphaned = true WHERE version = ? AND sequence = ?")
+	b.leafOrphan, err = b.sql.leafWrite.Prepare("INSERT INTO leaf_orphan (version, sequence, at) VALUES (?, ?, ?)")
 	b.since = time.Now()
 	return nil
 }
@@ -115,7 +115,7 @@ func (b *sqliteBatch) execBranchOrphan(nodeKey NodeKey) error {
 	//}
 	//
 	//return stmt.Exec(version, int(nodeKey.Sequence()))
-	return b.treeOrphan.Exec(nodeKey.Version(), int(nodeKey.Sequence()))
+	return b.treeOrphan.Exec(nodeKey.Version(), int(nodeKey.Sequence()), b.tree.version)
 }
 
 func (b *sqliteBatch) newTreeBatch(checkpointVersion int64) (err error) {
@@ -125,7 +125,7 @@ func (b *sqliteBatch) newTreeBatch(checkpointVersion int64) (err error) {
 	b.treeInsert, err = b.sql.treeWrite.Prepare(fmt.Sprintf(
 		"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", checkpointVersion))
 	b.treeOrphans = make(map[int64]*sqlite3.Stmt)
-	b.treeOrphan, err = b.sql.treeWrite.Prepare("INSERT INTO orphan (version, sequence) VALUES (?, ?)")
+	b.treeOrphan, err = b.sql.treeWrite.Prepare("INSERT INTO orphan (version, sequence, at) VALUES (?, ?, ?)")
 	b.since = time.Now()
 	return err
 }
@@ -236,7 +236,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 
 	for _, orphan := range tree.leafOrphans {
 		b.count++
-		err = b.leafOrphan.Exec(orphan.Version(), int(orphan.Sequence()))
+		err = b.leafOrphan.Exec(orphan.Version(), int(orphan.Sequence()), b.tree.version)
 		if err != nil {
 			return 0, err
 		}

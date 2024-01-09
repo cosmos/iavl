@@ -22,6 +22,8 @@ type SqliteDbOptions struct {
 	CacheSize int
 	ConnArgs  string
 	Metrics   *metrics.TreeMetrics
+
+	walPages int
 }
 
 type SqliteDb struct {
@@ -50,7 +52,6 @@ type SqliteDb struct {
 
 	pruningLock   sync.Mutex
 	tableSwapLock sync.Mutex
-	pruneCh       chan pruneSignal
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -60,15 +61,16 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.MmapSize == 0 {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
-	if opts.ConnArgs == "" {
-		opts.ConnArgs = "cache=shared"
-	}
+	//if opts.ConnArgs == "" {
+	//	opts.ConnArgs = "cache=shared"
+	//}
 	if opts.Metrics == nil {
 		opts.Metrics = &metrics.TreeMetrics{}
 	}
 	if opts.WalSize == 0 {
 		opts.WalSize = 1024 * 1024 * 100
 	}
+	opts.walPages = opts.WalSize / os.Getpagesize()
 	return opts
 }
 
@@ -140,7 +142,6 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		pool:         pool,
 		metrics:      opts.Metrics,
 		logger:       logger,
-		pruneCh:      make(chan pruneSignal),
 	}
 
 	if !api.IsFileExistent(opts.Path) {
@@ -149,12 +150,12 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		}
 	}
 
-	var err error
-	sql.leafWrite, err = sqlite3.Open(opts.leafConnectionString())
-	if err != nil {
+	if err := sql.resetWriteConn(); err != nil {
 		return nil, err
 	}
-	sql.treeWrite, err = sqlite3.Open(opts.treeConnectionString())
+
+	var err error
+	sql.leafWrite, err = sqlite3.Open(opts.leafConnectionString())
 	if err != nil {
 		return nil, err
 	}
@@ -163,16 +164,8 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = sql.treeWrite.Exec("PRAGMA synchronous=OFF;")
-	if err != nil {
-		return nil, err
-	}
 
-	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.WalSize/os.Getpagesize())); err != nil {
-		return nil, err
-	}
-
-	if err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.WalSize/os.Getpagesize())); err != nil {
+	if err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", opts.walPages)); err != nil {
 		return nil, err
 	}
 
@@ -194,7 +187,7 @@ func (sql *SqliteDb) init() error {
 	}
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
-CREATE TABLE orphan (version int, sequence int);
+CREATE TABLE orphan (version int, sequence int, at int);
 CREATE TABLE root (
 	version int, 
 	node_version int, 
@@ -229,7 +222,8 @@ CREATE TABLE root (
 		err = sql.leafWrite.Exec(`
 CREATE TABLE latest (key blob, value blob, PRIMARY KEY (key));
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned bool);
-CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));`)
+CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
+CREATE TABLE leaf_orphan (version int, sequence int, at int);`)
 		if err != nil {
 			return err
 		}
@@ -250,6 +244,30 @@ CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (vers
 	}
 
 	return nil
+}
+
+func (sql *SqliteDb) resetWriteConn() (err error) {
+	if sql.treeWrite != nil {
+		err = sql.treeWrite.Close()
+		if err != nil {
+			return err
+		}
+	}
+	sql.treeWrite, err = sqlite3.Open(sql.opts.treeConnectionString())
+	if err != nil {
+		return err
+	}
+
+	err = sql.treeWrite.Exec("PRAGMA synchronous=OFF;")
+	if err != nil {
+		return err
+	}
+
+	if err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (sql *SqliteDb) newReadConn() (*sqlite3.Conn, error) {

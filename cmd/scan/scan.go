@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	"github.com/cosmos/iavl/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +13,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "scan",
 	}
-	cmd.AddCommand(probeCommand())
+	cmd.AddCommand(probeCommand(), rootsCommand())
 	return cmd
 }
 
@@ -70,5 +71,33 @@ func probeCommand() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
+}
+
+func rootsCommand() *cobra.Command {
+	var (
+		dbPath  string
+		version int64
+	)
+	cmd := &cobra.Command{
+		Use:   "roots",
+		Short: "list roots",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			sql, err := iavl.NewSqliteDb(iavl.NewNodePool(), iavl.SqliteDbOptions{Path: dbPath})
+			if err != nil {
+				return err
+			}
+			node, err := sql.LoadRoot(version)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("root: %+v\n", node)
+			return sql.Close()
+		},
+	}
+	cmd.Flags().StringVar(&dbPath, "db", "", "path to sqlite db")
+	cmd.Flags().Int64Var(&version, "version", 0, "version to query")
+	cmd.MarkFlagRequired("db")
+	cmd.MarkFlagRequired("version")
 	return cmd
 }

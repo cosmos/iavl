@@ -545,7 +545,7 @@ func Test_Replay(t *testing.T) {
 func Test_ConcurrentPrune(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 10, StateStorage: false})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: false})
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
 	require.NoError(t, multiTree.WarmLeaves())
@@ -559,19 +559,13 @@ func Test_ConcurrentPrune(t *testing.T) {
 
 	itr := opts.Iterator
 	var (
-		err      error
-		cnt      int64
-		version  int64
-		since    = time.Now()
-		itrStart = time.Now()
+		err       error
+		cnt       int64
+		version   int64
+		since     = time.Now()
+		itrStart  = time.Now()
+		lastPrune = 1
 	)
-	//pruneContext, pruneCancel := context.WithCancel(context.Background())
-	//require.NoError(t, err)
-
-	//go func() {
-	//	pruneLoopErr := multiTree.Trees["ibc"].sql.pruneLoop(pruneContext)
-	//	require.NoError(t, pruneLoopErr)
-	//}()
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -632,10 +626,16 @@ func Test_ConcurrentPrune(t *testing.T) {
 		if version == opts.Until {
 			break
 		}
-		//
-		//if version == 25 {
-		//	multiTree.Trees["ibc"].sql.pruneCh <- pruneSignal{pruneState: 0, startPruning: 15}
-		//}
+
+		lastPrune++
+		if lastPrune == 120 {
+			t.Logf("prune to version %d", version)
+			//multiTree.Trees["ibc"].sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
+			for _, tree := range multiTree.Trees {
+				tree.sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
+			}
+			t.Log("prune signals sent")
+			lastPrune = 0
+		}
 	}
-	//pruneCancel()
 }
