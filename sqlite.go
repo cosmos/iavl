@@ -292,11 +292,12 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 
 	var err error
 	if sql.queryLeaf == nil {
-		sql.queryLeaf, err = sql.readConn.Prepare("SELECT bytes FROM changelog.leaf WHERE version = ? AND sequence = ?")
+		sql.queryLeaf, err = sql.readConn.Prepare("SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
 		if err != nil {
 			return nil, err
 		}
 	}
+
 	if err = sql.queryLeaf.Bind(nodeKey.Version(), int(nodeKey.Sequence())); err != nil {
 		return nil, err
 	}
@@ -642,7 +643,7 @@ func (sql *SqliteDb) WarmLeaves() error {
 
 func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
 	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+	if node.size <= 3 {
 		node.rightNode, err = sql.getLeaf(node.rightNodeKey)
 		if err != nil {
 			return nil, err
@@ -664,7 +665,7 @@ func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
 
 func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
 	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+	if node.size <= 3 {
 		node.leftNode, err = sql.getLeaf(node.leftNodeKey)
 		if err != nil {
 			return nil, err
@@ -734,7 +735,7 @@ func (sql *SqliteDb) Revert(version int) error {
 func (sql *SqliteDb) GetLatestLeaf(key []byte) ([]byte, error) {
 	if sql.queryLatest == nil {
 		var err error
-		sql.queryLatest, err = sql.readConn.Prepare("SELECT value FROM changelog.latest WHERE key = ?")
+		sql.queryLatest, err = sql.readConn.Prepare("SELECT value FROM latest WHERE key = ?")
 		if err != nil {
 			return nil, err
 		}
@@ -790,7 +791,7 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 	switch {
 	case start == nil && end == nil:
 		stmt, err = conn.Prepare(
-			fmt.Sprintf("SELECT key, value FROM changelog.latest ORDER BY key %s", suffix))
+			fmt.Sprintf("SELECT key, value FROM latest ORDER BY key %s", suffix))
 		if err != nil {
 			return nil, idx, err
 		}
@@ -799,7 +800,7 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 		}
 	case start == nil:
 		stmt, err = conn.Prepare(
-			fmt.Sprintf("SELECT key, value FROM changelog.latest WHERE key < ? ORDER BY key %s", suffix))
+			fmt.Sprintf("SELECT key, value FROM latest WHERE key < ? ORDER BY key %s", suffix))
 		if err != nil {
 			return nil, idx, err
 		}
@@ -808,7 +809,7 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 		}
 	case end == nil:
 		stmt, err = conn.Prepare(
-			fmt.Sprintf("SELECT key, value FROM changelog.latest WHERE key >= ? ORDER BY key %s", suffix))
+			fmt.Sprintf("SELECT key, value FROM latest WHERE key >= ? ORDER BY key %s", suffix))
 		if err != nil {
 			return nil, idx, err
 		}
@@ -817,7 +818,7 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 		}
 	default:
 		stmt, err = conn.Prepare(
-			fmt.Sprintf("SELECT key, value FROM changelog.latest WHERE key >= ? AND key < ? ORDER BY key %s", suffix))
+			fmt.Sprintf("SELECT key, value FROM latest WHERE key >= ? AND key < ? ORDER BY key %s", suffix))
 		if err != nil {
 			return nil, idx, err
 		}

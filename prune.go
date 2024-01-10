@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -188,4 +189,76 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	err := errors.Join(treeResult.err, leafErr)
 
 	return err
+}
+
+// traverseOrphans traverses the orphaned nodes which were removed
+// by the updates of the curVersion in the prevVersion.
+func (tree *Tree) traverseOrphans(prevVersion, curVersion int64, fn func(*Node) error) error {
+	if prevVersion >= curVersion {
+		return fmt.Errorf("prevVersion %d >= curVersion %d", prevVersion, curVersion)
+	}
+
+	prevRoot, err := tree.sql.LoadRoot(prevVersion)
+	if err != nil {
+		return fmt.Errorf("failed to load previous root for version %d: %w", prevVersion, err)
+	}
+	curRoot, err := tree.sql.LoadRoot(curVersion)
+	if err != nil {
+		return fmt.Errorf("failed to load current root for version %d: %w", curVersion, err)
+	}
+
+	// traverse the current root and find the remaining nodes which the version is less or equal to prevVersion.
+	remainingNodes := make([]*Node, 0)
+
+	var (
+		curVersionTraverse  func(node *Node) error
+		prevVersionTraverse func(node *Node) error
+		subRoot             *Node
+		nodeItrIndex        int
+	)
+
+	curVersionTraverse = func(node *Node) error {
+		if node.nodeKey.Version() <= prevVersion {
+			remainingNodes = append(remainingNodes, node)
+			return nil
+		}
+		if node.isLeaf() {
+			return nil
+		}
+		if err := curVersionTraverse(node.left(tree)); err != nil {
+			return err
+		}
+		return curVersionTraverse(node.right(tree))
+	}
+
+	if err := curVersionTraverse(curRoot); err != nil {
+		return err
+	}
+
+	remNodesCount := len(remainingNodes)
+	if remNodesCount > 0 {
+		subRoot = remainingNodes[0]
+	}
+
+	prevVersionTraverse = func(node *Node) error {
+		if nodeItrIndex < remNodesCount && bytes.Equal(subRoot.nodeKey[:], node.nodeKey[:]) {
+			nodeItrIndex++
+			if nodeItrIndex < remNodesCount {
+				subRoot = remainingNodes[nodeItrIndex]
+			}
+			return nil
+		}
+		if err := fn(node); err != nil {
+			return fmt.Errorf("failed to execute fn: %w", err)
+		}
+		if node.isLeaf() {
+			return nil
+		}
+		if err := prevVersionTraverse(node.left(tree)); err != nil {
+			return err
+		}
+		return prevVersionTraverse(node.right(tree))
+	}
+
+	return prevVersionTraverse(prevRoot)
 }

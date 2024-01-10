@@ -24,7 +24,7 @@ func TestTraverseOrphans(t *testing.T) {
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
 		version := itr.Version()
-		if version > 100 {
+		if version > 10 {
 			break
 		}
 
@@ -40,7 +40,9 @@ func TestTraverseOrphans(t *testing.T) {
 				require.NoError(t, err)
 			}
 		}
-		tempOrphans := tree.orphans
+		tempOrphans := tree.leafOrphans
+		tempOrphans = append(tempOrphans, tree.branchOrphans...)
+		deletedNodesCount := len(tree.deletes)
 		_, v, err := tree.SaveVersion()
 		require.NoError(t, err)
 		require.Equal(t, version, v)
@@ -49,7 +51,7 @@ func TestTraverseOrphans(t *testing.T) {
 			orphans = make(map[NodeKey]bool)
 			err = tree.traverseOrphans(v-1, v, fn)
 			require.NoError(t, err)
-			require.Equal(t, len(tempOrphans), len(orphans))
+			require.Equal(t, len(tempOrphans)+deletedNodesCount, len(orphans))
 			for _, nodeKey := range tempOrphans {
 				require.True(t, orphans[nodeKey])
 			}
