@@ -86,12 +86,12 @@ func (b *sqliteBatch) changelogBatchCommit() error {
 		return err
 	}
 
-	if b.count >= b.size {
-		b.logger.Debug().Msgf("db=changelog count=%s dur=%s rate=%s",
-			humanize.Comma(int64(b.count)),
-			time.Since(b.since).Round(time.Millisecond),
-			humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
-	}
+	//if b.count >= b.size {
+	//	b.logger.Debug().Msgf("db=changelog count=%s dur=%s rate=%s",
+	//		humanize.Comma(int64(b.count)),
+	//		time.Since(b.since).Round(time.Millisecond),
+	//		humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
+	//}
 
 	return nil
 }

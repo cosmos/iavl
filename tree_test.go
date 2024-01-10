@@ -588,7 +588,6 @@ func Test_ConcurrentPrune(t *testing.T) {
 			}
 
 			if cnt%opts.SampleRate == 0 {
-
 				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d\n",
 					humanize.Comma(cnt),
 					time.Since(since).Round(time.Millisecond),
@@ -628,14 +627,14 @@ func Test_ConcurrentPrune(t *testing.T) {
 		}
 
 		lastPrune++
-		if lastPrune == 120 {
-			t.Logf("prune to version %d", version)
-			//multiTree.Trees["ibc"].sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
-			for _, tree := range multiTree.Trees {
-				tree.sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
-			}
-			t.Log("prune signals sent")
-			lastPrune = 0
-		}
+		//if lastPrune == 120 {
+		//	t.Logf("prune to version %d", version)
+		//	//multiTree.Trees["ibc"].sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
+		//	for _, tree := range multiTree.Trees {
+		//		tree.sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
+		//	}
+		//	t.Log("prune signals sent")
+		//	lastPrune = 0
+		//}
 	}
 }
