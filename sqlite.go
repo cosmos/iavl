@@ -173,6 +173,7 @@ func (sql *SqliteDb) init() error {
 	if !hasRow {
 		err = sql.treeWrite.Exec(`
 CREATE TABLE orphan (version int, sequence int, at int);
+CREATE INDEX orphan_idx ON orphan (at);
 CREATE TABLE root (
 	version int, 
 	node_version int, 
@@ -208,7 +209,8 @@ CREATE TABLE root (
 CREATE TABLE latest (key blob, value blob, PRIMARY KEY (key));
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned bool);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
-CREATE TABLE leaf_orphan (version int, sequence int, at int);`)
+CREATE TABLE leaf_orphan (version int, sequence int, at int);
+CREATE INDEX leaf_orphan_idx ON leaf_orphan (at);`)
 		if err != nil {
 			return err
 		}

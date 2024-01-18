@@ -31,22 +31,25 @@ type sqlWriter struct {
 	sql    *SqliteDb
 	logger zerolog.Logger
 
-	pruneCh    chan *pruneSignal
-	treeCh     chan *saveSignal
-	leafCh     chan *saveSignal
-	leafResult chan *saveResult
-	treeResult chan *saveResult
+	treePruneCh chan *pruneSignal
+	treeCh      chan *saveSignal
+	treeResult  chan *saveResult
+
+	leafPruneCh chan *pruneSignal
+	leafCh      chan *saveSignal
+	leafResult  chan *saveResult
 }
 
 func (sql *SqliteDb) newSqlWriter() *sqlWriter {
 	return &sqlWriter{
-		sql:        sql,
-		pruneCh:    make(chan *pruneSignal),
-		leafCh:     make(chan *saveSignal),
-		treeCh:     make(chan *saveSignal),
-		leafResult: make(chan *saveResult),
-		treeResult: make(chan *saveResult),
-		logger:     sql.logger.With().Str("module", "write").Logger(),
+		sql:         sql,
+		leafPruneCh: make(chan *pruneSignal),
+		treePruneCh: make(chan *pruneSignal),
+		leafCh:      make(chan *saveSignal),
+		treeCh:      make(chan *saveSignal),
+		leafResult:  make(chan *saveResult),
+		treeResult:  make(chan *saveResult),
+		logger:      sql.logger.With().Str("module", "write").Logger(),
 	}
 }
 
@@ -67,12 +70,29 @@ func (w *sqlWriter) start(ctx context.Context) {
 
 func (w *sqlWriter) leafLoop(ctx context.Context) error {
 	for {
-		// TODO leaf prune
 		select {
 		case sig := <-w.leafCh:
 			res := &saveResult{}
 			res.n, res.err = sig.batch.saveLeaves()
 			w.leafResult <- res
+		case sig := <-w.leafPruneCh:
+			var cnt int64
+			if q, err := w.sql.leafWrite.Prepare("SELECT count(*) FROM leaf_orphan WHERE version <= ?", sig.pruneVersion); err != nil {
+				return err
+			} else {
+				if _, err = q.Step(); err != nil {
+					return err
+				}
+				if err = q.Scan(&cnt); err != nil {
+					return err
+				}
+				if err = q.Close(); err != nil {
+					return err
+				}
+			}
+
+			w.logger.Info().Msgf("prune leaves from version=%d count=%s", sig.pruneVersion, humanize.Comma(cnt))
+
 		case <-ctx.Done():
 			return nil
 			//default:
@@ -118,10 +138,10 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		if err = orphanQuery.Close(); err != nil {
 			return err
 		}
-		//if err = w.sql.treeWrite.Exec("DELETE FROM orphan WHERE rowid >= ? AND rowid <= ?",
-		//	startOrphanId, lastOrphanId); err != nil {
-		//	return err
-		//}
+		if err = w.sql.treeWrite.Exec("DELETE FROM orphan WHERE rowid >= ? AND rowid <= ?",
+			startOrphanId, lastOrphanId); err != nil {
+			return err
+		}
 		if err = w.sql.treeWrite.Commit(); err != nil {
 			return err
 		}
@@ -242,7 +262,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				} else {
 					saveTree(sig)
 				}
-			case sig := <-w.pruneCh:
+			case sig := <-w.treePruneCh:
 				err := startPrune(sig.pruneVersion)
 				if err != nil {
 					return err
@@ -260,7 +280,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			select {
 			case sig := <-w.treeCh:
 				saveTree(sig)
-			case sig := <-w.pruneCh:
+			case sig := <-w.treePruneCh:
 				err := startPrune(sig.pruneVersion)
 				if err != nil {
 					return err

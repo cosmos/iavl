@@ -627,14 +627,15 @@ func Test_ConcurrentPrune(t *testing.T) {
 		}
 
 		lastPrune++
-		//if lastPrune == 120 {
-		//	t.Logf("prune to version %d", version)
-		//	//multiTree.Trees["ibc"].sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
-		//	for _, tree := range multiTree.Trees {
-		//		tree.sqlWriter.pruneCh <- &pruneSignal{pruneVersion: version}
-		//	}
-		//	t.Log("prune signals sent")
-		//	lastPrune = 0
-		//}
+		if lastPrune == 200 {
+			t.Logf("prune to version %d", version)
+			//multiTree.Trees["ibc"].sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: version}
+			for _, tree := range multiTree.Trees {
+				tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: version}
+				tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: version}
+			}
+			t.Log("prune signals sent")
+			lastPrune = 0
+		}
 	}
 }
