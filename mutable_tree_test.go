@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/cosmos/cosmos-db"
+	dbm "github.com/cosmos/iavl/db"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 )
 
 func setupMutableTree(skipFastStorageUpgrade bool) *MutableTree {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	tree := NewMutableTree(memDB, 0, skipFastStorageUpgrade, log.NewNopLogger())
 	return tree
 }
@@ -258,7 +258,7 @@ func TestMutableTree_LoadVersion_Empty(t *testing.T) {
 }
 
 func TestMutableTree_InitialVersion(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	tree := NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 
 	_, err := tree.Set([]byte("a"), []byte{0x01})
@@ -309,11 +309,10 @@ func TestMutableTree_SetInitialVersion(t *testing.T) {
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
-	db, err := db.NewDB("test", db.MemDBBackend, "")
-	require.NoError(b, err)
+	db := dbm.NewMemDB()
 	t := NewMutableTree(db, 100000, false, log.NewNopLogger())
 	for i := 0; i < 1000000; i++ {
-		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err := t.Set(iavlrand.RandBytes(10), []byte{})
 		require.NoError(b, err)
 	}
 	b.ReportAllocs()
@@ -322,13 +321,13 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err := t.Set(iavlrand.RandBytes(10), []byte{})
 		require.NoError(b, err)
 	}
 }
 
 func prepareTree(t *testing.T) *MutableTree {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	for i := 0; i < 100; i++ {
 		_, err := tree.Set([]byte{byte(i)}, []byte("a"))
@@ -399,7 +398,7 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 }
 
 func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	_, v1, err := tree.SaveVersion()
 	require.NoError(t, err)
@@ -418,7 +417,7 @@ func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
 }
 
 func TestMutableTree_SetSimple(t *testing.T) {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 0, false, log.NewNopLogger())
 
 	const testKey1 = "a"
@@ -589,7 +588,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 }
 
 func TestMutableTree_FastNodeIntegration(t *testing.T) {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 
 	const key1 = "a"
@@ -720,7 +719,7 @@ func TestIterator_MutableTree_Invalid(t *testing.T) {
 
 func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	// Setup
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Default version when storage key does not exist in the db
@@ -750,7 +749,7 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 
 func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	// Setup
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Default version when storage key does not exist in the db
@@ -1176,6 +1175,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {
 		keyPrefix := "key"
+		b := ndb.db.NewBatch()
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
 
@@ -1184,9 +1184,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 			buf.Grow(node.EncodedSize())
 			err := node.WriteBytes(&buf)
 			require.NoError(t, err)
-			err = ndb.db.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
+			err = b.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
 			require.NoError(t, err)
 		}
+		require.NoError(t, b.Write())
 	}
 	type fields struct {
 		nodeCount  int
@@ -1224,7 +1225,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 }
 
 func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade bool) (*MutableTree, [][]string) {
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 
 	tree := NewMutableTree(db, 0, skipFastStorageUpgrade, log.NewNopLogger())
 
@@ -1417,7 +1418,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 // TestMutableTree_InitialVersion_FirstVersion demonstrate the un-intuitive behavior,
 // when InitialVersion is set the nodes created in the first version are not assigned with expected version number.
 func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 
 	initialVersion := int64(1000)
 	tree := NewMutableTree(db, 0, true, log.NewNopLogger(), InitialVersionOption(uint64(initialVersion)))
