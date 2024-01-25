@@ -7,8 +7,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+
+	dbm "github.com/cosmos/iavl/db"
 )
 
 func cleanupDBDir(dir, name string) {
@@ -27,8 +28,8 @@ func makeKey(n uint16) []byte {
 }
 
 func TestBatchWithFlusher(t *testing.T) {
-	testedBackends := []dbm.BackendType{
-		dbm.GoLevelDBBackend,
+	testedBackends := []string{
+		"goleveldb",
 	}
 
 	for _, backend := range testedBackends {
@@ -36,7 +37,7 @@ func TestBatchWithFlusher(t *testing.T) {
 	}
 }
 
-func testBatchWithFlusher(t *testing.T, backend dbm.BackendType) {
+func testBatchWithFlusher(t *testing.T, backend string) {
 	name := fmt.Sprintf("test_%x", randstr(12))
 	dir := t.TempDir()
 	db, err := dbm.NewDB(name, backend, dir)
