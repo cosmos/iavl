@@ -1174,7 +1174,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {
-		keyPrefix := "key"
+		keyPrefix := "key_prefix"
 		b := ndb.db.NewBatch()
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
