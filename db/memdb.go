@@ -170,7 +170,7 @@ func (db *MemDB) NewBatch() Batch {
 
 // NewBatchWithSize implements DB.
 // It does the same thing as NewBatch because we can't pre-allocate memDBBatch
-func (db *MemDB) NewBatchWithSize(size int) Batch {
+func (db *MemDB) NewBatchWithSize(_ int) Batch {
 	return newMemDBBatch(db)
 }
 
@@ -306,8 +306,8 @@ func newMemDBIteratorMtxChoice(db *MemDB, start []byte, end []byte, reverse bool
 // Close implements Iterator.
 func (i *memDBIterator) Close() error {
 	i.cancel()
-	for range i.ch { // drain channel
-	}
+	for range i.ch { //nolint:revive
+	} // drain channel
 	i.item = nil
 	return nil
 }

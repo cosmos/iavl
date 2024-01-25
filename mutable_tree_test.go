@@ -83,9 +83,8 @@ func TestIteratorConcurrency(t *testing.T) {
 			}(i, j)
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
-		for ; itr.Valid(); itr.Next() {
-			// do nothing
-		}
+		for ; itr.Valid(); itr.Next() { //nolint:revive
+		} // do nothing
 	}
 	wg.Wait()
 }
@@ -107,9 +106,8 @@ func TestNewIteratorConcurrency(t *testing.T) {
 				require.NoError(t, err)
 			}(i, j)
 		}
-		for ; it.Valid(); it.Next() {
-			// do nothing
-		}
+		for ; it.Valid(); it.Next() { //nolint:revive
+		} // do nothing
 		wg.Wait()
 	}
 }
