@@ -9,8 +9,9 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
-	db "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
+
+	dbm "github.com/cosmos/iavl/db"
 )
 
 // TestDiffRoundTrip generate random change sets, build an iavl tree versions,
@@ -19,7 +20,7 @@ func TestDiffRoundTrip(t *testing.T) {
 	changeSets := genChangeSets(rand.New(rand.NewSource(0)), 300)
 
 	// apply changeSets to tree
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 	tree := NewMutableTree(db, 0, true, log.NewNopLogger())
 	for i := range changeSets {
 		v, err := tree.SaveChangeSet(changeSets[i])

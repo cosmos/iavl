@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/cache"
+	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
+	ibytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/keyformat"
 )
 
@@ -326,21 +327,7 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 
 // Has checks if a node key exists in the database.
 func (ndb *nodeDB) Has(nk []byte) (bool, error) {
-	key := ndb.nodeKey(nk)
-
-	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-		exists, err := ldb.DB().Has(key, nil)
-		if err != nil {
-			return false, err
-		}
-		return exists, nil
-	}
-	value, err := ndb.db.Get(key)
-	if err != nil {
-		return false, err
-	}
-
-	return value != nil, nil
+	return ndb.db.Has(ndb.nodeKey(nk))
 }
 
 // resetBatch reset the db batch, keep low memory used
@@ -427,6 +414,7 @@ var (
 
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
+<<<<<<< HEAD
 	isDeletingLegacyVersionsMutex.Lock()
 	if isDeletingLegacyVersions {
 		isDeletingLegacyVersionsMutex.Unlock()
@@ -517,6 +505,10 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 // deleteOrphans cleans all legacy orphans from the nodeDB.
 func (ndb *nodeDB) deleteOrphans() error {
 	itr, err := dbm.IteratePrefix(ndb.db, legacyOrphanKeyFormat.Key())
+=======
+	// Check if we have a legacy version
+	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
+>>>>>>> 11ba496 (feat: decouple cosmos-db (#874))
 	if err != nil {
 		return err
 	}
@@ -686,7 +678,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	}
 
 	// Check if we have a legacy version
-	itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
+	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
 	if err != nil {
 		return 0, err
 	}
@@ -880,7 +872,7 @@ func (ndb *nodeDB) traverseRange(start []byte, end []byte, fn func(k, v []byte) 
 
 // Traverse all keys with a certain prefix. Return error if any, nil otherwise
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) error {
-	itr, err := dbm.IteratePrefix(ndb.db, prefix)
+	itr, err := ndb.getPrefixIterator(prefix)
 	if err != nil {
 		return err
 	}
@@ -893,6 +885,20 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 	}
 
 	return nil
+}
+
+// Get the iterator for a given prefix.
+func (ndb *nodeDB) getPrefixIterator(prefix []byte) (dbm.Iterator, error) {
+	var start, end []byte
+	if len(prefix) == 0 {
+		start = nil
+		end = nil
+	} else {
+		start = ibytes.Cp(prefix)
+		end = ibytes.CpIncr(prefix)
+	}
+
+	return ndb.db.Iterator(start, end)
 }
 
 // Get iterator for fast prefix and error, if any
