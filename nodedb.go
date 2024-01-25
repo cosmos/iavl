@@ -326,21 +326,7 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 
 // Has checks if a node key exists in the database.
 func (ndb *nodeDB) Has(nk []byte) (bool, error) {
-	key := ndb.nodeKey(nk)
-
-	// if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
-	// 	exists, err := ldb.DB().Has(key, nil)
-	// 	if err != nil {
-	// 		return false, err
-	// 	}
-	// 	return exists, nil
-	// }
-	value, err := ndb.db.Get(key)
-	if err != nil {
-		return false, err
-	}
-
-	return value != nil, nil
+	return ndb.db.Has(ndb.nodeKey(nk))
 }
 
 // resetBatch reset the db batch, keep low memory used

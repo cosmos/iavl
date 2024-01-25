@@ -37,7 +37,7 @@ func newPair(key, value []byte) item {
 	return item{key: key, value: value}
 }
 
-// MemDB is an in-memory database backend using a B-tree for storage.
+// MemDB is an in-memory database backend using a B-tree for the test purpose.
 //
 // For performance reasons, all given and returned keys and values are pointers to the in-memory
 // database, so modifying them will cause the stored values to be modified as well. All DB methods
