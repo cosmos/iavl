@@ -420,8 +420,10 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 	return ndb.batch.Delete(ndb.legacyNodeKey(nk))
 }
 
-var isDeletingLegacyVersionsMutex *sync.Mutex = &sync.Mutex{}
-var isDeletingLegacyVersions bool = false
+var (
+	isDeletingLegacyVersionsMutex = &sync.Mutex{}
+	isDeletingLegacyVersions      = false
+)
 
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
@@ -429,10 +431,9 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 	if isDeletingLegacyVersions {
 		isDeletingLegacyVersionsMutex.Unlock()
 		return nil
-	} else {
-		isDeletingLegacyVersions = true
-		isDeletingLegacyVersionsMutex.Unlock()
 	}
+	isDeletingLegacyVersions = true
+	isDeletingLegacyVersionsMutex.Unlock()
 
 	go func() {
 		defer func() {
@@ -458,7 +459,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 			rootKeys = append(rootKeys, itr.Key())
 			if prevVersion > 0 {
 				if err := ndb.traverseOrphans(prevVersion, curVersion, func(orphan *Node) error {
-					counter += 1
+					counter++
 					if counter == 1000 {
 						counter = 0
 						time.Sleep(1000 * time.Millisecond)
