@@ -430,7 +430,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 		}()
 
 		// Check if we have a legacy version
-		itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
+		itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
 		if err != nil {
 			ndb.logger.Error(err.Error())
 			return
@@ -503,7 +503,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 
 // deleteOrphans cleans all legacy orphans from the nodeDB.
 func (ndb *nodeDB) deleteOrphans() error {
-	itr, err := dbm.IteratePrefix(ndb.db, legacyOrphanKeyFormat.Key())
+	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
 	if err != nil {
 		return err
 	}

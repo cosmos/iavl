@@ -52,8 +52,6 @@ func DecodeBytes(bz []byte) ([]byte, int, error) {
 	if len(bz) < end {
 		return nil, n, fmt.Errorf("insufficient bytes decoding []byte of length %v", size)
 	}
-	// bz2 := make([]byte, size)
-	// copy(bz2, bz[n:end])
 	return bz[n:end], end, nil
 }
 
