@@ -36,6 +36,7 @@ func (f *FastPrefixFormatter) KeyInt64(bz int64) []byte {
 func (f *FastPrefixFormatter) Prefix() []byte {
 	return f.prefixSlice
 }
+
 func (f *FastPrefixFormatter) Length() int {
 	return 1 + f.length
 }
