@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.0 (October 30, 2023)
+## Unreleased
 
 ### Improvements
 
