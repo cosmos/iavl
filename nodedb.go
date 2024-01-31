@@ -503,7 +503,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 
 // deleteOrphans cleans all legacy orphans from the nodeDB.
 func (ndb *nodeDB) deleteOrphans() error {
-	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
+	itr, err := ndb.getPrefixIterator(legacyOrphanKeyFormat.Key())
 	if err != nil {
 		return err
 	}
