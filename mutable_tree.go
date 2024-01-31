@@ -268,37 +268,36 @@ func (tree *MutableTree) recursiveSet(node *Node, key []byte, value []byte) (
 ) {
 	if node.isLeaf() {
 		return tree.recursiveSetLeaf(node, key, value)
-	} else {
-		node, err = node.clone(tree)
-		if err != nil {
-			return nil, false, err
-		}
-
-		if bytes.Compare(key, node.key) < 0 {
-			node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
-			if err != nil {
-				return nil, updated, err
-			}
-		} else {
-			node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
-			if err != nil {
-				return nil, updated, err
-			}
-		}
-
-		if updated {
-			return node, updated, nil
-		}
-		err = node.calcHeightAndSize(tree.ImmutableTree)
-		if err != nil {
-			return nil, false, err
-		}
-		newNode, err := tree.balance(node)
-		if err != nil {
-			return nil, false, err
-		}
-		return newNode, updated, err
 	}
+	node, err = node.clone(tree)
+	if err != nil {
+		return nil, false, err
+	}
+
+	if bytes.Compare(key, node.key) < 0 {
+		node.leftNode, updated, err = tree.recursiveSet(node.leftNode, key, value)
+		if err != nil {
+			return nil, updated, err
+		}
+	} else {
+		node.rightNode, updated, err = tree.recursiveSet(node.rightNode, key, value)
+		if err != nil {
+			return nil, updated, err
+		}
+	}
+
+	if updated {
+		return node, updated, nil
+	}
+	err = node.calcHeightAndSize(tree.ImmutableTree)
+	if err != nil {
+		return nil, false, err
+	}
+	newNode, err := tree.balance(node)
+	if err != nil {
+		return nil, false, err
+	}
+	return newNode, updated, err
 }
 
 func (tree *MutableTree) recursiveSetLeaf(node *Node, key []byte, value []byte) (
