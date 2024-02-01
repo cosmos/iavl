@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+
+- [#876](https://github.com/cosmos/iavl/pull/876) Make pruning of orphan nodes synchronous.
+
 ## v1.0.0 (October 30, 2023)
 
 ### Improvements
