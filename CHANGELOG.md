@@ -10,6 +10,7 @@
 - [#726](https://github.com/cosmos/iavl/pull/726) Make `KVPair` and `ChangeSet` serializable with protobuf.
 - [#718](https://github.com/cosmos/iavl/pull/718) Fix `traverseNodes` unexpected behaviour
 - [#770](https://github.com/cosmos/iavl/pull/770) Add `WorkingVersion()int64` API.
+- [#877](https://github.com/cosmos/iavl/pull/877) Make pruning of orphan nodes synchronous.
 
 ### Bug Fixes
 
