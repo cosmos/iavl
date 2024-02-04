@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -31,13 +32,24 @@ type ExportNode struct {
 // depth-first post-order (LRN), this order must be preserved when importing in order to recreate
 // the same tree structure.
 type Exporter struct {
-	tree   *ImmutableTree
-	ch     chan *ExportNode
-	cancel context.CancelFunc
+	tree       *ImmutableTree
+	ch         chan *ExportNode
+	cancel     context.CancelFunc
+	optimistic bool // export raw key value pairs for optimistic import
 }
 
 // NewExporter creates a new Exporter. Callers must call Close() when done.
 func newExporter(tree *ImmutableTree) (*Exporter, error) {
+	return newExporterWithOptions(tree, false)
+}
+
+// NewOptimisticExporter creates a new Exporter with raw Key Values. Callers must call Close() when done.
+func newOptimisticExporter(tree *ImmutableTree) (*Exporter, error) {
+	return newExporterWithOptions(tree, true)
+}
+
+// NewExporterWithOptions creates a new Exporter and configures optimistic mode
+func newExporterWithOptions(tree *ImmutableTree, optimistic bool) (*Exporter, error) {
 	if tree == nil {
 		return nil, fmt.Errorf("tree is nil: %w", ErrNotInitalizedTree)
 	}
@@ -48,13 +60,18 @@ func newExporter(tree *ImmutableTree) (*Exporter, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	exporter := &Exporter{
-		tree:   tree,
-		ch:     make(chan *ExportNode, exportBufferSize),
-		cancel: cancel,
+		tree:       tree,
+		ch:         make(chan *ExportNode, exportBufferSize),
+		cancel:     cancel,
+		optimistic: optimistic,
 	}
 
 	tree.ndb.incrVersionReaders(tree.version)
-	go exporter.export(ctx)
+	if exporter.optimistic {
+		go exporter.optimisticExport(ctx)
+	} else {
+		go exporter.export(ctx)
+	}
 
 	return exporter, nil
 }
@@ -67,6 +84,40 @@ func (e *Exporter) export(ctx context.Context) {
 			Value:   node.value,
 			Version: node.nodeKey.version,
 			Height:  node.subtreeHeight,
+		}
+
+		select {
+		case e.ch <- exportNode:
+			return false
+		case <-ctx.Done():
+			return true
+		}
+	})
+	close(e.ch)
+}
+
+// optimisticExport exports raw key, value nodes
+// Cosmos-SDK should set different snapshot format so nodes can select between either "untrusted statesync" or "trusted-peer optimistic" import
+func (e *Exporter) optimisticExport(ctx context.Context) {
+	e.tree.root.traverse(e.tree, true, func(node *Node) bool {
+		// TODO: How to get the original db value bytes directly without writeBytes()?
+		buf := bufPool.Get().(*bytes.Buffer)
+		buf.Reset()
+		defer bufPool.Put(buf)
+
+		if err := node.writeBytes(buf); err != nil {
+			fmt.Printf("WARN: failed writeBytes")
+		}
+
+		bytesCopy := make([]byte, buf.Len())
+		copy(bytesCopy, buf.Bytes())
+
+		// Use Export Node Format.
+		exportNode := &ExportNode{
+			Key:     node.GetKey(), // TODO: How to get prefixed key so that import does not need to prefix?
+			Value:   bytesCopy,
+			Version: 0, // Version not used
+			Height:  0, // Height not used
 		}
 
 		select {

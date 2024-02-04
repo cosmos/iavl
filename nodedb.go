@@ -162,6 +162,52 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	return node, nil
 }
 
+/*
+// CV GetNodeKeyValueBytes gets a node's key and value bytes from memory or disk.
+// It is used for both formats of nodes: legacy and new.
+// `legacy`: nk is the hash of the node. `new`: <version><nonce>.
+// returns nodeKey []byte, nodeValue
+func (ndb *nodeDB) GetNodeKeyValueBytes(nk []byte) ([]byte, []byte, error) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if nk == nil {
+		return nil, nil, ErrNodeMissingNodeKey
+	}
+
+	isLegcyNode := len(nk) == hashSize
+	var nodeKey []byte
+	if isLegcyNode {
+		nodeKey = ndb.legacyNodeKey(nk)
+	} else {
+		nodeKey = ndb.nodeKey(nk)
+	}
+
+	valueBytes, err := ndb.db.Get(nodeKey)
+	if err != nil {
+		return nil, nil, fmt.Errorf("can't get node %v: %v", nk, err)
+	}
+	if valueBytes == nil {
+		return nil, nil, fmt.Errorf("Value missing for key %v corresponding to nodeKey %x", nk, nodeKey)
+	}
+
+	return nodeKey, valueBytes, nil
+}
+
+// CV SaveNodeKeyValueBytes saves a node to disk with raw byte arrays for key and value.
+func (ndb *nodeDB) SaveNodeKeyValueBytes(keyBytes []byte, valueBytes []byte) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if err := ndb.batch.Set(keyBytes, valueBytes); err != nil {
+		return err
+	}
+
+	ndb.logger.Debug("BATCH SAVE", "key", keyBytes, "value", valueBytes)
+	return nil
+}
+*/
+
 func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 	if !ndb.hasUpgradedToFastStorage() {
 		return nil, errors.New("storage version is not fast")

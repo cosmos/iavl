@@ -298,6 +298,62 @@ func TestExporter_Import(t *testing.T) {
 	}
 }
 
+func TestOptimisticExporter_Import(t *testing.T) {
+	testcases := map[string]*ImmutableTree{
+		"empty tree": NewImmutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger()),
+		"basic tree": setupExportTreeBasic(t),
+	}
+	if !testing.Short() {
+		testcases["sized tree"] = setupExportTreeSized(t, 4096)
+		testcases["random tree"] = setupExportTreeRandom(t)
+	}
+
+	for desc, tree := range testcases {
+		tree := tree
+		t.Run(desc, func(t *testing.T) {
+			t.Parallel()
+
+			exporter, err := tree.OptimisticExport()
+			require.NoError(t, err)
+			defer exporter.Close()
+
+			newTree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+			importer, err := newTree.OptimisticImport(tree.Version())
+			require.NoError(t, err)
+			defer importer.Close()
+
+			for {
+				item, err := exporter.Next()
+				if err == ErrorExportDone {
+					err = importer.Commit()
+					require.NoError(t, err)
+					break
+				}
+				require.NoError(t, err)
+				err = importer.Add(item)
+				require.NoError(t, err)
+			}
+
+			treeHash := tree.Hash()
+			newTreeHash := newTree.Hash()
+
+			require.Equal(t, treeHash, newTreeHash, "Tree hash mismatch")
+			require.Equal(t, tree.Size(), newTree.Size(), "Tree size mismatch")
+			require.Equal(t, tree.Version(), newTree.Version(), "Tree version mismatch")
+
+			tree.Iterate(func(key, value []byte) bool { //nolint:errcheck
+				index, _, err := tree.GetWithIndex(key)
+				require.NoError(t, err)
+				newIndex, newValue, err := newTree.GetWithIndex(key)
+				require.NoError(t, err)
+				require.Equal(t, index, newIndex, "Index mismatch for key %v", key)
+				require.Equal(t, value, newValue, "Value mismatch for key %v", key)
+				return false
+			})
+		})
+	}
+}
+
 func TestExporter_Close(t *testing.T) {
 	tree := setupExportTreeSized(t, 4096)
 	exporter, err := tree.Export()

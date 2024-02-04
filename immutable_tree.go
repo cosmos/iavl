@@ -160,6 +160,12 @@ func (t *ImmutableTree) Export() (*Exporter, error) {
 	return newExporter(t)
 }
 
+// OptimisiticExport returns an iterator that exports tree nodes as ExportNodes. These nodes can be
+// imported with MutableTree.Import() to recreate an identical tree.
+func (t *ImmutableTree) OptimisticExport() (*Exporter, error) {
+	return newOptimisticExporter(t)
+}
+
 // GetWithIndex returns the index and value of the specified key if it exists, or nil and the next index
 // otherwise. The returned value must not be modified, since it may point to data stored within
 // IAVL.
