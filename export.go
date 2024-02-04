@@ -78,7 +78,7 @@ func newExporterWithOptions(tree *ImmutableTree, optimistic bool) (*Exporter, er
 
 // export exports nodes
 func (e *Exporter) export(ctx context.Context) {
-	e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
+	_ = e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
 		exportNode := &ExportNode{
 			Key:     node.key,
 			Value:   node.value,
