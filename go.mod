@@ -3,7 +3,7 @@ module github.com/cosmos/iavl
 go 1.21
 
 require (
-	cosmossdk.io/log v1.3.0
+	cosmossdk.io/log v1.3.1
 	github.com/cosmos/cosmos-db v1.0.0
 	github.com/cosmos/ics23/go v0.10.0
 	github.com/emicklei/dot v1.6.1
@@ -37,7 +37,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
-	github.com/rs/zerolog v1.30.0 // indirect
+	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
