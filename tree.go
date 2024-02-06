@@ -890,5 +890,7 @@ func (tree *Tree) replayChangelog(toVersion int64) error {
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
-	return tree.sql.DeleteVersionsTo(toVersion)
+	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion}
+	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion}
+	return nil
 }

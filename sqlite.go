@@ -98,7 +98,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	q, err := conn.Prepare("SELECT SUM(pgsize) FROM dbstat WHERE name = 'latest'")
+	q, err := conn.Prepare("SELECT SUM(pgsize) FROM dbstat WHERE name = 'leaf'")
 	if err != nil {
 		return 0, err
 	}
@@ -709,7 +709,13 @@ func (sql *SqliteDb) Revert(version int) error {
 	if err := sql.leafWrite.Exec("DELETE FROM leaf_delete WHERE version > ?", version); err != nil {
 		return err
 	}
+	if err := sql.leafWrite.Exec("DELETE FROM leaf_orphan WHERE at > ?", version); err != nil {
+		return err
+	}
 	if err := sql.treeWrite.Exec("DELETE FROM root WHERE version > ?", version); err != nil {
+		return err
+	}
+	if err := sql.treeWrite.Exec("DELETE FROM orphan WHERE at > ?", version); err != nil {
 		return err
 	}
 
@@ -949,7 +955,7 @@ func (sql *SqliteDb) DeleteVersionsTo_v2(toVersion int64) error {
 		}
 		cv := sql.shards.FindMemoized(version)
 		if cv == -1 {
-			return fmt.Errorf("checkpont for version %d not found", version)
+			return fmt.Errorf("checkpoint for version %d not found", version)
 		}
 		stmt, ok := deleteStmts[cv]
 		if !ok {

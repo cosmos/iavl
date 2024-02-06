@@ -69,38 +69,137 @@ func (w *sqlWriter) start(ctx context.Context) {
 }
 
 func (w *sqlWriter) leafLoop(ctx context.Context) error {
-	for {
-		select {
-		case sig := <-w.leafCh:
-			res := &saveResult{}
-			res.n, res.err = sig.batch.saveLeaves()
-			w.leafResult <- res
-		case sig := <-w.leafPruneCh:
-			var cnt int64
-			if q, err := w.sql.leafWrite.Prepare("SELECT count(*) FROM leaf_orphan WHERE version <= ?", sig.pruneVersion); err != nil {
+	var (
+		pruneVersion int64
+		orphanQuery  *sqlite3.Stmt
+		pruneCount   int64
+		lastOrphanId int64
+		deleteOrphan *sqlite3.Stmt
+		deleteLeaf   *sqlite3.Stmt
+		err          error
+	)
+	deleteOrphan, err = w.sql.leafWrite.Prepare("DELETE FROM leaf_orphan WHERE ROWID = ?")
+	if err != nil {
+		return fmt.Errorf("failed to prepare leaf orphan delete; %w", err)
+	}
+	deleteLeaf, err = w.sql.leafWrite.Prepare("DELETE FROM leaf WHERE version = ? and sequence = ?")
+	if err != nil {
+		return fmt.Errorf("failed to prepare leaf delete; %w", err)
+	}
+
+	resetOrphanQuery := func(startPruningVersion int64) error {
+		if err = w.sql.leafWrite.Begin(); err != nil {
+			return fmt.Errorf("failed to begin leaf prune tx; %w", err)
+		}
+		orphanQuery, err = w.sql.leafWrite.Prepare(`SELECT version, sequence, ROWID FROM leaf_orphan WHERE at <= ?`, startPruningVersion)
+		if err != nil {
+			return fmt.Errorf("failed to prepare leaf orphan query; %w", err)
+		}
+		return nil
+	}
+	startPrune := func(startPruningVersion int64) error {
+		w.logger.Info().Msgf("leaf pruning version=%d", startPruningVersion)
+		pruneVersion = startPruningVersion
+		if err = resetOrphanQuery(pruneVersion); err != nil {
+			return err
+		}
+		return nil
+	}
+	commitOrphaned := func() error {
+		if err = orphanQuery.Close(); err != nil {
+			return err
+		}
+		if err = w.sql.leafWrite.Commit(); err != nil {
+			return err
+		}
+		w.logger.Info().Msgf("commit leaf pruning count=%s", humanize.Comma(pruneCount))
+		if err = w.sql.leafWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+			return fmt.Errorf("failed to checkpoint; %w", err)
+		}
+		return nil
+	}
+	stepPruning := func() error {
+		hasRow, err := orphanQuery.Step()
+		if err != nil {
+			return fmt.Errorf("failed to step leaf orphan query; %w", err)
+		}
+		if hasRow {
+			pruneCount++
+			var (
+				version  int64
+				sequence int
+			)
+			err = orphanQuery.Scan(&version, &sequence, &lastOrphanId)
+			if err != nil {
 				return err
-			} else {
-				if _, err = q.Step(); err != nil {
+			}
+			if err = deleteLeaf.Exec(version, sequence); err != nil {
+				return err
+			}
+			if err = deleteOrphan.Exec(lastOrphanId); err != nil {
+				return err
+			}
+			if pruneCount%pruneBatchSize == 0 {
+				if err = commitOrphaned(); err != nil {
 					return err
 				}
-				if err = q.Scan(&cnt); err != nil {
-					return err
-				}
-				if err = q.Close(); err != nil {
+				if err = resetOrphanQuery(pruneVersion); err != nil {
 					return err
 				}
 			}
+		} else {
+			if err = commitOrphaned(); err != nil {
+				return err
+			}
+			orphanQuery = nil
+			pruneVersion = 0
+		}
 
-			w.logger.Info().Msgf("prune leaves from version=%d count=%s", sig.pruneVersion, humanize.Comma(cnt))
-
-		case <-ctx.Done():
-			return nil
-			//default:
-			//time.Sleep(10 * time.Microsecond)
-			// prune
+		return nil
+	}
+	saveLeaves := func(sig *saveSignal) {
+		res := &saveResult{}
+		res.n, res.err = sig.batch.saveLeaves()
+		w.leafResult <- res
+	}
+	for {
+		if pruneVersion != 0 {
+			select {
+			case sig := <-w.leafCh:
+				if err = commitOrphaned(); err != nil {
+					return err
+				}
+				saveLeaves(sig)
+				if err = startPrune(pruneVersion); err != nil {
+					return err
+				}
+			case sig := <-w.leafPruneCh:
+				w.logger.Fatal().Msgf("leaf prune signal received while pruning version=%d next=%d", pruneVersion, sig.pruneVersion)
+			case <-ctx.Done():
+				return nil
+			default:
+				err = stepPruning()
+				if err != nil {
+					return err
+				}
+			}
+		} else {
+			select {
+			case sig := <-w.leafCh:
+				saveLeaves(sig)
+			case sig := <-w.leafPruneCh:
+				err = startPrune(sig.pruneVersion)
+				if err != nil {
+					return err
+				}
+			case <-ctx.Done():
+				return nil
+			}
 		}
 	}
 }
+
+const pruneBatchSize = 500_000
 
 func (w *sqlWriter) treeLoop(ctx context.Context) error {
 	var (
@@ -206,12 +305,12 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			}
 			cv := w.sql.shards.FindMemoized(version)
 			if cv == -1 {
-				return fmt.Errorf("checkpont for version %d not found", version)
+				return fmt.Errorf("prune: checkpoint for version %d not found", version)
 			}
 			if err = deleteOrphaned(cv, version, sequence); err != nil {
 				return fmt.Errorf("failed to delete from tree_%d count=%d; %w", cv, pruneCount, err)
 			}
-			if pruneCount%500_000 == 0 {
+			if pruneCount%pruneBatchSize == 0 {
 				if err = commitOrphaned(); err != nil {
 					return err
 				}

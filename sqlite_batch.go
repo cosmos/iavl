@@ -12,10 +12,10 @@ import (
 type sqliteBatch struct {
 	tree   *Tree
 	sql    *SqliteDb
-	size   int
+	size   int64
 	logger zerolog.Logger
 
-	count int
+	count int64
 	since time.Time
 
 	leafInsert   *sqlite3.Stmt
@@ -50,6 +50,9 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 		return err
 	}
 	b.leafOrphan, err = b.sql.leafWrite.Prepare("INSERT INTO leaf_orphan (version, sequence, at) VALUES (?, ?, ?)")
+	if err != nil {
+		return err
+	}
 	b.since = time.Now()
 	return nil
 }
@@ -312,5 +315,5 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		}
 	}
 
-	return 0, nil
+	return b.count, nil
 }
