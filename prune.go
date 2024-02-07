@@ -86,7 +86,6 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to prepare leaf delete; %w", err)
 	}
-
 	resetOrphanQuery := func(startPruningVersion int64) error {
 		if err = w.sql.leafWrite.Begin(); err != nil {
 			return fmt.Errorf("failed to begin leaf prune tx; %w", err)
@@ -98,8 +97,16 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		return nil
 	}
 	startPrune := func(startPruningVersion int64) error {
-		w.logger.Info().Msgf("leaf pruning version=%d", startPruningVersion)
-		pruneVersion = startPruningVersion
+		w.logger.Debug().Msgf("leaf pruning version=%d", startPruningVersion)
+		// only prune leafs to shard (checkpoint) boundaries.
+		pruneTo := w.sql.shards.Find(startPruningVersion)
+		if pruneTo == -1 {
+			pruneTo = w.sql.shards.Last()
+			if pruneTo == -1 {
+				return fmt.Errorf("prune: no shards found")
+			}
+		}
+		pruneVersion = pruneTo
 		if err = resetOrphanQuery(pruneVersion); err != nil {
 			return err
 		}
@@ -160,6 +167,11 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 	saveLeaves := func(sig *saveSignal) {
 		res := &saveResult{}
 		res.n, res.err = sig.batch.saveLeaves()
+		if sig.batch.isCheckpoint() {
+			if err = w.sql.leafWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+				w.logger.Err(err).Msg("failed leaf wal_checkpoint")
+			}
+		}
 		w.leafResult <- res
 	}
 	for {
@@ -246,7 +258,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		}
 		w.logger.Info().Msgf("commit pruning count=%s low_rowid=%d high_rowid=%d",
 			humanize.Comma(pruneCount), startOrphanId, lastOrphanId)
-		if err = w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		if err = w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(RESTART)"); err != nil {
 			w.logger.Err(err).Msg("failed to checkpoint")
 			return fmt.Errorf("failed to checkpoint; %w", err)
 		}
@@ -263,13 +275,13 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				res.err = fmt.Errorf("failed to save root path=%s version=%d: %w", w.sql.opts.Path, sig.version, err)
 			}
 		}
-		w.treeResult <- res
 		if sig.batch.isCheckpoint() {
 			w.logger.Info().Msgf("checkpointed version=%d count=%s", sig.version, humanize.Comma(res.n))
 			if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 				return
 			}
 		}
+		w.treeResult <- res
 	}
 	startPrune := func(startPruningVersion int64) error {
 		w.logger.Info().Msgf("pruning version=%d", startPruningVersion)
@@ -402,6 +414,9 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 			Str("path", tree.sql.opts.Path).Logger(),
 	}
 	saveSig := &saveSignal{batch: batch, root: tree.root, version: tree.version, wantCheckpoint: tree.shouldCheckpoint}
+	if tree.shouldCheckpoint {
+		w.logger.Info().Msgf("checkpointing version=%d path=%s", tree.version, tree.sql.opts.Path)
+	}
 	w.treeCh <- saveSig
 	w.leafCh <- saveSig
 	treeResult := <-w.treeResult

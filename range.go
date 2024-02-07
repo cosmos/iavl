@@ -60,3 +60,10 @@ func (r *VersionRange) FindMemoized(version int64) int64 {
 	r.cache[version] = v
 	return v
 }
+
+func (r *VersionRange) Last() int64 {
+	if len(r.versions) == 0 {
+		return -1
+	}
+	return r.versions[len(r.versions)-1]
+}
