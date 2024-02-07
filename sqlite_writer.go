@@ -120,7 +120,7 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 			return err
 		}
 		w.logger.Info().Msgf("commit leaf pruning count=%s", humanize.Comma(pruneCount))
-		if err = w.sql.leafWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		if err = w.sql.leafWrite.Exec("PRAGMA wal_checkpoint(RESTART)"); err != nil {
 			return fmt.Errorf("failed to checkpoint; %w", err)
 		}
 		return nil
@@ -422,9 +422,6 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	treeResult := <-w.treeResult
 	leafResult := <-w.leafResult
 	err := errors.Join(treeResult.err, leafResult.err)
-
-	//_, leafErr := batch.saveLeaves()
-	//err := errors.Join(treeResult.err, leafErr)
 
 	return err
 }

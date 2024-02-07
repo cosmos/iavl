@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
@@ -34,7 +33,6 @@ type Tree struct {
 	sql          *SqliteDb
 	sqlWriter    *sqlWriter
 	writerCancel context.CancelFunc
-	cache        *NodeCache
 	pool         *NodePool
 
 	lastCheckpoint   int64
@@ -87,7 +85,6 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		sqlWriter:          sql.newSqlWriter(),
 		writerCancel:       cancel,
 		pool:               pool,
-		cache:              NewNodeCache(opts.Metrics),
 		metrics:            opts.Metrics,
 		maxWorkingSize:     2 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
@@ -692,10 +689,6 @@ func (tree *Tree) Close() error {
 	return tree.sql.Close()
 }
 
-func (tree *Tree) GetSql() *SqliteDb {
-	return tree.sql
-}
-
 func (tree *Tree) Hash() []byte {
 	if tree.root == nil {
 		return emptyHash
@@ -708,185 +701,11 @@ func (tree *Tree) Version() int64 {
 }
 
 func (tree *Tree) WriteLatestLeaves() (err error) {
-	var (
-		since        = time.Now()
-		batchSize    = 200_000
-		count        = 0
-		step         func(node *Node) error
-		lg           = log.With().Str("path", tree.sql.opts.Path).Logger()
-		latestInsert *sqlite3.Stmt
-	)
-	prepare := func() error {
-		latestInsert, err = tree.sql.leafWrite.Prepare("INSERT INTO latest (key, value) VALUES (?, ?)")
-		if err != nil {
-			return err
-		}
-		if err = tree.sql.leafWrite.Begin(); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	flush := func() error {
-		if err = tree.sql.leafWrite.Commit(); err != nil {
-			return err
-		}
-		if err = latestInsert.Close(); err != nil {
-			return err
-		}
-		var rate string
-		if time.Since(since).Seconds() > 0 {
-			rate = humanize.Comma(int64(float64(batchSize) / time.Since(since).Seconds()))
-		} else {
-			rate = "n/a"
-		}
-		lg.Info().Msgf("latest flush; count=%s dur=%s wr/s=%s",
-			humanize.Comma(int64(count)),
-			time.Since(since).Round(time.Millisecond),
-			rate,
-		)
-		since = time.Now()
-		return nil
-	}
-
-	maybeFlush := func() error {
-		count++
-		if count%batchSize == 0 {
-			err = flush()
-			if err != nil {
-				return err
-			}
-			return prepare()
-		}
-		return nil
-	}
-
-	if err = prepare(); err != nil {
-		return err
-	}
-
-	step = func(node *Node) error {
-		if node.isLeaf() {
-			err := latestInsert.Exec(node.key, node.value)
-			if err != nil {
-				return err
-			}
-			return maybeFlush()
-		}
-		if err = step(node.left(tree)); err != nil {
-			return err
-		}
-		if err = step(node.right(tree)); err != nil {
-			return err
-		}
-		return nil
-	}
-
-	err = step(tree.root)
-	if err != nil {
-		return err
-	}
-	err = flush()
-	if err != nil {
-		return err
-	}
-
-	return latestInsert.Close()
+	return tree.sql.WriteLatestLeaves(tree)
 }
 
 func (tree *Tree) replayChangelog(toVersion int64) error {
-	var (
-		version     int
-		lastVersion int
-		sequence    int
-		bz          []byte
-		key         []byte
-		count       int64
-		start       = time.Now()
-		lg          = log.With().Str("path", tree.sql.opts.Path).Logger()
-		since       = time.Now()
-	)
-	tree.isReplaying = true
-	defer func() {
-		tree.isReplaying = false
-	}()
-
-	lg.Info().Msgf("ensure leaf_delete_index exists...")
-	if err := tree.sql.leafWrite.Exec("CREATE INDEX IF NOT EXISTS leaf_delete_idx ON leaf (version, sequence)"); err != nil {
-		return err
-	}
-	lg.Info().Msg("...done")
-	lg.Info().Msgf("replaying changelog from=%d to=%d", tree.version, toVersion)
-	conn, err := tree.sql.getReadConn()
-	if err != nil {
-		return err
-	}
-	q, err := conn.Prepare(`SELECT * FROM (
-		SELECT version, sequence, bytes, null AS key
-	FROM leaf WHERE version > ? AND version <= ?
-	UNION
-	SELECT version, sequence, null as bytes, key
-	FROM leaf_delete WHERE version > ? AND version <= ?
-	) as ops
-	ORDER BY version, sequence`)
-	if err != nil {
-		return err
-	}
-	if err = q.Bind(tree.version, toVersion, tree.version, toVersion); err != nil {
-		return err
-	}
-	var ()
-	for {
-		ok, err := q.Step()
-		if err != nil {
-			return err
-		}
-		if !ok {
-			break
-		}
-		count++
-		if err = q.Scan(&version, &sequence, &bz, &key); err != nil {
-			return err
-		}
-		if version-1 != lastVersion {
-			tree.leaves, tree.branches, tree.leafOrphans, tree.branchOrphans, tree.deletes = nil, nil, nil, nil, nil
-			tree.version = int64(version - 1)
-			tree.sequence = 0
-			lastVersion = version - 1
-		}
-		if bz != nil {
-			nk := NewNodeKey(0, 0)
-			node, err := MakeNode(tree.pool, nk, bz)
-			if err != nil {
-				return err
-			}
-			if _, err = tree.Set(node.key, node.hash); err != nil {
-				return err
-			}
-			//if sequence != int(tree.sequence) {
-			//	return fmt.Errorf("sequence mismatch version=%d; expected %d got %d",
-			//		version, sequence, tree.sequence)
-			//}
-		} else {
-			//if sequence != int(tree.sequence+1) {
-			//	return fmt.Errorf("sequence mismatch; version=%d expected %d got %d",
-			//		version, sequence, tree.sequence+1)
-			//}
-			if _, _, err = tree.Remove(key); err != nil {
-				return err
-			}
-		}
-		if count%250_000 == 0 {
-			lg.Info().Msgf("replayed changelog to version=%d count=%s node/s=%s",
-				version, humanize.Comma(count), humanize.Comma(int64(250_000/time.Since(since).Seconds())))
-			since = time.Now()
-		}
-	}
-	tree.leaves, tree.branches, tree.leafOrphans, tree.branchOrphans, tree.deletes = nil, nil, nil, nil, nil
-	tree.sequence = 0
-	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s",
-		lastVersion, humanize.Comma(count), time.Since(start).Round(time.Millisecond))
-	return q.Close()
+	return tree.sql.replayChangelog(tree, toVersion)
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {

@@ -17,8 +17,6 @@ type NodePool struct {
 	poolId uint64
 }
 
-const initialNodePoolSize = 1_000
-
 func NewNodePool() *NodePool {
 	np := &NodePool{
 		syncPool: &sync.Pool{
@@ -39,15 +37,6 @@ func NewNodePool() *NodePool {
 		free: make(chan int, 1000),
 	}
 	return np
-}
-
-func (np *NodePool) grow(amount int) {
-	startSize := len(np.nodes)
-	log.Warn().Msgf("growing node pool amount=%d; size=%d", amount, startSize+amount)
-	for i := startSize; i < startSize+amount; i++ {
-		np.free <- i
-		np.poolSize += nodeSize
-	}
 }
 
 func (np *NodePool) Get() *Node {
