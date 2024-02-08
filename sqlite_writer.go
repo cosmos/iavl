@@ -70,13 +70,14 @@ func (w *sqlWriter) start(ctx context.Context) {
 
 func (w *sqlWriter) leafLoop(ctx context.Context) error {
 	var (
-		pruneVersion int64
-		orphanQuery  *sqlite3.Stmt
-		pruneCount   int64
-		lastOrphanId int64
-		deleteOrphan *sqlite3.Stmt
-		deleteLeaf   *sqlite3.Stmt
-		err          error
+		pruneVersion     int64
+		nextPruneVersion int64
+		orphanQuery      *sqlite3.Stmt
+		pruneCount       int64
+		lastOrphanId     int64
+		deleteOrphan     *sqlite3.Stmt
+		deleteLeaf       *sqlite3.Stmt
+		err              error
 	)
 	deleteOrphan, err = w.sql.leafWrite.Prepare("DELETE FROM leaf_orphan WHERE ROWID = ?")
 	if err != nil {
@@ -97,13 +98,17 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		return nil
 	}
 	startPrune := func(startPruningVersion int64) error {
+		if orphanQuery != nil {
+			return fmt.Errorf("leaf pruning already in progress")
+		}
+
 		w.logger.Debug().Msgf("leaf pruning version=%d", startPruningVersion)
 		// only prune leafs to shard (checkpoint) boundaries.
 		pruneTo := w.sql.shards.Find(startPruningVersion)
 		if pruneTo == -1 {
 			pruneTo = w.sql.shards.Last()
 			if pruneTo == -1 {
-				return fmt.Errorf("prune: no shards found")
+				return fmt.Errorf("leaf prune: no shards found")
 			}
 		}
 		pruneVersion = pruneTo
@@ -116,6 +121,7 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		if err = orphanQuery.Close(); err != nil {
 			return err
 		}
+		orphanQuery = nil
 		if err = w.sql.leafWrite.Commit(); err != nil {
 			return err
 		}
@@ -158,7 +164,15 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 			if err = commitOrphaned(); err != nil {
 				return err
 			}
-			orphanQuery = nil
+			if nextPruneVersion != 0 {
+				if err = resetOrphanQuery(nextPruneVersion); err != nil {
+					return err
+				}
+				pruneVersion = nextPruneVersion
+				nextPruneVersion = 0
+			} else {
+				pruneVersion = 0
+			}
 			pruneVersion = 0
 		}
 
@@ -186,7 +200,8 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 					return err
 				}
 			case sig := <-w.leafPruneCh:
-				w.logger.Fatal().Msgf("leaf prune signal received while pruning version=%d next=%d", pruneVersion, sig.pruneVersion)
+				w.logger.Warn().Msgf("leaf prune signal received while pruning version=%d next=%d", pruneVersion, sig.pruneVersion)
+				nextPruneVersion = sig.pruneVersion
 			case <-ctx.Done():
 				return nil
 			default:
@@ -283,18 +298,16 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		w.treeResult <- res
 	}
 	startPrune := func(startPruningVersion int64) error {
-		w.logger.Info().Msgf("pruning version=%d", startPruningVersion)
 		if orphanQuery != nil {
-			w.logger.Warn().Msgf("prune signal received while pruning version=%d next=%d", pruneVersion, startPruningVersion)
-			nextPruneVersion = startPruningVersion
-		} else {
-			pruneStartTime = time.Now()
-			var err error
-			pruneVersion = startPruningVersion
-			err = resetOrphanQuery(pruneVersion)
-			if err != nil {
-				return err
-			}
+			return fmt.Errorf("tree pruning already in progress")
+		}
+		w.logger.Debug().Msgf("pruning to version=%d", startPruningVersion)
+		pruneStartTime = time.Now()
+		var err error
+		pruneVersion = startPruningVersion
+		err = resetOrphanQuery(pruneVersion)
+		if err != nil {
+			return err
 		}
 		return nil
 	}
@@ -373,10 +386,8 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 					saveTree(sig)
 				}
 			case sig := <-w.treePruneCh:
-				err := startPrune(sig.pruneVersion)
-				if err != nil {
-					return err
-				}
+				w.logger.Warn().Msgf("leaf prune signal received while pruning version=%d next=%d", pruneVersion, sig.pruneVersion)
+				nextPruneVersion = sig.pruneVersion
 			case <-ctx.Done():
 				return nil
 			default:
@@ -400,7 +411,6 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			}
 		}
 	}
-
 }
 
 func (w *sqlWriter) saveTree(tree *Tree) error {
@@ -424,3 +434,8 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 
 	return err
 }
+
+// TODO
+// unify delete approach between tree and leaf. tree uses rowid range in delete, leaf issues delete for each rowid.
+// which one is faster?
+//
