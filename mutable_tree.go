@@ -56,7 +56,7 @@ func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg lo
 	}
 
 	ndb := newNodeDB(db, cacheSize, opts, lg)
-	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade}
+	head := &ImmutableTree{ndb: ndb, skipFastStorageUpgrade: skipFastStorageUpgrade, version: int64(opts.InitialVersion)}
 
 	return &MutableTree{
 		logger:                   lg,
