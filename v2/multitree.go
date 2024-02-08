@@ -152,10 +152,12 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	for _, tree := range mt.Trees {
 		treeCount++
 		go func(t *Tree) {
+			//t.sql.logger.Debug().Msgf("saving version %d", t.Version()+1)
 			h, v, err := t.SaveVersion()
 			if err != nil {
 				mt.errorCh <- err
 			}
+			//t.sql.logger.Debug().Msgf("saved version %d", v)
 			mt.doneCh <- saveVersionResult{version: v, hash: h}
 		}(tree)
 	}

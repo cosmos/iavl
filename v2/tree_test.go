@@ -188,23 +188,27 @@ func TestTree_Build_Load(t *testing.T) {
 	for _, sk := range itrs.StoreKeys() {
 		require.NoError(t, multiTree.MountTree(sk))
 	}
+	t.Log("building initial tree to version 10,000")
 	testTreeBuild(t, multiTree, opts)
 
+	t.Log("snapshot tree at version 10,000")
 	// take a snapshot at version 10,000
 	require.NoError(t, multiTree.SnapshotConcurrently())
+	require.NoError(t, multiTree.Close())
 
-	// import the snapshot into a new tree
+	t.Log("import snapshot into new tree")
 	mt, err := ImportMultiTree(multiTree.pool, 10_000, tmpDir, DefaultTreeOptions())
 	require.NoError(t, err)
 
-	// build the tree to version 12,000
+	t.Log("build tree to version 12,000 and verify hash")
 	require.NoError(t, opts.Iterator.Next())
 	require.Equal(t, int64(10_001), opts.Iterator.Version())
 	opts.Until = 12_000
 	opts.UntilHash = "3a037f8dd67a5e1a9ef83a53b81c619c9ac0233abee6f34a400fb9b9dfbb4f8d"
 	testTreeBuild(t, mt, opts)
+	require.NoError(t, mt.Close())
 
-	// export the tree at version 12,000 and import it into a sql db in pre-order
+	t.Log("export the tree at version 12,000 and import it into a sql db in pre-order")
 	traverseOrder := PreOrder
 	restorePreOrderMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
 	for sk, tree := range multiTree.Trees {
@@ -216,8 +220,9 @@ func TestTree_Build_Load(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
 	}
+	require.NoError(t, restorePreOrderMt.Close())
 
-	// export the tree at version 12,000 and import it into a sql db in post-order
+	t.Log("export the tree at version 12,000 and import it into a sql db in post-order")
 	traverseOrder = PostOrder
 	restorePostOrderMt := NewMultiTree(t.TempDir(), TreeOptions{CheckpointInterval: 4000})
 	for sk, tree := range multiTree.Trees {
@@ -231,12 +236,13 @@ func TestTree_Build_Load(t *testing.T) {
 	}
 	require.Equal(t, restorePostOrderMt.Hash(), restorePreOrderMt.Hash())
 
-	// play changes until version 20_000
+	t.Log("build tree to version 20,000 and verify hash")
 	require.NoError(t, opts.Iterator.Next())
 	require.Equal(t, int64(12_001), opts.Iterator.Version())
 	opts.Until = 20_000
 	opts.UntilHash = "25907b193c697903218d92fa70a87ef6cdd6fa5b9162d955a4d70a9d5d2c4824"
 	testTreeBuild(t, restorePostOrderMt, opts)
+	require.NoError(t, restorePostOrderMt.Close())
 }
 
 // pre-requisites for the 2 tests below:
@@ -534,4 +540,104 @@ func Test_Replay(t *testing.T) {
 	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
 	err = tree.LoadVersion(1000)
 	require.NoError(t, err)
+}
+
+func Test_ConcurrentPrune(t *testing.T) {
+	tmpDir := "/tmp/iavl-v2"
+
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: false})
+	require.NoError(t, multiTree.MountTrees())
+	require.NoError(t, multiTree.LoadVersion(1))
+	require.NoError(t, multiTree.WarmLeaves())
+
+	// logDir := "/tmp/osmo-like-many-v2"
+	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")
+	opts.SampleRate = 250_000
+
+	opts.Until = 1_000
+	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda"
+
+	itr := opts.Iterator
+	var (
+		err       error
+		cnt       int64
+		version   int64
+		since     = time.Now()
+		itrStart  = time.Now()
+		lastPrune = 1
+	)
+
+	for ; itr.Valid(); err = itr.Next() {
+		require.NoError(t, err)
+		changeset := itr.Nodes()
+		for ; changeset.Valid(); err = changeset.Next() {
+			cnt++
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			key := node.Key
+
+			tree, ok := multiTree.Trees[node.StoreKey]
+			require.True(t, ok)
+
+			if !node.Delete {
+				_, err = tree.Set(key, node.Value)
+				require.NoError(t, err)
+			} else {
+				_, _, err := tree.Remove(key)
+				require.NoError(t, err)
+			}
+
+			if cnt%opts.SampleRate == 0 {
+				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d\n",
+					humanize.Comma(cnt),
+					time.Since(since).Round(time.Millisecond),
+					humanize.Comma(int64(float64(opts.SampleRate)/time.Since(since).Seconds())),
+					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
+					version,
+				)
+
+				if tree.metrics.WriteTime > 0 {
+					fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s\n",
+						humanize.Comma(tree.metrics.WriteLeaves),
+						humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteTime.Seconds())),
+						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
+						tree.metrics.WriteTime.Round(time.Millisecond),
+					)
+				}
+
+				if err := tree.metrics.QueryReport(0); err != nil {
+					t.Fatalf("query report err %v", err)
+				}
+
+				fmt.Println()
+
+				since = time.Now()
+				tree.metrics.WriteDurations = nil
+				tree.metrics.WriteLeaves = 0
+				tree.metrics.WriteTime = 0
+			}
+		}
+
+		_, version, err = multiTree.SaveVersionConcurrently()
+		require.NoError(t, err)
+
+		require.NoError(t, err)
+		if version == opts.Until {
+			break
+		}
+
+		lastPrune++
+		if lastPrune == 80 || lastPrune == 85 {
+			pruneTo := version - 1
+			t.Logf("prune to version %d", pruneTo)
+			//multiTree.Trees["ibc"].sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: version}
+			for _, tree := range multiTree.Trees {
+				require.NoError(t, tree.DeleteVersionsTo(pruneTo))
+			}
+			t.Log("prune signals sent")
+			if lastPrune == 85 {
+				lastPrune = 0
+			}
+		}
+	}
 }

@@ -6,6 +6,7 @@ import (
 
 type VersionRange struct {
 	versions []int64
+	cache    map[int64]int64
 }
 
 func (r *VersionRange) Add(version int64) error {
@@ -46,4 +47,23 @@ func (r *VersionRange) Find(version int64) int64 {
 		}
 	}
 	return vs[low]
+}
+
+func (r *VersionRange) FindMemoized(version int64) int64 {
+	if r.cache == nil {
+		r.cache = make(map[int64]int64)
+	}
+	if v, ok := r.cache[version]; ok {
+		return v
+	}
+	v := r.Find(version)
+	r.cache[version] = v
+	return v
+}
+
+func (r *VersionRange) Last() int64 {
+	if len(r.versions) == 0 {
+		return -1
+	}
+	return r.versions[len(r.versions)-1]
 }
