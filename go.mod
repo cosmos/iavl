@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bvinc/go-sqlite-lite v0.6.1
-	github.com/cosmos/iavl-bench/bench v0.0.2
+	github.com/cosmos/iavl-bench/bench v0.0.4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/emicklei/dot v1.6.0
 	github.com/kocubinski/costor-api v1.1.1
@@ -34,5 +34,3 @@ require (
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/cosmos/iavl-bench/bench => ../bench/bench

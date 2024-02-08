@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -49,9 +48,6 @@ type SqliteDb struct {
 
 	metrics *metrics.TreeMetrics
 	logger  zerolog.Logger
-
-	pruningLock   sync.Mutex
-	tableSwapLock sync.Mutex
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -389,8 +385,6 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 }
 
 func (sql *SqliteDb) Get(nodeKey NodeKey) (*Node, error) {
-	sql.tableSwapLock.Lock()
-	defer sql.tableSwapLock.Unlock()
 	q, err := sql.getShardQuery(nodeKey.Version())
 	if err != nil {
 		return nil, err
