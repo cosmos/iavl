@@ -119,7 +119,7 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		if err = w.sql.leafWrite.Commit(); err != nil {
 			return err
 		}
-		w.logger.Info().Msgf("commit leaf pruning count=%s", humanize.Comma(pruneCount))
+		w.logger.Debug().Msgf("commit leaf prune count=%s", humanize.Comma(pruneCount))
 		if err = w.sql.leafWrite.Exec("PRAGMA wal_checkpoint(RESTART)"); err != nil {
 			return fmt.Errorf("failed to checkpoint; %w", err)
 		}
@@ -256,7 +256,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		if err = w.sql.treeWrite.Commit(); err != nil {
 			return err
 		}
-		w.logger.Info().Msgf("commit pruning count=%s low_rowid=%d high_rowid=%d",
+		w.logger.Debug().Msgf("commit tree prune count=%s low_rowid=%d high_rowid=%d",
 			humanize.Comma(pruneCount), startOrphanId, lastOrphanId)
 		if err = w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(RESTART)"); err != nil {
 			w.logger.Err(err).Msg("failed to checkpoint")
@@ -276,7 +276,6 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			}
 		}
 		if sig.batch.isCheckpoint() {
-			w.logger.Info().Msgf("checkpointed version=%d count=%s", sig.version, humanize.Comma(res.n))
 			if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 				return
 			}
@@ -335,7 +334,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 				return err
 			}
 
-			w.logger.Info().Msgf("done pruning count=%s dur=%s",
+			w.logger.Debug().Msgf("done tree prune count=%s dur=%s",
 				humanize.Comma(pruneCount),
 				time.Since(pruneStartTime).Round(time.Millisecond),
 			)

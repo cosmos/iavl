@@ -210,8 +210,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.shouldCheckpoint = tree.version == 1 ||
 		(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval)
 	rootHash := tree.computeHash()
-	// todo
-	// move all checkpoint crap into sqlWriter
 
 	writeStart := time.Now()
 

@@ -627,7 +627,7 @@ func Test_ConcurrentPrune(t *testing.T) {
 		}
 
 		lastPrune++
-		if lastPrune == 60 {
+		if lastPrune == 80 || lastPrune == 85 {
 			pruneTo := version - 1
 			t.Logf("prune to version %d", pruneTo)
 			//multiTree.Trees["ibc"].sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: version}
@@ -635,7 +635,9 @@ func Test_ConcurrentPrune(t *testing.T) {
 				require.NoError(t, tree.DeleteVersionsTo(pruneTo))
 			}
 			t.Log("prune signals sent")
-			lastPrune = 0
+			if lastPrune == 85 {
+				lastPrune = 0
+			}
 		}
 	}
 }
