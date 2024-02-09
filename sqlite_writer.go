@@ -79,14 +79,7 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		deleteLeaf       *sqlite3.Stmt
 		err              error
 	)
-	deleteOrphan, err = w.sql.leafWrite.Prepare("DELETE FROM leaf_orphan WHERE ROWID = ?")
-	if err != nil {
-		return fmt.Errorf("failed to prepare leaf orphan delete; %w", err)
-	}
-	deleteLeaf, err = w.sql.leafWrite.Prepare("DELETE FROM leaf WHERE version = ? and sequence = ?")
-	if err != nil {
-		return fmt.Errorf("failed to prepare leaf delete; %w", err)
-	}
+
 	resetOrphanQuery := func(pruneTo int64) error {
 		if err = w.sql.leafWrite.Begin(); err != nil {
 			return fmt.Errorf("failed to begin leaf prune tx; %w", err)
@@ -119,6 +112,16 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		if err = resetOrphanQuery(pruneVersion); err != nil {
 			return err
 		}
+
+		deleteOrphan, err = w.sql.leafWrite.Prepare("DELETE FROM leaf_orphan WHERE ROWID = ?")
+		if err != nil {
+			return fmt.Errorf("failed to prepare leaf orphan delete; %w", err)
+		}
+		deleteLeaf, err = w.sql.leafWrite.Prepare("DELETE FROM leaf WHERE version = ? and sequence = ?")
+		if err != nil {
+			return fmt.Errorf("failed to prepare leaf delete; %w", err)
+		}
+
 		return nil
 	}
 	commitOrphaned := func() error {
@@ -178,6 +181,13 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 				pruneVersion = 0
 			}
 			pruneVersion = 0
+		}
+
+		if err := deleteLeaf.Close(); err != nil {
+			return err
+		}
+		if err := deleteOrphan.Close(); err != nil {
+			return err
 		}
 
 		return nil
