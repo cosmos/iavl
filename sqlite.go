@@ -532,7 +532,7 @@ func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error
 func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
 	v := sql.shards.Find(version)
 	if v == -1 {
-		return nil, fmt.Errorf("version %d is before the first shard", version)
+		return nil, fmt.Errorf("version %d is before the first shard; shards=%v", version, sql.shards.versions)
 	}
 	if q, ok := sql.shardQueries[v]; ok {
 		return q, nil

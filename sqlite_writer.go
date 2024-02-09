@@ -87,11 +87,11 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to prepare leaf delete; %w", err)
 	}
-	resetOrphanQuery := func(startPruningVersion int64) error {
+	resetOrphanQuery := func(pruneTo int64) error {
 		if err = w.sql.leafWrite.Begin(); err != nil {
 			return fmt.Errorf("failed to begin leaf prune tx; %w", err)
 		}
-		orphanQuery, err = w.sql.leafWrite.Prepare(`SELECT version, sequence, ROWID FROM leaf_orphan WHERE at <= ?`, startPruningVersion)
+		orphanQuery, err = w.sql.leafWrite.Prepare(`SELECT version, sequence, ROWID FROM leaf_orphan WHERE at <= ?`, pruneTo)
 		if err != nil {
 			return fmt.Errorf("failed to prepare leaf orphan query; %w", err)
 		}
@@ -102,7 +102,6 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 			return fmt.Errorf("leaf pruning already in progress")
 		}
 
-		w.logger.Debug().Msgf("leaf pruning version=%d", startPruningVersion)
 		// only prune leafs to shard (checkpoint) boundaries.
 		pruneTo := w.sql.shards.Find(startPruningVersion)
 		if pruneTo == -1 {
@@ -111,7 +110,12 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 				return fmt.Errorf("leaf prune: no shards found")
 			}
 		}
+		if pruneTo > startPruningVersion {
+			w.logger.Debug().Msgf("skipping leaf prune: checkpoint %d > requested prune version %d", pruneTo, startPruningVersion)
+		}
 		pruneVersion = pruneTo
+
+		w.logger.Debug().Msgf("leaf prune starting requested=%d pruneTo=%d", startPruningVersion, pruneTo)
 		if err = resetOrphanQuery(pruneVersion); err != nil {
 			return err
 		}
