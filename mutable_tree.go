@@ -460,6 +460,8 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 
 	if firstVersion == 0 {
 		if targetVersion <= 0 {
+			tree.version = int64(tree.ndb.opts.InitialVersion)
+
 			if !tree.skipFastStorageUpgrade {
 				tree.mtx.Lock()
 				defer tree.mtx.Unlock()
