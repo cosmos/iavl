@@ -356,7 +356,8 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 	}
 	hasRow, err := q.Step()
 	if !hasRow {
-		return nil, fmt.Errorf("node not found: %v; shard=%d", nodeKey, sql.shards.Find(nodeKey.Version()))
+		return nil, fmt.Errorf("node not found: %v; shard=%d; path=%s",
+			nodeKey, sql.shards.Find(nodeKey.Version()), sql.opts.Path)
 	}
 	if err != nil {
 		return nil, err

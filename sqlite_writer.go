@@ -306,7 +306,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		}
 		if sig.batch.isCheckpoint() {
 			if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
-				return
+				res.err = fmt.Errorf("failed tree checkpoint; %w", err)
 			}
 		}
 		w.treeResult <- res

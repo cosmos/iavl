@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -15,18 +16,18 @@ type sqliteBatch struct {
 	size   int64
 	logger zerolog.Logger
 
-	count int64
-	since time.Time
+	treeCount int64
+	treeSince time.Time
+	leafCount int64
+	leafSince time.Time
 
 	leafInsert   *sqlite3.Stmt
 	deleteInsert *sqlite3.Stmt
 	latestInsert *sqlite3.Stmt
 	latestDelete *sqlite3.Stmt
 	treeInsert   *sqlite3.Stmt
-
-	leafOrphan  *sqlite3.Stmt
-	treeOrphans map[int64]*sqlite3.Stmt
-	treeOrphan  *sqlite3.Stmt
+	leafOrphan   *sqlite3.Stmt
+	treeOrphan   *sqlite3.Stmt
 }
 
 func (b *sqliteBatch) newChangeLogBatch() (err error) {
@@ -53,12 +54,12 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 	if err != nil {
 		return err
 	}
-	b.since = time.Now()
+	b.leafSince = time.Now()
 	return nil
 }
 
 func (b *sqliteBatch) changelogMaybeCommit() (err error) {
-	if b.count%b.size == 0 {
+	if b.leafCount%b.size == 0 {
 		if err = b.changelogBatchCommit(); err != nil {
 			return err
 		}
@@ -89,35 +90,10 @@ func (b *sqliteBatch) changelogBatchCommit() error {
 		return err
 	}
 
-	//if b.count >= b.size {
-	//	b.logger.Debug().Msgf("db=changelog count=%s dur=%s rate=%s",
-	//		humanize.Comma(int64(b.count)),
-	//		time.Since(b.since).Round(time.Millisecond),
-	//		humanize.Comma(int64(float64(b.size)/time.Since(b.since).Seconds())))
-	//}
-
 	return nil
 }
 
 func (b *sqliteBatch) execBranchOrphan(nodeKey NodeKey) error {
-	//version := nodeKey.Version()
-	//checkpointVersion := b.sql.shards.Find(version)
-	//if checkpointVersion == -1 {
-	//	return fmt.Errorf("version %d not found", version)
-	//}
-	//stmt, ok := b.treeOrphans[version]
-	//if !ok {
-	//	var err error
-	//	sqlStmt := fmt.Sprintf("UPDATE tree_%d SET orphaned = true WHERE version = ? AND sequence = ?",
-	//		checkpointVersion)
-	//	stmt, err = b.sql.treeWrite.Prepare(sqlStmt)
-	//	if err != nil {
-	//		return err
-	//	}
-	//	b.treeOrphans[version] = stmt
-	//}
-	//
-	//return stmt.Exec(version, int(nodeKey.Sequence()))
 	return b.treeOrphan.Exec(nodeKey.Version(), int(nodeKey.Sequence()), b.tree.version)
 }
 
@@ -127,9 +103,8 @@ func (b *sqliteBatch) newTreeBatch(checkpointVersion int64) (err error) {
 	}
 	b.treeInsert, err = b.sql.treeWrite.Prepare(fmt.Sprintf(
 		"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", checkpointVersion))
-	b.treeOrphans = make(map[int64]*sqlite3.Stmt)
 	b.treeOrphan, err = b.sql.treeWrite.Prepare("INSERT INTO orphan (version, sequence, at) VALUES (?, ?, ?)")
-	b.since = time.Now()
+	b.treeSince = time.Now()
 	return err
 }
 
@@ -140,31 +115,26 @@ func (b *sqliteBatch) treeBatchCommit() error {
 	if err := b.treeInsert.Close(); err != nil {
 		return err
 	}
-	for _, stmt := range b.treeOrphans {
-		if err := stmt.Close(); err != nil {
-			return err
-		}
-	}
 	if err := b.treeOrphan.Close(); err != nil {
 		return err
 	}
 
-	if b.count >= b.size {
-		batchSize := b.count % b.size
+	if b.treeCount >= b.size {
+		batchSize := b.treeCount % b.size
 		if batchSize == 0 {
 			batchSize = b.size
 		}
 		b.logger.Debug().Msgf("db=tree count=%s dur=%s batch=%d rate=%s",
-			humanize.Comma(int64(b.count)),
-			time.Since(b.since).Round(time.Millisecond),
+			humanize.Comma(int64(b.treeCount)),
+			time.Since(b.treeSince).Round(time.Millisecond),
 			batchSize,
-			humanize.Comma(int64(float64(batchSize)/time.Since(b.since).Seconds())))
+			humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds())))
 	}
 	return nil
 }
 
 func (b *sqliteBatch) treeMaybeCommit(checkpointVersion int64) (err error) {
-	if b.count%b.size == 0 {
+	if b.treeCount%b.size == 0 {
 		if err = b.treeBatchCommit(); err != nil {
 			return err
 		}
@@ -189,7 +159,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		tree = b.tree
 	)
 	for i, leaf := range tree.leaves {
-		b.count++
+		b.leafCount++
 		if tree.storeLatestLeaves {
 			val = leaf.value
 			leaf.value = nil
@@ -213,16 +183,16 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		if tree.heightFilter > 0 {
 			if i != 0 {
 				// evict leaf
-				b.sql.pool.Put(leaf)
+				tree.returnNode(leaf)
 			} else if leaf.nodeKey != tree.root.nodeKey {
 				// never evict the root if it's a leaf
-				b.sql.pool.Put(leaf)
+				tree.returnNode(leaf)
 			}
 		}
 	}
 
 	for _, leafDelete := range tree.deletes {
-		b.count++
+		b.leafCount++
 		err = b.deleteInsert.Exec(leafDelete.deleteKey.Version(), int(leafDelete.deleteKey.Sequence()), leafDelete.leafKey)
 		if err != nil {
 			return 0, err
@@ -238,7 +208,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 	}
 
 	for _, orphan := range tree.leafOrphans {
-		b.count++
+		b.leafCount++
 		err = b.leafOrphan.Exec(orphan.Version(), int(orphan.Sequence()), b.tree.version)
 		if err != nil {
 			return 0, err
@@ -267,7 +237,7 @@ func (b *sqliteBatch) isCheckpoint() bool {
 func (b *sqliteBatch) saveBranches() (n int64, err error) {
 	if b.isCheckpoint() {
 		tree := b.tree
-		b.count = 0
+		b.treeCount = 0
 
 		log.Info().Msgf("checkpointing version=%d path=%s", tree.version, tree.sql.opts.Path)
 		if err := tree.sql.NextShard(tree.version); err != nil {
@@ -278,8 +248,11 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 			return 0, err
 		}
 
+		if strings.Contains(b.sql.opts.Path, "ibc") {
+			fmt.Println(" save branches ibc")
+		}
 		for _, node := range tree.branches {
-			b.count++
+			b.treeCount++
 			bz, err := node.Bytes()
 			if err != nil {
 				return 0, err
@@ -290,12 +263,15 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 			if err = b.treeMaybeCommit(tree.version); err != nil {
 				return 0, err
 			}
+			if node.evict {
+				tree.returnNode(node)
+			}
 		}
 
 		b.logger.Debug().Msgf("db=tree orphans=%s", humanize.Comma(int64(len(tree.branchOrphans))))
 
 		for _, orphan := range tree.branchOrphans {
-			b.count++
+			b.treeCount++
 			err = b.execBranchOrphan(orphan)
 			if err != nil {
 				return 0, err
@@ -315,5 +291,5 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		}
 	}
 
-	return b.count, nil
+	return b.treeCount, nil
 }

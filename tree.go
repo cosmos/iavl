@@ -49,13 +49,14 @@ type Tree struct {
 	metricsProxy       metrics.Proxy
 
 	// state
-	branches      []*Node
-	leaves        []*Node
-	branchOrphans []NodeKey
-	leafOrphans   []NodeKey
-	deletes       []*nodeDelete
-	sequence      uint32
-	isReplaying   bool
+	branches       []*Node
+	leaves         []*Node
+	branchOrphans  []NodeKey
+	leafOrphans    []NodeKey
+	deletes        []*nodeDelete
+	sequence       uint32
+	isReplaying    bool
+	evictionHeight int8
 }
 
 type TreeOptions struct {
@@ -209,6 +210,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	tree.shouldCheckpoint = tree.version == 1 ||
 		(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval)
+	if tree.shouldCheckpoint {
+	}
 	rootHash := tree.computeHash()
 
 	writeStart := time.Now()
@@ -225,12 +228,32 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	if tree.shouldCheckpoint {
 		tree.branchOrphans = nil
 		tree.lastCheckpoint = tree.version
+
+		// if we've checkpointed without loading any tree node reads this means this was the first checkpoint.
+		// shard queries will not be loaded. initialize them now.
+		if tree.shouldCheckpoint && tree.sql.readConn == nil {
+			if err := tree.sql.ResetShardQueries(); err != nil {
+				panic(err)
+			}
+		}
 	}
 	tree.leafOrphans = nil
 	tree.leaves = nil
 	tree.branches = nil
 	tree.deletes = nil
 	tree.shouldCheckpoint = false
+
+	// evict nodes below "layer" 12 (where root is layer 0) to result in an in-memory tree of approximately height 12
+	// TODO configurable evictionHeight
+	tree.evictionHeight = tree.root.subtreeHeight - 12
+	if tree.evictionHeight < 0 {
+		tree.evictionHeight = 0
+	}
+
+	if tree.metricsProxy != nil {
+		tree.metricsProxy.SetGauge(float32(tree.workingBytes), "iavl_v2", "working_bytes")
+		tree.metricsProxy.SetGauge(float32(tree.workingSize), "iavl_v2", "working_size")
+	}
 
 	return rootHash, tree.version, nil
 }
@@ -290,7 +313,6 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 	node._hash()
 
 	if tree.heightFilter > 0 {
-		// will be returned to the pool in BatchSet if not below
 		if leftIsLeaf {
 			if !leftisDirty {
 				tree.pool.Put(node.leftNode)
@@ -301,6 +323,15 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 			if !rightIsDirty {
 				tree.pool.Put(node.rightNode)
 			}
+			node.rightNode = nil
+		}
+	}
+
+	if tree.shouldCheckpoint {
+		if node.subtreeHeight <= tree.evictionHeight {
+			node.leftNode.evict = true
+			node.leftNode = nil
+			node.rightNode.evict = true
 			node.rightNode = nil
 		}
 	}

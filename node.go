@@ -60,6 +60,7 @@ type Node struct {
 	subtreeHeight int8
 
 	dirty  bool
+	evict  bool
 	poolId uint64
 }
 
@@ -536,7 +537,7 @@ func (node *Node) Bytes() ([]byte, error) {
 var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize
 
 func (node *Node) varSize() uint64 {
-	return uint64(len(node.key))
+	return uint64(len(node.key) + len(node.value))
 }
 
 func (node *Node) sizeBytes() uint64 {

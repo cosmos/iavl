@@ -96,7 +96,11 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 				lastCacheHit = tree.metrics.CacheHit
 				lastCacheMiss = tree.metrics.CacheMiss
 
-				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d Δhit=%s Δmiss=%s %s\n",
+				var workingBytes uint64
+				for _, tr := range multiTree.Trees {
+					workingBytes += tr.workingBytes
+				}
+				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d Δhit=%s Δmiss=%s working-bytes=%s %s\n",
 					humanize.Comma(cnt),
 					dur.Round(time.Millisecond),
 					humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
@@ -104,6 +108,7 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 					version,
 					humanize.Comma(hitCount),
 					humanize.Comma(missCount),
+					humanize.Bytes(workingBytes),
 					MemUsage())
 
 				if tree.metrics.WriteTime > 0 {
@@ -151,7 +156,8 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 func TestTree_Hash(t *testing.T) {
 	var err error
 
-	tmpDir := t.TempDir()
+	//tmpDir := t.TempDir()
+	tmpDir := "/tmp/iavl-test"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 
 	require.NoError(t, err)

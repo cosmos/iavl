@@ -68,4 +68,5 @@ func (np *NodePool) resetNode(node *Node) {
 	node.subtreeHeight = 0
 	node.size = 0
 	node.dirty = false
+	node.evict = false
 }
