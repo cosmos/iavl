@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/cosmos/iavl/v2"
-	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
@@ -39,13 +38,12 @@ func Command() *cobra.Command {
 			)
 			for _, path := range paths {
 				cnt++
-				m := &metrics.TreeMetrics{}
-				sqlOpts := iavl.SqliteDbOptions{Path: path, Metrics: m}
+				sqlOpts := iavl.SqliteDbOptions{Path: path}
 				sql, err := iavl.NewSqliteDb(pool, sqlOpts)
 				if err != nil {
 					return err
 				}
-				tree := iavl.NewTree(sql, pool, iavl.TreeOptions{Metrics: m})
+				tree := iavl.NewTree(sql, pool, iavl.TreeOptions{})
 				if err = tree.LoadVersion(version); err != nil {
 					return err
 				}

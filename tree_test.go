@@ -24,19 +24,18 @@ func MemUsage() string {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
-	s := fmt.Sprintf("alloc=%s gc=%d",
-		humanize.Bytes(m.Alloc),
+	s := fmt.Sprintf("alloc=%s sys=%s gc=%d",
+		humanize.Bytes(m.HeapAlloc),
 		//humanize.Bytes(m.TotalAlloc),
-		//humanize.Bytes(m.Sys),
+		humanize.Bytes(m.Sys),
 		m.NumGC)
 	return s
 }
 
 func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildOptions) (cnt int64) {
 	var (
-		version                     int64
-		err                         error
-		lastCacheMiss, lastCacheHit int64
+		version int64
+		err     error
 	)
 	cnt = 1
 
@@ -51,6 +50,54 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 
 	since := time.Now()
 	itrStart := time.Now()
+
+	report := func() {
+		dur := time.Since(since)
+
+		var (
+			workingBytes uint64
+			workingSize  int64
+			writeLeaves  int64
+			writeTime    time.Duration
+		)
+		for _, tr := range multiTree.Trees {
+			m := tr.sql.metrics
+			workingBytes += tr.workingBytes
+			workingSize += tr.workingSize
+			writeLeaves += m.WriteLeaves
+			writeTime += m.WriteTime
+			m.WriteDurations = nil
+			m.WriteLeaves = 0
+			m.WriteTime = 0
+		}
+		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-bytes=%s work-size=%s %s\n",
+			humanize.Comma(cnt),
+			dur.Round(time.Millisecond),
+			humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
+			humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
+			version,
+			humanize.Bytes(workingBytes),
+			humanize.Comma(workingSize),
+			MemUsage())
+
+		if writeTime > 0 {
+			fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s\n",
+				humanize.Comma(writeLeaves),
+				humanize.Comma(int64(float64(writeLeaves)/writeTime.Seconds())),
+				time.Duration(int64(writeTime)/writeLeaves),
+				writeTime.Round(time.Millisecond),
+			)
+		}
+
+		if err := multiTree.QueryReport(0); err != nil {
+			t.Fatalf("query report err %v", err)
+		}
+
+		fmt.Println()
+
+		since = time.Now()
+	}
+
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
 		changeset := itr.Nodes()
@@ -80,57 +127,7 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 			}
 
 			if cnt%sampleRate == 0 {
-				dur := time.Since(since)
-
-				var hitCount, missCount int64
-				if tree.metrics.CacheHit < lastCacheHit {
-					hitCount = tree.metrics.CacheHit
-				} else {
-					hitCount = tree.metrics.CacheHit - lastCacheHit
-				}
-				if tree.metrics.CacheMiss < lastCacheMiss {
-					missCount = tree.metrics.CacheMiss
-				} else {
-					missCount = tree.metrics.CacheMiss - lastCacheMiss
-				}
-				lastCacheHit = tree.metrics.CacheHit
-				lastCacheMiss = tree.metrics.CacheMiss
-
-				var workingBytes uint64
-				for _, tr := range multiTree.Trees {
-					workingBytes += tr.workingBytes
-				}
-				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d Δhit=%s Δmiss=%s working-bytes=%s %s\n",
-					humanize.Comma(cnt),
-					dur.Round(time.Millisecond),
-					humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
-					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
-					version,
-					humanize.Comma(hitCount),
-					humanize.Comma(missCount),
-					humanize.Bytes(workingBytes),
-					MemUsage())
-
-				if tree.metrics.WriteTime > 0 {
-					fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s\n",
-						humanize.Comma(tree.metrics.WriteLeaves),
-						humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteTime.Seconds())),
-						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
-						tree.metrics.WriteTime.Round(time.Millisecond),
-					)
-				}
-
-				if err := tree.metrics.QueryReport(0); err != nil {
-					t.Fatalf("query report err %v", err)
-				}
-
-				fmt.Println()
-
-				since = time.Now()
-
-				tree.metrics.WriteDurations = nil
-				tree.metrics.WriteLeaves = 0
-				tree.metrics.WriteTime = 0
+				report()
 			}
 		}
 
@@ -147,7 +144,6 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 		fmt.Printf("storekey: %s height: %d, size: %d\n", sk, tree.Height(), tree.Size())
 	}
 	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
-	multiTree.treeOpts.Metrics.Report()
 	require.Equal(t, version, opts.Until)
 	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
 	return cnt
@@ -156,8 +152,8 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 func TestTree_Hash(t *testing.T) {
 	var err error
 
-	//tmpDir := t.TempDir()
-	tmpDir := "/tmp/iavl-test"
+	tmpDir := t.TempDir()
+	//tmpDir := "/tmp/iavl-test"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 
 	require.NoError(t, err)
@@ -275,7 +271,10 @@ func TestOsmoLike_HotStart(t *testing.T) {
 func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: false})
+	treeOpts := DefaultTreeOptions()
+	treeOpts.CheckpointInterval = 50
+	treeOpts.StateStorage = false
+	multiTree := NewMultiTree(tmpDir, treeOpts)
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
 	require.NoError(t, multiTree.WarmLeaves())
@@ -572,6 +571,52 @@ func Test_ConcurrentPrune(t *testing.T) {
 		itrStart  = time.Now()
 		lastPrune = 1
 	)
+	report := func() {
+		dur := time.Since(since)
+
+		var (
+			workingBytes uint64
+			workingSize  int64
+			writeLeaves  int64
+			writeTime    time.Duration
+		)
+		for _, tr := range multiTree.Trees {
+			m := tr.sql.metrics
+			workingBytes += tr.workingBytes
+			workingSize += tr.workingSize
+			writeLeaves += m.WriteLeaves
+			writeTime += m.WriteTime
+			m.WriteDurations = nil
+			m.WriteLeaves = 0
+			m.WriteTime = 0
+		}
+		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-bytes=%s work-size=%s %s\n",
+			humanize.Comma(cnt),
+			dur.Round(time.Millisecond),
+			humanize.Comma(int64(float64(opts.SampleRate)/time.Since(since).Seconds())),
+			humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
+			version,
+			humanize.Bytes(workingBytes),
+			humanize.Comma(workingSize),
+			MemUsage())
+
+		if writeTime > 0 {
+			fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s\n",
+				humanize.Comma(writeLeaves),
+				humanize.Comma(int64(float64(writeLeaves)/writeTime.Seconds())),
+				time.Duration(int64(writeTime)/writeLeaves),
+				writeTime.Round(time.Millisecond),
+			)
+		}
+
+		if err := multiTree.QueryReport(0); err != nil {
+			t.Fatalf("query report err %v", err)
+		}
+
+		fmt.Println()
+
+		since = time.Now()
+	}
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -594,33 +639,7 @@ func Test_ConcurrentPrune(t *testing.T) {
 			}
 
 			if cnt%opts.SampleRate == 0 {
-				fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d\n",
-					humanize.Comma(cnt),
-					time.Since(since).Round(time.Millisecond),
-					humanize.Comma(int64(float64(opts.SampleRate)/time.Since(since).Seconds())),
-					humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
-					version,
-				)
-
-				if tree.metrics.WriteTime > 0 {
-					fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s\n",
-						humanize.Comma(tree.metrics.WriteLeaves),
-						humanize.Comma(int64(float64(tree.metrics.WriteLeaves)/tree.metrics.WriteTime.Seconds())),
-						time.Duration(int64(tree.metrics.WriteTime)/tree.metrics.WriteLeaves),
-						tree.metrics.WriteTime.Round(time.Millisecond),
-					)
-				}
-
-				if err := tree.metrics.QueryReport(0); err != nil {
-					t.Fatalf("query report err %v", err)
-				}
-
-				fmt.Println()
-
-				since = time.Now()
-				tree.metrics.WriteDurations = nil
-				tree.metrics.WriteLeaves = 0
-				tree.metrics.WriteTime = 0
+				report()
 			}
 		}
 

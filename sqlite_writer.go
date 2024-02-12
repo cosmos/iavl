@@ -428,6 +428,8 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 }
 
 func (w *sqlWriter) saveTree(tree *Tree) error {
+	saveStart := time.Now()
+
 	batch := &sqliteBatch{
 		sql:  tree.sql,
 		tree: tree,
@@ -444,6 +446,11 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	w.leafCh <- saveSig
 	treeResult := <-w.treeResult
 	leafResult := <-w.leafResult
+	dur := time.Since(saveStart)
+	tree.sql.metrics.WriteDurations = append(tree.sql.metrics.WriteDurations, dur)
+	tree.sql.metrics.WriteTime += dur
+	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
+
 	err := errors.Join(treeResult.err, leafResult.err)
 
 	return err

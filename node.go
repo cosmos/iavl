@@ -547,3 +547,7 @@ func (node *Node) sizeBytes() uint64 {
 func (node *Node) GetHash() []byte {
 	return node.hash
 }
+
+func (node *Node) evictChildren() {
+	
+}

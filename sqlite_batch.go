@@ -2,7 +2,6 @@ package iavl
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -248,9 +247,6 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 			return 0, err
 		}
 
-		if strings.Contains(b.sql.opts.Path, "ibc") {
-			fmt.Println(" save branches ibc")
-		}
 		for _, node := range tree.branches {
 			b.treeCount++
 			bz, err := node.Bytes()

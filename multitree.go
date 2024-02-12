@@ -22,9 +22,6 @@ type MultiTree struct {
 }
 
 func NewMultiTree(rootPath string, opts TreeOptions) *MultiTree {
-	if opts.Metrics == nil {
-		opts.Metrics = &metrics.TreeMetrics{}
-	}
 	return &MultiTree{
 		Trees:    make(map[string]*Tree),
 		doneCh:   make(chan saveVersionResult, 1000),
@@ -51,7 +48,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 	)
 	for _, dbPath := range paths {
 		cnt++
-		sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath, Metrics: mt.treeOpts.Metrics}))
+		sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath}))
 		if err != nil {
 			return nil, err
 		}
@@ -86,8 +83,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 
 func (mt *MultiTree) MountTree(storeKey string) error {
 	opts := defaultSqliteDbOptions(SqliteDbOptions{
-		Metrics: mt.treeOpts.Metrics,
-		Path:    mt.rootPath + "/" + storeKey,
+		Path: mt.rootPath + "/" + storeKey,
 	})
 	sql, err := NewSqliteDb(mt.pool, opts)
 	if err != nil {
@@ -103,9 +99,9 @@ func (mt *MultiTree) MountTrees() error {
 	if err != nil {
 		return err
 	}
-	sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Metrics: mt.treeOpts.Metrics})
 	for _, dbPath := range paths {
 		prefix := filepath.Base(dbPath)
+		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{})
 		sqlOpts.Path = dbPath
 		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
 		sql, err := NewSqliteDb(mt.pool, sqlOpts)
@@ -258,4 +254,13 @@ func (mt *MultiTree) WarmLeaves() error {
 		}
 	}
 	return nil
+}
+
+func (mt *MultiTree) QueryReport(bins int) error {
+	m := &metrics.DbMetrics{}
+	for _, tree := range mt.Trees {
+		m.Add(tree.sql.metrics)
+		tree.sql.metrics.SetQueryZero()
+	}
+	return m.QueryReport(bins)
 }

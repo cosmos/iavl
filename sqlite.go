@@ -20,7 +20,6 @@ type SqliteDbOptions struct {
 	WalSize   int
 	CacheSize int
 	ConnArgs  string
-	Metrics   *metrics.TreeMetrics
 
 	walPages int
 }
@@ -46,7 +45,7 @@ type SqliteDb struct {
 	shards       *VersionRange
 	shardQueries map[int64]*sqlite3.Stmt
 
-	metrics *metrics.TreeMetrics
+	metrics *metrics.DbMetrics
 	logger  zerolog.Logger
 }
 
@@ -60,9 +59,6 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	//if opts.ConnArgs == "" {
 	//	opts.ConnArgs = "cache=shared"
 	//}
-	if opts.Metrics == nil {
-		opts.Metrics = &metrics.TreeMetrics{}
-	}
 	if opts.WalSize == 0 {
 		opts.WalSize = 1024 * 1024 * 100
 	}
@@ -136,7 +132,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		iterators:    make(map[int]*sqlite3.Stmt),
 		opts:         opts,
 		pool:         pool,
-		metrics:      opts.Metrics,
+		metrics:      &metrics.DbMetrics{},
 		logger:       logger,
 	}
 

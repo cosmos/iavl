@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
-	"github.com/dustin/go-humanize"
 	"github.com/rs/zerolog"
 	zlog "github.com/rs/zerolog/log"
 )
@@ -57,42 +56,41 @@ type Tree struct {
 	sequence       uint32
 	isReplaying    bool
 	evictionHeight int8
+	evictionLayer  int8
 }
 
 type TreeOptions struct {
 	CheckpointInterval int64
-	Metrics            *metrics.TreeMetrics
 	StateStorage       bool
 	HeightFilter       int8
+	EvictionLayer      int8
 	MetricsProxy       metrics.Proxy
 }
 
 func DefaultTreeOptions() TreeOptions {
 	return TreeOptions{
 		CheckpointInterval: 1000,
-		Metrics:            &metrics.TreeMetrics{},
 		StateStorage:       true,
 		HeightFilter:       1,
+		EvictionLayer:      -1,
 	}
 }
 
 func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
-	if opts.Metrics == nil {
-		opts.Metrics = &metrics.TreeMetrics{}
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	tree := &Tree{
 		sql:                sql,
 		sqlWriter:          sql.newSqlWriter(),
 		writerCancel:       cancel,
 		pool:               pool,
-		metrics:            opts.Metrics,
+		metrics:            &metrics.TreeMetrics{},
 		maxWorkingSize:     2 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
 		storeLeafValues:    opts.StateStorage,
 		storeLatestLeaves:  false,
 		heightFilter:       opts.HeightFilter,
 		metricsProxy:       opts.MetricsProxy,
+		evictionLayer:      opts.EvictionLayer,
 	}
 
 	tree.sqlWriter.start(ctx)
@@ -162,44 +160,6 @@ func (tree *Tree) SaveSnapshot() (err error) {
 	return tree.sql.Snapshot(ctx, tree)
 }
 
-func (tree *Tree) WarmTree() error {
-	var i int
-	start := time.Now()
-	log.Info().Msgf("loading tree into memory version=%d", tree.version)
-	loadTreeSince := time.Now()
-	tree.loadTree(&i, &loadTreeSince, tree.root)
-	log.Info().Msgf("loaded %s tree nodes into memory version=%d dur=%s",
-		humanize.Comma(int64(i)),
-		tree.version, time.Since(start).Round(time.Millisecond))
-	err := tree.sql.WarmLeaves()
-	if err != nil {
-		return err
-	}
-	return tree.metrics.QueryReport(5)
-}
-
-func (tree *Tree) loadTree(i *int, since *time.Time, node *Node) *Node {
-	if node.isLeaf() {
-		return nil
-	}
-	*i++
-	if *i%1_000_000 == 0 {
-		log.Info().Msgf("loadTree i=%s, r/s=%s",
-			humanize.Comma(int64(*i)),
-			humanize.Comma(int64(1_000_000/time.Since(*since).Seconds())),
-		)
-		*since = time.Now()
-	}
-	// balanced subtree with two leaves, skip 2 queries
-	if node.subtreeHeight == 1 || (node.subtreeHeight == 2 && node.size == 3) {
-		return node
-	}
-
-	node.leftNode = tree.loadTree(i, since, node.left(tree))
-	node.rightNode = tree.loadTree(i, since, node.right(tree))
-	return node
-}
-
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.version++
 	tree.sequence = 0
@@ -210,20 +170,12 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	tree.shouldCheckpoint = tree.version == 1 ||
 		(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval)
-	if tree.shouldCheckpoint {
-	}
 	rootHash := tree.computeHash()
-
-	writeStart := time.Now()
 
 	err := tree.sqlWriter.saveTree(tree)
 	if err != nil {
 		return nil, tree.version, err
 	}
-	dur := time.Since(writeStart)
-	tree.metrics.WriteDurations = append(tree.metrics.WriteDurations, dur)
-	tree.metrics.WriteTime += dur
-	tree.metrics.WriteLeaves += int64(len(tree.leaves))
 
 	if tree.shouldCheckpoint {
 		tree.branchOrphans = nil
@@ -233,7 +185,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		// shard queries will not be loaded. initialize them now.
 		if tree.shouldCheckpoint && tree.sql.readConn == nil {
 			if err := tree.sql.ResetShardQueries(); err != nil {
-				panic(err)
+				return nil, tree.version, err
 			}
 		}
 	}
@@ -244,10 +196,13 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.shouldCheckpoint = false
 
 	// evict nodes below "layer" 12 (where root is layer 0) to result in an in-memory tree of approximately height 12
-	// TODO configurable evictionHeight
-	tree.evictionHeight = tree.root.subtreeHeight - 12
-	if tree.evictionHeight < 0 {
-		tree.evictionHeight = 0
+	if tree.evictionLayer >= 0 && tree.root != nil {
+		tree.evictionHeight = tree.root.subtreeHeight - tree.evictionLayer
+		if tree.evictionHeight < 0 {
+			tree.evictionHeight = 0
+		}
+	} else {
+		tree.evictionHeight = -1
 	}
 
 	if tree.metricsProxy != nil {
@@ -295,13 +250,21 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 			return false, isDirty
 		}
 	} else {
-		// when checkpointing end recursion at path where node.version <= tree.lastCheckpoint
-		// and accumulate tree node into tree.branches
+		// when checkpointing:
+		// end recursion at path where node.version <= tree.lastCheckpoint
+		// if node.version > tree.lastCheckpoint accumulate tree node into tree.branches
+		// if node.hash is not nil end recursion, otherwise continue down the tree
 		if node.nodeKey.Version() <= tree.lastCheckpoint {
 			return isLeaf, isDirty
 		}
 		tree.branches = append(tree.branches, node)
+		if node.hash != nil {
+			return false, isDirty
+		}
 	}
+
+	// TODO
+	// need to ensure evictions are flagged in all cases
 
 	// When reading leaves, this will initiate a leafRead from storage for the sole purpose of producing a hash.
 	// Recall that a terminal tree node may have only updated one leaf this version.
@@ -329,10 +292,7 @@ func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
 
 	if tree.shouldCheckpoint {
 		if node.subtreeHeight <= tree.evictionHeight {
-			node.leftNode.evict = true
-			node.leftNode = nil
-			node.rightNode.evict = true
-			node.rightNode = nil
+			node.evictChildren()
 		}
 	}
 
