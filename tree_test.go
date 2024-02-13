@@ -8,15 +8,20 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"runtime"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/cosmos/iavl-bench/bench"
+	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
 	api "github.com/kocubinski/costor-api"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -70,14 +75,14 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 			m.WriteLeaves = 0
 			m.WriteTime = 0
 		}
-		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-bytes=%s work-size=%s %s\n",
+		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-size=%s work-bytes=%s %s\n",
 			humanize.Comma(cnt),
 			dur.Round(time.Millisecond),
 			humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
 			humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
 			version,
-			humanize.Bytes(workingBytes),
 			humanize.Comma(workingSize),
+			humanize.Bytes(workingBytes),
 			MemUsage())
 
 		if writeTime > 0 {
@@ -273,7 +278,10 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 
 	treeOpts := DefaultTreeOptions()
 	treeOpts.CheckpointInterval = 50
-	treeOpts.StateStorage = false
+	treeOpts.StateStorage = true
+	treeOpts.HeightFilter = 1
+	treeOpts.EvictionDepth = 12
+	treeOpts.MetricsProxy = newPrometheusMetricsProxy()
 	multiTree := NewMultiTree(tmpDir, treeOpts)
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
@@ -665,4 +673,47 @@ func Test_ConcurrentPrune(t *testing.T) {
 			}
 		}
 	}
+}
+
+var _ metrics.Proxy = &prometheusMetricsProxy{}
+
+type prometheusMetricsProxy struct {
+	workingSize  prometheus.Gauge
+	workingBytes prometheus.Gauge
+}
+
+func newPrometheusMetricsProxy() *prometheusMetricsProxy {
+	p := &prometheusMetricsProxy{}
+	p.workingSize = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "iavl_working_size",
+		Help: "working size",
+	})
+	p.workingBytes = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "iavl_working_bytes",
+		Help: "working bytes",
+	})
+	http.Handle("/metrics", promhttp.Handler())
+	go func() {
+		err := http.ListenAndServe(":2112", nil)
+		if err != nil {
+			panic(err)
+		}
+	}()
+	return p
+}
+
+func (p *prometheusMetricsProxy) IncrCounter(val float32, keys ...string) {
+}
+
+func (p *prometheusMetricsProxy) SetGauge(val float32, keys ...string) {
+	k := keys[1]
+	switch k {
+	case "working_size":
+		p.workingSize.Set(float64(val))
+	case "working_bytes":
+		p.workingBytes.Set(float64(val))
+	}
+}
+
+func (p *prometheusMetricsProxy) MeasureSince(start time.Time, keys ...string) {
 }

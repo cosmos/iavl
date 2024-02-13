@@ -48,22 +48,21 @@ type Tree struct {
 	metricsProxy       metrics.Proxy
 
 	// state
-	branches       []*Node
-	leaves         []*Node
-	branchOrphans  []NodeKey
-	leafOrphans    []NodeKey
-	deletes        []*nodeDelete
-	sequence       uint32
-	isReplaying    bool
-	evictionHeight int8
-	evictionLayer  int8
+	branches      []*Node
+	leaves        []*Node
+	branchOrphans []NodeKey
+	leafOrphans   []NodeKey
+	deletes       []*nodeDelete
+	sequence      uint32
+	isReplaying   bool
+	evictionDepth int8
 }
 
 type TreeOptions struct {
 	CheckpointInterval int64
 	StateStorage       bool
 	HeightFilter       int8
-	EvictionLayer      int8
+	EvictionDepth      int8
 	MetricsProxy       metrics.Proxy
 }
 
@@ -72,7 +71,7 @@ func DefaultTreeOptions() TreeOptions {
 		CheckpointInterval: 1000,
 		StateStorage:       true,
 		HeightFilter:       1,
-		EvictionLayer:      -1,
+		EvictionDepth:      -1,
 	}
 }
 
@@ -90,7 +89,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		storeLatestLeaves:  false,
 		heightFilter:       opts.HeightFilter,
 		metricsProxy:       opts.MetricsProxy,
-		evictionLayer:      opts.EvictionLayer,
+		evictionDepth:      opts.EvictionDepth,
 	}
 
 	tree.sqlWriter.start(ctx)
@@ -195,21 +194,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.deletes = nil
 	tree.shouldCheckpoint = false
 
-	// evict nodes below "layer" 12 (where root is layer 0) to result in an in-memory tree of approximately height 12
-	if tree.evictionLayer >= 0 && tree.root != nil {
-		tree.evictionHeight = tree.root.subtreeHeight - tree.evictionLayer
-		if tree.evictionHeight < 0 {
-			tree.evictionHeight = 0
-		}
-	} else {
-		tree.evictionHeight = -1
-	}
-
-	if tree.metricsProxy != nil {
-		tree.metricsProxy.SetGauge(float32(tree.workingBytes), "iavl_v2", "working_bytes")
-		tree.metricsProxy.SetGauge(float32(tree.workingSize), "iavl_v2", "working_size")
-	}
-
 	return rootHash, tree.version, nil
 }
 
@@ -221,82 +205,79 @@ func (tree *Tree) computeHash() []byte {
 	if tree.root == nil {
 		return sha256.New().Sum(nil)
 	}
-	tree.deepHash(tree.root)
+	tree.deepHash(tree.root, 0)
 	return tree.root.hash
 }
 
-func (tree *Tree) deepHash(node *Node) (isLeaf bool, isDirty bool) {
+func (tree *Tree) deepHash(node *Node, depth int8) {
 	if node == nil {
 		panic(fmt.Sprintf("node is nil; sql.path=%s", tree.sql.opts.Path))
 	}
-	isLeaf = node.isLeaf()
-
-	// new leaves are written every version
-	if node.nodeKey.Version() == tree.version {
-		isDirty = true
-		if isLeaf {
+	if node.isLeaf() {
+		// new leaves are written every version
+		if node.nodeKey.Version() == tree.version {
 			tree.leaves = append(tree.leaves, node)
 		}
+		// always end recursion at a leaf
+		return
 	}
 
-	// always end recursion at a leaf
-	if isLeaf {
-		return true, isDirty
+	if node.hash == nil {
+		// When the child is a leaf, this will initiate a leafRead from storage for the sole purpose of producing a hash.
+		// Recall that a terminal tree node may have only updated one leaf this version.
+		// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
+		// format to iavl v0 where left/right hash are stored in the node.
+		tree.deepHash(node.left(tree), depth+1)
+		tree.deepHash(node.right(tree), depth+1)
 	}
 
 	if !tree.shouldCheckpoint {
 		// when not checkpointing, end recursion at a node with a hash (node.version < tree.version)
 		if node.hash != nil {
-			return false, isDirty
+			return
 		}
 	} else {
-		// when checkpointing:
-		// end recursion at path where node.version <= tree.lastCheckpoint
-		// if node.version > tree.lastCheckpoint accumulate tree node into tree.branches
-		// if node.hash is not nil end recursion, otherwise continue down the tree
-		if node.nodeKey.Version() <= tree.lastCheckpoint {
-			return isLeaf, isDirty
-		}
+		// otherwise accumulate the branch node for checkpointing
 		tree.branches = append(tree.branches, node)
+
+		// if the node is missing a hash then it's children have already been loaded above.
+		// if the node has a hash then traverse the dirty path.
 		if node.hash != nil {
-			return false, isDirty
+			if node.leftNode != nil {
+				tree.deepHash(node.leftNode, depth+1)
+			}
+			if node.rightNode != nil {
+				tree.deepHash(node.rightNode, depth+1)
+			}
 		}
 	}
 
-	// TODO
-	// need to ensure evictions are flagged in all cases
-
-	// When reading leaves, this will initiate a leafRead from storage for the sole purpose of producing a hash.
-	// Recall that a terminal tree node may have only updated one leaf this version.
-	// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
-	// format to iavl v0 where left/right hash are stored in the node.
-	leftIsLeaf, leftisDirty := tree.deepHash(node.left(tree))
-	rightIsLeaf, rightIsDirty := tree.deepHash(node.right(tree))
-
 	node._hash()
 
+	// when heightFilter > 0 remove the leaf nodes from memory.
+	// if the leaf node is not dirty, return it to the pool.
+	// if the leaf node is dirty, it will be written to storage then removed from the pool.
 	if tree.heightFilter > 0 {
-		if leftIsLeaf {
-			if !leftisDirty {
-				tree.pool.Put(node.leftNode)
+		if node.leftNode != nil && node.leftNode.isLeaf() {
+			if !node.leftNode.dirty {
+				tree.returnNode(node.leftNode)
 			}
 			node.leftNode = nil
 		}
-		if rightIsLeaf {
-			if !rightIsDirty {
-				tree.pool.Put(node.rightNode)
+		if node.rightNode != nil && node.rightNode.isLeaf() {
+			if !node.rightNode.dirty {
+				tree.returnNode(node.rightNode)
 			}
 			node.rightNode = nil
 		}
 	}
 
+	// finally, if checkpointing, remove node's children from memory if we're at the eviction height
 	if tree.shouldCheckpoint {
-		if node.subtreeHeight <= tree.evictionHeight {
+		if depth >= tree.evictionDepth {
 			node.evictChildren()
 		}
 	}
-
-	return false, isDirty
 }
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {

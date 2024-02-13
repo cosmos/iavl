@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"github.com/dustin/go-humanize"
 	"golang.org/x/exp/slices"
 )
 
@@ -145,15 +147,17 @@ type saveVersionResult struct {
 
 func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	treeCount := 0
+	var workingSize atomic.Int64
+	var workingBytes atomic.Uint64
 	for _, tree := range mt.Trees {
 		treeCount++
 		go func(t *Tree) {
-			//t.sql.logger.Debug().Msgf("saving version %d", t.Version()+1)
 			h, v, err := t.SaveVersion()
+			workingSize.Add(t.workingSize)
+			workingBytes.Add(t.workingBytes)
 			if err != nil {
 				mt.errorCh <- err
 			}
-			//t.sql.logger.Debug().Msgf("saved version %d", v)
 			mt.doneCh <- saveVersionResult{version: v, hash: h}
 		}(tree)
 	}
@@ -175,6 +179,14 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 			version = result.version
 		}
 	}
+	if mt.treeOpts.MetricsProxy != nil {
+		bz := workingBytes.Load()
+		sz := workingSize.Load()
+		fmt.Println("version", version, "working bytes", humanize.Bytes(bz), "working size", humanize.Comma(sz))
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes.Load()), "iavl_v2", "working_bytes")
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), "iavl_v2", "working_size")
+	}
+
 	return mt.Hash(), version, errors.Join(errs...)
 }
 

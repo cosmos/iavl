@@ -549,5 +549,12 @@ func (node *Node) GetHash() []byte {
 }
 
 func (node *Node) evictChildren() {
-	
+	if node.leftNode != nil {
+		node.leftNode.evict = true
+		node.leftNode = nil
+	}
+	if node.rightNode != nil {
+		node.rightNode.evict = true
+		node.rightNode = nil
+	}
 }

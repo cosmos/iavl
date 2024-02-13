@@ -51,12 +51,6 @@ func (np *NodePool) Get() *Node {
 }
 
 func (np *NodePool) Put(node *Node) {
-	np.resetNode(node)
-	node.poolId = 0
-	np.syncPool.Put(node)
-}
-
-func (np *NodePool) resetNode(node *Node) {
 	node.leftNodeKey = emptyNodeKey
 	node.rightNodeKey = emptyNodeKey
 	node.rightNode = nil
@@ -69,4 +63,7 @@ func (np *NodePool) resetNode(node *Node) {
 	node.size = 0
 	node.dirty = false
 	node.evict = false
+
+	node.poolId = 0
+	np.syncPool.Put(node)
 }
