@@ -6,13 +6,10 @@ import (
 )
 
 type NodePool struct {
-	syncPool      *sync.Pool
-	hashBytesPool *sync.Pool
-	keyBytesPool  *sync.Pool
+	syncPool *sync.Pool
 
-	free     chan int
-	nodes    []Node
-	poolSize uint64
+	free  chan int
+	nodes []Node
 
 	poolId uint64
 }
@@ -22,16 +19,6 @@ func NewNodePool() *NodePool {
 		syncPool: &sync.Pool{
 			New: func() interface{} {
 				return &Node{}
-			},
-		},
-		hashBytesPool: &sync.Pool{
-			New: func() interface{} {
-				return make([]byte, 0, 32)
-			},
-		},
-		keyBytesPool: &sync.Pool{
-			New: func() interface{} {
-				return make([]byte, 0)
 			},
 		},
 		free: make(chan int, 1000),

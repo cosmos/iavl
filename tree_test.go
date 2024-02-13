@@ -416,6 +416,7 @@ func Test_EmptyTree(t *testing.T) {
 	_, err = tree.Set([]byte("foo"), []byte("bar"))
 	require.NoError(t, err)
 	_, err = tree.Set([]byte("baz"), []byte("qux"))
+	require.NoError(t, err)
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 

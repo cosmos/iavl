@@ -102,6 +102,9 @@ func (b *sqliteBatch) newTreeBatch(checkpointVersion int64) (err error) {
 	}
 	b.treeInsert, err = b.sql.treeWrite.Prepare(fmt.Sprintf(
 		"INSERT INTO tree_%d (version, sequence, bytes) VALUES (?, ?, ?)", checkpointVersion))
+	if err != nil {
+		return err
+	}
 	b.treeOrphan, err = b.sql.treeWrite.Prepare("INSERT INTO orphan (version, sequence, at) VALUES (?, ?, ?)")
 	b.treeSince = time.Now()
 	return err
