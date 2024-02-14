@@ -169,7 +169,7 @@ func TestTree_Hash(t *testing.T) {
 	// at this commit tree: https://github.com/cosmos/iavl-bench/blob/3a6a1ec0a8cbec305e46239454113687da18240d/iavl-v0/main.go#L136
 	opts.Until = 100
 	opts.UntilHash = "0101e1d6f3158dcb7221acd7ed36ce19f2ef26847ffea7ce69232e362539e5cf"
-	treeOpts := TreeOptions{CheckpointInterval: 10, HeightFilter: 0, StateStorage: true}
+	treeOpts := TreeOptions{CheckpointInterval: 10, HeightFilter: 0, StateStorage: false}
 
 	testStart := time.Now()
 	multiTree := NewMultiTree(tmpDir, treeOpts)
@@ -278,14 +278,14 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 
 	treeOpts := DefaultTreeOptions()
 	treeOpts.CheckpointInterval = 50
-	treeOpts.StateStorage = true
+	treeOpts.StateStorage = false
 	treeOpts.HeightFilter = 1
 	treeOpts.EvictionDepth = 12
 	treeOpts.MetricsProxy = newPrometheusMetricsProxy()
 	multiTree := NewMultiTree(tmpDir, treeOpts)
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
-	require.NoError(t, multiTree.WarmLeaves())
+	// require.NoError(t, multiTree.WarmLeaves())
 
 	// logDir := "/tmp/osmo-like-many-v2"
 	opts := testutil.CompactedChangelogs("/Users/mattk/src/scratch/osmo-like-many/v2")

@@ -60,6 +60,7 @@ type Tree struct {
 
 type TreeOptions struct {
 	CheckpointInterval int64
+	CheckpointMemory   int
 	StateStorage       bool
 	HeightFilter       int8
 	EvictionDepth      int8
@@ -394,15 +395,20 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			return parent, false, nil
 		default:
 			tree.addOrphan(node)
+			wasDirty := node.dirty
 			tree.mutateNode(node)
 			if tree.isReplaying {
 				node.hash = value
 			} else {
+				if wasDirty {
+					tree.workingBytes -= node.sizeBytes()
+				}
 				node.value = value
 				node._hash()
 				if !tree.storeLeafValues {
 					node.value = nil
 				}
+				tree.workingBytes += node.sizeBytes()
 			}
 			return node, true, nil
 		}
@@ -590,8 +596,10 @@ func (tree *Tree) mutateNode(node *Node) {
 	}
 
 	node.dirty = true
-	tree.workingBytes += node.sizeBytes()
 	tree.workingSize++
+	if !node.isLeaf() {
+		tree.workingBytes += node.sizeBytes()
+	}
 }
 
 func (tree *Tree) addOrphan(node *Node) {
