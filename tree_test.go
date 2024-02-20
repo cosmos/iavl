@@ -277,10 +277,11 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
 	treeOpts := DefaultTreeOptions()
-	treeOpts.CheckpointInterval = 50
+	treeOpts.CheckpointInterval = -1
+	treeOpts.CheckpointMemory = 1.5 * 1024 * 1024 * 1024
 	treeOpts.StateStorage = false
 	treeOpts.HeightFilter = 1
-	treeOpts.EvictionDepth = 12
+	treeOpts.EvictionDepth = 16
 	treeOpts.MetricsProxy = newPrometheusMetricsProxy()
 	multiTree := NewMultiTree(tmpDir, treeOpts)
 	require.NoError(t, multiTree.MountTrees())

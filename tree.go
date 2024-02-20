@@ -41,6 +41,7 @@ type Tree struct {
 	maxWorkingSize     uint64
 	workingBytes       uint64
 	checkpointInterval int64
+	checkpointMemory   uint64
 	workingSize        int64
 	storeLeafValues    bool
 	storeLatestLeaves  bool
@@ -60,7 +61,7 @@ type Tree struct {
 
 type TreeOptions struct {
 	CheckpointInterval int64
-	CheckpointMemory   int
+	CheckpointMemory   uint64
 	StateStorage       bool
 	HeightFilter       int8
 	EvictionDepth      int8
@@ -84,8 +85,9 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		writerCancel:       cancel,
 		pool:               pool,
 		metrics:            &metrics.TreeMetrics{},
-		maxWorkingSize:     2 * 1024 * 1024 * 1024,
+		maxWorkingSize:     1.5 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
+		checkpointMemory:   opts.CheckpointMemory,
 		storeLeafValues:    opts.StateStorage,
 		storeLatestLeaves:  false,
 		heightFilter:       opts.HeightFilter,
@@ -168,8 +170,11 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, 0, err
 	}
 
-	tree.shouldCheckpoint = tree.version == 1 ||
-		(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval)
+	if !tree.shouldCheckpoint {
+		tree.shouldCheckpoint = tree.version == 1 ||
+			(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval) ||
+			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
+	}
 	rootHash := tree.computeHash()
 
 	err := tree.sqlWriter.saveTree(tree)
