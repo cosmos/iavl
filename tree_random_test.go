@@ -13,7 +13,7 @@ import (
 	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/cosmos/cosmos-db"
+	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 )
 
@@ -68,7 +68,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	r := rand.New(rand.NewSource(randSeed))
 
 	// loadTree loads the last persisted version of a tree with random pruning settings.
-	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
+	loadTree := func(levelDB dbm.DB) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
 		var err error
 
 		sync := r.Float64() < syncChance
@@ -99,7 +99,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempdir)
 
-	levelDB, err := db.NewGoLevelDB("leveldb", tempdir, nil)
+	levelDB, err := dbm.NewDB("test", "goleveldb", tempdir)
 	require.NoError(t, err)
 
 	tree, version, _ := loadTree(levelDB)
@@ -300,7 +300,7 @@ func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
 }
 
 // Checks that a version is the maximum mirrored version.
-func assertMaxVersion(t *testing.T, tree *MutableTree, version int64, mirrors map[int64]map[string]string) { //nolint:unparam
+func assertMaxVersion(t *testing.T, _ *MutableTree, version int64, mirrors map[int64]map[string]string) {
 	max := int64(0)
 	for v := range mirrors {
 		if v > max {

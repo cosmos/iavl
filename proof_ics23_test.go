@@ -11,7 +11,7 @@ import (
 	ics23 "github.com/cosmos/ics23/go"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/cosmos/cosmos-db"
+	dbm "github.com/cosmos/iavl/db"
 )
 
 func TestGetMembership(t *testing.T) {
@@ -204,7 +204,7 @@ func GetNonKey(allkeys [][]byte, loc Where) []byte {
 // BuildTree creates random key/values and stores in tree
 // returns a list of all keys in sorted order
 func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err error) {
-	tree := NewMutableTree(db.NewMemDB(), cacheSize, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), cacheSize, false, log.NewNopLogger())
 
 	// insert lots of info and store the bytes
 	keys = make([][]byte, size)

@@ -8,8 +8,8 @@ import (
 	"sync"
 
 	log "cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
 
+	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
