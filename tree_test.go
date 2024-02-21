@@ -868,7 +868,7 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 	require.Equal([]byte("val1"), val)
 }
 
-func TestVersionedCheckpointsSpecialCase2(t *testing.T) {
+func TestVersionedCheckpointsSpecialCase2(_ *testing.T) {
 	tree := getTestTree(0)
 
 	tree.Set([]byte("U"), []byte("XamDUtiJ"))
@@ -888,7 +888,7 @@ func TestVersionedCheckpointsSpecialCase2(t *testing.T) {
 	tree.DeleteVersionsTo(2)
 }
 
-func TestVersionedCheckpointsSpecialCase3(t *testing.T) {
+func TestVersionedCheckpointsSpecialCase3(_ *testing.T) {
 	tree := getTestTree(0)
 
 	tree.Set([]byte("n"), []byte("2wUCUs8q"))
@@ -944,7 +944,7 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	require.Nil(t, val)
 }
 
-func TestVersionedCheckpointsSpecialCase5(t *testing.T) {
+func TestVersionedCheckpointsSpecialCase5(_ *testing.T) {
 	tree := getTestTree(0)
 
 	tree.Set([]byte("R"), []byte("ygZlIzeW"))
@@ -961,7 +961,7 @@ func TestVersionedCheckpointsSpecialCase5(t *testing.T) {
 	tree.GetVersioned([]byte("R"), 2)
 }
 
-func TestVersionedCheckpointsSpecialCase6(t *testing.T) {
+func TestVersionedCheckpointsSpecialCase6(_ *testing.T) {
 	tree := getTestTree(0)
 
 	tree.Set([]byte("Y"), []byte("MW79JQeV"))
@@ -993,7 +993,7 @@ func TestVersionedCheckpointsSpecialCase6(t *testing.T) {
 	tree.GetVersioned([]byte("4"), 1)
 }
 
-func TestVersionedCheckpointsSpecialCase7(t *testing.T) {
+func TestVersionedCheckpointsSpecialCase7(_ *testing.T) {
 	tree := getTestTree(100)
 
 	tree.Set([]byte("n"), []byte("OtqD3nyn"))
