@@ -62,9 +62,6 @@ var (
 	// All legacy node keys are prefixed with the byte 'n'.
 	legacyNodeKeyFormat = keyformat.NewFastPrefixFormatter('n', hashSize) // n<hash>
 
-	// All legacy orphan keys are prefixed with the byte 'o'.
-	legacyOrphanKeyFormat = keyformat.NewKeyFormat('o', int64Size, int64Size, hashSize) // o<last-version><first-version><hash>
-
 	// All legacy root keys are prefixed with the byte 'r'.
 	legacyRootKeyFormat = keyformat.NewKeyFormat('r', int64Size) // r<version>
 )
@@ -414,7 +411,6 @@ var (
 
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
-<<<<<<< HEAD
 	isDeletingLegacyVersionsMutex.Lock()
 	if isDeletingLegacyVersions {
 		isDeletingLegacyVersionsMutex.Unlock()
@@ -431,7 +427,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 		}()
 
 		// Check if we have a legacy version
-		itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
+		itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
 		if err != nil {
 			ndb.logger.Error(err.Error())
 			return
@@ -504,11 +500,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 
 // deleteOrphans cleans all legacy orphans from the nodeDB.
 func (ndb *nodeDB) deleteOrphans() error {
-	itr, err := dbm.IteratePrefix(ndb.db, legacyOrphanKeyFormat.Key())
-=======
-	// Check if we have a legacy version
 	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
->>>>>>> 11ba496 (feat: decouple cosmos-db (#874))
 	if err != nil {
 		return err
 	}

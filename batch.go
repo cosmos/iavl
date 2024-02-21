@@ -1,13 +1,9 @@
 package iavl
 
 import (
-<<<<<<< HEAD
 	"sync"
 
-	dbm "github.com/cosmos/cosmos-db"
-=======
 	dbm "github.com/cosmos/iavl/db"
->>>>>>> 11ba496 (feat: decouple cosmos-db (#874))
 )
 
 // BatchWithFlusher is a wrapper
