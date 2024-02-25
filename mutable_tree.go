@@ -1028,51 +1028,55 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 // saveNewNodes save new created nodes by the changes of the working tree.
 // NOTE: This function clears leftNode/rigthNode recursively and
 // calls _hash() on the given node.
+// TODO: Come back and figure out how to better parallelize this code.
 func (tree *MutableTree) saveNewNodes(version int64) error {
 	nonce := uint32(0)
-	newNodes := make([]*Node, 0)
-	var recursiveAssignKey func(*Node) ([]byte, error)
-	recursiveAssignKey = func(node *Node) ([]byte, error) {
+
+	nodeChan := make(chan *Node, 64) // Buffered channel to avoid blocking.
+	doneChan := make(chan error, 1)  // Channel to signal completion and return any errors.
+
+	// Start a goroutine to save nodes.
+	go func() {
+		var err error
+		for node := range nodeChan {
+			if saveErr := tree.ndb.SaveNode(node); saveErr != nil {
+				err = saveErr
+				break
+			}
+			node.leftNode, node.rightNode = nil, nil // Detach children after saving.
+		}
+		doneChan <- err // Send any error encountered or nil if none.
+	}()
+
+	var recursiveAssignKey func(*Node) []byte
+	recursiveAssignKey = func(node *Node) []byte {
 		if node.nodeKey != nil {
 			if node.nodeKey.nonce != 0 {
-				return node.nodeKey.GetKey(), nil
+				return node.nodeKey.GetKey()
 			}
-			return node.hash, nil
+			return node.hash
 		}
 		nonce++
 		node.nodeKey = &NodeKey{
 			version: version,
-			nonce:   nonce,
+			nonce:   nonce, // Example nonce calculation; adjust as needed.
 		}
 
-		var err error
-		// the inner nodes should have two children.
+		// Assign keys recursively to child nodes. (Two children are guaranteed)
 		if node.subtreeHeight > 0 {
-			node.leftNodeKey, err = recursiveAssignKey(node.leftNode)
-			if err != nil {
-				return nil, err
-			}
-			node.rightNodeKey, err = recursiveAssignKey(node.rightNode)
-			if err != nil {
-				return nil, err
-			}
+			node.leftNodeKey = recursiveAssignKey(node.leftNode)
+			node.rightNodeKey = recursiveAssignKey(node.rightNode)
 		}
 
-		node._hash(version)
-		newNodes = append(newNodes, node)
+		node._hash(version) // Assuming this hashes the node.
+		nodeChan <- node    // Send node to be saved.
 
-		return node.nodeKey.GetKey(), nil
+		return node.nodeKey.GetKey()
 	}
-
-	if _, err := recursiveAssignKey(tree.root); err != nil {
+	recursiveAssignKey(tree.root)
+	close(nodeChan)                    // Close the channel on completion.
+	if err := <-doneChan; err != nil { // Wait for the saving goroutine to finish.
 		return err
-	}
-
-	for _, node := range newNodes {
-		if err := tree.ndb.SaveNode(node); err != nil {
-			return err
-		}
-		node.leftNode, node.rightNode = nil, nil
 	}
 
 	return nil
