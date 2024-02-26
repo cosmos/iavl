@@ -4,6 +4,7 @@
 
 ### Improvements
 
+- [#874](https://github.com/cosmos/iavl/pull/874) Decouple `cosmos-db` and implement own `db` package.
 - [#695](https://github.com/cosmos/iavl/pull/695) Add API `SaveChangeSet` to save the changeset as a new version.
 - [#703](https://github.com/cosmos/iavl/pull/703) New APIs `NewCompressExporter`/`NewCompressImporter` to support more compact snapshot format.
 - [#729](https://github.com/cosmos/iavl/pull/729) Speedup Genesis writes for IAVL, by writing in small batches.
