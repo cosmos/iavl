@@ -568,7 +568,59 @@ func Test_Replay(t *testing.T) {
 	//require.NoError(t, err)
 }
 
-func Test_ConcurrentPrune(t *testing.T) {
+func Test_Prune_Logic(t *testing.T) {
+	const versions = int64(1_000)
+	gen := bench.ChangesetGenerator{
+		StoreKey:         "replay",
+		Seed:             1,
+		KeyMean:          20,
+		KeyStdDev:        3,
+		ValueMean:        20,
+		ValueStdDev:      3,
+		InitialSize:      20,
+		FinalSize:        500,
+		Versions:         versions,
+		ChangePerVersion: 10,
+		DeleteFraction:   0.2,
+	}
+	itr, err := gen.Iterator()
+	require.NoError(t, err)
+
+	pool := NewNodePool()
+	tmpDir := t.TempDir()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	require.NoError(t, err)
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+
+	for ; itr.Valid(); err = itr.Next() {
+		require.NoError(t, err)
+		changeset := itr.Nodes()
+		for ; changeset.Valid(); err = changeset.Next() {
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			if node.Delete {
+				_, _, err := tree.Remove(node.Key)
+				require.NoError(t, err)
+			} else {
+				_, err := tree.Set(node.Key, node.Value)
+				require.NoError(t, err)
+			}
+		}
+		_, version, err := tree.SaveVersion()
+		fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
+		switch version {
+		case 30:
+			require.NoError(t, tree.DeleteVersionsTo(20))
+		case 100:
+			require.NoError(t, tree.DeleteVersionsTo(100))
+		case 150:
+			require.NoError(t, tree.DeleteVersionsTo(140))
+		}
+		require.NoError(t, err)
+	}
+}
+
+func Test_Prune_Performance(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
 	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: false})

@@ -31,9 +31,6 @@ func (r *VersionRange) Find(version int64) int64 {
 	if len(vs) == 0 || version > vs[len(vs)-1] {
 		return -1
 	}
-	if version < vs[0] {
-		return vs[0]
-	}
 	low, high := 0, len(vs)-1
 	for low <= high {
 		mid := (low + high) / 2
@@ -47,6 +44,26 @@ func (r *VersionRange) Find(version int64) int64 {
 		}
 	}
 	return vs[low]
+}
+
+func (r *VersionRange) FindPrevious(version int64) int64 {
+	vs := r.versions
+	if len(vs) == 0 || version < vs[0] {
+		return -1
+	}
+	low, high := 0, len(vs)-1
+	for low <= high {
+		mid := (low + high) / 2
+		if vs[mid] == version {
+			return version
+		}
+		if vs[mid] < version {
+			low = mid + 1
+		} else {
+			high = mid - 1
+		}
+	}
+	return vs[high]
 }
 
 func (r *VersionRange) FindMemoized(version int64) int64 {

@@ -7,25 +7,28 @@ import (
 	"github.com/cosmos/iavl/v2"
 )
 
-func Test_versionRange(t *testing.T) {
+func Test_VersionRange_Find(t *testing.T) {
 	cases := []struct {
 		name     string
 		versions []int64
 		find     int64
-		want     int64
+		next     int64
+		prev     int64
 		wantErr  string
 	}{
 		{
 			name:     "naive",
 			versions: []int64{1, 2, 3, 4, 5},
 			find:     3,
-			want:     3,
+			prev:     3,
+			next:     3,
 		},
 		{
 			name:     "first",
 			versions: []int64{1, 2, 3, 4, 5},
 			find:     1,
-			want:     1,
+			prev:     1,
+			next:     1,
 		},
 		{
 			name:     "unordered",
@@ -36,31 +39,36 @@ func Test_versionRange(t *testing.T) {
 			name:     "typical",
 			versions: []int64{1, 2, 10},
 			find:     3,
-			want:     10,
+			next:     10,
+			prev:     2,
 		},
 		{
 			name:     "past last",
 			versions: []int64{1, 2, 10},
 			find:     11,
-			want:     -1,
+			next:     -1,
+			prev:     10,
 		},
 		{
 			name:     "before start",
 			versions: []int64{5, 10},
 			find:     3,
-			want:     5,
+			next:     5,
+			prev:     -1,
 		},
 		{
 			name:     "osmo like many",
 			versions: []int64{1, 51, 101, 151, 201, 251, 301, 351, 401},
 			find:     38,
-			want:     51,
+			next:     51,
+			prev:     1,
 		},
 		{
 			name:     "osmo like many",
 			versions: []int64{1, 51, 101, 151, 201, 251, 301, 351, 401},
 			find:     408,
-			want:     -1,
+			next:     -1,
+			prev:     401,
 		},
 	}
 	for _, tc := range cases {
@@ -84,8 +92,12 @@ func Test_versionRange(t *testing.T) {
 				t.Fatalf("want error %q, got nil", tc.wantErr)
 			}
 			got := r.Find(tc.find)
-			if got != tc.want {
-				t.Fatalf("want %d, got %d", tc.want, got)
+			if got != tc.next {
+				t.Fatalf("want %d, got %d", tc.next, got)
+			}
+			got = r.FindPrevious(tc.find)
+			if got != tc.prev {
+				t.Fatalf("want %d, got %d", tc.prev, got)
 			}
 		})
 	}

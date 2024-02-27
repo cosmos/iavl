@@ -900,7 +900,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 			return err
 		}
 		if version-1 != lastVersion {
-			tree.leaves, tree.branches, tree.leafOrphans, tree.branchOrphans, tree.deletes = nil, nil, nil, nil, nil
+			tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 			tree.version = int64(version - 1)
 			tree.sequence = 0
 			lastVersion = version - 1
@@ -938,7 +938,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	if !bytes.Equal(targetHash, rootHash) {
 		return fmt.Errorf("root hash mismatch; expected %x got %x", targetHash, rootHash)
 	}
-	tree.leaves, tree.branches, tree.leafOrphans, tree.branchOrphans, tree.deletes = nil, nil, nil, nil, nil
+	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 	tree.sequence = 0
 	tree.version = toVersion
 	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v",
