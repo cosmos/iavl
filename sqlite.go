@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,7 +17,7 @@ import (
 type SqliteDbOptions struct {
 	Path      string
 	Mode      int
-	MmapSize  int
+	MmapSize  uint64
 	WalSize   int
 	CacheSize int
 	ConnArgs  string
@@ -81,11 +82,10 @@ func (opts SqliteDbOptions) treeConnectionString() string {
 	return fmt.Sprintf("file:%s/tree.sqlite%s", opts.Path, opts.connArgs())
 }
 
-func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
+func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 	logger := log.With().Str("path", opts.Path).Logger()
 	logger.Info().Msgf("calculate mmap size")
 	logger.Info().Msgf("leaf connection string: %s", opts.leafConnectionString())
-	// mmap leaf table size * 1.5
 	conn, err := sqlite3.Open(opts.leafConnectionString())
 	if err != nil {
 		return 0, err
@@ -101,7 +101,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
 	if !hasRow {
 		return 0, fmt.Errorf("no row")
 	}
-	var leafSize int
+	var leafSize int64
 	err = q.Scan(&leafSize)
 	if err != nil {
 		return 0, err
@@ -112,7 +112,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (int, error) {
 	if err = conn.Close(); err != nil {
 		return 0, err
 	}
-	mmapSize := int(float64(leafSize) * 2)
+	mmapSize := uint64(float64(leafSize) * 1.3)
 	logger.Info().Msgf("leaf mmap size: %s", humanize.Bytes(uint64(mmapSize)))
 
 	return mmapSize, nil
@@ -583,7 +583,7 @@ func (sql *SqliteDb) ResetShardQueries() error {
 			return err
 		}
 		if err = sql.shards.Add(int64(shardVersion)); err != nil {
-			return err
+			return fmt.Errorf("failed to add shard path=%s: %w", sql.opts.Path, err)
 		}
 	}
 
@@ -846,7 +846,7 @@ func (sql *SqliteDb) getLeafIteratorQuery(start, end []byte, ascending, _ bool) 
 	return stmt, idx, err
 }
 
-func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64) error {
+func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []byte) error {
 	var (
 		version     int
 		lastVersion int
@@ -864,7 +864,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64) error {
 	}()
 
 	lg.Info().Msgf("ensure leaf_delete_index exists...")
-	if err := sql.leafWrite.Exec("CREATE INDEX IF NOT EXISTS leaf_delete_idx ON leaf (version, sequence)"); err != nil {
+	if err := sql.leafWrite.Exec("CREATE UNIQUE INDEX IF NOT EXISTS leaf_delete_idx ON leaf_delete (version, sequence)"); err != nil {
 		return err
 	}
 	lg.Info().Msg("...done")
@@ -887,7 +887,6 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64) error {
 	if err = q.Bind(tree.version, toVersion, tree.version, toVersion); err != nil {
 		return err
 	}
-	var ()
 	for {
 		ok, err := q.Step()
 		if err != nil {
@@ -915,17 +914,18 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64) error {
 			if _, err = tree.Set(node.key, node.hash); err != nil {
 				return err
 			}
-			//if sequence != int(tree.sequence) {
-			//	return fmt.Errorf("sequence mismatch version=%d; expected %d got %d",
-			//		version, sequence, tree.sequence)
-			//}
+			if sequence != int(tree.sequence) {
+				return fmt.Errorf("sequence mismatch version=%d; expected %d got %d; path=%s",
+					version, sequence, tree.sequence, sql.opts.Path)
+			}
 		} else {
-			//if sequence != int(tree.sequence+1) {
-			//	return fmt.Errorf("sequence mismatch; version=%d expected %d got %d",
-			//		version, sequence, tree.sequence+1)
-			//}
 			if _, _, err = tree.Remove(key); err != nil {
 				return err
+			}
+			deleteSequence := tree.deletes[len(tree.deletes)-1].deleteKey.Sequence()
+			if sequence != int(deleteSequence) {
+				return fmt.Errorf("sequence delete mismatch; version=%d expected %d got %d; path=%s",
+					version, sequence, tree.sequence, sql.opts.Path)
 			}
 		}
 		if count%250_000 == 0 {
@@ -934,10 +934,15 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64) error {
 			since = time.Now()
 		}
 	}
+	rootHash := tree.computeHash()
+	if !bytes.Equal(targetHash, rootHash) {
+		return fmt.Errorf("root hash mismatch; expected %x got %x", targetHash, rootHash)
+	}
 	tree.leaves, tree.branches, tree.leafOrphans, tree.branchOrphans, tree.deletes = nil, nil, nil, nil, nil
 	tree.sequence = 0
-	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s",
-		lastVersion, humanize.Comma(count), time.Since(start).Round(time.Millisecond))
+	tree.version = toVersion
+	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v",
+		tree.version, humanize.Comma(count), time.Since(start).Round(time.Millisecond), tree.root)
 	return q.Close()
 }
 

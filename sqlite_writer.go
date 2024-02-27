@@ -105,6 +105,7 @@ func (w *sqlWriter) leafLoop(ctx context.Context) error {
 		}
 		if pruneTo > startPruningVersion {
 			w.logger.Debug().Msgf("skipping leaf prune: checkpoint %d > requested prune version %d", pruneTo, startPruningVersion)
+			return nil
 		}
 		pruneVersion = pruneTo
 

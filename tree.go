@@ -129,15 +129,9 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 			targetHash = targetRoot.hash
 		}
 
-		if err = tree.replayChangelog(version); err != nil {
+		if err = tree.replayChangelog(version, targetHash); err != nil {
 			return err
 		}
-		rootHash := tree.computeHash()
-		if !bytes.Equal(targetHash, rootHash) {
-			return fmt.Errorf("root hash mismatch; expected %x got %x", targetRoot.hash, tree.root.hash)
-		}
-		tree.sql.logger.Info().Msgf("replayed to root: %v", tree.root)
-		tree.version = version
 	}
 
 	return nil
@@ -687,12 +681,20 @@ func (tree *Tree) WriteLatestLeaves() (err error) {
 	return tree.sql.WriteLatestLeaves(tree)
 }
 
-func (tree *Tree) replayChangelog(toVersion int64) error {
-	return tree.sql.replayChangelog(tree, toVersion)
+func (tree *Tree) replayChangelog(toVersion int64, targetHash []byte) error {
+	return tree.sql.replayChangelog(tree, toVersion, targetHash)
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
 	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion}
 	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion}
 	return nil
+}
+
+func (tree *Tree) WorkingBytes() uint64 {
+	return tree.workingBytes
+}
+
+func (tree *Tree) SetShouldCheckpoint() {
+	tree.shouldCheckpoint = true
 }

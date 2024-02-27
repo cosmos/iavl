@@ -3,6 +3,7 @@ package iavl
 import (
 	"fmt"
 	"os"
+	"sync"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 )
@@ -13,6 +14,7 @@ type SqliteKVStore struct {
 	options SqliteDbOptions
 	write   *sqlite3.Conn
 	read    *sqlite3.Conn
+	lock    *sync.Mutex
 }
 
 func NewSqliteKVStore(opts SqliteDbOptions) (kv *SqliteKVStore, err error) {
@@ -24,7 +26,7 @@ func NewSqliteKVStore(opts SqliteDbOptions) (kv *SqliteKVStore, err error) {
 	}
 
 	pageSize := os.Getpagesize()
-	kv = &SqliteKVStore{options: opts}
+	kv = &SqliteKVStore{options: opts, lock: &sync.Mutex{}}
 	kv.write, err = sqlite3.Open(fmt.Sprintf(
 		"file:%s?_journal_mode=WAL&_synchronous=OFF&&_wal_autocheckpoint=%d", opts.Path, pageSize/opts.WalSize))
 	if err != nil {
@@ -45,6 +47,8 @@ func NewSqliteKVStore(opts SqliteDbOptions) (kv *SqliteKVStore, err error) {
 }
 
 func (kv *SqliteKVStore) Set(key []byte, value []byte) error {
+	kv.lock.Lock()
+	defer kv.lock.Unlock()
 	if err := kv.write.Exec("INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)", key, value); err != nil {
 		return err
 	}
@@ -52,6 +56,8 @@ func (kv *SqliteKVStore) Set(key []byte, value []byte) error {
 }
 
 func (kv *SqliteKVStore) Get(key []byte) (value []byte, err error) {
+	kv.lock.Lock()
+	defer kv.lock.Unlock()
 	stmt, err := kv.read.Prepare("SELECT value FROM kv WHERE key = ?")
 	if err != nil {
 		return nil, err
@@ -75,6 +81,8 @@ func (kv *SqliteKVStore) Get(key []byte) (value []byte, err error) {
 }
 
 func (kv *SqliteKVStore) Delete(key []byte) error {
+	kv.lock.Lock()
+	defer kv.lock.Unlock()
 	if err := kv.write.Exec("DELETE FROM kv WHERE key = ?", key); err != nil {
 		return err
 	}

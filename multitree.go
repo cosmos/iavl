@@ -192,7 +192,7 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), "iavl_v2", "working_size")
 	}
 
-	if workingBytes.Load() >= mt.treeOpts.CheckpointMemory {
+	if mt.treeOpts.CheckpointMemory > 0 && workingBytes.Load() >= mt.treeOpts.CheckpointMemory {
 		mt.shouldCheckpoint = true
 	}
 
