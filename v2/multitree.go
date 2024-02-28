@@ -12,6 +12,8 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+// MultiTree encapsulates multiple IAVL trees, each with its own "store key" in the context of the Cosmos SDK.
+// Within IAVL v2 is only used to test the IAVL v2 implementation, and for import/export of IAVL v2 state.
 type MultiTree struct {
 	Trees map[string]*Tree
 
