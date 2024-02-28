@@ -6,6 +6,7 @@ import (
 
 type VersionRange struct {
 	versions []int64
+	cache    map[int64]int64
 }
 
 func (r *VersionRange) Add(version int64) error {
@@ -30,9 +31,6 @@ func (r *VersionRange) Find(version int64) int64 {
 	if len(vs) == 0 || version > vs[len(vs)-1] {
 		return -1
 	}
-	if version < vs[0] {
-		return vs[0]
-	}
 	low, high := 0, len(vs)-1
 	for low <= high {
 		mid := (low + high) / 2
@@ -46,4 +44,51 @@ func (r *VersionRange) Find(version int64) int64 {
 		}
 	}
 	return vs[low]
+}
+
+func (r *VersionRange) FindPrevious(version int64) int64 {
+	vs := r.versions
+	if len(vs) == 0 || version < vs[0] {
+		return -1
+	}
+	low, high := 0, len(vs)-1
+	for low <= high {
+		mid := (low + high) / 2
+		if vs[mid] == version {
+			return version
+		}
+		if vs[mid] < version {
+			low = mid + 1
+		} else {
+			high = mid - 1
+		}
+	}
+	return vs[high]
+}
+
+func (r *VersionRange) FindMemoized(version int64) int64 {
+	if r.cache == nil {
+		r.cache = make(map[int64]int64)
+	}
+	if v, ok := r.cache[version]; ok {
+		return v
+	}
+	v := r.Find(version)
+	// don't cache err values
+	if v == -1 {
+		return -1
+	}
+	r.cache[version] = v
+	return v
+}
+
+func (r *VersionRange) Last() int64 {
+	if len(r.versions) == 0 {
+		return -1
+	}
+	return r.versions[len(r.versions)-1]
+}
+
+func (r *VersionRange) Len() int {
+	return len(r.versions)
 }

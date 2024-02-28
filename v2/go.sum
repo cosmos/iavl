@@ -7,8 +7,8 @@ github.com/bvinc/go-sqlite-lite v0.6.1/go.mod h1:2GiE60NUdb0aNhDdY+LXgrqAVDpi2Ij
 github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj44=
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
-github.com/cosmos/iavl-bench/bench v0.0.3 h1:PL9PP4+1y+iMblB0EYv+G91posLO4VGJiQ1Wg47ABXM=
-github.com/cosmos/iavl-bench/bench v0.0.3/go.mod h1:j2rLae77EffacWcp7mmj3Uaa4AOAmZA7ymvhsuBQKKI=
+github.com/cosmos/iavl-bench/bench v0.0.4 h1:J6zQPiBqF4CXMM3QBsLqZgQEBGY0taX85vLIZMhmAfQ=
+github.com/cosmos/iavl-bench/bench v0.0.4/go.mod h1:j2rLae77EffacWcp7mmj3Uaa4AOAmZA7ymvhsuBQKKI=
 github.com/cpuguy83/go-md2man/v2 v2.0.2/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

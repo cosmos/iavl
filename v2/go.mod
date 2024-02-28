@@ -5,10 +5,11 @@ go 1.18
 require (
 	github.com/aybabtme/uniplot v0.0.0-20151203143629-039c559e5e7e
 	github.com/bvinc/go-sqlite-lite v0.6.1
-	github.com/cosmos/iavl-bench/bench v0.0.3
+	github.com/cosmos/iavl-bench/bench v0.0.4
 	github.com/dustin/go-humanize v1.0.1
 	github.com/emicklei/dot v1.6.0
 	github.com/kocubinski/costor-api v1.1.1
+	github.com/prometheus/client_golang v1.16.0
 	github.com/rs/zerolog v1.30.0
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
@@ -25,7 +26,6 @@ require (
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.10.1 // indirect

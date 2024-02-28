@@ -60,6 +60,7 @@ type Node struct {
 	subtreeHeight int8
 
 	dirty  bool
+	evict  bool
 	poolId uint64
 }
 
@@ -106,13 +107,10 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
-	node.leftNode = t.cache.Get(node.leftNodeKey)
-	if node.leftNode == nil {
-		var err error
-		node.leftNode, err = t.sql.getLeftNode(node)
-		if err != nil {
-			return nil, err
-		}
+	var err error
+	node.leftNode, err = t.sql.getLeftNode(node)
+	if err != nil {
+		return nil, err
 	}
 	return node.leftNode, nil
 }
@@ -124,13 +122,10 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
-	node.rightNode = t.cache.Get(node.rightNodeKey)
-	if node.rightNode == nil {
-		var err error
-		node.rightNode, err = t.sql.getRightNode(node)
-		if err != nil {
-			return nil, err
-		}
+	var err error
+	node.rightNode, err = t.sql.getRightNode(node)
+	if err != nil {
+		return nil, err
 	}
 	return node.rightNode, nil
 }
@@ -542,7 +537,7 @@ func (node *Node) Bytes() ([]byte, error) {
 var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize
 
 func (node *Node) varSize() uint64 {
-	return uint64(len(node.key))
+	return uint64(len(node.key) + len(node.value))
 }
 
 func (node *Node) sizeBytes() uint64 {
@@ -551,4 +546,15 @@ func (node *Node) sizeBytes() uint64 {
 
 func (node *Node) GetHash() []byte {
 	return node.hash
+}
+
+func (node *Node) evictChildren() {
+	if node.leftNode != nil {
+		node.leftNode.evict = true
+		node.leftNode = nil
+	}
+	if node.rightNode != nil {
+		node.rightNode.evict = true
+		node.rightNode = nil
+	}
 }

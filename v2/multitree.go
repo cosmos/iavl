@@ -5,26 +5,26 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sync/atomic"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"github.com/dustin/go-humanize"
 	"golang.org/x/exp/slices"
 )
 
 type MultiTree struct {
 	Trees map[string]*Tree
 
-	pool     *NodePool
-	rootPath string
-	treeOpts TreeOptions
+	pool             *NodePool
+	rootPath         string
+	treeOpts         TreeOptions
+	shouldCheckpoint bool
 
 	doneCh  chan saveVersionResult
 	errorCh chan error
 }
 
 func NewMultiTree(rootPath string, opts TreeOptions) *MultiTree {
-	if opts.Metrics == nil {
-		opts.Metrics = &metrics.TreeMetrics{}
-	}
 	return &MultiTree{
 		Trees:    make(map[string]*Tree),
 		doneCh:   make(chan saveVersionResult, 1000),
@@ -51,7 +51,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 	)
 	for _, dbPath := range paths {
 		cnt++
-		sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath, Metrics: mt.treeOpts.Metrics}))
+		sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath}))
 		if err != nil {
 			return nil, err
 		}
@@ -86,8 +86,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 
 func (mt *MultiTree) MountTree(storeKey string) error {
 	opts := defaultSqliteDbOptions(SqliteDbOptions{
-		Metrics: mt.treeOpts.Metrics,
-		Path:    mt.rootPath + "/" + storeKey,
+		Path: mt.rootPath + "/" + storeKey,
 	})
 	sql, err := NewSqliteDb(mt.pool, opts)
 	if err != nil {
@@ -103,9 +102,9 @@ func (mt *MultiTree) MountTrees() error {
 	if err != nil {
 		return err
 	}
-	sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Metrics: mt.treeOpts.Metrics})
 	for _, dbPath := range paths {
 		prefix := filepath.Base(dbPath)
+		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{})
 		sqlOpts.Path = dbPath
 		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
 		sql, err := NewSqliteDb(mt.pool, sqlOpts)
@@ -149,10 +148,15 @@ type saveVersionResult struct {
 
 func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	treeCount := 0
+	var workingSize atomic.Int64
+	var workingBytes atomic.Uint64
 	for _, tree := range mt.Trees {
 		treeCount++
 		go func(t *Tree) {
+			t.shouldCheckpoint = mt.shouldCheckpoint
 			h, v, err := t.SaveVersion()
+			workingSize.Add(t.workingSize)
+			workingBytes.Add(t.workingBytes)
 			if err != nil {
 				mt.errorCh <- err
 			}
@@ -177,6 +181,21 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 			version = result.version
 		}
 	}
+	mt.shouldCheckpoint = false
+
+	if mt.treeOpts.MetricsProxy != nil {
+		bz := workingBytes.Load()
+		sz := workingSize.Load()
+		fmt.Printf("version=%d work-bytes=%s work-size=%s mem-ceiling=%s\n",
+			version, humanize.IBytes(bz), humanize.Comma(sz), humanize.IBytes(mt.treeOpts.CheckpointMemory))
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes.Load()), "iavl_v2", "working_bytes")
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), "iavl_v2", "working_size")
+	}
+
+	if mt.treeOpts.CheckpointMemory > 0 && workingBytes.Load() >= mt.treeOpts.CheckpointMemory {
+		mt.shouldCheckpoint = true
+	}
+
 	return mt.Hash(), version, errors.Join(errs...)
 }
 
@@ -256,4 +275,13 @@ func (mt *MultiTree) WarmLeaves() error {
 		}
 	}
 	return nil
+}
+
+func (mt *MultiTree) QueryReport(bins int) error {
+	m := &metrics.DbMetrics{}
+	for _, tree := range mt.Trees {
+		m.Add(tree.sql.metrics)
+		tree.sql.metrics.SetQueryZero()
+	}
+	return m.QueryReport(bins)
 }
