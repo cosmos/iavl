@@ -34,7 +34,7 @@ type Tree struct {
 	writerCancel context.CancelFunc
 	pool         *NodePool
 
-	lastCheckpoint   int64
+	checkpoints      *VersionRange
 	shouldCheckpoint bool
 
 	// options
@@ -81,9 +81,10 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 	ctx, cancel := context.WithCancel(context.Background())
 	tree := &Tree{
 		sql:                sql,
-		sqlWriter:          sql.newSqlWriter(),
+		sqlWriter:          sql.newSQLWriter(),
 		writerCancel:       cancel,
 		pool:               pool,
+		checkpoints:        &VersionRange{},
 		metrics:            &metrics.TreeMetrics{},
 		maxWorkingSize:     1.5 * 1024 * 1024 * 1024,
 		checkpointInterval: opts.CheckpointInterval,
@@ -107,11 +108,11 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 	tree.workingBytes = 0
 	tree.workingSize = 0
 
-	tree.lastCheckpoint, err = tree.sql.lastCheckpoint(version)
+	tree.checkpoints, err = tree.sql.loadCheckpointRange()
 	if err != nil {
 		return err
 	}
-	tree.version = tree.lastCheckpoint
+	tree.version = tree.checkpoints.FindPrevious(version)
 
 	tree.root, err = tree.sql.LoadRoot(tree.version)
 	if err != nil {
@@ -147,7 +148,10 @@ func (tree *Tree) LoadSnapshot(version int64, traverseOrder TraverseOrderType) (
 		return fmt.Errorf("requested %d found snapshot %d, replay not yet supported", version, v)
 	}
 	tree.version = v
-	tree.lastCheckpoint = v
+	tree.checkpoints, err = tree.sql.loadCheckpointRange()
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -166,7 +170,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	if !tree.shouldCheckpoint {
 		tree.shouldCheckpoint = tree.version == 1 ||
-			(tree.checkpointInterval > 0 && tree.version-tree.lastCheckpoint >= tree.checkpointInterval) ||
+			(tree.checkpointInterval > 0 && tree.version-tree.checkpoints.Last() >= tree.checkpointInterval) ||
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
 	rootHash := tree.computeHash()
@@ -178,7 +182,9 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	if tree.shouldCheckpoint {
 		tree.branchOrphans = nil
-		tree.lastCheckpoint = tree.version
+		if err = tree.checkpoints.Add(tree.version); err != nil {
+			return nil, tree.version, err
+		}
 
 		// if we've checkpointed without loading any tree node reads this means this was the first checkpoint.
 		// shard queries will not be loaded. initialize them now.
@@ -605,7 +611,7 @@ func (tree *Tree) addOrphan(node *Node) {
 	if node.hash == nil {
 		return
 	}
-	if node.nodeKey.Version() > tree.lastCheckpoint {
+	if node.nodeKey.Version() > tree.checkpoints.Last() {
 		return
 	}
 	if node.isLeaf() {
@@ -686,8 +692,8 @@ func (tree *Tree) replayChangelog(toVersion int64, targetHash []byte) error {
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
-	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion}
-	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion}
+	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: *tree.checkpoints}
+	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: *tree.checkpoints}
 	return nil
 }
 

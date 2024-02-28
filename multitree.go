@@ -86,7 +86,8 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 
 func (mt *MultiTree) MountTree(storeKey string) error {
 	opts := defaultSqliteDbOptions(SqliteDbOptions{
-		Path: mt.rootPath + "/" + storeKey,
+		Path:       mt.rootPath + "/" + storeKey,
+		ShardTrees: true,
 	})
 	sql, err := NewSqliteDb(mt.pool, opts)
 	if err != nil {

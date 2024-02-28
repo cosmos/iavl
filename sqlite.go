@@ -14,13 +14,16 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const defaultSQLitePath = "/tmp/iavl-v2"
+
 type SqliteDbOptions struct {
-	Path      string
-	Mode      int
-	MmapSize  uint64
-	WalSize   int
-	CacheSize int
-	ConnArgs  string
+	Path       string
+	Mode       int
+	MmapSize   uint64
+	WalSize    int
+	CacheSize  int
+	ConnArgs   string
+	ShardTrees bool
 
 	walPages int
 }
@@ -52,14 +55,11 @@ type SqliteDb struct {
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.Path == "" {
-		opts.Path = "/tmp/iavl-v2"
+		opts.Path = defaultSQLitePath
 	}
 	if opts.MmapSize == 0 {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
-	//if opts.ConnArgs == "" {
-	//	opts.ConnArgs = "cache=shared"
-	//}
 	if opts.WalSize == 0 {
 		opts.WalSize = 1024 * 1024 * 100
 	}
@@ -113,7 +113,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 		return 0, err
 	}
 	mmapSize := uint64(float64(leafSize) * 1.3)
-	logger.Info().Msgf("leaf mmap size: %s", humanize.Bytes(uint64(mmapSize)))
+	logger.Info().Msgf("leaf mmap size: %s", humanize.Bytes(mmapSize))
 
 	return mmapSize, nil
 }
@@ -137,7 +137,8 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	}
 
 	if !api.IsFileExistent(opts.Path) {
-		if err := os.MkdirAll(opts.Path, 0755); err != nil {
+		err := os.MkdirAll(opts.Path, 0755)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -416,19 +417,24 @@ func (sql *SqliteDb) Close() error {
 	return nil
 }
 
-func (sql *SqliteDb) NextShard(version int64) error {
-	sql.logger.Info().Msgf("creating shard %d", version)
+func (sql *SqliteDb) nextShard(version int64) (int64, error) {
+	if !sql.opts.ShardTrees {
+		switch sql.shards.Len() {
+		case 0:
+			break
+		case 1:
+			return sql.shards.Last(), nil
+		default:
+			return -1, fmt.Errorf("sharding is disabled but found shards; shards=%v", sql.shards.versions)
+		}
+	}
 
+	sql.logger.Info().Msgf("creating shard %d", version)
 	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob, orphaned bool);", version))
 	if err != nil {
-		return err
+		return version, err
 	}
-	return sql.shards.Add(version)
-}
-
-func (sql *SqliteDb) IndexShard(shardId int64) error {
-	err := sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX tree_%d_node_key_idx ON tree_%d (node_key);", shardId, shardId))
-	return err
+	return version, sql.shards.Add(version)
 }
 
 func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) error {
@@ -439,10 +445,9 @@ func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) erro
 		}
 		return sql.treeWrite.Exec("INSERT OR REPLACE INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
 			version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz, isCheckpoint)
-	} else {
-		// for an empty root a sentinel is saved
-		return sql.treeWrite.Exec("INSERT OR REPLACE INTO root(version, checkpoint) VALUES (?, ?)", version, isCheckpoint)
 	}
+	// for an empty root a sentinel is saved
+	return sql.treeWrite.Exec("INSERT OR REPLACE INTO root(version, checkpoint) VALUES (?, ?)", version, isCheckpoint)
 }
 
 func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
@@ -485,7 +490,6 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 	if err := rootQuery.Close(); err != nil {
 		return nil, err
 	}
-	// TODO this placement seems wrong?
 	if err := sql.ResetShardQueries(); err != nil {
 		return nil, err
 	}
@@ -496,7 +500,8 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 }
 
 // lastCheckpoint fetches the last checkpoint version from the shard table previous to the loaded root's version.
-func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error) {
+// a return value of zero and nil error indicates no checkpoint was found.
+func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (checkpointVersion int64, err error) {
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString())
 	if err != nil {
 		return 0, err
@@ -512,7 +517,7 @@ func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error
 	if !hasRow {
 		return 0, nil
 	}
-	err = rootQuery.Scan(&version)
+	err = rootQuery.Scan(&checkpointVersion)
 	if err != nil {
 		return 0, err
 	}
@@ -523,14 +528,66 @@ func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (version int64, err error
 	if err = conn.Close(); err != nil {
 		return 0, err
 	}
-	return version, nil
+	return checkpointVersion, nil
+}
+
+func (sql *SqliteDb) loadCheckpointRange() (*VersionRange, error) {
+	conn, err := sqlite3.Open(sql.opts.treeConnectionString())
+	if err != nil {
+		return nil, err
+	}
+	q, err := conn.Prepare("SELECT version FROM root WHERE checkpoint = true ORDER BY version")
+	if err != nil {
+		return nil, err
+	}
+	var version int64
+	versionRange := &VersionRange{}
+	for {
+		hasRow, err := q.Step()
+		if err != nil {
+			return nil, err
+		}
+		if !hasRow {
+			break
+		}
+		err = q.Scan(&version)
+		if err != nil {
+			return nil, err
+		}
+		if err = versionRange.Add(version); err != nil {
+			return nil, err
+
+		}
+	}
+	if err = q.Close(); err != nil {
+		return nil, err
+	}
+	if err = conn.Close(); err != nil {
+		return nil, err
+	}
+	return versionRange, nil
+}
+
+func (sql *SqliteDb) getShard(version int64) (int64, error) {
+	if !sql.opts.ShardTrees {
+		if sql.shards.Len() != 1 {
+			return -1, fmt.Errorf("expected a single shard; path=%s", sql.opts.Path)
+		}
+		return sql.shards.Last(), nil
+	}
+	v := sql.shards.FindMemoized(version)
+	if v == -1 {
+		return -1, fmt.Errorf("version %d is after the first shard; shards=%v", version, sql.shards.versions)
+	}
+	return v, nil
 }
 
 func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
-	v := sql.shards.Find(version)
-	if v == -1 {
-		return nil, fmt.Errorf("version %d is before the first shard; shards=%v", version, sql.shards.versions)
+	v, err := sql.getShard(version)
+	if err != nil {
+		return nil, err
 	}
+
 	if q, ok := sql.shardQueries[v]; ok {
 		return q, nil
 	}
@@ -659,9 +716,8 @@ func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
 		}
 		if node.rightNode != nil {
 			return node.rightNode, nil
-		} else {
-			sql.metrics.QueryLeafMiss++
 		}
+		sql.metrics.QueryLeafMiss++
 	}
 
 	node.rightNode, err = sql.Get(node.rightNodeKey)
@@ -681,9 +737,8 @@ func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
 		}
 		if node.leftNode != nil {
 			return node.leftNode, nil
-		} else {
-			sql.metrics.QueryLeafMiss++
 		}
+		sql.metrics.QueryLeafMiss++
 	}
 
 	node.leftNode, err = sql.Get(node.leftNodeKey)
@@ -691,6 +746,28 @@ func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
 		return nil, err
 	}
 	return node.leftNode, err
+}
+
+func (sql *SqliteDb) isSharded() (bool, error) {
+	q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
+	if err != nil {
+		return false, err
+	}
+	var cnt int
+	for {
+		hasRow, err := q.Step()
+		if err != nil {
+			return false, err
+		}
+		if !hasRow {
+			break
+		}
+		cnt++
+		if cnt > 1 {
+			break
+		}
+	}
+	return cnt > 1, q.Close()
 }
 
 func (sql *SqliteDb) Revert(version int) error {
@@ -710,39 +787,47 @@ func (sql *SqliteDb) Revert(version int) error {
 		return err
 	}
 
-	q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
+	hasShards, err := sql.isSharded()
 	if err != nil {
 		return err
 	}
-	var shards []string
-	for {
-		hasRow, err := q.Step()
+	if hasShards {
+		q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
 		if err != nil {
 			return err
 		}
-		if !hasRow {
-			break
+		var shards []string
+		for {
+			hasRow, err := q.Step()
+			if err != nil {
+				return err
+			}
+			if !hasRow {
+				break
+			}
+			var shard string
+			err = q.Scan(&shard)
+			if err != nil {
+				return err
+			}
+			shardVersion, err := strconv.Atoi(shard[5:])
+			if err != nil {
+				return err
+			}
+			if shardVersion > version {
+				shards = append(shards, shard)
+			}
 		}
-		var shard string
-		err = q.Scan(&shard)
-		if err != nil {
+		if err = q.Close(); err != nil {
 			return err
 		}
-		shardVersion, err := strconv.Atoi(shard[5:])
-		if err != nil {
-			return err
+		for _, shard := range shards {
+			if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", shard)); err != nil {
+				return err
+			}
 		}
-		if shardVersion > version {
-			shards = append(shards, shard)
-		}
-	}
-	if err = q.Close(); err != nil {
-		return err
-	}
-	for _, shard := range shards {
-		if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", shard)); err != nil {
-			return err
-		}
+	} else {
+
 	}
 	return nil
 }

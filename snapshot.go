@@ -247,7 +247,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		writeTree: true,
 	}
 	if opts.WriteCheckpoint {
-		if err := sql.NextShard(version); err != nil {
+		if _, err := sql.nextShard(version); err != nil {
 			return nil, err
 		}
 	}

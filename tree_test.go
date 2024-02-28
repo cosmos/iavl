@@ -519,7 +519,8 @@ func Test_Replay(t *testing.T) {
 			}
 
 			if len(cache) > 0 {
-				_, _, err = tree.SaveVersion()
+				_, v, err := tree.SaveVersion()
+				fmt.Printf("version=%d, hash=%x\n", v, tree.Hash())
 				require.NoError(t, err)
 			}
 		}
@@ -540,12 +541,12 @@ func Test_Replay(t *testing.T) {
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	tree = NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 	err = tree.LoadVersion(170)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
 	require.NoError(t, err)
-	ingest(171, 190)
+	ingest(171, 250)
 
 	//sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	//require.NoError(t, err)
@@ -587,8 +588,9 @@ func Test_Prune_Logic(t *testing.T) {
 	require.NoError(t, err)
 
 	pool := NewNodePool()
+	// tmpDir := "/tmp/prune-logic"
 	tmpDir := t.TempDir()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 
@@ -607,7 +609,7 @@ func Test_Prune_Logic(t *testing.T) {
 			}
 		}
 		_, version, err := tree.SaveVersion()
-		fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
+		// fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
 		switch version {
 		case 30:
 			require.NoError(t, tree.DeleteVersionsTo(20))
@@ -615,6 +617,8 @@ func Test_Prune_Logic(t *testing.T) {
 			require.NoError(t, tree.DeleteVersionsTo(100))
 		case 150:
 			require.NoError(t, tree.DeleteVersionsTo(140))
+		case 650:
+			require.NoError(t, tree.DeleteVersionsTo(650))
 		}
 		require.NoError(t, err)
 	}
