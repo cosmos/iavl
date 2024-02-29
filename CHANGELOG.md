@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## v1.1.0 February 29, 2024
 
 ### API Breaking Changes
 
