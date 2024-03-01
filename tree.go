@@ -609,13 +609,10 @@ func (tree *Tree) addOrphan(node *Node) {
 	if node.hash == nil {
 		return
 	}
-	if node.nodeKey.Version() > tree.checkpoints.Last() {
-		return
-	}
-	if node.isLeaf() {
-		tree.leafOrphans = append(tree.leafOrphans, node.nodeKey)
-	} else {
+	if !node.isLeaf() && node.nodeKey.Version() <= tree.checkpoints.Last() {
 		tree.branchOrphans = append(tree.branchOrphans, node.nodeKey)
+	} else if node.isLeaf() && !node.dirty {
+		tree.leafOrphans = append(tree.leafOrphans, node.nodeKey)
 	}
 }
 
