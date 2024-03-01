@@ -529,11 +529,21 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 		if node.leftNode == nil || node.rightNode == nil {
 			return ErrEmptyChild
 		}
-		err = encoding.EncodeBytes(w, node.leftNode.hash)
+		// If left/rightNodeKey is 32 bytes, it is a legacy node whose value is just the hash.
+		// We may have skipped fetching leftNode/rightNode.
+		if len(node.leftNodeKey) == 32 {
+			err = encoding.Encode32BytesHash(w, node.leftNodeKey)
+		} else {
+			err = encoding.Encode32BytesHash(w, node.leftNode.hash)
+		}
 		if err != nil {
 			return fmt.Errorf("writing left hash, %w", err)
 		}
-		err = encoding.EncodeBytes(w, node.rightNode.hash)
+		if len(node.rightNodeKey) == 32 {
+			err = encoding.Encode32BytesHash(w, node.rightNodeKey)
+		} else {
+			err = encoding.Encode32BytesHash(w, node.rightNode.hash)
+		}
 		if err != nil {
 			return fmt.Errorf("writing right hash, %w", err)
 		}
