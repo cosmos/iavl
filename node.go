@@ -521,7 +521,7 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 		// (e.g. ProofLeafNode.ValueHash)
 		valueHash := sha256.Sum256(node.value)
 
-		err = encoding.EncodeBytes(w, valueHash[:])
+		err = encoding.Encode32BytesHash(w, valueHash[:])
 		if err != nil {
 			return fmt.Errorf("writing value, %w", err)
 		}
