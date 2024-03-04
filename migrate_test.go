@@ -123,7 +123,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	_, err = newTree.LoadVersion(version - 1)
 	require.NoError(t, err)
 	// Check if the reference node is refactored
-	require.Equal(t, newTree.root.nodeKey.nonce, uint32(1))
+	require.Equal(t, newTree.root.nodeKey.nonce, uint32(0))
 	require.Equal(t, newTree.root.nodeKey.version, int64(legacyVersion))
 }
 
@@ -195,12 +195,12 @@ func TestDeleteVersions(t *testing.T) {
 	}
 	// Check if the legacy versions are deleted at once
 	versions = tree.AvailableVersions()
-	err = tree.DeleteVersionsTo(legacyLatestVersion - 1)
+	err = tree.DeleteVersionsToSync(legacyLatestVersion - 1)
 	require.NoError(t, err)
 	pVersions := tree.AvailableVersions()
 	require.Equal(t, len(versions), len(pVersions))
 	toVersion := legacyLatestVersion + int64(postVersions)/2
-	err = tree.DeleteVersionsTo(toVersion)
+	err = tree.DeleteVersionsToSync(toVersion)
 	require.NoError(t, err)
 	pVersions = tree.AvailableVersions()
 	require.Equal(t, postVersions/2, len(pVersions))
