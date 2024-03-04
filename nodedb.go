@@ -476,13 +476,15 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
 	// Delete orphans for all legacy versions
-	ndb.traversePrefix(legacyOrphanKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(legacyOrphanKeyFormat.Key(), func(key, value []byte) error {
 		if err := ndb.deleteFromPruning(key); err != nil {
 			return err
 		}
 
 		return ndb.deleteFromPruning(ndb.legacyNodeKey(value))
-	})
+	}); err != nil {
+		return err
+	}
 	// Delete the last version for the legacyLastVersion
 	legacyLatestVersion, err := ndb.getLegacyLatestVersion()
 	if err != nil {
@@ -494,9 +496,11 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 		return err
 	}
 	// Delete all legacy roots
-	ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, value []byte) error {
 		return ndb.deleteFromPruning(key)
-	})
+	}); err != nil {
+		return err
+	}
 
 	// Initialize the legacy latest version to -1 to demonstrate that all legacy versions have been deleted
 	ndb.legacyLatestVersion = -1
@@ -846,7 +850,9 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 		return nil, nil
 	}
 	if isReferenceToRoot(val) { // point to the prev version
-		refKey := append(val[1:], 0, 0, 0, 1)
+		var v int64
+		nodeKeyPrefixFormat.Scan(val, &v)
+		refKey := GetRootKey(v)
 		val, err = ndb.db.Get(nodeKeyFormat.Key(refKey))
 		if err != nil {
 			return nil, err
