@@ -50,13 +50,13 @@ func (b *BatchWithFlusher) estimateSizeAfterSetting(key []byte, value []byte) (i
 // The addition entry is then added to the batch.
 func (b *BatchWithFlusher) Set(key, value []byte) error {
 	b.mtx.Lock()
-	defer b.mtx.Unlock()
 
 	batchSizeAfter, err := b.estimateSizeAfterSetting(key, value)
 	if err != nil {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
+		b.mtx.Unlock()
 		if err := b.batch.Write(); err != nil {
 			return err
 		}
@@ -64,7 +64,10 @@ func (b *BatchWithFlusher) Set(key, value []byte) error {
 			return err
 		}
 		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+		b.mtx.Lock()
 	}
+
+	defer b.mtx.Unlock()
 	return b.batch.Set(key, value)
 }
 
@@ -74,13 +77,13 @@ func (b *BatchWithFlusher) Set(key, value []byte) error {
 // The deletion entry is then added to the batch.
 func (b *BatchWithFlusher) Delete(key []byte) error {
 	b.mtx.Lock()
-	defer b.mtx.Unlock()
 
 	batchSizeAfter, err := b.estimateSizeAfterSetting(key, []byte{})
 	if err != nil {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
+		b.mtx.Unlock()
 		if err := b.batch.Write(); err != nil {
 			return err
 		}
@@ -88,19 +91,28 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 			return err
 		}
 		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+		b.mtx.Lock()
 	}
+
+	defer b.mtx.Unlock()
 	return b.batch.Delete(key)
 }
 
 func (b *BatchWithFlusher) Write() error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 	return b.batch.Write()
 }
 
 func (b *BatchWithFlusher) WriteSync() error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 	return b.batch.WriteSync()
 }
 
 func (b *BatchWithFlusher) Close() error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
 	return b.batch.Close()
 }
 
