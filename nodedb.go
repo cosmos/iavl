@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"cosmossdk.io/log"
@@ -87,7 +86,7 @@ type nodeDB struct {
 	pruneVersion        int64            // Version to prune up to.
 	nodeCache           cache.Cache      // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache       cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
-	isCommitting        atomic.Bool      // Flag to indicate that the nodeDB is committing.
+	isCommitting        bool             // Flag to indicate that the nodeDB is committing.
 	chCommitting        chan struct{}    // Channel to signal that the committing is done.
 }
 
@@ -111,7 +110,6 @@ func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
 		fastNodeCache:       cache.New(fastNodeCacheSize),
 		versionReaders:      make(map[int64]uint32, 8),
 		storageVersion:      string(storeVersion),
-		isCommitting:        atomic.Bool{},
 		chCommitting:        make(chan struct{}, 1),
 	}
 
@@ -263,14 +261,25 @@ func (ndb *nodeDB) SetCommitting() {
 	for len(ndb.chCommitting) > 0 {
 		<-ndb.chCommitting
 	}
-	ndb.isCommitting.Store(true)
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	ndb.isCommitting = true
 }
 
 // UnsetCommitting sets the committing flag to false.
 // This is used to let the pruning process know that the nodeDB is done committing.
 func (ndb *nodeDB) UnsetCommitting() {
-	ndb.isCommitting.Store(false)
+	ndb.mtx.Lock()
+	ndb.isCommitting = false
+	ndb.mtx.Unlock()
 	ndb.chCommitting <- struct{}{}
+}
+
+// IsCommitting returns true if the nodeDB is committing, false otherwise.
+func (ndb *nodeDB) IsCommitting() bool {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	return ndb.isCommitting
 }
 
 // setFastStorageVersionToBatch sets storage version to fast where the version is
@@ -394,7 +403,7 @@ func (ndb *nodeDB) writeBatch() error {
 
 // deleteFromPruning deletes the orphan nodes from the pruning process.
 func (ndb *nodeDB) deleteFromPruning(key []byte) error {
-	if ndb.isCommitting.Load() {
+	if ndb.IsCommitting() {
 		// if the nodeDB is committing, the pruning process will be done after the committing.
 		<-ndb.chCommitting
 	}
@@ -404,7 +413,7 @@ func (ndb *nodeDB) deleteFromPruning(key []byte) error {
 
 // saveNodeFromPruning saves the orphan nodes to the pruning process.
 func (ndb *nodeDB) saveNodeFromPruning(node *Node) error {
-	if ndb.isCommitting.Load() {
+	if ndb.IsCommitting() {
 		// if the nodeDB is committing, the pruning process will be done after the committing.
 		<-ndb.chCommitting
 	}
@@ -686,10 +695,6 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 
 func (ndb *nodeDB) nodeKey(nk []byte) []byte {
 	return nodeKeyFormat.Key(nk)
-}
-
-func (ndb *nodeDB) nodeKeyPrefix(version int64) []byte {
-	return nodeKeyPrefixFormat.Key(version)
 }
 
 func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
