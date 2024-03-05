@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path"
 	"testing"
+	"time"
 
 	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ const (
 	dbType = "goleveldb"
 )
 
-func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, error) {
+func createLegacyTree(t *testing.T, dbDir string, version int) (string, error) {
 	relateDir := path.Join(t.TempDir(), dbDir)
 	if _, err := os.Stat(relateDir); err == nil {
 		err := os.RemoveAll(relateDir)
@@ -48,10 +49,10 @@ func createLegacyTree(t *testing.T, dbType, dbDir string, version int) (string, 
 func TestLazySet(t *testing.T) {
 	legacyVersion := 1000
 	dbDir := fmt.Sprintf("legacy-%s-%d", dbType, legacyVersion)
-	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
+	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", "goleveldb", relateDir)
+	db, err := dbm.NewDB("test", dbType, relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -91,10 +92,10 @@ func TestLazySet(t *testing.T) {
 func TestLegacyReferenceNode(t *testing.T) {
 	legacyVersion := 20
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
-	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
+	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", "goleveldb", relateDir)
+	db, err := dbm.NewDB("test", dbType, relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -130,10 +131,10 @@ func TestLegacyReferenceNode(t *testing.T) {
 func TestDeleteVersions(t *testing.T) {
 	legacyVersion := 100
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
-	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
+	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", "goleveldb", relateDir)
+	db, err := dbm.NewDB("test", dbType, relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -204,4 +205,73 @@ func TestDeleteVersions(t *testing.T) {
 	require.NoError(t, err)
 	pVersions = tree.AvailableVersions()
 	require.Equal(t, postVersions/2, len(pVersions))
+}
+
+func TestLazyPruning(t *testing.T) {
+	legacyVersion := 200
+	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
+	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
+	require.NoError(t, err)
+
+	db, err := dbm.NewDB("test", dbType, relateDir)
+	require.NoError(t, err)
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("DB close error: %v\n", err)
+		}
+		if err := os.RemoveAll(relateDir); err != nil {
+			t.Errorf("%+v\n", err)
+		}
+	}()
+
+	// Load the latest version
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	_, err = tree.Load()
+	require.NoError(t, err)
+
+	// Save 10 versions without updates
+	for i := 0; i < 10; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	// Save 990 versions
+	leavesCount := 10
+	toVersion := int64(990)
+	pruningInterval := int64(20)
+	for i := int64(0); i < toVersion; i++ {
+		for j := 0; j < leavesCount; j++ {
+			_, err := tree.Set([]byte(fmt.Sprintf("key%d", j)), []byte(fmt.Sprintf("value%d", j)))
+			require.NoError(t, err)
+		}
+		_, v, err := tree.SaveVersion()
+		require.NoError(t, err)
+		if v%pruningInterval == 0 {
+			err = tree.DeleteVersionsTo(v - pruningInterval/2)
+			require.NoError(t, err)
+		}
+	}
+
+	// Wait for pruning to finish
+	for i := 0; i < 100; i++ {
+		_, _, err := tree.SaveVersion()
+		require.NoError(t, err)
+		firstVersion, err := tree.ndb.getFirstVersion()
+		require.NoError(t, err)
+		if firstVersion == toVersion+int64(legacyVersion)+1 {
+			break
+		}
+		// Simulate the consensus state update
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	// Reload the tree
+	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	versions := tree.AvailableVersions()
+	require.Equal(t, versions[0], int(toVersion)+legacyVersion+1)
+	for _, v := range versions {
+		_, err := tree.LoadVersion(int64(v))
+		require.NoError(t, err)
+	}
 }

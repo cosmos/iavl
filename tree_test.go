@@ -11,7 +11,6 @@ import (
 	"runtime"
 	"strconv"
 	"testing"
-	"time"
 
 	"cosmossdk.io/log"
 	"github.com/stretchr/testify/assert"
@@ -1854,46 +1853,35 @@ func TestEmptyVersionDelete(t *testing.T) {
 	require.Len(t, versions, 5)
 }
 
-func TestLazyPruning(t *testing.T) {
+func TestReferenceRoot(t *testing.T) {
 	db, err := dbm.NewDB("test", "memdb", "")
 	require.NoError(t, err)
+	defer db.Close()
 
 	tree := NewMutableTree(db, 0, false, log.NewNopLogger())
 
-	// Save 1000 versions
-	leavesCount := 100
-	toVersion := int64(1000)
-	pruningInterval := int64(20)
-	for i := int64(0); i < toVersion; i++ {
-		for j := 0; j < leavesCount; j++ {
-			_, err := tree.Set([]byte(fmt.Sprintf("key%d", j)), []byte(fmt.Sprintf("value%d", j)))
-			require.NoError(t, err)
-		}
-		_, v, err := tree.SaveVersion()
-		require.NoError(t, err)
-		if v%pruningInterval == 0 {
-			tree.DeleteVersionsTo(v - pruningInterval/2)
-		}
-	}
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
 
-	// Wait for pruning to finish
-	for i := 0; i < 100; i++ {
-		_, _, err := tree.SaveVersion()
-		require.NoError(t, err)
-		firstVersion, err := tree.ndb.getFirstVersion()
-		require.NoError(t, err)
-		if firstVersion == toVersion-pruningInterval/2+1 {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
-	}
+	_, err = tree.Set([]byte("key2"), []byte("value2"))
+	require.NoError(t, err)
 
-	// Reload the tree
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.Remove([]byte("key1"))
+	require.NoError(t, err)
+
+	// the root will be the leaf node of key2
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Load the tree from disk.
 	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
-	versions := tree.AvailableVersions()
-	require.Equal(t, versions[0], int(toVersion-pruningInterval/2+1))
-	for _, v := range versions {
-		_, err := tree.LoadVersion(int64(v))
-		require.NoError(t, err)
-	}
+	_, err = tree.Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), tree.Version())
+	// check the root of version 2 is the leaf node of key2
+	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 3}).GetKey())
+	require.Equal(t, tree.root.key, []byte("key2"))
 }

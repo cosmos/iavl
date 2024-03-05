@@ -760,8 +760,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	} else {
 		if tree.root.nodeKey != nil {
-			// it means there is no updated
-			if err := tree.ndb.SaveRoot(version, tree.root.nodeKey.version); err != nil {
+			// it means there are no updated nodes
+			if err := tree.ndb.SaveRoot(version, tree.root.nodeKey); err != nil {
 				return nil, 0, err
 			}
 			// it means the reference node is a legacy node
