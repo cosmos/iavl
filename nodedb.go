@@ -13,11 +13,10 @@ import (
 	"time"
 
 	"cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/cache"
-	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 	"github.com/cosmos/iavl/keyformat"
 )
 
@@ -61,6 +60,9 @@ var (
 
 	// All legacy node keys are prefixed with the byte 'n'.
 	legacyNodeKeyFormat = keyformat.NewFastPrefixFormatter('n', hashSize) // n<hash>
+
+	// All legacy orphan keys are prefixed with the byte 'o'.
+	legacyOrphanKeyFormat = keyformat.NewKeyFormat('o', int64Size, int64Size, hashSize) // o<last-version><first-version><hash>
 
 	// All legacy root keys are prefixed with the byte 'r'.
 	legacyRootKeyFormat = keyformat.NewKeyFormat('r', int64Size) // r<version>
@@ -324,7 +326,21 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 
 // Has checks if a node key exists in the database.
 func (ndb *nodeDB) Has(nk []byte) (bool, error) {
-	return ndb.db.Has(ndb.nodeKey(nk))
+	key := ndb.nodeKey(nk)
+
+	if ldb, ok := ndb.db.(*dbm.GoLevelDB); ok {
+		exists, err := ldb.DB().Has(key, nil)
+		if err != nil {
+			return false, err
+		}
+		return exists, nil
+	}
+	value, err := ndb.db.Get(key)
+	if err != nil {
+		return false, err
+	}
+
+	return value != nil, nil
 }
 
 // resetBatch reset the db batch, keep low memory used
@@ -427,7 +443,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 		}()
 
 		// Check if we have a legacy version
-		itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
+		itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
 		if err != nil {
 			ndb.logger.Error(err.Error())
 			return
@@ -500,7 +516,7 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 
 // deleteOrphans cleans all legacy orphans from the nodeDB.
 func (ndb *nodeDB) deleteOrphans() error {
-	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
+	itr, err := dbm.IteratePrefix(ndb.db, legacyOrphanKeyFormat.Key())
 	if err != nil {
 		return err
 	}
@@ -670,7 +686,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	}
 
 	// Check if we have a legacy version
-	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
+	itr, err := dbm.IteratePrefix(ndb.db, legacyRootKeyFormat.Key())
 	if err != nil {
 		return 0, err
 	}
@@ -864,7 +880,7 @@ func (ndb *nodeDB) traverseRange(start []byte, end []byte, fn func(k, v []byte) 
 
 // Traverse all keys with a certain prefix. Return error if any, nil otherwise
 func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) error {
-	itr, err := ndb.getPrefixIterator(prefix)
+	itr, err := dbm.IteratePrefix(ndb.db, prefix)
 	if err != nil {
 		return err
 	}
@@ -877,20 +893,6 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 	}
 
 	return nil
-}
-
-// Get the iterator for a given prefix.
-func (ndb *nodeDB) getPrefixIterator(prefix []byte) (dbm.Iterator, error) {
-	var start, end []byte
-	if len(prefix) == 0 {
-		start = nil
-		end = nil
-	} else {
-		start = ibytes.Cp(prefix)
-		end = ibytes.CpIncr(prefix)
-	}
-
-	return ndb.db.Iterator(start, end)
 }
 
 // Get iterator for fast prefix and error, if any

@@ -10,9 +10,8 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/cosmos/iavl/db"
 )
 
 const (
@@ -51,7 +50,7 @@ func TestLazySet(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", "goleveldb", relateDir)
+	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -94,7 +93,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", "goleveldb", relateDir)
+	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -133,7 +132,7 @@ func TestDeleteVersions(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbType, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", "goleveldb", relateDir)
+	db, err := dbm.NewDB("test", dbm.GoLevelDBBackend, relateDir)
 	require.NoError(t, err)
 
 	defer func() {

@@ -12,8 +12,8 @@ import (
 	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
+	db "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl"
-	dbm "github.com/cosmos/iavl/db"
 )
 
 const historySize = 20
@@ -26,7 +26,7 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(b *testing.B, db dbm.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
+func prepareTree(b *testing.B, db db.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
 	t := iavl.NewMutableTree(db, size, false, log.NewNopLogger())
 	keys := make([][]byte, size)
 
@@ -147,7 +147,7 @@ func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	}
 }
 
-func iterate(b *testing.B, itr dbm.Iterator, expectedSize int) {
+func iterate(b *testing.B, itr db.Iterator, expectedSize int) {
 	b.StartTimer()
 	keyValuePairs := make([][][]byte, 0, expectedSize)
 	for i := 0; i < expectedSize && itr.Valid(); i++ {
@@ -259,7 +259,7 @@ func BenchmarkRandomBytes(b *testing.B) {
 }
 
 type benchmark struct {
-	dbType              string
+	dbType              db.BackendType
 	initSize, blockSize int
 	keyLen, dataLen     int
 }
@@ -330,7 +330,7 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
-		if bb.dbType == "rocksdb" {
+		if bb.dbType == db.RocksDBBackend {
 			_ = os.Mkdir(dirName, 0o755)
 		}
 
@@ -343,11 +343,11 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// note that "" leads to nil backing db!
 		var (
-			d   dbm.DB
+			d   db.DB
 			err error
 		)
 		if bb.dbType != "nodb" {
-			d, err = dbm.NewDB("test", bb.dbType, dirName)
+			d, err = db.NewDB("test", bb.dbType, dirName)
 
 			if err != nil {
 				if strings.Contains(err.Error(), "unknown db_backend") {
@@ -376,7 +376,7 @@ func memUseMB() float64 {
 	return mb
 }
 
-func runSuite(b *testing.B, d dbm.DB, initSize, blockSize, keyLen, dataLen int) {
+func runSuite(b *testing.B, d db.DB, initSize, blockSize, keyLen, dataLen int) {
 	// measure mem usage
 	runtime.GC()
 	init := memUseMB()

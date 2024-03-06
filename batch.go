@@ -3,7 +3,7 @@ package iavl
 import (
 	"sync"
 
-	dbm "github.com/cosmos/iavl/db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 // BatchWithFlusher is a wrapper
