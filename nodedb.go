@@ -380,7 +380,15 @@ func (ndb *nodeDB) saveNodeFromPruning(node *Node) error {
 
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	return ndb.SaveNode(node)
+
+	// Save node bytes to db.
+	var buf bytes.Buffer
+	buf.Grow(node.encodedSize())
+
+	if err := node.writeBytes(&buf); err != nil {
+		return err
+	}
+	return ndb.batch.Set(ndb.nodeKey(node.GetKey()), buf.Bytes())
 }
 
 // deleteVersion deletes a tree version from disk.
