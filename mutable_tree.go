@@ -714,7 +714,6 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.ndb.SetCommitting()
 	defer tree.ndb.UnsetCommitting()
 
-	isGenesis := (tree.version == 0)
 	version := tree.WorkingVersion()
 
 	if tree.VersionExists(version) {
@@ -749,7 +748,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 
 	// save new fast nodes
 	if !tree.skipFastStorageUpgrade {
-		if err := tree.saveFastNodeVersion(version, isGenesis); err != nil {
+		if err := tree.saveFastNodeVersion(version); err != nil {
 			return nil, version, err
 		}
 	}
@@ -797,8 +796,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	return tree.Hash(), version, nil
 }
 
-func (tree *MutableTree) saveFastNodeVersion(latestVersion int64, isGenesis bool) error {
-	if err := tree.saveFastNodeAdditions(isGenesis); err != nil {
+func (tree *MutableTree) saveFastNodeVersion(latestVersion int64) error {
+	if err := tree.saveFastNodeAdditions(); err != nil {
 		return err
 	}
 	if err := tree.saveFastNodeRemovals(); err != nil {
@@ -834,7 +833,7 @@ func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
 	tree.unsavedFastNodeAdditions.Store(skey, node)
 }
 
-func (tree *MutableTree) saveFastNodeAdditions(batchCommmit bool) error {
+func (tree *MutableTree) saveFastNodeAdditions() error {
 	keysToSort := make([]string, 0)
 	tree.unsavedFastNodeAdditions.Range(func(k, v interface{}) bool {
 		keysToSort = append(keysToSort, k.(string))
@@ -846,11 +845,6 @@ func (tree *MutableTree) saveFastNodeAdditions(batchCommmit bool) error {
 		val, _ := tree.unsavedFastNodeAdditions.Load(key)
 		if err := tree.ndb.SaveFastNode(val.(*fastnode.Node)); err != nil {
 			return err
-		}
-		if batchCommmit {
-			if err := tree.ndb.resetBatch(); err != nil {
-				return err
-			}
 		}
 	}
 	return nil

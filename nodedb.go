@@ -229,13 +229,6 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		return err
 	}
 
-	// resetBatch only working on generate a genesis block
-	if node.nodeKey.version <= genesisVersion {
-		if err := ndb.resetBatch(); err != nil {
-			return err
-		}
-	}
-
 	ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
@@ -366,41 +359,6 @@ func (ndb *nodeDB) Has(nk []byte) (bool, error) {
 	return ndb.db.Has(ndb.nodeKey(nk))
 }
 
-// resetBatch reset the db batch, keep low memory used
-func (ndb *nodeDB) resetBatch() error {
-	size, err := ndb.batch.GetByteSize()
-	if err != nil {
-		// just don't do an optimization here. write with batch size 1.
-		return ndb.writeBatch()
-	}
-	// write in ~64kb chunks. if less than 64kb, continue.
-	if size < 64*1024 {
-		return nil
-	}
-
-	return ndb.writeBatch()
-}
-
-func (ndb *nodeDB) writeBatch() error {
-	var err error
-	if ndb.opts.Sync {
-		err = ndb.batch.WriteSync()
-	} else {
-		err = ndb.batch.Write()
-	}
-	if err != nil {
-		return err
-	}
-	err = ndb.batch.Close()
-	if err != nil {
-		return err
-	}
-
-	ndb.batch = NewBatchWithFlusher(ndb.db, ndb.opts.FlushThreshold)
-
-	return nil
-}
-
 // deleteFromPruning deletes the orphan nodes from the pruning process.
 func (ndb *nodeDB) deleteFromPruning(key []byte) error {
 	if ndb.IsCommitting() {
@@ -408,6 +366,8 @@ func (ndb *nodeDB) deleteFromPruning(key []byte) error {
 		<-ndb.chCommitting
 	}
 
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.batch.Delete(key)
 }
 
@@ -418,6 +378,8 @@ func (ndb *nodeDB) saveNodeFromPruning(node *Node) error {
 		<-ndb.chCommitting
 	}
 
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.SaveNode(node)
 }
 
@@ -711,11 +673,12 @@ func (ndb *nodeDB) legacyRootKey(version int64) []byte {
 
 func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	ndb.mtx.Lock()
-	if ndb.firstVersion != 0 {
-		ndb.mtx.Unlock()
-		return ndb.firstVersion, nil
-	}
+	firstVersion := ndb.firstVersion
 	ndb.mtx.Unlock()
+
+	if firstVersion > 0 {
+		return firstVersion, nil
+	}
 
 	// Check if we have a legacy version
 	itr, err := ndb.getPrefixIterator(legacyRootKeyFormat.Key())
@@ -733,7 +696,6 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	firstVersion := int64(0)
 	for firstVersion < latestVersion {
 		version := (latestVersion + firstVersion) >> 1
 		has, err := ndb.hasVersion(version)
@@ -751,7 +713,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	ndb.firstVersion = latestVersion
 	ndb.mtx.Unlock()
 
-	return ndb.firstVersion, nil
+	return latestVersion, nil
 }
 
 func (ndb *nodeDB) resetFirstVersion(version int64) {
@@ -793,8 +755,12 @@ func (ndb *nodeDB) getLegacyLatestVersion() (int64, error) {
 }
 
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
-	if ndb.latestVersion != 0 {
-		return ndb.latestVersion, nil
+	ndb.mtx.Lock()
+	latestVersion := ndb.latestVersion
+	ndb.mtx.Unlock()
+
+	if latestVersion > 0 {
+		return latestVersion, nil
 	}
 
 	itr, err := ndb.db.ReverseIterator(
@@ -810,8 +776,13 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		k := itr.Key()
 		var nk []byte
 		nodeKeyFormat.Scan(k, &nk)
-		ndb.latestVersion = GetNodeKey(nk).version
-		return ndb.latestVersion, nil
+		latestVersion = GetNodeKey(nk).version
+
+		ndb.mtx.Lock()
+		ndb.latestVersion = latestVersion
+		ndb.mtx.Unlock()
+
+		return latestVersion, nil
 	}
 
 	if err := itr.Error(); err != nil {
@@ -819,14 +790,18 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	}
 
 	// If there are no versions, try to get the latest version from the legacy format.
-	version, err := ndb.getLegacyLatestVersion()
+	latestVersion, err = ndb.getLegacyLatestVersion()
 	if err != nil {
 		return 0, err
 	}
-	if version > 0 {
-		ndb.latestVersion = version
+	if latestVersion > 0 {
+		ndb.mtx.Lock()
+		ndb.latestVersion = latestVersion
+		ndb.mtx.Unlock()
 	}
 
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.latestVersion, nil
 }
 
@@ -1001,9 +976,6 @@ func (ndb *nodeDB) Commit() error {
 	if err != nil {
 		return fmt.Errorf("failed to write batch, %w", err)
 	}
-
-	ndb.batch.Close()
-	ndb.batch = NewBatchWithFlusher(ndb.db, ndb.opts.FlushThreshold)
 
 	return nil
 }
