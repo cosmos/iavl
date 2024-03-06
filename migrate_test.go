@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 const (
@@ -274,4 +275,51 @@ func TestLazyPruning(t *testing.T) {
 		_, err := tree.LoadVersion(int64(v))
 		require.NoError(t, err)
 	}
+}
+
+func TestRandomSet(t *testing.T) {
+	legacyVersion := 50
+	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
+	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
+	require.NoError(t, err)
+
+	db, err := dbm.NewDB("test", dbType, relateDir)
+	require.NoError(t, err)
+
+	defer func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("DB close error: %v\n", err)
+		}
+		if err := os.RemoveAll(relateDir); err != nil {
+			t.Errorf("%+v\n", err)
+		}
+	}()
+
+	tree := NewMutableTree(db, 10000, false, log.NewNopLogger())
+
+	// Load the latest legacy version
+	_, err = tree.LoadVersion(int64(legacyVersion))
+	require.NoError(t, err)
+
+	// Commit new versions
+	postVersions := 1000
+	emptyVersions := 10
+	for i := 0; i < emptyVersions; i++ {
+		_, _, err := tree.SaveVersion()
+		require.NoError(t, err)
+	}
+	for i := 0; i < postVersions-emptyVersions; i++ {
+		leafCount := rand.Intn(50)
+		for j := 0; j < leafCount; j++ {
+			key := iavlrand.RandBytes(10)
+			value := iavlrand.RandBytes(10)
+			_, err = tree.Set(key, value)
+			require.NoError(t, err)
+		}
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	err = tree.DeleteVersionsToSync(int64(legacyVersion + postVersions - 1))
+	require.NoError(t, err)
 }
