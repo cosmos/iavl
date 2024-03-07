@@ -1134,10 +1134,10 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 		fields fields
 	}{
 		{"less than commit gap", fields{nodeCount: 100}},
-		{"equal to commit gap", fields{nodeCount: int(commitGap)}},
-		{"great than commit gap", fields{nodeCount: int(commitGap) + 100}},
-		{"two times commit gap", fields{nodeCount: int(commitGap) * 2}},
-		{"two times plus commit gap", fields{nodeCount: int(commitGap)*2 + 1}},
+		{"equal to commit gap", fields{nodeCount: commitGap}},
+		{"great than commit gap", fields{nodeCount: commitGap + 100}},
+		{"two times commit gap", fields{nodeCount: commitGap * 2}},
+		{"two times plus commit gap", fields{nodeCount: commitGap*2 + 1}},
 	}
 
 	for _, tt := range tests {
@@ -1189,10 +1189,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 		fields fields
 	}{
 		{"stale less than commit gap", fields{nodeCount: 100, staleCount: 4}},
-		{"stale equal to commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)}},
-		{"stale great than commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap)*2 - 1}},
-		{"stale twice commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap) * 2}},
-		{"stale great than twice commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)*2 + 1}},
+		{"stale equal to commit gap", fields{nodeCount: commitGap, staleCount: commitGap}},
+		{"stale great than commit gap", fields{nodeCount: commitGap + 100, staleCount: commitGap*2 - 1}},
+		{"stale twice commit gap", fields{nodeCount: commitGap + 100, staleCount: commitGap * 2}},
+		{"stale great than twice commit gap", fields{nodeCount: commitGap, staleCount: commitGap*2 + 1}},
 	}
 
 	for _, tt := range tests {
