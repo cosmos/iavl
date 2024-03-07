@@ -918,7 +918,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
 
-	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(3)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(2)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -940,8 +940,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(2)
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
-	batchMock.EXPECT().Write().Return(nil).Times(2)
-	batchMock.EXPECT().Close().Return(nil).Times(2)
+	batchMock.EXPECT().Write().Return(nil).Times(1)
+	batchMock.EXPECT().Close().Return(nil).Times(1)
 
 	// iterMock is used to mock the underlying db iterator behing fast iterator
 	// Here, we want to mock the behavior of deleting fast nodes from disk when
@@ -1124,11 +1124,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 }
 
 func TestUpgradeStorageToFast_Success(t *testing.T) {
-	tmpCommitGap := commitGap
-	commitGap = 1000
-	defer func() {
-		commitGap = tmpCommitGap
-	}()
+	commitGap := 1000
 
 	type fields struct {
 		nodeCount int
@@ -1164,11 +1160,7 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 
 func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 	// we delete fast node, in case of deadlock. we should limit the stale count lower than chBufferSize(64)
-	tmpCommitGap := commitGap
-	commitGap = 5
-	defer func() {
-		commitGap = tmpCommitGap
-	}()
+	commitGap := 5
 
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {

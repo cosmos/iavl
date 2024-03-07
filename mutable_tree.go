@@ -15,9 +15,6 @@ import (
 )
 
 var (
-	// commitGap after upgrade/delete commitGap FastNodes when commit the batch
-	commitGap uint64 = 5000000
-
 	// ErrVersionDoesNotExist is returned if a requested version does not exist.
 	ErrVersionDoesNotExist = errors.New("version does not exist")
 
@@ -578,16 +575,6 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 		if err := tree.ndb.DeleteFastNode(fastItr.Key()); err != nil {
 			return false, err
 		}
-		if deletedFastNodes%commitGap == 0 {
-			if err := tree.ndb.Commit(); err != nil {
-				return false, err
-			}
-		}
-	}
-	if deletedFastNodes%commitGap != 0 {
-		if err := tree.ndb.Commit(); err != nil {
-			return false, err
-		}
 	}
 
 	if err := tree.enableFastStorageAndCommit(); err != nil {
@@ -608,12 +595,6 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		if err = tree.ndb.SaveFastNodeNoCache(fastnode.NewNode(itr.Key(), itr.Value(), tree.version)); err != nil {
 			return err
 		}
-		if upgradedFastNodes%commitGap == 0 {
-			err := tree.ndb.Commit()
-			if err != nil {
-				return err
-			}
-		}
 	}
 
 	if err = itr.Error(); err != nil {
@@ -625,7 +606,7 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	if err = tree.ndb.setFastStorageVersionToBatch(latestVersion); err != nil {
+	if err = tree.ndb.SetFastStorageVersionToBatch(latestVersion); err != nil {
 		return err
 	}
 
@@ -804,7 +785,7 @@ func (tree *MutableTree) saveFastNodeVersion(latestVersion int64) error {
 	if err := tree.saveFastNodeRemovals(); err != nil {
 		return err
 	}
-	return tree.ndb.setFastStorageVersionToBatch(latestVersion)
+	return tree.ndb.SetFastStorageVersionToBatch(latestVersion)
 }
 
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {

@@ -275,10 +275,13 @@ func (ndb *nodeDB) IsCommitting() bool {
 	return ndb.isCommitting
 }
 
-// setFastStorageVersionToBatch sets storage version to fast where the version is
+// SetFastStorageVersionToBatch sets storage version to fast where the version is
 // 1.1.0-<version of the current live state>. Returns error if storage version is incorrect or on
 // db error, nil otherwise. Requires changes to be committed after to be persisted.
-func (ndb *nodeDB) setFastStorageVersionToBatch(latestVersion int64) error {
+func (ndb *nodeDB) SetFastStorageVersionToBatch(latestVersion int64) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
 	var newVersion string
 	if ndb.storageVersion >= fastStorageVersionValue {
 		// Storage version should be at index 0 and latest fast cache version at index 1
@@ -891,11 +894,15 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 
 // SaveEmptyRoot saves the empty root.
 func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), []byte{})
 }
 
 // SaveRoot saves the root when no updates.
 func (ndb *nodeDB) SaveRoot(version int64, nk *NodeKey) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), nodeKeyFormat.Key(nk.GetKey()))
 }
 
