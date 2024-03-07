@@ -918,7 +918,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
 
-	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(2)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(3)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -940,8 +940,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(2)
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
-	batchMock.EXPECT().Write().Return(nil).Times(1)
-	batchMock.EXPECT().Close().Return(nil).Times(1)
+	batchMock.EXPECT().Write().Return(nil).Times(2)
+	batchMock.EXPECT().Close().Return(nil).Times(2)
 
 	// iterMock is used to mock the underlying db iterator behing fast iterator
 	// Here, we want to mock the behavior of deleting fast nodes from disk when
@@ -1124,7 +1124,11 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 }
 
 func TestUpgradeStorageToFast_Success(t *testing.T) {
-	commitGap := 1000
+	tmpCommitGap := commitGap
+	commitGap = 1000
+	defer func() {
+		commitGap = tmpCommitGap
+	}()
 
 	type fields struct {
 		nodeCount int
@@ -1134,10 +1138,10 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 		fields fields
 	}{
 		{"less than commit gap", fields{nodeCount: 100}},
-		{"equal to commit gap", fields{nodeCount: commitGap}},
-		{"great than commit gap", fields{nodeCount: commitGap + 100}},
-		{"two times commit gap", fields{nodeCount: commitGap * 2}},
-		{"two times plus commit gap", fields{nodeCount: commitGap*2 + 1}},
+		{"equal to commit gap", fields{nodeCount: int(commitGap)}},
+		{"great than commit gap", fields{nodeCount: int(commitGap) + 100}},
+		{"two times commit gap", fields{nodeCount: int(commitGap) * 2}},
+		{"two times plus commit gap", fields{nodeCount: int(commitGap)*2 + 1}},
 	}
 
 	for _, tt := range tests {
@@ -1160,7 +1164,11 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 
 func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 	// we delete fast node, in case of deadlock. we should limit the stale count lower than chBufferSize(64)
-	commitGap := 5
+	tmpCommitGap := commitGap
+	commitGap = 5
+	defer func() {
+		commitGap = tmpCommitGap
+	}()
 
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {
@@ -1189,10 +1197,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 		fields fields
 	}{
 		{"stale less than commit gap", fields{nodeCount: 100, staleCount: 4}},
-		{"stale equal to commit gap", fields{nodeCount: commitGap, staleCount: commitGap}},
-		{"stale great than commit gap", fields{nodeCount: commitGap + 100, staleCount: commitGap*2 - 1}},
-		{"stale twice commit gap", fields{nodeCount: commitGap + 100, staleCount: commitGap * 2}},
-		{"stale great than twice commit gap", fields{nodeCount: commitGap, staleCount: commitGap*2 + 1}},
+		{"stale equal to commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)}},
+		{"stale great than commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap)*2 - 1}},
+		{"stale twice commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap) * 2}},
+		{"stale great than twice commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)*2 + 1}},
 	}
 
 	for _, tt := range tests {
