@@ -523,21 +523,25 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
+	legacyLatestVersion, err := ndb.getLegacyLatestVersion()
+	if err != nil {
+		return err
+	}
 	// Delete orphans for all legacy versions
 	if err := ndb.traversePrefix(legacyOrphanKeyFormat.Key(), func(key, value []byte) error {
 		if err := ndb.deleteFromPruning(key); err != nil {
 			return err
 		}
-
-		return ndb.deleteFromPruning(ndb.legacyNodeKey(value))
+		var fromVersion, toVersion int64
+		legacyOrphanKeyFormat.Scan(key, &toVersion, &fromVersion)
+		if (fromVersion <= legacyLatestVersion && toVersion < legacyLatestVersion) || fromVersion > legacyLatestVersion {
+			return ndb.deleteFromPruning(ndb.legacyNodeKey(value))
+		}
+		return nil
 	}); err != nil {
 		return err
 	}
 	// Delete the last version for the legacyLastVersion
-	legacyLatestVersion, err := ndb.getLegacyLatestVersion()
-	if err != nil {
-		return err
-	}
 	if err := ndb.traverseOrphans(legacyLatestVersion, legacyLatestVersion+1, func(orphan *Node) error {
 		return ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash))
 	}); err != nil {
@@ -589,8 +593,8 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 			if err := ndb.deleteLegacyNodes(version, v); err != nil {
 				return err
 			}
-			// delete the legacy root
 			// it will skip the orphans because orphans will be removed at once in `deleteLegacyVersions`
+			// delete the legacy root
 			return ndb.batch.Delete(k)
 		}); err != nil {
 			return err

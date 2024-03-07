@@ -281,11 +281,11 @@ func (node *Node) String() string {
 	if node.rightNode != nil && node.rightNode.nodeKey != nil {
 		child += fmt.Sprintf("{right %v}", node.rightNode.nodeKey)
 	}
-	return fmt.Sprintf("Node{%s:%s@ %v:%v-%v %d-%d}#%s\n",
+	return fmt.Sprintf("Node{%s:%s@ %v:%x-%x %d-%d %x}#%s\n",
 		color.ColoredBytes(node.key, color.Green, color.Blue),
 		color.ColoredBytes(node.value, color.Cyan, color.Blue),
 		node.nodeKey, node.leftNodeKey, node.rightNodeKey,
-		node.size, node.subtreeHeight, child)
+		node.size, node.subtreeHeight, node.hash, child)
 }
 
 // clone creates a shallow copy of a node with its hash set to nil.
