@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	log "cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/cosmos/iavl/db"
 )
 
 func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {

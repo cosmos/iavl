@@ -8,10 +8,10 @@ import (
 	"time"
 
 	log "cosmossdk.io/log"
+	db "github.com/cosmos/cosmos-db"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 
-	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/mock"
 )
 
@@ -83,7 +83,7 @@ func TestNewNoDbStorage_DoesNotExist_DefaultSet(t *testing.T) {
 func TestSetStorageVersion_Success(t *testing.T) {
 	const expectedVersion = fastStorageVersionValue
 
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
@@ -144,7 +144,7 @@ func TestSetStorageVersion_InvalidVersionFailure_OldKept(t *testing.T) {
 }
 
 func TestSetStorageVersion_FastVersionFirst_VersionAppended(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.storageVersion = fastStorageVersionValue
 	ndb.latestVersion = 100
@@ -155,7 +155,7 @@ func TestSetStorageVersion_FastVersionFirst_VersionAppended(t *testing.T) {
 }
 
 func TestSetStorageVersion_FastVersionSecond_VersionAppended(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 
@@ -169,7 +169,7 @@ func TestSetStorageVersion_FastVersionSecond_VersionAppended(t *testing.T) {
 }
 
 func TestSetStorageVersion_SameVersionTwice(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 
@@ -189,7 +189,7 @@ func TestSetStorageVersion_SameVersionTwice(t *testing.T) {
 
 // Test case where version is incorrect and has some extra garbage at the end
 func TestShouldForceFastStorageUpdate_DefaultVersion_True(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.storageVersion = defaultStorageVersionValue
 	ndb.latestVersion = 100
@@ -200,7 +200,7 @@ func TestShouldForceFastStorageUpdate_DefaultVersion_True(t *testing.T) {
 }
 
 func TestShouldForceFastStorageUpdate_FastVersion_Greater_True(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion+1))
@@ -211,7 +211,7 @@ func TestShouldForceFastStorageUpdate_FastVersion_Greater_True(t *testing.T) {
 }
 
 func TestShouldForceFastStorageUpdate_FastVersion_Smaller_True(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion-1))
@@ -222,7 +222,7 @@ func TestShouldForceFastStorageUpdate_FastVersion_Smaller_True(t *testing.T) {
 }
 
 func TestShouldForceFastStorageUpdate_FastVersion_Match_False(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion))
@@ -233,7 +233,7 @@ func TestShouldForceFastStorageUpdate_FastVersion_Match_False(t *testing.T) {
 }
 
 func TestIsFastStorageEnabled_True(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = fastStorageVersionValue + fastStorageVersionDelimiter + strconv.Itoa(int(ndb.latestVersion))
@@ -242,7 +242,7 @@ func TestIsFastStorageEnabled_True(t *testing.T) {
 }
 
 func TestIsFastStorageEnabled_False(t *testing.T) {
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	ndb.latestVersion = 100
 	ndb.storageVersion = defaultStorageVersionValue
@@ -379,7 +379,7 @@ func TestNodeDB_traverseOrphans(t *testing.T) {
 }
 
 func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
-	memDB := dbm.NewMemDB()
+	memDB := db.NewMemDB()
 	tree := NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 
 	for i := 0; i < 1e4; i++ {
@@ -397,7 +397,7 @@ func makeAndPopulateMutableTree(tb testing.TB) *MutableTree {
 func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
 	const expectedVersion = fastStorageVersionValue
 
-	db := dbm.NewMemDB()
+	db := db.NewMemDB()
 
 	ndb := newNodeDB(db, 0, DefaultOptions(), log.NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
