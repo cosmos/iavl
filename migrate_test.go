@@ -275,6 +275,26 @@ func TestLazyPruning(t *testing.T) {
 		_, err := tree.LoadVersion(int64(v))
 		require.NoError(t, err)
 	}
+	// Check if the legacy nodes are pruned
+	_, err = tree.Load()
+	require.NoError(t, err)
+	itr, err := NewNodeIterator(tree.root.GetKey(), tree.ndb)
+	require.NoError(t, err)
+	legacyNodes := make(map[string]*Node)
+	for ; itr.Valid(); itr.Next(false) {
+		node := itr.GetNode()
+		if node.nodeKey.nonce == 0 {
+			legacyNodes[string(node.hash)] = node
+		}
+	}
+
+	lNodes, err := tree.ndb.legacyNodes()
+	require.NoError(t, err)
+	require.Len(t, lNodes, len(legacyNodes))
+	for _, node := range lNodes {
+		_, ok := legacyNodes[string(node.hash)]
+		require.True(t, ok)
+	}
 }
 
 func TestRandomSet(t *testing.T) {

@@ -67,6 +67,7 @@ type Node struct {
 	leftNode      *Node
 	rightNode     *Node
 	subtreeHeight int8
+	isLegacy      bool
 }
 
 var _ cache.Node = (*Node)(nil)
@@ -83,6 +84,9 @@ func NewNode(key []byte, value []byte) *Node {
 
 // GetKey returns the key of the node.
 func (node *Node) GetKey() []byte {
+	if node.isLegacy {
+		return node.hash
+	}
 	return node.nodeKey.GetKey()
 }
 
@@ -235,6 +239,7 @@ func MakeLegacyNode(hash, buf []byte) (*Node, error) {
 		nodeKey:       &NodeKey{version: ver},
 		key:           key,
 		hash:          hash,
+		isLegacy:      true,
 	}
 
 	// Read node body.

@@ -368,6 +368,7 @@ func (ndb *nodeDB) deleteFromPruning(key []byte) error {
 
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	ndb.logger.Debug("BATCH DELETE", "key", fmt.Sprintf("%x", key))
 	return ndb.batch.Delete(key)
 }
 
@@ -413,7 +414,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 	if err != nil {
 		return err
 	}
-	if nextRootKey != nil && GetNodeKey(nextRootKey).version == version {
+	if bytes.Equal(literalRootKey, nextRootKey) {
 		root, err := ndb.GetNode(nextRootKey)
 		if err != nil {
 			return err
@@ -430,13 +431,24 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 	}
 
 	return ndb.traverseOrphans(version, version+1, func(orphan *Node) error {
+		if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
+			// if the orphan is a reformatted root, it can be a legacy root
+			// so it should be removed from the pruning process.
+			if err := ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash)); err != nil {
+				return err
+			}
+		}
 		if orphan.nodeKey.nonce == 1 && orphan.nodeKey.version < version {
 			// if the orphan is referred to the previous root, it should be reformatted
 			// to (version, 0), because the root (version, 1) should be removed but not
 			// applied now due to the batch writing.
 			orphan.nodeKey.nonce = 0
 		}
-		return ndb.deleteFromPruning(ndb.nodeKey(orphan.GetKey()))
+		nk := orphan.GetKey()
+		if orphan.isLegacy {
+			return ndb.deleteFromPruning(ndb.legacyNodeKey(nk))
+		}
+		return ndb.deleteFromPruning(ndb.nodeKey(nk))
 	})
 }
 
@@ -1077,6 +1089,24 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 	nodes := []*Node{}
 
 	err := ndb.traverseNodes(func(node *Node) error {
+		nodes = append(nodes, node)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return nodes, nil
+}
+
+func (ndb *nodeDB) legacyNodes() ([]*Node, error) {
+	nodes := []*Node{}
+
+	err := ndb.traversePrefix(legacyNodeKeyFormat.Key(), func(key, value []byte) error {
+		node, err := MakeLegacyNode(key[1:], value)
+		if err != nil {
+			return err
+		}
 		nodes = append(nodes, node)
 		return nil
 	})
