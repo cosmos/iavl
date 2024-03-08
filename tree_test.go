@@ -14,7 +14,6 @@ import (
 
 	"cosmossdk.io/log"
 	db "github.com/cosmos/cosmos-db"
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1826,7 +1825,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 }
 
 func TestEmptyVersionDelete(t *testing.T) {
-	db, err := dbm.NewDB("test", "memdb", "")
+	db, err := db.NewDB("test", "memdb", "")
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -1857,7 +1856,7 @@ func TestEmptyVersionDelete(t *testing.T) {
 }
 
 func TestReferenceRoot(t *testing.T) {
-	db, err := dbm.NewDB("test", "memdb", "")
+	db, err := db.NewDB("test", "memdb", "")
 	require.NoError(t, err)
 	defer db.Close()
 

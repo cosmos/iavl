@@ -534,11 +534,6 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 	return ndb.batch.Delete(ndb.legacyNodeKey(nk))
 }
 
-var (
-	isDeletingLegacyVersionsMutex = &sync.Mutex{}
-	isDeletingLegacyVersions      = false
-)
-
 // deleteLegacyVersions deletes all legacy versions from disk.
 func (ndb *nodeDB) deleteLegacyVersions() error {
 	legacyLatestVersion, err := ndb.getLegacyLatestVersion()
@@ -574,32 +569,6 @@ func (ndb *nodeDB) deleteLegacyVersions() error {
 
 	// Initialize the legacy latest version to -1 to demonstrate that all legacy versions have been deleted
 	ndb.legacyLatestVersion = -1
-
-	return nil
-}
-
-// deleteOrphans cleans all legacy orphans from the nodeDB.
-func (ndb *nodeDB) deleteOrphans() error {
-	itr, err := dbm.IteratePrefix(ndb.db, legacyOrphanKeyFormat.Key())
-	if err != nil {
-		return err
-	}
-	defer itr.Close()
-
-	count := 0
-	for ; itr.Valid(); itr.Next() {
-		if err := ndb.batch.Delete(itr.Key()); err != nil {
-			return err
-		}
-
-		// Sleep for a while to avoid blocking the main thread i/o.
-		count++
-		if count > 1000 {
-			count = 0
-			time.Sleep(100 * time.Millisecond)
-		}
-
-	}
 
 	return nil
 }
