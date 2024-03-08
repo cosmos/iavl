@@ -124,8 +124,10 @@ func TestLegacyReferenceNode(t *testing.T) {
 	_, err = newTree.LoadVersion(version - 1)
 	require.NoError(t, err)
 	// Check if the reference node is refactored
+	legacyLatestVersion, err := newTree.ndb.getLegacyLatestVersion()
+	require.NoError(t, err)
 	require.Equal(t, newTree.root.nodeKey.nonce, uint32(0))
-	require.Equal(t, newTree.root.nodeKey.version, int64(legacyVersion))
+	require.Equal(t, newTree.root.nodeKey.version, int64(legacyLatestVersion))
 }
 
 func TestDeleteVersions(t *testing.T) {
