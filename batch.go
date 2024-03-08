@@ -3,7 +3,7 @@ package iavl
 import (
 	"sync"
 
-	dbm "github.com/cosmos/iavl/db"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 // BatchWithFlusher is a wrapper
@@ -57,13 +57,9 @@ func (b *BatchWithFlusher) Set(key, value []byte) error {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
-		if err := b.batch.Write(); err != nil {
+		if err := b.Write(); err != nil {
 			return err
 		}
-		if err := b.batch.Close(); err != nil {
-			return err
-		}
-		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
 	}
 	return b.batch.Set(key, value)
 }
@@ -81,23 +77,33 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
-		if err := b.batch.Write(); err != nil {
+		if err := b.Write(); err != nil {
 			return err
 		}
-		if err := b.batch.Close(); err != nil {
-			return err
-		}
-		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
 	}
 	return b.batch.Delete(key)
 }
 
 func (b *BatchWithFlusher) Write() error {
-	return b.batch.Write()
+	if err := b.batch.Write(); err != nil {
+		return err
+	}
+	if err := b.batch.Close(); err != nil {
+		return err
+	}
+	b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+	return nil
 }
 
 func (b *BatchWithFlusher) WriteSync() error {
-	return b.batch.WriteSync()
+	if err := b.batch.WriteSync(); err != nil {
+		return err
+	}
+	if err := b.batch.Close(); err != nil {
+		return err
+	}
+	b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+	return nil
 }
 
 func (b *BatchWithFlusher) Close() error {

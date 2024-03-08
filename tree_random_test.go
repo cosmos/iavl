@@ -13,7 +13,7 @@ import (
 	"cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
-	dbm "github.com/cosmos/iavl/db"
+	db "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/iavl/fastnode"
 )
 
@@ -68,7 +68,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	r := rand.New(rand.NewSource(randSeed))
 
 	// loadTree loads the last persisted version of a tree with random pruning settings.
-	loadTree := func(levelDB dbm.DB) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
+	loadTree := func(levelDB db.DB) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
 		var err error
 
 		sync := r.Float64() < syncChance
@@ -99,7 +99,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempdir)
 
-	levelDB, err := dbm.NewDB("test", "goleveldb", tempdir)
+	levelDB, err := db.NewGoLevelDB("leveldb", tempdir, nil)
 	require.NoError(t, err)
 
 	tree, version, _ := loadTree(levelDB)
@@ -163,7 +163,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 			if len(versions) > 1 {
 				to := versions[r.Intn(len(versions)-1)]
 				t.Logf("Deleting versions to %v", to)
-				err = tree.DeleteVersionsTo(int64(to))
+				err = tree.DeleteVersionsToSync(int64(to))
 				require.NoError(t, err)
 				for version := versions[0]; version <= to; version++ {
 					delete(diskMirrors, int64(version))
@@ -229,7 +229,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 
 	if len(remaining) > 0 {
 		t.Logf("Deleting versions to %v", remaining[len(remaining)-1])
-		err = tree.DeleteVersionsTo(int64(remaining[len(remaining)-1]))
+		err = tree.DeleteVersionsToSync(int64(remaining[len(remaining)-1]))
 		require.NoError(t, err)
 	}
 
@@ -255,7 +255,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	}
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
-	err = tree.DeleteVersionsTo(prevVersion)
+	err = tree.DeleteVersionsToSync(prevVersion)
 	require.NoError(t, err)
 	assertEmptyDatabase(t, tree)
 	t.Logf("Final version %v deleted, no stray database entries", prevVersion)

@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	log "cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/stretchr/testify/require"
-
-	dbm "github.com/cosmos/iavl/db"
 )
 
 func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
@@ -179,7 +178,7 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	err = tree.DeleteVersionsTo(1)
+	err = tree.DeleteVersionsToSync(1)
 	require.NoError(t, err)
 
 	latestVersion, err := tree.ndb.getLatestVersion()
