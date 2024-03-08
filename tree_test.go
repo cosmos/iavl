@@ -84,7 +84,7 @@ func TestVersionedRandomTree(t *testing.T) {
 	assert.Equal(t, 1, available[0])
 	assert.Equal(t, versions, available[len(available)-1])
 
-	tree.DeleteVersionsTo(int64(versions - 1))
+	tree.DeleteVersionsToSync(int64(versions - 1))
 
 	// require.Len(tree.versions, 1, "tree must have one version left")
 	tr, err := tree.GetImmutable(int64(versions))
@@ -198,7 +198,7 @@ func TestVersionedRandomTreeSmallKeys(t *testing.T) {
 	singleVersionTree.SaveVersion()
 
 	for i := 1; i < versions; i++ {
-		tree.DeleteVersionsTo(int64(i))
+		tree.DeleteVersionsToSync(int64(i))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
@@ -246,7 +246,7 @@ func TestVersionedRandomTreeSmallKeysRandomDeletes(t *testing.T) {
 	singleVersionTree.SaveVersion()
 
 	for _, i := range iavlrand.RandPerm(versions - 1) {
-		tree.DeleteVersionsTo(int64(i + 1))
+		tree.DeleteVersionsToSync(int64(i + 1))
 	}
 
 	// After cleaning up all previous versions, we should have as many nodes
@@ -286,9 +286,9 @@ func TestVersionedTreeSpecial1(t *testing.T) {
 	tree.Set([]byte("T"), []byte("MhkWjkVy"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(1)
-	tree.DeleteVersionsTo(2)
-	tree.DeleteVersionsTo(3)
+	tree.DeleteVersionsToSync(1)
+	tree.DeleteVersionsToSync(2)
+	tree.DeleteVersionsToSync(3)
 
 	nodes, err := tree.ndb.nodes()
 	require.Nil(t, err)
@@ -307,7 +307,7 @@ func TestVersionedRandomTreeSpecial2(t *testing.T) {
 	tree.Set([]byte("7OSHNE7k"), []byte("ff181M2d"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(1)
+	tree.DeleteVersionsToSync(1)
 
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
@@ -351,7 +351,7 @@ func TestVersionedEmptyTree(t *testing.T) {
 	require.NoError(err)
 	require.Nil(it.root)
 
-	require.NoError(tree.DeleteVersionsTo(3))
+	require.NoError(tree.DeleteVersionsToSync(3))
 
 	require.False(tree.VersionExists(1))
 	require.False(tree.VersionExists(3))
@@ -544,7 +544,7 @@ func TestVersionedTree(t *testing.T) {
 	require.Equal("val1", string(val))
 
 	// Delete a version. After this the keys in that version should not be found.
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(2)
 
 	// -----1-----
 	// key1 = val0
@@ -622,7 +622,7 @@ func TestVersionedTreeVersionDeletingEfficiency(t *testing.T) {
 	require.Nil(t, err)
 	require.Len(t, leafNodes, 8)
 
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(2)
 
 	leafNodes, err = tree.ndb.leafNodes()
 	require.Nil(t, err)
@@ -655,7 +655,7 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(2)
 
 	val, err := tree.Get([]byte("key0"))
 	require.NoError(t, err)
@@ -673,7 +673,7 @@ func TestVersionedTreeOrphanDeleting(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, val, []byte("val1"))
 
-	tree.DeleteVersionsTo(1)
+	tree.DeleteVersionsToSync(1)
 
 	leafNodes, err := tree.ndb.leafNodes()
 	require.Nil(t, err)
@@ -698,7 +698,7 @@ func TestVersionedTreeSpecialCase(t *testing.T) {
 	tree.Set([]byte("key2"), []byte("val2"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(2)
 
 	val, err := tree.GetVersioned([]byte("key2"), 1)
 	require.NoError(err)
@@ -726,7 +726,7 @@ func TestVersionedTreeSpecialCase2(t *testing.T) {
 	_, err := tree.Load()
 	require.NoError(err)
 
-	require.NoError(tree.DeleteVersionsTo(2))
+	require.NoError(tree.DeleteVersionsToSync(2))
 
 	val, err := tree.GetVersioned([]byte("key2"), 1)
 	require.NoError(err)
@@ -753,10 +753,10 @@ func TestVersionedTreeSpecialCase3(t *testing.T) {
 	tree.Set([]byte("k"), []byte("CpEnpzKJ"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(1)
-	tree.DeleteVersionsTo(2)
-	tree.DeleteVersionsTo(3)
-	tree.DeleteVersionsTo(4)
+	tree.DeleteVersionsToSync(1)
+	tree.DeleteVersionsToSync(2)
+	tree.DeleteVersionsToSync(3)
+	tree.DeleteVersionsToSync(4)
 
 	nodes, err := tree.ndb.nodes()
 	require.NoError(err)
@@ -802,9 +802,9 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion()
 
-	ntree.DeleteVersionsTo(1)
-	ntree.DeleteVersionsTo(4)
-	ntree.DeleteVersionsTo(6)
+	ntree.DeleteVersionsToSync(1)
+	ntree.DeleteVersionsToSync(4)
+	ntree.DeleteVersionsToSync(6)
 
 	require.False(ntree.IsEmpty())
 	require.Equal(int64(4), ntree.Size())
@@ -818,8 +818,8 @@ func TestVersionedTreeErrors(t *testing.T) {
 	tree := getTestTree(100)
 
 	// Can't delete non-existent versions.
-	require.Error(tree.DeleteVersionsTo(1))
-	require.Error(tree.DeleteVersionsTo(99))
+	require.Error(tree.DeleteVersionsToSync(1))
+	require.Error(tree.DeleteVersionsToSync(99))
 
 	tree.Set([]byte("key"), []byte("val"))
 
@@ -828,7 +828,7 @@ func TestVersionedTreeErrors(t *testing.T) {
 	require.NoError(err)
 
 	// Can't delete current version.
-	require.Error(tree.DeleteVersionsTo(1))
+	require.Error(tree.DeleteVersionsToSync(1))
 
 	// Trying to get a key from a version which doesn't exist.
 	val, err := tree.GetVersioned([]byte("key"), 404)
@@ -860,7 +860,7 @@ func TestVersionedCheckpointsSpecialCase(t *testing.T) {
 
 	// When version 1 is deleted, the orphans should move to the next
 	// checkpoint, which is version 10.
-	tree.DeleteVersionsTo(1)
+	tree.DeleteVersionsToSync(1)
 
 	val, err := tree.GetVersioned(key, 2)
 	require.Nil(err)
@@ -884,8 +884,8 @@ func TestVersionedCheckpointsSpecialCase2(_ *testing.T) {
 	tree.Set([]byte("X"), []byte("New"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(1)
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(1)
+	tree.DeleteVersionsToSync(2)
 }
 
 func TestVersionedCheckpointsSpecialCase3(_ *testing.T) {
@@ -903,7 +903,7 @@ func TestVersionedCheckpointsSpecialCase3(_ *testing.T) {
 	tree.Set([]byte("B"), []byte("rj97IKZh"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(2)
 
 	tree.GetVersioned([]byte("m"), 1)
 }
@@ -932,8 +932,8 @@ func TestVersionedCheckpointsSpecialCase4(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, val)
 
-	tree.DeleteVersionsTo(1)
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(1)
+	tree.DeleteVersionsToSync(2)
 
 	val, err = tree.GetVersioned([]byte("A"), 2)
 	require.NoError(t, err)
@@ -956,7 +956,7 @@ func TestVersionedCheckpointsSpecialCase5(_ *testing.T) {
 	tree.Set([]byte("R"), []byte("vQDaoz6Z"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(1)
+	tree.DeleteVersionsToSync(1)
 
 	tree.GetVersioned([]byte("R"), 2)
 }
@@ -981,8 +981,8 @@ func TestVersionedCheckpointsSpecialCase6(_ *testing.T) {
 	tree.Set([]byte("5"), []byte("wZuLGDkZ"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(1)
-	tree.DeleteVersionsTo(2)
+	tree.DeleteVersionsToSync(1)
+	tree.DeleteVersionsToSync(2)
 
 	tree.GetVersioned([]byte("Y"), 1)
 	tree.GetVersioned([]byte("7"), 1)
@@ -1021,7 +1021,7 @@ func TestVersionedCheckpointsSpecialCase7(_ *testing.T) {
 	tree.Set([]byte("A"), []byte("tWQgbFCY"))
 	tree.SaveVersion()
 
-	tree.DeleteVersionsTo(4)
+	tree.DeleteVersionsToSync(4)
 
 	tree.GetVersioned([]byte("A"), 3)
 }
@@ -1059,7 +1059,7 @@ func TestVersionedTreeEfficiency(t *testing.T) {
 			nodes, err := tree.ndb.nodes()
 			require.NoError(err)
 			sizeBefore := len(nodes)
-			tree.DeleteVersionsTo(int64(i))
+			tree.DeleteVersionsToSync(int64(i))
 			nodes, err = tree.ndb.nodes()
 			require.NoError(err)
 			sizeAfter := len(nodes)
@@ -1170,7 +1170,7 @@ func TestOrphans(t *testing.T) {
 	}
 
 	for v := 1; v < NUMVERSIONS; v++ {
-		err := tree.DeleteVersionsTo(int64(v))
+		err := tree.DeleteVersionsToSync(int64(v))
 		require.NoError(err, "DeleteVersion should not error")
 	}
 }
@@ -1472,7 +1472,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 			// efficient deletes, we are golden.
 			for v := 0; v < numVersions/10; v++ {
 				version := (iavlrand.RandInt() % numVersions) + 1
-				tree.DeleteVersionsTo(int64(version))
+				tree.DeleteVersionsToSync(int64(version))
 			}
 		}
 	})
@@ -1531,7 +1531,7 @@ func TestLoadVersionForOverwritingCase2(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail")
 
-	err = tree.DeleteVersionsTo(1)
+	err = tree.DeleteVersionsToSync(1)
 	require.NoError(err, "DeleteVersion should not fail")
 
 	tree.Set([]byte{0x1}, []byte{0x3})
@@ -1822,4 +1822,68 @@ func TestNodeCacheStatisic(t *testing.T) {
 			require.Equal(t, tc.expectCacheMissCnt, int(stat.GetCacheMissCnt()))
 		})
 	}
+}
+
+func TestEmptyVersionDelete(t *testing.T) {
+	db, err := dbm.NewDB("test", "memdb", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	tree := NewMutableTree(db, 0, false, log.NewNopLogger())
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	toVersion := 10
+	for i := 0; i < toVersion; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tree.DeleteVersionsToSync(5))
+
+	// Load the tree from disk.
+	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	v, err := tree.Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(toVersion), v)
+	// Version 1 is only meaningful, so it should not be deleted.
+	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 0}).GetKey())
+	// it is expected that the version 1 is deleted.
+	versions := tree.AvailableVersions()
+	require.Equal(t, 6, versions[0])
+	require.Len(t, versions, 5)
+}
+
+func TestReferenceRoot(t *testing.T) {
+	db, err := dbm.NewDB("test", "memdb", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	tree := NewMutableTree(db, 0, false, log.NewNopLogger())
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("key2"), []byte("value2"))
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.Remove([]byte("key1"))
+	require.NoError(t, err)
+
+	// the root will be the leaf node of key2
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Load the tree from disk.
+	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	_, err = tree.Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), tree.Version())
+	// check the root of version 2 is the leaf node of key2
+	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 3}).GetKey())
+	require.Equal(t, tree.root.key, []byte("key2"))
 }
