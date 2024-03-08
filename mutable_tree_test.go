@@ -124,7 +124,7 @@ func TestDelete(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	require.NoError(t, tree.DeleteVersionsTo(version))
+	require.NoError(t, tree.DeleteVersionsToSync(version))
 
 	proof, err := tree.GetVersionedProof([]byte("k1"), version)
 	require.EqualError(t, err, ErrVersionDoesNotExist.Error())
@@ -218,7 +218,7 @@ func TestMutableTree_DeleteVersionsTo(t *testing.T) {
 
 	// delete even versions
 	versionToDelete := int64(8)
-	require.NoError(t, tree.DeleteVersionsTo(versionToDelete))
+	require.NoError(t, tree.DeleteVersionsToSync(versionToDelete))
 
 	// ensure even versions have been deleted
 	for v := int64(1); v <= versionToDelete; v++ {
@@ -388,14 +388,14 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 	require.True(t, ver == 2)
 	require.NoError(t, err)
 
-	require.NoError(t, tree.DeleteVersionsTo(1))
+	require.NoError(t, tree.DeleteVersionsToSync(1))
 
 	require.False(t, tree.VersionExists(1))
 	require.True(t, tree.VersionExists(2))
 	require.False(t, tree.VersionExists(3))
 
 	// cannot delete latest version
-	require.Error(t, tree.DeleteVersionsTo(2))
+	require.Error(t, tree.DeleteVersionsToSync(2))
 }
 
 func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {

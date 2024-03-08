@@ -346,14 +346,14 @@ func TestExporter_DeleteVersionErrors(t *testing.T) {
 	require.NoError(t, err)
 	defer exporter.Close()
 
-	err = tree.DeleteVersionsTo(1)
+	err = tree.DeleteVersionsToSync(1)
 	require.NoError(t, err)
 
-	err = tree.DeleteVersionsTo(2)
+	err = tree.DeleteVersionsToSync(2)
 	require.Error(t, err)
 
 	exporter.Close()
-	err = tree.DeleteVersionsTo(2)
+	err = tree.DeleteVersionsToSync(2)
 	require.NoError(t, err)
 }
 
