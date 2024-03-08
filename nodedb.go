@@ -940,6 +940,15 @@ func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node)
 	return nil
 }
 
+// Close the nodeDB.
+func (ndb *nodeDB) Close() error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	// skip the db.Close() since it can be used by other trees
+	return ndb.batch.Close()
+}
+
 // Utility and test functions
 
 func (ndb *nodeDB) leafNodes() ([]*Node, error) {
