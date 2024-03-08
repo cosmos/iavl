@@ -945,8 +945,15 @@ func (ndb *nodeDB) Close() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
+	if ndb.batch != nil {
+		if err := ndb.batch.Close(); err != nil {
+			return err
+		}
+		ndb.batch = nil
+	}
+
 	// skip the db.Close() since it can be used by other trees
-	return ndb.batch.Close()
+	return nil
 }
 
 // Utility and test functions
