@@ -262,7 +262,12 @@ func TestOsmoLike_HotStart(t *testing.T) {
 	// logDir := "/tmp/osmo-like-many-v2"
 	logDir := "/Users/mattk/src/scratch/osmo-like-many/v2"
 	pool := NewNodePool()
-	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{HeightFilter: 0, StateStorage: false})
+	multiTree, err := ImportMultiTree(pool, 1, tmpDir, TreeOptions{
+		HeightFilter:  1,
+		StateStorage:  true,
+		EvictionDepth: 16,
+		MetricsProxy:  newPrometheusMetricsProxy(),
+	})
 	require.NoError(t, err)
 	require.NotNil(t, multiTree)
 	opts := testutil.CompactedChangelogs(logDir)
@@ -277,13 +282,13 @@ func TestOsmoLike_HotStart(t *testing.T) {
 func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
-	treeOpts := DefaultTreeOptions()
-	treeOpts.CheckpointInterval = -1
-	treeOpts.CheckpointMemory = 1.5 * 1024 * 1024 * 1024
-	treeOpts.StateStorage = false
-	treeOpts.HeightFilter = 1
-	treeOpts.EvictionDepth = 16
-	treeOpts.MetricsProxy = newPrometheusMetricsProxy()
+	treeOpts := TreeOptions{
+		CheckpointInterval: 50,
+		StateStorage:       true,
+		HeightFilter:       1,
+		EvictionDepth:      22,
+		MetricsProxy:       newPrometheusMetricsProxy(),
+	}
 	multiTree := NewMultiTree(tmpDir, treeOpts)
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
