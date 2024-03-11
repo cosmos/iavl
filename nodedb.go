@@ -914,25 +914,33 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 	if len(val) == 0 { // empty root
 		return nil, nil
 	}
-	if isReferenceRoot(val) { // point to the prev version
-		nk := GetNodeKey(val[1:])
-		val, err = ndb.db.Get(nodeKeyFormat.Key(val[1:]))
-		if err != nil {
-			return nil, err
-		}
-		if val == nil { // the prev version does not exist
-			// check if the prev version root is reformatted due to the pruning
-			rnk := &NodeKey{version: nk.version, nonce: 0}
-			val, err = ndb.db.Get(nodeKeyFormat.Key(rnk.GetKey()))
+	isRef, n := isReferenceRoot(val)
+	if isRef { // point to the prev version
+		switch n {
+		case nodeKeyFormat.Length(): // (prefix, version, 1)
+			nk := GetNodeKey(val[1:])
+			val, err = ndb.db.Get(nodeKeyFormat.Key(val[1:]))
 			if err != nil {
 				return nil, err
 			}
-			if val == nil {
-				return nil, ErrVersionDoesNotExist
+			if val == nil { // the prev version does not exist
+				// check if the prev version root is reformatted due to the pruning
+				rnk := &NodeKey{version: nk.version, nonce: 0}
+				val, err = ndb.db.Get(nodeKeyFormat.Key(rnk.GetKey()))
+				if err != nil {
+					return nil, err
+				}
+				if val == nil {
+					return nil, ErrVersionDoesNotExist
+				}
+				return rnk.GetKey(), nil
 			}
-			return rnk.GetKey(), nil
+			return nk.GetKey(), nil
+		case nodeKeyPrefixFormat.Length(): // (prefix, version) before the lazy pruning
+			return append(val[1:], 0, 0, 0, 1), nil
+		default:
+			return nil, fmt.Errorf("invalid reference root: %x", val)
 		}
-		return nk.GetKey(), nil
 	}
 
 	return rootKey, nil
@@ -1070,6 +1078,13 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	}
 }
 
+func isReferenceRoot(bz []byte) (bool, int) {
+	if bz[0] == nodeKeyFormat.Prefix()[0] {
+		return true, len(bz)
+	}
+	return false, 0
+}
+
 // traverseOrphans traverses orphans which removed by the updates of the curVersion in the prevVersion.
 // NOTE: it is used for both legacy and new nodes.
 func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node) error) error {
@@ -1203,20 +1218,11 @@ func (ndb *nodeDB) size() int {
 	return size
 }
 
-func isReferenceRoot(bz []byte) bool {
-	if bz[0] == nodeKeyFormat.Prefix()[0] {
-		if len(bz) == nodeKeyFormat.Length() {
-			return true
-		}
-	}
-	return false
-}
-
 func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 	nodes := []*Node{}
 
 	if err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
-		if isReferenceRoot(value) {
+		if isRef, _ := isReferenceRoot(value); isRef {
 			return nil
 		}
 		node, err := MakeNode(key[1:], value)
