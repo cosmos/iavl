@@ -445,6 +445,29 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 		return err
 	}
 
+	if err := ndb.traverseOrphans(version, version+1, func(orphan *Node) error {
+		if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
+			// if the orphan is a reformatted root, it can be a legacy root
+			// so it should be removed from the pruning process.
+			if err := ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash)); err != nil {
+				return err
+			}
+		}
+		if orphan.nodeKey.nonce == 1 && orphan.nodeKey.version < version {
+			// if the orphan is referred to the previous root, it should be reformatted
+			// to (version, 0), because the root (version, 1) should be removed but not
+			// applied now due to the batch writing.
+			orphan.nodeKey.nonce = 0
+		}
+		nk := orphan.GetKey()
+		if orphan.isLegacy {
+			return ndb.deleteFromPruning(ndb.legacyNodeKey(nk))
+		}
+		return ndb.deleteFromPruning(ndb.nodeKey(nk))
+	}); err != nil {
+		return err
+	}
+
 	literalRootKey := GetRootKey(version)
 	if rootKey == nil || !bytes.Equal(rootKey, literalRootKey) {
 		// if the root key is not matched with the literal root key, it means the given root
@@ -465,7 +488,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 			return err
 		}
 		// ensure that the given version is not included in the root search
-		if err := ndb.deleteFromPruning(ndb.nodeKey(nextRootKey)); err != nil {
+		if err := ndb.deleteFromPruning(ndb.nodeKey(literalRootKey)); err != nil {
 			return err
 		}
 		// instead, the root should be reformatted to (version, 0)
@@ -475,26 +498,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 		}
 	}
 
-	return ndb.traverseOrphans(version, version+1, func(orphan *Node) error {
-		if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
-			// if the orphan is a reformatted root, it can be a legacy root
-			// so it should be removed from the pruning process.
-			if err := ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash)); err != nil {
-				return err
-			}
-		}
-		if orphan.nodeKey.nonce == 1 && orphan.nodeKey.version < version {
-			// if the orphan is referred to the previous root, it should be reformatted
-			// to (version, 0), because the root (version, 1) should be removed but not
-			// applied now due to the batch writing.
-			orphan.nodeKey.nonce = 0
-		}
-		nk := orphan.GetKey()
-		if orphan.isLegacy {
-			return ndb.deleteFromPruning(ndb.legacyNodeKey(nk))
-		}
-		return ndb.deleteFromPruning(ndb.nodeKey(nk))
-	})
+	return nil
 }
 
 // deleteLegacyNodes deletes all legacy nodes with the given version from disk.
