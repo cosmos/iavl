@@ -802,8 +802,6 @@ func TestVersionedTreeSaveAndLoad(t *testing.T) {
 	ntree.Set([]byte("T"), []byte("MhkWjkVy"))
 	ntree.SaveVersion()
 
-	ntree.DeleteVersionsTo(1)
-	ntree.DeleteVersionsTo(4)
 	ntree.DeleteVersionsTo(6)
 
 	require.False(ntree.IsEmpty())
@@ -1822,4 +1820,68 @@ func TestNodeCacheStatisic(t *testing.T) {
 			require.Equal(t, tc.expectCacheMissCnt, int(stat.GetCacheMissCnt()))
 		})
 	}
+}
+
+func TestEmptyVersionDelete(t *testing.T) {
+	db, err := dbm.NewDB("test", "memdb", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	tree := NewMutableTree(db, 0, false, log.NewNopLogger())
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	toVersion := 10
+	for i := 0; i < toVersion; i++ {
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+	}
+
+	require.NoError(t, tree.DeleteVersionsTo(5))
+
+	// Load the tree from disk.
+	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	v, err := tree.Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(toVersion), v)
+	// Version 1 is only meaningful, so it should not be deleted.
+	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 0}).GetKey())
+	// it is expected that the version 1 is deleted.
+	versions := tree.AvailableVersions()
+	require.Equal(t, 6, versions[0])
+	require.Len(t, versions, 5)
+}
+
+func TestReferenceRoot(t *testing.T) {
+	db, err := dbm.NewDB("test", "memdb", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	tree := NewMutableTree(db, 0, false, log.NewNopLogger())
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("key2"), []byte("value2"))
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.Remove([]byte("key1"))
+	require.NoError(t, err)
+
+	// the root will be the leaf node of key2
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// Load the tree from disk.
+	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	_, err = tree.Load()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), tree.Version())
+	// check the root of version 2 is the leaf node of key2
+	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 3}).GetKey())
+	require.Equal(t, tree.root.key, []byte("key2"))
 }
