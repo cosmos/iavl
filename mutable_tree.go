@@ -517,9 +517,6 @@ func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) error {
 		return err
 	}
 
-	tree.ndb.SetCommitting()
-	defer tree.ndb.UnsetCommitting()
-
 	if err := tree.ndb.DeleteVersionsFrom(targetVersion + 1); err != nil {
 		return err
 	}
@@ -711,9 +708,6 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error)
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
-	tree.ndb.SetCommitting()
-	defer tree.ndb.UnsetCommitting()
-
 	isGenesis := (tree.version == 0)
 	version := tree.WorkingVersion()
 
@@ -891,17 +885,6 @@ func (tree *MutableTree) SetInitialVersion(version uint64) {
 // It will not block the SaveVersion() call, instead it will be queued and executed deferred.
 func (tree *MutableTree) DeleteVersionsTo(toVersion int64) error {
 	if err := tree.ndb.DeleteVersionsTo(toVersion); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// DeleteVersionsToSync removes versions upto the given version synchronously from the MutableTree.
-// An error is returned if any single version has active readers.
-// All writes happen in a single batch with a single commit.
-func (tree *MutableTree) DeleteVersionsToSync(toVersion int64) error {
-	if err := tree.ndb.DeleteVersionsToSync(toVersion); err != nil {
 		return err
 	}
 

@@ -67,7 +67,7 @@ func (i instruction) Execute(tree *MutableTree) {
 	case "SAVE":
 		tree.SaveVersion()
 	case "DELETE":
-		tree.DeleteVersionsToSync(i.version)
+		tree.DeleteVersionsTo(i.version)
 	default:
 		panic("Unrecognized op: " + i.op)
 	}

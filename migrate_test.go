@@ -113,6 +113,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
 	require.NoError(t, err)
+	legacyLatestVersion := tree.root.nodeKey.version
 
 	// Commit new versions without updates
 	_, _, err = tree.SaveVersion()
@@ -125,8 +126,6 @@ func TestLegacyReferenceNode(t *testing.T) {
 	_, err = newTree.LoadVersion(version - 1)
 	require.NoError(t, err)
 	// Check if the reference node is refactored
-	legacyLatestVersion, err := newTree.ndb.getLegacyLatestVersion()
-	require.NoError(t, err)
 	require.Equal(t, newTree.root.nodeKey.nonce, uint32(0))
 	require.Equal(t, newTree.root.nodeKey.version, legacyLatestVersion)
 }
@@ -199,19 +198,19 @@ func TestDeleteVersions(t *testing.T) {
 	}
 	// Check if the legacy versions are deleted at once
 	versions = tree.AvailableVersions()
-	err = tree.DeleteVersionsToSync(legacyLatestVersion - 1)
+	err = tree.DeleteVersionsTo(legacyLatestVersion - 1)
 	require.NoError(t, err)
 	pVersions := tree.AvailableVersions()
 	require.Equal(t, len(versions), len(pVersions))
 	toVersion := legacyLatestVersion + int64(postVersions)/2
-	err = tree.DeleteVersionsToSync(toVersion)
+	err = tree.DeleteVersionsTo(toVersion)
 	require.NoError(t, err)
 	pVersions = tree.AvailableVersions()
 	require.Equal(t, postVersions/2, len(pVersions))
 }
 
-func TestLazyPruning(t *testing.T) {
-	legacyVersion := 200
+func TestPruning(t *testing.T) {
+	legacyVersion := 100
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
 	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
@@ -257,18 +256,17 @@ func TestLazyPruning(t *testing.T) {
 	}
 
 	// Wait for pruning to finish
-	for i := 0; i < 100; i++ {
+	for i := 0; i < 200; i++ {
 		_, _, err := tree.SaveVersion()
 		require.NoError(t, err)
-		firstVersion, err := tree.ndb.getFirstVersion()
+		isLeacy, err := tree.ndb.hasLegacyVersion(int64(legacyVersion))
 		require.NoError(t, err)
-		if firstVersion == toVersion+int64(legacyVersion)+1 {
+		if !isLeacy {
 			break
 		}
 		// Simulate the consensus state update
 		time.Sleep(100 * time.Millisecond)
 	}
-
 	// Reload the tree
 	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
 	versions := tree.AvailableVersions()
@@ -342,6 +340,6 @@ func TestRandomSet(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	err = tree.DeleteVersionsToSync(int64(legacyVersion + postVersions - 1))
+	err = tree.DeleteVersionsTo(int64(legacyVersion + postVersions - 1))
 	require.NoError(t, err)
 }

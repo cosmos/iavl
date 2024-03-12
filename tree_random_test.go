@@ -163,7 +163,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 			if len(versions) > 1 {
 				to := versions[r.Intn(len(versions)-1)]
 				t.Logf("Deleting versions to %v", to)
-				err = tree.DeleteVersionsToSync(int64(to))
+				err = tree.DeleteVersionsTo(int64(to))
 				require.NoError(t, err)
 				for version := versions[0]; version <= to; version++ {
 					delete(diskMirrors, int64(version))
@@ -229,7 +229,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 
 	if len(remaining) > 0 {
 		t.Logf("Deleting versions to %v", remaining[len(remaining)-1])
-		err = tree.DeleteVersionsToSync(int64(remaining[len(remaining)-1]))
+		err = tree.DeleteVersionsTo(int64(remaining[len(remaining)-1]))
 		require.NoError(t, err)
 	}
 
@@ -255,7 +255,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	}
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
-	err = tree.DeleteVersionsToSync(prevVersion)
+	err = tree.DeleteVersionsTo(prevVersion)
 	require.NoError(t, err)
 	assertEmptyDatabase(t, tree)
 	t.Logf("Final version %v deleted, no stray database entries", prevVersion)

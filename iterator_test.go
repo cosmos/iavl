@@ -179,7 +179,7 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	_, _, err = tree.SaveVersion()
 	require.NoError(t, err)
 
-	err = tree.DeleteVersionsToSync(1)
+	err = tree.DeleteVersionsTo(1)
 	require.NoError(t, err)
 
 	latestVersion, err := tree.ndb.getLatestVersion()
