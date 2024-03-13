@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.0.2 March 13, 2024
+
+### Bug Fixes
+
+- [#910](https://github.com/cosmos/iavl/pull/910) Fix the reference root format from (prefix, version) to (prefix, version, nonce)
+
+### Improvements
+
+- [#910](https://github.com/cosmos/iavl/pull/910) Async pruning of legacy orphan nodes.
+
 ## v1.1.0 February 29, 2024
 
 ### API Breaking Changes
