@@ -486,6 +486,14 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		}
 	}
 
+	// Delete the last version for the legacyLastVersion
+	if err := ndb.traverseOrphans(legacyLatestVersion, legacyLatestVersion+1, func(orphan *Node) error {
+		checkDeletePause()
+		return ndb.batch.Delete(ndb.legacyNodeKey(orphan.hash))
+	}); err != nil {
+		return err
+	}
+
 	// Delete orphans for all legacy versions
 	if err := ndb.traversePrefix(legacyOrphanKeyFormat.Key(), func(key, value []byte) error {
 		checkDeletePause()
@@ -613,12 +621,6 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 	if legacyLatestVersion >= first {
 		// reset the legacy latest version forcibly to avoid multiple calls
 		ndb.resetLegacyLatestVersion(-1)
-		// Delete the last version for the legacyLastVersion
-		if err := ndb.traverseOrphans(legacyLatestVersion, legacyLatestVersion+1, func(orphan *Node) error {
-			return ndb.batch.Delete(ndb.legacyNodeKey(orphan.hash))
-		}); err != nil {
-			return err
-		}
 		go func() {
 			if err := ndb.deleteLegacyVersions(legacyLatestVersion); err != nil {
 				ndb.logger.Error("Error deleting legacy versions", "err", err)
