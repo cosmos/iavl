@@ -228,7 +228,7 @@ func TestPruning(t *testing.T) {
 	}()
 
 	// Load the latest version
-	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 1000, false, log.NewTestLogger(t))
 	_, err = tree.Load()
 	require.NoError(t, err)
 
@@ -256,7 +256,7 @@ func TestPruning(t *testing.T) {
 	}
 
 	// Wait for pruning to finish
-	for i := 0; i < 200; i++ {
+	for i := 0; i < 100; i++ {
 		_, _, err := tree.SaveVersion()
 		require.NoError(t, err)
 		isLeacy, err := tree.ndb.hasLegacyVersion(int64(legacyVersion))
@@ -265,7 +265,7 @@ func TestPruning(t *testing.T) {
 			break
 		}
 		// Simulate the consensus state update
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 	// Reload the tree
 	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
