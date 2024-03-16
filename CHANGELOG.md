@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.1.1 March 13, 2024
+## v1.1.1 March 16, 2024
 
 ### Bug Fixes
 
@@ -9,7 +9,6 @@
 ### Improvements
 
 - [#910](https://github.com/cosmos/iavl/pull/910) Async pruning of legacy orphan nodes.
-
 
 ## v1.1.0 February 29, 2024
 
