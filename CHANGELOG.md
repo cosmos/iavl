@@ -10,12 +10,6 @@
 
 - [#911](https://github.com/cosmos/iavl/pull/911) Async pruning of legacy orphan nodes.
 
-## v1.1.0 February 29, 2024
-
-### API Breaking Changes
-
-- [#874](https://github.com/cosmos/iavl/pull/874) Decouple `cosmos-db` and implement own `db` package.
-
 ## v1.0.1 February 16, 2024
 
 ### Improvements
