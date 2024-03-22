@@ -1078,3 +1078,13 @@ func (tree *MutableTree) SaveChangeSet(cs *ChangeSet) (int64, error) {
 	_, version, err := tree.SaveVersion()
 	return version, err
 }
+
+// Close closes the tree.
+func (tree *MutableTree) Close() error {
+	tree.mtx.Lock()
+	defer tree.mtx.Unlock()
+
+	tree.ImmutableTree = nil
+	tree.lastSaved = nil
+	return tree.ndb.Close()
+}

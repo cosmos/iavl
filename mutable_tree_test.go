@@ -1437,3 +1437,16 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, initialVersion+1, node.nodeKey.version)
 }
+
+func TestMutableTreeClose(t *testing.T) {
+	db := dbm.NewMemDB()
+	tree := NewMutableTree(db, 0, true, log.NewNopLogger())
+
+	_, err := tree.Set([]byte("hello"), []byte("world"))
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	require.NoError(t, tree.Close())
+}
