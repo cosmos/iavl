@@ -219,13 +219,6 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		return err
 	}
 
-	// resetBatch only working on generate a genesis block
-	if node.nodeKey.version <= genesisVersion {
-		if err := ndb.resetBatch(); err != nil {
-			return err
-		}
-	}
-
 	ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
@@ -327,41 +320,6 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 // Has checks if a node key exists in the database.
 func (ndb *nodeDB) Has(nk []byte) (bool, error) {
 	return ndb.db.Has(ndb.nodeKey(nk))
-}
-
-// resetBatch reset the db batch, keep low memory used
-func (ndb *nodeDB) resetBatch() error {
-	size, err := ndb.batch.GetByteSize()
-	if err != nil {
-		// just don't do an optimization here. write with batch size 1.
-		return ndb.writeBatch()
-	}
-	// write in ~64kb chunks. if less than 64kb, continue.
-	if size < 64*1024 {
-		return nil
-	}
-
-	return ndb.writeBatch()
-}
-
-func (ndb *nodeDB) writeBatch() error {
-	var err error
-	if ndb.opts.Sync {
-		err = ndb.batch.WriteSync()
-	} else {
-		err = ndb.batch.Write()
-	}
-	if err != nil {
-		return err
-	}
-	err = ndb.batch.Close()
-	if err != nil {
-		return err
-	}
-
-	ndb.batch = NewBatchWithFlusher(ndb.db, ndb.opts.FlushThreshold)
-
-	return nil
 }
 
 // deleteVersion deletes a tree version from disk.
