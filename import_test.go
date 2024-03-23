@@ -232,6 +232,43 @@ func TestImporter_Commit_Empty(t *testing.T) {
 	assert.EqualValues(t, 3, tree.Version())
 }
 
+func TestImporter_OptimisticAdd(t *testing.T) {
+	k := []byte("rawStoreKey")
+	v := []byte("rawStoreValue")
+
+	testcases := map[string]struct {
+		node  *ExportNode
+		valid bool
+	}{
+		"nil node":      {nil, false},
+		"trusted_valid": {&ExportNode{Key: k, Value: v, Version: 1, Height: 0}, true},
+		"no key":        {&ExportNode{Key: nil, Value: v, Version: 1, Height: 0}, false},
+		"no value":      {&ExportNode{Key: k, Value: nil, Version: 1, Height: 0}, false},
+		// Only Key and Value used for Optimistic Add
+		// Version and Height is ignored
+		// further cases will be handled by Node.validate()
+	}
+	for desc, tc := range testcases {
+		tc := tc // appease scopelint
+		t.Run(desc, func(t *testing.T) {
+			tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+			importer, err := tree.Import(1)
+			require.NoError(t, err)
+			defer importer.Close()
+
+			err = importer.OptimisticAdd(tc.node)
+			if tc.valid {
+				require.NoError(t, err)
+			} else {
+				if err == nil {
+					err = importer.Commit()
+				}
+				require.Error(t, err)
+			}
+		})
+	}
+}
+
 func BenchmarkImport(b *testing.B) {
 	benchmarkImport(b, 4096)
 }
