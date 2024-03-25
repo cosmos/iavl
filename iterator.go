@@ -1,335 +1,375 @@
 package iavl
 
-// NOTE: This file favors int64 as opposed to int for size/counts.
-// The Tree on the other hand favors int.  This is intentional.
-
 import (
 	"bytes"
-	"errors"
+	"fmt"
+	"time"
 
-	dbm "github.com/cosmos/cosmos-db"
+	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	"github.com/cosmos/iavl/v2/metrics"
 )
 
-type traversal struct {
-	tree         *ImmutableTree
-	start, end   []byte        // iteration domain
-	ascending    bool          // ascending traversal
-	inclusive    bool          // end key inclusiveness
-	post         bool          // postorder traversal
-	delayedNodes *delayedNodes // delayed nodes to be traversed
+type Iterator interface {
+	// Domain returns the start (inclusive) and end (exclusive) limits of the iterator.
+	// CONTRACT: start, end readonly []byte
+	Domain() (start []byte, end []byte)
+
+	// Valid returns whether the current iterator is valid. Once invalid, the TreeIterator remains
+	// invalid forever.
+	Valid() bool
+
+	// Next moves the iterator to the next key in the database, as defined by order of iteration.
+	// If Valid returns false, this method will panic.
+	Next()
+
+	// Key returns the key at the current position. Panics if the iterator is invalid.
+	// CONTRACT: key readonly []byte
+	Key() (key []byte)
+
+	// Value returns the value at the current position. Panics if the iterator is invalid.
+	// CONTRACT: value readonly []byte
+	Value() (value []byte)
+
+	// Error returns the last error encountered by the iterator, if any.
+	Error() error
+
+	// Close closes the iterator, relasing any allocated resources.
+	Close() error
 }
 
-var errIteratorNilTreeGiven = errors.New("iterator must be created with an immutable tree but the tree was nil")
+var (
+	_ Iterator = (*TreeIterator)(nil)
+	_ Iterator = (*LeafIterator)(nil)
+)
 
-func (node *Node) newTraversal(tree *ImmutableTree, start, end []byte, ascending bool, inclusive bool, post bool) *traversal {
-	return &traversal{
-		tree:         tree,
-		start:        start,
-		end:          end,
-		ascending:    ascending,
-		inclusive:    inclusive,
-		post:         post,
-		delayedNodes: &delayedNodes{{node, true}}, // set initial traverse to the node
+type TreeIterator struct {
+	tree       *Tree
+	start, end []byte // iteration domain
+	ascending  bool   // ascending traversal
+	inclusive  bool   // end key inclusiveness
+
+	stack   []*Node
+	started bool
+
+	key, value []byte // current key, value
+	err        error  // current error
+	valid      bool   // iteration status
+
+	metrics metrics.Proxy
+}
+
+func (i *TreeIterator) Domain() (start []byte, end []byte) {
+	return i.start, i.end
+}
+
+func (i *TreeIterator) Valid() bool {
+	return i.valid
+}
+
+func (i *TreeIterator) Next() {
+	if i.metrics != nil {
+		defer i.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
 	}
-}
-
-// delayedNode represents the delayed iteration on the nodes.
-// When delayed is set to true, the delayedNode should be expanded, and their
-// children should be traversed. When delayed is set to false, the delayedNode is
-// already have expanded, and it could be immediately returned.
-type delayedNode struct {
-	node    *Node
-	delayed bool
-}
-
-type delayedNodes []delayedNode
-
-func (nodes *delayedNodes) pop() (*Node, bool) {
-	node := (*nodes)[len(*nodes)-1]
-	*nodes = (*nodes)[:len(*nodes)-1]
-	return node.node, node.delayed
-}
-
-func (nodes *delayedNodes) push(node *Node, delayed bool) {
-	*nodes = append(*nodes, delayedNode{node, delayed})
-}
-
-func (nodes *delayedNodes) length() int {
-	return len(*nodes)
-}
-
-// `traversal` returns the delayed execution of recursive traversal on a tree.
-//
-// `traversal` will traverse the tree in a depth-first manner. To handle locating
-// the next element, and to handle unwinding, the traversal maintains its future
-// iteration under `delayedNodes`. At each call of `next()`, it will retrieve the
-// next element from the `delayedNodes` and acts accordingly. The `next()` itself
-// defines how to unwind the delayed nodes stack. The caller can either call the
-// next traversal to proceed, or simply discard the `traversal` struct to stop iteration.
-//
-// At the each step of `next`, the `delayedNodes` can have one of the three states:
-// 1. It has length of 0, meaning that their is no more traversable nodes.
-// 2. It has length of 1, meaning that the traverse is being started from the initial node.
-// 3. It has length of 2>=, meaning that there are delayed nodes to be traversed.
-//
-// When the `delayedNodes` are not empty, `next` retrieves the first `delayedNode` and initially check:
-// 1. If it is not an delayed node (node.delayed == false) it immediately returns it.
-//
-// A. If the `node` is a branch node:
-//  1. If the traversal is postorder, then append the current node to the t.delayedNodes,
-//     with `delayed` set to false. This makes the current node returned *after* all the children
-//     are traversed, without being expanded.
-//  2. Append the traversable children nodes into the `delayedNodes`, with `delayed` set to true. This
-//     makes the children nodes to be traversed, and expanded with their respective children.
-//  3. If the traversal is preorder, (with the children to be traversed already pushed to the
-//     `delayedNodes`), returns the current node.
-//  4. Call `traversal.next()` to further traverse through the `delayedNodes`.
-//
-// B. If the `node` is a leaf node, it will be returned without expand, by the following process:
-//  1. If the traversal is postorder, the current node will be append to the `delayedNodes` with `delayed`
-//     set to false, and immediately returned at the subsequent call of `traversal.next()` at the last line.
-//  2. If the traversal is preorder, the current node will be returned.
-func (t *traversal) next() (*Node, error) {
-	// End of traversal.
-	if t.delayedNodes.length() == 0 {
-		return nil, nil
+	if !i.valid {
+		return
 	}
-
-	node, delayed := t.delayedNodes.pop()
-
-	// Already expanded, immediately return.
-	if !delayed || node == nil {
-		return node, nil
+	if len(i.stack) == 0 {
+		i.valid = false
+		return
 	}
-
-	afterStart := t.start == nil || bytes.Compare(t.start, node.key) < 0
-	startOrAfter := afterStart || bytes.Equal(t.start, node.key)
-	beforeEnd := t.end == nil || bytes.Compare(node.key, t.end) < 0
-	if t.inclusive {
-		beforeEnd = beforeEnd || bytes.Equal(node.key, t.end)
+	if i.ascending {
+		i.stepAscend()
+	} else {
+		i.stepDescend()
 	}
+	i.started = true
+}
 
-	// case of postorder. A-1 and B-1
-	// Recursively process left sub-tree, then right-subtree, then node itself.
-	if t.post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
-		t.delayedNodes.push(node, false)
+func (i *TreeIterator) push(node *Node) {
+	i.stack = append(i.stack, node)
+}
+
+func (i *TreeIterator) pop() (node *Node) {
+	if len(i.stack) == 0 {
+		return nil
 	}
+	node = i.stack[len(i.stack)-1]
+	i.stack = i.stack[:len(i.stack)-1]
+	return
+}
 
-	// case of branch node, traversing children. A-2.
-	if !node.isLeaf() {
-		// if node is a branch node and the order is ascending,
-		// We traverse through the left subtree, then the right subtree.
-		if t.ascending {
-			if beforeEnd {
-				// push the delayed traversal for the right nodes,
-				rightNode, err := node.getRightNode(t.tree)
-				if err != nil {
-					return nil, err
-				}
-				t.delayedNodes.push(rightNode, true)
+func (i *TreeIterator) stepAscend() {
+	var n *Node
+	for {
+		n = i.pop()
+		if n == nil {
+			i.valid = false
+			return
+		}
+		if n.isLeaf() {
+			if !i.started && bytes.Compare(n.key, i.start) < 0 {
+				continue
 			}
-			if afterStart {
-				// push the delayed traversal for the left nodes,
-				leftNode, err := node.getLeftNode(t.tree)
-				if err != nil {
-					return nil, err
-				}
-				t.delayedNodes.push(leftNode, true)
+			if i.isPastEndAscend(n.key) {
+				i.valid = false
+				return
 			}
+			break
+		}
+		right, err := n.getRightNode(i.tree)
+		if err != nil {
+			i.err = err
+			i.valid = false
+			return
+		}
+
+		if bytes.Compare(i.start, n.key) < 0 {
+			left, err := n.getLeftNode(i.tree)
+			if err != nil {
+				i.err = err
+				i.valid = false
+				return
+			}
+			i.push(right)
+			i.push(left)
 		} else {
-			// if node is a branch node and the order is not ascending
-			// We traverse through the right subtree, then the left subtree.
-			if afterStart {
-				// push the delayed traversal for the left nodes,
-				leftNode, err := node.getLeftNode(t.tree)
-				if err != nil {
-					return nil, err
+			i.push(right)
+		}
+
+	}
+	i.key = n.key
+	i.value = n.value
+}
+
+func (i *TreeIterator) stepDescend() {
+	var n *Node
+	for {
+		n = i.pop()
+		if n == nil {
+			i.valid = false
+			return
+		}
+		if n.isLeaf() {
+			if !i.started && i.end != nil {
+				res := bytes.Compare(i.end, n.key)
+				// if end is inclusive and the key is greater than end, skip
+				if i.inclusive && res < 0 {
+					continue
 				}
-				t.delayedNodes.push(leftNode, true)
-			}
-			if beforeEnd {
-				// push the delayed traversal for the right nodes,
-				rightNode, err := node.getRightNode(t.tree)
-				if err != nil {
-					return nil, err
+				// if end is not inclusive (default) and the key is greater than or equal to end, skip
+				if res <= 0 {
+					continue
 				}
-				t.delayedNodes.push(rightNode, true)
 			}
+			if i.isPastEndDescend(n.key) {
+				i.valid = false
+				return
+			}
+			break
+		}
+		left, err := n.getLeftNode(i.tree)
+		if err != nil {
+			i.err = err
+			i.valid = false
+			return
+		}
+
+		if i.end == nil || bytes.Compare(n.key, i.end) <= 0 {
+			right, err := n.getRightNode(i.tree)
+			if err != nil {
+				i.err = err
+				i.valid = false
+				return
+			}
+			i.push(left)
+			i.push(right)
+		} else {
+			i.push(left)
+		}
+	}
+	i.key = n.key
+	i.value = n.value
+}
+
+func (i *TreeIterator) isPastEndAscend(key []byte) bool {
+	if i.end == nil {
+		return false
+	}
+	if i.inclusive {
+		return bytes.Compare(key, i.end) > 0
+	}
+	return bytes.Compare(key, i.end) >= 0
+}
+
+func (i *TreeIterator) isPastEndDescend(key []byte) bool {
+	if i.start == nil {
+		return false
+	}
+	return bytes.Compare(key, i.start) < 0
+}
+
+func (i *TreeIterator) Key() (key []byte) {
+	return i.key
+}
+
+func (i *TreeIterator) Value() (value []byte) {
+	return i.value
+}
+
+func (i *TreeIterator) Error() error {
+	return i.err
+}
+
+func (i *TreeIterator) Close() error {
+	i.stack = nil
+	i.valid = false
+	return i.err
+}
+
+type LeafIterator struct {
+	sql     *SqliteDb
+	itrStmt *sqlite3.Stmt
+	start   []byte
+	end     []byte
+	valid   bool
+	err     error
+	key     []byte
+	value   []byte
+	metrics metrics.Proxy
+	itrIdx  int
+}
+
+func (l *LeafIterator) Domain() (start []byte, end []byte) {
+	return l.start, l.end
+}
+
+func (l *LeafIterator) Valid() bool {
+	return l.valid
+}
+
+func (l *LeafIterator) Next() {
+	if l.metrics != nil {
+		defer l.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
+	}
+	if !l.valid {
+		return
+	}
+
+	hasRow, err := l.itrStmt.Step()
+	if err != nil {
+		closeErr := l.Close()
+		if closeErr != nil {
+			l.err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
+		}
+		return
+	}
+	if !hasRow {
+		closeErr := l.Close()
+		if closeErr != nil {
+			l.err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
+		}
+		return
+	}
+	if err = l.itrStmt.Scan(&l.key, &l.value); err != nil {
+		closeErr := l.Close()
+		if closeErr != nil {
+			l.err = fmt.Errorf("error closing iterator: %w; %w", closeErr, err)
+		}
+		return
+	}
+}
+
+func (l *LeafIterator) Key() (key []byte) {
+	return l.key
+}
+
+func (l *LeafIterator) Value() (value []byte) {
+	return l.value
+}
+
+func (l *LeafIterator) Error() error {
+	return l.err
+}
+
+func (l *LeafIterator) Close() error {
+	if l.valid {
+		if l.metrics != nil {
+			l.metrics.IncrCounter(1, "iavl_v2", "iterator", "close")
+		}
+		l.valid = false
+		delete(l.sql.iterators, l.itrIdx)
+		return l.itrStmt.Close()
+	}
+	return nil
+}
+
+func (tree *Tree) Iterator(start, end []byte, inclusive bool) (itr Iterator, err error) {
+	if tree.storeLatestLeaves {
+		leafItr := &LeafIterator{
+			sql:     tree.sql,
+			start:   start,
+			end:     end,
+			valid:   true,
+			metrics: tree.metricsProxy,
+		}
+		// TODO: handle inclusive
+		// TODO: profile re-use of some prepared statement to see if there is improvement
+		leafItr.itrStmt, leafItr.itrIdx, err = tree.sql.getLeafIteratorQuery(start, end, true, inclusive)
+		if err != nil {
+			return nil, err
+		}
+		itr = leafItr
+	} else {
+		itr = &TreeIterator{
+			tree:      tree,
+			start:     start,
+			end:       end,
+			ascending: true,
+			inclusive: inclusive,
+			valid:     true,
+			stack:     []*Node{tree.root},
+			metrics:   tree.metricsProxy,
 		}
 	}
 
-	// case of preorder traversal. A-3 and B-2.
-	// Process root then (recursively) processing left child, then process right child
-	if !t.post && (!node.isLeaf() || (startOrAfter && beforeEnd)) {
-		return node, nil
+	if tree.metricsProxy != nil {
+		tree.metricsProxy.IncrCounter(1, "iavl_v2", "iterator", "open")
 	}
-
-	// Keep traversing and expanding the remaning delayed nodes. A-4.
-	return t.next()
+	itr.Next()
+	return itr, err
 }
 
-// Iterator is a dbm.Iterator for ImmutableTree
-type Iterator struct {
-	start, end []byte
-
-	key, value []byte
-
-	valid bool
-
-	err error
-
-	t *traversal
-}
-
-var _ dbm.Iterator = (*Iterator)(nil)
-
-// Returns a new iterator over the immutable tree. If the tree is nil, the iterator will be invalid.
-func NewIterator(start, end []byte, ascending bool, tree *ImmutableTree) dbm.Iterator {
-	iter := &Iterator{
-		start: start,
-		end:   end,
-	}
-
-	if tree == nil {
-		iter.err = errIteratorNilTreeGiven
+func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
+	if tree.storeLatestLeaves {
+		leafItr := &LeafIterator{
+			sql:     tree.sql,
+			start:   start,
+			end:     end,
+			valid:   true,
+			metrics: tree.metricsProxy,
+		}
+		// TODO: handle inclusive
+		// TODO: profile re-use of some prepared statement to see if there is improvement
+		leafItr.itrStmt, leafItr.itrIdx, err = tree.sql.getLeafIteratorQuery(start, end, false, false)
+		if err != nil {
+			return nil, err
+		}
+		itr = leafItr
 	} else {
-		iter.valid = true
-		iter.t = tree.root.newTraversal(tree, start, end, ascending, false, false)
-		// Move iterator before the first element
-		iter.Next()
+		itr = &TreeIterator{
+			tree:      tree,
+			start:     start,
+			end:       end,
+			ascending: false,
+			inclusive: false,
+			valid:     true,
+			stack:     []*Node{tree.root},
+			metrics:   tree.metricsProxy,
+		}
 	}
-	return iter
-}
-
-// Domain implements dbm.Iterator.
-func (iter *Iterator) Domain() ([]byte, []byte) {
-	return iter.start, iter.end
-}
-
-// Valid implements dbm.Iterator.
-func (iter *Iterator) Valid() bool {
-	return iter.valid
-}
-
-// Key implements dbm.Iterator
-func (iter *Iterator) Key() []byte {
-	return iter.key
-}
-
-// Value implements dbm.Iterator
-func (iter *Iterator) Value() []byte {
-	return iter.value
-}
-
-// Next implements dbm.Iterator
-func (iter *Iterator) Next() {
-	if iter.t == nil {
-		return
+	if tree.metricsProxy != nil {
+		tree.metricsProxy.IncrCounter(1, "iavl_v2", "iterator", "open")
 	}
-
-	node, err := iter.t.next()
-	// TODO: double-check if this error is correctly handled.
-	if node == nil || err != nil {
-		iter.t = nil
-		iter.valid = false
-		return
-	}
-
-	if node.subtreeHeight == 0 {
-		iter.key, iter.value = node.key, node.value
-		return
-	}
-
-	iter.Next()
-}
-
-// Close implements dbm.Iterator
-func (iter *Iterator) Close() error {
-	iter.t = nil
-	iter.valid = false
-	return iter.err
-}
-
-// Error implements dbm.Iterator
-func (iter *Iterator) Error() error {
-	return iter.err
-}
-
-// IsFast returnts true if iterator uses fast strategy
-func (iter *Iterator) IsFast() bool {
-	return false
-}
-
-// NodeIterator is an iterator for nodeDB to traverse a tree in depth-first, preorder manner.
-type NodeIterator struct {
-	nodesToVisit []*Node
-	ndb          *nodeDB
-	err          error
-}
-
-// NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
-func NewNodeIterator(rootKey []byte, ndb *nodeDB) (*NodeIterator, error) {
-	if len(rootKey) == 0 {
-		return &NodeIterator{
-			nodesToVisit: []*Node{},
-			ndb:          ndb,
-		}, nil
-	}
-
-	node, err := ndb.GetNode(rootKey)
-	if err != nil {
-		return nil, err
-	}
-
-	return &NodeIterator{
-		nodesToVisit: []*Node{node},
-		ndb:          ndb,
-	}, nil
-}
-
-// GetNode returns the current visiting node.
-func (iter *NodeIterator) GetNode() *Node {
-	return iter.nodesToVisit[len(iter.nodesToVisit)-1]
-}
-
-// Valid checks if the validator is valid.
-func (iter *NodeIterator) Valid() bool {
-	return iter.err == nil && len(iter.nodesToVisit) > 0
-}
-
-// Error returns an error if any errors.
-func (iter *NodeIterator) Error() error {
-	return iter.err
-}
-
-// Next moves forward the traversal.
-// if isSkipped is true, the subtree under the current node is skipped.
-func (iter *NodeIterator) Next(isSkipped bool) {
-	if !iter.Valid() {
-		return
-	}
-	node := iter.GetNode()
-	iter.nodesToVisit = iter.nodesToVisit[:len(iter.nodesToVisit)-1]
-
-	if isSkipped {
-		return
-	}
-
-	if node.isLeaf() {
-		return
-	}
-
-	rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
-	if err != nil {
-		iter.err = err
-		return
-	}
-	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
-
-	leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
-	if err != nil {
-		iter.err = err
-		return
-	}
-	iter.nodesToVisit = append(iter.nodesToVisit, leftNode)
+	itr.Next()
+	return itr, nil
 }

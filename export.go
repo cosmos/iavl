@@ -1,99 +1,101 @@
 package iavl
 
-import (
-	"context"
-	"errors"
-	"fmt"
+import "fmt"
+
+// TraverseOrderType is the type of the order in which the tree is traversed.
+type TraverseOrderType uint8
+
+const (
+	PreOrder TraverseOrderType = iota
+	PostOrder
 )
 
-// exportBufferSize is the number of nodes to buffer in the exporter. It improves throughput by
-// processing multiple nodes per context switch, but take care to avoid excessive memory usage,
-// especially since callers may export several IAVL stores in parallel (e.g. the Cosmos SDK).
-const exportBufferSize = 32
-
-// ErrorExportDone is returned by Exporter.Next() when all items have been exported.
-var ErrorExportDone = errors.New("export is complete")
-
-// ErrNotInitalizedTree when chains introduce a store without initializing data
-var ErrNotInitalizedTree = errors.New("iavl/export newExporter failed to create")
-
-// ExportNode contains exported node data.
-type ExportNode struct {
-	Key     []byte
-	Value   []byte
-	Version int64
-	Height  int8
-}
-
-// Exporter exports nodes from an ImmutableTree. It is created by ImmutableTree.Export().
-//
-// Exported nodes can be imported into an empty tree with MutableTree.Import(). Nodes are exported
-// depth-first post-order (LRN), this order must be preserved when importing in order to recreate
-// the same tree structure.
 type Exporter struct {
-	tree   *ImmutableTree
-	ch     chan *ExportNode
-	cancel context.CancelFunc
+	tree  *Tree
+	out   chan *Node
+	errCh chan error
 }
 
-// NewExporter creates a new Exporter. Callers must call Close() when done.
-func newExporter(tree *ImmutableTree) (*Exporter, error) {
-	if tree == nil {
-		return nil, fmt.Errorf("tree is nil: %w", ErrNotInitalizedTree)
-	}
-	// CV Prevent crash on incrVersionReaders if tree.ndb == nil
-	if tree.ndb == nil {
-		return nil, fmt.Errorf("tree.ndb is nil: %w", ErrNotInitalizedTree)
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
+func (tree *Tree) Export(order TraverseOrderType) *Exporter {
 	exporter := &Exporter{
-		tree:   tree,
-		ch:     make(chan *ExportNode, exportBufferSize),
-		cancel: cancel,
+		tree:  tree,
+		out:   make(chan *Node),
+		errCh: make(chan error),
 	}
 
-	tree.ndb.incrVersionReaders(tree.version)
-	go exporter.export(ctx)
+	go func(traverseOrder TraverseOrderType) {
+		defer close(exporter.out)
+		defer close(exporter.errCh)
 
-	return exporter, nil
+		if traverseOrder == PostOrder {
+			exporter.postOrderNext(tree.root)
+		} else if traverseOrder == PreOrder {
+			exporter.preOrderNext(tree.root)
+		}
+	}(order)
+
+	return exporter
 }
 
-// export exports nodes
-func (e *Exporter) export(ctx context.Context) {
-	e.tree.root.traversePost(e.tree, true, func(node *Node) bool {
-		exportNode := &ExportNode{
+func (e *Exporter) postOrderNext(node *Node) {
+	if node.isLeaf() {
+		e.out <- node
+		return
+	}
+
+	left, err := node.getLeftNode(e.tree)
+	if err != nil {
+		e.errCh <- err
+		return
+	}
+	e.postOrderNext(left)
+
+	right, err := node.getRightNode(e.tree)
+	if err != nil {
+		e.errCh <- err
+		return
+	}
+	e.postOrderNext(right)
+
+	e.out <- node
+}
+
+func (e *Exporter) preOrderNext(node *Node) {
+	e.out <- node
+	if node.isLeaf() {
+		return
+	}
+
+	left, err := node.getLeftNode(e.tree)
+	if err != nil {
+		e.errCh <- err
+		return
+	}
+	e.preOrderNext(left)
+
+	right, err := node.getRightNode(e.tree)
+	if err != nil {
+		e.errCh <- err
+		return
+	}
+	e.preOrderNext(right)
+}
+
+func (e *Exporter) Next() (*SnapshotNode, error) {
+	select {
+	case node, ok := <-e.out:
+		if !ok {
+			return nil, ErrorExportDone
+		}
+		return &SnapshotNode{
 			Key:     node.key,
 			Value:   node.value,
-			Version: node.nodeKey.version,
+			Version: node.nodeKey.Version(),
 			Height:  node.subtreeHeight,
-		}
-
-		select {
-		case e.ch <- exportNode:
-			return false
-		case <-ctx.Done():
-			return true
-		}
-	})
-	close(e.ch)
+		}, nil
+	case err := <-e.errCh:
+		return nil, err
+	}
 }
 
-// Next fetches the next exported node, or returns ExportDone when done.
-func (e *Exporter) Next() (*ExportNode, error) {
-	if exportNode, ok := <-e.ch; ok {
-		return exportNode, nil
-	}
-	return nil, ErrorExportDone
-}
-
-// Close closes the exporter. It is safe to call multiple times.
-func (e *Exporter) Close() {
-	e.cancel()
-	for range e.ch { // drain channel
-	}
-	if e.tree != nil {
-		e.tree.ndb.decrVersionReaders(e.tree.version)
-	}
-	e.tree = nil
-}
+var ErrorExportDone = fmt.Errorf("export done")
