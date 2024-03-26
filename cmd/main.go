@@ -8,11 +8,7 @@ import (
 )
 
 func main() {
-	root, err := RootCommand()
-	if err != nil {
-		os.Exit(1)
-	}
-
+	root := RootCommand()
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 
@@ -35,6 +31,5 @@ func main() {
 
 	if err := root.ExecuteContext(ctx); err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
-		os.Exit(1)
 	}
 }

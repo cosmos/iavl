@@ -277,10 +277,11 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 
-	var versions []int64
+	versions := make([]int64, len(uniqueVersions))
 	for v := range uniqueVersions {
 		versions = append(versions, v)
 	}
+	fmt.Printf("snapshot %d: %d versions\n", version, len(versions))
 
 	if err = sql.SaveRoot(version, root, true); err != nil {
 		return nil, err

@@ -58,7 +58,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 			return nil, err
 		}
 		go func(p string) {
-			tree := NewTree(sql, pool, mt.treeOpts)
+			tree := NewTree(sql, mt.treeOpts)
 			importErr := tree.LoadSnapshot(version, PreOrder)
 
 			if importErr != nil {
@@ -94,7 +94,7 @@ func (mt *MultiTree) MountTree(storeKey string) error {
 	if err != nil {
 		return err
 	}
-	tree := NewTree(sql, mt.pool, mt.treeOpts)
+	tree := NewTree(sql, mt.treeOpts)
 	mt.Trees[storeKey] = tree
 	return nil
 }
@@ -113,7 +113,7 @@ func (mt *MultiTree) MountTrees() error {
 		if err != nil {
 			return err
 		}
-		tree := NewTree(sql, mt.pool, mt.treeOpts)
+		tree := NewTree(sql, mt.treeOpts)
 		mt.Trees[prefix] = tree
 	}
 	return nil
@@ -230,10 +230,8 @@ func (mt *MultiTree) SnapshotConcurrently() error {
 // https://github.com/cosmos/cosmos-sdk/blob/80dd55f79bba8ab675610019a5764470a3e2fef9/store/types/commit_info.go#L30
 // it used in testing. App chains should use the store hashing code referenced above instead.
 func (mt *MultiTree) Hash() []byte {
-	var (
-		storeKeys []string
-		hashes    []byte
-	)
+	storeKeys := make([]string, len(mt.Trees))
+	hashes := make([]byte, 0)
 	for k := range mt.Trees {
 		storeKeys = append(storeKeys, k)
 	}

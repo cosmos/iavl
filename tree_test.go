@@ -31,7 +31,7 @@ func MemUsage() string {
 	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
 	s := fmt.Sprintf("alloc=%s sys=%s gc=%d",
 		humanize.Bytes(m.HeapAlloc),
-		//humanize.Bytes(m.TotalAlloc),
+		// humanize.Bytes(m.TotalAlloc),
 		humanize.Bytes(m.Sys),
 		m.NumGC)
 	return s
@@ -111,10 +111,10 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 			require.NoError(t, err)
 			node := changeset.GetNode()
 
-			//var keyBz bytes.Buffer
-			//keyBz.Write([]byte(node.StoreKey))
-			//keyBz.Write(node.Key)
-			//key := keyBz.Bytes()
+			// var keyBz bytes.Buffer
+			// keyBz.Write([]byte(node.StoreKey))
+			// keyBz.Write(node.Key)
+			// key := keyBz.Bytes()
 			key := node.Key
 
 			tree, ok := multiTree.Trees[node.StoreKey]
@@ -158,11 +158,11 @@ func TestTree_Hash(t *testing.T) {
 	var err error
 
 	tmpDir := t.TempDir()
-	//tmpDir := "/tmp/iavl-test"
+	// tmpDir := "/tmp/iavl-test"
 	t.Logf("levelDb tmpDir: %s\n", tmpDir)
 
 	require.NoError(t, err)
-	opts := testutil.BigTreeOptions_100_000()
+	opts := testutil.BigTreeOptions100_000()
 
 	// this hash was validated as correct (with this same dataset) in iavl-bench
 	// with `go run . tree --seed 1234 --dataset std`
@@ -187,7 +187,7 @@ func TestTree_Hash(t *testing.T) {
 
 func TestTree_Build_Load(t *testing.T) {
 	// build the initial version of the tree with periodic checkpoints
-	//tmpDir := t.TempDir()
+	// tmpDir := t.TempDir()
 	tmpDir := "/tmp/iavl-v2-test"
 	opts := testutil.NewTreeBuildOptions().With10_000()
 	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 4000, HeightFilter: 0, StateStorage: false})
@@ -258,7 +258,7 @@ func TestTree_Build_Load(t *testing.T) {
 // $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 // mkdir -p /tmp/osmo-like-many/v2 && go run ./cmd gen emit --start 2 --limit 5000 --type osmo-like-many --out /tmp/osmo-like-many/v2
 func TestOsmoLike_HotStart(t *testing.T) {
-	tmpDir := "/tmp/iavl-v2"
+	tmpDir := "/tmp/iavl-v2" // nolint: goconst
 	// logDir := "/tmp/osmo-like-many-v2"
 	logDir := "/Users/mattk/src/scratch/osmo-like-many/v2"
 	pool := NewNodePool()
@@ -269,7 +269,7 @@ func TestOsmoLike_HotStart(t *testing.T) {
 	opts.SampleRate = 250_000
 
 	opts.Until = 1_000
-	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda"
+	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda" // nolint: goconst
 
 	testTreeBuild(t, multiTree, opts)
 }
@@ -315,7 +315,7 @@ func TestTree_Rehash(t *testing.T) {
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/sqlite/height-zero"})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{})
+	tree := NewTree(sql, TreeOptions{})
 	require.NoError(t, tree.LoadVersion(1))
 
 	savedHash := make([]byte, 32)
@@ -347,7 +347,7 @@ func TestTreeSanity(t *testing.T) {
 				pool := NewNodePool()
 				sql, err := NewInMemorySqliteDb(pool)
 				require.NoError(t, err)
-				return NewTree(sql, pool, TreeOptions{})
+				return NewTree(sql, TreeOptions{})
 			},
 			hashFn: func(tree *Tree) []byte {
 				hash, _, err := tree.SaveVersion()
@@ -358,8 +358,7 @@ func TestTreeSanity(t *testing.T) {
 		{
 			name: "no db",
 			treeFn: func() *Tree {
-				pool := NewNodePool()
-				return NewTree(nil, pool, TreeOptions{})
+				return NewTree(nil, TreeOptions{})
 			},
 			hashFn: func(tree *Tree) []byte {
 				rehashTree(tree.root)
@@ -413,7 +412,7 @@ func Test_EmptyTree(t *testing.T) {
 	pool := NewNodePool()
 	sql, err := NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{})
+	tree := NewTree(sql, TreeOptions{})
 
 	_, err = tree.Set([]byte("foo"), []byte("bar"))
 	require.NoError(t, err)
@@ -443,7 +442,7 @@ func Test_Replay_Tmp(t *testing.T) {
 	pool := NewNodePool()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/icahost"})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
+	tree := NewTree(sql, TreeOptions{StateStorage: true})
 	err = tree.LoadVersion(13946707)
 	require.NoError(t, err)
 }
@@ -473,7 +472,7 @@ func Test_Replay(t *testing.T) {
 	tmpDir := t.TempDir()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	tree := NewTree(sql, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 
 	// we must buffer all sets/deletes and order them first for replay to work properly.
 	// store v1 and v2 already do this via cachekv write buffering.
@@ -532,7 +531,7 @@ func Test_Replay(t *testing.T) {
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	tree = NewTree(sql, TreeOptions{StateStorage: true})
 	err = tree.LoadVersion(140)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
@@ -541,32 +540,32 @@ func Test_Replay(t *testing.T) {
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree = NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	tree = NewTree(sql, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 	err = tree.LoadVersion(170)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
 	require.NoError(t, err)
 	ingest(171, 250)
 
-	//sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
-	//require.NoError(t, err)
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//require.NoError(t, err)
-	//require.NoError(t, tree.Close())
-	//
-	//sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
-	//require.NoError(t, err)
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//err = tree.LoadVersion(5)
-	//require.NoError(t, err)
-	//
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//err = tree.LoadVersion(555)
-	//require.NoError(t, err)
-	//
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//err = tree.LoadVersion(1000)
-	//require.NoError(t, err)
+	// sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	// require.NoError(t, err)
+	// tree = NewTree(sql, TreeOptions{StateStorage: true})
+	// require.NoError(t, err)
+	// require.NoError(t, tree.Close())
+
+	// sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	// require.NoError(t, err)
+	// tree = NewTree(sql, TreeOptions{StateStorage: true})
+	// err = tree.LoadVersion(5)
+	// require.NoError(t, err)
+
+	// tree = NewTree(sql, TreeOptions{StateStorage: true})
+	// err = tree.LoadVersion(555)
+	// require.NoError(t, err)
+
+	// tree = NewTree(sql, TreeOptions{StateStorage: true})
+	// err = tree.LoadVersion(1000)
+	// require.NoError(t, err)
 }
 
 func Test_Prune_Logic(t *testing.T) {
@@ -592,7 +591,7 @@ func Test_Prune_Logic(t *testing.T) {
 	tmpDir := t.TempDir()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	tree := NewTree(sql, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -763,7 +762,7 @@ func newPrometheusMetricsProxy() *prometheusMetricsProxy {
 	})
 	http.Handle("/metrics", promhttp.Handler())
 	go func() {
-		err := http.ListenAndServe(":2112", nil)
+		err := http.ListenAndServe(":2112", nil) // nolint: gosec
 		if err != nil {
 			panic(err)
 		}

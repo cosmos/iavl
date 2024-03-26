@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func RootCommand() (*cobra.Command, error) {
+func RootCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "iavl",
 		Short: "benchmark cosmos/iavl",
@@ -20,5 +20,5 @@ func RootCommand() (*cobra.Command, error) {
 		scan.Command(),
 		latestCommand(),
 	)
-	return cmd, nil
+	return cmd
 }

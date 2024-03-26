@@ -50,7 +50,6 @@ Reads: 30,000 nodes/sec !!!
 var testDbLocation = "/tmp/sqlite_test"
 
 func TestBuildSqlite(t *testing.T) {
-	//dir := t.TempDir()
 	dir := testDbLocation
 	t.Logf("using temp dir %s", dir)
 
@@ -69,39 +68,25 @@ func TestBuildSqlite(t *testing.T) {
 	require.NoError(t, err)
 
 	err = sql.leafWrite.Exec("CREATE INDEX trie_idx ON node (key)")
-	//err = sql.leafWrite.Exec("CREATE INDEX node_idx ON node (version, seq)")
 	require.NoError(t, err)
-	err = sql.leafWrite.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
+	err = sql.leafWrite.Exec("CREATE INDEX tree_idx ON node (version, seq)")
 	require.NoError(t, err)
 
 	require.NoError(t, sql.leafWrite.Begin())
 
 	var stmt *sqlite3.Stmt
-	//stmt, err = sql.leafWrite.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
 	stmt, err = sql.leafWrite.Prepare("INSERT INTO node(version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version)" +
 		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-
 	require.NoError(t, err)
 
 	startTime := time.Now()
 	batchSize := 200_000
-	//nodeBz := new(bytes.Buffer)
 	for ; version1.Valid(); err = version1.Next() {
+		require.NoError(t, err)
 		node := version1.GetNode()
 		lnk := NewNodeKey(1, uint32(count+1))
 		rnk := NewNodeKey(1, uint32(count+2))
-		n := &Node{key: node.Key, hash: node.Key[:32],
-			subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
-
-		//nodeBz.Reset()
-		//require.NoError(t, n.WriteBytes(nodeBz))
-
-		// tree table
-		//nk := NewNodeKey(1, uint32(count))
-		//nodeBz, err := n.Bytes()
-		//require.NoError(t, err)
-		//err = stmt.Exec(int(nk.Version()), int(nk.Sequence()), nodeBz)
-		//require.NoError(t, err)
+		n := &Node{key: node.Key, hash: node.Key[:32], subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
 
 		// node table
 		err = stmt.Exec(
@@ -120,8 +105,6 @@ func TestBuildSqlite(t *testing.T) {
 		if count%batchSize == 0 {
 			err := sql.leafWrite.Commit()
 			require.NoError(t, err)
-			//stmt, err = newBatch()
-			//require.NoError(t, err)
 			require.NoError(t, sql.leafWrite.Begin())
 			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(count)),
@@ -162,6 +145,7 @@ func TestReadSqlite_Trie(t *testing.T) {
 	gen := testutil.OsmoLike()
 	version1 := gen.Iterator.Nodes()
 	for ; version1.Valid(); err = version1.Next() {
+		require.NoError(t, err)
 		node := version1.GetNode()
 		require.NoError(t, query.Bind(node.Key))
 		hasRow, err := query.Step()
@@ -181,12 +165,11 @@ func TestReadSqlite_Trie(t *testing.T) {
 		require.NoError(t, query.Reset())
 		i++
 	}
-
 }
 
 func TestReadSqlite(t *testing.T) {
-	//pool := NewNodePool()
-	//dir := t.TempDir()
+	// pool := NewNodePool()
+	// dir := t.TempDir()
 	var err error
 	dir := testDbLocation
 	t.Logf("using temp dir %s", dir)
@@ -194,11 +177,11 @@ func TestReadSqlite(t *testing.T) {
 	require.NoError(t, err)
 
 	var stmt *sqlite3.Stmt
-	//stmt, err = sql.leafWrite.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
+	// stmt, err = sql.leafWrite.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
 
 	sqlRead, err := sql.getReadConn()
 	require.NoError(t, err)
-	//stmt, err = sqlRead.Prepare("SELECT bytes FROM tree WHERE version = ? AND sequence = ?")
+	// stmt, err = sqlRead.Prepare("SELECT bytes FROM tree WHERE version = ? AND sequence = ?")
 	stmt, err = sqlRead.Prepare("SELECT hash, key, height, size, l_seq, l_version, r_seq, r_version FROM node WHERE seq = ? AND version = ?")
 	require.NoError(t, err)
 
@@ -210,15 +193,15 @@ func TestReadSqlite(t *testing.T) {
 		j := rand.Intn(40_000_000)
 
 		// unstructured leafRead:
-		//nk := NewNodeKey(1, uint32(j))
-		//require.NoError(t, stmt.Bind(1, j))
-		//hasRow, err := stmt.Step()
-		//require.Truef(t, hasRow, "no row for %d", j)
-		//require.NoError(t, err)
-		//nodeBz, err := stmt.ColumnBlob(0)
-		//require.NoError(t, err)
-		//_, err = MakeNode(pool, nk, nodeBz)
-		//require.NoError(t, err)
+		// nk := NewNodeKey(1, uint32(j))
+		// require.NoError(t, stmt.Bind(1, j))
+		// hasRow, err := stmt.Step()
+		// require.Truef(t, hasRow, "no row for %d", j)
+		// require.NoError(t, err)
+		// nodeBz, err := stmt.ColumnBlob(0)
+		// require.NoError(t, err)
+		// _, err = MakeNode(pool, nk, nodeBz)
+		// require.NoError(t, err)
 
 		// structured leafRead:
 		require.NoError(t, stmt.Bind(j, 1))
@@ -237,13 +220,13 @@ func TestReadSqlite(t *testing.T) {
 		require.NoError(t, stmt.Reset())
 	}
 
-	//gen := testutil.OsmoLike()
-	//version1 := gen.TreeIterator.Nodes()
-	//var count int
-	//require.Equal(t, int64(1), gen.TreeIterator.Version())
+	// gen := testutil.OsmoLike()
+	// version1 := gen.TreeIterator.Nodes()
+	// var count int
+	// require.Equal(t, int64(1), gen.TreeIterator.Version())
 }
 
-func TestNodeKeyFormat(t *testing.T) {
+func TestNodeKeyFormat(_ *testing.T) {
 	nk := NewNodeKey(100, 2)
 	k := (int(nk.Version()) << 32) | int(nk.Sequence())
 	fmt.Printf("k: %d - %x\n", k, k)

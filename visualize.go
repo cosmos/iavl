@@ -6,7 +6,7 @@ import (
 	"github.com/emicklei/dot"
 )
 
-func writeDotGraph(root *Node, lastGraph *dot.Graph) *dot.Graph {
+func writeDotGraph(root *Node, lastGraph *dot.Graph) *dot.Graph { // nolint: unused
 	graph := dot.NewGraph(dot.Directed)
 
 	var traverse func(node *Node) dot.Node

@@ -77,13 +77,13 @@ func DefaultTreeOptions() TreeOptions {
 	}
 }
 
-func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
+func NewTree(sql *SqliteDb, opts TreeOptions) *Tree {
 	ctx, cancel := context.WithCancel(context.Background())
 	tree := &Tree{
 		sql:                sql,
 		sqlWriter:          sql.newSQLWriter(),
 		writerCancel:       cancel,
-		pool:               pool,
+		pool:               sql.getPool(),
 		checkpoints:        &VersionRange{},
 		metrics:            &metrics.TreeMetrics{},
 		maxWorkingSize:     1.5 * 1024 * 1024 * 1024,
@@ -416,7 +416,6 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			}
 			return node, true, nil
 		}
-
 	} else {
 		tree.addOrphan(node)
 		tree.mutateNode(node)
