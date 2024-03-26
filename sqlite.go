@@ -137,8 +137,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	}
 
 	if !api.IsFileExistent(opts.Path) {
-		err := os.MkdirAll(opts.Path, 0755)
-		if err != nil {
+		if err := os.MkdirAll(opts.Path, 0o755); err != nil {
 			return nil, err
 		}
 	}
@@ -224,6 +223,10 @@ CREATE INDEX leaf_orphan_idx ON leaf_orphan (at);`)
 	}
 
 	return nil
+}
+
+func (sql *SqliteDb) getPool() *NodePool {
+	return sql.pool
 }
 
 func (sql *SqliteDb) resetWriteConn() (err error) {
@@ -501,7 +504,7 @@ func (sql *SqliteDb) LoadRoot(version int64) (*Node, error) {
 
 // lastCheckpoint fetches the last checkpoint version from the shard table previous to the loaded root's version.
 // a return value of zero and nil error indicates no checkpoint was found.
-func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (checkpointVersion int64, err error) {
+func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (checkpointVersion int64, err error) { // nolint: unused
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString())
 	if err != nil {
 		return 0, err
@@ -556,7 +559,6 @@ func (sql *SqliteDb) loadCheckpointRange() (*VersionRange, error) {
 		}
 		if err = versionRange.Add(version); err != nil {
 			return nil, err
-
 		}
 	}
 	if err = q.Close(); err != nil {
@@ -826,8 +828,6 @@ func (sql *SqliteDb) Revert(version int) error {
 				return err
 			}
 		}
-	} else {
-
 	}
 	return nil
 }
@@ -840,7 +840,7 @@ func (sql *SqliteDb) GetLatestLeaf(key []byte) ([]byte, error) {
 			return nil, err
 		}
 	}
-	defer sql.queryLatest.Reset()
+	defer sql.queryLatest.Reset() //nolint:errcheck
 
 	if err := sql.queryLatest.Bind(key); err != nil {
 		return nil, err

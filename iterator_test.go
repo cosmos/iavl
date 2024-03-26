@@ -13,7 +13,7 @@ func Test_Iterator(t *testing.T) {
 	sql, err := iavl.NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
 
-	tree := iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: false})
+	tree := iavl.NewTree(sql, iavl.TreeOptions{StateStorage: false})
 	set := func(key string, value string) {
 		_, err := tree.Set([]byte(key), []byte(value))
 		require.NoError(t, err)
@@ -208,7 +208,6 @@ func Test_Iterator(t *testing.T) {
 				if cnt == 0 {
 					require.Equal(t, tc.expectedStart, itr.Key())
 				}
-				//fmt.Printf("%s %s\n", itr.Key(), itr.Value())
 				require.NoError(t, itr.Error())
 				cnt++
 			}
@@ -226,7 +225,7 @@ func Test_IteratorTree(t *testing.T) {
 	sql, err := iavl.NewSqliteDb(pool, iavl.SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 
-	tree := iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: true})
+	tree := iavl.NewTree(sql, iavl.TreeOptions{StateStorage: true})
 	set := func(key string, value string) {
 		_, err := tree.Set([]byte(key), []byte(value))
 		require.NoError(t, err)
@@ -241,7 +240,7 @@ func Test_IteratorTree(t *testing.T) {
 
 	_, version, err := tree.SaveVersion()
 	require.NoError(t, err)
-	tree = iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: true})
+	tree = iavl.NewTree(sql, iavl.TreeOptions{StateStorage: true})
 	require.NoError(t, tree.LoadVersion(version))
 	cases := []struct {
 		name          string
@@ -304,5 +303,4 @@ func Test_IteratorTree(t *testing.T) {
 			require.NoError(t, itr.Close())
 		})
 	}
-
 }

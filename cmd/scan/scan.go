@@ -97,7 +97,7 @@ func rootsCommand() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "", "path to sqlite db")
 	cmd.Flags().Int64Var(&version, "version", 0, "version to query")
-	cmd.MarkFlagRequired("db")
-	cmd.MarkFlagRequired("version")
+	_ = cmd.MarkFlagRequired("db")
+	_ = cmd.MarkFlagRequired("version")
 	return cmd
 }

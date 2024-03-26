@@ -59,14 +59,13 @@ type Node struct {
 	rightNode     *Node
 	subtreeHeight int8
 
-	dirty  bool
-	evict  bool
-	poolId uint64
+	dirty bool
+	evict bool
 }
 
 func (node *Node) String() string {
-	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolId: %d}",
-		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolId)
+	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d}",
+		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight)
 }
 
 func (node *Node) isLeaf() bool {
@@ -341,7 +340,7 @@ var (
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
+func (node *Node) _hash() []byte { // nolint: unparam
 	if node.hash != nil {
 		return node.hash
 	}
