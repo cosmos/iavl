@@ -46,10 +46,10 @@ const (
 var (
 	// All new node keys are prefixed with the byte 's'. This ensures no collision is
 	// possible with the legacy nodes, and makes them easier to traverse. They are indexed by the version and the local nonce.
-	nodeKeyFormat = keyformat.NewKeyFormat('s', int64Size+int32Size) // s<version><nonce>
+	nodeKeyFormat = keyformat.NewFastPrefixFormatter('s', int64Size+int32Size) // s<version><nonce>
 
 	// This is only used for the iteration purpose.
-	nodeKeyPrefixFormat = keyformat.NewKeyFormat('s', int64Size) // s<version>
+	nodeKeyPrefixFormat = keyformat.NewFastPrefixFormatter('s', int64Size) // s<version>
 
 	// Key Format for making reads and iterates go through a data-locality preserving db.
 	// The value at an entry will list what version it was written to.
@@ -64,7 +64,7 @@ var (
 	metadataKeyFormat = keyformat.NewKeyFormat('m', 0) // m<keystring>
 
 	// All legacy node keys are prefixed with the byte 'n'.
-	legacyNodeKeyFormat = keyformat.NewKeyFormat('n', hashSize) // n<hash>
+	legacyNodeKeyFormat = keyformat.NewFastPrefixFormatter('n', hashSize) // n<hash>
 
 	// All legacy orphan keys are prefixed with the byte 'o'.
 	legacyOrphanKeyFormat = keyformat.NewKeyFormat('o', int64Size, int64Size, hashSize) // o<last-version><first-version><hash>
@@ -224,7 +224,7 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		return err
 	}
 
-	ndb.logger.Debug("BATCH SAVE", "node", node)
+	// ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
 }
@@ -430,14 +430,6 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		}
 	}
 
-	// Delete the last version for the legacyLastVersion
-	if err := ndb.traverseOrphans(legacyLatestVersion, legacyLatestVersion+1, func(orphan *Node) error {
-		checkDeletePause()
-		return ndb.batch.Delete(ndb.legacyNodeKey(orphan.hash))
-	}); err != nil {
-		return err
-	}
-
 	// Delete orphans for all legacy versions
 	if err := ndb.traversePrefix(legacyOrphanKeyFormat.Key(), func(key, value []byte) error {
 		checkDeletePause()
@@ -510,7 +502,7 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	// Delete the nodes for new format
-	err = ndb.traverseRange(nodeKeyPrefixFormat.Key(fromVersion), nodeKeyPrefixFormat.Key(latest+1), func(k, v []byte) error {
+	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, v []byte) error {
 		return ndb.batch.Delete(k)
 	})
 
@@ -563,6 +555,12 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 
 	// Delete the legacy versions
 	if legacyLatestVersion >= first {
+		// Delete the last version for the legacyLastVersion
+		if err := ndb.traverseOrphans(legacyLatestVersion, legacyLatestVersion+1, func(orphan *Node) error {
+			return ndb.batch.Delete(ndb.legacyNodeKey(orphan.hash))
+		}); err != nil {
+			return err
+		}
 		// reset the legacy latest version forcibly to avoid multiple calls
 		ndb.resetLegacyLatestVersion(-1)
 		go func() {
@@ -710,8 +708,8 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	}
 
 	itr, err := ndb.db.ReverseIterator(
-		nodeKeyPrefixFormat.Key(int64(1)),
-		nodeKeyPrefixFormat.Key(int64(math.MaxInt64)),
+		nodeKeyPrefixFormat.KeyInt64(int64(1)),
+		nodeKeyPrefixFormat.KeyInt64(int64(math.MaxInt64)),
 	)
 	if err != nil {
 		return 0, err
@@ -789,7 +787,7 @@ func (ndb *nodeDB) GetRoot(version int64) ([]byte, error) {
 		switch n {
 		case nodeKeyFormat.Length(): // (prefix, version, 1)
 			nk := GetNodeKey(val[1:])
-			val, err = ndb.db.Get(nodeKeyFormat.Key(val[1:]))
+			val, err = ndb.db.Get(val)
 			if err != nil {
 				return nil, err
 			}
@@ -827,6 +825,7 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 func (ndb *nodeDB) SaveRoot(version int64, nk *NodeKey) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	ndb.logger.Debug("SaveRoot", "version", version, "nodeKey", nk)
 	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), nodeKeyFormat.Key(nk.GetKey()))
 }
 
@@ -1056,7 +1055,7 @@ func (ndb *nodeDB) nodes() ([]*Node, error) {
 func (ndb *nodeDB) legacyNodes() ([]*Node, error) {
 	nodes := []*Node{}
 
-	err := ndb.traversePrefix(legacyNodeKeyFormat.Key(), func(key, value []byte) error {
+	err := ndb.traversePrefix(legacyNodeKeyFormat.Prefix(), func(key, value []byte) error {
 		node, err := MakeLegacyNode(key[1:], value)
 		if err != nil {
 			return err
@@ -1107,7 +1106,7 @@ func (ndb *nodeDB) size() int {
 func (ndb *nodeDB) traverseNodes(fn func(node *Node) error) error {
 	nodes := []*Node{}
 
-	if err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(nodeKeyFormat.Prefix(), func(key, value []byte) error {
 		if isRef, _ := isReferenceRoot(value); isRef {
 			return nil
 		}
@@ -1190,7 +1189,7 @@ func (ndb *nodeDB) String() (string, error) {
 
 	index := 0
 
-	err := ndb.traversePrefix(nodeKeyFormat.Key(), func(key, value []byte) error {
+	err := ndb.traversePrefix(nodeKeyFormat.Prefix(), func(key, value []byte) error {
 		fmt.Fprintf(buf, "%s: %x\n", key, value)
 		return nil
 	})
