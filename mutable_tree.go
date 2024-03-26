@@ -457,8 +457,6 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 
 	if firstVersion == 0 {
 		if targetVersion <= 0 {
-			tree.version = int64(tree.ndb.opts.InitialVersion)
-
 			if !tree.skipFastStorageUpgrade {
 				tree.mtx.Lock()
 				defer tree.mtx.Unlock()
@@ -603,7 +601,7 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	if err = tree.ndb.setFastStorageVersionToBatch(latestVersion); err != nil {
+	if err = tree.ndb.SetFastStorageVersionToBatch(latestVersion); err != nil {
 		return err
 	}
 
@@ -734,15 +732,15 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	} else {
 		if tree.root.nodeKey != nil {
-			// it means there is no updated
-			if err := tree.ndb.SaveRoot(version, tree.root.nodeKey.version); err != nil {
+			// it means there are no updated nodes
+			if err := tree.ndb.SaveRoot(version, tree.root.nodeKey); err != nil {
 				return nil, 0, err
 			}
 			// it means the reference node is a legacy node
-			if tree.root.nodeKey.nonce == 0 {
+			if tree.root.isLegacy {
 				// it will update the legacy node to the new format
 				// which ensures the reference node is not a legacy node
-				tree.root.nodeKey.nonce = 1
+				tree.root.isLegacy = false
 				if err := tree.ndb.SaveNode(tree.root); err != nil {
 					return nil, 0, fmt.Errorf("failed to save the reference legacy node: %w", err)
 				}
@@ -779,7 +777,7 @@ func (tree *MutableTree) saveFastNodeVersion(latestVersion int64) error {
 	if err := tree.saveFastNodeRemovals(); err != nil {
 		return err
 	}
-	return tree.ndb.setFastStorageVersionToBatch(latestVersion)
+	return tree.ndb.SetFastStorageVersionToBatch(latestVersion)
 }
 
 func (tree *MutableTree) getUnsavedFastNodeAdditions() map[string]*fastnode.Node {
@@ -857,8 +855,7 @@ func (tree *MutableTree) SetInitialVersion(version uint64) {
 }
 
 // DeleteVersionsTo removes versions upto the given version from the MutableTree.
-// An error is returned if any single version has active readers.
-// All writes happen in a single batch with a single commit.
+// It will not block the SaveVersion() call, instead it will be queued and executed deferred.
 func (tree *MutableTree) DeleteVersionsTo(toVersion int64) error {
 	if err := tree.ndb.DeleteVersionsTo(toVersion); err != nil {
 		return err

@@ -1,6 +1,8 @@
 package iavl
 
 import (
+	"sync"
+
 	dbm "github.com/cosmos/iavl/db"
 )
 
@@ -8,6 +10,7 @@ import (
 // around batch that flushes batch's data to disk
 // as soon as the configurable limit is reached.
 type BatchWithFlusher struct {
+	mtx   sync.Mutex
 	db    dbm.DB    // This is only used to create new batch
 	batch dbm.Batch // Batched writing buffer.
 
@@ -46,18 +49,19 @@ func (b *BatchWithFlusher) estimateSizeAfterSetting(key []byte, value []byte) (i
 // the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
 // The addition entry is then added to the batch.
 func (b *BatchWithFlusher) Set(key, value []byte) error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
 	batchSizeAfter, err := b.estimateSizeAfterSetting(key, value)
 	if err != nil {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
-		if err := b.batch.Write(); err != nil {
+		b.mtx.Unlock()
+		if err := b.Write(); err != nil {
 			return err
 		}
-		if err := b.batch.Close(); err != nil {
-			return err
-		}
-		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+		b.mtx.Lock()
 	}
 	return b.batch.Set(key, value)
 }
@@ -67,31 +71,55 @@ func (b *BatchWithFlusher) Set(key, value []byte) error {
 // the batch is flushed to disk, cleared, and a new one is created with buffer pre-allocated to threshold.
 // The deletion entry is then added to the batch.
 func (b *BatchWithFlusher) Delete(key []byte) error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
 	batchSizeAfter, err := b.estimateSizeAfterSetting(key, []byte{})
 	if err != nil {
 		return err
 	}
 	if batchSizeAfter > b.flushThreshold {
-		if err := b.batch.Write(); err != nil {
+		b.mtx.Unlock()
+		if err := b.Write(); err != nil {
 			return err
 		}
-		if err := b.batch.Close(); err != nil {
-			return err
-		}
-		b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+		b.mtx.Lock()
 	}
 	return b.batch.Delete(key)
 }
 
 func (b *BatchWithFlusher) Write() error {
-	return b.batch.Write()
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	if err := b.batch.Write(); err != nil {
+		return err
+	}
+	if err := b.batch.Close(); err != nil {
+		return err
+	}
+	b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+	return nil
 }
 
 func (b *BatchWithFlusher) WriteSync() error {
-	return b.batch.WriteSync()
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
+	if err := b.batch.WriteSync(); err != nil {
+		return err
+	}
+	if err := b.batch.Close(); err != nil {
+		return err
+	}
+	b.batch = b.db.NewBatchWithSize(b.flushThreshold)
+	return nil
 }
 
 func (b *BatchWithFlusher) Close() error {
+	b.mtx.Lock()
+	defer b.mtx.Unlock()
+
 	return b.batch.Close()
 }
 
