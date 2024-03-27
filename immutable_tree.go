@@ -2,12 +2,15 @@ package iavl
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"cosmossdk.io/log"
 
 	dbm "github.com/cosmos/iavl/db"
 )
+
+var _ io.Closer = (*ImmutableTree)(nil)
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
 // MutableTree.GetImmutable(), in which case the returned tree is safe for concurrent access as
@@ -42,6 +45,11 @@ func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg 
 		ndb:                    newNodeDB(db, cacheSize, opts, lg),
 		skipFastStorageUpgrade: skipFastStorageUpgrade,
 	}
+}
+
+func (t *ImmutableTree) Close() error {
+	t.ndb.decrVersionReaders(t.version)
+	return nil
 }
 
 // String returns a string representation of Tree.

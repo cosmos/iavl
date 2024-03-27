@@ -628,6 +628,7 @@ func (tree *MutableTree) GetImmutable(version int64) (*ImmutableTree, error) {
 		}
 	}
 
+	tree.ndb.incrVersionReaders(version)
 	return &ImmutableTree{
 		root:                   root,
 		ndb:                    tree.ndb,
