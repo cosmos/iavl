@@ -224,7 +224,7 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 		return err
 	}
 
-	// ndb.logger.Debug("BATCH SAVE", "node", node)
+	ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
 }
