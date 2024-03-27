@@ -121,7 +121,7 @@ If `removeKey` does not exist in the IAVL tree, RemovedValue is `nil`.
 
 Anytime a node is unbalanced such that the height of its left branch and the height of its right branch differs by more than 1, the IAVL tree will rebalance itself.
 
-This is acheived by rotating the subtrees until there is no more than one height difference between two branches of any subtree in the IAVL.
+This is achieved by rotating the subtrees until there is no more than one height difference between two branches of any subtree in the IAVL.
 
 Since Balance is mutating the structure of the tree, any displaced nodes will be orphaned.
 
@@ -262,7 +262,7 @@ Orphaned: 6, 8
 Orphaned: 6
 ```
 
-Note: 6 got orphaned again, so omit list repitition
+Note: 6 got orphaned again, so omit list repetition
 
 #### Right Right Case
 

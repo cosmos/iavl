@@ -73,9 +73,9 @@ proof can prove that the key `ab` is not in the tree, because if it was it would
 ordered between `a` and `b` - it is clear from the proof that there is no such node, and if
 there was it would cause the parent hashes to be different from what we see.
 
-Range proofs can be generated for non-existant endpoints by including the nearest neighboring
+Range proofs can be generated for non-existent endpoints by including the nearest neighboring
 keys, which allows them to cover any arbitrary key range. This can also be used to generate an
-absence proof for a _single_ non-existant key, by returning a range proof between the two nearest
+absence proof for a _single_ non-existent key, by returning a range proof between the two nearest
 neighbors. The range proof is therefore a complete proof for all existing and all absent key/value
 pairs ordered between two arbitrary endpoints.
 
@@ -139,7 +139,7 @@ func main() {
 
 ### Tree Root Hash
 
-Proofs are verified against the root hash of an IAVL tree. This root hash is retrived via
+Proofs are verified against the root hash of an IAVL tree. This root hash is retrieved via
 `MutableTree.Hash()` or `ImmutableTree.Hash()`, returning a `[]byte` hash. It is also returned by 
 `MutableTree.SaveVersion()`, as shown above.
 
@@ -297,7 +297,7 @@ type RangeProof struct {
   `c=3` already traversed in `LeftPath`, and `[e]` contains data about the `e` inner node needed
   to prove `d=4`.
 
-* `Leaves` contains data about the leaf nodes in the range. For the range `a` to `e` (exluding 
+* `Leaves` contains data about the leaf nodes in the range. For the range `a` to `e` (excluding 
   `e=5`) this contains info about `a=1`, `b=2`, `c=3`, and `d=4` in left-to-right order.
 
 Note that `Leaves` may contain additional leaf nodes outside the requested range, for example to

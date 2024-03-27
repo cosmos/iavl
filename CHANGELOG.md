@@ -1,5 +1,9 @@
 # Changelog
 
+### Bug Fixes
+
+- [#795](https://github.com/cosmos/iavl/pull/795) Fix plugin used for buf generate.
+
 ## v1.1.1 March 16, 2024
 
 ### Bug Fixes
