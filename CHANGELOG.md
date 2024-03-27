@@ -1,11 +1,32 @@
 # Changelog
 
-## Unreleased
+## v1.1.1 March 13, 2024
+
+### Bug Fixes
+
+- [#910](https://github.com/cosmos/iavl/pull/910) Fix the reference root format from (prefix, version) to (prefix, version, nonce)
 
 ### Improvements
 
-- [#909](https://github.com/cosmos/iavl/pull/909) Async pruning of legacy nodes.
+- [#910](https://github.com/cosmos/iavl/pull/910) Async pruning of legacy orphan nodes.
+
+
+## v1.1.0 February 29, 2024
+
+### API Breaking Changes
+
 - [#874](https://github.com/cosmos/iavl/pull/874) Decouple `cosmos-db` and implement own `db` package.
+
+## v1.0.1 February 16, 2024
+
+### Improvements
+
+- [#876](https://github.com/cosmos/iavl/pull/876) Make pruning of legacy orphan nodes asynchronous.
+
+## v1.0.0 (October 30, 2023)
+
+### Improvements
+
 - [#695](https://github.com/cosmos/iavl/pull/695) Add API `SaveChangeSet` to save the changeset as a new version.
 - [#703](https://github.com/cosmos/iavl/pull/703) New APIs `NewCompressExporter`/`NewCompressImporter` to support more compact snapshot format.
 - [#729](https://github.com/cosmos/iavl/pull/729) Speedup Genesis writes for IAVL, by writing in small batches.

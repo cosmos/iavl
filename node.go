@@ -534,12 +534,12 @@ func (node *Node) writeHashBytes(w io.Writer, version int64) error {
 		if node.leftNode == nil || node.rightNode == nil {
 			return ErrEmptyChild
 		}
-		err = encoding.Encode32BytesHash(w, node.leftNode.hash)
-		if err != nil {
+
+		if err := encoding.Encode32BytesHash(w, node.leftNode.hash); err != nil {
 			return fmt.Errorf("writing left hash, %w", err)
 		}
-		err = encoding.Encode32BytesHash(w, node.rightNode.hash)
-		if err != nil {
+
+		if err := encoding.Encode32BytesHash(w, node.rightNode.hash); err != nil {
 			return fmt.Errorf("writing right hash, %w", err)
 		}
 	}

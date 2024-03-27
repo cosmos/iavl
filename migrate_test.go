@@ -228,7 +228,7 @@ func TestPruning(t *testing.T) {
 	}()
 
 	// Load the latest version
-	tree := NewMutableTree(db, 1000, false, log.NewTestLogger(t))
+	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 	_, err = tree.Load()
 	require.NoError(t, err)
 

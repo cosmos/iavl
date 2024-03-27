@@ -71,6 +71,7 @@ var (
 
 	// All legacy root keys are prefixed with the byte 'r'.
 	legacyRootKeyFormat = keyformat.NewKeyFormat('r', int64Size) // r<version>
+
 )
 
 var errInvalidFastStorageVersion = fmt.Errorf("fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
