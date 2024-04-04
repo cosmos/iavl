@@ -53,7 +53,7 @@ func TestAsyncPruning(t *testing.T) {
 			break
 		}
 		// simulate the consensus process
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	// Reload the tree
