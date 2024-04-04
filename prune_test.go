@@ -15,13 +15,7 @@ func TestAsyncPruning(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Close()
 
-	asyncPruningOpt := func(opts *Options) {
-		opts.AsyncPruning = true
-	}
-	flushThresholdOpt := func(opts *Options) {
-		opts.FlushThreshold = 1000
-	}
-	tree := NewMutableTree(db, 0, false, log.NewNopLogger(), asyncPruningOpt, flushThresholdOpt)
+	tree := NewMutableTree(db, 0, false, log.NewNopLogger(), AsyncPruningOption(true), FlushThresholdOption(1000))
 
 	toVersion := 10000
 	keyCount := 10

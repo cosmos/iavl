@@ -121,3 +121,10 @@ func FlushThresholdOption(ft int) Option {
 		opts.FlushThreshold = ft
 	}
 }
+
+// AsyncPruningOption sets the AsyncPruning for the tree.
+func AsyncPruningOption(asyncPruning bool) Option {
+	return func(opts *Options) {
+		opts.AsyncPruning = asyncPruning
+	}
+}
