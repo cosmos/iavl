@@ -114,30 +114,26 @@ func TestDeepSubtreeStepByStep(t *testing.T) {
 // Reference: https://ethresear.ch/t/data-availability-proof-friendly-state-tree-transitions/1453/23
 func TestDeepSubtreeWithUpdates(t *testing.T) {
 	require := require.New(t)
+
+	keys := []int{0, 1, 5, 6, 3, 4, 2}
+
 	getTree := func() *MutableTree {
 		tree, err := getTestTree(5)
 		require.NoError(err)
 
 		tree.SetTracingEnabled(true)
 
-		tree.Set([]byte("e"), []byte{5})
-		tree.Set([]byte("d"), []byte{4})
-		tree.Set([]byte("c"), []byte{3})
-		tree.Set([]byte("b"), []byte{2})
-		tree.Set([]byte("a"), []byte{1})
+		for _, k := range keys {
+			tree.Set([]byte(fmt.Sprintf("%d", k)), []byte{byte(k)})
+		}
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(err)
 		return tree
 	}
 
-	testCases := [][][]byte{
-		{
-			[]byte("a"), []byte("b"),
-		},
-		{
-			[]byte("c"), []byte("d"),
-		},
+	testCases := [][]int{
+		keys,
 	}
 
 	for _, subsetKeys := range testCases {
@@ -148,7 +144,8 @@ func TestDeepSubtreeWithUpdates(t *testing.T) {
 		require.NoError(err)
 		dst.SetInitialRootHash(tree.root.hash)
 		for _, subsetKey := range subsetKeys {
-			ics23proof, err := tree.GetMembershipProof(subsetKey)
+			ssk := []byte(fmt.Sprintf("%d", subsetKey))
+			ics23proof, err := tree.GetMembershipProof(ssk)
 			require.NoError(err)
 			err = dst.AddExistenceProofs([]*ics23.ExistenceProof{
 				ics23proof.GetExist(),
@@ -165,9 +162,9 @@ func TestDeepSubtreeWithUpdates(t *testing.T) {
 			dst:  dst,
 		}
 
-		values := [][]byte{{10}, {20}}
-		for i, subsetKey := range subsetKeys {
-			err := tc.setInDST(subsetKey, values[i])
+		for _, subsetKey := range subsetKeys {
+			ssk := []byte(fmt.Sprintf("%d", subsetKey))
+			err := tc.setInDST(ssk, ssk)
 			require.Nil(err)
 		}
 	}
