@@ -1,5 +1,9 @@
 # Changelog
 
+### Bug Fixes
+
+- [#928](https://github.com/cosmos/iavl/pull/928) Fix the reformatted root node issue. 
+
 ## v1.1.1 March 16, 2024
 
 ### Bug Fixes
