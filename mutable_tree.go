@@ -1035,10 +1035,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 	var recursiveAssignKey func(*Node) ([]byte, error)
 	recursiveAssignKey = func(node *Node) ([]byte, error) {
 		if node.nodeKey != nil {
-			if node.nodeKey.nonce != 0 {
-				return node.nodeKey.GetKey(), nil
-			}
-			return node.hash, nil
+			return node.GetKey(), nil
 		}
 		nonce++
 		node.nodeKey = &NodeKey{
