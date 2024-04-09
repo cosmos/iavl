@@ -1,8 +1,16 @@
 # Changelog
 
+## Unreleased 
+
 ### Improvements
 
 - [#925](https://github.com/cosmos/iavl/pull/925) Add the `AsyncPruning` option to the `MutableTree` constructor to enable async pruning.
+
+## v1.1.2 April 8, 2024
+
+### Bug Fixes
+
+- [#928](https://github.com/cosmos/iavl/pull/928) Fix the reformatted root node issue.
 
 ## v1.1.1 March 16, 2024
 
