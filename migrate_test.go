@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -254,18 +253,6 @@ func TestPruning(t *testing.T) {
 		}
 	}
 
-	// Wait for pruning to finish
-	for i := 0; i < 100; i++ {
-		_, _, err := tree.SaveVersion()
-		require.NoError(t, err)
-		isLeacy, err := tree.ndb.hasLegacyVersion(int64(legacyVersion))
-		require.NoError(t, err)
-		if !isLeacy {
-			break
-		}
-		// Simulate the consensus state update
-		time.Sleep(500 * time.Millisecond)
-	}
 	// Reload the tree
 	tree = NewMutableTree(db, 0, false, NewNopLogger())
 	versions := tree.AvailableVersions()
