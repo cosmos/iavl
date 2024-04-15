@@ -4,6 +4,8 @@
 
 ### Improvements
 
+- [#909](https://github.com/cosmos/iavl/pull/909) Async pruning of legacy nodes.
+- [#874](https://github.com/cosmos/iavl/pull/874) Decouple `cosmos-db` and implement own `db` package.
 - [#695](https://github.com/cosmos/iavl/pull/695) Add API `SaveChangeSet` to save the changeset as a new version.
 - [#703](https://github.com/cosmos/iavl/pull/703) New APIs `NewCompressExporter`/`NewCompressImporter` to support more compact snapshot format.
 - [#729](https://github.com/cosmos/iavl/pull/729) Speedup Genesis writes for IAVL, by writing in small batches.
@@ -13,6 +15,7 @@
 
 ### Bug Fixes
 
+- [#909](https://github.com/cosmos/iavl/pull/909) Fix the reference node formats and delete legacy nodes.
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
 - [#795](https://github.com/cosmos/iavl/pull/795) Fix plugin used for buf generate.
 - [#801](https://github.com/cosmos/iavl/pull/801) Fix rootKey empty check by len equals 0.

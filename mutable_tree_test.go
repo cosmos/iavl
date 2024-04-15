@@ -20,7 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	db "github.com/cosmos/cosmos-db"
+	dbm "github.com/cosmos/iavl/db"
 )
 
 var (
@@ -34,7 +34,7 @@ var (
 )
 
 func setupMutableTree(skipFastStorageUpgrade bool) *MutableTree {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	tree := NewMutableTree(memDB, 0, skipFastStorageUpgrade, log.NewNopLogger())
 	return tree
 }
@@ -83,9 +83,8 @@ func TestIteratorConcurrency(t *testing.T) {
 			}(i, j)
 		}
 		itr, _ := tree.Iterator(nil, nil, true)
-		for ; itr.Valid(); itr.Next() {
-			// do nothing
-		}
+		for ; itr.Valid(); itr.Next() { //nolint:revive
+		} // do nothing
 	}
 	wg.Wait()
 }
@@ -107,9 +106,8 @@ func TestNewIteratorConcurrency(t *testing.T) {
 				require.NoError(t, err)
 			}(i, j)
 		}
-		for ; it.Valid(); it.Next() {
-			// do nothing
-		}
+		for ; it.Valid(); it.Next() { //nolint:revive
+		} // do nothing
 		wg.Wait()
 	}
 }
@@ -258,7 +256,7 @@ func TestMutableTree_LoadVersion_Empty(t *testing.T) {
 }
 
 func TestMutableTree_InitialVersion(t *testing.T) {
-	memDB := db.NewMemDB()
+	memDB := dbm.NewMemDB()
 	tree := NewMutableTree(memDB, 0, false, log.NewNopLogger(), InitialVersionOption(9))
 
 	_, err := tree.Set([]byte("a"), []byte{0x01})
@@ -309,11 +307,10 @@ func TestMutableTree_SetInitialVersion(t *testing.T) {
 }
 
 func BenchmarkMutableTree_Set(b *testing.B) {
-	db, err := db.NewDB("test", db.MemDBBackend, "")
-	require.NoError(b, err)
+	db := dbm.NewMemDB()
 	t := NewMutableTree(db, 100000, false, log.NewNopLogger())
 	for i := 0; i < 1000000; i++ {
-		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err := t.Set(iavlrand.RandBytes(10), []byte{})
 		require.NoError(b, err)
 	}
 	b.ReportAllocs()
@@ -322,13 +319,13 @@ func BenchmarkMutableTree_Set(b *testing.B) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		_, err = t.Set(iavlrand.RandBytes(10), []byte{})
+		_, err := t.Set(iavlrand.RandBytes(10), []byte{})
 		require.NoError(b, err)
 	}
 }
 
 func prepareTree(t *testing.T) *MutableTree {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	for i := 0; i < 100; i++ {
 		_, err := tree.Set([]byte{byte(i)}, []byte("a"))
@@ -399,7 +396,7 @@ func TestMutableTree_DeleteVersion(t *testing.T) {
 }
 
 func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 	_, v1, err := tree.SaveVersion()
 	require.NoError(t, err)
@@ -418,7 +415,7 @@ func TestMutableTree_LazyLoadVersionWithEmptyTree(t *testing.T) {
 }
 
 func TestMutableTree_SetSimple(t *testing.T) {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 0, false, log.NewNopLogger())
 
 	const testKey1 = "a"
@@ -589,7 +586,7 @@ func TestMutableTree_SetRemoveSet(t *testing.T) {
 }
 
 func TestMutableTree_FastNodeIntegration(t *testing.T) {
-	mdb := db.NewMemDB()
+	mdb := dbm.NewMemDB()
 	tree := NewMutableTree(mdb, 1000, false, log.NewNopLogger())
 
 	const key1 = "a"
@@ -720,7 +717,7 @@ func TestIterator_MutableTree_Invalid(t *testing.T) {
 
 func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	// Setup
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Default version when storage key does not exist in the db
@@ -750,7 +747,7 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 
 func TestUpgradeStorageToFast_AlreadyUpgraded_Success(t *testing.T) {
 	// Setup
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
 
 	// Default version when storage key does not exist in the db
@@ -921,7 +918,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	// dbMock represents the underlying database under the hood of nodeDB
 	dbMock.EXPECT().Get(gomock.Any()).Return(expectedStorageVersion, nil).Times(1)
 
-	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(3)
+	dbMock.EXPECT().NewBatchWithSize(gomock.Any()).Return(batchMock).Times(2)
 	dbMock.EXPECT().ReverseIterator(gomock.Any(), gomock.Any()).Return(rIterMock, nil).Times(1) // called to get latest version
 	startFormat := fastKeyFormat.Key()
 	endFormat := fastKeyFormat.Key()
@@ -943,8 +940,8 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	batchMock.EXPECT().GetByteSize().Return(100, nil).Times(2)
 	batchMock.EXPECT().Delete(fastKeyFormat.Key(fastNodeKeyToDelete)).Return(nil).Times(1)
 	batchMock.EXPECT().Set(metadataKeyFormat.Key([]byte(storageVersionKey)), updatedExpectedStorageVersion).Return(nil).Times(1)
-	batchMock.EXPECT().Write().Return(nil).Times(2)
-	batchMock.EXPECT().Close().Return(nil).Times(2)
+	batchMock.EXPECT().Write().Return(nil).Times(1)
+	batchMock.EXPECT().Close().Return(nil).Times(1)
 
 	// iterMock is used to mock the underlying db iterator behing fast iterator
 	// Here, we want to mock the behavior of deleting fast nodes from disk when
@@ -1127,11 +1124,7 @@ func TestUpgradeStorageToFast_Integration_Upgraded_GetFast_Success(t *testing.T)
 }
 
 func TestUpgradeStorageToFast_Success(t *testing.T) {
-	tmpCommitGap := commitGap
-	commitGap = 1000
-	defer func() {
-		commitGap = tmpCommitGap
-	}()
+	commitGap := 1000
 
 	type fields struct {
 		nodeCount int
@@ -1141,10 +1134,10 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 		fields fields
 	}{
 		{"less than commit gap", fields{nodeCount: 100}},
-		{"equal to commit gap", fields{nodeCount: int(commitGap)}},
-		{"great than commit gap", fields{nodeCount: int(commitGap) + 100}},
-		{"two times commit gap", fields{nodeCount: int(commitGap) * 2}},
-		{"two times plus commit gap", fields{nodeCount: int(commitGap)*2 + 1}},
+		{"equal to commit gap", fields{nodeCount: commitGap}},
+		{"great than commit gap", fields{nodeCount: commitGap + 100}},
+		{"two times commit gap", fields{nodeCount: commitGap * 2}},
+		{"two times plus commit gap", fields{nodeCount: commitGap*2 + 1}},
 	}
 
 	for _, tt := range tests {
@@ -1167,15 +1160,12 @@ func TestUpgradeStorageToFast_Success(t *testing.T) {
 
 func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 	// we delete fast node, in case of deadlock. we should limit the stale count lower than chBufferSize(64)
-	tmpCommitGap := commitGap
-	commitGap = 5
-	defer func() {
-		commitGap = tmpCommitGap
-	}()
+	commitGap := 5
 
 	valStale := "val_stale"
 	addStaleKey := func(ndb *nodeDB, staleCount int) {
-		keyPrefix := "key"
+		keyPrefix := "key_prefix"
+		b := ndb.db.NewBatch()
 		for i := 0; i < staleCount; i++ {
 			key := fmt.Sprintf("%s_%d", keyPrefix, i)
 
@@ -1184,9 +1174,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 			buf.Grow(node.EncodedSize())
 			err := node.WriteBytes(&buf)
 			require.NoError(t, err)
-			err = ndb.db.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
+			err = b.Set(ndb.fastNodeKey([]byte(key)), buf.Bytes())
 			require.NoError(t, err)
 		}
+		require.NoError(t, b.Write())
 	}
 	type fields struct {
 		nodeCount  int
@@ -1198,10 +1189,10 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 		fields fields
 	}{
 		{"stale less than commit gap", fields{nodeCount: 100, staleCount: 4}},
-		{"stale equal to commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)}},
-		{"stale great than commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap)*2 - 1}},
-		{"stale twice commit gap", fields{nodeCount: int(commitGap) + 100, staleCount: int(commitGap) * 2}},
-		{"stale great than twice commit gap", fields{nodeCount: int(commitGap), staleCount: int(commitGap)*2 + 1}},
+		{"stale equal to commit gap", fields{nodeCount: commitGap, staleCount: commitGap}},
+		{"stale great than commit gap", fields{nodeCount: commitGap + 100, staleCount: commitGap*2 - 1}},
+		{"stale twice commit gap", fields{nodeCount: commitGap + 100, staleCount: commitGap * 2}},
+		{"stale great than twice commit gap", fields{nodeCount: commitGap, staleCount: commitGap*2 + 1}},
 	}
 
 	for _, tt := range tests {
@@ -1224,7 +1215,7 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 }
 
 func setupTreeAndMirror(t *testing.T, numEntries int, skipFastStorageUpgrade bool) (*MutableTree, [][]string) {
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 
 	tree := NewMutableTree(db, 0, skipFastStorageUpgrade, log.NewNopLogger())
 
@@ -1417,7 +1408,7 @@ func TestNoFastStorageUpgrade_Integration_SaveVersion_Load_Iterate_Success(t *te
 // TestMutableTree_InitialVersion_FirstVersion demonstrate the un-intuitive behavior,
 // when InitialVersion is set the nodes created in the first version are not assigned with expected version number.
 func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 
 	initialVersion := int64(1000)
 	tree := NewMutableTree(db, 0, true, log.NewNopLogger(), InitialVersionOption(uint64(initialVersion)))
@@ -1445,4 +1436,17 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	node, err = tree.ndb.GetNode(rootKey)
 	require.NoError(t, err)
 	require.Equal(t, initialVersion+1, node.nodeKey.version)
+}
+
+func TestMutableTreeClose(t *testing.T) {
+	db := dbm.NewMemDB()
+	tree := NewMutableTree(db, 0, true, log.NewNopLogger())
+
+	_, err := tree.Set([]byte("hello"), []byte("world"))
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	require.NoError(t, tree.Close())
 }

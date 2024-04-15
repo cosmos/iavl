@@ -109,7 +109,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 }
 ```
 
-##### Travesing Orphans
+##### Traversing Orphans
 
 The traverseOrphans algorithm is shown below:
 

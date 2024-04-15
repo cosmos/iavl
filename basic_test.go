@@ -8,10 +8,11 @@ import (
 	"testing"
 
 	"cosmossdk.io/log"
-	db "github.com/cosmos/cosmos-db"
-	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	dbm "github.com/cosmos/iavl/db"
+	iavlrand "github.com/cosmos/iavl/internal/rand"
 )
 
 func TestBasic(t *testing.T) {
@@ -432,7 +433,7 @@ func TestIterateRange(t *testing.T) {
 }
 
 func TestPersistence(t *testing.T) {
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 
 	// Create some random key value pairs
 	records := make(map[string]string)
@@ -495,7 +496,7 @@ func TestProof(t *testing.T) {
 }
 
 func TestTreeProof(t *testing.T) {
-	db := db.NewMemDB()
+	db := dbm.NewMemDB()
 	tree := NewMutableTree(db, 100, false, log.NewNopLogger())
 	hash := tree.Hash()
 	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
