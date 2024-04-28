@@ -204,7 +204,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 }
 
 // SaveNode saves a node to disk.
-func (ndb *nodeDB) SaveNode(node *Node) error {
+func (ndb *nodeDB) SaveNode(node *Node, useLruCache bool) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -225,7 +225,9 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	}
 
 	ndb.logger.Debug("BATCH SAVE", "node", node)
-	ndb.nodeCache.Add(node)
+	if useLruCache {
+		ndb.nodeCache.Add(node)
+	}
 	return nil
 }
 
@@ -386,7 +388,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 		}
 		// instead, the root should be reformatted to (version, 0)
 		root.nodeKey.nonce = 0
-		if err := ndb.SaveNode(root); err != nil {
+		if err := ndb.SaveNode(root, true); err != nil {
 			return err
 		}
 	}

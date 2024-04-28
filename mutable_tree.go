@@ -745,7 +745,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				// it will update the legacy node to the new format
 				// which ensures the reference node is not a legacy node
 				tree.root.isLegacy = false
-				if err := tree.ndb.SaveNode(tree.root); err != nil {
+				if err := tree.ndb.SaveNode(tree.root, true); err != nil {
 					return nil, 0, fmt.Errorf("failed to save the reference legacy node: %w", err)
 				}
 			}
@@ -1044,8 +1044,11 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		return err
 	}
 
-	for _, node := range newNodes {
-		if err := tree.ndb.SaveNode(node); err != nil {
+	cacheCapacity := tree.ndb.nodeCache.Capacity()
+	for i, node := range newNodes {
+		// only add up to cacheCapacity nodes to the cache
+		addToLruCache := i < cacheCapacity
+		if err := tree.ndb.SaveNode(node, addToLruCache); err != nil {
 			return err
 		}
 		node.leftNode, node.rightNode = nil, nil
