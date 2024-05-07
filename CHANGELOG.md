@@ -1,30 +1,10 @@
 # Changelog
 
-<<<<<<< HEAD
-## Unreleased 
-=======
-## v1.0.4 May 7, 2024
+## v1.1.3 May 7, 2024
 
 ### Bug Fixes
 
 - [#943](https://github.com/cosmos/iavl/pull/943) Fix the `WorkingHash` with the `InitialVersion` option.
-
-## v1.0.3 April 8, 2024
-
-### Bug Fixes
-
-- [#928](https://github.com/cosmos/iavl/pull/928) Fix the reformatted root node issue. 
-
-## v1.0.2 March 16, 2024
-
-### Bug Fixes
-
-- [#911](https://github.com/cosmos/iavl/pull/911) Fix the reference root format from (prefix, version) to (prefix, version, nonce)
->>>>>>> 70f77c2 (fix: working hash with initial version (#943))
-
-### Improvements
-
-- [#925](https://github.com/cosmos/iavl/pull/925) Add the `AsyncPruning` option to the `MutableTree` constructor to enable async pruning.
 
 ## v1.1.2 April 8, 2024
 
