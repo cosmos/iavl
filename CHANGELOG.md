@@ -1,38 +1,6 @@
 # Changelog
 
-<<<<<<< HEAD
 ## Unreleased
-=======
-## v1.0.4 May 7, 2024
-
-### Bug Fixes
-
-- [#943](https://github.com/cosmos/iavl/pull/943) Fix the `WorkingHash` with the `InitialVersion` option.
-
-## v1.0.3 April 8, 2024
-
-### Bug Fixes
-
-- [#928](https://github.com/cosmos/iavl/pull/928) Fix the reformatted root node issue. 
-
-## v1.0.2 March 16, 2024
-
-### Bug Fixes
-
-- [#911](https://github.com/cosmos/iavl/pull/911) Fix the reference root format from (prefix, version) to (prefix, version, nonce)
-
-### Improvements
-
-- [#911](https://github.com/cosmos/iavl/pull/911) Async pruning of legacy orphan nodes.
-
-## v1.0.1 February 16, 2024
-
-### Improvements
-
-- [#876](https://github.com/cosmos/iavl/pull/876) Make pruning of legacy orphan nodes asynchronous.
-
-## v1.0.0 (October 30, 2023)
->>>>>>> 70f77c2 (fix: working hash with initial version (#943))
 
 ### Improvements
 
@@ -47,6 +15,7 @@
 
 ### Bug Fixes
 
+- [#943](https://github.com/cosmos/iavl/pull/943) Fix the `WorkingHash` with the `InitialVersion` option.
 - [#909](https://github.com/cosmos/iavl/pull/909) Fix the reference node formats and delete legacy nodes.
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
 - [#795](https://github.com/cosmos/iavl/pull/795) Fix plugin used for buf generate.
