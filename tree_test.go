@@ -1885,3 +1885,37 @@ func TestReferenceRoot(t *testing.T) {
 	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 3}).GetKey())
 	require.Equal(t, tree.root.key, []byte("key2"))
 }
+
+func TestWorkingHashWithInitialVersion(t *testing.T) {
+	db, err := dbm.NewDB("test", "memdb", "")
+	require.NoError(t, err)
+	defer db.Close()
+
+	initialVersion := int64(100)
+	tree := NewMutableTree(db, 0, false, log.NewNopLogger())
+	tree.SetInitialVersion(uint64(initialVersion))
+
+	v := tree.WorkingVersion()
+	require.Equal(t, initialVersion, v)
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	workingHash := tree.WorkingHash()
+	commitHash, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, commitHash, workingHash)
+
+	db, err = dbm.NewDB("test", "memdb", "")
+	require.NoError(t, err)
+
+	// without WorkingHash
+	tree = NewMutableTree(db, 0, false, log.NewNopLogger(), InitialVersionOption(uint64(initialVersion)))
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	commitHash1, _, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, commitHash1, commitHash)
+}
