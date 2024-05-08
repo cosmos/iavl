@@ -6,7 +6,7 @@ require (
 	cosmossdk.io/log v1.3.1
 	github.com/cosmos/cosmos-db v1.0.2
 	github.com/cosmos/ics23/go v0.10.0
-	github.com/emicklei/dot v1.6.1
+	github.com/emicklei/dot v1.6.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/google/btree v1.1.2
@@ -56,11 +56,11 @@ require (
 )
 
 retract (
+	v1.1.3
+	[v1.1.0, v1.1.1]
+	[v1.0.0, v1.0.2]
 	// This version is not used by the Cosmos SDK and adds a maintenance burden.
 	// Use v1.x.x instead.
 	[v0.21.0, v0.21.2]
 	v0.18.0
-	[v1.0.0, v1.0.2]
-	[v1.1.0, v1.1.1]
-	v1.1.3
 )
