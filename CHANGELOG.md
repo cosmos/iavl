@@ -15,6 +15,7 @@
 
 ### Bug Fixes
 
+- [#943](https://github.com/cosmos/iavl/pull/943) Fix the `WorkingHash` with the `InitialVersion` option.
 - [#909](https://github.com/cosmos/iavl/pull/909) Fix the reference node formats and delete legacy nodes.
 - [#773](https://github.com/cosmos/iavl/pull/773) Fix memory leak in `Import`.
 - [#795](https://github.com/cosmos/iavl/pull/795) Fix plugin used for buf generate.

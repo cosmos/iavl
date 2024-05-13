@@ -6,12 +6,12 @@ require (
 	cosmossdk.io/log v1.3.1
 	github.com/cosmos/cosmos-db v1.0.2
 	github.com/cosmos/ics23/go v0.10.0
-	github.com/emicklei/dot v1.6.1
+	github.com/emicklei/dot v1.6.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/mock v1.6.0
 	github.com/google/btree v1.1.2
 	github.com/stretchr/testify v1.9.0
-	golang.org/x/crypto v0.22.0
+	golang.org/x/crypto v0.23.0
 )
 
 require (
@@ -49,13 +49,16 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	google.golang.org/protobuf v1.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 retract (
+	v1.1.3
+	[v1.1.0, v1.1.1]
+	[v1.0.0, v1.0.2]
 	// This version is not used by the Cosmos SDK and adds a maintenance burden.
 	// Use v1.x.x instead.
 	[v0.21.0, v0.21.2]
