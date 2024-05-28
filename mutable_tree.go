@@ -7,7 +7,7 @@ import (
 	"sort"
 	"sync"
 
-	log "cosmossdk.io/log"
+	log "cosmossdk.io/core/log"
 
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"

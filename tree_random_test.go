@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/log"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"

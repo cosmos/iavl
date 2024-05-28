@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/log"
 
 	"github.com/cosmos/iavl/cache"
 	dbm "github.com/cosmos/iavl/db"

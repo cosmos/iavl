@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/log"
 	"github.com/cosmos/iavl/fastnode"
 
 	"github.com/cosmos/iavl/internal/encoding"

@@ -7,7 +7,7 @@ import (
 	"sort"
 	"testing"
 
-	log "cosmossdk.io/log"
+	log "cosmossdk.io/core/log"
 	ics23 "github.com/cosmos/ics23/go"
 	"github.com/stretchr/testify/require"
 
