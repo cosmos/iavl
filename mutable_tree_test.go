@@ -10,7 +10,7 @@ import (
 	"sync"
 	"testing"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/log"
 	"github.com/cosmos/iavl/fastnode"
 
 	"github.com/cosmos/iavl/internal/encoding"
@@ -55,7 +55,7 @@ func TestIterateConcurrency(t *testing.T) {
 				require.NoError(t, err)
 			}(i, j)
 		}
-		tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
+		tree.Iterate(func(_, _ []byte) bool { //nolint:errcheck
 			return false
 		})
 	}

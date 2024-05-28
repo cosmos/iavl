@@ -9,7 +9,7 @@ import (
 	"sort"
 	"testing"
 
-	log "cosmossdk.io/log"
+	log "cosmossdk.io/core/log"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"

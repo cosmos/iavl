@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/log"
 
 	dbm "github.com/cosmos/iavl/db"
 )

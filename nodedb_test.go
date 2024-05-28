@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	log "cosmossdk.io/log"
+	log "cosmossdk.io/core/log"
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 

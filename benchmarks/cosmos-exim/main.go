@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"cosmossdk.io/log"
+	"cosmossdk.io/core/log"
 	tmdb "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl"
