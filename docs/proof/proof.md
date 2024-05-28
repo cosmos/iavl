@@ -6,8 +6,8 @@ be used to verify that a returned value is, in fact, the value contained within 
 This verification is done by comparing the proof's root hash with the tree's root hash.
 
 Somewhat simplified, an IAVL tree is a variant of a
-[binary search tree](https://en.wikipedia.org/wiki/Binary_search_tree) where inner nodes contain 
-keys used for binary search, and leaf nodes contain the actual key/value pairs ordered by key. 
+[binary search tree](https://en.wikipedia.org/wiki/Binary_search_tree) where inner nodes contain
+keys used for binary search, and leaf nodes contain the actual key/value pairs ordered by key.
 Consider the following example, containing five key/value pairs (such as key `a` with value `1`):
 
 ```
@@ -80,7 +80,7 @@ neighbors. The range proof is therefore a complete proof for all existing and al
 pairs ordered between two arbitrary endpoints.
 
 Note that the IAVL terminology for range proofs may differ from that used in other systems, where
-it refers to proofs that a value lies within some interval without revealing the exact value. IAVL 
+it refers to proofs that a value lies within some interval without revealing the exact value. IAVL
 range proofs are used to prove which key/value pairs exist (or not) in some key range, and may be
 known as range queries elsewhere.
 
@@ -107,28 +107,28 @@ This tree can be generated as follows:
 package main
 
 import (
-	"fmt"
-	"log"
+ "fmt"
+ "log"
 
-	"github.com/cosmos/iavl"
-	db "github.com/cosmos/cosmos-db"
+ "github.com/cosmos/iavl"
+ db "github.com/cosmos/cosmos-db"
 )
 
 func main() {
-	tree, err := iavl.NewMutableTree(db.NewMemDB(), 0)
-	if err != nil {
-		log.Fatal(err)
-	}
+ tree, err := iavl.NewMutableTree(db.NewMemDB(), 0)
+ if err != nil {
+  log.Fatal(err)
+ }
 
-	tree.Set([]byte("e"), []byte{5})
-	tree.Set([]byte("d"), []byte{4})
-	tree.Set([]byte("c"), []byte{3})
-	tree.Set([]byte("b"), []byte{2})
-	tree.Set([]byte("a"), []byte{1})
+ tree.Set([]byte("e"), []byte{5})
+ tree.Set([]byte("d"), []byte{4})
+ tree.Set([]byte("c"), []byte{3})
+ tree.Set([]byte("b"), []byte{2})
+ tree.Set([]byte("a"), []byte{1})
 
-	rootHash, version, err := tree.SaveVersion()
-	if err != nil {
-		log.Fatal(err)
+ rootHash, version, err := tree.SaveVersion()
+ if err != nil {
+  log.Fatal(err)
     }
     fmt.Printf("Saved version %v with root hash %x\n", version, rootHash)
 
@@ -140,7 +140,7 @@ func main() {
 ### Tree Root Hash
 
 Proofs are verified against the root hash of an IAVL tree. This root hash is retrieved via
-`MutableTree.Hash()` or `ImmutableTree.Hash()`, returning a `[]byte` hash. It is also returned by 
+`MutableTree.Hash()` or `ImmutableTree.Hash()`, returning a `[]byte` hash. It is also returned by
 `MutableTree.SaveVersion()`, as shown above.
 
 ```go
@@ -155,13 +155,13 @@ The following methods are used to generate proofs, all of which are of type `Ran
 * `ImmutableTree.GetWithProof(key []byte)`: fetches the key's value (if it exists) along with a
   proof of existence or proof of absence.
 
-* `ImmutableTree.GetRangeWithProof(start, end []byte, limit int)`: fetches the keys, values, and 
+* `ImmutableTree.GetRangeWithProof(start, end []byte, limit int)`: fetches the keys, values, and
   proofs for the given key range, optionally with a limit (end key is excluded).
 
 * `MutableTree.GetVersionedWithProof(key []byte, version int64)`: like `GetWithProof()`, but for a
   specific version of the tree.
 
-* `MutableTree.GetVersionedRangeWithProof(key []byte, version int64)`: like `GetRangeWithProof()`, 
+* `MutableTree.GetVersionedRangeWithProof(key []byte, version int64)`: like `GetRangeWithProof()`,
   but for a specific version of the tree.
 
 ### Verifying Proofs
@@ -192,7 +192,7 @@ if err != nil {
 }
 ```
 
-The proof must always be verified against the root hash with `Verify()` before attempting other 
+The proof must always be verified against the root hash with `Verify()` before attempting other
 operations. The proof can also be verified manually with `RangeProof.ComputeRootHash()`:
 
 ```go
@@ -221,7 +221,7 @@ fmt.Printf("prove b=2: %v\n", err)
 // outputs "leaf key not found in proof: invalid proof"
 ```
 
-If we generate a proof for a range of keys, we can use this both to prove the value of any of the 
+If we generate a proof for a range of keys, we can use this both to prove the value of any of the
 keys in the range as well as the absence of any keys that would have been within it:
 
 ```go
@@ -281,23 +281,23 @@ A `RangeProof` contains the following data, as well as JSON tags for serializati
 
 ```go
 type RangeProof struct {
-	LeftPath   PathToLeaf      `json:"left_path"`
-	InnerNodes []PathToLeaf    `json:"inner_nodes"`
-	Leaves     []ProofLeafNode `json:"leaves"`
+ LeftPath   PathToLeaf      `json:"left_path"`
+ InnerNodes []PathToLeaf    `json:"inner_nodes"`
+ Leaves     []ProofLeafNode `json:"leaves"`
 }
 ```
 
-* `LeftPath` contains the path to the leftmost node in the proof. For a proof of the range `a` to 
-  `e` (excluding `e=5`), it contains information about the inner nodes `d`, `c`, and `b` in that 
+* `LeftPath` contains the path to the leftmost node in the proof. For a proof of the range `a` to
+  `e` (excluding `e=5`), it contains information about the inner nodes `d`, `c`, and `b` in that
   order.
 
-* `InnerNodes` contains paths with any additional inner nodes not already in `LeftPath`, with `nil` 
-  paths for nodes already traversed. For a proof of the range `a` to `e` (excluding `e=5`), this 
+* `InnerNodes` contains paths with any additional inner nodes not already in `LeftPath`, with `nil`
+  paths for nodes already traversed. For a proof of the range `a` to `e` (excluding `e=5`), this
   contains the paths `nil`, `nil`, `[e]` where the `nil` paths refer to the paths to `b=2` and
   `c=3` already traversed in `LeftPath`, and `[e]` contains data about the `e` inner node needed
   to prove `d=4`.
 
-* `Leaves` contains data about the leaf nodes in the range. For the range `a` to `e` (excluding 
+* `Leaves` contains data about the leaf nodes in the range. For the range `a` to `e` (excluding
   `e=5`) this contains info about `a=1`, `b=2`, `c=3`, and `d=4` in left-to-right order.
 
 Note that `Leaves` may contain additional leaf nodes outside the requested range, for example to
@@ -314,11 +314,11 @@ Where `ProofInnerNode` contains the following data (a subset of the [node data](
 
 ```go
 type ProofInnerNode struct {
-	Height  int8   `json:"height"`
-	Size    int64  `json:"size"`
-	Version int64  `json:"version"`
-	Left    []byte `json:"left"`
-	Right   []byte `json:"right"`
+ Height  int8   `json:"height"`
+ Size    int64  `json:"size"`
+ Version int64  `json:"version"`
+ Left    []byte `json:"left"`
+ Right   []byte `json:"right"`
 }
 ```
 
@@ -330,9 +330,9 @@ Similarly, `ProofLeafNode` contains a subset of leaf node data:
 
 ```go
 type ProofLeafNode struct {
-	Key       cmn.HexBytes `json:"key"`
-	ValueHash cmn.HexBytes `json:"value"`
-	Version   int64        `json:"version"`
+ Key       cmn.HexBytes `json:"key"`
+ ValueHash cmn.HexBytes `json:"value"`
+ Version   int64        `json:"version"`
 }
 ```
 
@@ -341,7 +341,7 @@ because values can be arbitrarily large while the hash has a constant size. The 
 the tree are computed in the same way, by hashing the value before including it in the node
 hash.
 
-The information in these proofs is sufficient to reasonably prove that a given value exists (or 
+The information in these proofs is sufficient to reasonably prove that a given value exists (or
 does not exist) in a given version of an IAVL dataset without fetching the entire dataset, requiring
 only `log₂(n)` hashes for a dataset of `n` items. For more information, please see the
 [API reference](https://pkg.go.dev/github.com/cosmos/iavl).
