@@ -447,7 +447,7 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		return err
 	}
 	// Delete all legacy roots
-	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, _ []byte) error {
 		checkDeletePause()
 		return ndb.batch.Delete(key)
 	}); err != nil {
@@ -502,11 +502,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	// Delete the nodes for new format
-	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, v []byte) error {
+	if err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, _ []byte) error {
 		return ndb.batch.Delete(k)
-	})
-
-	if err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -1093,7 +1091,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 
 func (ndb *nodeDB) size() int {
 	size := 0
-	err := ndb.traverse(func(k, v []byte) error {
+	err := ndb.traverse(func(_, _ []byte) error {
 		size++
 		return nil
 	})
@@ -1199,7 +1197,7 @@ func (ndb *nodeDB) String() (string, error) {
 
 	buf.WriteByte('\n')
 
-	err = ndb.traverseNodes(func(node *Node) error {
+	if err = ndb.traverseNodes(func(node *Node) error {
 		switch {
 		case node == nil:
 			fmt.Fprintf(buf, "%s: <nil>\n", nodeKeyFormat.Prefix())
@@ -1212,9 +1210,7 @@ func (ndb *nodeDB) String() (string, error) {
 		}
 		index++
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		return "", err
 	}
 

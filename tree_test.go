@@ -1792,7 +1792,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 
 	for name, tc := range testcases {
 		tc := tc
-		t.Run(name, func(sub *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			stat := &Statistics{}
 			db, err := dbm.NewDB("test", "memdb", "")
 			require.NoError(t, err)
