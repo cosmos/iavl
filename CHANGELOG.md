@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Improvements
+- [#952](https://github.com/cosmos/iavl/pull/952) Add `DeleteVersionsFrom(int64)` API.
+
 ## v1.2.0 May 13, 2024
 
 ### Improvements
