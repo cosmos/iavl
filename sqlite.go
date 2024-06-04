@@ -63,6 +63,7 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.WalSize == 0 {
 		opts.WalSize = 1024 * 1024 * 100
 	}
+	opts.ShardTrees = true
 	opts.walPages = opts.WalSize / os.Getpagesize()
 	return opts
 }
