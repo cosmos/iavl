@@ -283,23 +283,23 @@ func TestOsmoLike_ColdStart(t *testing.T) {
 	tmpDir := "/Users/mattk/.costor/iavl-v2"
 
 	treeOpts := TreeOptions{
-		CheckpointInterval: 5,
+		CheckpointInterval: 240,
 		StateStorage:       true,
-		HeightFilter:       1,
-		EvictionDepth:      22,
+		HeightFilter:       0,
+		EvictionDepth:      30,
 		MetricsProxy:       newPrometheusMetricsProxy(),
 	}
 	multiTree := NewMultiTree(tmpDir, treeOpts)
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
-	// require.NoError(t, multiTree.WarmLeaves())
+	require.NoError(t, multiTree.WarmLeaves())
 
 	logDir := "/tmp/osmo-like-many/v2"
 	opts := testutil.CompactedChangelogs(logDir)
 	opts.SampleRate = 250_000
 
-	opts.Until = 1_000
-	opts.UntilHash = "557663181d9ab97882ecfc6538e3b4cfe31cd805222fae905c4b4f4403ca5cda"
+	opts.Until = 500
+	opts.UntilHash = "2670bd5767e70f2bf9e4f723b5f205759e39afdb5d8cfb6b54a4a3ecc27a1377"
 
 	testTreeBuild(t, multiTree, opts)
 }

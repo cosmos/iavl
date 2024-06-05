@@ -228,7 +228,9 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		return
 	}
 
-	if node.hash == nil {
+	recurse := node.hash == nil || (tree.shouldCheckpoint && node.nodeKey.Version() > tree.checkpoints.Last())
+
+	if recurse {
 		// When the child is a leaf, this will initiate a leafRead from storage for the sole purpose of producing a hash.
 		// Recall that a terminal tree node may have only updated one leaf this version.
 		// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
@@ -245,17 +247,6 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	} else {
 		// otherwise accumulate the branch node for checkpointing
 		tree.branches = append(tree.branches, node)
-
-		// if the node is missing a hash then it's children have already been loaded above.
-		// if the node has a hash then traverse the dirty path.
-		if node.hash != nil {
-			if node.leftNode != nil {
-				tree.deepHash(node.leftNode, depth+1)
-			}
-			if node.rightNode != nil {
-				tree.deepHash(node.rightNode, depth+1)
-			}
-		}
 	}
 
 	node._hash()
