@@ -2,6 +2,9 @@ package scan
 
 import (
 	"fmt"
+	"github.com/dustin/go-humanize"
+	"github.com/kocubinski/costor-api/compact"
+	"math"
 	"os"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -13,7 +16,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "scan",
 	}
-	cmd.AddCommand(probeCommand(), rootsCommand())
+	cmd.AddCommand(probeCommand(), rootsCommand(), changesetCommand())
 	return cmd
 }
 
@@ -99,5 +102,65 @@ func rootsCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&version, "version", 0, "version to query")
 	cmd.MarkFlagRequired("db")
 	cmd.MarkFlagRequired("version")
+	return cmd
+}
+
+func changesetCommand() *cobra.Command {
+	var (
+		path  string
+		until int64
+	)
+	cmd := &cobra.Command{
+		Use:   "changeset",
+		Short: "scan changesets, collect and print some simple statistics",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			itr, err := compact.NewChangesetIterator(path)
+			if err != nil {
+				return err
+			}
+			var (
+				count int64
+				size  int64
+				set   int64
+				del   int64
+			)
+			prn := func() {
+				fmt.Printf("count: %s, size: %s, sets: %s, deletes: %s\n",
+					humanize.Comma(count), humanize.Bytes(uint64(size)), humanize.Comma(set), humanize.Comma(del))
+			}
+			for ; itr.Valid(); err = itr.Next() {
+				if err != nil {
+					return err
+				}
+				if itr.Version() > until {
+					break
+				}
+				cs := itr.Nodes()
+				for ; cs.Valid(); err = cs.Next() {
+					if err != nil {
+						return err
+					}
+					node := cs.GetNode()
+					count++
+					size += int64(len(node.Key) + len(node.Value))
+					if node.Delete {
+						del++
+					} else {
+						set++
+					}
+					if count%250000 == 0 {
+						prn()
+					}
+				}
+			}
+			prn()
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&path, "path", "", "path to changeset")
+	cmd.Flags().Int64Var(&until, "until", math.MaxInt64, "scan until version")
+	if err := cmd.MarkFlagRequired("path"); err != nil {
+		panic(err)
+	}
 	return cmd
 }
