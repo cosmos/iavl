@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"cosmossdk.io/core/log"
-	tmdb "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl"
 	idbm "github.com/cosmos/iavl/db"
@@ -89,11 +88,11 @@ func run(dbPath string) error {
 
 // runExport runs an export benchmark and returns a map of store names/export nodes
 func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
-	ldb, err := tmdb.NewDB("application", tmdb.GoLevelDBBackend, dbPath)
+	ldb, err := idbm.NewGoLevelDB("application", dbPath)
 	if err != nil {
 		return 0, nil, err
 	}
-	tree := iavl.NewMutableTree(idbm.NewWrapper(tmdb.NewPrefixDB(ldb, []byte("s/k:main/"))), 0, false, log.NewNopLogger())
+	tree := iavl.NewMutableTree(idbm.NewPrefixDB(ldb, []byte("s/k:main/")), 0, false, log.NewNopLogger())
 	version, err := tree.LoadVersion(0)
 	if err != nil {
 		return 0, nil, err
@@ -104,8 +103,8 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 
 	totalStats := Stats{}
 	for _, name := range stores {
-		db := tmdb.NewPrefixDB(ldb, []byte("s/k:"+name+"/"))
-		tree := iavl.NewMutableTree(idbm.NewWrapper(db), 0, false, log.NewNopLogger())
+		db := idbm.NewPrefixDB(ldb, []byte("s/k:"+name+"/"))
+		tree := iavl.NewMutableTree(db, 0, false, log.NewNopLogger())
 
 		stats := Stats{}
 		export := make([]*iavl.ExportNode, 0, 100000)
@@ -166,11 +165,11 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		start := time.Now()
 		stats := Stats{}
 
-		newDB, err := tmdb.NewDB(name, tmdb.GoLevelDBBackend, tempdir)
+		newDB, err := idbm.NewGoLevelDB(name, tempdir)
 		if err != nil {
 			return err
 		}
-		newTree := iavl.NewMutableTree(idbm.NewWrapper(newDB), 0, false, log.NewNopLogger())
+		newTree := iavl.NewMutableTree(newDB, 0, false, log.NewNopLogger())
 		importer, err := newTree.Import(version)
 		if err != nil {
 			return err

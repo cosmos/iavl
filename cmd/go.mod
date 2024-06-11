@@ -3,13 +3,13 @@ module github.com/cosmos/iavl/cmd
 go 1.21
 
 require (
+	cosmossdk.io/core v0.12.1-0.20240514205955-97c9bbb0341b
 	cosmossdk.io/log v1.3.2-0.20240514205955-97c9bbb0341b
 	github.com/cosmos/cosmos-db v1.0.2
 	github.com/cosmos/iavl v1.2.0
 )
 
 require (
-	cosmossdk.io/core v0.12.1-0.20240514205955-97c9bbb0341b // indirect
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect

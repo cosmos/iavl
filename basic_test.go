@@ -383,7 +383,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	// test traversing the whole node works... in order
 	viewed := []string{}
-	tree.Iterate(func(key []byte, value []byte) bool {
+	tree.Iterate(func(key []byte, _ []byte) bool {
 		viewed = append(viewed, string(key))
 		return false
 	})

@@ -104,14 +104,14 @@ diff a-cur.shape b-cur.shape
 ```
 
 Yup, that is quite some difference. You can also look at the tree as a whole.
-So, stretch your terminal nice and wide, and... 
+So, stretch your terminal nice and wide, and...
 
 ```shell
 less a-cur.shape
 ```
 
-It has `-5 ` for an inner node of depth 5, and `*6 ` for a leaf node (data) of depth 6.
-Indentation also suggests the shape of the tree. 
+It has `-5` for an inner node of depth 5, and `*6` for a leaf node (data) of depth 6.
+Indentation also suggests the shape of the tree.
 
 Note, if anyone wants to improve the visualization, that would be awesome.
 I have no idea how to do this well, but at least text output makes some
