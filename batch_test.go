@@ -28,9 +28,7 @@ func makeKey(n uint16) []byte {
 }
 
 func TestBatchWithFlusher(t *testing.T) {
-
 	testBatchWithFlusher(t)
-
 }
 
 func testBatchWithFlusher(t *testing.T) {

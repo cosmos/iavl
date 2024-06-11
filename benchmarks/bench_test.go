@@ -345,7 +345,6 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 		if bb.dbType != "nodb" {
 			d, err = dbm.NewGoLevelDB("test", dirName)
 			if err != nil {
-
 				require.NoError(b, err)
 			}
 			defer d.Close()
