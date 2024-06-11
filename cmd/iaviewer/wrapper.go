@@ -11,6 +11,7 @@ type Wrapper struct {
 }
 
 // newWrapper returns a new Wrapper.
+// Wrapper must be implemented against rocksdb.DB and pebbleDB separately
 func newWrapper(db dbm.DB) *Wrapper {
 	return &Wrapper{DB: db}
 }
