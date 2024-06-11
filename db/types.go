@@ -1,6 +1,10 @@
 package db
 
-import "errors"
+import (
+	"errors"
+
+	corestore "cosmossdk.io/core/store"
+)
 
 var (
 	// errBatchClosed is returned when a closed or written batch is used.
@@ -33,7 +37,7 @@ type DB interface {
 	// valid.
 	// CONTRACT: No writes may happen within a domain while an iterator exists over it.
 	// CONTRACT: start, end readonly []byte
-	Iterator(start, end []byte) (Iterator, error)
+	Iterator(start, end []byte) (corestore.Iterator, error)
 
 	// ReverseIterator returns an iterator over a domain of keys, in descending order. The caller
 	// must call Close when done. End is exclusive, and start must be less than end. A nil end
@@ -41,17 +45,17 @@ type DB interface {
 	// Empty keys are not valid.
 	// CONTRACT: No writes may happen within a domain while an iterator exists over it.
 	// CONTRACT: start, end readonly []byte
-	ReverseIterator(start, end []byte) (Iterator, error)
+	ReverseIterator(start, end []byte) (corestore.Iterator, error)
 
 	// Close closes the database connection.
 	Close() error
 
 	// NewBatch creates a batch for atomic updates. The caller must call Batch.Close.
-	NewBatch() Batch
+	NewBatch() corestore.Batch
 
 	// NewBatchWithSize create a new batch for atomic updates, but with pre-allocated size.
 	// This will does the same thing as NewBatch if the batch implementation doesn't support pre-allocation.
-	NewBatchWithSize(int) Batch
+	NewBatchWithSize(int) corestore.Batch
 }
 
 // Iterator represents an iterator over a domain of keys. Callers must call Close when done.

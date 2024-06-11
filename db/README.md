@@ -11,18 +11,18 @@ package main
 
 import (
     "cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
+    dbm "github.com/cosmos/cosmos-db"
 
-	"github.com/cosmos/iavl"
-	idbm "github.com/cosmos/iavl/db"
+    "github.com/cosmos/iavl"
+    idbm "github.com/cosmos/iavl/db"
 )
 
 func main() {
     levelDB, err := dbm.NewDB("application", dbm.GoLevelDBBackend, "test")
-	if err != nil {
-		panic(err)
-	}
+ if err != nil {
+  panic(err)
+ }
 
-	tree := iavl.NewMutableTree(idbm.NewWrapper(dbm.NewPrefixDB(levelDB, []byte("s/k:main/"))), 0, false, log.NewNopLogger())
+ tree := iavl.NewMutableTree(idbm.NewWrapper(dbm.NewPrefixDB(levelDB, []byte("s/k:main/"))), 0, false, log.NewNopLogger())
 }
 ```

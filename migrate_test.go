@@ -53,7 +53,7 @@ func TestLazySet(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", dbType, relateDir)
+	db, err := dbm.NewGoLevelDB("test", relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -96,7 +96,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", dbType, relateDir)
+	db, err := dbm.NewGoLevelDB("test", relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -136,7 +136,7 @@ func TestDeleteVersions(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", dbType, relateDir)
+	db, err := dbm.NewGoLevelDB("test", relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -215,7 +215,7 @@ func TestPruning(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", dbType, relateDir)
+	db, err := dbm.NewGoLevelDB("test", relateDir)
 	require.NoError(t, err)
 
 	defer func() {
@@ -303,7 +303,7 @@ func TestRandomSet(t *testing.T) {
 	relateDir, err := createLegacyTree(t, dbDir, legacyVersion)
 	require.NoError(t, err)
 
-	db, err := dbm.NewDB("test", dbType, relateDir)
+	db, err := dbm.NewGoLevelDB("test", relateDir)
 	require.NoError(t, err)
 
 	defer func() {

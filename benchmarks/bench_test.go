@@ -6,7 +6,6 @@ import (
 	mrand "math/rand"
 	"os"
 	"runtime"
-	"strings"
 	"testing"
 
 	"cosmossdk.io/core/log"
@@ -330,9 +329,6 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
-		if bb.dbType == "rocksdb" {
-			_ = os.Mkdir(dirName, 0o755)
-		}
 
 		defer func() {
 			err := os.RemoveAll(dirName)
@@ -347,16 +343,9 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 			err error
 		)
 		if bb.dbType != "nodb" {
-			d, err = dbm.NewDB("test", bb.dbType, dirName)
-
+			d, err = dbm.NewGoLevelDB("test", dirName)
 			if err != nil {
-				if strings.Contains(err.Error(), "unknown db_backend") {
-					// As an exception to run benchmarks: if the error is about cleveldb, or rocksdb,
-					// it requires a tag "cleveldb" to link the database at runtime, so instead just
-					// log the error instead of failing.
-					b.Logf("%+v\n", err)
-					continue
-				}
+
 				require.NoError(b, err)
 			}
 			defer d.Close()
