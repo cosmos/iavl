@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"cosmossdk.io/core/log"
+	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/iavl"
@@ -146,7 +147,7 @@ func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	}
 }
 
-func iterate(b *testing.B, itr dbm.Iterator, expectedSize int) {
+func iterate(b *testing.B, itr corestore.Iterator, expectedSize int) {
 	b.StartTimer()
 	keyValuePairs := make([][][]byte, 0, expectedSize)
 	for i := 0; i < expectedSize && itr.Valid(); i++ {

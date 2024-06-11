@@ -154,7 +154,7 @@ func (pdb *PrefixDB) prefixed(key []byte) []byte {
 
 // IteratePrefix is a convenience function for iterating over a key domain
 // restricted by prefix.
-func IteratePrefix(db DB, prefix []byte) (Iterator, error) {
+func IteratePrefix(db DB, prefix []byte) (corestore.Iterator, error) {
 	var start, end []byte
 	if len(prefix) == 0 {
 		start = nil
@@ -175,14 +175,14 @@ type prefixDBIterator struct {
 	prefix []byte
 	start  []byte
 	end    []byte
-	source Iterator
+	source corestore.Iterator
 	valid  bool
 	err    error
 }
 
-var _ Iterator = (*prefixDBIterator)(nil)
+var _ corestore.Iterator = (*prefixDBIterator)(nil)
 
-func newPrefixIterator(prefix, start, end []byte, source Iterator) *prefixDBIterator {
+func newPrefixIterator(prefix, start, end []byte, source corestore.Iterator) *prefixDBIterator {
 	pitrInvalid := &prefixDBIterator{
 		prefix: prefix,
 		start:  start,
@@ -279,12 +279,12 @@ func (itr *prefixDBIterator) assertIsValid() {
 
 type prefixDBBatch struct {
 	prefix []byte
-	source Batch
+	source corestore.Batch
 }
 
-var _ Batch = (*prefixDBBatch)(nil)
+var _ corestore.Batch = (*prefixDBBatch)(nil)
 
-func newPrefixBatch(prefix []byte, source Batch) prefixDBBatch {
+func newPrefixBatch(prefix []byte, source corestore.Batch) prefixDBBatch {
 	return prefixDBBatch{
 		prefix: prefix,
 		source: source,

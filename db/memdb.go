@@ -226,7 +226,7 @@ type memDBIterator struct {
 	useMtx bool
 }
 
-var _ Iterator = (*memDBIterator)(nil)
+var _ corestore.Iterator = (*memDBIterator)(nil)
 
 // newMemDBIterator creates a new memDBIterator.
 func newMemDBIterator(db *MemDB, start []byte, end []byte, reverse bool) *memDBIterator {

@@ -187,7 +187,7 @@ type goLevelDBIterator struct {
 	isInvalid bool
 }
 
-var _ Iterator = (*goLevelDBIterator)(nil)
+var _ corestore.Iterator = (*goLevelDBIterator)(nil)
 
 func newGoLevelDBIterator(source iterator.Iterator, start, end []byte, isReverse bool) *goLevelDBIterator {
 	if isReverse {
@@ -312,7 +312,7 @@ type goLevelDBBatch struct {
 	batch *leveldb.Batch
 }
 
-var _ Batch = (*goLevelDBBatch)(nil)
+var _ corestore.Batch = (*goLevelDBBatch)(nil)
 
 func newGoLevelDBBatch(db *GoLevelDB) *goLevelDBBatch {
 	return &goLevelDBBatch{

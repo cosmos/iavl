@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"cosmossdk.io/core/log"
+	corestore "cosmossdk.io/core/store"
 
 	dbm "github.com/cosmos/iavl/db"
 )
@@ -246,7 +247,7 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 }
 
 // Iterator returns an iterator over the immutable tree.
-func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
 	if !t.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := t.IsFastCacheEnabled()
 		if err != nil {
