@@ -98,7 +98,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	require.NoError(t, err)
 	defer os.RemoveAll(tempdir)
 
-	levelDB, err := dbm.NewDB("test", "goleveldb", tempdir)
+	levelDB, err := dbm.NewGoLevelDB("test", tempdir)
 	require.NoError(t, err)
 
 	tree, version, _ := loadTree(levelDB)

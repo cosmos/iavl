@@ -7,6 +7,12 @@ import (
 	"sort"
 	"sync"
 
+<<<<<<< HEAD
+=======
+	log "cosmossdk.io/core/log"
+	corestore "cosmossdk.io/core/store"
+
+>>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
@@ -226,7 +232,7 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
-func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
 	if !tree.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 		if err != nil {
