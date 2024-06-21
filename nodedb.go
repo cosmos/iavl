@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"cosmossdk.io/core/log"
+	corestore "cosmossdk.io/core/store"
 
 	"github.com/cosmos/iavl/cache"
 	dbm "github.com/cosmos/iavl/db"
@@ -80,7 +81,7 @@ type nodeDB struct {
 
 	mtx                 sync.Mutex       // Read/write lock.
 	db                  dbm.DB           // Persistent node storage.
-	batch               dbm.Batch        // Batched writing buffer.
+	batch               corestore.Batch  // Batched writing buffer.
 	opts                Options          // Options to customize for pruning/writing
 	versionReaders      map[int64]uint32 // Number of active version readers
 	storageVersion      string           // Storage version
@@ -873,7 +874,7 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 }
 
 // Get the iterator for a given prefix.
-func (ndb *nodeDB) getPrefixIterator(prefix []byte) (dbm.Iterator, error) {
+func (ndb *nodeDB) getPrefixIterator(prefix []byte) (corestore.Iterator, error) {
 	var start, end []byte
 	if len(prefix) == 0 {
 		start = nil
@@ -887,7 +888,7 @@ func (ndb *nodeDB) getPrefixIterator(prefix []byte) (dbm.Iterator, error) {
 }
 
 // Get iterator for fast prefix and error, if any
-func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
 	var startFormatted, endFormatted []byte
 
 	if start != nil {
