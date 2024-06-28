@@ -22,30 +22,32 @@ const (
 	DefaultCacheSize int = 10000
 )
 
+var cmds = map[string]bool{
+	"data":     true,
+	"shape":    true,
+	"versions": true,
+}
+
 func main() {
 	args := os.Args[1:]
-	if len(args) < 3 || (args[0] != "data" && args[0] != "shape" && args[0] != "versions") {
-		fmt.Fprintln(os.Stderr, "Usage: iaviewer <data|shape|versions> <leveldb dir> <prefix> [version number]")
-		fmt.Fprintln(os.Stderr, "<prefix> is the prefix of db, and the iavl tree of different modules in cosmos-sdk uses ")
-		fmt.Fprintln(os.Stderr, "different <prefix> to identify, just like \"s/k:gov/\" represents the prefix of gov module")
+	if len(args) < 3 || len(args) > 4 || !cmds[args[0]] {
+		fmt.Fprintln(os.Stderr, strings.TrimSpace(`
+Usage: iaviewer <data|shape|versions> <leveldb dir> <prefix> [version number]
+<prefix> is the prefix of db, and the iavl tree of different modules in cosmos-sdk uses
+different <prefix> to identify, just like "s/k:gov/" represents the prefix of gov module
+`))
 		os.Exit(1)
 	}
 
 	version := 0
-	if len(args) == 4 {
+	if len(args) >= 4 {
 		var err error
 		version, err = strconv.Atoi(args[3])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Invalid version number: %s\n", err)
-			os.Exit(1)
-		}
+		assertNoError(err, "Invalid version number")
 	}
 
 	tree, err := ReadTree(args[1], version, []byte(args[2]))
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading data: %s\n", err)
-		os.Exit(1)
-	}
+	assertNoError(err, "Error reading database")
 
 	switch args[0] {
 	case "data":
@@ -57,6 +59,13 @@ func main() {
 		PrintShape(tree)
 	case "versions":
 		PrintVersions(tree)
+	}
+}
+
+func assertNoError(err error, msg string) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s: %s\n", msg, err)
+		os.Exit(1)
 	}
 }
 
