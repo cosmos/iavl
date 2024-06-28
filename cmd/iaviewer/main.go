@@ -22,16 +22,18 @@ const (
 )
 
 var cmds = map[string]bool{
-	"data":     true,
-	"shape":    true,
-	"versions": true,
+	"data":      true,
+	"data-full": true,
+	"hash":      true,
+	"shape":     true,
+	"versions":  true,
 }
 
 func main() {
 	args := os.Args[1:]
 	if len(args) < 3 || len(args) > 4 || !cmds[args[0]] {
 		fmt.Fprintln(os.Stderr, strings.TrimSpace(`
-Usage: iaviewer <data|shape|versions> <leveldb dir> <prefix> [version number]
+Usage: iaviewer <data|data-full|hash|shape|versions> <leveldb dir> <prefix> [version number]
 <prefix> is the prefix of db, and the iavl tree of different modules in cosmos-sdk uses
 different <prefix> to identify, just like "s/k:gov/" represents the prefix of gov module
 `))
@@ -60,9 +62,15 @@ different <prefix> to identify, just like "s/k:gov/" represents the prefix of go
 	assertNoError(err, "Error reading target version")
 	fmt.Printf("Got version: %d\n", tree.Version())
 
+	fullValues := false
 	switch args[0] {
+	case "data-full":
+		fullValues = true
+		fallthrough
 	case "data":
-		PrintKeys(tree)
+		PrintKeys(tree, fullValues)
+		fallthrough
+	case "hash":
 		hash := tree.Hash()
 		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
@@ -150,12 +158,20 @@ func ReadTree(dir string, prefix []byte) (tree *iavl.MutableTree, latestVersion 
 	return tree, latestVersion, err
 }
 
-func PrintKeys(tree *iavl.ImmutableTree) {
-	fmt.Println("Printing all keys with hashed values (to detect diff)")
+func PrintKeys(tree *iavl.ImmutableTree, fullValues bool) {
+	valuesLabel := "hashed values"
+	valueToString := func(value []byte) string {
+		return fmt.Sprintf("%X", sha256.Sum256(value))
+	}
+	if fullValues {
+		valuesLabel = "values"
+		valueToString = encodeData
+	}
+	fmt.Printf("Printing all keys with %s (to detect diff)\n", valuesLabel)
 	tree.Iterate(func(key []byte, value []byte) bool {
-		printKey := parseWeaveKey(key)
-		digest := sha256.Sum256(value)
-		fmt.Printf("  %s\n    %X\n", printKey, digest)
+		keyStr := parseWeaveKey(key)
+		valueStr := valueToString(value)
+		fmt.Printf("  %s\n    %s\n", keyStr, valueStr)
 		return false
 	})
 }
