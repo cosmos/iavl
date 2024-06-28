@@ -93,7 +93,6 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 		return []string{here}, nil
 	}
 
-	// recurse on inner node
 	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
 
 	rightNode, err := node.getRightNode(t)
@@ -111,12 +110,14 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 		return nil, err
 	}
 
-	result, err := t.renderNode(leftNode, indent, depth+1, encoder) // left
+	left, err := t.renderNode(leftNode, indent, depth+1, encoder)
 	if err != nil {
 		return nil, err
 	}
 
-	result = append(result, here)
+	// Return results in topological depth-first pre-order (parent before subtrees).
+	result := []string{here}
+	result = append(result, left...)
 	result = append(result, right...)
 	return result, nil
 }
