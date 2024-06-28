@@ -39,10 +39,10 @@ different <prefix> to identify, just like "s/k:gov/" represents the prefix of go
 		os.Exit(1)
 	}
 
-	version := 0
+	version := int64(0)
 	if len(args) >= 4 {
 		var err error
-		version, err = strconv.Atoi(args[3])
+		version, err = strconv.ParseInt(args[3], 10, 0)
 		assertNoError(err, "Invalid version number")
 	}
 
@@ -55,9 +55,9 @@ different <prefix> to identify, just like "s/k:gov/" represents the prefix of go
 	}
 
 	if version == 0 {
-		version = int(latestVersion)
+		version = latestVersion
 	}
-	tree, err := mutableTree.GetImmutable(int64(version))
+	tree, err := mutableTree.GetImmutable(version)
 	assertNoError(err, "Error reading target version")
 	fmt.Printf("Got version: %d\n", tree.Version())
 
