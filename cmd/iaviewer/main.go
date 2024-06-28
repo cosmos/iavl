@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -161,26 +160,39 @@ func PrintKeys(tree *iavl.ImmutableTree) {
 	})
 }
 
-// parseWeaveKey assumes a separating : where all in front should be ascii,
-// and all afterwards may be ascii or binary
+// parseWeaveKey returns a string representation of a key, splitting on the first ":"
+// into a prefix (presumably an all-ASCII type label) followed by a possibly-binary suffix.
 func parseWeaveKey(key []byte) string {
 	cut := bytes.IndexRune(key, ':')
 	if cut == -1 {
-		return encodeID(key)
+		return encodeData(key)
 	}
 	prefix := key[:cut]
 	id := key[cut+1:]
-	return fmt.Sprintf("%s:%s", encodeID(prefix), encodeID(id))
+	return fmt.Sprintf("%s:%s", encodeData(prefix), encodeData(id))
 }
 
-// casts to a string if it is printable ascii, hex-encodes otherwise
-func encodeID(id []byte) string {
-	for _, b := range id {
+// encodeData returns a printable ASCII representation of its input;
+// hexadecimal if it is not already printable ASCII, otherwise plain
+// or quoted as necessary to avoid misinterpretation.
+func encodeData(src []byte) string {
+	hexConfusable := true
+	forceQuotes := false
+	for _, b := range src {
 		if b < 0x20 || b >= 0x80 {
-			return strings.ToUpper(hex.EncodeToString(id))
+			return fmt.Sprintf("%X", src)
+		}
+		if b < '0' || (b > '9' && b < 'A') || (b > 'F') {
+			hexConfusable = false
+			if b == ' ' || b == '"' || b == '\\' {
+				forceQuotes = true
+			}
 		}
 	}
-	return string(id)
+	if hexConfusable || forceQuotes {
+		return fmt.Sprintf("%q", src)
+	}
+	return string(src)
 }
 
 func PrintShape(tree *iavl.ImmutableTree) {
@@ -194,9 +206,6 @@ func nodeEncoder(id []byte, depth int, isLeaf bool) string {
 	prefix := fmt.Sprintf("-%d ", depth)
 	if isLeaf {
 		prefix = fmt.Sprintf("*%d ", depth)
-	}
-	if len(id) == 0 {
-		return fmt.Sprintf("%s<nil>", prefix)
 	}
 	return fmt.Sprintf("%s%s", prefix, parseWeaveKey(id))
 }
