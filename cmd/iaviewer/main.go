@@ -222,9 +222,6 @@ func nodeEncoder(id []byte, depth int, isLeaf bool) string {
 	if isLeaf {
 		prefix = fmt.Sprintf("*%d ", depth)
 	}
-	if len(id) == 0 {
-		return fmt.Sprintf("%s<nil>", prefix)
-	}
 	return fmt.Sprintf("%s%s", prefix, parseWeaveKey(id))
 }
 
