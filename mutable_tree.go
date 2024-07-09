@@ -72,6 +72,11 @@ func (tree *MutableTree) IsEmpty() bool {
 	return tree.ImmutableTree.Size() == 0
 }
 
+// GetLatestVersion returns the latest version of the tree.
+func (tree *MutableTree) GetLatestVersion() (int64, error) {
+	return tree.ndb.getLatestVersion()
+}
+
 // VersionExists returns whether or not a version exists.
 func (tree *MutableTree) VersionExists(version int64) bool {
 	legacyLatestVersion, err := tree.ndb.getLegacyLatestVersion()
