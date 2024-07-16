@@ -19,14 +19,13 @@ import (
 type ImmutableTree struct {
 	logger log.Logger
 
-	root                   *Node
-	ndb                    *nodeDB
-	version                int64
-	skipFastStorageUpgrade bool
+	root    *Node
+	ndb     *nodeDB
+	version int64
 }
 
 // NewImmutableTree creates both in-memory and persistent instances
-func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger, options ...Option) *ImmutableTree {
+func NewImmutableTree(db dbm.DB, cacheSize int, lg log.Logger, options ...Option) *ImmutableTree {
 	opts := DefaultOptions()
 	for _, opt := range options {
 		opt(&opts)
@@ -40,8 +39,7 @@ func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg 
 	return &ImmutableTree{
 		logger: lg,
 		// NodeDB-backed Tree.
-		ndb:                    newNodeDB(db, cacheSize, opts, lg),
-		skipFastStorageUpgrade: skipFastStorageUpgrade,
+		ndb: newNodeDB(db, cacheSize, opts, lg),
 	}
 }
 
@@ -183,32 +181,6 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		return nil, nil
 	}
 
-	if !t.skipFastStorageUpgrade {
-		// attempt to get a FastNode directly from db/cache.
-		// if call fails, fall back to the original IAVL logic in place.
-		fastNode, err := t.ndb.GetFastNode(key)
-		if err != nil {
-			_, result, err := t.root.get(t, key)
-			return result, err
-		}
-
-		if fastNode == nil {
-			// If the tree is of the latest version and fast node is not in the tree
-			// then the regular node is not in the tree either because fast node
-			// represents live state.
-			if t.version == t.ndb.latestVersion {
-				return nil, nil
-			}
-
-			_, result, err := t.root.get(t, key)
-			return result, err
-		}
-
-		if fastNode.GetVersionLastUpdatedAt() <= t.version {
-			return fastNode.GetValue(), nil
-		}
-	}
-
 	// otherwise skipFastStorageUpgrade is true or
 	// the cached node was updated later than the current tree. In this case,
 	// we need to use the regular stategy for reading from the current tree to avoid staleness.
@@ -248,16 +220,6 @@ func (t *ImmutableTree) Iterate(fn func(key []byte, value []byte) bool) (bool, e
 
 // Iterator returns an iterator over the immutable tree.
 func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
-	if !t.skipFastStorageUpgrade {
-		isFastCacheEnabled, err := t.IsFastCacheEnabled()
-		if err != nil {
-			return nil, err
-		}
-
-		if isFastCacheEnabled {
-			return NewFastIterator(start, end, ascending, t.ndb), nil
-		}
-	}
 	return NewIterator(start, end, ascending, t), nil
 }
 
@@ -315,10 +277,9 @@ func (t *ImmutableTree) isLatestTreeVersion() (bool, error) {
 // Used internally by MutableTree.
 func (t *ImmutableTree) clone() *ImmutableTree {
 	return &ImmutableTree{
-		root:                   t.root,
-		ndb:                    t.ndb,
-		version:                t.version,
-		skipFastStorageUpgrade: t.skipFastStorageUpgrade,
+		root:    t.root,
+		ndb:     t.ndb,
+		version: t.version,
 	}
 }
 

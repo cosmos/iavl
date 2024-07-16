@@ -3,7 +3,6 @@ package iavl
 import (
 	"bytes"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -51,13 +50,6 @@ var (
 
 	// This is only used for the iteration purpose.
 	nodeKeyPrefixFormat = keyformat.NewFastPrefixFormatter('s', int64Size) // s<version>
-
-	// Key Format for making reads and iterates go through a data-locality preserving db.
-	// The value at an entry will list what version it was written to.
-	// Then to query values, you first query state via this fast method.
-	// If its present, then check the tree version. If tree version >= result_version,
-	// return result_version. Else, go through old (slow) IAVL get method that walks through tree.
-	fastKeyFormat = keyformat.NewKeyFormat('f', 0) // f<keystring>
 
 	// Key Format for storing metadata about the chain such as the version number.
 	// The value at an entry will be in a variable format and up to the caller to
@@ -168,42 +160,6 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	return node, nil
 }
 
-func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
-	if !ndb.hasUpgradedToFastStorage() {
-		return nil, errors.New("storage version is not fast")
-	}
-
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
-	if len(key) == 0 {
-		return nil, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
-	}
-
-	if cachedFastNode := ndb.fastNodeCache.Get(key); cachedFastNode != nil {
-		ndb.opts.Stat.IncFastCacheHitCnt()
-		return cachedFastNode.(*fastnode.Node), nil
-	}
-
-	ndb.opts.Stat.IncFastCacheMissCnt()
-
-	// Doesn't exist, load.
-	buf, err := ndb.db.Get(ndb.fastNodeKey(key))
-	if err != nil {
-		return nil, fmt.Errorf("can't get FastNode %X: %w", key, err)
-	}
-	if buf == nil {
-		return nil, nil
-	}
-
-	fastNode, err := fastnode.DeserializeNode(key, buf)
-	if err != nil {
-		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
-	}
-	ndb.fastNodeCache.Add(fastNode)
-	return fastNode, nil
-}
-
 // SaveNode saves a node to disk.
 func (ndb *nodeDB) SaveNode(node *Node) error {
 	ndb.mtx.Lock()
@@ -228,20 +184,6 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	ndb.logger.Debug("BATCH SAVE", "node", node)
 	ndb.nodeCache.Add(node)
 	return nil
-}
-
-// SaveFastNode saves a FastNode to disk and add to cache.
-func (ndb *nodeDB) SaveFastNode(node *fastnode.Node) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-	return ndb.saveFastNodeUnlocked(node, true)
-}
-
-// SaveFastNodeNoCache saves a FastNode to disk without adding to cache.
-func (ndb *nodeDB) SaveFastNodeNoCache(node *fastnode.Node) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-	return ndb.saveFastNodeUnlocked(node, false)
 }
 
 // SetFastStorageVersionToBatch sets storage version to fast where the version is
@@ -317,12 +259,6 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 		return fmt.Errorf("error while writing fastnode bytes. Err: %w", err)
 	}
 
-	if err := ndb.batch.Set(ndb.fastNodeKey(node.GetKey()), buf.Bytes()); err != nil {
-		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
-	}
-	if shouldAddToCache {
-		ndb.fastNodeCache.Add(node)
-	}
 	return nil
 }
 
@@ -580,22 +516,8 @@ func (ndb *nodeDB) DeleteVersionsTo(toVersion int64) error {
 	return nil
 }
 
-func (ndb *nodeDB) DeleteFastNode(key []byte) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
-		return err
-	}
-	ndb.fastNodeCache.Remove(key)
-	return nil
-}
-
 func (ndb *nodeDB) nodeKey(nk []byte) []byte {
 	return nodeKeyFormat.Key(nk)
-}
-
-func (ndb *nodeDB) fastNodeKey(key []byte) []byte {
-	return fastKeyFormat.KeyBytes(key)
 }
 
 func (ndb *nodeDB) legacyNodeKey(nk []byte) []byte {
@@ -828,13 +750,7 @@ func (ndb *nodeDB) SaveRoot(version int64, nk *NodeKey) error {
 	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), nodeKeyFormat.Key(nk.GetKey()))
 }
 
-// Traverse fast nodes and return error if any, nil otherwise
-func (ndb *nodeDB) traverseFastNodes(fn func(k, v []byte) error) error {
-	return ndb.traversePrefix(fastKeyFormat.Key(), fn)
-}
-
 // Traverse all keys and return error if any, nil otherwise
-
 func (ndb *nodeDB) traverse(fn func(key, value []byte) error) error {
 	return ndb.traverseRange(nil, nil, fn)
 }
@@ -885,30 +801,6 @@ func (ndb *nodeDB) getPrefixIterator(prefix []byte) (corestore.Iterator, error) 
 	}
 
 	return ndb.db.Iterator(start, end)
-}
-
-// Get iterator for fast prefix and error, if any
-func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
-	var startFormatted, endFormatted []byte
-
-	if start != nil {
-		startFormatted = fastKeyFormat.KeyBytes(start)
-	} else {
-		startFormatted = fastKeyFormat.Key()
-	}
-
-	if end != nil {
-		endFormatted = fastKeyFormat.KeyBytes(end)
-	} else {
-		endFormatted = fastKeyFormat.Key()
-		endFormatted[0]++
-	}
-
-	if ascending {
-		return ndb.db.Iterator(startFormatted, endFormatted)
-	}
-
-	return ndb.db.ReverseIterator(startFormatted, endFormatted)
 }
 
 // Write to disk.

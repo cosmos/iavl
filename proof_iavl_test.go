@@ -11,7 +11,7 @@ import (
 )
 
 func TestProofOp(t *testing.T) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, log.NewNopLogger())
 	keys := []byte{0x0a, 0x11, 0x2e, 0x32, 0x50, 0x72, 0x99, 0xa1, 0xe4, 0xf7} // 10 total.
 	for _, ikey := range keys {
 		key := []byte{ikey}

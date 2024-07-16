@@ -80,7 +80,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree = NewMutableTree(levelDB, cacheSize, false, log.NewNopLogger(), SyncOption(sync))
+		tree = NewMutableTree(levelDB, cacheSize, log.NewNopLogger(), SyncOption(sync))
 		version, err = tree.Load()
 		require.NoError(t, err)
 		t.Logf("Loaded version %v (sync=%v cache=%v)", version, sync, cacheSize)
@@ -342,7 +342,6 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 	}
 
 	assertFastNodeCacheIsLive(t, tree, mirror, version)
-	assertFastNodeDiskIsLive(t, tree, mirror, version)
 }
 
 // Checks that fast node cache matches live state.
@@ -360,32 +359,6 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 		mirrorNode := tree.ndb.fastNodeCache.Get([]byte(k))
 		require.Equal(t, []byte(v), mirrorNode.(*fastnode.Node).GetValue(), "cached fast node's value must be equal to live state value")
 	}
-}
-
-// Checks that fast nodes on disk match live state.
-func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	latestVersion, err := tree.ndb.getLatestVersion()
-	require.NoError(t, err)
-	if latestVersion != version {
-		// The fast node disk check should only be done to the latest version
-		return
-	}
-
-	count := 0
-	err = tree.ndb.traverseFastNodes(func(keyWithPrefix, v []byte) error {
-		key := keyWithPrefix[1:]
-		count++
-		fastNode, err := fastnode.DeserializeNode(key, v)
-		require.Nil(t, err)
-
-		mirrorVal := mirror[string(fastNode.GetKey())]
-
-		require.NotNil(t, mirrorVal)
-		require.Equal(t, []byte(mirrorVal), fastNode.GetValue())
-		return nil
-	})
-	require.NoError(t, err)
-	require.Equal(t, len(mirror), count)
 }
 
 // Checks that all versions in the tree are present in the mirrors, and vice-versa.

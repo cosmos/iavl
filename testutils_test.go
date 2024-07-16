@@ -44,7 +44,7 @@ func b2i(bz []byte) int {
 
 // Construct a MutableTree
 func getTestTree(cacheSize int) *MutableTree {
-	return NewMutableTree(dbm.NewMemDB(), cacheSize, false, log.NewNopLogger())
+	return NewMutableTree(dbm.NewMemDB(), cacheSize, log.NewNopLogger())
 }
 
 // Convenience for a new node
@@ -322,7 +322,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db dbm.DB) {
 
 	b.StopTimer()
 
-	t := NewMutableTree(db, 100000, false, log.NewNopLogger())
+	t := NewMutableTree(db, 100000, log.NewNopLogger())
 
 	value := []byte{}
 	for i := 0; i < 1000000; i++ {

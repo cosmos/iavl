@@ -15,7 +15,7 @@ import (
 // setupExportTreeBasic sets up a basic tree with a handful of
 // create/update/delete operations over a few versions.
 func setupExportTreeBasic(t require.TestingT) *ImmutableTree {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, log.NewNopLogger())
 
 	_, err := tree.Set([]byte("x"), []byte{255})
 	require.NoError(t, err)
@@ -74,7 +74,7 @@ func setupExportTreeRandom(t *testing.T) *ImmutableTree {
 	)
 
 	r := rand.New(rand.NewSource(randSeed))
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, log.NewNopLogger())
 
 	var version int64
 	keys := make([][]byte, 0, versionOps)
@@ -134,7 +134,7 @@ func setupExportTreeSized(t require.TestingT, treeSize int) *ImmutableTree {
 	)
 
 	r := rand.New(rand.NewSource(randSeed))
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, log.NewNopLogger())
 
 	for i := 0; i < treeSize; i++ {
 		key := make([]byte, keySize)
@@ -228,7 +228,7 @@ func TestExporterCompress(t *testing.T) {
 
 func TestExporter_Import(t *testing.T) {
 	testcases := map[string]*ImmutableTree{
-		"empty tree": NewImmutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger()),
+		"empty tree": NewImmutableTree(dbm.NewMemDB(), 0, log.NewNopLogger()),
 		"basic tree": setupExportTreeBasic(t),
 	}
 	if !testing.Short() {
@@ -255,7 +255,7 @@ func TestExporter_Import(t *testing.T) {
 					exporter = NewCompressExporter(innerExporter)
 				}
 
-				newTree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+				newTree := NewMutableTree(dbm.NewMemDB(), 0, log.NewNopLogger())
 				innerImporter, err := newTree.Import(tree.Version())
 				require.NoError(t, err)
 				defer innerImporter.Close()
@@ -323,7 +323,7 @@ func TestExporter_Close(t *testing.T) {
 }
 
 func TestExporter_DeleteVersionErrors(t *testing.T) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, log.NewNopLogger())
 
 	_, err := tree.Set([]byte("a"), []byte{1})
 	require.NoError(t, err)
