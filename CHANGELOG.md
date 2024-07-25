@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.2.1 Jul 25, 2024
+
+- []() Use expected interface for expected IAVL `Logger`.
+
 ## v1.2.0 May 13, 2024
 
 ### Improvements
