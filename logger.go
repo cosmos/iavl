@@ -27,7 +27,7 @@ func NewNopLogger() Logger {
 
 type noopLogger struct{}
 
-func (l *noopLogger) Info(msg string, keyVals ...any)  {}
-func (l *noopLogger) Warn(msg string, keyVals ...any)  {}
-func (l *noopLogger) Error(msg string, keyVals ...any) {}
-func (l *noopLogger) Debug(msg string, keyVals ...any) {}
+func (l *noopLogger) Info(string, ...any)  {}
+func (l *noopLogger) Warn(string, ...any)  {}
+func (l *noopLogger) Error(string, ...any) {}
+func (l *noopLogger) Debug(string, ...any) {}
