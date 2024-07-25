@@ -12,8 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"cosmossdk.io/log"
-
 	"github.com/cosmos/iavl/cache"
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
@@ -73,7 +71,7 @@ var (
 var errInvalidFastStorageVersion = fmt.Errorf("fast storage version must be in the format <storage version>%s<latest fast cache version>", fastStorageVersionDelimiter)
 
 type nodeDB struct {
-	logger log.Logger
+	logger Logger
 
 	mtx                 sync.Mutex       // Read/write lock.
 	db                  dbm.DB           // Persistent node storage.
@@ -91,7 +89,7 @@ type nodeDB struct {
 	chCommitting        chan struct{}    // Channel to signal that the committing is done.
 }
 
-func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg log.Logger) *nodeDB {
+func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg Logger) *nodeDB {
 	storeVersion, err := db.Get(metadataKeyFormat.Key([]byte(storageVersionKey)))
 
 	if err != nil || storeVersion == nil {
