@@ -6,7 +6,6 @@ import (
 	"sync"
 	"testing"
 
-	log "cosmossdk.io/log"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -58,14 +57,14 @@ func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
 	}
 
 	t.Run("Nil additions given", func(t *testing.T) {
-		tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+		tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 		itr := NewUnsavedFastIterator(start, end, ascending, tree.ndb, nil, tree.unsavedFastNodeRemovals)
 		performTest(t, itr)
 		require.ErrorIs(t, errUnsavedFastIteratorNilAdditionsGiven, itr.Error())
 	})
 
 	t.Run("Nil removals given", func(t *testing.T) {
-		tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+		tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 		itr := NewUnsavedFastIterator(start, end, ascending, tree.ndb, tree.unsavedFastNodeAdditions, nil)
 		performTest(t, itr)
 		require.ErrorIs(t, errUnsavedFastIteratorNilRemovalsGiven, itr.Error())
@@ -78,7 +77,7 @@ func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
 	})
 
 	t.Run("Additions and removals are nil", func(t *testing.T) {
-		tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+		tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 		itr := NewUnsavedFastIterator(start, end, ascending, tree.ndb, nil, nil)
 		performTest(t, itr)
 		require.ErrorIs(t, errUnsavedFastIteratorNilAdditionsGiven, itr.Error())
@@ -247,7 +246,7 @@ func iteratorSuccessTest(t *testing.T, config *iteratorTestConfig) {
 }
 
 func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	mirror := setupMirrorForIterator(t, config, tree)
 	_, _, err := tree.SaveVersion()
@@ -263,7 +262,7 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Itera
 }
 
 func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	mirror := setupMirrorForIterator(t, config, tree)
 	_, _, err := tree.SaveVersion()
@@ -274,7 +273,7 @@ func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.I
 }
 
 func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	// For unsaved fast iterator, we would like to test the state where
 	// there are saved fast nodes as well as some unsaved additions and removals.
@@ -364,11 +363,11 @@ func TestNodeIterator_Success(t *testing.T) {
 }
 
 func TestNodeIterator_WithEmptyRoot(t *testing.T) {
-	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, DefaultOptions(), log.NewNopLogger()))
+	itr, err := NewNodeIterator(nil, newNodeDB(dbm.NewMemDB(), 0, DefaultOptions(), NewNopLogger()))
 	require.NoError(t, err)
 	require.False(t, itr.Valid())
 
-	itr, err = NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, DefaultOptions(), log.NewNopLogger()))
+	itr, err = NewNodeIterator([]byte{}, newNodeDB(dbm.NewMemDB(), 0, DefaultOptions(), NewNopLogger()))
 	require.NoError(t, err)
 	require.False(t, itr.Valid())
 }
