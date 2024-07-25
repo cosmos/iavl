@@ -1772,7 +1772,7 @@ func TestNodeCacheStatisic(t *testing.T) {
 		expectCacheMissCnt     int
 	}{
 		"with_cache": {
-			cacheSize:              numKeyVals,
+			cacheSize:              2 * numKeyVals, // has to cover all inner nodes
 			expectFastCacheHitCnt:  numKeyVals,
 			expectFastCacheMissCnt: 0,
 			expectCacheHitCnt:      1,
