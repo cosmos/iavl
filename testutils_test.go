@@ -9,7 +9,6 @@ import (
 	"sort"
 	"testing"
 
-	log "cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
@@ -44,7 +43,7 @@ func b2i(bz []byte) int {
 
 // Construct a MutableTree
 func getTestTree(cacheSize int) *MutableTree {
-	return NewMutableTree(dbm.NewMemDB(), cacheSize, false, log.NewNopLogger())
+	return NewMutableTree(dbm.NewMemDB(), cacheSize, false, NewNopLogger())
 }
 
 // Convenience for a new node
@@ -322,7 +321,7 @@ func benchmarkImmutableAvlTreeWithDB(b *testing.B, db dbm.DB) {
 
 	b.StopTimer()
 
-	t := NewMutableTree(db, 100000, false, log.NewNopLogger())
+	t := NewMutableTree(db, 100000, false, NewNopLogger())
 
 	value := []byte{}
 	for i := 0; i < 1000000; i++ {

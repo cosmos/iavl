@@ -23,6 +23,6 @@ func main() {
   panic(err)
  }
 
- tree := iavl.NewMutableTree(idbm.NewWrapper(dbm.NewPrefixDB(levelDB, []byte("s/k:main/"))), 0, false, log.NewNopLogger())
+ tree := iavl.NewMutableTree(idbm.NewWrapper(dbm.NewPrefixDB(levelDB, []byte("s/k:main/"))), 0, false, NewNopLogger())
 }
 ```

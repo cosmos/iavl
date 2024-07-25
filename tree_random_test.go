@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"cosmossdk.io/core/log"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -80,7 +79,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree = NewMutableTree(levelDB, cacheSize, false, log.NewNopLogger(), SyncOption(sync))
+		tree = NewMutableTree(levelDB, cacheSize, false, NewNopLogger(), SyncOption(sync))
 		version, err = tree.Load()
 		require.NoError(t, err)
 		t.Logf("Loaded version %v (sync=%v cache=%v)", version, sync, cacheSize)
