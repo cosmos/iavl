@@ -5,8 +5,6 @@ import (
 	"os"
 	"time"
 
-	"cosmossdk.io/core/log"
-
 	"github.com/cosmos/iavl"
 	idbm "github.com/cosmos/iavl/db"
 )
@@ -92,7 +90,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-	tree := iavl.NewMutableTree(idbm.NewPrefixDB(ldb, []byte("s/k:main/")), 0, false, log.NewNopLogger())
+	tree := iavl.NewMutableTree(idbm.NewPrefixDB(ldb, []byte("s/k:main/")), 0, false, iavl.NewNopLogger())
 	version, err := tree.LoadVersion(0)
 	if err != nil {
 		return 0, nil, err
@@ -104,7 +102,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 	totalStats := Stats{}
 	for _, name := range stores {
 		db := idbm.NewPrefixDB(ldb, []byte("s/k:"+name+"/"))
-		tree := iavl.NewMutableTree(db, 0, false, log.NewNopLogger())
+		tree := iavl.NewMutableTree(db, 0, false, iavl.NewNopLogger())
 
 		stats := Stats{}
 		export := make([]*iavl.ExportNode, 0, 100000)
@@ -169,7 +167,7 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		if err != nil {
 			return err
 		}
-		newTree := iavl.NewMutableTree(newDB, 0, false, log.NewNopLogger())
+		newTree := iavl.NewMutableTree(newDB, 0, false, iavl.NewNopLogger())
 		importer, err := newTree.Import(version)
 		if err != nil {
 			return err

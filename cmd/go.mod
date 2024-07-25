@@ -3,8 +3,8 @@ module github.com/cosmos/iavl/cmd
 go 1.21
 
 require (
-	cosmossdk.io/core v0.12.1-0.20240514205955-97c9bbb0341b
-	cosmossdk.io/log v1.3.2-0.20240514205955-97c9bbb0341b
+	cosmossdk.io/core v0.12.1-0.20240725072823-6a2d039e1212
+	cosmossdk.io/log v1.3.1
 	github.com/cosmos/cosmos-db v1.0.2
 	github.com/cosmos/iavl v1.2.0
 )
@@ -18,7 +18,7 @@ require (
 	github.com/cockroachdb/pebble v1.1.0 // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
-	github.com/cosmos/gogoproto v1.4.12 // indirect
+	github.com/cosmos/gogoproto v1.5.0 // indirect
 	github.com/cosmos/ics23/go v0.10.0 // indirect
 	github.com/emicklei/dot v1.6.2 // indirect
 	github.com/getsentry/sentry-go v0.18.0 // indirect
@@ -45,9 +45,9 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
-	golang.org/x/sys v0.20.0 // indirect
-	golang.org/x/text v0.15.0 // indirect
-	google.golang.org/protobuf v1.34.1 // indirect
+	golang.org/x/sys v0.22.0 // indirect
+	golang.org/x/text v0.16.0 // indirect
+	google.golang.org/protobuf v1.34.2 // indirect
 )
 
 replace github.com/cosmos/iavl => ../.

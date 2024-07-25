@@ -7,7 +7,6 @@ import (
 	"sort"
 	"sync"
 
-	log "cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -34,7 +33,7 @@ type Option func(*Options)
 //
 // The inner ImmutableTree should not be used directly by callers.
 type MutableTree struct {
-	logger log.Logger
+	logger Logger
 
 	*ImmutableTree                          // The current, working tree.
 	lastSaved                *ImmutableTree // The most recently saved tree.
@@ -47,7 +46,7 @@ type MutableTree struct {
 }
 
 // NewMutableTree returns a new tree with the specified optional options.
-func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger, options ...Option) *MutableTree {
+func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg Logger, options ...Option) *MutableTree {
 	opts := DefaultOptions()
 	for _, opt := range options {
 		opt(&opts)
