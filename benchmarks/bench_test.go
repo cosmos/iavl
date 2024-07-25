@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"testing"
 
-	"cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +26,7 @@ func randBytes(length int) []byte {
 }
 
 func prepareTree(b *testing.B, db dbm.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t := iavl.NewMutableTree(db, size, false, log.NewNopLogger())
+	t := iavl.NewMutableTree(db, size, false, iavl.NewNopLogger())
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
