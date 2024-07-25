@@ -1,7 +1,5 @@
 # Changelog
 
-## v1.2.1 Jul 25, 2024
-
 - [#965](https://github.com/cosmos/iavl/pull/965) Use expected interface for expected IAVL `Logger`.
 
 ## v1.2.0 May 13, 2024
