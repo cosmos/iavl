@@ -437,3 +437,12 @@ func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
 	require.Error(t, err, "")
 	require.Contains(t, err.Error(), fmt.Sprintf("unable to delete version %v with 2 active readers", targetVersion+2))
 }
+
+func TestCloseNodeDB(t *testing.T) {
+	db := dbm.NewMemDB()
+	defer db.Close()
+	opts := DefaultOptions()
+	opts.AsyncPruning = true
+	ndb := newNodeDB(db, 0, opts, log.NewNopLogger())
+	ndb.Close()
+}
