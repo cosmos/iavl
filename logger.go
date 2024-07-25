@@ -2,7 +2,7 @@ package iavl
 
 // Logger defines basic logger that IAVL expects.
 // It is a subset of the cosmossdk.io/core/log.Logger interface.
-// It uses the cosmossdk.io/log/log.Logger implementation.
+// cosmossdk.io/log/log.Logger implements this interface.
 type Logger interface {
 	// Info takes a message and a set of key/value pairs and logs with level INFO.
 	// The key of the tuple must be a string.
@@ -28,7 +28,7 @@ func NewNopLogger() Logger {
 
 type noopLogger struct{}
 
-func (l *noopLogger) Info(msg string, keyVals ...any)  {}
-func (l *noopLogger) Warn(msg string, keyVals ...any)  {}
-func (l *noopLogger) Error(msg string, keyVals ...any) {}
-func (l *noopLogger) Debug(msg string, keyVals ...any) {}
+func (l *noopLogger) Info(string, ...any)  {}
+func (l *noopLogger) Warn(string, ...any)  {}
+func (l *noopLogger) Error(string, ...any) {}
+func (l *noopLogger) Debug(string, ...any) {}
