@@ -1878,6 +1878,41 @@ func TestReferenceRoot(t *testing.T) {
 	// check the root of version 2 is the leaf node of key2
 	require.Equal(t, tree.root.GetKey(), (&NodeKey{version: 1, nonce: 3}).GetKey())
 	require.Equal(t, tree.root.key, []byte("key2"))
+
+	// test the reference root when pruning
+	db = dbm.NewMemDB()
+	require.NoError(t, err)
+	tree = NewMutableTree(db, 0, false, NewNopLogger())
+
+	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion() // empty version
+	require.NoError(t, err)
+
+	require.NoError(t, tree.DeleteVersionsTo(1))
+	_, _, err = tree.SaveVersion() // empty version
+	require.NoError(t, err)
+
+	// load the tree from disk
+	tree = NewMutableTree(db, 0, false, NewNopLogger())
+	_, err = tree.Load()
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("key2"), []byte("value2"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	// load the tree from disk to check if the reference root is loaded correctly
+	tree = NewMutableTree(db, 0, false, NewNopLogger())
+	_, err = tree.Load()
+	require.NoError(t, err)
+	_, err = tree.Set([]byte("key1"), []byte("value2"))
+	require.NoError(t, err)
 }
 
 func TestWorkingHashWithInitialVersion(t *testing.T) {
