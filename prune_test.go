@@ -5,17 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"cosmossdk.io/log"
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAsyncPruning(t *testing.T) {
-	db, err := dbm.NewDB("test", "goleveldb", t.TempDir())
+	db, err := dbm.NewGoLevelDB("test", t.TempDir())
 	require.NoError(t, err)
 	defer db.Close()
 
-	tree := NewMutableTree(db, 0, false, log.NewNopLogger(), AsyncPruningOption(true), FlushThresholdOption(1000))
+	tree := NewMutableTree(db, 0, false, NewNopLogger(), AsyncPruningOption(true), FlushThresholdOption(1000))
 
 	toVersion := 10000
 	keyCount := 10
@@ -57,7 +56,7 @@ func TestAsyncPruning(t *testing.T) {
 	}
 
 	// Reload the tree
-	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	tree = NewMutableTree(db, 0, false, NewNopLogger())
 	_, err = tree.LoadVersion(int64(toVersion) - keepRecent)
 	require.Error(t, err)
 	versions := tree.AvailableVersions()
