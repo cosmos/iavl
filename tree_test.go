@@ -35,7 +35,7 @@ func SetupTest() {
 
 func getTestDB() (dbm.DB, func()) {
 	if testLevelDB {
-		d, err := dbm.NewDB("test", "goleveldb", ".")
+		d, err := dbm.NewGoLevelDB("test", ".")
 		if err != nil {
 			panic(err)
 		}
@@ -1436,7 +1436,7 @@ func BenchmarkTreeLoadAndDelete(b *testing.B) {
 	numVersions := 5000
 	numKeysPerVersion := 10
 
-	d, err := dbm.NewDB("bench", "goleveldb", ".")
+	d, err := dbm.NewGoLevelDB("bench", ".")
 	if err != nil {
 		panic(err)
 	}
@@ -1665,8 +1665,7 @@ func TestGetWithIndex_ImmutableTree(t *testing.T) {
 }
 
 func Benchmark_GetWithIndex(b *testing.B) {
-	db, err := dbm.NewDB("test", "memdb", "")
-	require.NoError(b, err)
+	db := dbm.NewMemDB()
 
 	const numKeyVals = 100000
 
@@ -1679,7 +1678,7 @@ func Benchmark_GetWithIndex(b *testing.B) {
 		keys = append(keys, key)
 		t.Set(key, iavlrand.RandBytes(10))
 	}
-	_, _, err = t.SaveVersion()
+	_, _, err := t.SaveVersion()
 	require.NoError(b, err)
 
 	b.ReportAllocs()
@@ -1716,8 +1715,7 @@ func Benchmark_GetWithIndex(b *testing.B) {
 }
 
 func Benchmark_GetByIndex(b *testing.B) {
-	db, err := dbm.NewDB("test", "memdb", "")
-	require.NoError(b, err)
+	db := dbm.NewMemDB()
 
 	const numKeyVals = 100000
 
@@ -1727,7 +1725,7 @@ func Benchmark_GetByIndex(b *testing.B) {
 		key := iavlrand.RandBytes(10)
 		t.Set(key, iavlrand.RandBytes(10))
 	}
-	_, _, err = t.SaveVersion()
+	_, _, err := t.SaveVersion()
 	require.NoError(b, err)
 
 	b.ReportAllocs()
@@ -1791,10 +1789,9 @@ func TestNodeCacheStatisic(t *testing.T) {
 
 	for name, tc := range testcases {
 		tc := tc
-		t.Run(name, func(sub *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			stat := &Statistics{}
-			db, err := dbm.NewDB("test", "memdb", "")
-			require.NoError(t, err)
+			db := dbm.NewMemDB()
 			mt := NewMutableTree(db, tc.cacheSize, false, NewNopLogger(), StatOption(stat))
 
 			for i := 0; i < numKeyVals; i++ {
@@ -1822,13 +1819,12 @@ func TestNodeCacheStatisic(t *testing.T) {
 }
 
 func TestEmptyVersionDelete(t *testing.T) {
-	db, err := dbm.NewDB("test", "memdb", "")
-	require.NoError(t, err)
+	db := dbm.NewMemDB()
 	defer db.Close()
 
 	tree := NewMutableTree(db, 0, false, NewNopLogger())
 
-	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	_, err := tree.Set([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
 	toVersion := 10
@@ -1853,13 +1849,12 @@ func TestEmptyVersionDelete(t *testing.T) {
 }
 
 func TestReferenceRoot(t *testing.T) {
-	db, err := dbm.NewDB("test", "memdb", "")
-	require.NoError(t, err)
+	db := dbm.NewMemDB()
 	defer db.Close()
 
 	tree := NewMutableTree(db, 0, false, NewNopLogger())
 
-	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	_, err := tree.Set([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
 	_, err = tree.Set([]byte("key2"), []byte("value2"))
@@ -1885,7 +1880,7 @@ func TestReferenceRoot(t *testing.T) {
 	require.Equal(t, tree.root.key, []byte("key2"))
 
 	// test the reference root when pruning
-	db, err = dbm.NewDB("test", "memdb", "")
+	db = dbm.NewMemDB()
 	require.NoError(t, err)
 	tree = NewMutableTree(db, 0, false, NewNopLogger())
 
@@ -1921,8 +1916,7 @@ func TestReferenceRoot(t *testing.T) {
 }
 
 func TestWorkingHashWithInitialVersion(t *testing.T) {
-	db, err := dbm.NewDB("test", "memdb", "")
-	require.NoError(t, err)
+	db := dbm.NewMemDB()
 	defer db.Close()
 
 	initialVersion := int64(100)
@@ -1932,7 +1926,7 @@ func TestWorkingHashWithInitialVersion(t *testing.T) {
 	v := tree.WorkingVersion()
 	require.Equal(t, initialVersion, v)
 
-	_, err = tree.Set([]byte("key1"), []byte("value1"))
+	_, err := tree.Set([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
 	workingHash := tree.WorkingHash()
@@ -1940,8 +1934,7 @@ func TestWorkingHashWithInitialVersion(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, commitHash, workingHash)
 
-	db, err = dbm.NewDB("test", "memdb", "")
-	require.NoError(t, err)
+	db = dbm.NewMemDB()
 
 	// without WorkingHash
 	tree = NewMutableTree(db, 0, false, NewNopLogger(), InitialVersionOption(uint64(initialVersion)))

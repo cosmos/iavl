@@ -7,6 +7,8 @@ import (
 	"sort"
 	"sync"
 
+	corestore "cosmossdk.io/core/store"
+
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
@@ -231,7 +233,7 @@ func (tree *MutableTree) Iterate(fn func(key []byte, value []byte) bool) (stoppe
 
 // Iterator returns an iterator over the mutable tree.
 // CONTRACT: no updates are made to the tree while an iterator is active.
-func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
+func (tree *MutableTree) Iterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
 	if !tree.skipFastStorageUpgrade {
 		isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 		if err != nil {
@@ -827,7 +829,7 @@ func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
 	keysToSort := make([]string, 0)
-	tree.unsavedFastNodeAdditions.Range(func(k, v interface{}) bool {
+	tree.unsavedFastNodeAdditions.Range(func(k, _ interface{}) bool {
 		keysToSort = append(keysToSort, k.(string))
 		return true
 	})
@@ -851,7 +853,7 @@ func (tree *MutableTree) addUnsavedRemoval(key []byte) {
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
 	keysToSort := make([]string, 0)
-	tree.unsavedFastNodeRemovals.Range(func(k, v interface{}) bool {
+	tree.unsavedFastNodeRemovals.Range(func(k, _ interface{}) bool {
 		keysToSort = append(keysToSort, k.(string))
 		return true
 	})

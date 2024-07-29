@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -15,7 +16,7 @@ func TestIterator_NewIterator_NilTree_Failure(t *testing.T) {
 	start, end := []byte{'a'}, []byte{'c'}
 	ascending := true
 
-	performTest := func(t *testing.T, itr dbm.Iterator) {
+	performTest := func(t *testing.T, itr corestore.Iterator) {
 		require.NotNil(t, itr)
 		require.False(t, itr.Valid())
 		actualsStart, actualEnd := itr.Domain()
@@ -47,7 +48,7 @@ func TestUnsavedFastIterator_NewIterator_NilAdditions_Failure(t *testing.T) {
 	start, end := []byte{'a'}, []byte{'c'}
 	ascending := true
 
-	performTest := func(t *testing.T, itr dbm.Iterator) {
+	performTest := func(t *testing.T, itr corestore.Iterator) {
 		require.NotNil(t, itr)
 		require.False(t, itr.Valid())
 		actualsStart, actualEnd := itr.Domain()
@@ -93,7 +94,7 @@ func TestIterator_Empty_Invalid(t *testing.T) {
 		ascending:      true,
 	}
 
-	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
+	performTest := func(t *testing.T, itr corestore.Iterator, mirror [][]string) {
 		require.Equal(t, 0, len(mirror))
 		require.False(t, itr.Valid())
 	}
@@ -216,7 +217,7 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 }
 
 func iteratorSuccessTest(t *testing.T, config *iteratorTestConfig) {
-	performTest := func(t *testing.T, itr dbm.Iterator, mirror [][]string) {
+	performTest := func(t *testing.T, itr corestore.Iterator, mirror [][]string) {
 		actualStart, actualEnd := itr.Domain()
 		require.Equal(t, config.startIterate, actualStart)
 		require.Equal(t, config.endIterate, actualEnd)
@@ -245,7 +246,7 @@ func iteratorSuccessTest(t *testing.T, config *iteratorTestConfig) {
 	})
 }
 
-func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
+func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (corestore.Iterator, [][]string) {
 	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	mirror := setupMirrorForIterator(t, config, tree)
@@ -261,7 +262,7 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Itera
 	return itr, mirror
 }
 
-func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
+func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (corestore.Iterator, [][]string) {
 	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	mirror := setupMirrorForIterator(t, config, tree)
@@ -272,7 +273,7 @@ func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.I
 	return itr, mirror
 }
 
-func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
+func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (corestore.Iterator, [][]string) {
 	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	// For unsaved fast iterator, we would like to test the state where

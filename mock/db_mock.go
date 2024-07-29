@@ -7,7 +7,7 @@ package mock
 import (
 	reflect "reflect"
 
-	db "github.com/cosmos/iavl/db"
+	corestore "cosmossdk.io/core/store"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -79,10 +79,10 @@ func (mr *MockDBMockRecorder) Has(key interface{}) *gomock.Call {
 }
 
 // Iterator mocks base method.
-func (m *MockDB) Iterator(start, end []byte) (db.Iterator, error) {
+func (m *MockDB) Iterator(start, end []byte) (corestore.Iterator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Iterator", start, end)
-	ret0, _ := ret[0].(db.Iterator)
+	ret0, _ := ret[0].(corestore.Iterator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -94,10 +94,10 @@ func (mr *MockDBMockRecorder) Iterator(start, end interface{}) *gomock.Call {
 }
 
 // NewBatch mocks base method.
-func (m *MockDB) NewBatch() db.Batch {
+func (m *MockDB) NewBatch() corestore.Batch {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBatch")
-	ret0, _ := ret[0].(db.Batch)
+	ret0, _ := ret[0].(corestore.Batch)
 	return ret0
 }
 
@@ -108,10 +108,10 @@ func (mr *MockDBMockRecorder) NewBatch() *gomock.Call {
 }
 
 // NewBatchWithSize mocks base method.
-func (m *MockDB) NewBatchWithSize(arg0 int) db.Batch {
+func (m *MockDB) NewBatchWithSize(arg0 int) corestore.Batch {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewBatchWithSize", arg0)
-	ret0, _ := ret[0].(db.Batch)
+	ret0, _ := ret[0].(corestore.Batch)
 	return ret0
 }
 
@@ -122,10 +122,10 @@ func (mr *MockDBMockRecorder) NewBatchWithSize(arg0 interface{}) *gomock.Call {
 }
 
 // ReverseIterator mocks base method.
-func (m *MockDB) ReverseIterator(start, end []byte) (db.Iterator, error) {
+func (m *MockDB) ReverseIterator(start, end []byte) (corestore.Iterator, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReverseIterator", start, end)
-	ret0, _ := ret[0].(db.Iterator)
+	ret0, _ := ret[0].(corestore.Iterator)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
