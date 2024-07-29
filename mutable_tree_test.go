@@ -346,11 +346,15 @@ func prepareTree(t *testing.T) *MutableTree {
 	return newTree
 }
 
-func TestMutableTree_VersionExists(t *testing.T) {
+func TestMutableTree_Version(t *testing.T) {
 	tree := prepareTree(t)
 	require.True(t, tree.VersionExists(1))
 	require.True(t, tree.VersionExists(2))
 	require.False(t, tree.VersionExists(3))
+
+	v, err := tree.GetLatestVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), v)
 }
 
 func checkGetVersioned(t *testing.T, tree *MutableTree, version int64, key, value []byte) {
