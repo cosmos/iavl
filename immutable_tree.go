@@ -4,12 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-<<<<<<< HEAD
-=======
-	"cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	dbm "github.com/cosmos/iavl/db"
 )
 

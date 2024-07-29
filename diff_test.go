@@ -29,13 +29,8 @@ func TestDiffRoundTrip(t *testing.T) {
 
 	// extract change sets from db
 	var extractChangeSets []*ChangeSet
-<<<<<<< HEAD
 	tree2 := NewImmutableTree(db, 0, true, NewNopLogger())
-	err := tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
-=======
-	tree2 := NewImmutableTree(db, 0, true, log.NewNopLogger())
 	err := tree2.TraverseStateChanges(0, math.MaxInt64, func(_ int64, changeSet *ChangeSet) error {
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})

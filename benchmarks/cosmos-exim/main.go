@@ -5,12 +5,6 @@ import (
 	"os"
 	"time"
 
-<<<<<<< HEAD
-	tmdb "github.com/cosmos/cosmos-db"
-=======
-	"cosmossdk.io/core/log"
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
-
 	"github.com/cosmos/iavl"
 	idbm "github.com/cosmos/iavl/db"
 )
@@ -96,11 +90,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 	if err != nil {
 		return 0, nil, err
 	}
-<<<<<<< HEAD
-	tree := iavl.NewMutableTree(idbm.NewWrapper(tmdb.NewPrefixDB(ldb, []byte("s/k:main/"))), 0, false, iavl.NewNopLogger())
-=======
-	tree := iavl.NewMutableTree(idbm.NewPrefixDB(ldb, []byte("s/k:main/")), 0, false, log.NewNopLogger())
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+	tree := iavl.NewMutableTree(idbm.NewPrefixDB(ldb, []byte("s/k:main/")), 0, false, iavl.NewNopLogger())
 	version, err := tree.LoadVersion(0)
 	if err != nil {
 		return 0, nil, err
@@ -111,13 +101,8 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 
 	totalStats := Stats{}
 	for _, name := range stores {
-<<<<<<< HEAD
-		db := tmdb.NewPrefixDB(ldb, []byte("s/k:"+name+"/"))
-		tree := iavl.NewMutableTree(idbm.NewWrapper(db), 0, false, iavl.NewNopLogger())
-=======
 		db := idbm.NewPrefixDB(ldb, []byte("s/k:"+name+"/"))
-		tree := iavl.NewMutableTree(db, 0, false, log.NewNopLogger())
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+		tree := iavl.NewMutableTree(db, 0, false, iavl.NewNopLogger())
 
 		stats := Stats{}
 		export := make([]*iavl.ExportNode, 0, 100000)
@@ -182,11 +167,7 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		if err != nil {
 			return err
 		}
-<<<<<<< HEAD
-		newTree := iavl.NewMutableTree(idbm.NewWrapper(newDB), 0, false, iavl.NewNopLogger())
-=======
-		newTree := iavl.NewMutableTree(newDB, 0, false, log.NewNopLogger())
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+		newTree := iavl.NewMutableTree(newDB, 0, false, iavl.NewNopLogger())
 		importer, err := newTree.Import(version)
 		if err != nil {
 			return err

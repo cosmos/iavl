@@ -6,11 +6,7 @@ import (
 	"sync"
 	"testing"
 
-<<<<<<< HEAD
-=======
-	log "cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -250,13 +246,8 @@ func iteratorSuccessTest(t *testing.T, config *iteratorTestConfig) {
 	})
 }
 
-<<<<<<< HEAD
-func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
-=======
 func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (corestore.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	mirror := setupMirrorForIterator(t, config, tree)
 	_, _, err := tree.SaveVersion()
@@ -271,13 +262,8 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (corestore
 	return itr, mirror
 }
 
-<<<<<<< HEAD
-func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
-=======
 func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (corestore.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	mirror := setupMirrorForIterator(t, config, tree)
 	_, _, err := tree.SaveVersion()
@@ -287,13 +273,8 @@ func setupFastIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (cores
 	return itr, mirror
 }
 
-<<<<<<< HEAD
-func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (dbm.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
-=======
 func setupUnsavedFastIterator(t *testing.T, config *iteratorTestConfig) (corestore.Iterator, [][]string) {
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, log.NewNopLogger())
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
 	// For unsaved fast iterator, we would like to test the state where
 	// there are saved fast nodes as well as some unsaved additions and removals.

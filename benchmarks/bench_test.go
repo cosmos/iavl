@@ -8,11 +8,7 @@ import (
 	"runtime"
 	"testing"
 
-<<<<<<< HEAD
-=======
-	"cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/iavl"

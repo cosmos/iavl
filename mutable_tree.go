@@ -7,12 +7,8 @@ import (
 	"sort"
 	"sync"
 
-<<<<<<< HEAD
-=======
-	log "cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
@@ -833,7 +829,7 @@ func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
 
 func (tree *MutableTree) saveFastNodeAdditions() error {
 	keysToSort := make([]string, 0)
-	tree.unsavedFastNodeAdditions.Range(func(k, v interface{}) bool {
+	tree.unsavedFastNodeAdditions.Range(func(k, _ interface{}) bool {
 		keysToSort = append(keysToSort, k.(string))
 		return true
 	})
@@ -857,7 +853,7 @@ func (tree *MutableTree) addUnsavedRemoval(key []byte) {
 
 func (tree *MutableTree) saveFastNodeRemovals() error {
 	keysToSort := make([]string, 0)
-	tree.unsavedFastNodeRemovals.Range(func(k, v interface{}) bool {
+	tree.unsavedFastNodeRemovals.Range(func(k, _ interface{}) bool {
 		keysToSort = append(keysToSort, k.(string))
 		return true
 	})

@@ -13,12 +13,8 @@ import (
 	"sync"
 	"time"
 
-<<<<<<< HEAD
-=======
-	"cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	"github.com/cosmos/iavl/cache"
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
@@ -520,7 +516,7 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		return err
 	}
 	// Delete all legacy roots
-	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, _ []byte) error {
 		return ndb.deleteFromPruning(key)
 	}); err != nil {
 		return err
@@ -574,10 +570,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	// Delete the nodes for new format
-	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, v []byte) error {
+	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, _ []byte) error {
 		return ndb.batch.Delete(k)
 	})
-
 	if err != nil {
 		return err
 	}
@@ -1204,7 +1199,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 
 func (ndb *nodeDB) size() int {
 	size := 0
-	err := ndb.traverse(func(k, v []byte) error {
+	err := ndb.traverse(func(_, _ []byte) error {
 		size++
 		return nil
 	})
@@ -1324,7 +1319,6 @@ func (ndb *nodeDB) String() (string, error) {
 		index++
 		return nil
 	})
-
 	if err != nil {
 		return "", err
 	}

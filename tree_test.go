@@ -1789,16 +1789,10 @@ func TestNodeCacheStatisic(t *testing.T) {
 
 	for name, tc := range testcases {
 		tc := tc
-		t.Run(name, func(sub *testing.T) {
+		t.Run(name, func(_ *testing.T) {
 			stat := &Statistics{}
-<<<<<<< HEAD
-			db, err := dbm.NewDB("test", "memdb", "")
-			require.NoError(t, err)
-			mt := NewMutableTree(db, tc.cacheSize, false, NewNopLogger(), StatOption(stat))
-=======
 			db := dbm.NewMemDB()
-			mt := NewMutableTree(db, tc.cacheSize, false, log.NewNopLogger(), StatOption(stat))
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
+			mt := NewMutableTree(db, tc.cacheSize, false, NewNopLogger(), StatOption(stat))
 
 			for i := 0; i < numKeyVals; i++ {
 				key := []byte(strconv.Itoa(i))
@@ -1886,7 +1880,7 @@ func TestReferenceRoot(t *testing.T) {
 	require.Equal(t, tree.root.key, []byte("key2"))
 
 	// test the reference root when pruning
-	db, err = dbm.NewDB("test", "memdb", "")
+	db = dbm.NewMemDB()
 	require.NoError(t, err)
 	tree = NewMutableTree(db, 0, false, NewNopLogger())
 

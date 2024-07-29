@@ -9,11 +9,7 @@ import (
 	"sort"
 	"testing"
 
-<<<<<<< HEAD
-=======
-	log "cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
->>>>>>> e063edd (refactor: remove cosmos-db as a dep (#955))
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
