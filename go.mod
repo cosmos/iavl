@@ -28,7 +28,6 @@ require (
 )
 
 retract (
-	v1.1.3
 	[v1.1.0, v1.1.3]
 	[v1.0.0, v1.0.3]
 	// This version is not used by the Cosmos SDK and adds a maintenance burden.
