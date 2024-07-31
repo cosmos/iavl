@@ -13,8 +13,6 @@ import (
 	"sync"
 	"time"
 
-	corestore "cosmossdk.io/core/store"
-
 	"github.com/cosmos/iavl/cache"
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
@@ -81,7 +79,7 @@ type nodeDB struct {
 	mtx                 sync.Mutex       // Read/write lock.
 	done                chan struct{}    // Channel to signal that the pruning process is done.
 	db                  dbm.DB           // Persistent node storage.
-	batch               corestore.Batch  // Batched writing buffer.
+	batch               dbm.Batch        // Batched writing buffer.
 	opts                Options          // Options to customize for pruning/writing
 	versionReaders      map[int64]uint32 // Number of active version readers
 	storageVersion      string           // Storage version
@@ -516,7 +514,7 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		return err
 	}
 	// Delete all legacy roots
-	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, _ []byte) error {
+	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, value []byte) error {
 		return ndb.deleteFromPruning(key)
 	}); err != nil {
 		return err
@@ -570,9 +568,10 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	// Delete the nodes for new format
-	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, _ []byte) error {
+	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, v []byte) error {
 		return ndb.batch.Delete(k)
 	})
+
 	if err != nil {
 		return err
 	}
@@ -976,7 +975,7 @@ func (ndb *nodeDB) traversePrefix(prefix []byte, fn func(k, v []byte) error) err
 }
 
 // Get the iterator for a given prefix.
-func (ndb *nodeDB) getPrefixIterator(prefix []byte) (corestore.Iterator, error) {
+func (ndb *nodeDB) getPrefixIterator(prefix []byte) (dbm.Iterator, error) {
 	var start, end []byte
 	if len(prefix) == 0 {
 		start = nil
@@ -990,7 +989,7 @@ func (ndb *nodeDB) getPrefixIterator(prefix []byte) (corestore.Iterator, error) 
 }
 
 // Get iterator for fast prefix and error, if any
-func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (corestore.Iterator, error) {
+func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Iterator, error) {
 	var startFormatted, endFormatted []byte
 
 	if start != nil {
@@ -1199,7 +1198,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 
 func (ndb *nodeDB) size() int {
 	size := 0
-	err := ndb.traverse(func(_, _ []byte) error {
+	err := ndb.traverse(func(k, v []byte) error {
 		size++
 		return nil
 	})
@@ -1319,6 +1318,7 @@ func (ndb *nodeDB) String() (string, error) {
 		index++
 		return nil
 	})
+
 	if err != nil {
 		return "", err
 	}

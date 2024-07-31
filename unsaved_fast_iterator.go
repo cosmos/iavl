@@ -6,7 +6,8 @@ import (
 	"sort"
 	"sync"
 
-	"cosmossdk.io/core/store"
+	dbm "github.com/cosmos/cosmos-db"
+
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
@@ -28,7 +29,7 @@ type UnsavedFastIterator struct {
 	ndb          *nodeDB
 	nextKey      []byte
 	nextVal      []byte
-	fastIterator store.Iterator
+	fastIterator dbm.Iterator
 
 	nextUnsavedNodeIdx       int
 	unsavedFastNodeAdditions *sync.Map // map[string]*FastNode
@@ -36,7 +37,7 @@ type UnsavedFastIterator struct {
 	unsavedFastNodesToSort   []string
 }
 
-var _ store.Iterator = (*UnsavedFastIterator)(nil)
+var _ dbm.Iterator = (*UnsavedFastIterator)(nil)
 
 func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsavedFastNodeAdditions, unsavedFastNodeRemovals *sync.Map) *UnsavedFastIterator {
 	iter := &UnsavedFastIterator{
@@ -102,13 +103,13 @@ func NewUnsavedFastIterator(start, end []byte, ascending bool, ndb *nodeDB, unsa
 	return iter
 }
 
-// Domain implements store.Iterator.
+// Domain implements dbm.Iterator.
 // Maps the underlying nodedb iterator domain, to the 'logical' keys involved.
 func (iter *UnsavedFastIterator) Domain() ([]byte, []byte) {
 	return iter.start, iter.end
 }
 
-// Valid implements store.Iterator.
+// Valid implements dbm.Iterator.
 func (iter *UnsavedFastIterator) Valid() bool {
 	if iter.start != nil && iter.end != nil {
 		if bytes.Compare(iter.end, iter.start) != 1 {
@@ -119,17 +120,17 @@ func (iter *UnsavedFastIterator) Valid() bool {
 	return iter.fastIterator.Valid() || iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) || (iter.nextKey != nil && iter.nextVal != nil)
 }
 
-// Key implements store.Iterator
+// Key implements dbm.Iterator
 func (iter *UnsavedFastIterator) Key() []byte {
 	return iter.nextKey
 }
 
-// Value implements store.Iterator
+// Value implements dbm.Iterator
 func (iter *UnsavedFastIterator) Value() []byte {
 	return iter.nextVal
 }
 
-// Next implements store.Iterator
+// Next implements dbm.Iterator
 // Its effectively running the constant space overhead algorithm for streaming through sorted lists:
 // the sorted lists being underlying fast nodes & unsavedFastNodeChanges
 func (iter *UnsavedFastIterator) Next() {
@@ -216,13 +217,13 @@ func (iter *UnsavedFastIterator) Next() {
 	iter.nextVal = nil
 }
 
-// Close implements store.Iterator
+// Close implements dbm.Iterator
 func (iter *UnsavedFastIterator) Close() error {
 	iter.valid = false
 	return iter.fastIterator.Close()
 }
 
-// Error implements store.Iterator
+// Error implements dbm.Iterator
 func (iter *UnsavedFastIterator) Error() error {
 	return iter.err
 }

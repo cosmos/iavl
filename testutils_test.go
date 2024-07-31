@@ -9,7 +9,6 @@ import (
 	"sort"
 	"testing"
 
-	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -285,7 +284,7 @@ func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *Muta
 
 // assertIterator confirms that the iterator returns the expected values desribed by mirror in the same order.
 // mirror is a slice containing slices of the form [key, value]. In other words, key at index 0 and value at index 1.
-func assertIterator(t *testing.T, itr corestore.Iterator, mirror [][]string, ascending bool) {
+func assertIterator(t *testing.T, itr dbm.Iterator, mirror [][]string, ascending bool) {
 	startIdx, endIdx := 0, len(mirror)-1
 	increment := 1
 	mirrorIdx := startIdx

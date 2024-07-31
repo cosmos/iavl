@@ -6,9 +6,9 @@ import (
 	mrand "math/rand"
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 
-	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
 	"github.com/cosmos/iavl"
@@ -146,7 +146,7 @@ func runIterationSlow(b *testing.B, t *iavl.MutableTree, expectedSize int) {
 	}
 }
 
-func iterate(b *testing.B, itr corestore.Iterator, expectedSize int) {
+func iterate(b *testing.B, itr dbm.Iterator, expectedSize int) {
 	b.StartTimer()
 	keyValuePairs := make([][][]byte, 0, expectedSize)
 	for i := 0; i < expectedSize && itr.Valid(); i++ {
@@ -329,6 +329,9 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// prepare a dir for the db and cleanup afterwards
 		dirName := fmt.Sprintf("./%s-db", prefix)
+		if bb.dbType == "rocksdb" {
+			_ = os.Mkdir(dirName, 0o755)
+		}
 
 		defer func() {
 			err := os.RemoveAll(dirName)
@@ -343,8 +346,16 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 			err error
 		)
 		if bb.dbType != "nodb" {
-			d, err = dbm.NewGoLevelDB("test", dirName)
+			d, err = dbm.NewDB("test", bb.dbType, dirName)
+
 			if err != nil {
+				if strings.Contains(err.Error(), "unknown db_backend") {
+					// As an exception to run benchmarks: if the error is about cleveldb, or rocksdb,
+					// it requires a tag "cleveldb" to link the database at runtime, so instead just
+					// log the error instead of failing.
+					b.Logf("%+v\n", err)
+					continue
+				}
 				require.NoError(b, err)
 			}
 			defer d.Close()
