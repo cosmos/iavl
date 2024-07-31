@@ -10,7 +10,7 @@ import (
 )
 
 func TestAsyncPruning(t *testing.T) {
-	db, err := dbm.NewGoLevelDB("test", t.TempDir())
+	db, err := dbm.NewDB("test", "goleveldb", t.TempDir())
 	require.NoError(t, err)
 	defer db.Close()
 

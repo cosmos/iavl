@@ -14,6 +14,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl"
+	idbm "github.com/cosmos/iavl/db"
 )
 
 // TODO: make this configurable?
@@ -122,7 +123,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
-	tree := iavl.NewMutableTree(newWrapper(db), DefaultCacheSize, false, log.NewLogger(os.Stdout))
+	tree := iavl.NewMutableTree(idbm.NewWrapper(db), DefaultCacheSize, false, log.NewLogger(os.Stdout))
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err

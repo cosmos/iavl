@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"cosmossdk.io/core/store"
+	db "github.com/cosmos/cosmos-db"
 )
 
 // maxBatchSize is the maximum size of the import batch before flushing it to the database
@@ -24,7 +24,7 @@ var ErrNoImport = errors.New("no import in progress")
 type Importer struct {
 	tree      *MutableTree
 	version   int64
-	batch     store.Batch
+	batch     db.Batch
 	batchSize uint32
 	stack     []*Node
 	nonces    []uint32
@@ -92,7 +92,7 @@ func (i *Importer) writeNode(node *Node) error {
 		}
 		result := make(chan error)
 		i.inflightCommit = result
-		go func(batch store.Batch) {
+		go func(batch db.Batch) {
 			defer batch.Close()
 			result <- batch.Write()
 		}(i.batch)

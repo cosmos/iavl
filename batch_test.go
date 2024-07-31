@@ -28,13 +28,19 @@ func makeKey(n uint16) []byte {
 }
 
 func TestBatchWithFlusher(t *testing.T) {
-	testBatchWithFlusher(t)
+	testedBackends := []string{
+		"goleveldb",
+	}
+
+	for _, backend := range testedBackends {
+		testBatchWithFlusher(t, backend)
+	}
 }
 
-func testBatchWithFlusher(t *testing.T) {
+func testBatchWithFlusher(t *testing.T, backend string) {
 	name := fmt.Sprintf("test_%x", randstr(12))
 	dir := t.TempDir()
-	db, err := dbm.NewGoLevelDB(name, dir)
+	db, err := dbm.NewDB(name, backend, dir)
 	require.NoError(t, err)
 	defer cleanupDBDir(dir, name)
 

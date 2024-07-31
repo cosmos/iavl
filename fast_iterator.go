@@ -3,7 +3,7 @@ package iavl
 import (
 	"errors"
 
-	"cosmossdk.io/core/store"
+	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/fastnode"
 )
@@ -26,10 +26,10 @@ type FastIterator struct {
 
 	nextFastNode *fastnode.Node
 
-	fastIterator store.Iterator
+	fastIterator dbm.Iterator
 }
 
-var _ store.Iterator = (*FastIterator)(nil)
+var _ dbm.Iterator = (*FastIterator)(nil)
 
 func NewFastIterator(start, end []byte, ascending bool, ndb *nodeDB) *FastIterator {
 	iter := &FastIterator{
