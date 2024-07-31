@@ -30,5 +30,6 @@ In Ethereum, the analog is [Patricia tries](http://en.wikipedia.org/wiki/Radix_t
 | [v1.0.3](https://github.com/cosmos/iavl/tree/release/v1.x.x)   | [`cosmos-db`](https://github.com/cosmos/cosmos-db)       | v0.50.0-5        |
 | [v1.1.2,4](https://github.com/cosmos/iavl/tree/release/v1.x.x) | [`iavl-db`](https://github.com/cosmos/iavl)              | v0.50.6          |
 | [v1.2.x](https://github.com/cosmos/iavl/tree/release/v1.x.x)   | [`iavl-db`](https://github.com/cosmos/iavl)              | v0.50.7+         |
+| [v1.3.0](https://github.com/cosmos/iavl/tree/release/v1.x.x)   | [`iavl-db`](https://github.com/cosmos/iavl)              | cosmossdk.io/store/v2         |
 
 NOTE: In the past, a v0.21.x release was published, but never used in production. It was retracted to avoid confusion.
