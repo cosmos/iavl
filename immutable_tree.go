@@ -5,8 +5,6 @@ import (
 	"strings"
 
 	corestore "cosmossdk.io/core/store"
-
-	dbm "github.com/cosmos/iavl/db"
 )
 
 // ImmutableTree contains the immutable tree at a given version. It is typically created by calling
@@ -25,7 +23,7 @@ type ImmutableTree struct {
 }
 
 // NewImmutableTree creates both in-memory and persistent instances
-func NewImmutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg Logger, options ...Option) *ImmutableTree {
+func NewImmutableTree(db corestore.KVStoreWithBatch, cacheSize int, skipFastStorageUpgrade bool, lg Logger, options ...Option) *ImmutableTree {
 	opts := DefaultOptions()
 	for _, opt := range options {
 		opt(&opts)

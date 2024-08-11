@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -33,7 +34,7 @@ func SetupTest() {
 	flag.Parse()
 }
 
-func getTestDB() (dbm.DB, func()) {
+func getTestDB() (corestore.KVStoreWithBatch, func()) {
 	if testLevelDB {
 		d, err := dbm.NewGoLevelDB("test", ".")
 		if err != nil {

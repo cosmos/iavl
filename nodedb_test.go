@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
+	gomock "go.uber.org/mock/gomock"
 
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/mock"

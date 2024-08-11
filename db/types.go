@@ -17,11 +17,8 @@ var (
 	errValueNil = errors.New("value cannot be nil")
 )
 
-// DB is the main interface for all database backends. DBs are concurrency-safe. Callers must call
-// Close on the database when done.
-//
-// Keys cannot be nil or empty, while values cannot be nil. Keys and values should be considered
-// read-only, both when returned and when given, and must be copied before they are modified.
+// DB is only used to create the mock. `corestore.KVStoreWithBatch` is used
+// in the implementation.
 type DB interface {
 	// Get fetches the value of the given key, or nil if it does not exist.
 	// CONTRACT: key, value readonly []byte
@@ -30,6 +27,12 @@ type DB interface {
 	// Has checks if a key exists.
 	// CONTRACT: key, value readonly []byte
 	Has(key []byte) (bool, error)
+
+	// Set sets the key. Errors on nil key or value.
+	Set(key, value []byte) error
+
+	// Delete deletes the key. Errors on nil key.
+	Delete(key []byte) error
 
 	// Iterator returns an iterator over a domain of keys, in ascending order. The caller must call
 	// Close when done. End is exclusive, and start must be less than end. A nil start iterates

@@ -10,10 +10,11 @@ import (
 	"strconv"
 	"strings"
 
+	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
-	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl"
+	dbm "github.com/cosmos/iavl/db"
 )
 
 // TODO: make this configurable?
@@ -59,7 +60,7 @@ func main() {
 	}
 }
 
-func OpenDB(dir string) (dbm.DB, error) {
+func OpenDB(dir string) (corestore.KVStoreWithBatch, error) {
 	switch {
 	case strings.HasSuffix(dir, ".db"):
 		dir = dir[:len(dir)-3]
@@ -80,14 +81,14 @@ func OpenDB(dir string) (dbm.DB, error) {
 		return nil, fmt.Errorf("cannot cut paths on %s", dir)
 	}
 	name := dir[cut+1:]
-	db, err := dbm.NewGoLevelDB(name, dir[:cut], nil)
+	db, err := dbm.NewGoLevelDB(name, dir[:cut])
 	if err != nil {
 		return nil, err
 	}
 	return db, nil
 }
 
-func PrintDBStats(db dbm.DB) {
+func PrintDBStats(db corestore.KVStoreWithBatch) {
 	count := 0
 	prefix := map[string]int{}
 	itr, err := db.Iterator(nil, nil)
@@ -122,7 +123,7 @@ func ReadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error)
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
-	tree := iavl.NewMutableTree(newWrapper(db), DefaultCacheSize, false, log.NewLogger(os.Stdout))
+	tree := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
 	ver, err := tree.LoadVersion(int64(version))
 	fmt.Printf("Got version: %d\n", ver)
 	return tree, err

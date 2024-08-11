@@ -316,7 +316,7 @@ func BenchmarkImmutableAvlTreeMemDB(b *testing.B) {
 	benchmarkImmutableAvlTreeWithDB(b, db)
 }
 
-func benchmarkImmutableAvlTreeWithDB(b *testing.B, db dbm.DB) {
+func benchmarkImmutableAvlTreeWithDB(b *testing.B, db corestore.KVStoreWithBatch) {
 	defer db.Close()
 
 	b.StopTimer()
