@@ -10,16 +10,15 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/cosmos/iavl/fastnode"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	gomock "go.uber.org/mock/gomock"
 
+	dbm "github.com/cosmos/iavl/db"
+	"github.com/cosmos/iavl/fastnode"
 	"github.com/cosmos/iavl/internal/encoding"
 	iavlrand "github.com/cosmos/iavl/internal/rand"
 	"github.com/cosmos/iavl/mock"
-	"github.com/golang/mock/gomock"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	dbm "github.com/cosmos/iavl/db"
 )
 
 var (

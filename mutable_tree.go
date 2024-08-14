@@ -9,7 +9,6 @@ import (
 
 	corestore "cosmossdk.io/core/store"
 
-	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
@@ -46,7 +45,7 @@ type MutableTree struct {
 }
 
 // NewMutableTree returns a new tree with the specified optional options.
-func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg Logger, options ...Option) *MutableTree {
+func NewMutableTree(db corestore.KVStoreWithBatch, cacheSize int, skipFastStorageUpgrade bool, lg Logger, options ...Option) *MutableTree {
 	opts := DefaultOptions()
 	for _, opt := range options {
 		opt(&opts)

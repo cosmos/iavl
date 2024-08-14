@@ -49,7 +49,7 @@ type MemDB struct {
 	btree *btree.BTree
 }
 
-var _ DB = (*MemDB)(nil)
+var _ corestore.KVStoreWithBatch = (*MemDB)(nil)
 
 // NewMemDB creates a new in-memory database.
 func NewMemDB() *MemDB {
