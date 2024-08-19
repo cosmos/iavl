@@ -213,7 +213,17 @@ func (i *Importer) Commit() error {
 			len(i.stack))
 	}
 
-	err := i.batch.WriteSync()
+	// Wait for previous batch.
+	var err error
+	if i.inflightCommit != nil {
+		err = <-i.inflightCommit
+		i.inflightCommit = nil
+	}
+	if err != nil {
+		return err
+	}
+
+	err = i.batch.WriteSync()
 	if err != nil {
 		return err
 	}
