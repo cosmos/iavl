@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	cosmossdk.io/core v0.12.1-0.20240813134434-072a29c838a5
-	github.com/cosmos/ics23/go v0.10.0
+	github.com/cosmos/ics23/go v0.11.0
 	github.com/emicklei/dot v1.6.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/btree v1.1.3
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/cosmos/gogoproto v1.6.0 // indirect
+	github.com/cosmos/gogoproto v1.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
@@ -22,8 +22,8 @@ require (
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/onsi/gomega v1.26.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
+	golang.org/x/crypto v0.26.0 // indirect
+	golang.org/x/sys v0.23.0 // indirect
 	google.golang.org/protobuf v1.34.2 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
