@@ -1,9 +1,10 @@
 module github.com/cosmos/iavl
 
 go 1.21
+toolchain go1.23.1
 
 require (
-	cosmossdk.io/core v0.12.1-0.20240813134434-072a29c838a5
+	cosmossdk.io/core v1.0.0-alpha.3
 	github.com/cosmos/ics23/go v0.11.0
 	github.com/emicklei/dot v1.6.2
 	github.com/gogo/protobuf v1.3.2
