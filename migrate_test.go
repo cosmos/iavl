@@ -8,9 +8,7 @@ import (
 	"os/exec"
 	"path"
 	"testing"
-	"time"
 
-	"cosmossdk.io/core/log"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -65,7 +63,7 @@ func TestLazySet(t *testing.T) {
 		}
 	}()
 
-	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 1000, false, NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -83,7 +81,7 @@ func TestLazySet(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	tree = NewMutableTree(db, 1000, false, log.NewNopLogger())
+	tree = NewMutableTree(db, 1000, false, NewNopLogger())
 
 	// Verify that the latest legacy version can still be loaded
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -108,7 +106,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 		}
 	}()
 
-	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 1000, false, NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -122,7 +120,7 @@ func TestLegacyReferenceNode(t *testing.T) {
 	require.NoError(t, err)
 
 	// Load the previous version
-	newTree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	newTree := NewMutableTree(db, 1000, false, NewNopLogger())
 	_, err = newTree.LoadVersion(version - 1)
 	require.NoError(t, err)
 	// Check if the reference node is refactored
@@ -148,7 +146,7 @@ func TestDeleteVersions(t *testing.T) {
 		}
 	}()
 
-	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 1000, false, NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))
@@ -228,7 +226,7 @@ func TestPruning(t *testing.T) {
 	}()
 
 	// Load the latest version
-	tree := NewMutableTree(db, 1000, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 1000, false, NewNopLogger())
 	_, err = tree.Load()
 	require.NoError(t, err)
 
@@ -255,20 +253,8 @@ func TestPruning(t *testing.T) {
 		}
 	}
 
-	// Wait for pruning to finish
-	for i := 0; i < 100; i++ {
-		_, _, err := tree.SaveVersion()
-		require.NoError(t, err)
-		isLeacy, err := tree.ndb.hasLegacyVersion(int64(legacyVersion))
-		require.NoError(t, err)
-		if !isLeacy {
-			break
-		}
-		// Simulate the consensus state update
-		time.Sleep(500 * time.Millisecond)
-	}
 	// Reload the tree
-	tree = NewMutableTree(db, 0, false, log.NewNopLogger())
+	tree = NewMutableTree(db, 0, false, NewNopLogger())
 	versions := tree.AvailableVersions()
 	require.Equal(t, versions[0], int(toVersion)+legacyVersion+1)
 	for _, v := range versions {
@@ -315,7 +301,7 @@ func TestRandomSet(t *testing.T) {
 		}
 	}()
 
-	tree := NewMutableTree(db, 10000, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 10000, false, NewNopLogger())
 
 	// Load the latest legacy version
 	_, err = tree.LoadVersion(int64(legacyVersion))

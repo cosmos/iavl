@@ -7,7 +7,6 @@ import (
 	"sort"
 	"testing"
 
-	"cosmossdk.io/core/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -442,14 +441,14 @@ func TestPersistence(t *testing.T) {
 	}
 
 	// Construct some tree and save it
-	t1 := NewMutableTree(db, 0, false, log.NewNopLogger())
+	t1 := NewMutableTree(db, 0, false, NewNopLogger())
 	for key, value := range records {
 		t1.Set([]byte(key), []byte(value))
 	}
 	t1.SaveVersion()
 
 	// Load a tree
-	t2 := NewMutableTree(db, 0, false, log.NewNopLogger())
+	t2 := NewMutableTree(db, 0, false, NewNopLogger())
 	t2.Load()
 	for key, value := range records {
 		t2value, err := t2.Get([]byte(key))
@@ -497,7 +496,7 @@ func TestProof(t *testing.T) {
 
 func TestTreeProof(t *testing.T) {
 	db := dbm.NewMemDB()
-	tree := NewMutableTree(db, 100, false, log.NewNopLogger())
+	tree := NewMutableTree(db, 100, false, NewNopLogger())
 	hash := tree.Hash()
 	assert.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 

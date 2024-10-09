@@ -4,7 +4,6 @@ import (
 	"sync"
 
 	corestore "cosmossdk.io/core/store"
-	dbm "github.com/cosmos/iavl/db"
 )
 
 // BatchWithFlusher is a wrapper
@@ -12,8 +11,8 @@ import (
 // as soon as the configurable limit is reached.
 type BatchWithFlusher struct {
 	mtx   sync.Mutex
-	db    dbm.DB          // This is only used to create new batch
-	batch corestore.Batch // Batched writing buffer.
+	db    corestore.KVStoreWithBatch // This is only used to create new batch
+	batch corestore.Batch            // Batched writing buffer.
 
 	flushThreshold int // The threshold to flush the batch to disk.
 }
@@ -21,7 +20,7 @@ type BatchWithFlusher struct {
 var _ corestore.Batch = (*BatchWithFlusher)(nil)
 
 // NewBatchWithFlusher returns new BatchWithFlusher wrapping the passed in batch
-func NewBatchWithFlusher(db dbm.DB, flushThreshold int) *BatchWithFlusher {
+func NewBatchWithFlusher(db corestore.KVStoreWithBatch, flushThreshold int) *BatchWithFlusher {
 	return &BatchWithFlusher{
 		db:             db,
 		batch:          db.NewBatchWithSize(flushThreshold),

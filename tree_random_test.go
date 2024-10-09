@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"cosmossdk.io/core/log"
+	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
@@ -68,7 +68,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	r := rand.New(rand.NewSource(randSeed))
 
 	// loadTree loads the last persisted version of a tree with random pruning settings.
-	loadTree := func(levelDB dbm.DB) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
+	loadTree := func(levelDB corestore.KVStoreWithBatch) (tree *MutableTree, version int64, _ *Options) { //nolint:unparam
 		var err error
 
 		sync := r.Float64() < syncChance
@@ -80,7 +80,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 		if !(r.Float64() < cacheChance) {
 			cacheSize = 0
 		}
-		tree = NewMutableTree(levelDB, cacheSize, false, log.NewNopLogger(), SyncOption(sync))
+		tree = NewMutableTree(levelDB, cacheSize, false, NewNopLogger(), SyncOption(sync))
 		version, err = tree.Load()
 		require.NoError(t, err)
 		t.Logf("Loaded version %v (sync=%v cache=%v)", version, sync, cacheSize)

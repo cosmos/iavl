@@ -7,10 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	log "cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 
-	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
@@ -34,7 +32,7 @@ type Option func(*Options)
 //
 // The inner ImmutableTree should not be used directly by callers.
 type MutableTree struct {
-	logger log.Logger
+	logger Logger
 
 	*ImmutableTree                          // The current, working tree.
 	lastSaved                *ImmutableTree // The most recently saved tree.
@@ -47,7 +45,7 @@ type MutableTree struct {
 }
 
 // NewMutableTree returns a new tree with the specified optional options.
-func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg log.Logger, options ...Option) *MutableTree {
+func NewMutableTree(db corestore.KVStoreWithBatch, cacheSize int, skipFastStorageUpgrade bool, lg Logger, options ...Option) *MutableTree {
 	opts := DefaultOptions()
 	for _, opt := range options {
 		opt(&opts)
@@ -71,6 +69,11 @@ func NewMutableTree(db dbm.DB, cacheSize int, skipFastStorageUpgrade bool, lg lo
 // not empty can be saved.
 func (tree *MutableTree) IsEmpty() bool {
 	return tree.ImmutableTree.Size() == 0
+}
+
+// GetLatestVersion returns the latest version of the tree.
+func (tree *MutableTree) GetLatestVersion() (int64, error) {
+	return tree.ndb.getLatestVersion()
 }
 
 // VersionExists returns whether or not a version exists.
@@ -689,6 +692,17 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error)
 	return nil, nil
 }
 
+// SetCommitting sets a flag to indicate that the tree is in the process of being saved.
+// This is used to prevent parallel writing from async pruning.
+func (tree *MutableTree) SetCommitting() {
+	tree.ndb.SetCommitting()
+}
+
+// UnsetCommitting unsets the flag to indicate that the tree is no longer in the process of being saved.
+func (tree *MutableTree) UnsetCommitting() {
+	tree.ndb.UnsetCommitting()
+}
+
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
@@ -869,6 +883,16 @@ func (tree *MutableTree) DeleteVersionsTo(toVersion int64) error {
 	return tree.ndb.Commit()
 }
 
+// DeleteVersionsFrom removes from the given version upwards from the MutableTree.
+// It will not block the SaveVersion() call, instead it will be queued and executed deferred.
+func (tree *MutableTree) DeleteVersionsFrom(fromVersion int64) error {
+	if err := tree.ndb.DeleteVersionsFrom(fromVersion); err != nil {
+		return err
+	}
+
+	return tree.ndb.Commit()
+}
+
 // Rotate right and return the new node and orphan.
 func (tree *MutableTree) rotateRight(node *Node) (*Node, error) {
 	var err error
@@ -1011,10 +1035,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 	var recursiveAssignKey func(*Node) ([]byte, error)
 	recursiveAssignKey = func(node *Node) ([]byte, error) {
 		if node.nodeKey != nil {
-			if node.nodeKey.nonce != 0 {
-				return node.nodeKey.GetKey(), nil
-			}
-			return node.hash, nil
+			return node.GetKey(), nil
 		}
 		nonce++
 		node.nodeKey = &NodeKey{

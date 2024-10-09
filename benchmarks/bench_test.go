@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"testing"
 
-	"cosmossdk.io/core/log"
 	corestore "cosmossdk.io/core/store"
 	"github.com/stretchr/testify/require"
 
@@ -26,8 +25,8 @@ func randBytes(length int) []byte {
 	return key
 }
 
-func prepareTree(b *testing.B, db dbm.DB, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
-	t := iavl.NewMutableTree(db, size, false, log.NewNopLogger())
+func prepareTree(b *testing.B, db corestore.KVStoreWithBatch, size, keyLen, dataLen int) (*iavl.MutableTree, [][]byte) {
+	t := iavl.NewMutableTree(db, size, false, iavl.NewNopLogger())
 	keys := make([][]byte, size)
 
 	for i := 0; i < size; i++ {
@@ -340,7 +339,7 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 
 		// note that "" leads to nil backing db!
 		var (
-			d   dbm.DB
+			d   corestore.KVStoreWithBatch
 			err error
 		)
 		if bb.dbType != "nodb" {
@@ -365,7 +364,7 @@ func memUseMB() float64 {
 	return mb
 }
 
-func runSuite(b *testing.B, d dbm.DB, initSize, blockSize, keyLen, dataLen int) {
+func runSuite(b *testing.B, d corestore.KVStoreWithBatch, initSize, blockSize, keyLen, dataLen int) {
 	// measure mem usage
 	runtime.GC()
 	init := memUseMB()

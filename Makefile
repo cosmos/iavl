@@ -13,9 +13,9 @@ all: lint test install
 
 install:
 ifeq ($(COLORS_ON),)
-	go install ./cmd/iaviewer
+	cd cmd && go mod tidy && go install ./iaviewer
 else
-	go install $(CMDFLAGS) ./cmd/iaviewer
+	cd cmd && go mod tidy && go install $(CMDFLAGS) ./iaviewer
 endif
 .PHONY: install
 
