@@ -242,7 +242,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		if node.hash != nil {
 			return
 		}
-	} else {
+	} else if node.nodeKey.Version() > tree.checkpoints.Last() {
 		// otherwise accumulate the branch node for checkpointing
 		tree.branches = append(tree.branches, node)
 
@@ -258,6 +258,9 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		}
 	}
 
+	if node.hash == nil {
+		tree.metrics.TreeHash++
+	}
 	node._hash()
 
 	// when heightFilter > 0 remove the leaf nodes from memory.
@@ -279,7 +282,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	}
 
 	// finally, if checkpointing, remove node's children from memory if we're at the eviction height
-	if tree.shouldCheckpoint {
+	if tree.shouldCheckpoint && tree.evictionDepth > 0 {
 		if depth >= tree.evictionDepth {
 			node.evictChildren()
 		}

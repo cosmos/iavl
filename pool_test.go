@@ -6,11 +6,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestNodePool_Get(t *testing.T) {
+func Test_TheLimitsOfMySanity(t *testing.T) {
 	pool := NewNodePool()
 	node := pool.Get()
 	node.key = []byte("hello")
-	require.Equal(t, node.key, pool.nodes[node.poolId].key)
-	pool.Put(node)
-	require.Equal(t, []byte(nil), pool.nodes[node.poolId].key)
+	n2 := pool.clone(node)
+	require.Equal(t, node.key, n2.key)
+	node.key = []byte("world")
+	require.NotEqual(t, node.key, n2.key)
 }

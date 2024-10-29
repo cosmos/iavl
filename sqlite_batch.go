@@ -10,7 +10,14 @@ import (
 )
 
 type sqliteBatch struct {
-	tree   *Tree
+	// used in leaves, TODO remove
+	tree *Tree
+
+	// used in branch checkpoint
+	version       int64
+	branchOrphans []NodeKey
+	branches      []*Node
+
 	sql    *SqliteDb
 	size   int64
 	logger zerolog.Logger
@@ -33,11 +40,11 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 	if err = b.sql.leafWrite.Begin(); err != nil {
 		return err
 	}
-	b.leafInsert, err = b.sql.leafWrite.Prepare("INSERT OR REPLACE INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
+	b.leafInsert, err = b.sql.leafWrite.Prepare("INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
-	b.deleteInsert, err = b.sql.leafWrite.Prepare("INSERT OR REPLACE INTO leaf_delete (version, sequence, key) VALUES (?, ?, ?)")
+	b.deleteInsert, err = b.sql.leafWrite.Prepare("INSERT INTO leaf_delete (version, sequence, key) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -233,30 +240,29 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 }
 
 func (b *sqliteBatch) isCheckpoint() bool {
-	return len(b.tree.branches) > 0
+	return len(b.branches) > 0
 }
 
 func (b *sqliteBatch) saveBranches() (n int64, err error) {
 	if b.isCheckpoint() {
-		tree := b.tree
 		b.treeCount = 0
 
-		shardID, err := tree.sql.nextShard(tree.version)
+		shardID, err := b.sql.nextShard(b.version)
 		if err != nil {
 			return 0, err
 		}
-		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d orphans=%s",
-			tree.version, shardID, humanize.Comma(int64(len(tree.branchOrphans))))
+		b.logger.Debug().Msgf("checkpoint version=%d shard=%d orphans=%s",
+			b.version, shardID, humanize.Comma(int64(len(b.branchOrphans))))
 
 		if err = b.newTreeBatch(shardID); err != nil {
 			return 0, err
 		}
 
-		for _, node := range tree.branches {
+		for _, node := range b.branches {
 			b.treeCount++
 			bz, err := node.Bytes()
 			if err != nil {
-				return 0, err
+				return 0, fmt.Errorf("failed to encode node: %v %w", node, err)
 			}
 			if err = b.treeInsert.Exec(node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz); err != nil {
 				return 0, err
@@ -265,11 +271,12 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 				return 0, err
 			}
 			if node.evict {
-				tree.returnNode(node)
+				// TODO, remove tree reference
+				b.tree.returnNode(node)
 			}
 		}
 
-		for _, orphan := range tree.branchOrphans {
+		for _, orphan := range b.branchOrphans {
 			b.treeCount++
 			err = b.execBranchOrphan(orphan)
 			if err != nil {

@@ -61,8 +61,9 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
 	if opts.WalSize == 0 {
-		opts.WalSize = 1024 * 1024 * 100
+		opts.WalSize = 1024 * 1024 * 500
 	}
+	opts.ShardTrees = true
 	opts.walPages = opts.WalSize / os.Getpagesize()
 	return opts
 }
@@ -722,8 +723,8 @@ func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
 
 	node.rightNode, err = sql.Get(node.rightNodeKey)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get right node node_key=%s height=%d path=%s: %w",
-			node.rightNodeKey, node.subtreeHeight, sql.opts.Path, err)
+		return nil, fmt.Errorf("failed to get right node node_key=%s for %v at path=%s: %w",
+			node.rightNodeKey, node, sql.opts.Path, err)
 	}
 	return node.rightNode, nil
 }
@@ -743,7 +744,8 @@ func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
 
 	node.leftNode, err = sql.Get(node.leftNodeKey)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get left node node_key=%s for %v at path=%s: %w",
+			node.leftNodeKey, node, sql.opts.Path, err)
 	}
 	return node.leftNode, err
 }
