@@ -258,6 +258,9 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		}
 	}
 
+	if node.hash == nil {
+		tree.metrics.TreeHash++
+	}
 	node._hash()
 
 	// when heightFilter > 0 remove the leaf nodes from memory.
