@@ -189,8 +189,7 @@ func TestTree_Hash(t *testing.T) {
 
 func TestTree_Build_Load(t *testing.T) {
 	// build the initial version of the tree with periodic checkpoints
-	//tmpDir := t.TempDir()
-	tmpDir := "/tmp/iavl-v2-test"
+	tmpDir := t.TempDir()
 	opts := testutil.NewTreeBuildOptions().With10_000()
 	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 4000, HeightFilter: 0, StateStorage: false})
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
