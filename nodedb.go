@@ -838,7 +838,7 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		return latestVersion, nil
 	}
 
-	return 0, nil
+	return -1, nil
 }
 
 func (ndb *nodeDB) resetLatestVersion(version int64) {
