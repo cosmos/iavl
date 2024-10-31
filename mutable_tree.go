@@ -466,11 +466,11 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 			tree.ndb.opts.InitialVersion, firstVersion)
 	}
 
-	if latestVersion >= 0 && latestVersion < targetVersion {
+	if latestVersion < targetVersion {
 		return latestVersion, fmt.Errorf("wanted to load target %d but only found up to %d", targetVersion, latestVersion)
 	}
 
-	if firstVersion <= 0 {
+	if firstVersion == 0 {
 		if targetVersion <= 0 {
 			if !tree.skipFastStorageUpgrade {
 				tree.mtx.Lock()
@@ -556,8 +556,7 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	hasUpgradedToFastStorage := tree.ndb.hasUpgradedToFastStorage()
-	return !tree.skipFastStorageUpgrade && (!hasUpgradedToFastStorage || shouldForce), nil
+	return !tree.skipFastStorageUpgrade && (!tree.ndb.hasUpgradedToFastStorage() || shouldForce), nil
 }
 
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
