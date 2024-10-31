@@ -305,11 +305,6 @@ func (ndb *nodeDB) SetFastStorageVersionToBatch(latestVersion int64) error {
 		newVersion = fastStorageVersionValue
 	}
 
-	// no latest version found
-	// if latestVersion == -1 {
-	// use initial version
-	// latestVersion = int64(ndb.opts.InitialVersion)
-	// }
 	newVersion += fastStorageVersionDelimiter + strconv.Itoa(int(latestVersion))
 
 	if err := ndb.batch.Set(metadataKeyFormat.Key([]byte(storageVersionKey)), []byte(newVersion)); err != nil {
