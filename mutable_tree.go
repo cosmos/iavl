@@ -63,6 +63,7 @@ func NewMutableTree(db corestore.KVStoreWithBatch, cacheSize int, skipFastStorag
 		unsavedFastNodeRemovals:  &sync.Map{},
 		ndb:                      ndb,
 		skipFastStorageUpgrade:   skipFastStorageUpgrade,
+		initialVersionSet:        opts.initialVersionSet,
 	}
 }
 
