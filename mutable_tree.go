@@ -75,7 +75,8 @@ func (tree *MutableTree) IsEmpty() bool {
 
 // GetLatestVersion returns the latest version of the tree.
 func (tree *MutableTree) GetLatestVersion() (int64, error) {
-	return tree.ndb.getLatestVersion()
+	_, v, err := tree.ndb.getLatestVersion()
+	return v, err
 }
 
 // VersionExists returns whether or not a version exists.
@@ -92,8 +93,11 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 	if err != nil {
 		return false
 	}
-	latestVersion, err := tree.ndb.getLatestVersion()
+	found, latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
+		return false
+	}
+	if !found {
 		return false
 	}
 
@@ -106,7 +110,7 @@ func (tree *MutableTree) AvailableVersions() []int {
 	if err != nil {
 		return nil
 	}
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
 		return nil
 	}
@@ -452,7 +456,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 			tree.ndb.opts.InitialVersion, firstVersion)
 	}
 
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
 	}
@@ -552,7 +556,8 @@ func (tree *MutableTree) IsUpgradeable() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	return !tree.skipFastStorageUpgrade && (!tree.ndb.hasUpgradedToFastStorage() || shouldForce), nil
+	hasUpgradedToFastStorage := tree.ndb.hasUpgradedToFastStorage()
+	return !tree.skipFastStorageUpgrade && (!hasUpgradedToFastStorage || shouldForce), nil
 }
 
 // enableFastStorageAndCommitIfNotEnabled if nodeDB doesn't mark fast storage as enabled, enable it, and commit the update.
@@ -607,7 +612,7 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	if err != nil {
 		return err
 	}

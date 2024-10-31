@@ -182,7 +182,7 @@ func TestIterator_WithDelete_Full_Ascending_Success(t *testing.T) {
 	err = tree.DeleteVersionsTo(1)
 	require.NoError(t, err)
 
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	immutableTree, err := tree.GetImmutable(latestVersion)
 	require.NoError(t, err)
@@ -253,7 +253,7 @@ func setupIteratorAndMirror(t *testing.T, config *iteratorTestConfig) (corestore
 	_, _, err := tree.SaveVersion()
 	require.NoError(t, err)
 
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	immutableTree, err := tree.GetImmutable(latestVersion)
 	require.NoError(t, err)
