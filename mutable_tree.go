@@ -154,7 +154,6 @@ func (tree *MutableTree) WorkingVersion() int64 {
 	version := tree.version + 1
 	if version == 1 && tree.initialVersionSet {
 		version = int64(tree.ndb.opts.InitialVersion)
-		tree.initialVersionSet = false
 	}
 	return version
 }
@@ -714,6 +713,7 @@ func (tree *MutableTree) UnsetCommitting() {
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	version := tree.WorkingVersion()
+	tree.initialVersionSet = false
 
 	if tree.VersionExists(version) {
 		// If the version already exists, return an error as we're attempting to overwrite.
