@@ -332,7 +332,7 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() (bool, error) {
 	versions := strings.Split(ndb.storageVersion, fastStorageVersionDelimiter)
 
 	if len(versions) == 2 {
-		latestVersion, err := ndb.getLatestVersion()
+		_, latestVersion, err := ndb.getLatestVersion()
 		if err != nil {
 			// TODO: should be true or false as default? (removed panic here)
 			return false, err
@@ -526,7 +526,7 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 
 // DeleteVersionsFrom permanently deletes all tree versions from the given version upwards.
 func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
-	latest, err := ndb.getLatestVersion()
+	_, latest, err := ndb.getLatestVersion()
 	if err != nil {
 		return err
 	}
@@ -643,7 +643,7 @@ func (ndb *nodeDB) deleteVersionsTo(toVersion int64) error {
 		return err
 	}
 
-	latest, err := ndb.getLatestVersion()
+	_, latest, err := ndb.getLatestVersion()
 	if err != nil {
 		return err
 	}
@@ -728,7 +728,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 		return version, nil
 	}
 	// Find the first version
-	latestVersion, err := ndb.getLatestVersion()
+	_, latestVersion, err := ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
 	}
@@ -798,13 +798,13 @@ func (ndb *nodeDB) resetLegacyLatestVersion(version int64) {
 	ndb.legacyLatestVersion = version
 }
 
-func (ndb *nodeDB) getLatestVersion() (int64, error) {
+func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
 	ndb.mtx.Lock()
 	latestVersion := ndb.latestVersion
 	ndb.mtx.Unlock()
 
 	if latestVersion > 0 {
-		return latestVersion, nil
+		return true, latestVersion, nil
 	}
 
 	itr, err := ndb.db.ReverseIterator(
@@ -812,7 +812,7 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		nodeKeyPrefixFormat.KeyInt64(int64(math.MaxInt64)),
 	)
 	if err != nil {
-		return 0, err
+		return false, 0, err
 	}
 	defer itr.Close()
 
@@ -822,24 +822,25 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		nodeKeyFormat.Scan(k, &nk)
 		latestVersion = GetNodeKey(nk).version
 		ndb.resetLatestVersion(latestVersion)
-		return latestVersion, nil
+		return true, latestVersion, nil
 	}
 
 	if err := itr.Error(); err != nil {
-		return 0, err
+		return false, 0, err
 	}
 
 	// If there are no versions, try to get the latest version from the legacy format.
 	latestVersion, err = ndb.getLegacyLatestVersion()
 	if err != nil {
-		return 0, err
+		return false, 0, err
 	}
 	if latestVersion > 0 {
 		ndb.resetLatestVersion(latestVersion)
-		return latestVersion, nil
+		return true, latestVersion, nil
 	}
 
-	return 0, nil
+	return false, 0, nil
+	// return -1, nil
 }
 
 func (ndb *nodeDB) resetLatestVersion(version int64) {
@@ -1247,7 +1248,7 @@ func (ndb *nodeDB) traverseStateChanges(startVersion, endVersion int64, fn func(
 	if startVersion < firstVersion {
 		startVersion = firstVersion
 	}
-	latestVersion, err := ndb.getLatestVersion()
+	_, latestVersion, err := ndb.getLatestVersion()
 	if err != nil {
 		return err
 	}

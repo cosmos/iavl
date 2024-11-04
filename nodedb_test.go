@@ -87,7 +87,7 @@ func TestSetStorageVersion_Success(t *testing.T) {
 	ndb := newNodeDB(db, 0, DefaultOptions(), NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
-	latestVersion, err := ndb.getLatestVersion()
+	_, latestVersion, err := ndb.getLatestVersion()
 	require.NoError(t, err)
 
 	err = ndb.SetFastStorageVersionToBatch(latestVersion)
@@ -404,7 +404,7 @@ func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
 	err := ndb.SetFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 
-	latestVersion, err := ndb.getLatestVersion()
+	_, latestVersion, err := ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), ndb.getStorageVersion())
 	require.NoError(t, ndb.batch.Write())

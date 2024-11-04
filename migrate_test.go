@@ -177,7 +177,7 @@ func TestDeleteVersions(t *testing.T) {
 	// Test LoadVersionForOverwriting for the legacy version
 	err = tree.LoadVersionForOverwriting(int64(targetVersion))
 	require.NoError(t, err)
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, int64(targetVersion), latestVersion)
 	legacyLatestVersion, err := tree.ndb.getLegacyLatestVersion()
