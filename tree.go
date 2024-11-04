@@ -169,7 +169,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if !tree.shouldCheckpoint {
-		tree.shouldCheckpoint = tree.version == 1 ||
+		tree.shouldCheckpoint = tree.version <= 1 ||
 			(tree.checkpointInterval > 0 && tree.version-tree.checkpoints.Last() >= tree.checkpointInterval) ||
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
@@ -306,6 +306,45 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 		_, res, err = tree.root.get(tree, key)
 	}
 	return res, err
+}
+
+func (tree *Tree) GetWithIndex(key []byte) (int64, []byte, error) {
+	if tree.root == nil {
+		return 0, nil, nil
+	}
+	return tree.root.get(tree, key)
+}
+
+func (tree *Tree) GetByIndex(index int64) (key []byte, value []byte, err error) {
+	if tree.root == nil {
+		return nil, nil, nil
+	}
+	return tree.getByIndex(tree.root, index)
+}
+
+func (tree *Tree) getByIndex(node *Node, index int64) (key []byte, value []byte, err error) {
+	if node.isLeaf() {
+		if index == 0 {
+			return node.key, node.value, nil
+		}
+		return nil, nil, nil
+	}
+
+	leftNode, err := node.getLeftNode(tree)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if index < leftNode.size {
+		return tree.getByIndex(leftNode, index)
+	}
+
+	rightNode, err := node.getRightNode(tree)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return tree.getByIndex(rightNode, index-leftNode.size)
 }
 
 func (tree *Tree) Has(key []byte) (bool, error) {
@@ -701,4 +740,9 @@ func (tree *Tree) WorkingBytes() uint64 {
 
 func (tree *Tree) SetShouldCheckpoint() {
 	tree.shouldCheckpoint = true
+}
+
+func (tree *Tree) SetInitialVersion(version int64) error {
+	tree.version = version - 1
+	return nil
 }

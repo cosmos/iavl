@@ -24,6 +24,7 @@ type SqliteDbOptions struct {
 	CacheSize  int
 	ConnArgs   string
 	ShardTrees bool
+	Readonly   bool
 
 	walPages int
 }
@@ -135,9 +136,12 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		metrics:      &metrics.DbMetrics{},
 		logger:       logger,
 	}
+	if opts.Readonly {
+		return sql, nil
+	}
 
 	if !api.IsFileExistent(opts.Path) {
-		err := os.MkdirAll(opts.Path, 0755)
+		err := os.MkdirAll(opts.Path, 0o755)
 		if err != nil {
 			return nil, err
 		}
@@ -556,7 +560,6 @@ func (sql *SqliteDb) loadCheckpointRange() (*VersionRange, error) {
 		}
 		if err = versionRange.Add(version); err != nil {
 			return nil, err
-
 		}
 	}
 	if err = q.Close(); err != nil {
@@ -827,7 +830,6 @@ func (sql *SqliteDb) Revert(version int) error {
 			}
 		}
 	} else {
-
 	}
 	return nil
 }
