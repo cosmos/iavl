@@ -25,6 +25,7 @@ jobs:
         # integer overflow).
       - name: test & coverage report creation
         run: |
+          cd cmd/legacydump && go build -o legacydump main.go && cd ../..
           go test ./... -mod=readonly -timeout 10m -short -race -coverprofile=coverage.txt -covermode=atomic
           go test ./... -mod=readonly -timeout 15m
           GOARCH=386 go test ./... -mod=readonly -timeout 15m

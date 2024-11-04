@@ -19,7 +19,7 @@ When a version `v` is deleted, all nodes which removed in the current version wi
 ```golang
 // DeleteVersionsFrom permanently deletes all tree versions from the given version upwards.
 func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
-	latest, err := ndb.getLatestVersion()
+	_, latest, err := ndb.getLatestVersion()
 	if err != nil {
 		return err
 	}
