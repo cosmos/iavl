@@ -797,6 +797,15 @@ func (ndb *nodeDB) resetLegacyLatestVersion(version int64) {
 	ndb.legacyLatestVersion = version
 }
 
+// safeGetLatestVersion returns the value of ndb.latestVersion directly
+// without additional logic performed by getLatestVersion.
+func (ndb *nodeDB) safeGetLatestVersion() int64 {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	return ndb.latestVersion
+}
+
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	ndb.mtx.Lock()
 	latestVersion := ndb.latestVersion
