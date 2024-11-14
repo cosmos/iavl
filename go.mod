@@ -5,7 +5,7 @@ go 1.23
 toolchain go1.23.1
 
 require (
-	cosmossdk.io/core v1.0.0-alpha.5
+	cosmossdk.io/core v1.0.0-alpha.6
 	github.com/cosmos/ics23/go v0.11.0
 	github.com/emicklei/dot v1.6.2
 	github.com/gogo/protobuf v1.3.2
