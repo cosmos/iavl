@@ -1494,3 +1494,27 @@ func TestMutableTree_InitialVersionZero(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), version)
 }
+
+func TestReferenceRootPruning(t *testing.T) {
+	memDB := dbm.NewMemDB()
+	tree := NewMutableTree(memDB, 0, true, NewNopLogger())
+
+	_, err := tree.Set([]byte("foo"), []byte("bar"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("foo1"), []byte("bar"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	err = tree.DeleteVersionsTo(1)
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("foo"), []byte("bar*"))
+	require.NoError(t, err)
+}
