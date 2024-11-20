@@ -769,6 +769,8 @@ func TestUpgradeStorageToFast_LatestVersion_Success(t *testing.T) {
 	require.False(t, isUpgradeable)
 	require.NoError(t, err)
 
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
 	isFastCacheEnabled, err = tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.True(t, isFastCacheEnabled)
@@ -907,7 +909,7 @@ func TestFastStorageReUpgradeProtection_NoForceUpgrade_Success(t *testing.T) {
 
 	// Pretend that we called Load and have the latest state in the tree
 	tree.version = latestTreeVersion
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, latestVersion, int64(latestTreeVersion))
 
@@ -1001,7 +1003,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 
 	// Pretend that we called Load and have the latest state in the tree
 	tree.version = latestTreeVersion
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, latestVersion, int64(latestTreeVersion))
 
@@ -1502,4 +1504,17 @@ func TestReferenceRootPruning(t *testing.T) {
 
 	_, err = tree.Set([]byte("foo"), []byte("bar*"))
 	require.NoError(t, err)
+}
+
+func TestMutableTree_InitialVersionZero(t *testing.T) {
+	db := dbm.NewMemDB()
+
+	tree := NewMutableTree(db, 0, false, NewNopLogger(), InitialVersionOption(0))
+
+	_, err := tree.Set([]byte("hello"), []byte("world"))
+	require.NoError(t, err)
+
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(0), version)
 }
