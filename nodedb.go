@@ -159,6 +159,20 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("can't get node %v: %v", nk, err)
 	}
+	if buf == nil && !isLegcyNode {
+		// if the node is reformatted by pruning, check against (version, 0)
+		nKey := GetNodeKey(nk)
+		if nKey.nonce == 1 {
+			nodeKey = ndb.nodeKey((&NodeKey{
+				version: nKey.version,
+				nonce:   0,
+			}).GetKey())
+			buf, err = ndb.db.Get(nodeKey)
+			if err != nil {
+				return nil, fmt.Errorf("can't get the reformatted node %v: %v", nk, err)
+			}
+		}
+	}
 	if buf == nil {
 		return nil, fmt.Errorf("Value missing for key %v corresponding to nodeKey %x", nk, nodeKey)
 	}
