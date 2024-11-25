@@ -10,7 +10,7 @@ require (
 	github.com/emicklei/dot v1.6.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/btree v1.1.3
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	go.uber.org/mock v0.5.0
 )
