@@ -1450,3 +1450,27 @@ func TestMutableTreeClose(t *testing.T) {
 
 	require.NoError(t, tree.Close())
 }
+
+func TestReferenceRootPruning(t *testing.T) {
+	memDB := dbm.NewMemDB()
+	tree := NewMutableTree(memDB, 0, true, log.NewNopLogger())
+
+	_, err := tree.Set([]byte("foo"), []byte("bar"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("foo1"), []byte("bar"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	err = tree.DeleteVersionsTo(1)
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("foo"), []byte("bar*"))
+	require.NoError(t, err)
+}

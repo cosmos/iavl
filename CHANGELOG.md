@@ -2,6 +2,10 @@
 
 ## Unreleased 
 
+### Bug Fixes
+
+- [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+
 ### Improvements
 
 - [#925](https://github.com/cosmos/iavl/pull/925) Add the `AsyncPruning` option to the `MutableTree` constructor to enable async pruning.
