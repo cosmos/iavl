@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.1, November 26, 2024
+## v1.3.2, November 26, 2024
 
 ### Bug Fixes
 
