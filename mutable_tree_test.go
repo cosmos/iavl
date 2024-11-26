@@ -1453,8 +1453,6 @@ func TestMutableTreeClose(t *testing.T) {
 
 	require.NoError(t, tree.Close())
 }
-<<<<<<< HEAD
-=======
 
 func TestReferenceRootPruning(t *testing.T) {
 	memDB := dbm.NewMemDB()
@@ -1479,17 +1477,3 @@ func TestReferenceRootPruning(t *testing.T) {
 	_, err = tree.Set([]byte("foo"), []byte("bar*"))
 	require.NoError(t, err)
 }
-
-func TestMutableTree_InitialVersionZero(t *testing.T) {
-	db := dbm.NewMemDB()
-
-	tree := NewMutableTree(db, 0, false, NewNopLogger(), InitialVersionOption(0))
-
-	_, err := tree.Set([]byte("hello"), []byte("world"))
-	require.NoError(t, err)
-
-	_, version, err := tree.SaveVersion()
-	require.NoError(t, err)
-	require.Equal(t, int64(0), version)
-}
->>>>>>> cf74234 (fix: Add Extra Check for Reformatted Root Node in GetNode (#1007))
