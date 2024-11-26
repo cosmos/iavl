@@ -1,10 +1,12 @@
 # Changelog
 
-## v1.3.0, July 31, 2024
+## v1.3.1, November 26, 2024
 
 ### Bug Fixes
 
 - [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+
+## v1.3.0, July 31, 2024
 
 ### Improvements
 
