@@ -2,8 +2,10 @@ package iavl
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"os"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -19,7 +21,6 @@ type pruneSignal struct {
 type saveSignal struct {
 	batch          *sqliteBatch
 	root           *Node
-	version        int64
 	wantCheckpoint bool
 }
 
@@ -31,6 +32,7 @@ type saveResult struct {
 type sqlWriter struct {
 	sql    *SqliteDb
 	logger zerolog.Logger
+	cache  map[NodeKey]*Node
 
 	treePruneCh chan *pruneSignal
 	treeCh      chan *saveSignal
@@ -39,6 +41,8 @@ type sqlWriter struct {
 	leafPruneCh chan *pruneSignal
 	leafCh      chan *saveSignal
 	leafResult  chan *saveResult
+
+	saving atomic.Bool
 }
 
 func (sql *SqliteDb) newSQLWriter() *sqlWriter {
@@ -50,13 +54,14 @@ func (sql *SqliteDb) newSQLWriter() *sqlWriter {
 		treeCh:      make(chan *saveSignal),
 		leafResult:  make(chan *saveResult),
 		treeResult:  make(chan *saveResult),
+		cache:       make(map[NodeKey]*Node),
 		logger:      sql.logger.With().Str("module", "write").Logger(),
 	}
 }
 
 func (w *sqlWriter) start(ctx context.Context) {
 	go func() {
-		err := w.treeLoop(ctx)
+		err := w.treeLoopAsyncCommit(ctx)
 		if err != nil {
 			w.logger.Fatal().Err(err).Msg("tree loop failed")
 		}
@@ -300,20 +305,33 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 		return nil
 	}
 	saveTree := func(sig *saveSignal) {
-		res := &saveResult{}
-		res.n, res.err = sig.batch.saveBranches()
-		if res.err == nil {
-			err := w.sql.SaveRoot(sig.version, sig.root, sig.wantCheckpoint)
-			if err != nil {
-				res.err = fmt.Errorf("failed to save root path=%s version=%d: %w", w.sql.opts.Path, sig.version, err)
-			}
+		err := w.sql.SaveRoot(sig.batch.version, sig.root, sig.wantCheckpoint)
+		if err != nil {
+			w.treeResult <- &saveResult{err: fmt.Errorf("failed to save root path=%s version=%d: %w", w.sql.opts.Path, sig.batch.version, err)}
+			return
 		}
-		if sig.batch.isCheckpoint() {
-			if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
-				res.err = fmt.Errorf("failed tree checkpoint; %w", err)
-			}
+		if !sig.batch.isCheckpoint() {
+			w.treeResult <- &saveResult{n: 0}
+			return
 		}
-		w.treeResult <- res
+
+		w.logger.Debug().Msgf("will save branches=%d", len(sig.batch.branches))
+		w.saving.Store(true)
+		w.treeResult <- &saveResult{n: -34}
+
+		n, err := sig.batch.saveBranches()
+		if err != nil {
+			w.treeResult <- &saveResult{err: fmt.Errorf("failed to save branches; path=%s %w", w.sql.opts.Path, err)}
+			w.saving.Store(false)
+			return
+		}
+		if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+			w.treeResult <- &saveResult{err: fmt.Errorf("failed tree checkpoint; %w", err)}
+			w.saving.Store(false)
+		}
+		w.logger.Debug().Msgf("tree save done branches=%d", n)
+		w.saving.Store(false)
+		w.treeResult <- &saveResult{n: n}
 	}
 	startPrune := func(startPruningVersion int64) error {
 		w.logger.Debug().Msgf("tree prune to version=%d", startPruningVersion)
@@ -435,9 +453,37 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 	}
 }
 
+func (w *sqlWriter) treeLoopAsyncCommit(ctx context.Context) error {
+	for {
+		select {
+		case sig := <-w.treeCh:
+			res := &saveResult{}
+			res.n, res.err = w.saveCheckpoint(sig.batch, sig.root)
+			w.treeResult <- res
+
+		case <-ctx.Done():
+			return nil
+		}
+	}
+}
+
+func (w *sqlWriter) saveCheckpoint(batch *sqliteBatch, root *Node) (int64, error) {
+	n, err := batch.saveBranches()
+	if err != nil {
+		return n, fmt.Errorf("batch.saveBranches failed; %w", err)
+	}
+	if err := w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		return n, fmt.Errorf("wal_checkpoint failed; %w", err)
+	}
+	err = w.sql.SaveRoot(batch.version, root, true)
+	if err != nil {
+		return n, fmt.Errorf("sql.SaveRoot failed node=%v; %w", root, err)
+	}
+	return n, err
+}
+
 func (w *sqlWriter) saveTree(tree *Tree) error {
 	saveStart := time.Now()
-
 	batch := &sqliteBatch{
 		sql:  tree.sql,
 		tree: tree,
@@ -445,20 +491,94 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 		logger: log.With().
 			Str("module", "sqlite-batch").
 			Str("path", tree.sql.opts.Path).Logger(),
+		version: tree.version,
 	}
-	saveSig := &saveSignal{batch: batch, root: tree.root, version: tree.version, wantCheckpoint: tree.shouldCheckpoint}
-	w.treeCh <- saveSig
+
+	select {
+	case treeRes := <-w.treeResult:
+		if treeRes.err != nil {
+			return fmt.Errorf("err from last checkpoint: %w", treeRes.err)
+		}
+		w.logger.Debug().Msgf("ACK last checkpoint branches=%d", treeRes.n)
+		// TODO empty cache if successful result found
+
+	default:
+	}
+
+	saveSig := &saveSignal{batch: batch, root: tree.pool.clone(tree.root), wantCheckpoint: tree.shouldCheckpoint}
 	w.leafCh <- saveSig
-	treeResult := <-w.treeResult
+
+	if tree.shouldCheckpoint {
+		// nextCache := make(map[NodeKey]*Node)
+		// TODO!
+		// for caching, need a double copy.
+		// 1) once to freeze state for save
+		// 2) once to cache; if an evicted node is pulled from cache and mutated it will result in a bad write
+		for _, branch := range tree.branches {
+			batch.branches = append(batch.branches, tree.pool.clone(branch))
+			// if branch.evict {
+			// 	branch.leftNode = nil
+			// 	branch.rightNode = nil
+			// 	nextCache[branch.nodeKey] = branch
+			// }
+		}
+		// if err := debugDump(tree.sql.opts.Path, tree.version, nextCache); err != nil {
+		// 	return err
+		// }
+
+		// wait for prior save to complete
+		startWait := time.Now()
+		w.treeCh <- saveSig
+		w.logger.Debug().Msgf("save signal sent, waited %s", time.Since(startWait).Round(time.Millisecond))
+
+		// swap caches
+		// for _, n := range w.cache {
+		// 	tree.returnNode(n)
+		// }
+		// w.cache = nextCache
+
+		// for _, node := range tree.branches {
+		// 	if node.evict {
+		// 		evictCount++
+		// 	}
+		// }
+		// w.logger.Debug().Msgf("saving checkpoint version=%d branches=%d evict=%d",
+		// 	tree.version, len(tree.branches), evictCount)
+	}
+
 	leafResult := <-w.leafResult
 	dur := time.Since(saveStart)
 	tree.sql.metrics.WriteDurations = append(tree.sql.metrics.WriteDurations, dur)
 	tree.sql.metrics.WriteTime += dur
 	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
 
-	err := errors.Join(treeResult.err, leafResult.err)
+	return leafResult.err
+}
 
-	return err
+func (w *sqlWriter) cachePop(key NodeKey) (*Node, bool) {
+	n, ok := w.cache[key]
+	if ok {
+		delete(w.cache, key)
+	}
+	return n, ok
+}
+
+func debugDump(path string, version int64, cache map[NodeKey]*Node) error {
+	module := strings.Split(path, "/")[len(strings.Split(path, "/"))-1]
+	if module == "slashing" || module == "lockup" {
+		f, err := os.Create(fmt.Sprintf("%s-%d.txt", module, version))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		for k := range cache {
+			_, err := f.WriteString(fmt.Sprintf("%s\n", k))
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // TODO

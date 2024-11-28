@@ -8,9 +8,7 @@ import (
 type NodePool struct {
 	syncPool *sync.Pool
 
-	free  chan int
-	nodes []Node
-
+	free   chan int
 	poolId uint64
 }
 
@@ -53,4 +51,17 @@ func (np *NodePool) Put(node *Node) {
 
 	node.poolId = 0
 	np.syncPool.Put(node)
+}
+
+func (np *NodePool) clone(n *Node) *Node {
+	node := np.Get()
+	node.leftNodeKey = n.leftNodeKey
+	node.rightNodeKey = n.rightNodeKey
+	node.nodeKey = n.nodeKey
+	node.hash = n.hash
+	node.key = n.key
+	node.value = n.value
+	node.subtreeHeight = n.subtreeHeight
+	node.size = n.size
+	return node
 }

@@ -65,8 +65,8 @@ type Node struct {
 }
 
 func (node *Node) String() string {
-	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolId: %d}",
-		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolId)
+	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, evict: %t, dirty: %t, poolId: %d}",
+		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.evict, node.dirty, node.poolId)
 }
 
 func (node *Node) isLeaf() bool {
@@ -107,6 +107,13 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
+	// check writer cache
+	var ok bool
+	node.leftNode, ok = t.sqlWriter.cachePop(node.leftNodeKey)
+	if ok {
+		return node.leftNode, nil
+	}
+
 	var err error
 	node.leftNode, err = t.sql.getLeftNode(node)
 	if err != nil {
@@ -122,6 +129,13 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
+	// check writer cache
+	var ok bool
+	node.rightNode, ok = t.sqlWriter.cachePop(node.rightNodeKey)
+	if ok {
+		return node.rightNode, nil
+	}
+
 	var err error
 	node.rightNode, err = t.sql.getRightNode(node)
 	if err != nil {
