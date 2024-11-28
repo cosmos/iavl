@@ -100,6 +100,29 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 	return tree
 }
 
+func (tree *Tree) ReadonlyClone() (*Tree, error) {
+	sqlOpts := tree.sql.opts
+	sqlOpts.Readonly = true
+	sql, err := NewSqliteDb(tree.pool, sqlOpts)
+	if err != nil {
+		return nil, err
+	}
+	return &Tree{
+		sql:                sql,
+		pool:               tree.pool,
+		checkpoints:        &VersionRange{},
+		metrics:            &metrics.TreeMetrics{},
+		maxWorkingSize:     tree.maxWorkingSize,
+		checkpointInterval: tree.checkpointInterval,
+		checkpointMemory:   tree.checkpointMemory,
+		storeLeafValues:    tree.storeLeafValues,
+		storeLatestLeaves:  tree.storeLatestLeaves,
+		heightFilter:       tree.heightFilter,
+		metricsProxy:       tree.metricsProxy,
+		evictionDepth:      tree.evictionDepth,
+	}, nil
+}
+
 func (tree *Tree) LoadVersion(version int64) (err error) {
 	if tree.sql == nil {
 		return fmt.Errorf("sql is nil")
@@ -744,5 +767,10 @@ func (tree *Tree) SetShouldCheckpoint() {
 
 func (tree *Tree) SetInitialVersion(version int64) error {
 	tree.version = version - 1
-	return nil
+	var err error
+	tree.checkpoints, err = tree.sql.loadCheckpointRange()
+	if err != nil {
+		return err
+	}
+	return tree.sql.ResetShardQueries()
 }

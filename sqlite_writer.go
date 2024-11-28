@@ -291,7 +291,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 			return err
 		}
 		if err = w.sql.treeWrite.Commit(); err != nil {
-			return err
+			return fmt.Errorf("failed to commit tree prune; %w", err)
 		}
 		w.logger.Debug().Msgf("commit tree prune count=%s", humanize.Comma(pruneCount))
 		if err = w.sql.treeWrite.Exec("PRAGMA wal_checkpoint(RESTART)"); err != nil {
@@ -368,7 +368,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 
 			prevCheckpoint := checkpoints.FindPrevious(pruneVersion)
 			if err = w.sql.treeWrite.Exec("DELETE FROM root WHERE version < ?", prevCheckpoint); err != nil {
-				return err
+				return fmt.Errorf("failed to prune root to %d; %w", prevCheckpoint, err)
 			}
 
 			w.logger.Debug().Msgf("done tree prune count=%s dur=%s to=%d",

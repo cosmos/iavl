@@ -136,9 +136,9 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		metrics:      &metrics.DbMetrics{},
 		logger:       logger,
 	}
-	if opts.Readonly {
-		return sql, nil
-	}
+	//if opts.Readonly {
+	//	return sql, nil
+	//}
 
 	if !api.IsFileExistent(opts.Path) {
 		err := os.MkdirAll(opts.Path, 0o755)
@@ -621,7 +621,7 @@ func (sql *SqliteDb) ResetShardQueries() error {
 		}
 	}
 
-	q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
+	q, err := sql.readConn.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
 	if err != nil {
 		return err
 	}

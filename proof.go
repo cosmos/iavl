@@ -20,20 +20,16 @@ var proofBufPool = &sync.Pool{
 }
 
 func (tree *Tree) GetProof(version int64, key []byte) (proof *ics23.CommitmentProof, err error) {
-	pool := NewNodePool()
-	sqlOpts := tree.sql.opts
-	sqlOpts.Readonly = true
-	sql, err := NewSqliteDb(pool, sqlOpts)
+	t, err := tree.ReadonlyClone()
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		dErr := sql.Close()
+		dErr := t.sql.Close()
 		if dErr != nil {
 			err = errors.Join(err, dErr)
 		}
 	}()
-	t := NewTree(sql, pool, DefaultTreeOptions())
 	if err := t.LoadVersion(version); err != nil {
 		return nil, err
 	}
