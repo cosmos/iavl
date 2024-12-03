@@ -60,13 +60,13 @@ type Node struct {
 	subtreeHeight int8
 
 	dirty  bool
-	evict  bool
-	poolId uint64
+	evict  int8
+	poolID uint64
 }
 
 func (node *Node) String() string {
-	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolId: %d}",
-		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolId)
+	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolID: %d}",
+		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolID)
 }
 
 func (node *Node) isLeaf() bool {
@@ -546,15 +546,4 @@ func (node *Node) sizeBytes() uint64 {
 
 func (node *Node) GetHash() []byte {
 	return node.hash
-}
-
-func (node *Node) evictChildren() {
-	if node.leftNode != nil {
-		node.leftNode.evict = true
-		node.leftNode = nil
-	}
-	if node.rightNode != nil {
-		node.rightNode.evict = true
-		node.rightNode = nil
-	}
 }

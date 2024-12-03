@@ -51,6 +51,7 @@ type Tree struct {
 	// state
 	branches      []*Node
 	leaves        []*Node
+	evictions     []*Node
 	branchOrphans []NodeKey
 	leafOrphans   []NodeKey
 	deletes       []*nodeDelete
@@ -192,7 +193,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if !tree.shouldCheckpoint {
-		tree.shouldCheckpoint = tree.version <= 1 ||
+		tree.shouldCheckpoint = tree.checkpoints.Len() == 0 ||
 			(tree.checkpointInterval > 0 && tree.version-tree.checkpoints.Last() >= tree.checkpointInterval) ||
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
@@ -217,6 +218,28 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			}
 		}
 	}
+	// now that nodes have been written to storage, we can evict flagged nodes from memory
+	// todo: is mutex needed or will the go memory manager handle race conditions? either side is OK
+	for i, node := range tree.evictions {
+		// todo for loop mutating evict flag, is it slower?
+		switch node.evict {
+		case 1:
+			tree.returnNode(node.leftNode)
+			node.leftNode = nil
+		case 2:
+			tree.returnNode(node.rightNode)
+			node.rightNode = nil
+		case 3:
+			tree.returnNode(node.leftNode)
+			node.leftNode = nil
+			tree.returnNode(node.rightNode)
+			node.rightNode = nil
+		default:
+			return nil, tree.version, fmt.Errorf("unexpected eviction flag %d i=%d", node.evict, i)
+		}
+		node.evict = 0
+	}
+	tree.evictions = nil
 	tree.leafOrphans = nil
 	tree.leaves = nil
 	tree.branches = nil
@@ -290,24 +313,31 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	// if the leaf node is not dirty, return it to the pool.
 	// if the leaf node is dirty, it will be written to storage then removed from the pool.
 	if tree.heightFilter > 0 {
+		novel := node.evict == 0
 		if node.leftNode != nil && node.leftNode.isLeaf() {
-			if !node.leftNode.dirty {
-				tree.returnNode(node.leftNode)
-			}
-			node.leftNode = nil
+			node.evict++
 		}
 		if node.rightNode != nil && node.rightNode.isLeaf() {
-			if !node.rightNode.dirty {
-				tree.returnNode(node.rightNode)
-			}
-			node.rightNode = nil
+			node.evict += 2
+		}
+		if novel && node.evict > 0 {
+			tree.evictions = append(tree.evictions, node)
 		}
 	}
 
 	// finally, if checkpointing, remove node's children from memory if we're at the eviction height
 	if tree.shouldCheckpoint {
 		if depth >= tree.evictionDepth {
-			node.evictChildren()
+			novel := node.evict == 0
+			if node.leftNode != nil && node.evict%2 == 0 {
+				node.evict++
+			}
+			if node.rightNode != nil && node.evict < 2 {
+				node.evict += 2
+			}
+			if novel && node.evict > 0 {
+				tree.evictions = append(tree.evictions, node)
+			}
 		}
 	}
 }
@@ -557,10 +587,6 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 		return node, nil, nil, false, nil
 	}
 
-	if err != nil {
-		return nil, nil, nil, false, err
-	}
-
 	// node.key < key; we go to the left to find the key:
 	if bytes.Compare(key, node.key) < 0 {
 		newLeftNode, newKey, value, removed, err := tree.recursiveRemove(node.left(tree), key)
@@ -773,4 +799,15 @@ func (tree *Tree) SetInitialVersion(version int64) error {
 		return err
 	}
 	return tree.sql.ResetShardQueries()
+}
+
+func (tree *Tree) IsDirty() bool {
+	if tree.IsEmpty() {
+		return false
+	}
+	return tree.root.dirty
+}
+
+func (tree *Tree) IsEmpty() bool {
+	return tree.root == nil
 }

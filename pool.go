@@ -33,7 +33,7 @@ func (np *NodePool) Get() *Node {
 		np.poolId++
 	}
 	n := np.syncPool.Get().(*Node)
-	n.poolId = np.poolId
+	n.poolID = np.poolId
 	return n
 }
 
@@ -49,8 +49,8 @@ func (np *NodePool) Put(node *Node) {
 	node.subtreeHeight = 0
 	node.size = 0
 	node.dirty = false
-	node.evict = false
+	node.evict = 0
 
-	node.poolId = 0
+	node.poolID = 0
 	np.syncPool.Put(node)
 }

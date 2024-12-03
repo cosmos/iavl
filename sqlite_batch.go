@@ -160,7 +160,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		val  []byte
 		tree = b.tree
 	)
-	for i, leaf := range tree.leaves {
+	for _, leaf := range tree.leaves {
 		b.leafCount++
 		if tree.storeLatestLeaves {
 			val = leaf.value
@@ -182,15 +182,15 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		if err = b.changelogMaybeCommit(); err != nil {
 			return 0, err
 		}
-		if tree.heightFilter > 0 {
-			if i != 0 {
-				// evict leaf
-				tree.returnNode(leaf)
-			} else if leaf.nodeKey != tree.root.nodeKey {
-				// never evict the root if it's a leaf
-				tree.returnNode(leaf)
-			}
-		}
+		//if tree.heightFilter > 0 {
+		//	if i != 0 {
+		//		// evict leaf
+		//		tree.returnNode(leaf)
+		//	} else if leaf.nodeKey != tree.root.nodeKey {
+		//		// never evict the root if it's a leaf
+		//		tree.returnNode(leaf)
+		//	}
+		//}
 	}
 
 	for _, leafDelete := range tree.deletes {
@@ -229,7 +229,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		return byteCount, err
 	}
 
-	return byteCount, nil
+	return b.leafCount, nil
 }
 
 func (b *sqliteBatch) isCheckpoint() bool {
@@ -263,9 +263,6 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 			}
 			if err = b.treeMaybeCommit(shardID); err != nil {
 				return 0, err
-			}
-			if node.evict {
-				tree.returnNode(node)
 			}
 		}
 
