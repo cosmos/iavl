@@ -563,7 +563,7 @@ func Test_Prune_Logic(t *testing.T) {
 	pool := NewNodePool()
 	// tmpDir := "/tmp/prune-logic"
 	tmpDir := t.TempDir()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: true})
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 
@@ -600,7 +600,7 @@ func Test_Prune_Logic(t *testing.T) {
 func Test_Prune_Performance(t *testing.T) {
 	tmpDir := "/tmp/iavl-v2"
 
-	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: false})
+	multiTree := NewMultiTree(tmpDir, TreeOptions{CheckpointInterval: 50, StateStorage: true})
 	require.NoError(t, multiTree.MountTrees())
 	require.NoError(t, multiTree.LoadVersion(1))
 	require.NoError(t, multiTree.WarmLeaves())

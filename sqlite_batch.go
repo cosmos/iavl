@@ -31,7 +31,7 @@ type sqliteBatch struct {
 
 func (b *sqliteBatch) newChangeLogBatch() (err error) {
 	if err = b.sql.leafWrite.Begin(); err != nil {
-		return err
+		return fmt.Errorf("failed to start leaf write transaction: %w", err)
 	}
 	b.leafInsert, err = b.sql.leafWrite.Prepare("INSERT OR REPLACE INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)")
 	if err != nil {

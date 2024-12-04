@@ -778,8 +778,9 @@ func (tree *Tree) replayChangelog(toVersion int64, targetHash []byte) error {
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
-	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: *tree.checkpoints}
-	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: *tree.checkpoints}
+	checkpoints := *tree.checkpoints
+	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: checkpoints}
+	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: checkpoints}
 	return nil
 }
 

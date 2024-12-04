@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
@@ -293,4 +295,45 @@ func Test_NewSqliteDb(t *testing.T) {
 	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
 	require.NoError(t, err)
 	require.NotNil(t, sql)
+}
+
+func Test_ConcurrentWrites(t *testing.T) {
+	dir := t.TempDir()
+	sqlOne, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
+	require.NoError(t, err)
+	sqlTwo, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
+	require.NoError(t, err)
+	err = sqlOne.leafWrite.Exec("CREATE TABLE foo_1 (seq INTEGER)")
+	require.NoError(t, err)
+	err = sqlTwo.leafWrite.Exec("CREATE TABLE foo_2 (seq INTEGER)")
+	require.NoError(t, err)
+	writes := func(sql *SqliteDb, table string) func() error {
+		require.NoError(t, sql.leafWrite.Begin())
+		stmt, writeErr := sql.leafWrite.Prepare(fmt.Sprintf("INSERT INTO %s (seq) VALUES (?)", table))
+		require.NoError(t, writeErr)
+		return func() error {
+			for i := 0; i < 1000; i++ {
+				if writeErr = stmt.Exec(i); writeErr != nil {
+					return writeErr
+				}
+				if i%100 == 0 {
+					if writeErr = sql.leafWrite.Commit(); writeErr != nil {
+						return writeErr
+					}
+					if writeErr = sql.leafWrite.Begin(); writeErr != nil {
+						return writeErr
+					}
+				}
+			}
+			return sql.leafWrite.Commit()
+		}
+	}
+
+	require.NoError(t, writes(sqlOne, "foo_1")())
+
+	// sqlite is single writer; concurrent writes should fail even if the tables are different
+	var eg errgroup.Group
+	eg.Go(writes(sqlOne, "foo_1"))
+	eg.Go(writes(sqlTwo, "foo_2"))
+	require.ErrorContains(t, eg.Wait(), "database is locked")
 }
