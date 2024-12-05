@@ -58,6 +58,7 @@ type Tree struct {
 	sequence      uint32
 	isReplaying   bool
 	evictionDepth int8
+	pruneTo       int64
 }
 
 type TreeOptions struct {
@@ -218,8 +219,22 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			}
 		}
 	}
+
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
 	// todo: is mutex needed or will the go memory manager handle race conditions? either side is OK
+	if err := tree.evictNodes(); err != nil {
+		return nil, tree.version, err
+	}
+	tree.leafOrphans = nil
+	tree.leaves = nil
+	tree.branches = nil
+	tree.deletes = nil
+	tree.shouldCheckpoint = false
+
+	return rootHash, tree.version, nil
+}
+
+func (tree *Tree) evictNodes() error {
 	for i, node := range tree.evictions {
 		// todo for loop mutating evict flag, is it slower?
 		switch node.evict {
@@ -235,18 +250,12 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			tree.returnNode(node.rightNode)
 			node.rightNode = nil
 		default:
-			return nil, tree.version, fmt.Errorf("unexpected eviction flag %d i=%d", node.evict, i)
+			return fmt.Errorf("unexpected eviction flag %d i=%d", node.evict, i)
 		}
 		node.evict = 0
 	}
 	tree.evictions = nil
-	tree.leafOrphans = nil
-	tree.leaves = nil
-	tree.branches = nil
-	tree.deletes = nil
-	tree.shouldCheckpoint = false
-
-	return rootHash, tree.version, nil
+	return nil
 }
 
 // ComputeHash the node and its descendants recursively. This usually mutates all

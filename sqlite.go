@@ -34,10 +34,10 @@ type SqliteDb struct {
 
 	pool *NodePool
 
-	// 2 separate databases and 2 separate connections.  the underlying databases have different WAL policies
-	// therefore separation is required.
 	leafWrite *sqlite3.Conn
 	treeWrite *sqlite3.Conn
+	rootWrite *sqlite3.Conn
+	rootRead  *sqlite3.Conn
 
 	// for latest table queries
 	itrIdx      int
@@ -49,6 +49,7 @@ type SqliteDb struct {
 
 	shards       *VersionRange
 	shardQueries map[int64]*sqlite3.Stmt
+	shardWrites  map[int64]*sqlite3.Conn
 
 	metrics *metrics.DbMetrics
 	logger  zerolog.Logger
@@ -1025,7 +1026,10 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	if !bytes.Equal(targetHash, rootHash) {
 		return fmt.Errorf("root hash mismatch; expected %x got %x", targetHash, rootHash)
 	}
-	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes, tree.evictions = nil, nil, nil, nil, nil
+	if err = tree.evictNodes(); err != nil {
+		return err
+	}
+	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 	tree.sequence = 0
 	tree.version = toVersion
 	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v",
