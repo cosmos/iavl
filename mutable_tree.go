@@ -514,7 +514,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	return latestVersion, nil
 }
 
-// loadVersionForOverwriting attempts to load a tree at a previously committed
+// LoadVersionForOverwriting attempts to load a tree at a previously committed
 // version, or the latest version below it. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) error {
 	if _, err := tree.LoadVersion(targetVersion); err != nil {

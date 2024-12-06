@@ -60,7 +60,7 @@ func TestIterateConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-// TestConcurrency throws "fatal error: concurrent map iteration and map write" and
+// TestIteratorConcurrency throws "fatal error: concurrent map iteration and map write" and
 // also sometimes "fatal error: concurrent map writes" when fast node is enabled
 func TestIteratorConcurrency(t *testing.T) {
 	if testing.Short() {
