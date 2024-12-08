@@ -182,15 +182,6 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		if err = b.changelogMaybeCommit(); err != nil {
 			return 0, err
 		}
-		//if tree.heightFilter > 0 {
-		//	if i != 0 {
-		//		// evict leaf
-		//		tree.returnNode(leaf)
-		//	} else if leaf.nodeKey != tree.root.nodeKey {
-		//		// never evict the root if it's a leaf
-		//		tree.returnNode(leaf)
-		//	}
-		//}
 	}
 
 	for _, leafDelete := range tree.deletes {

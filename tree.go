@@ -213,7 +213,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 		// if we've checkpointed without loading any tree node reads this means this was the first checkpoint.
 		// shard queries will not be loaded. initialize them now.
-		if tree.shouldCheckpoint && tree.sql.readConn == nil {
+		if tree.sql.readConn == nil {
 			if err := tree.sql.ResetShardQueries(); err != nil {
 				return nil, tree.version, err
 			}
@@ -279,6 +279,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		if node.nodeKey.Version() == tree.version {
 			tree.leaves = append(tree.leaves, node)
 		}
+
 		// always end recursion at a leaf
 		return
 	}
@@ -290,37 +291,19 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		// format to iavl v0 where left/right hash are stored in the node.
 		tree.deepHash(node.left(tree), depth+1)
 		tree.deepHash(node.right(tree), depth+1)
-	}
-
-	if !tree.shouldCheckpoint {
-		// when not checkpointing, end recursion at a node with a hash (node.version < tree.version)
-		if node.hash != nil {
-			return
+		node._hash()
+	} else if tree.shouldCheckpoint {
+		// when checkpointing traverse the entire tree to accumulate dirty branches and flag for eviction
+		// even if the node hash is already computed
+		if node.leftNode != nil {
+			tree.deepHash(node.leftNode, depth+1)
 		}
-	} else {
-		// otherwise accumulate the branch node for checkpointing
-		tree.branches = append(tree.branches, node)
-
-		// if the node is missing a hash then it's children have already been loaded above.
-		// if the node has a hash then traverse the dirty path.
-		if node.hash != nil {
-			if node.leftNode != nil {
-				tree.deepHash(node.leftNode, depth+1)
-			}
-			if node.rightNode != nil {
-				tree.deepHash(node.rightNode, depth+1)
-			}
+		if node.rightNode != nil {
+			tree.deepHash(node.rightNode, depth+1)
 		}
 	}
 
-	if node.hash == nil {
-		tree.metrics.TreeHash++
-	}
-	node._hash()
-
-	// when heightFilter > 0 remove the leaf nodes from memory.
-	// if the leaf node is not dirty, return it to the pool.
-	// if the leaf node is dirty, it will be written to storage then removed from the pool.
+	// leaf node eviction occurs every version
 	if tree.heightFilter > 0 {
 		novel := node.evict == 0
 		if node.leftNode != nil && node.leftNode.isLeaf() {
@@ -334,8 +317,11 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		}
 	}
 
-	// finally, if checkpointing, remove node's children from memory if we're at the eviction height
 	if tree.shouldCheckpoint {
+		if node.nodeKey.Version() > tree.checkpoints.Last() {
+			tree.branches = append(tree.branches, node)
+		}
+		// full tree eviction occurs only during checkpoints
 		if depth >= tree.evictionDepth {
 			novel := node.evict == 0
 			if node.leftNode != nil && node.evict%2 == 0 {
@@ -349,6 +335,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 			}
 		}
 	}
+
 }
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
@@ -520,7 +507,6 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			}
 			return node, true, nil
 		}
-
 	} else {
 		tree.addOrphan(node)
 		tree.mutateNode(node)

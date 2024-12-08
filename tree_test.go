@@ -246,7 +246,7 @@ func TestOsmoLike_HotStart(t *testing.T) {
 }
 
 func TestOsmoLike_ColdStart(t *testing.T) {
-	tmpDir := "/Users/mattk/.costor/iavl-v2"
+	tmpDir := "/tmp/iavl-v2"
 	logDir := "/Users/mattk/src/devmos/osmo-like-many/v2"
 
 	treeOpts := DefaultTreeOptions()
