@@ -360,7 +360,7 @@ func (ndb *nodeDB) shouldForceFastStorageUpgrade() (bool, error) {
 // saveFastNodeUnlocked saves a FastNode to disk.
 func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bool) error {
 	if node.GetKey() == nil {
-		return fmt.Errorf("cannot have FastNode with a nil value for key")
+		return errors.New("cannot have FastNode with a nil value for key")
 	}
 
 	// Save node bytes to db.

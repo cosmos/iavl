@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -19,7 +20,7 @@ type SqliteKVStore struct {
 
 func NewSqliteKVStore(opts SqliteDbOptions) (kv *SqliteKVStore, err error) {
 	if opts.Path == "" {
-		return nil, fmt.Errorf("path cannot be empty")
+		return nil, errors.New("path cannot be empty")
 	}
 	if opts.WalSize == 0 {
 		opts.WalSize = 50 * 1024 * 1024

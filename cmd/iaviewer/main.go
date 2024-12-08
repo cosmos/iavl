@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -67,7 +68,7 @@ func OpenDB(dir string) (corestore.KVStoreWithBatch, error) {
 	case strings.HasSuffix(dir, ".db/"):
 		dir = dir[:len(dir)-4]
 	default:
-		return nil, fmt.Errorf("database directory must end with .db")
+		return nil, errors.New("database directory must end with .db")
 	}
 
 	dir, err := filepath.Abs(dir)
