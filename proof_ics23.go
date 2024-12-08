@@ -2,8 +2,7 @@ package iavl
 
 import (
 	"encoding/binary"
-	"fmt"
-
+	"errors"
 	ics23 "github.com/cosmos/ics23/go"
 )
 
@@ -48,7 +47,7 @@ func (t *ImmutableTree) GetNonMembershipProof(key []byte) (*ics23.CommitmentProo
 	}
 
 	if val != nil {
-		return nil, fmt.Errorf("cannot create NonExistanceProof when Key in State")
+		return nil, errors.New("cannot create NonExistanceProof when Key in State")
 	}
 
 	nonexist := &ics23.NonExistenceProof{
@@ -177,7 +176,7 @@ func convertVarIntToBytes(orig int64, buf [binary.MaxVarintLen64]byte) []byte {
 // GetProof gets the proof for the given key.
 func (t *ImmutableTree) GetProof(key []byte) (*ics23.CommitmentProof, error) {
 	if t.root == nil {
-		return nil, fmt.Errorf("cannot generate the proof with nil root")
+		return nil, errors.New("cannot generate the proof with nil root")
 	}
 
 	exist, err := t.Has(key)

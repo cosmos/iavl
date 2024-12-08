@@ -2,6 +2,7 @@ package v0
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -111,7 +112,7 @@ func latestVersionCommand() *cobra.Command {
 				return err
 			}
 			if set && version == -1 {
-				return fmt.Errorf("version must be set")
+				return errors.New("version must be set")
 			}
 			if set {
 
