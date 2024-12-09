@@ -48,7 +48,6 @@ func (np *NodePool) Put(node *Node) {
 	node.value = nil
 	node.subtreeHeight = 0
 	node.size = 0
-	node.dirty = false
 	node.evict = 0
 
 	node.poolID = 0

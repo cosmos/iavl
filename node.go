@@ -59,7 +59,6 @@ type Node struct {
 	rightNode     *Node
 	subtreeHeight int8
 
-	dirty  bool
 	evict  int8
 	poolID uint64
 }
@@ -247,11 +246,10 @@ func (node *Node) calcBalance(t *Tree) (int, error) {
 func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
 	tree.addOrphan(node.left(tree))
-	newNode := node.left(tree)
-	tree.mutateNode(newNode)
+	newNode := tree.stageNode(node.left(tree))
 
 	node.setLeft(newNode.right(tree))
 	newNode.setRight(node)
@@ -273,11 +271,10 @@ func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
 	tree.addOrphan(node.right(tree))
-	newNode := node.right(tree)
-	tree.mutateNode(newNode)
+	newNode := tree.stageNode(node.right(tree))
 
 	node.setRight(newNode.left(tree))
 	newNode.setLeft(node)
@@ -546,4 +543,23 @@ func (node *Node) sizeBytes() uint64 {
 
 func (node *Node) GetHash() []byte {
 	return node.hash
+}
+
+func (node *Node) clone(tree *Tree) *Node {
+	return &Node{
+		nodeKey:       tree.nextNodeKey(),
+		key:           node.key,
+		value:         node.value,
+		hash:          nil,
+		leftNodeKey:   node.leftNodeKey,
+		rightNodeKey:  node.rightNodeKey,
+		leftNode:      node.leftNode,
+		rightNode:     node.rightNode,
+		size:          node.size,
+		subtreeHeight: node.subtreeHeight,
+	}
+}
+
+func (node *Node) isDirty(tree *Tree) bool {
+	return node.nodeKey.Version() == tree.stagedVersion
 }

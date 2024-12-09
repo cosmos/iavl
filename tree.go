@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -25,14 +26,24 @@ type nodeDelete struct {
 	leafKey []byte
 }
 
+type writeQueue struct {
+	branches      []*Node
+	leaves        []*Node
+	branchOrphans []NodeKey
+	leafOrphans   []NodeKey
+	deletes       []*nodeDelete
+}
+
 type Tree struct {
-	version      int64
-	root         *Node
-	metrics      *metrics.TreeMetrics
-	sql          *SqliteDb
-	sqlWriter    *sqlWriter
-	writerCancel context.CancelFunc
-	pool         *NodePool
+	version       int64
+	stagedVersion int64
+	root          *Node
+	stagedRoot    *Node
+	metrics       *metrics.TreeMetrics
+	sql           *SqliteDb
+	sqlWriter     *sqlWriter
+	writerCancel  context.CancelFunc
+	pool          *NodePool
 
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
@@ -49,16 +60,14 @@ type Tree struct {
 	metricsProxy       metrics.Proxy
 
 	// state
-	branches      []*Node
-	leaves        []*Node
+	*writeQueue
 	evictions     []*Node
-	branchOrphans []NodeKey
-	leafOrphans   []NodeKey
-	deletes       []*nodeDelete
+	lastVersion   []*Node
 	sequence      uint32
 	isReplaying   bool
 	evictionDepth int8
-	pruneTo       int64
+
+	saveLock sync.Mutex
 }
 
 type TreeOptions struct {
@@ -96,6 +105,9 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		heightFilter:       opts.HeightFilter,
 		metricsProxy:       opts.MetricsProxy,
 		evictionDepth:      opts.EvictionDepth,
+		writeQueue:         &writeQueue{},
+		version:            0,
+		stagedVersion:      1,
 	}
 
 	tree.sqlWriter.start(ctx)
@@ -122,6 +134,7 @@ func (tree *Tree) ReadonlyClone() (*Tree, error) {
 		heightFilter:       tree.heightFilter,
 		metricsProxy:       tree.metricsProxy,
 		evictionDepth:      tree.evictionDepth,
+		writeQueue:         &writeQueue{},
 	}, nil
 }
 
@@ -160,6 +173,8 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 		}
 	}
 
+	tree.stagedVersion = tree.version + 1
+
 	return nil
 }
 
@@ -186,8 +201,8 @@ func (tree *Tree) SaveSnapshot() (err error) {
 }
 
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
-	tree.version++
-	tree.sequence = 0
+	tree.saveLock.Lock()
+	defer tree.saveLock.Unlock()
 
 	if err := tree.sql.closeHangingIterators(); err != nil {
 		return nil, 0, err
@@ -195,7 +210,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	if !tree.shouldCheckpoint {
 		tree.shouldCheckpoint = tree.checkpoints.Len() == 0 ||
-			(tree.checkpointInterval > 0 && tree.version-tree.checkpoints.Last() >= tree.checkpointInterval) ||
+			(tree.checkpointInterval > 0 && tree.stagedVersion-tree.checkpoints.Last() >= tree.checkpointInterval) ||
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
 	rootHash := tree.computeHash()
@@ -207,7 +222,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	if tree.shouldCheckpoint {
 		tree.branchOrphans = nil
-		if err = tree.checkpoints.Add(tree.version); err != nil {
+		if err = tree.checkpoints.Add(tree.stagedVersion); err != nil {
 			return nil, tree.version, err
 		}
 
@@ -221,7 +236,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
-	// todo: is mutex needed or will the go memory manager handle race conditions? either side is OK
 	if err := tree.evictNodes(); err != nil {
 		return nil, tree.version, err
 	}
@@ -230,6 +244,12 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.branches = nil
 	tree.deletes = nil
 	tree.shouldCheckpoint = false
+	tree.sequence = 0
+	// TODO evict orphaned nodes in last version (tree.root)
+	// locked swap around tree.root ?
+	tree.root = tree.stagedRoot
+	tree.version++
+	tree.stagedVersion++
 
 	return rootHash, tree.version, nil
 }
@@ -263,11 +283,14 @@ func (tree *Tree) evictNodes() error {
 // If the tree is empty (i.e. the node is nil), returns the hash of an empty input,
 // to conform with RFC-6962.
 func (tree *Tree) computeHash() []byte {
-	if tree.root == nil {
+	if tree.stagedRoot == nil {
+		tree.stagedRoot = tree.root
+	}
+	if tree.stagedRoot == nil {
 		return sha256.New().Sum(nil)
 	}
-	tree.deepHash(tree.root, 0)
-	return tree.root.hash
+	tree.deepHash(tree.stagedRoot, 0)
+	return tree.stagedRoot.hash
 }
 
 func (tree *Tree) deepHash(node *Node, depth int8) {
@@ -276,7 +299,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	}
 	if node.isLeaf() {
 		// new leaves are written every version
-		if node.nodeKey.Version() == tree.version {
+		if node.nodeKey.Version() == tree.stagedVersion {
 			tree.leaves = append(tree.leaves, node)
 		}
 
@@ -335,7 +358,6 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 			}
 		}
 	}
-
 }
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
@@ -442,17 +464,20 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	if value == nil {
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
+	if tree.stagedRoot == nil {
+		tree.stagedRoot = tree.root
+	}
 
-	if tree.root == nil {
-		tree.root = tree.NewNode(key, value)
+	if tree.stagedRoot == nil {
+		tree.stagedRoot = tree.NewNode(key, value)
 		return updated, nil
 	}
 
-	tree.root, updated, err = tree.recursiveSet(tree.root, key, value)
+	tree.stagedRoot, updated, err = tree.recursiveSet(tree.stagedRoot, key, value)
 	return updated, err
 }
 
-func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
+func (tree *Tree) recursiveSet(node *Node, key, value []byte) (
 	newSelf *Node, updated bool, err error,
 ) {
 	if node == nil {
@@ -467,7 +492,6 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			parent.key = node.key
 			parent.subtreeHeight = 1
 			parent.size = 2
-			parent.dirty = true
 			parent.setLeft(tree.NewNode(key, value))
 			parent.setRight(node)
 
@@ -481,7 +505,6 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			parent.key = key
 			parent.subtreeHeight = 1
 			parent.size = 2
-			parent.dirty = true
 			parent.setLeft(node)
 			parent.setRight(tree.NewNode(key, value))
 
@@ -490,8 +513,8 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 			return parent, false, nil
 		default:
 			tree.addOrphan(node)
-			wasDirty := node.dirty
-			tree.mutateNode(node)
+			wasDirty := node.isDirty(tree)
+			node = tree.stageNode(node)
 			if tree.isReplaying {
 				node.hash = value
 			} else {
@@ -509,7 +532,7 @@ func (tree *Tree) recursiveSet(node *Node, key []byte, value []byte) (
 		}
 	} else {
 		tree.addOrphan(node)
-		tree.mutateNode(node)
+		node = tree.stageNode(node)
 
 		var child *Node
 		if bytes.Compare(key, node.key) < 0 {
@@ -547,11 +570,13 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.metricsProxy != nil {
 		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
 	}
-
-	if tree.root == nil {
+	if tree.stagedRoot == nil {
+		tree.stagedRoot = tree.root
+	}
+	if tree.stagedRoot == nil {
 		return nil, false, nil
 	}
-	newRoot, _, value, removed, err := tree.recursiveRemove(tree.root, key)
+	newRoot, _, value, removed, err := tree.recursiveRemove(tree.stagedRoot, key)
 	if err != nil {
 		return nil, false, err
 	}
@@ -561,7 +586,7 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 
 	tree.metrics.TreeDelete++
 
-	tree.root = newRoot
+	tree.stagedRoot = newRoot
 	return value, true, nil
 }
 
@@ -571,7 +596,9 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 // - the node that replaces the orig. node after remove
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
-func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey []byte, newValue []byte, removed bool, err error) {
+func (tree *Tree) recursiveRemove(node *Node, key []byte) (
+	newSelf *Node, newKey, newValue []byte, removed bool, err error,
+) {
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
 			// we don't create an orphan here because the leaf node is removed
@@ -604,7 +631,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 			return right, k, value, removed, nil
 		}
 
-		tree.mutateNode(node)
+		node = tree.stageNode(node)
 
 		node.setLeft(newLeftNode)
 		err = node.calcHeightAndSize(tree)
@@ -638,7 +665,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 		return left, nil, value, removed, nil
 	}
 
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
 	node.setRight(newRightNode)
 	if newKey != nil {
@@ -667,7 +694,7 @@ func (tree *Tree) Height() int8 {
 
 func (tree *Tree) nextNodeKey() NodeKey {
 	tree.sequence++
-	nk := NewNodeKey(tree.version+1, tree.sequence)
+	nk := NewNodeKey(tree.stagedVersion, tree.sequence)
 	return nk
 }
 
@@ -680,15 +707,28 @@ func (tree *Tree) mutateNode(node *Node) {
 	node.hash = nil
 	node.nodeKey = tree.nextNodeKey()
 
-	if node.dirty {
+	if node.isDirty(tree) {
 		return
 	}
 
-	node.dirty = true
 	tree.workingSize++
 	if !node.isLeaf() {
 		tree.workingBytes += node.sizeBytes()
 	}
+}
+
+func (tree *Tree) stageNode(node *Node) *Node {
+	if node.isDirty(tree) {
+		node.hash = nil
+		node.nodeKey = tree.nextNodeKey()
+		return node
+	}
+	clone := node.clone(tree)
+	tree.workingSize++
+	if !node.isLeaf() {
+		tree.workingBytes += node.sizeBytes()
+	}
+	return clone
 }
 
 func (tree *Tree) addOrphan(node *Node) {
@@ -697,7 +737,7 @@ func (tree *Tree) addOrphan(node *Node) {
 	}
 	if !node.isLeaf() && node.nodeKey.Version() <= tree.checkpoints.Last() {
 		tree.branchOrphans = append(tree.branchOrphans, node.nodeKey)
-	} else if node.isLeaf() && !node.dirty {
+	} else if node.isLeaf() && !node.isDirty(tree) {
 		tree.leafOrphans = append(tree.leafOrphans, node.nodeKey)
 	}
 }
@@ -734,14 +774,13 @@ func (tree *Tree) NewNode(key []byte, value []byte) *Node {
 		}
 	}
 
-	node.dirty = true
 	tree.workingBytes += node.sizeBytes()
 	tree.workingSize++
 	return node
 }
 
 func (tree *Tree) returnNode(node *Node) {
-	if node.dirty {
+	if node.isDirty(tree) {
 		tree.workingBytes -= node.sizeBytes()
 		tree.workingSize--
 	}
@@ -787,6 +826,7 @@ func (tree *Tree) SetShouldCheckpoint() {
 }
 
 func (tree *Tree) SetInitialVersion(version int64) error {
+	tree.stagedVersion = version
 	tree.version = version - 1
 	var err error
 	tree.checkpoints, err = tree.sql.loadCheckpointRange()
@@ -794,15 +834,4 @@ func (tree *Tree) SetInitialVersion(version int64) error {
 		return err
 	}
 	return tree.sql.ResetShardQueries()
-}
-
-func (tree *Tree) IsDirty() bool {
-	if tree.IsEmpty() {
-		return false
-	}
-	return tree.root.dirty
-}
-
-func (tree *Tree) IsEmpty() bool {
-	return tree.root == nil
 }
