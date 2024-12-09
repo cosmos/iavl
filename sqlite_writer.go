@@ -461,12 +461,11 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
 
 	if batch.leafCount > 0 || batch.treeCount > 0 {
-		batch.logger.Info().Msgf("saved tree version=%d leaves=%s branches=%s dur=%s hash=%x",
+		batch.logger.Info().Msgf("saved tree version=%d leaves=%s branches=%s dur=%s",
 			tree.stagedVersion,
 			humanize.Comma(batch.leafCount),
 			humanize.Comma(batch.treeCount),
 			dur.Round(time.Millisecond),
-			tree.stagedRoot.hash,
 		)
 	}
 

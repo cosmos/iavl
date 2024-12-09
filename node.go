@@ -293,6 +293,9 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 }
 
 func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error) {
+	if node == nil {
+		return 0, nil, errors.New("cannot get nil node")
+	}
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -546,20 +549,36 @@ func (node *Node) GetHash() []byte {
 }
 
 func (node *Node) clone(tree *Tree) *Node {
-	return &Node{
-		nodeKey:       tree.nextNodeKey(),
-		key:           node.key,
-		value:         node.value,
-		hash:          nil,
-		leftNodeKey:   node.leftNodeKey,
-		rightNodeKey:  node.rightNodeKey,
-		leftNode:      node.leftNode,
-		rightNode:     node.rightNode,
-		size:          node.size,
-		subtreeHeight: node.subtreeHeight,
-	}
+	n := tree.pool.Get()
+	//return &Node{
+	//	nodeKey:       tree.nextNodeKey(),
+	//	key:           node.key,
+	//	value:         node.value,
+	//	hash:          nil,
+	//	leftNodeKey:   node.leftNodeKey,
+	//	rightNodeKey:  node.rightNodeKey,
+	//	leftNode:      node.leftNode,
+	//	rightNode:     node.rightNode,
+	//	size:          node.size,
+	//	subtreeHeight: node.subtreeHeight,
+	//}
+	n.nodeKey = tree.nextNodeKey()
+	n.key = node.key
+	n.value = node.value
+	n.hash = nil
+	n.leftNodeKey = node.leftNodeKey
+	n.rightNodeKey = node.rightNodeKey
+	n.leftNode = node.leftNode
+	n.rightNode = node.rightNode
+	n.size = node.size
+	n.subtreeHeight = node.subtreeHeight
+	return n
 }
 
 func (node *Node) isDirty(tree *Tree) bool {
-	return node.nodeKey.Version() == tree.stagedVersion
+	return node.version() == tree.stagedVersion
+}
+
+func (node *Node) version() int64 {
+	return node.nodeKey.Version()
 }

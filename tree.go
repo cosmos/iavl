@@ -37,13 +37,16 @@ type writeQueue struct {
 type Tree struct {
 	version       int64
 	stagedVersion int64
-	root          *Node
-	stagedRoot    *Node
-	metrics       *metrics.TreeMetrics
-	sql           *SqliteDb
-	sqlWriter     *sqlWriter
-	writerCancel  context.CancelFunc
-	pool          *NodePool
+
+	previousRoot *Node
+	root         *Node
+	stagedRoot   *Node
+
+	metrics      *metrics.TreeMetrics
+	sql          *SqliteDb
+	sqlWriter    *sqlWriter
+	writerCancel context.CancelFunc
+	pool         *NodePool
 
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
@@ -67,7 +70,10 @@ type Tree struct {
 	isReplaying   bool
 	evictionDepth int8
 
+	// only allow one save at a time
 	saveLock sync.Mutex
+	// synchronize h and h-1 reads to SaveVersion
+	versionLock sync.RWMutex
 }
 
 type TreeOptions struct {
@@ -156,6 +162,8 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 	if err != nil {
 		return err
 	}
+	tree.stagedRoot = tree.root
+
 	if version > tree.version {
 		var targetHash []byte
 		targetRoot, err := tree.sql.LoadRoot(version)
@@ -229,14 +237,14 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		// if we've checkpointed without loading any tree node reads this means this was the first checkpoint.
 		// shard queries will not be loaded. initialize them now.
 		if tree.sql.readConn == nil {
-			if err := tree.sql.ResetShardQueries(); err != nil {
+			if err = tree.sql.ResetShardQueries(); err != nil {
 				return nil, tree.version, err
 			}
 		}
 	}
 
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
-	if err := tree.evictNodes(); err != nil {
+	if err = tree.evictNodes(); err != nil {
 		return nil, tree.version, err
 	}
 	tree.leafOrphans = nil
@@ -245,11 +253,16 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.deletes = nil
 	tree.shouldCheckpoint = false
 	tree.sequence = 0
+
+	// staged version becomes the current version
 	// TODO evict orphaned nodes in last version (tree.root)
 	// locked swap around tree.root ?
+	tree.versionLock.Lock()
+	tree.previousRoot = tree.root
 	tree.root = tree.stagedRoot
 	tree.version++
 	tree.stagedVersion++
+	tree.versionLock.Unlock()
 
 	return rootHash, tree.version, nil
 }
@@ -283,9 +296,6 @@ func (tree *Tree) evictNodes() error {
 // If the tree is empty (i.e. the node is nil), returns the hash of an empty input,
 // to conform with RFC-6962.
 func (tree *Tree) computeHash() []byte {
-	if tree.stagedRoot == nil {
-		tree.stagedRoot = tree.root
-	}
 	if tree.stagedRoot == nil {
 		return sha256.New().Sum(nil)
 	}
@@ -358,6 +368,38 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 			}
 		}
 	}
+}
+
+func (tree *Tree) getVersionedRoot(version int64) (bool, *Node) {
+	tree.versionLock.RLock()
+	defer tree.versionLock.RUnlock()
+
+	switch version {
+	case tree.version:
+		if tree.root == nil {
+			return true, nil
+		}
+		return true, &(*tree.root)
+	case tree.version - 1:
+		if tree.previousRoot == nil {
+			return true, nil
+		}
+		return true, &(*tree.previousRoot)
+	default:
+		return false, nil
+	}
+}
+
+func (tree *Tree) GetVersioned(version int64, key []byte) (bool, []byte, error) {
+	ok, root := tree.getVersionedRoot(version)
+	if !ok {
+		return false, nil, nil
+	}
+	if root == nil {
+		return true, nil, nil
+	}
+	_, res, err := root.get(tree, key)
+	return true, res, err
 }
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
@@ -464,9 +506,6 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 	if value == nil {
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
-	if tree.stagedRoot == nil {
-		tree.stagedRoot = tree.root
-	}
 
 	if tree.stagedRoot == nil {
 		tree.stagedRoot = tree.NewNode(key, value)
@@ -569,9 +608,6 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte) (
 func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.metricsProxy != nil {
 		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
-	}
-	if tree.stagedRoot == nil {
-		tree.stagedRoot = tree.root
 	}
 	if tree.stagedRoot == nil {
 		return nil, false, nil
@@ -717,10 +753,16 @@ func (tree *Tree) mutateNode(node *Node) {
 	}
 }
 
+// TODO
+// during replay stageNode should mutate in place, i.e. probably call mutateNode
+// in order to save GC pressure
+
 func (tree *Tree) stageNode(node *Node) *Node {
 	if node.isDirty(tree) {
-		node.hash = nil
-		node.nodeKey = tree.nextNodeKey()
+		if node.hash != nil {
+			node.hash = nil
+			node.nodeKey = tree.nextNodeKey()
+		}
 		return node
 	}
 	clone := node.clone(tree)
