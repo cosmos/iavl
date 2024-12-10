@@ -65,7 +65,6 @@ type Tree struct {
 	// state
 	*writeQueue
 	evictions     []*Node
-	lastVersion   []*Node
 	sequence      uint32
 	isReplaying   bool
 	evictionDepth int8
@@ -367,28 +366,30 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	}
 }
 
-func (tree *Tree) getVersionedRoot(version int64) (bool, *Node) {
+func (tree *Tree) getRecentRoot(version int64) (bool, *Node) {
 	tree.versionLock.RLock()
 	defer tree.versionLock.RUnlock()
+	var root Node
 
 	switch version {
 	case tree.version:
 		if tree.root == nil {
 			return true, nil
 		}
-		return true, &(*tree.root)
+		root = *tree.root
 	case tree.version - 1:
 		if tree.previousRoot == nil {
 			return true, nil
 		}
-		return true, &(*tree.previousRoot)
+		root = *tree.previousRoot
 	default:
 		return false, nil
 	}
+	return true, &root
 }
 
-func (tree *Tree) GetVersioned(version int64, key []byte) (bool, []byte, error) {
-	ok, root := tree.getVersionedRoot(version)
+func (tree *Tree) GetRecent(version int64, key []byte) (bool, []byte, error) {
+	ok, root := tree.getRecentRoot(version)
 	if !ok {
 		return false, nil, nil
 	}
