@@ -67,7 +67,7 @@ func (tree *Tree) getExistenceProof(key []byte) (proof *ics23.ExistenceProof, er
 	return &ics23.ExistenceProof{
 		Key:   node.key,
 		Value: node.value,
-		Leaf:  convertLeafOp(node.nodeKey.Version()),
+		Leaf:  convertLeafOp(node.Version()),
 		Path:  convertInnerOps(path),
 	}, err
 }
@@ -217,7 +217,7 @@ func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf) (*Node, e
 		pin := ProofInnerNode{
 			Height:  node.subtreeHeight,
 			Size:    node.size,
-			Version: node.nodeKey.Version(),
+			Version: node.Version(),
 			Left:    nil,
 			Right:   rightNode.hash,
 		}
@@ -239,7 +239,7 @@ func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf) (*Node, e
 	pin := ProofInnerNode{
 		Height:  node.subtreeHeight,
 		Size:    node.size,
-		Version: node.nodeKey.Version(),
+		Version: node.Version(),
 		Left:    leftNode.hash,
 		Right:   nil,
 	}

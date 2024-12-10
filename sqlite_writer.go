@@ -460,14 +460,14 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	tree.sql.metrics.WriteTime += dur
 	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
 
-	if batch.leafCount > 0 || batch.treeCount > 0 {
-		batch.logger.Info().Msgf("saved tree version=%d leaves=%s branches=%s dur=%s",
-			tree.stagedVersion,
-			humanize.Comma(batch.leafCount),
-			humanize.Comma(batch.treeCount),
-			dur.Round(time.Millisecond),
-		)
-	}
+	//if batch.leafCount > 0 || batch.treeCount > 0 {
+	//	batch.logger.Info().Msgf("saved tree version=%d leaves=%s branches=%s dur=%s",
+	//		tree.stagedVersion,
+	//		humanize.Comma(batch.leafCount),
+	//		humanize.Comma(batch.treeCount),
+	//		dur.Round(time.Millisecond),
+	//	)
+	//}
 
 	err := errors.Join(treeResult.err, leafResult.err)
 

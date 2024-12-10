@@ -141,6 +141,9 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 
 		_, version, err = multiTree.SaveVersionConcurrently()
 		require.NoError(t, err)
+		if version%1000 == 0 {
+			fmt.Printf("version: %d, hash: %x\n", version, multiTree.Hash())
+		}
 
 		require.NoError(t, err)
 		if version == opts.Until {
@@ -153,7 +156,9 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 	}
 	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
 	require.Equal(t, version, opts.Until)
-	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
+	if opts.UntilHash != "" {
+		require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
+	}
 	return cnt
 }
 

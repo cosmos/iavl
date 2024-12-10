@@ -576,9 +576,29 @@ func (node *Node) clone(tree *Tree) *Node {
 }
 
 func (node *Node) isDirty(tree *Tree) bool {
-	return node.version() == tree.stagedVersion
+	return node.Version() == tree.stagedVersion
 }
 
-func (node *Node) version() int64 {
+func (node *Node) Version() int64 {
 	return node.nodeKey.Version()
+}
+
+func (node *Node) Key() []byte {
+	return node.key
+}
+
+func (node *Node) Value() []byte {
+	return node.value
+}
+
+func (node *Node) Height() int8 {
+	return node.subtreeHeight
+}
+
+func NewImportNode(key, value []byte, height int8) *Node {
+	return &Node{
+		key:           key,
+		value:         value,
+		subtreeHeight: height,
+	}
 }

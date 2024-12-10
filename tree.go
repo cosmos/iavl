@@ -191,15 +191,17 @@ func (tree *Tree) LoadSnapshot(version int64, traverseOrder TraverseOrderType) (
 	if err != nil {
 		return err
 	}
+	tree.stagedRoot = tree.root
 	if v < version {
 		return fmt.Errorf("requested %d found snapshot %d, replay not yet supported", version, v)
 	}
 	tree.version = v
+	tree.stagedVersion = v + 1
 	tree.checkpoints, err = tree.sql.loadCheckpointRange()
 	if err != nil {
 		return err
 	}
-	return nil
+	return tree.sql.ResetShardQueries()
 }
 
 func (tree *Tree) SaveSnapshot() (err error) {
@@ -305,7 +307,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	}
 	if node.isLeaf() {
 		// new leaves are written every version
-		if node.nodeKey.Version() == tree.stagedVersion {
+		if node.Version() == tree.stagedVersion {
 			tree.leaves = append(tree.leaves, node)
 		}
 
@@ -347,7 +349,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 	}
 
 	if tree.shouldCheckpoint {
-		if node.nodeKey.Version() > tree.checkpoints.Last() {
+		if node.Version() > tree.checkpoints.Last() {
 			tree.branches = append(tree.branches, node)
 		}
 		// full tree eviction occurs only during checkpoints
@@ -735,7 +737,7 @@ func (tree *Tree) nextNodeKey() NodeKey {
 func (tree *Tree) mutateNode(node *Node) {
 	// this second conditional is only relevant in replay; or more specifically, in cases where hashing has been
 	// deferred between versions
-	if node.hash == nil && node.nodeKey.Version() == tree.version+1 {
+	if node.hash == nil && node.Version() == tree.version+1 {
 		return
 	}
 	node.hash = nil
@@ -775,7 +777,7 @@ func (tree *Tree) addOrphan(node *Node) {
 	if node.hash == nil {
 		return
 	}
-	if !node.isLeaf() && node.nodeKey.Version() <= tree.checkpoints.Last() {
+	if !node.isLeaf() && node.Version() <= tree.checkpoints.Last() {
 		tree.branchOrphans = append(tree.branchOrphans, node.nodeKey)
 	} else if node.isLeaf() && !node.isDirty(tree) {
 		tree.leafOrphans = append(tree.leafOrphans, node.nodeKey)
@@ -784,7 +786,7 @@ func (tree *Tree) addOrphan(node *Node) {
 
 func (tree *Tree) addDelete(node *Node) {
 	// added and removed in the same version; no op.
-	if node.nodeKey.Version() == tree.version+1 {
+	if node.Version() == tree.version+1 {
 		return
 	}
 	del := &nodeDelete{

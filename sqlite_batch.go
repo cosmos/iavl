@@ -172,7 +172,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 			return 0, err
 		}
 		byteCount += int64(len(bz))
-		if err = b.leafInsert.Exec(leaf.nodeKey.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
+		if err = b.leafInsert.Exec(leaf.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
 			return 0, err
 		}
 		if b.storeLatestLeaves {
@@ -236,8 +236,10 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		if err != nil {
 			return 0, err
 		}
-		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d orphans=%s",
-			b.version, shardID, humanize.Comma(int64(len(b.queue.branchOrphans))))
+		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d branches=%s orphans=%s",
+			b.version, shardID,
+			humanize.Comma(int64(len(b.queue.branches))),
+			humanize.Comma(int64(len(b.queue.branchOrphans))))
 
 		if err = b.newTreeBatch(shardID); err != nil {
 			return 0, err

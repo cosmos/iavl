@@ -16,7 +16,18 @@ type Exporter struct {
 	errCh chan error
 }
 
-func (tree *Tree) Export(order TraverseOrderType) *Exporter {
+func (tree *Tree) Export(version int64, order TraverseOrderType) (*Exporter, error) {
+	ok, root := tree.getRecentRoot(version)
+	if !ok {
+		cloned, err := tree.ReadonlyClone()
+		if err != nil {
+			return nil, err
+		}
+		if err = cloned.LoadVersion(version); err != nil {
+			return nil, err
+		}
+		root = cloned.root
+	}
 	exporter := &Exporter{
 		tree:  tree,
 		out:   make(chan *Node),
@@ -25,16 +36,14 @@ func (tree *Tree) Export(order TraverseOrderType) *Exporter {
 
 	go func(traverseOrder TraverseOrderType) {
 		defer close(exporter.out)
-		defer close(exporter.errCh)
-
 		if traverseOrder == PostOrder {
-			exporter.postOrderNext(tree.root)
+			exporter.postOrderNext(root)
 		} else if traverseOrder == PreOrder {
-			exporter.preOrderNext(tree.root)
+			exporter.preOrderNext(root)
 		}
 	}(order)
 
-	return exporter
+	return exporter, nil
 }
 
 func (e *Exporter) postOrderNext(node *Node) {
@@ -81,21 +90,23 @@ func (e *Exporter) preOrderNext(node *Node) {
 	e.preOrderNext(right)
 }
 
-func (e *Exporter) Next() (*SnapshotNode, error) {
+func (e *Exporter) Next() (*Node, error) {
 	select {
 	case node, ok := <-e.out:
 		if !ok {
 			return nil, ErrorExportDone
 		}
-		return &SnapshotNode{
-			Key:     node.key,
-			Value:   node.value,
-			Version: node.nodeKey.Version(),
-			Height:  node.subtreeHeight,
-		}, nil
+		if node == nil {
+			panic("nil node")
+		}
+		return node, nil
 	case err := <-e.errCh:
 		return nil, err
 	}
+}
+
+func (e *Exporter) Close() error {
+	return e.tree.Close()
 }
 
 var ErrorExportDone = fmt.Errorf("export done")
