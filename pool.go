@@ -6,11 +6,7 @@ import (
 
 type NodePool struct {
 	syncPool *sync.Pool
-
-	free  chan int
-	nodes []Node
-
-	poolId uint64
+	poolId   uint64
 }
 
 func NewNodePool() *NodePool {
@@ -20,7 +16,6 @@ func NewNodePool() *NodePool {
 				return &Node{}
 			},
 		},
-		free: make(chan int, 1000),
 	}
 	return np
 }

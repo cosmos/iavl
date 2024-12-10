@@ -254,9 +254,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.shouldCheckpoint = false
 	tree.sequence = 0
 
-	// staged version becomes the current version
-	// TODO evict orphaned nodes in last version (tree.root)
-	// locked swap around tree.root ?
 	tree.versionLock.Lock()
 	tree.previousRoot = tree.root
 	tree.root = tree.stagedRoot
