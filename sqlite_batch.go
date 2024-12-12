@@ -10,10 +10,12 @@ import (
 )
 
 type sqliteBatch struct {
-	tree   *Tree
-	sql    *SqliteDb
-	size   int64
-	logger zerolog.Logger
+	queue             *writeQueue
+	version           int64
+	storeLatestLeaves bool
+	sql               *SqliteDb
+	size              int64
+	logger            zerolog.Logger
 
 	treeCount int64
 	treeSince time.Time
@@ -93,7 +95,7 @@ func (b *sqliteBatch) changelogBatchCommit() error {
 }
 
 func (b *sqliteBatch) execBranchOrphan(nodeKey NodeKey) error {
-	return b.treeOrphan.Exec(nodeKey.Version(), int(nodeKey.Sequence()), b.tree.version)
+	return b.treeOrphan.Exec(nodeKey.Version(), int(nodeKey.Sequence()), b.version)
 }
 
 func (b *sqliteBatch) newTreeBatch(shardID int64) (err error) {
@@ -156,13 +158,12 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 	}
 
 	var (
-		bz   []byte
-		val  []byte
-		tree = b.tree
+		bz  []byte
+		val []byte
 	)
-	for _, leaf := range tree.leaves {
+	for _, leaf := range b.queue.leaves {
 		b.leafCount++
-		if tree.storeLatestLeaves {
+		if b.storeLatestLeaves {
 			val = leaf.value
 			leaf.value = nil
 		}
@@ -171,10 +172,10 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 			return 0, err
 		}
 		byteCount += int64(len(bz))
-		if err = b.leafInsert.Exec(leaf.nodeKey.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
+		if err = b.leafInsert.Exec(leaf.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
 			return 0, err
 		}
-		if tree.storeLatestLeaves {
+		if b.storeLatestLeaves {
 			if err = b.latestInsert.Exec(leaf.key, val); err != nil {
 				return 0, err
 			}
@@ -184,13 +185,13 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		}
 	}
 
-	for _, leafDelete := range tree.deletes {
+	for _, leafDelete := range b.queue.deletes {
 		b.leafCount++
 		err = b.deleteInsert.Exec(leafDelete.deleteKey.Version(), int(leafDelete.deleteKey.Sequence()), leafDelete.leafKey)
 		if err != nil {
 			return 0, err
 		}
-		if tree.storeLatestLeaves {
+		if b.storeLatestLeaves {
 			if err = b.latestDelete.Exec(leafDelete.leafKey); err != nil {
 				return 0, err
 			}
@@ -200,9 +201,9 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		}
 	}
 
-	for _, orphan := range tree.leafOrphans {
+	for _, orphan := range b.queue.leafOrphans {
 		b.leafCount++
-		err = b.leafOrphan.Exec(orphan.Version(), int(orphan.Sequence()), b.tree.version)
+		err = b.leafOrphan.Exec(orphan.Version(), int(orphan.Sequence()), b.version)
 		if err != nil {
 			return 0, err
 		}
@@ -215,7 +216,7 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		return 0, err
 	}
 
-	err = tree.sql.leafWrite.Exec("CREATE UNIQUE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
+	err = b.sql.leafWrite.Exec("CREATE UNIQUE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
 	if err != nil {
 		return byteCount, err
 	}
@@ -224,26 +225,27 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 }
 
 func (b *sqliteBatch) isCheckpoint() bool {
-	return len(b.tree.branches) > 0
+	return len(b.queue.branches) > 0
 }
 
 func (b *sqliteBatch) saveBranches() (n int64, err error) {
 	if b.isCheckpoint() {
-		tree := b.tree
 		b.treeCount = 0
 
-		shardID, err := tree.sql.nextShard(tree.version)
+		shardID, err := b.sql.nextShard(b.version)
 		if err != nil {
 			return 0, err
 		}
-		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d orphans=%s",
-			tree.version, shardID, humanize.Comma(int64(len(tree.branchOrphans))))
+		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d branches=%s orphans=%s",
+			b.version, shardID,
+			humanize.Comma(int64(len(b.queue.branches))),
+			humanize.Comma(int64(len(b.queue.branchOrphans))))
 
 		if err = b.newTreeBatch(shardID); err != nil {
 			return 0, err
 		}
 
-		for _, node := range tree.branches {
+		for _, node := range b.queue.branches {
 			b.treeCount++
 			bz, err := node.Bytes()
 			if err != nil {
@@ -257,7 +259,7 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 			}
 		}
 
-		for _, orphan := range tree.branchOrphans {
+		for _, orphan := range b.queue.branchOrphans {
 			b.treeCount++
 			err = b.execBranchOrphan(orphan)
 			if err != nil {

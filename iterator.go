@@ -373,3 +373,22 @@ func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
 	itr.Next()
 	return itr, nil
 }
+
+func (tree *Tree) IterateRecent(version int64, start, end []byte, ascending bool) (bool, Iterator) {
+	ok, root := tree.getRecentRoot(version)
+	if !ok {
+		return false, nil
+	}
+	itr := &TreeIterator{
+		tree:      tree,
+		start:     start,
+		end:       end,
+		ascending: ascending,
+		inclusive: false,
+		valid:     true,
+		stack:     []*Node{root},
+		metrics:   tree.metricsProxy,
+	}
+	itr.Next()
+	return true, itr
+}

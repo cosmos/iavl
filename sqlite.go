@@ -987,11 +987,12 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		if err = q.Scan(&version, &sequence, &bz, &key); err != nil {
 			return err
 		}
-		if version-1 != lastVersion {
+		if version != lastVersion {
 			tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 			tree.version = int64(version - 1)
+			tree.stagedVersion = int64(version)
 			tree.sequence = 0
-			lastVersion = version - 1
+			lastVersion = version
 		}
 		if bz != nil {
 			nk := NewNodeKey(0, 0)
@@ -1032,6 +1033,8 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 	tree.sequence = 0
 	tree.version = toVersion
+	tree.stagedVersion = toVersion + 1
+	tree.root = tree.stagedRoot
 	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v",
 		tree.version, humanize.Comma(count), time.Since(start).Round(time.Millisecond), tree.root)
 	return q.Close()

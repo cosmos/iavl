@@ -141,6 +141,9 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 
 		_, version, err = multiTree.SaveVersionConcurrently()
 		require.NoError(t, err)
+		if version%1000 == 0 {
+			fmt.Printf("version: %d, hash: %x\n", version, multiTree.Hash())
+		}
 
 		require.NoError(t, err)
 		if version == opts.Until {
@@ -153,7 +156,9 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 	}
 	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
 	require.Equal(t, version, opts.Until)
-	require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
+	if opts.UntilHash != "" {
+		require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", multiTree.Hash()))
+	}
 	return cnt
 }
 
@@ -379,6 +384,49 @@ func TestTreeSanity(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func Test_TrivialTree(t *testing.T) {
+	pool := NewNodePool()
+	sql, err := NewInMemorySqliteDb(pool)
+	require.NoError(t, err)
+	tree := NewTree(sql, pool, TreeOptions{})
+
+	gen := bench.ChangesetGenerator{
+		StoreKey:         "bank",
+		Seed:             1234,
+		KeyMean:          56,
+		KeyStdDev:        3,
+		ValueMean:        100,
+		ValueStdDev:      1200,
+		InitialSize:      10,
+		FinalSize:        25,
+		Versions:         10,
+		ChangePerVersion: 3,
+		DeleteFraction:   0,
+	}
+
+	itr, err := gen.Iterator()
+	require.NoError(t, err)
+	for ; itr.Valid(); err = itr.Next() {
+		require.NoError(t, err)
+		changeset := itr.Nodes()
+		v := itr.Version()
+		fmt.Printf("version=%d\n", v)
+		for ; changeset.Valid(); err = changeset.Next() {
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			if node.Delete {
+				_, _, err := tree.Remove(node.Key)
+				require.NoError(t, err)
+			} else {
+				_, err := tree.Set(node.Key, node.Value)
+				require.NoError(t, err)
+			}
+		}
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
 	}
 }
 

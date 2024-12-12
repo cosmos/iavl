@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -437,16 +438,19 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 
 func (w *sqlWriter) saveTree(tree *Tree) error {
 	saveStart := time.Now()
+	parts := strings.Split(tree.sql.opts.Path, "/")
 
 	batch := &sqliteBatch{
-		sql:  tree.sql,
-		tree: tree,
-		size: 200_000,
+		sql:               tree.sql,
+		queue:             tree.writeQueue,
+		version:           tree.stagedVersion,
+		storeLatestLeaves: tree.storeLatestLeaves,
+		size:              200_000,
 		logger: log.With().
 			Str("module", "sqlite-batch").
-			Str("path", tree.sql.opts.Path).Logger(),
+			Str("path", parts[len(parts)-1]).Logger(),
 	}
-	saveSig := &saveSignal{batch: batch, root: tree.root, version: tree.version, wantCheckpoint: tree.shouldCheckpoint}
+	saveSig := &saveSignal{batch: batch, root: tree.stagedRoot, version: tree.stagedVersion, wantCheckpoint: tree.shouldCheckpoint}
 	w.treeCh <- saveSig
 	w.leafCh <- saveSig
 	treeResult := <-w.treeResult
@@ -456,10 +460,14 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	tree.sql.metrics.WriteTime += dur
 	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
 
-	if batch.leafCount > 0 || batch.treeCount > 0 {
-		batch.logger.Info().Msgf("saved tree version=%d leaves=%s branches=%s dur=%s",
-			tree.Version(), humanize.Comma(batch.leafCount), humanize.Comma(batch.treeCount), dur.Round(time.Millisecond))
-	}
+	//if batch.leafCount > 0 || batch.treeCount > 0 {
+	//	batch.logger.Info().Msgf("saved tree version=%d leaves=%s branches=%s dur=%s",
+	//		tree.stagedVersion,
+	//		humanize.Comma(batch.leafCount),
+	//		humanize.Comma(batch.treeCount),
+	//		dur.Round(time.Millisecond),
+	//	)
+	//}
 
 	err := errors.Join(treeResult.err, leafResult.err)
 

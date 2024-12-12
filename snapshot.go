@@ -443,7 +443,7 @@ func (snap *sqliteSnapshot) writeStep(node *Node) error {
 	if err != nil {
 		return err
 	}
-	err = snap.snapshotInsert.Exec(snap.ordinal, node.nodeKey.Version(), int(node.nodeKey.Sequence()), nodeBz)
+	err = snap.snapshotInsert.Exec(snap.ordinal, node.Version(), int(node.nodeKey.Sequence()), nodeBz)
 	if err != nil {
 		return err
 	}

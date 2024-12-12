@@ -59,7 +59,6 @@ type Node struct {
 	rightNode     *Node
 	subtreeHeight int8
 
-	dirty  bool
 	evict  int8
 	poolID uint64
 }
@@ -247,11 +246,10 @@ func (node *Node) calcBalance(t *Tree) (int, error) {
 func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
 	tree.addOrphan(node.left(tree))
-	newNode := node.left(tree)
-	tree.mutateNode(newNode)
+	newNode := tree.stageNode(node.left(tree))
 
 	node.setLeft(newNode.right(tree))
 	newNode.setRight(node)
@@ -273,11 +271,10 @@ func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
 	tree.addOrphan(node.right(tree))
-	newNode := node.right(tree)
-	tree.mutateNode(newNode)
+	newNode := tree.stageNode(node.right(tree))
 
 	node.setRight(newNode.left(tree))
 	newNode.setLeft(node)
@@ -296,6 +293,9 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 }
 
 func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error) {
+	if node == nil {
+		return 0, nil, errors.New("cannot get nil node")
+	}
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -546,4 +546,60 @@ func (node *Node) sizeBytes() uint64 {
 
 func (node *Node) GetHash() []byte {
 	return node.hash
+}
+
+func (node *Node) clone(tree *Tree) *Node {
+	n := tree.pool.Get()
+	//return &Node{
+	//	nodeKey:       tree.nextNodeKey(),
+	//	key:           node.key,
+	//	value:         node.value,
+	//	hash:          nil,
+	//	leftNodeKey:   node.leftNodeKey,
+	//	rightNodeKey:  node.rightNodeKey,
+	//	leftNode:      node.leftNode,
+	//	rightNode:     node.rightNode,
+	//	size:          node.size,
+	//	subtreeHeight: node.subtreeHeight,
+	//}
+	n.nodeKey = tree.nextNodeKey()
+	n.key = node.key
+	n.value = node.value
+	n.hash = nil
+	n.leftNodeKey = node.leftNodeKey
+	n.rightNodeKey = node.rightNodeKey
+	n.leftNode = node.leftNode
+	n.rightNode = node.rightNode
+	n.size = node.size
+	n.subtreeHeight = node.subtreeHeight
+	return n
+}
+
+func (node *Node) isDirty(tree *Tree) bool {
+	return node.Version() == tree.stagedVersion
+}
+
+func (node *Node) Version() int64 {
+	return node.nodeKey.Version()
+}
+
+func (node *Node) Key() []byte {
+	return node.key
+}
+
+func (node *Node) Value() []byte {
+	return node.value
+}
+
+func (node *Node) Height() int8 {
+	return node.subtreeHeight
+}
+
+func NewImportNode(key, value []byte, version int64, height int8) *Node {
+	return &Node{
+		nodeKey:       NewNodeKey(version, 0),
+		key:           key,
+		value:         value,
+		subtreeHeight: height,
+	}
 }
