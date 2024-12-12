@@ -204,7 +204,7 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 	defer ndb.mtx.Unlock()
 
 	if len(key) == 0 {
-		return nil, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
+		return nil, errors.New("nodeDB.GetFastNode() requires key, len(key) equals 0")
 	}
 
 	if cachedFastNode := ndb.fastNodeCache.Get(key); cachedFastNode != nil {
@@ -1338,4 +1338,4 @@ func (ndb *nodeDB) String() (string, error) {
 	return "-" + "\n" + buf.String() + "-", nil
 }
 
-var ErrNodeMissingNodeKey = fmt.Errorf("node does not have a nodeKey")
+var ErrNodeMissingNodeKey = errors.New("node does not have a nodeKey")

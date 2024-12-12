@@ -278,7 +278,7 @@ func TestTraverseNodes(t *testing.T) {
 			return err
 		}
 		if actualNode.String() != node.String() {
-			return fmt.Errorf("found unexpected node")
+			return errors.New("found unexpected node")
 		}
 		count++
 		return nil
