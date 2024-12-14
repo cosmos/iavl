@@ -738,6 +738,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 	if itr.Valid() {
 		var version int64
 		legacyRootKeyFormat.Scan(itr.Key(), &version)
+		ndb.resetFirstVersion(version)
 		return version, nil
 	}
 	// Find the first version
