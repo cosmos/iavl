@@ -514,7 +514,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 	return latestVersion, nil
 }
 
-// loadVersionForOverwriting attempts to load a tree at a previously committed
+// LoadVersionForOverwriting attempts to load a tree at a previously committed
 // version, or the latest version below it. Any versions greater than targetVersion will be deleted.
 func (tree *MutableTree) LoadVersionForOverwriting(targetVersion int64) error {
 	if _, err := tree.LoadVersion(targetVersion); err != nil {
@@ -960,7 +960,7 @@ func (tree *MutableTree) rotateLeft(node *Node) (*Node, error) {
 // TODO: optimize balance & rotate
 func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	if node.nodeKey != nil {
-		return nil, fmt.Errorf("unexpected balance() call on persisted node")
+		return nil, errors.New("unexpected balance() call on persisted node")
 	}
 	balance, err := node.calcBalance(tree.ImmutableTree)
 	if err != nil {
@@ -1084,7 +1084,7 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 func (tree *MutableTree) SaveChangeSet(cs *ChangeSet) (int64, error) {
 	// if the tree has uncommitted changes, return error
 	if tree.root != nil && tree.root.nodeKey == nil {
-		return 0, fmt.Errorf("cannot save changeset with uncommitted changes")
+		return 0, errors.New("cannot save changeset with uncommitted changes")
 	}
 	for _, pair := range cs.Pairs {
 		if pair.Delete {
