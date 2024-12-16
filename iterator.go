@@ -43,7 +43,9 @@ var (
 )
 
 type TreeIterator struct {
-	tree       *Tree
+	sql *SqliteDb
+	cf  connectionFactory
+
 	start, end []byte // iteration domain
 	ascending  bool   // ascending traversal
 	inclusive  bool   // end key inclusiveness
@@ -116,7 +118,7 @@ func (i *TreeIterator) stepAscend() {
 			}
 			break
 		}
-		right, err := n.getRightNode(i.tree)
+		right, err := n.getRightNode(i.sql, i.cf)
 		if err != nil {
 			i.err = err
 			i.valid = false
@@ -124,7 +126,7 @@ func (i *TreeIterator) stepAscend() {
 		}
 
 		if bytes.Compare(i.start, n.key) < 0 {
-			left, err := n.getLeftNode(i.tree)
+			left, err := n.getLeftNode(i.sql, i.cf)
 			if err != nil {
 				i.err = err
 				i.valid = false
@@ -167,7 +169,7 @@ func (i *TreeIterator) stepDescend() {
 			}
 			break
 		}
-		left, err := n.getLeftNode(i.tree)
+		left, err := n.getLeftNode(i.sql, i.cf)
 		if err != nil {
 			i.err = err
 			i.valid = false
@@ -175,7 +177,7 @@ func (i *TreeIterator) stepDescend() {
 		}
 
 		if i.end == nil || bytes.Compare(n.key, i.end) <= 0 {
-			right, err := n.getRightNode(i.tree)
+			right, err := n.getRightNode(i.sql, i.cf)
 			if err != nil {
 				i.err = err
 				i.valid = false
@@ -320,8 +322,15 @@ func (tree *Tree) Iterator(start, end []byte, inclusive bool) (itr Iterator, err
 		}
 		itr = leafItr
 	} else {
+		var cf connectionFactory
+		if tree.saveConnection != nil {
+			cf = tree.saveConnection
+		} else {
+			cf = tree.sql.readConnectionFactory()
+		}
 		itr = &TreeIterator{
-			tree:      tree,
+			sql:       tree.sql,
+			cf:        cf,
 			start:     start,
 			end:       end,
 			ascending: true,
@@ -356,8 +365,15 @@ func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
 		}
 		itr = leafItr
 	} else {
+		var cf connectionFactory
+		if tree.saveConnection != nil {
+			cf = tree.saveConnection
+		} else {
+			cf = tree.sql.readConnectionFactory()
+		}
 		itr = &TreeIterator{
-			tree:      tree,
+			sql:       tree.sql,
+			cf:        cf,
 			start:     start,
 			end:       end,
 			ascending: false,
@@ -379,8 +395,15 @@ func (tree *Tree) IterateRecent(version int64, start, end []byte, ascending bool
 	if !ok {
 		return false, nil
 	}
+	var cf connectionFactory
+	if tree.saveConnection != nil {
+		cf = tree.saveConnection
+	} else {
+		cf = tree.sql.readConnectionFactory()
+	}
 	itr := &TreeIterator{
-		tree:      tree,
+		sql:       tree.sql,
+		cf:        cf,
 		start:     start,
 		end:       end,
 		ascending: ascending,

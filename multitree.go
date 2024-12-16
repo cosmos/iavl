@@ -198,6 +198,9 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 		mt.shouldCheckpoint = true
 	}
 
+	if len(errs) > 0 {
+		return nil, 0, errors.Join(errs...)
+	}
 	return mt.Hash(), version, errors.Join(errs...)
 }
 
@@ -286,4 +289,13 @@ func (mt *MultiTree) QueryReport(bins int) error {
 		tree.sql.metrics.SetQueryZero()
 	}
 	return m.QueryReport(bins)
+}
+
+func (mt *MultiTree) SetInitialVersion(version int64) error {
+	for _, tree := range mt.Trees {
+		if err := tree.SetInitialVersion(version); err != nil {
+			return err
+		}
+	}
+	return nil
 }

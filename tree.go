@@ -42,12 +42,10 @@ type Tree struct {
 	root         *Node
 	stagedRoot   *Node
 
-	metrics      *metrics.TreeMetrics
-	sql          *SqliteDb
-	sqlWriter    *sqlWriter
-	writerCancel context.CancelFunc
-	pool         *NodePool
-
+	metrics          *metrics.TreeMetrics
+	sql              *SqliteDb
+	pool             *NodePool
+	pruneTo          int64
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
 
@@ -72,7 +70,8 @@ type Tree struct {
 	// only allow one save at a time
 	saveLock sync.Mutex
 	// synchronize h and h-1 reads to SaveVersion
-	versionLock sync.RWMutex
+	versionLock    sync.RWMutex
+	saveConnection connectionFactory
 }
 
 type TreeOptions struct {
@@ -94,11 +93,8 @@ func DefaultTreeOptions() TreeOptions {
 }
 
 func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
-	ctx, cancel := context.WithCancel(context.Background())
 	tree := &Tree{
 		sql:                sql,
-		sqlWriter:          sql.newSQLWriter(),
-		writerCancel:       cancel,
 		pool:               pool,
 		checkpoints:        &VersionRange{},
 		metrics:            &metrics.TreeMetrics{},
@@ -115,7 +111,6 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		stagedVersion:      1,
 	}
 
-	tree.sqlWriter.start(ctx)
 	return tree
 }
 
@@ -175,7 +170,7 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 			targetHash = targetRoot.hash
 		}
 
-		if err = tree.replayChangelog(version, targetHash); err != nil {
+		if err = tree.sql.replayChangelog(tree, version, targetHash); err != nil {
 			return err
 		}
 	}
@@ -198,10 +193,7 @@ func (tree *Tree) LoadSnapshot(version int64, traverseOrder TraverseOrderType) (
 	tree.version = v
 	tree.stagedVersion = v + 1
 	tree.checkpoints, err = tree.sql.loadCheckpointRange()
-	if err != nil {
-		return err
-	}
-	return tree.sql.ResetShardQueries()
+	return err
 }
 
 func (tree *Tree) SaveSnapshot() (err error) {
@@ -213,7 +205,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.saveLock.Lock()
 	defer tree.saveLock.Unlock()
 
-	if err := tree.sql.closeHangingIterators(); err != nil {
+	var err error
+	if err = tree.sql.closeHangingIterators(); err != nil {
 		return nil, 0, err
 	}
 
@@ -223,31 +216,59 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
 	rootHash := tree.computeHash()
-
-	err := tree.sqlWriter.saveTree(tree)
-	if err != nil {
+	if tree.shouldCheckpoint && tree.sql.writeConn == nil {
+		// TODO
+		// first checkpoint case... i feel this should be elsewhere
+		var err error
+		if tree.checkpoints.Len() == 0 {
+			if err := tree.sql.createTreeShardDb(tree.stagedVersion); err != nil {
+				return nil, tree.version, err
+			}
+		}
+		tree.sql.writeConn, err = tree.sql.newWriteConnection(tree.stagedVersion)
+		if err != nil {
+			return nil, tree.version, err
+		}
+	}
+	batch := &sqliteBatch{
+		conn:              tree.sql.writeConn,
+		queue:             tree.writeQueue,
+		version:           tree.version,
+		size:              200_000,
+		logger:            tree.sql.logger,
+		storeLatestLeaves: tree.storeLatestLeaves,
+	}
+	if _, err := batch.saveLeaves(); err != nil {
+		return nil, tree.version, err
+	}
+	if _, err := batch.saveBranches(); err != nil {
 		return nil, tree.version, err
 	}
 
 	if tree.shouldCheckpoint {
 		tree.branchOrphans = nil
-		if err = tree.checkpoints.Add(tree.stagedVersion); err != nil {
+		if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
 			return nil, tree.version, err
 		}
 
 		// if we've checkpointed without loading any tree node reads this means this was the first checkpoint.
 		// shard queries will not be loaded. initialize them now.
-		if tree.sql.readConn == nil {
-			if err = tree.sql.ResetShardQueries(); err != nil {
-				return nil, tree.version, err
-			}
+		if err := tree.sql.loadShards(); err != nil {
+			return nil, tree.version, err
 		}
 	}
 
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
-	if err = tree.evictNodes(); err != nil {
+	if err := tree.evictNodes(); err != nil {
 		return nil, tree.version, err
 	}
+
+	// if tree.pruneTo == tree.stagedVersion {
+	// 	if err := tree.DeleteVersionsTo(tree.pruneTo); err != nil {
+	// 		return nil, tree.version, err
+	// 	}
+	// }
+
 	tree.leafOrphans = nil
 	tree.leaves = nil
 	tree.branches = nil
@@ -320,8 +341,8 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 		// Recall that a terminal tree node may have only updated one leaf this version.
 		// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
 		// format to iavl v0 where left/right hash are stored in the node.
-		tree.deepHash(node.left(tree), depth+1)
-		tree.deepHash(node.right(tree), depth+1)
+		tree.deepHash(node.left(tree.sql, tree.sql.hotConnectionFactory), depth+1)
+		tree.deepHash(node.right(tree.sql, tree.sql.hotConnectionFactory), depth+1)
 		node._hash()
 	} else if tree.shouldCheckpoint {
 		// when checkpointing traverse the entire tree to accumulate dirty branches and flag for eviction
@@ -398,7 +419,7 @@ func (tree *Tree) GetRecent(version int64, key []byte) (bool, []byte, error) {
 	if root == nil {
 		return true, nil, nil
 	}
-	_, res, err := root.get(tree, key)
+	_, res, err := root.get(tree, tree.sql.readConnectionFactory(), key)
 	return true, res, err
 }
 
@@ -416,7 +437,7 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 		if tree.root == nil {
 			return nil, nil
 		}
-		_, res, err = tree.root.get(tree, key)
+		_, res, err = tree.root.get(tree, tree.sql.readConnectionFactory(), key)
 	}
 	return res, err
 }
@@ -425,17 +446,17 @@ func (tree *Tree) GetWithIndex(key []byte) (int64, []byte, error) {
 	if tree.root == nil {
 		return 0, nil, nil
 	}
-	return tree.root.get(tree, key)
+	return tree.root.get(tree, tree.sql.readConnectionFactory(), key)
 }
 
 func (tree *Tree) GetByIndex(index int64) (key []byte, value []byte, err error) {
 	if tree.root == nil {
 		return nil, nil, nil
 	}
-	return tree.getByIndex(tree.root, index)
+	return tree.getByIndex(tree.root, index, tree.sql.readConnectionFactory())
 }
 
-func (tree *Tree) getByIndex(node *Node, index int64) (key []byte, value []byte, err error) {
+func (tree *Tree) getByIndex(node *Node, index int64, cf connectionFactory) (key []byte, value []byte, err error) {
 	if node.isLeaf() {
 		if index == 0 {
 			return node.key, node.value, nil
@@ -443,21 +464,21 @@ func (tree *Tree) getByIndex(node *Node, index int64) (key []byte, value []byte,
 		return nil, nil, nil
 	}
 
-	leftNode, err := node.getLeftNode(tree)
+	leftNode, err := node.getLeftNode(tree.sql, cf)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	if index < leftNode.size {
-		return tree.getByIndex(leftNode, index)
+		return tree.getByIndex(leftNode, index, cf)
 	}
 
-	rightNode, err := node.getRightNode(tree)
+	rightNode, err := node.getRightNode(tree.sql, cf)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	return tree.getByIndex(rightNode, index-leftNode.size)
+	return tree.getByIndex(rightNode, index-leftNode.size, cf)
 }
 
 func (tree *Tree) Has(key []byte) (bool, error) {
@@ -474,7 +495,7 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 		if tree.root == nil {
 			return false, nil
 		}
-		_, val, err = tree.root.get(tree, key)
+		_, val, err = tree.root.get(tree, tree.sql.readConnectionFactory(), key)
 	}
 	if err != nil {
 		return false, err
@@ -490,7 +511,12 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
 	}
-	updated, err = tree.set(key, value)
+	if tree.saveConnection != nil {
+		updated, err = tree.set(key, value, tree.saveConnection)
+	} else {
+		return false, fmt.Errorf("not yet supported; use WithSaveConnection")
+	}
+
 	if err != nil {
 		return false, err
 	}
@@ -502,7 +528,17 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	return updated, nil
 }
 
-func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
+func (tree *Tree) WithSaveConnection(fn func() error) error {
+	tree.saveLock.Lock()
+	tree.saveConnection = tree.sql.hotConnectionFactory
+	defer func() {
+		tree.saveConnection = nil
+		tree.saveLock.Unlock()
+	}()
+	return fn()
+}
+
+func (tree *Tree) set(key []byte, value []byte, cf connectionFactory) (updated bool, err error) {
 	if value == nil {
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
@@ -512,11 +548,11 @@ func (tree *Tree) set(key []byte, value []byte) (updated bool, err error) {
 		return updated, nil
 	}
 
-	tree.stagedRoot, updated, err = tree.recursiveSet(tree.stagedRoot, key, value)
+	tree.stagedRoot, updated, err = tree.recursiveSet(tree.stagedRoot, key, value, cf)
 	return updated, err
 }
 
-func (tree *Tree) recursiveSet(node *Node, key, value []byte) (
+func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFactory) (
 	newSelf *Node, updated bool, err error,
 ) {
 	if node == nil {
@@ -575,13 +611,13 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte) (
 
 		var child *Node
 		if bytes.Compare(key, node.key) < 0 {
-			child, updated, err = tree.recursiveSet(node.left(tree), key, value)
+			child, updated, err = tree.recursiveSet(node.left(tree.sql, cf), key, value, cf)
 			if err != nil {
 				return nil, updated, err
 			}
 			node.setLeft(child)
 		} else {
-			child, updated, err = tree.recursiveSet(node.right(tree), key, value)
+			child, updated, err = tree.recursiveSet(node.right(tree.sql, cf), key, value, cf)
 			if err != nil {
 				return nil, updated, err
 			}
@@ -591,11 +627,11 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte) (
 		if updated {
 			return node, updated, nil
 		}
-		err = node.calcHeightAndSize(tree)
+		err = node.calcHeightAndSize(tree, cf)
 		if err != nil {
 			return nil, false, err
 		}
-		newNode, err := tree.balance(node)
+		newNode, err := tree.balance(node, cf)
 		if err != nil {
 			return nil, false, err
 		}
@@ -612,16 +648,25 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.stagedRoot == nil {
 		return nil, false, nil
 	}
-	newRoot, _, value, removed, err := tree.recursiveRemove(tree.stagedRoot, key)
+	if tree.saveConnection != nil {
+		return tree.remove(key, tree.sql.hotConnectionFactory)
+	} else {
+		return nil, false, fmt.Errorf("not yet supported; use WithSaveConnection")
+	}
+}
+
+func (tree *Tree) remove(key []byte, cf connectionFactory) ([]byte, bool, error) {
+	if tree.stagedRoot == nil {
+		return nil, false, nil
+	}
+	newRoot, _, value, removed, err := tree.recursiveRemove(tree.stagedRoot, key, cf)
 	if err != nil {
 		return nil, false, err
 	}
 	if !removed {
 		return nil, false, nil
 	}
-
 	tree.metrics.TreeDelete++
-
 	tree.stagedRoot = newRoot
 	return value, true, nil
 }
@@ -632,7 +677,7 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 // - the node that replaces the orig. node after remove
 // - new leftmost leaf key for tree after successfully removing 'key' if changed.
 // - the removed value
-func (tree *Tree) recursiveRemove(node *Node, key []byte) (
+func (tree *Tree) recursiveRemove(node *Node, key []byte, cf connectionFactory) (
 	newSelf *Node, newKey, newValue []byte, removed bool, err error,
 ) {
 	if node.isLeaf() {
@@ -647,7 +692,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (
 
 	// node.key < key; we go to the left to find the key:
 	if bytes.Compare(key, node.key) < 0 {
-		newLeftNode, newKey, value, removed, err := tree.recursiveRemove(node.left(tree), key)
+		newLeftNode, newKey, value, removed, err := tree.recursiveRemove(node.left(tree.sql, cf), key, cf)
 		if err != nil {
 			return nil, nil, nil, false, err
 		}
@@ -661,7 +706,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (
 		// left node held value, was removed
 		// collapse `node.rightNode` into `node`
 		if newLeftNode == nil {
-			right := node.right(tree)
+			right := node.right(tree.sql, cf)
 			k := node.key
 			tree.returnNode(node)
 			return right, k, value, removed, nil
@@ -670,11 +715,11 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (
 		node = tree.stageNode(node)
 
 		node.setLeft(newLeftNode)
-		err = node.calcHeightAndSize(tree)
+		err = node.calcHeightAndSize(tree, cf)
 		if err != nil {
 			return nil, nil, nil, false, err
 		}
-		node, err = tree.balance(node)
+		node, err = tree.balance(node, cf)
 		if err != nil {
 			return nil, nil, nil, false, err
 		}
@@ -682,7 +727,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (
 		return node, newKey, value, removed, nil
 	}
 	// node.key >= key; either found or look to the right:
-	newRightNode, newKey, value, removed, err := tree.recursiveRemove(node.right(tree), key)
+	newRightNode, newKey, value, removed, err := tree.recursiveRemove(node.right(tree.sql, cf), key, cf)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -696,7 +741,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (
 	// right node held value, was removed
 	// collapse `node.leftNode` into `node`
 	if newRightNode == nil {
-		left := node.left(tree)
+		left := node.left(tree.sql, cf)
 		tree.returnNode(node)
 		return left, nil, value, removed, nil
 	}
@@ -707,12 +752,12 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (
 	if newKey != nil {
 		node.key = newKey
 	}
-	err = node.calcHeightAndSize(tree)
+	err = node.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
 
-	node, err = tree.balance(node)
+	node, err = tree.balance(node, cf)
 	if err != nil {
 		return nil, nil, nil, false, err
 	}
@@ -830,7 +875,7 @@ func (tree *Tree) returnNode(node *Node) {
 }
 
 func (tree *Tree) Close() error {
-	tree.writerCancel()
+	// tree.writerCancel()
 	return tree.sql.Close()
 }
 
@@ -849,13 +894,10 @@ func (tree *Tree) WriteLatestLeaves() (err error) {
 	return tree.sql.WriteLatestLeaves(tree)
 }
 
-func (tree *Tree) replayChangelog(toVersion int64, targetHash []byte) error {
-	return tree.sql.replayChangelog(tree, toVersion, targetHash)
-}
-
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
-	tree.sqlWriter.treePruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: *tree.checkpoints}
-	tree.sqlWriter.leafPruneCh <- &pruneSignal{pruneVersion: toVersion, checkpoints: *tree.checkpoints}
+	// TODO
+	// locking?
+	tree.pruneTo = toVersion
 	return nil
 }
 
@@ -872,10 +914,7 @@ func (tree *Tree) SetInitialVersion(version int64) error {
 	tree.version = version - 1
 	var err error
 	tree.checkpoints, err = tree.sql.loadCheckpointRange()
-	if err != nil {
-		return err
-	}
-	return tree.sql.ResetShardQueries()
+	return err
 }
 
 func (tree *Tree) Import(version int64) (*Importer, error) {

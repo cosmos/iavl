@@ -113,11 +113,6 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 			cnt++
 			require.NoError(t, err)
 			node := changeset.GetNode()
-
-			//var keyBz bytes.Buffer
-			//keyBz.Write([]byte(node.StoreKey))
-			//keyBz.Write(node.Key)
-			//key := keyBz.Bytes()
 			key := node.Key
 
 			tree, ok := multiTree.Trees[node.StoreKey]
@@ -127,10 +122,10 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 			}
 
 			if !node.Delete {
-				_, err = tree.Set(key, node.Value)
+				_, err = tree.set(key, node.Value, tree.sql.hotConnectionFactory)
 				require.NoError(t, err)
 			} else {
-				_, _, err := tree.Remove(key)
+				_, _, err := tree.remove(key, tree.sql.hotConnectionFactory)
 				require.NoError(t, err)
 			}
 
@@ -300,13 +295,14 @@ func TestTree_Rehash(t *testing.T) {
 	n := copy(savedHash, tree.root.hash)
 	require.Equal(t, 32, n)
 	var step func(node *Node)
+	cf := sql.readConnectionFactory()
 	step = func(node *Node) {
 		if node.isLeaf() {
 			return
 		}
 		node.hash = nil
-		step(node.left(tree))
-		step(node.right(tree))
+		step(node.left(tree.sql, cf))
+		step(node.right(tree.sql, cf))
 		node._hash()
 	}
 	step(tree.root)
@@ -389,7 +385,9 @@ func TestTreeSanity(t *testing.T) {
 
 func Test_TrivialTree(t *testing.T) {
 	pool := NewNodePool()
-	sql, err := NewInMemorySqliteDb(pool)
+	tmpDir := t.TempDir()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	//sql, err := NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{})
 
@@ -414,17 +412,21 @@ func Test_TrivialTree(t *testing.T) {
 		changeset := itr.Nodes()
 		v := itr.Version()
 		fmt.Printf("version=%d\n", v)
-		for ; changeset.Valid(); err = changeset.Next() {
-			require.NoError(t, err)
-			node := changeset.GetNode()
-			if node.Delete {
-				_, _, err := tree.Remove(node.Key)
+		err = tree.WithSaveConnection(func() error {
+			for ; changeset.Valid(); err = changeset.Next() {
 				require.NoError(t, err)
-			} else {
-				_, err := tree.Set(node.Key, node.Value)
-				require.NoError(t, err)
+				node := changeset.GetNode()
+				if node.Delete {
+					_, _, err := tree.Remove(node.Key)
+					require.NoError(t, err)
+				} else {
+					_, err := tree.Set(node.Key, node.Value)
+					require.NoError(t, err)
+				}
 			}
-		}
+			return nil
+		})
+		require.NoError(t, err)
 		_, _, err = tree.SaveVersion()
 		require.NoError(t, err)
 	}

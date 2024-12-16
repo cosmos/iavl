@@ -82,16 +82,16 @@ func (node *Node) setRight(rightNode *Node) {
 	node.rightNodeKey = rightNode.nodeKey
 }
 
-func (node *Node) left(t *Tree) *Node {
-	leftNode, err := node.getLeftNode(t)
+func (node *Node) left(sql *SqliteDb, cf connectionFactory) *Node {
+	leftNode, err := node.getLeftNode(sql, cf)
 	if err != nil {
 		panic(err)
 	}
 	return leftNode
 }
 
-func (node *Node) right(t *Tree) *Node {
-	rightNode, err := node.getRightNode(t)
+func (node *Node) right(sql *SqliteDb, cf connectionFactory) *Node {
+	rightNode, err := node.getRightNode(sql, cf)
 	if err != nil {
 		panic(err)
 	}
@@ -99,7 +99,7 @@ func (node *Node) right(t *Tree) *Node {
 }
 
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
-func (node *Node) getLeftNode(t *Tree) (*Node, error) {
+func (node *Node) getLeftNode(sql *SqliteDb, cf connectionFactory) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no left node")
 	}
@@ -107,14 +107,14 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 		return node.leftNode, nil
 	}
 	var err error
-	node.leftNode, err = t.sql.getLeftNode(node)
+	node.leftNode, err = sql.getLeftNode(node, cf)
 	if err != nil {
 		return nil, err
 	}
 	return node.leftNode, nil
 }
 
-func (node *Node) getRightNode(t *Tree) (*Node, error) {
+func (node *Node) getRightNode(sql *SqliteDb, cf connectionFactory) (*Node, error) {
 	if node.isLeaf() {
 		return nil, fmt.Errorf("leaf node has no right node")
 	}
@@ -122,7 +122,7 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 		return node.rightNode, nil
 	}
 	var err error
-	node.rightNode, err = t.sql.getRightNode(node)
+	node.rightNode, err = sql.getRightNode(node, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +130,13 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 }
 
 // NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(t *Tree) error {
-	leftNode, err := node.getLeftNode(t)
+func (node *Node) calcHeightAndSize(t *Tree, cf connectionFactory) error {
+	leftNode, err := node.getLeftNode(t.sql, cf)
 	if err != nil {
 		return err
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql, cf)
 	if err != nil {
 		return err
 	}
@@ -155,37 +155,37 @@ func maxInt8(a, b int8) int8 {
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
+func (tree *Tree) balance(node *Node, cf connectionFactory) (newSelf *Node, err error) {
 	if node.hash != nil {
 		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
-	balance, err := node.calcBalance(tree)
+	balance, err := node.calcBalance(tree, cf)
 	if err != nil {
 		return nil, err
 	}
 
 	if balance > 1 {
-		lftBalance, err := node.leftNode.calcBalance(tree)
+		lftBalance, err := node.leftNode.calcBalance(tree, cf)
 		if err != nil {
 			return nil, err
 		}
 
 		if lftBalance >= 0 {
 			// Left Left Case
-			newNode, err := tree.rotateRight(node)
+			newNode, err := tree.rotateRight(node, cf)
 			if err != nil {
 				return nil, err
 			}
 			return newNode, nil
 		}
 		// Left Right Case
-		newLeftNode, err := tree.rotateLeft(node.leftNode)
+		newLeftNode, err := tree.rotateLeft(node.leftNode, cf)
 		if err != nil {
 			return nil, err
 		}
 		node.setLeft(newLeftNode)
 
-		newNode, err := tree.rotateRight(node)
+		newNode, err := tree.rotateRight(node, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -193,18 +193,18 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 		return newNode, nil
 	}
 	if balance < -1 {
-		rightNode, err := node.getRightNode(tree)
+		rightNode, err := node.getRightNode(tree.sql, cf)
 		if err != nil {
 			return nil, err
 		}
 
-		rightBalance, err := rightNode.calcBalance(tree)
+		rightBalance, err := rightNode.calcBalance(tree, cf)
 		if err != nil {
 			return nil, err
 		}
 		if rightBalance <= 0 {
 			// Right Right Case
-			newNode, err := tree.rotateLeft(node)
+			newNode, err := tree.rotateLeft(node, cf)
 			if err != nil {
 				return nil, err
 			}
@@ -212,13 +212,13 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 		}
 		// Right Left Case
 		// TODO should be mutate? ref v1 and v0
-		newRightNode, err := tree.rotateRight(rightNode)
+		newRightNode, err := tree.rotateRight(rightNode, cf)
 		if err != nil {
 			return nil, err
 		}
 		node.setRight(newRightNode)
 
-		newNode, err := tree.rotateLeft(node)
+		newNode, err := tree.rotateLeft(node, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -228,13 +228,13 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-func (node *Node) calcBalance(t *Tree) (int, error) {
-	leftNode, err := node.getLeftNode(t)
+func (node *Node) calcBalance(t *Tree, cf connectionFactory) (int, error) {
+	leftNode, err := node.getLeftNode(t.sql, cf)
 	if err != nil {
 		return 0, err
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql, cf)
 	if err != nil {
 		return 0, err
 	}
@@ -243,23 +243,23 @@ func (node *Node) calcBalance(t *Tree) (int, error) {
 }
 
 // Rotate right and return the new node and orphan.
-func (tree *Tree) rotateRight(node *Node) (*Node, error) {
+func (tree *Tree) rotateRight(node *Node, cf connectionFactory) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
 	node = tree.stageNode(node)
 
-	tree.addOrphan(node.left(tree))
-	newNode := tree.stageNode(node.left(tree))
+	tree.addOrphan(node.left(tree.sql, cf))
+	newNode := tree.stageNode(node.left(tree.sql, cf))
 
-	node.setLeft(newNode.right(tree))
+	node.setLeft(newNode.right(tree.sql, cf))
 	newNode.setRight(node)
 
-	err = node.calcHeightAndSize(tree)
+	err = node.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
 
-	err = newNode.calcHeightAndSize(tree)
+	err = newNode.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -268,23 +268,23 @@ func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 }
 
 // Rotate left and return the new node and orphan.
-func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
+func (tree *Tree) rotateLeft(node *Node, cf connectionFactory) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
 	node = tree.stageNode(node)
 
-	tree.addOrphan(node.right(tree))
-	newNode := tree.stageNode(node.right(tree))
+	tree.addOrphan(node.right(tree.sql, cf))
+	newNode := tree.stageNode(node.right(tree.sql, cf))
 
-	node.setRight(newNode.left(tree))
+	node.setRight(newNode.left(tree.sql, cf))
 	newNode.setLeft(node)
 
-	err = node.calcHeightAndSize(tree)
+	err = node.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
 
-	err = newNode.calcHeightAndSize(tree)
+	err = newNode.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	return newNode, nil
 }
 
-func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error) {
+func (node *Node) get(t *Tree, cf connectionFactory, key []byte) (index int64, value []byte, err error) {
 	if node == nil {
 		return 0, nil, errors.New("cannot get nil node")
 	}
@@ -308,20 +308,20 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		leftNode, err := node.getLeftNode(t)
+		leftNode, err := node.getLeftNode(t.sql, cf)
 		if err != nil {
 			return 0, nil, err
 		}
 
-		return leftNode.get(t, key)
+		return leftNode.get(t, cf, key)
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql, cf)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	index, value, err = rightNode.get(t, key)
+	index, value, err = rightNode.get(t, cf, key)
 	if err != nil {
 		return 0, nil, err
 	}
