@@ -16,3 +16,5 @@
 - [#955](https://github.com/cosmos/iavl/pull/955) Get rid of `cosmos-db` deps completely.
 - [#965](https://github.com/cosmos/iavl/pull/965) Use expected interface for expected IAVL `Logger`.
 - [#970](https://github.com/cosmos/iavl/pull/970) Close the pruning process when the nodeDB is closed.
+- [#980](https://github.com/cosmos/iavl/pull/980) Use the `sdk/core/store.KVStoreWithBatch` interface instead of `iavl/db.DB` interface
+- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
