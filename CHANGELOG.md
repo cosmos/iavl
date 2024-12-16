@@ -1,5 +1,9 @@
 # Changelog
 
+## v1.3.3, December 16, 2024
+
+- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
+
 ## v1.3.2, November 26, 2024
 
 ### Bug Fixes
@@ -17,4 +21,3 @@
 - [#965](https://github.com/cosmos/iavl/pull/965) Use expected interface for expected IAVL `Logger`.
 - [#970](https://github.com/cosmos/iavl/pull/970) Close the pruning process when the nodeDB is closed.
 - [#980](https://github.com/cosmos/iavl/pull/980) Use the `sdk/core/store.KVStoreWithBatch` interface instead of `iavl/db.DB` interface
-- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
