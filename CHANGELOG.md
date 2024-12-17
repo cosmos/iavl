@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.3.4, December 17, 2024 
+
+- [#1023](https://github.com/cosmos/iavl/pull/1023) Better lock handling on close
+
+
 ## v1.3.3, December 16, 2024
 
 - [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
