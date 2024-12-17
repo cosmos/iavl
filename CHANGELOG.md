@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.3.4 unreleased 
+## v1.3.4, December 17, 2024 
 
 - [#1023](https://github.com/cosmos/iavl/pull/1023) Better lock handling on close
 
