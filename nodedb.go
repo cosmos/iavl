@@ -600,7 +600,7 @@ func (ndb *nodeDB) startPruning() {
 	for {
 		select {
 		case <-ndb.ctx.Done():
-			ndb.done <- struct{}{}
+			close(ndb.done)
 			return
 		default:
 			ndb.mtx.Lock()
@@ -1121,13 +1121,14 @@ func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node)
 
 // Close the nodeDB.
 func (ndb *nodeDB) Close() error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-
 	ndb.cancel()
+
 	if ndb.opts.AsyncPruning {
 		<-ndb.done // wait for the pruning process to finish
 	}
+
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
 
 	if ndb.batch != nil {
 		if err := ndb.batch.Close(); err != nil {
