@@ -91,7 +91,7 @@ func Test_VersionRange_Find(t *testing.T) {
 			if addErr == nil && tc.wantErr != "" {
 				t.Fatalf("want error %q, got nil", tc.wantErr)
 			}
-			got := r.Find(tc.find)
+			got := r.FindNext(tc.find)
 			if got != tc.next {
 				t.Fatalf("want %d, got %d", tc.next, got)
 			}

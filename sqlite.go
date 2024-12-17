@@ -156,6 +156,10 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		return nil, err
 	}
 
+	if err := sql.loadShards(); err != nil {
+		return nil, err
+	}
+
 	return sql, nil
 }
 
@@ -172,12 +176,12 @@ func (sql *SqliteDb) readConnectionFactory() connectionFactory {
 }
 
 func (sql *SqliteDb) newShardReadConnection(shardID int64) (*sqliteConnection, error) {
-	s := &sqliteConnection{shardID: shardID}
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(shardID))
 	if err != nil {
 		return nil, err
 	}
-	err = conn.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", sql.opts.MmapSize))
+	s := &sqliteConnection{shardID: shardID, conn: conn}
+	err = s.conn.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", sql.opts.MmapSize))
 	if err != nil {
 		return nil, err
 	}
@@ -251,10 +255,10 @@ func (sql *SqliteDb) createTreeShardDb(version int64) (topErr error) {
 		}
 	}()
 	err = conn.Exec(`
-CREATE TABLE tree (version int, sequence int, bytes blob);
+CREATE TABLE tree (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE orphan (version int, sequence int, at int);
 CREATE INDEX orphan_idx ON orphan (at);
-CREATE TABLE leaf (version int, sequence int, bytes blob);
+CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
 CREATE TABLE leaf_orphan (version int, sequence int, at int);
 CREATE INDEX leaf_orphan_idx ON leaf_orphan (at);
@@ -279,7 +283,8 @@ CREATE INDEX leaf_orphan_idx ON leaf_orphan (at);
 // sharding
 
 func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
-	conn, err := sqlite3.Open(sql.opts.treeConnectionString(version))
+	shardID := sql.shards.FindPrevious(version)
+	conn, err := sqlite3.Open(sql.opts.treeConnectionString(shardID))
 	if err != nil {
 		return nil, err
 	}
@@ -414,7 +419,7 @@ func (sql *SqliteDb) setHotConnection() error {
 
 func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
-	shard := sql.shards.Find(nodeKey.Version())
+	shard := sql.shards.FindNext(nodeKey.Version())
 	conn, err := cf.make(shard)
 	if err != nil {
 		return nil, err
@@ -457,7 +462,7 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node,
 
 func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
-	shard := sql.shards.Find(nodeKey.Version())
+	shard := sql.shards.FindNext(nodeKey.Version())
 	if cf == nil {
 		return nil, fmt.Errorf("connection factory is nil")
 	}
@@ -478,7 +483,7 @@ func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Nod
 	hasRow, err := conn.queryBranch.Step()
 	if !hasRow {
 		return nil, fmt.Errorf("node not found: %v; shard=%d; path=%s",
-			nodeKey, sql.shards.Find(nodeKey.Version()), sql.opts.Path)
+			nodeKey, sql.shards.FindNext(nodeKey.Version()), sql.opts.Path)
 	}
 	if err != nil {
 		return nil, err
@@ -700,66 +705,67 @@ func (sql *SqliteDb) loadCheckpointRange() (versionRange *VersionRange, topErr e
 }
 
 func (sql *SqliteDb) WarmLeaves() error {
-	panic("implement me")
+	start := time.Now()
+	hotConn, err := sql.hotConnectionFactory.make(sql.shards.Last())
+	if err != nil {
+		return err
+	}
+	read := hotConn.conn
+	stmt, err := read.Prepare("SELECT version, sequence, bytes FROM leaf")
+	if err != nil {
+		return err
+	}
+	var (
+		cnt, version, seq int64
+		vz                []byte
+	)
+	for {
+		ok, err := stmt.Step()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			break
+		}
+		cnt++
+		err = stmt.Scan(&version, &seq, &vz)
+		if err != nil {
+			return err
+		}
+		if cnt%5_000_000 == 0 {
+			sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+		}
+	}
+	if err = stmt.Close(); err != nil {
+		return err
+	}
 	/*
-		start := time.Now()
-		read, err := sql.getReadConn()
-		if err != nil {
-			return err
-		}
-		stmt, err := read.Prepare("SELECT version, sequence, bytes FROM leaf")
-		if err != nil {
-			return err
-		}
-		var (
-			cnt, version, seq int64
-			kz, vz            []byte
-		)
-		for {
-			ok, err := stmt.Step()
+		 	var kz []byte
+			stmt, err = read.Prepare("SELECT key, value FROM latest")
 			if err != nil {
 				return err
 			}
-			if !ok {
-				break
+			for {
+				ok, err := stmt.Step()
+				if err != nil {
+					return err
+				}
+				if !ok {
+					break
+				}
+				cnt++
+				err = stmt.Scan(&kz, &vz)
+				if err != nil {
+					return err
+				}
+				if cnt%5_000_000 == 0 {
+					sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+				}
 			}
-			cnt++
-			err = stmt.Scan(&version, &seq, &vz)
-			if err != nil {
-				return err
-			}
-			if cnt%5_000_000 == 0 {
-				sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
-			}
-		}
-		if err = stmt.Close(); err != nil {
-			return err
-		}
-		stmt, err = read.Prepare("SELECT key, value FROM latest")
-		if err != nil {
-			return err
-		}
-		for {
-			ok, err := stmt.Step()
-			if err != nil {
-				return err
-			}
-			if !ok {
-				break
-			}
-			cnt++
-			err = stmt.Scan(&kz, &vz)
-			if err != nil {
-				return err
-			}
-			if cnt%5_000_000 == 0 {
-				sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
-			}
-		}
-
-		sql.logger.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
-		return stmt.Close()
 	*/
+
+	sql.logger.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
+	return stmt.Close()
 }
 
 func (sql *SqliteDb) Revert(version int) error {
@@ -969,6 +975,9 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		}
 	}()
 	versions, err := sql.shardVersions()
+	if err != nil {
+		return err
+	}
 	cf := sql.readConnectionFactory()
 	for _, v := range versions {
 		if v < tree.version {

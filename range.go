@@ -24,9 +24,7 @@ func (r *VersionRange) Add(version int64) error {
 	return nil
 }
 
-// Find returns the shard that contains the given version by binary searching
-// the version range. If the version is after the last shard, -1 is returned.
-func (r *VersionRange) Find(version int64) int64 {
+func (r *VersionRange) FindNext(version int64) int64 {
 	vs := r.versions
 	if len(vs) == 0 || version > vs[len(vs)-1] {
 		return -1
@@ -73,7 +71,7 @@ func (r *VersionRange) FindMemoized(version int64) int64 {
 	if v, ok := r.cache[version]; ok {
 		return v
 	}
-	v := r.Find(version)
+	v := r.FindNext(version)
 	// don't cache err values
 	if v == -1 {
 		return -1

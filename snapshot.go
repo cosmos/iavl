@@ -447,7 +447,7 @@ func FindDbsInPath(path string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if filepath.Base(path) == "changelog.sqlite" {
+		if filepath.Base(path) == "root.sqlite" {
 			paths = append(paths, filepath.Dir(path))
 		}
 		return nil

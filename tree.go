@@ -48,6 +48,7 @@ type Tree struct {
 	pruneTo          int64
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
+	shouldPrune      bool
 
 	// options
 	maxWorkingSize     uint64
@@ -176,8 +177,8 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 	}
 
 	tree.stagedVersion = tree.version + 1
-
-	return nil
+	tree.sql.writeConn, err = tree.sql.newWriteConnection(tree.stagedVersion)
+	return err
 }
 
 func (tree *Tree) LoadSnapshot(version int64, traverseOrder TraverseOrderType) (err error) {
@@ -224,6 +225,9 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			if err := tree.sql.createTreeShardDb(tree.stagedVersion); err != nil {
 				return nil, tree.version, err
 			}
+			if err := tree.sql.loadShards(); err != nil {
+				return nil, tree.version, err
+			}
 		}
 		tree.sql.writeConn, err = tree.sql.newWriteConnection(tree.stagedVersion)
 		if err != nil {
@@ -244,16 +248,13 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	if _, err := batch.saveBranches(); err != nil {
 		return nil, tree.version, err
 	}
+	if err := tree.sql.SaveRoot(tree.stagedVersion, tree.stagedRoot, tree.shouldCheckpoint); err != nil {
+		return nil, tree.version, err
+	}
 
 	if tree.shouldCheckpoint {
 		tree.branchOrphans = nil
 		if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
-			return nil, tree.version, err
-		}
-
-		// if we've checkpointed without loading any tree node reads this means this was the first checkpoint.
-		// shard queries will not be loaded. initialize them now.
-		if err := tree.sql.loadShards(); err != nil {
 			return nil, tree.version, err
 		}
 	}
@@ -263,12 +264,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, tree.version, err
 	}
 
-	// if tree.pruneTo == tree.stagedVersion {
-	// 	if err := tree.DeleteVersionsTo(tree.pruneTo); err != nil {
-	// 		return nil, tree.version, err
-	// 	}
-	// }
-
 	tree.leafOrphans = nil
 	tree.leaves = nil
 	tree.branches = nil
@@ -277,6 +272,13 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.sequence = 0
 
 	tree.versionLock.Lock()
+	// prune
+	if tree.shouldPrune {
+		pruneVersion := tree.checkpoints.FindPrevious(tree.pruneTo)
+		if err := tree.sql.beginPrune(tree.stagedVersion, pruneVersion); err != nil {
+			return nil, tree.version, err
+		}
+	}
 	tree.previousRoot = tree.root
 	tree.root = tree.stagedRoot
 	tree.version++
@@ -514,7 +516,7 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	if tree.saveConnection != nil {
 		updated, err = tree.set(key, value, tree.saveConnection)
 	} else {
-		return false, fmt.Errorf("not yet supported; use WithSaveConnection")
+		updated, err = tree.set(key, value, tree.sql.hotConnectionFactory)
 	}
 
 	if err != nil {
@@ -649,10 +651,9 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 		return nil, false, nil
 	}
 	if tree.saveConnection != nil {
-		return tree.remove(key, tree.sql.hotConnectionFactory)
-	} else {
-		return nil, false, fmt.Errorf("not yet supported; use WithSaveConnection")
+		return tree.remove(key, tree.saveConnection)
 	}
+	return tree.remove(key, tree.sql.hotConnectionFactory)
 }
 
 func (tree *Tree) remove(key []byte, cf connectionFactory) ([]byte, bool, error) {
