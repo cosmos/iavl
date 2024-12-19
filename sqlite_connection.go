@@ -81,10 +81,6 @@ func newHotConnectionFactory(hub *sqlite3.Conn, opts SqliteDbOptions) *hotConnec
 }
 
 func (f *hotConnectionFactory) make(version int64) (*sqliteConnection, error) {
-	if version == -1 {
-		// temporary hack until pruning is re-implemented and shard life cycle is worked out
-		version = 1
-	}
 	if conn, ok := f.conns[version]; ok {
 		return conn, nil
 	}
@@ -99,23 +95,6 @@ func (f *hotConnectionFactory) addShard(shardID int64) error {
 	if _, ok := f.conns[shardID]; ok {
 		return fmt.Errorf("shard %d already connected", shardID)
 	}
-
-	// hack for testing
-	//if len(f.conns) == 0 {
-	//	var err error
-	//	s.queryLeaf, err = s.conn.Prepare(
-	//		"SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
-	//	if err != nil {
-	//		return err
-	//	}
-	//	s.queryBranch, err = s.conn.Prepare(
-	//		"SELECT bytes FROM tree WHERE version = ? AND sequence = ?")
-	//	if err != nil {
-	//		return err
-	//	}
-	//	f.conns[shardID] = s
-	//	return nil
-	//}
 
 	err := s.conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS shard_%d", f.opts.treeConnectionString(shardID), shardID))
 	if err != nil {

@@ -84,7 +84,6 @@ func (opts SqliteDbOptions) rootConnectString() string {
 
 func (opts SqliteDbOptions) hubConnectString() string {
 	return fmt.Sprintf("file:%s/hub.sqlite%s", opts.Path, opts.connArgs())
-	//return opts.treeConnectionString(1)
 }
 
 func (opts SqliteDbOptions) treeConnectionString(version int64) string {

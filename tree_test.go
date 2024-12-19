@@ -645,7 +645,6 @@ func Test_Prune_Logic(t *testing.T) {
 		case 30:
 			require.NoError(t, tree.DeleteVersionsTo(10))
 		case 43:
-			// set at 43, runs at 44, creates shard at 45
 			require.NoError(t, tree.DeleteVersionsTo(40))
 		case 250:
 			require.NoError(t, tree.DeleteVersionsTo(200))
