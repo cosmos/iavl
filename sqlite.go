@@ -52,6 +52,9 @@ type SqliteDb struct {
 
 	metrics *metrics.DbMetrics
 	logger  zerolog.Logger
+
+	pruning bool
+	pruneCh chan *pruneResult
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -84,14 +87,12 @@ func (opts SqliteDbOptions) hubConnectString() string {
 }
 
 func (opts SqliteDbOptions) treeConnectionString(version int64) string {
-	return fmt.Sprintf("file:%s/tree_%d.sqlite%s", opts.Path, version, opts.connArgs())
+	return fmt.Sprintf("file:%s/tree_%06d.sqlite%s", opts.Path, version, opts.connArgs())
 }
 
 func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 	logger := log.With().Str("path", opts.Path).Logger()
 	logger.Info().Msgf("calculate mmap size")
-	// TODO!
-	// iterate over versions
 	logger.Info().Msgf("tree connection string: %s", opts.treeConnectionString(0))
 	conn, err := sqlite3.Open(opts.treeConnectionString(0))
 	if err != nil {
@@ -149,6 +150,7 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		pool:                 pool,
 		metrics:              &metrics.DbMetrics{},
 		logger:               logger,
+		pruneCh:              make(chan *pruneResult),
 	}
 
 	if !api.IsFileExistent(opts.Path) {
@@ -287,7 +289,7 @@ CREATE TABLE leaf_orphan (version int, sequence int, at int);
 // sharding
 
 func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
-	shardID := sql.shards.FindPrevious(version)
+	shardID := sql.shards.FindShard(version)
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(shardID))
 	if err != nil {
 		return nil, err
@@ -381,7 +383,7 @@ func (sql *SqliteDb) Close() error {
 
 func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
-	shard := sql.shards.FindPrevious(nodeKey.Version())
+	shard := sql.shards.FindShard(nodeKey.Version())
 	conn, err := cf.make(shard)
 	if err != nil {
 		return nil, err
@@ -424,7 +426,7 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node,
 
 func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
-	shard := sql.shards.FindPrevious(nodeKey.Version())
+	shard := sql.shards.FindShard(nodeKey.Version())
 	if cf == nil {
 		return nil, fmt.Errorf("connection factory is nil")
 	}

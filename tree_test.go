@@ -640,12 +640,19 @@ func Test_Prune_Logic(t *testing.T) {
 		}
 		_, version, err := tree.SaveVersion()
 		require.NoError(t, err)
-		fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
+		// fmt.Printf("version=%d, hash=%x\n", version, hash)
 		switch version {
 		case 30:
 			require.NoError(t, tree.DeleteVersionsTo(10))
 		case 43:
+			// set at 43, runs at 44, creates shard at 45
 			require.NoError(t, tree.DeleteVersionsTo(40))
+		case 250:
+			require.NoError(t, tree.DeleteVersionsTo(200))
+		case 830:
+			require.NoError(t, tree.DeleteVersionsTo(800))
+		case 841:
+			require.NoError(t, tree.DeleteVersionsTo(801))
 		}
 	}
 }

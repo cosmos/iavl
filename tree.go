@@ -218,8 +218,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 	rootHash := tree.computeHash()
 	if tree.shouldCheckpoint && tree.sql.writeConn == nil {
-		// TODO
-		// first checkpoint case... i feel this should be elsewhere
+		// TODO: first checkpoint case... i feel this should be elsewhere
 		var err error
 		if tree.checkpoints.Len() == 0 {
 			if err := tree.sql.createTreeShardDb(tree.stagedVersion); err != nil {
@@ -279,17 +278,21 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.leaves = nil
 	tree.branches = nil
 	tree.deletes = nil
-	tree.shouldCheckpoint = false
 	tree.sequence = 0
 
 	tree.versionLock.Lock()
 	// prune
-	if tree.pruneTo > 0 {
+	if err := tree.sql.checkPruning(); err != nil {
+		return nil, tree.version, err
+	}
+	if tree.shouldCheckpoint && tree.pruneTo > 0 {
 		if err := tree.sql.beginPrune(tree.pruneTo, tree.stagedVersion, tree.checkpoints.Copy()); err != nil {
 			return nil, tree.version, err
 		}
 		tree.pruneTo = 0
 	}
+
+	tree.shouldCheckpoint = false
 	tree.previousRoot = tree.root
 	tree.root = tree.stagedRoot
 	tree.version++

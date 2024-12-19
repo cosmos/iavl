@@ -73,6 +73,19 @@ func (r *VersionRange) FindPrevious(version int64) int64 {
 	return vs[high]
 }
 
+// FindShard returns the shard ID for the given version.
+// It calls FindPrevious, but if version < first shardID it returns the first shardID.
+func (r *VersionRange) FindShard(version int64) int64 {
+	if len(r.versions) == 0 {
+		return -1
+	}
+	v := r.FindPrevious(version)
+	if v == -1 {
+		v = r.First()
+	}
+	return v
+}
+
 func (r *VersionRange) FindMemoized(version int64) int64 {
 	if r.cache == nil {
 		r.cache = make(map[int64]int64)
