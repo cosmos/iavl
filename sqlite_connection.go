@@ -16,6 +16,7 @@ type sqliteConnection struct {
 	conn        *sqlite3.Conn
 	queryLeaf   *sqlite3.Stmt
 	queryBranch *sqlite3.Stmt
+	main        bool
 }
 
 func (s *sqliteConnection) Close() error {
@@ -38,6 +39,9 @@ func newReadConnectionFactory(sql *SqliteDb) connectionFactory {
 }
 
 func (f *readConnectionFactory) make(version int64) (*sqliteConnection, error) {
+	// TODO
+	// this code path is used from public Get APIs, therefore it probably needs locking on shards
+	// to coordinate with pruning re-orgs.
 	shardID := f.sql.shards.FindMemoized(version)
 	if shardID == -1 {
 		return nil, fmt.Errorf("shard not found version=%d shards=%v", version, f.sql.shards.versions)
@@ -63,11 +67,14 @@ func (f *readConnectionFactory) close() error {
 }
 
 type hotConnectionFactory struct {
+	main  *sqlite3.Conn
+	opts  SqliteDbOptions
 	conns map[int64]*sqliteConnection
 }
 
-func newHotConnectionFactory() *hotConnectionFactory {
-	return &hotConnectionFactory{conns: make(map[int64]*sqliteConnection)}
+func newHotConnectionFactory(hub *sqlite3.Conn, opts SqliteDbOptions) *hotConnectionFactory {
+	conns := make(map[int64]*sqliteConnection)
+	return &hotConnectionFactory{main: hub, opts: opts, conns: conns}
 }
 
 func (f *hotConnectionFactory) make(version int64) (*sqliteConnection, error) {
@@ -81,12 +88,49 @@ func (f *hotConnectionFactory) make(version int64) (*sqliteConnection, error) {
 	return nil, fmt.Errorf("no connection for version %d", version)
 }
 
-func (f *hotConnectionFactory) close() error {
-	var c *sqlite3.Conn
-	for _, sqlConn := range f.conns {
-		if c == nil {
-			c = sqlConn.conn
+func (f *hotConnectionFactory) addShard(shardID int64) error {
+	s := &sqliteConnection{
+		shardID: shardID,
+		conn:    f.main,
+	}
+	if _, ok := f.conns[shardID]; ok {
+		return fmt.Errorf("shard %d already connected", shardID)
+	}
+
+	err := s.conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS shard_%d", f.opts.treeConnectionString(shardID), shardID))
+	if err != nil {
+		return err
+	}
+	s.queryLeaf, err = s.conn.Prepare(
+		fmt.Sprintf("SELECT bytes FROM shard_%d.leaf WHERE version = ? AND sequence = ?", shardID))
+	if err != nil {
+		return err
+	}
+	s.queryBranch, err = s.conn.Prepare(
+		fmt.Sprintf("SELECT bytes FROM shard_%d.tree WHERE version = ? AND sequence = ?", shardID))
+	if err != nil {
+		return err
+	}
+	f.conns[shardID] = s
+	return nil
+}
+
+func (f *hotConnectionFactory) removeShard(shardID int64) error {
+	if conn, ok := f.conns[shardID]; ok {
+		if err := conn.queryBranch.Close(); err != nil {
+			return err
 		}
+		if err := conn.queryLeaf.Close(); err != nil {
+			return err
+		}
+		delete(f.conns, shardID)
+		return nil
+	}
+	return fmt.Errorf("shard %d not connected", shardID)
+}
+
+func (f *hotConnectionFactory) close() error {
+	for _, sqlConn := range f.conns {
 		if err := sqlConn.queryLeaf.Close(); err != nil {
 			return err
 		}
@@ -94,8 +138,5 @@ func (f *hotConnectionFactory) close() error {
 			return err
 		}
 	}
-	if c != nil {
-		return c.Close()
-	}
-	return nil
+	return f.main.Close()
 }

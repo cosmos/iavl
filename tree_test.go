@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"os"
 	"runtime"
 	"sort"
 	"testing"
@@ -385,7 +386,11 @@ func TestTreeSanity(t *testing.T) {
 
 func Test_TrivialTree(t *testing.T) {
 	pool := NewNodePool()
-	tmpDir := t.TempDir()
+	// tmpDir := t.TempDir()
+	tmpDir := "/tmp/iavl-v2-trivial-tree"
+	os.RemoveAll(tmpDir)
+	os.Mkdir(tmpDir, 0755)
+
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	//sql, err := NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
@@ -611,11 +616,13 @@ func Test_Prune_Logic(t *testing.T) {
 	require.NoError(t, err)
 
 	pool := NewNodePool()
-	// tmpDir := "/tmp/prune-logic"
-	tmpDir := t.TempDir()
+	tmpDir := "/tmp/prune-logic"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	require.NoError(t, os.Mkdir(tmpDir, 0755))
+
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 20})
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -632,18 +639,14 @@ func Test_Prune_Logic(t *testing.T) {
 			}
 		}
 		_, version, err := tree.SaveVersion()
-		// fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
+		require.NoError(t, err)
+		fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
 		switch version {
 		case 30:
-			require.NoError(t, tree.DeleteVersionsTo(20))
-		case 100:
-			require.NoError(t, tree.DeleteVersionsTo(100))
-		case 150:
-			require.NoError(t, tree.DeleteVersionsTo(140))
-		case 650:
-			require.NoError(t, tree.DeleteVersionsTo(650))
+			require.NoError(t, tree.DeleteVersionsTo(10))
+		case 43:
+			require.NoError(t, tree.DeleteVersionsTo(40))
 		}
-		require.NoError(t, err)
 	}
 }
 

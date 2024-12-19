@@ -48,8 +48,7 @@ type SqliteDb struct {
 	itrIdx    int
 	iterators map[int]*sqlite3.Stmt
 
-	shards    *VersionRange
-	shardURIs map[int64]string
+	shards *VersionRange
 
 	metrics *metrics.DbMetrics
 	logger  zerolog.Logger
@@ -78,6 +77,10 @@ func (opts SqliteDbOptions) connArgs() string {
 
 func (opts SqliteDbOptions) rootConnectString() string {
 	return fmt.Sprintf("file:%s/root.sqlite%s", opts.Path, opts.connArgs())
+}
+
+func (opts SqliteDbOptions) hubConnectString() string {
+	return fmt.Sprintf("file:%s/hub.sqlite%s", opts.Path, opts.connArgs())
 }
 
 func (opts SqliteDbOptions) treeConnectionString(version int64) string {
@@ -134,10 +137,13 @@ func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
 func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
 	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
+	hubConn, err := sqlite3.Open(opts.hubConnectString())
+	if err != nil {
+		return nil, err
+	}
 	sql := &SqliteDb{
 		shards:               &VersionRange{},
-		shardURIs:            make(map[int64]string),
-		hotConnectionFactory: newHotConnectionFactory(),
+		hotConnectionFactory: newHotConnectionFactory(hubConn, opts),
 		iterators:            make(map[int]*sqlite3.Stmt),
 		opts:                 opts,
 		pool:                 pool,
@@ -257,11 +263,9 @@ func (sql *SqliteDb) createTreeShardDb(version int64) (topErr error) {
 	err = conn.Exec(`
 CREATE TABLE tree (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE orphan (version int, sequence int, at int);
-CREATE INDEX orphan_idx ON orphan (at);
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
 CREATE TABLE leaf_orphan (version int, sequence int, at int);
-CREATE INDEX leaf_orphan_idx ON leaf_orphan (at);
 `)
 	if err != nil {
 		return err
@@ -292,7 +296,10 @@ func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
+	// if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
+	// 	return nil, err
+	// }
+	if err = conn.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
 		return nil, err
 	}
 	return conn, nil
@@ -312,7 +319,7 @@ func (sql *SqliteDb) resetWriteConnection() (*sqlite3.Conn, error) {
 	return conn, err
 }
 
-func (sql *SqliteDb) shardVersions() ([]int64, error) {
+func (sql *SqliteDb) listShards() ([]int64, error) {
 	files, err := os.ReadDir(sql.opts.Path)
 	if err != nil {
 		return nil, err
@@ -334,51 +341,33 @@ func (sql *SqliteDb) shardVersions() ([]int64, error) {
 }
 
 func (sql *SqliteDb) loadShards() error {
-	if err := sql.hotConnectionFactory.close(); err != nil {
-		return err
+	if sql.hotConnectionFactory != nil {
+		if err := sql.hotConnectionFactory.close(); err != nil {
+			return err
+		}
+		hubConn, err := sqlite3.Open(sql.opts.hubConnectString())
+		if err != nil {
+			return err
+		}
+		sql.hotConnectionFactory = newHotConnectionFactory(hubConn, sql.opts)
 	}
-	sql.hotConnectionFactory = newHotConnectionFactory()
-	sql.shardURIs = make(map[int64]string)
-	sql.shards = &VersionRange{}
-
-	shardVersions, err := sql.shardVersions()
+	shardVersions, err := sql.listShards()
 	if err != nil {
 		return err
 	}
-	// a single hot connection for all shards
-	var conn *sqlite3.Conn
+
+	if len(shardVersions) == 0 {
+		return nil
+	}
+
+	sql.shards = &VersionRange{}
 	for _, shardID := range shardVersions {
-		if err := sql.shards.Add(shardID); err != nil {
+		if err = sql.hotConnectionFactory.addShard(shardID); err != nil {
 			return err
 		}
-		sql.shardURIs[shardID] = sql.opts.treeConnectionString(shardID)
-
-		var s *sqliteConnection
-		if conn == nil {
-			s, err = sql.newShardReadConnection(shardID)
-			if err != nil {
-				return err
-			}
-			conn = s.conn
-		} else {
-			s = &sqliteConnection{
-				shardID: shardID,
-				conn:    conn,
-			}
-			err = s.conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS shard_%d", sql.opts.treeConnectionString(shardID), shardID))
-			if err != nil {
-				return err
-			}
-			s.queryLeaf, err = s.conn.Prepare(fmt.Sprintf("SELECT bytes FROM shard_%d.leaf WHERE version = ? AND sequence = ?", shardID))
-			if err != nil {
-				return err
-			}
-			s.queryBranch, err = s.conn.Prepare(fmt.Sprintf("SELECT bytes FROM shard_%d.tree WHERE version = ? AND sequence = ?", shardID))
-			if err != nil {
-				return err
-			}
+		if err = sql.shards.Add(shardID); err != nil {
+			return err
 		}
-		sql.hotConnectionFactory.conns[shardID] = s
 	}
 	return nil
 }
@@ -388,38 +377,11 @@ func (sql *SqliteDb) Close() error {
 	return nil
 }
 
-// setSaveConnection sets the save connection to the latest (hot) shard
-func (sql *SqliteDb) setHotConnection() error {
-	// if sql.hotConn != nil {
-	// 	if err := sql.hotConn.Close(); err != nil {
-	// 		return err
-	// 	}
-	// }
-	var err error
-	s := &sqliteConnection{}
-	s.conn, err = sqlite3.Open(sql.opts.treeConnectionString(sql.shards.Last()))
-	if err != nil {
-		return err
-	}
-	err = s.conn.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", sql.opts.MmapSize))
-	if err != nil {
-		return err
-	}
-	for _, v := range sql.shards.versions {
-		if err = s.conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS shard_%d", sql.opts.treeConnectionString(v), v)); err != nil {
-			return err
-		}
-	}
-
-	s.queryLeaf, err = s.conn.Prepare("SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
-	return err
-}
-
 // read API
 
 func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
-	shard := sql.shards.FindNext(nodeKey.Version())
+	shard := sql.shards.FindPrevious(nodeKey.Version())
 	conn, err := cf.make(shard)
 	if err != nil {
 		return nil, err
@@ -462,7 +424,7 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node,
 
 func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
-	shard := sql.shards.FindNext(nodeKey.Version())
+	shard := sql.shards.FindPrevious(nodeKey.Version())
 	if cf == nil {
 		return nil, fmt.Errorf("connection factory is nil")
 	}
@@ -974,7 +936,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 			topErr = errors.Join(topErr, err)
 		}
 	}()
-	versions, err := sql.shardVersions()
+	versions, err := sql.listShards()
 	if err != nil {
 		return err
 	}

@@ -24,6 +24,15 @@ func (r *VersionRange) Add(version int64) error {
 	return nil
 }
 
+func (r *VersionRange) Remove(version int64) {
+	for i, v := range r.versions {
+		if v == version {
+			r.versions = append(r.versions[:i], r.versions[i+1:]...)
+			return
+		}
+	}
+}
+
 func (r *VersionRange) FindNext(version int64) int64 {
 	vs := r.versions
 	if len(vs) == 0 || version > vs[len(vs)-1] {
@@ -87,6 +96,19 @@ func (r *VersionRange) Last() int64 {
 	return r.versions[len(r.versions)-1]
 }
 
+func (r *VersionRange) First() int64 {
+	if len(r.versions) == 0 {
+		return -1
+	}
+	return r.versions[0]
+}
+
 func (r *VersionRange) Len() int {
 	return len(r.versions)
+}
+
+func (r *VersionRange) Copy() *VersionRange {
+	vs := make([]int64, len(r.versions))
+	copy(vs, r.versions)
+	return &VersionRange{versions: vs, cache: make(map[int64]int64)}
 }

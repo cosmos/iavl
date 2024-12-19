@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -272,7 +271,7 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		if err = b.treeBatchCommit(); err != nil {
 			return 0, err
 		}
-		err = b.conn.Exec(fmt.Sprintf("CREATE INDEX IF NOT EXISTS tree_idx ON tree (version, sequence);"))
+		err = b.conn.Exec("CREATE INDEX IF NOT EXISTS tree_idx ON tree (version, sequence);")
 		if err != nil {
 			return 0, err
 		}

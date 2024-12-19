@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/rand"
 )
 
 /*
@@ -296,4 +297,61 @@ func Test_ConcurrentQuery(t *testing.T) {
 			return
 		}
 	}
+}
+
+func Test_ConcurrentIndexRead(t *testing.T) {
+	dir := t.TempDir()
+	seed := uint64(1234)
+	count := 10_000_000
+	conn, err := sqlite3.Open(dir + "/db.db")
+	require.NoError(t, err)
+	r := rand.New(rand.NewSource(seed))
+	require.NoError(t, conn.Exec("PRAGMA synchronous = OFF"))
+	require.NoError(t, conn.Exec("PRAGMA journal_mode = WAL"))
+	err = conn.Exec("CREATE TABLE foo (id BLOB, val INTEGER)")
+	require.NoError(t, err)
+	err = conn.Exec("CREATE TABLE bar (id BLOB, val INTEGER)")
+	require.NoError(t, err)
+	bz := make([]byte, 32)
+	t.Log("insert 100_000 rows")
+	require.NoError(t, conn.Begin())
+	for i := 0; i < count; i++ {
+		_, err = r.Read(bz)
+		require.NoError(t, err)
+		err = conn.Exec("INSERT INTO foo VALUES (?, ?)", bz, i)
+		require.NoError(t, err)
+		err = conn.Exec("INSERT INTO bar VALUES (?, ?)", bz, i)
+		require.NoError(t, err)
+		if i%100_000 == 0 {
+			require.NoError(t, conn.Commit())
+			require.NoError(t, conn.Begin())
+			t.Log("inserted", i)
+		}
+	}
+	require.NoError(t, conn.Commit())
+	r = rand.New(rand.NewSource(seed))
+	reader, err := sqlite3.Open(dir + "/db.db")
+	require.NoError(t, err)
+	t.Log("query 100_000 rows")
+	stmt, err := reader.Prepare("SELECT val FROM bar WHERE id = ?")
+	require.NoError(t, err)
+	var v int
+	go func(q *sqlite3.Stmt) {
+		for i := 0; i < count; i++ {
+			n, err := r.Read(bz)
+			require.NoError(t, err)
+			require.Equal(t, 32, n)
+			err = q.Bind(bz)
+			require.NoError(t, err)
+			hasRow, err := q.Step()
+			require.NoError(t, err)
+			require.True(t, hasRow)
+			err = q.Scan(&v)
+			require.NoError(t, err)
+			require.Equal(t, i, v)
+			require.NoError(t, q.Reset())
+		}
+	}(stmt)
+	err = conn.Exec("CREATE INDEX foo_idx ON foo (id)")
+	require.NoError(t, err)
 }

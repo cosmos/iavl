@@ -242,6 +242,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		logger:            tree.sql.logger,
 		storeLatestLeaves: tree.storeLatestLeaves,
 	}
+	// save
+	saveStart := time.Now()
 	if _, err := batch.saveLeaves(); err != nil {
 		return nil, tree.version, err
 	}
@@ -253,11 +255,20 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	if tree.shouldCheckpoint {
+		if err := tree.sql.writeConn.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+			return nil, tree.version, err
+		}
 		tree.branchOrphans = nil
 		if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
 			return nil, tree.version, err
 		}
 	}
+
+	dur := time.Since(saveStart)
+	tree.sql.metrics.WriteDurations = append(tree.sql.metrics.WriteDurations, dur)
+	tree.sql.metrics.WriteTime += dur
+	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
+	//
 
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
 	if err := tree.evictNodes(); err != nil {
@@ -273,11 +284,11 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	tree.versionLock.Lock()
 	// prune
-	if tree.shouldPrune {
-		pruneVersion := tree.checkpoints.FindPrevious(tree.pruneTo)
-		if err := tree.sql.beginPrune(tree.stagedVersion, pruneVersion); err != nil {
+	if tree.pruneTo > 0 {
+		if err := tree.sql.beginPrune(tree.pruneTo, tree.stagedVersion, tree.checkpoints.Copy()); err != nil {
 			return nil, tree.version, err
 		}
+		tree.pruneTo = 0
 	}
 	tree.previousRoot = tree.root
 	tree.root = tree.stagedRoot
