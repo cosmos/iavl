@@ -84,6 +84,7 @@ func (opts SqliteDbOptions) rootConnectString() string {
 
 func (opts SqliteDbOptions) hubConnectString() string {
 	return fmt.Sprintf("file:%s/hub.sqlite%s", opts.Path, opts.connArgs())
+	//return opts.treeConnectionString(1)
 }
 
 func (opts SqliteDbOptions) treeConnectionString(version int64) string {
@@ -126,7 +127,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 	return mmapSize, nil
 }
 
-//	TODO
+//	TODO delete MemoryDb support
 //
 // NewInMemorySqliteDb probably needs deleting now that the file system is a source of truth for shards.
 // Otherwise shard indexing can be pushed into root.db
@@ -138,7 +139,18 @@ func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
 func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
 	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
+
+	if !api.IsFileExistent(opts.Path) {
+		err := os.MkdirAll(opts.Path, 0o755)
+		if err != nil {
+			return nil, err
+		}
+	}
 	hubConn, err := sqlite3.Open(opts.hubConnectString())
+	if err != nil {
+		return nil, err
+	}
+	err = hubConn.Exec(fmt.Sprintf("PRAGMA mmap_size=%d;", opts.MmapSize))
 	if err != nil {
 		return nil, err
 	}
@@ -151,13 +163,6 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		metrics:              &metrics.DbMetrics{},
 		logger:               logger,
 		pruneCh:              make(chan *pruneResult),
-	}
-
-	if !api.IsFileExistent(opts.Path) {
-		err := os.MkdirAll(opts.Path, 0o755)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	if err := sql.ensureRootDb(); err != nil {
@@ -343,16 +348,6 @@ func (sql *SqliteDb) listShards() ([]int64, error) {
 }
 
 func (sql *SqliteDb) loadShards() error {
-	if sql.hotConnectionFactory != nil {
-		if err := sql.hotConnectionFactory.close(); err != nil {
-			return err
-		}
-		hubConn, err := sqlite3.Open(sql.opts.hubConnectString())
-		if err != nil {
-			return err
-		}
-		sql.hotConnectionFactory = newHotConnectionFactory(hubConn, sql.opts)
-	}
 	shardVersions, err := sql.listShards()
 	if err != nil {
 		return err
@@ -583,9 +578,6 @@ func (sql *SqliteDb) LoadRoot(version int64) (root *Node, topErr error) {
 		}
 	}
 
-	if err := sql.loadShards(); err != nil {
-		return nil, err
-	}
 	return root, nil
 }
 

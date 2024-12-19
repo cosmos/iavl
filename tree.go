@@ -219,12 +219,14 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	rootHash := tree.computeHash()
 	if tree.shouldCheckpoint && tree.sql.writeConn == nil {
 		// TODO: first checkpoint case... i feel this should be elsewhere
-		var err error
 		if tree.checkpoints.Len() == 0 {
-			if err := tree.sql.createTreeShardDb(tree.stagedVersion); err != nil {
+			if err = tree.sql.createTreeShardDb(tree.stagedVersion); err != nil {
 				return nil, tree.version, err
 			}
-			if err := tree.sql.loadShards(); err != nil {
+			if err = tree.sql.shards.Add(tree.stagedVersion); err != nil {
+				return nil, tree.version, err
+			}
+			if err = tree.sql.hotConnectionFactory.addShard(tree.stagedVersion); err != nil {
 				return nil, tree.version, err
 			}
 		}

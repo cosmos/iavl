@@ -100,6 +100,23 @@ func (f *hotConnectionFactory) addShard(shardID int64) error {
 		return fmt.Errorf("shard %d already connected", shardID)
 	}
 
+	// hack for testing
+	//if len(f.conns) == 0 {
+	//	var err error
+	//	s.queryLeaf, err = s.conn.Prepare(
+	//		"SELECT bytes FROM leaf WHERE version = ? AND sequence = ?")
+	//	if err != nil {
+	//		return err
+	//	}
+	//	s.queryBranch, err = s.conn.Prepare(
+	//		"SELECT bytes FROM tree WHERE version = ? AND sequence = ?")
+	//	if err != nil {
+	//		return err
+	//	}
+	//	f.conns[shardID] = s
+	//	return nil
+	//}
+
 	err := s.conn.Exec(fmt.Sprintf("ATTACH DATABASE '%s' AS shard_%d", f.opts.treeConnectionString(shardID), shardID))
 	if err != nil {
 		return err
