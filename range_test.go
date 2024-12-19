@@ -14,6 +14,7 @@ func Test_VersionRange_Find(t *testing.T) {
 		find     int64
 		next     int64
 		prev     int64
+		recent   int64
 		wantErr  string
 	}{
 		{
@@ -62,6 +63,7 @@ func Test_VersionRange_Find(t *testing.T) {
 			find:     38,
 			next:     51,
 			prev:     1,
+			recent:   -1,
 		},
 		{
 			name:     "osmo like many",
@@ -69,6 +71,7 @@ func Test_VersionRange_Find(t *testing.T) {
 			find:     408,
 			next:     -1,
 			prev:     401,
+			recent:   301,
 		},
 	}
 	for _, tc := range cases {
@@ -98,6 +101,12 @@ func Test_VersionRange_Find(t *testing.T) {
 			got = r.FindPrevious(tc.find)
 			if got != tc.prev {
 				t.Fatalf("want %d, got %d", tc.prev, got)
+			}
+			if tc.recent != 0 {
+				got = r.FindRecent(tc.find, 100)
+				if got != tc.recent {
+					t.Fatalf("want %d, got %d", tc.recent, got)
+				}
 			}
 		})
 	}

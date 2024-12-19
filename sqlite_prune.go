@@ -2,6 +2,9 @@ package iavl
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 )
 
@@ -69,8 +72,8 @@ func (sql *SqliteDb) prune(pruneVersion int64) (dropped []int64, newShards *Vers
 	}
 
 	var (
-		pivot     int
-		shardConn *sqlite3.Conn
+		pivot int
+		// shardConn *sqlite3.Conn
 	)
 
 	for i, shard := range sql.shards.versions {
@@ -78,21 +81,21 @@ func (sql *SqliteDb) prune(pruneVersion int64) (dropped []int64, newShards *Vers
 			pivot = i
 			break
 		}
-		shardConn, err = sql.newWriteConnection(shard)
-		if err != nil {
-			return dropped, newShards, err
-		}
-		err = shardConn.Exec("CREATE INDEX leaf_orphan_idx ON leaf_orphan (version, sequence)")
-		if err != nil {
-			return dropped, newShards, err
-		}
-		err = shardConn.Exec("CREATE INDEX branch_orphan_idx ON orphan (version, sequence)")
-		if err != nil {
-			return dropped, newShards, err
-		}
-		if err = shardConn.Close(); err != nil {
-			return dropped, newShards, err
-		}
+		// shardConn, err = sql.newWriteConnection(shard)
+		// if err != nil {
+		// 	return dropped, newShards, err
+		// }
+		// err = shardConn.Exec("CREATE INDEX leaf_orphan_idx ON leaf_orphan (version, sequence)")
+		// if err != nil {
+		// 	return dropped, newShards, err
+		// }
+		// err = shardConn.Exec("CREATE INDEX branch_orphan_idx ON orphan (version, sequence)")
+		// if err != nil {
+		// 	return dropped, newShards, err
+		// }
+		// if err = shardConn.Close(); err != nil {
+		// 	return dropped, newShards, err
+		// }
 
 		err = conn.Exec(fmt.Sprintf("ATTACH DATABASE ? AS shard_%d", shard), sql.opts.treeConnectionString(shard))
 		if err != nil {
@@ -148,7 +151,19 @@ func (sql *SqliteDb) checkPruning() error {
 			if err := sql.hotConnectionFactory.removeShard(v); err != nil {
 				return err
 			}
-			// TODO delete shard files from disk
+			// delete shard files from disk
+			path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
+			sql.logger.Info().Str("path", path).Msg("deleting")
+
+			matches, err := filepath.Glob(path)
+			if err != nil {
+				return err
+			}
+			for _, match := range matches {
+				if err := os.Remove(match); err != nil {
+					return err
+				}
+			}
 		}
 		sql.shards = res.newShards
 		sql.pruning = false

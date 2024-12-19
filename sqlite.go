@@ -167,10 +167,11 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	if err := sql.ensureRootDb(); err != nil {
 		return nil, err
 	}
-
 	if err := sql.loadShards(); err != nil {
 		return nil, err
 	}
+
+	// TODO: initial orphan counts
 
 	return sql, nil
 }
@@ -268,10 +269,10 @@ func (sql *SqliteDb) createTreeShardDb(version int64) (topErr error) {
 	}()
 	err = conn.Exec(`
 CREATE TABLE tree (version int, sequence int, bytes blob, orphaned int);
-CREATE TABLE orphan (version int, sequence int, at int);
+CREATE TABLE orphan (version int, sequence int, at int, PRIMARY KEY (version, sequence));
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
-CREATE TABLE leaf_orphan (version int, sequence int, at int);
+CREATE TABLE leaf_orphan (version int, sequence int, at int, PRIMARY KEY (version, sequence));
 `)
 	if err != nil {
 		return err

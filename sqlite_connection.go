@@ -122,6 +122,9 @@ func (f *hotConnectionFactory) removeShard(shardID int64) error {
 		if err := conn.queryLeaf.Close(); err != nil {
 			return err
 		}
+		if err := conn.conn.Exec(fmt.Sprintf("DETACH DATABASE shard_%d", shardID)); err != nil {
+			return err
+		}
 		delete(f.conns, shardID)
 		return nil
 	}

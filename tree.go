@@ -48,7 +48,6 @@ type Tree struct {
 	pruneTo          int64
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
-	shouldPrune      bool
 
 	// options
 	maxWorkingSize     uint64
@@ -60,6 +59,10 @@ type Tree struct {
 	storeLatestLeaves  bool
 	heightFilter       int8
 	metricsProxy       metrics.Proxy
+	// pruning config
+	orphanCount         int64
+	pruneRatio          float64
+	minimumKeepVersions int64
 
 	// state
 	*writeQueue
@@ -76,40 +79,46 @@ type Tree struct {
 }
 
 type TreeOptions struct {
-	CheckpointInterval int64
-	CheckpointMemory   uint64
-	StateStorage       bool
-	HeightFilter       int8
-	EvictionDepth      int8
-	MetricsProxy       metrics.Proxy
+	CheckpointInterval  int64
+	CheckpointMemory    uint64
+	StateStorage        bool
+	HeightFilter        int8
+	EvictionDepth       int8
+	MetricsProxy        metrics.Proxy
+	PruneRatio          float64
+	MinimumKeepVersions int64
 }
 
 func DefaultTreeOptions() TreeOptions {
 	return TreeOptions{
-		CheckpointInterval: 1000,
-		StateStorage:       true,
-		HeightFilter:       1,
-		EvictionDepth:      -1,
+		CheckpointInterval:  1000,
+		StateStorage:        true,
+		HeightFilter:        1,
+		EvictionDepth:       -1,
+		PruneRatio:          0.5,
+		MinimumKeepVersions: 100,
 	}
 }
 
 func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 	tree := &Tree{
-		sql:                sql,
-		pool:               pool,
-		checkpoints:        &VersionRange{},
-		metrics:            &metrics.TreeMetrics{},
-		maxWorkingSize:     1.5 * 1024 * 1024 * 1024,
-		checkpointInterval: opts.CheckpointInterval,
-		checkpointMemory:   opts.CheckpointMemory,
-		storeLeafValues:    opts.StateStorage,
-		storeLatestLeaves:  false,
-		heightFilter:       opts.HeightFilter,
-		metricsProxy:       opts.MetricsProxy,
-		evictionDepth:      opts.EvictionDepth,
-		writeQueue:         &writeQueue{},
-		version:            0,
-		stagedVersion:      1,
+		sql:                 sql,
+		pool:                pool,
+		checkpoints:         &VersionRange{},
+		metrics:             &metrics.TreeMetrics{},
+		maxWorkingSize:      1.5 * 1024 * 1024 * 1024,
+		checkpointInterval:  opts.CheckpointInterval,
+		checkpointMemory:    opts.CheckpointMemory,
+		storeLeafValues:     opts.StateStorage,
+		minimumKeepVersions: opts.MinimumKeepVersions,
+		pruneRatio:          opts.PruneRatio,
+		storeLatestLeaves:   false,
+		heightFilter:        opts.HeightFilter,
+		metricsProxy:        opts.MetricsProxy,
+		evictionDepth:       opts.EvictionDepth,
+		writeQueue:          &writeQueue{},
+		version:             0,
+		stagedVersion:       1,
 	}
 
 	return tree
@@ -217,6 +226,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
 	rootHash := tree.computeHash()
+
 	if tree.shouldCheckpoint && tree.sql.writeConn == nil {
 		// TODO: first checkpoint case... i feel this should be elsewhere
 		if tree.checkpoints.Len() == 0 {
@@ -255,14 +265,32 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, tree.version, err
 	}
 
+	// if strings.HasSuffix(tree.sql.opts.Path, "ibc") ||
+	// 	strings.HasSuffix(tree.sql.opts.Path, "staking") ||
+	// 	strings.HasSuffix(tree.sql.opts.Path, "wasm") {
+	// 	tree.sql.logger.Info().Int64("size", tree.root.size).Int8("height", tree.root.subtreeHeight).Msg("root")
+	// }
+
 	if tree.shouldCheckpoint {
 		if err := tree.sql.writeConn.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 			return nil, tree.version, err
 		}
-		tree.branchOrphans = nil
 		if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
 			return nil, tree.version, err
 		}
+
+		tree.orphanCount += int64(len(tree.branchOrphans))
+		pruneRatio := float64(tree.orphanCount) / float64(tree.stagedRoot.size)
+		tree.sql.logger.Info().
+			Int64("orphans", tree.orphanCount).
+			Int64("size", tree.stagedRoot.size).
+			Float64("pruneRatio", pruneRatio).
+			Msg("orphans")
+		maybePruneTo := tree.checkpoints.FindRecent(tree.stagedVersion, tree.minimumKeepVersions)
+		if pruneRatio > tree.pruneRatio && maybePruneTo > 0 {
+			tree.pruneTo = maybePruneTo
+		}
+		tree.branchOrphans = nil
 	}
 
 	dur := time.Since(saveStart)
@@ -291,6 +319,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		if err := tree.sql.beginPrune(tree.pruneTo, tree.stagedVersion, tree.checkpoints.Copy()); err != nil {
 			return nil, tree.version, err
 		}
+		tree.orphanCount = 0
 		tree.pruneTo = 0
 	}
 
@@ -912,8 +941,6 @@ func (tree *Tree) WriteLatestLeaves() (err error) {
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
-	// TODO
-	// locking?
 	tree.pruneTo = toVersion
 	return nil
 }

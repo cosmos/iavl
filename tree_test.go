@@ -172,7 +172,10 @@ func TestTree_Hash(t *testing.T) {
 	// at this commit tree: https://github.com/cosmos/iavl-bench/blob/3a6a1ec0a8cbec305e46239454113687da18240d/iavl-v0/main.go#L136
 	opts.Until = 100
 	opts.UntilHash = "0101e1d6f3158dcb7221acd7ed36ce19f2ef26847ffea7ce69232e362539e5cf"
-	treeOpts := TreeOptions{CheckpointInterval: 10, HeightFilter: 1, StateStorage: true, EvictionDepth: 8}
+	treeOpts := TreeOptions{
+		CheckpointInterval: 10, HeightFilter: 1, StateStorage: true, EvictionDepth: 8,
+		PruneRatio: 0.5, MinimumKeepVersions: 100,
+	}
 
 	testStart := time.Now()
 	multiTree := NewMultiTree(tmpDir, treeOpts)
@@ -622,7 +625,7 @@ func Test_Prune_Logic(t *testing.T) {
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 20})
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 20, PruneRatio: 100})
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -762,14 +765,14 @@ func Test_Prune_Performance(t *testing.T) {
 
 		lastPrune++
 		// trigger two prunes close together in order to test the receipt of a prune signal before a previous prune has completed
-		if lastPrune == 80 || lastPrune == 85 {
+		if lastPrune == 150 || lastPrune == 155 {
 			pruneTo := version - 1
 			t.Logf("prune to version %d", pruneTo)
 			for _, tree := range multiTree.Trees {
 				require.NoError(t, tree.DeleteVersionsTo(pruneTo))
 			}
 			t.Log("prune signals sent")
-			if lastPrune == 85 {
+			if lastPrune == 155 {
 				lastPrune = 0
 			}
 		}

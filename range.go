@@ -73,6 +73,20 @@ func (r *VersionRange) FindPrevious(version int64) int64 {
 	return vs[high]
 }
 
+func (r *VersionRange) FindRecent(version, n int64) int64 {
+	v := version
+	for {
+		prev := r.FindPrevious(v)
+		if prev == -1 || prev == r.versions[0] {
+			return -1
+		}
+		if version-prev > n {
+			return prev
+		}
+		v = prev - 1
+	}
+}
+
 // FindShard returns the shard ID for the given version.
 // It calls FindPrevious, but if version < first shardID it returns the first shardID.
 func (r *VersionRange) FindShard(version int64) int64 {
