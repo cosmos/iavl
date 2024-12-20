@@ -470,20 +470,12 @@ func Test_EmptyTree(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func Test_Replay_Tmp(t *testing.T) {
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/icahost"})
-	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
-	err = tree.LoadVersion(13946707)
-	require.NoError(t, err)
-}
-
 func Test_Replay(t *testing.T) {
 	unsafeBytesToStr := func(b []byte) string {
 		return *(*string)(unsafe.Pointer(&b))
 	}
 	const versions = int64(1_000)
+	hashes := make(map[int64][]byte, versions+1)
 	gen := bench.ChangesetGenerator{
 		StoreKey:         "replay",
 		Seed:             1,
@@ -501,10 +493,15 @@ func Test_Replay(t *testing.T) {
 	require.NoError(t, err)
 
 	pool := NewNodePool()
-	tmpDir := t.TempDir()
+
+	// tmpDir := t.TempDir()
+	tmpDir := "/tmp/replay"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	require.NoError(t, os.Mkdir(tmpDir, 0o0755))
+
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100, MinimumKeepVersions: 1000})
 
 	// we must buffer all sets/deletes and order them first for replay to work properly.
 	// store v1 and v2 already do this via cachekv write buffering.
@@ -551,7 +548,12 @@ func Test_Replay(t *testing.T) {
 
 			if len(cache) > 0 {
 				_, v, err := tree.SaveVersion()
-				fmt.Printf("version=%d, hash=%x\n", v, tree.Hash())
+				if hashes[v] == nil {
+					hashes[v] = tree.Hash()
+				} else {
+					fmt.Printf("version=%d, hash=%x\n", v, tree.Hash())
+					require.Equal(t, hashes[v], tree.Hash())
+				}
 				require.NoError(t, err)
 			}
 		}
@@ -559,7 +561,7 @@ func Test_Replay(t *testing.T) {
 		require.NoError(t, tree.Close())
 	}
 
-	ingest(1, 150)
+	ingest(1, 300)
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -577,27 +579,17 @@ func Test_Replay(t *testing.T) {
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
 	require.NoError(t, err)
-	ingest(171, 250)
+	ingest(171, 1000)
 
-	//sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
-	//require.NoError(t, err)
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//require.NoError(t, err)
-	//require.NoError(t, tree.Close())
-	//
-	//sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
-	//require.NoError(t, err)
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//err = tree.LoadVersion(5)
-	//require.NoError(t, err)
-	//
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//err = tree.LoadVersion(555)
-	//require.NoError(t, err)
-	//
-	//tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
-	//err = tree.LoadVersion(1000)
-	//require.NoError(t, err)
+	// a prune should have occurred at version 801, prune from boundary back up to 1000
+	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
+	require.NoError(t, err)
+	tree = NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	err = tree.LoadVersion(801)
+	require.NoError(t, err)
+	itr, err = gen.Iterator()
+	require.NoError(t, err)
+	ingest(802, 1000)
 }
 
 func Test_Prune_Logic(t *testing.T) {

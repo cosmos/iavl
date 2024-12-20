@@ -371,7 +371,10 @@ func (sql *SqliteDb) loadShards() error {
 
 func (sql *SqliteDb) Close() error {
 	// TODO
-	return nil
+	return errors.Join(
+		sql.writeConn.Close(),
+		sql.hotConnectionFactory.close(),
+	)
 }
 
 // read API
@@ -936,9 +939,6 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	}
 	cf := sql.readConnectionFactory()
 	for _, v := range versions {
-		if v < tree.version {
-			continue
-		}
 		if v > toVersion {
 			break
 		}

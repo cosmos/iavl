@@ -52,7 +52,7 @@ func (b *sqliteBatch) newChangeLogBatch() (err error) {
 			return err
 		}
 	}
-	b.leafOrphan, err = b.conn.Prepare("INSERT INTO leaf_orphan (version, sequence, at) VALUES (?, ?, ?)")
+	b.leafOrphan, err = b.conn.Prepare("INSERT OR REPLACE INTO leaf_orphan (version, sequence, at) VALUES (?, ?, ?)")
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (b *sqliteBatch) newTreeBatch() (err error) {
 	if err != nil {
 		return err
 	}
-	b.treeOrphan, err = b.conn.Prepare("INSERT INTO orphan (version, sequence, at) VALUES (?, ?, ?)")
+	b.treeOrphan, err = b.conn.Prepare("INSERT OR REPLACE INTO orphan (version, sequence, at) VALUES (?, ?, ?)")
 	b.treeSince = time.Now()
 	return err
 }

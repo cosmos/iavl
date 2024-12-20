@@ -280,15 +280,17 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		}
 
 		tree.orphanCount += int64(len(tree.branchOrphans))
-		pruneRatio := float64(tree.orphanCount) / float64(tree.stagedRoot.size)
-		tree.sql.logger.Info().
-			Int64("orphans", tree.orphanCount).
-			Int64("size", tree.stagedRoot.size).
-			Float64("pruneRatio", pruneRatio).
-			Msg("orphans")
-		maybePruneTo := tree.checkpoints.FindRecent(tree.stagedVersion, tree.minimumKeepVersions)
-		if pruneRatio > tree.pruneRatio && maybePruneTo > 0 {
-			tree.pruneTo = maybePruneTo
+		if tree.stagedRoot != nil {
+			pruneRatio := float64(tree.orphanCount) / float64(tree.stagedRoot.size)
+			tree.sql.logger.Info().
+				Int64("orphans", tree.orphanCount).
+				Int64("size", tree.stagedRoot.size).
+				Float64("pruneRatio", pruneRatio).
+				Msg("orphans")
+			maybePruneTo := tree.checkpoints.FindRecent(tree.stagedVersion, tree.minimumKeepVersions)
+			if pruneRatio > tree.pruneRatio && maybePruneTo > 0 {
+				tree.pruneTo = maybePruneTo
+			}
 		}
 		tree.branchOrphans = nil
 	}
@@ -466,7 +468,8 @@ func (tree *Tree) GetRecent(version int64, key []byte) (bool, []byte, error) {
 	if root == nil {
 		return true, nil, nil
 	}
-	_, res, err := root.get(tree, tree.sql.readConnectionFactory(), key)
+	_, res, err := root.get(tree, tree.sql.hotConnectionFactory, key)
+	// _, res, err := root.get(tree, tree.sql.readConnectionFactory(), key)
 	return true, res, err
 }
 
@@ -484,7 +487,8 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 		if tree.root == nil {
 			return nil, nil
 		}
-		_, res, err = tree.root.get(tree, tree.sql.readConnectionFactory(), key)
+		// _, res, err = tree.root.get(tree, tree.sql.readConnectionFactory(), key)
+		_, res, err = tree.root.get(tree, tree.sql.hotConnectionFactory, key)
 	}
 	return res, err
 }
@@ -493,14 +497,16 @@ func (tree *Tree) GetWithIndex(key []byte) (int64, []byte, error) {
 	if tree.root == nil {
 		return 0, nil, nil
 	}
-	return tree.root.get(tree, tree.sql.readConnectionFactory(), key)
+	// return tree.root.get(tree, tree.sql.readConnectionFactory(), key)
+	return tree.root.get(tree, tree.sql.hotConnectionFactory, key)
 }
 
 func (tree *Tree) GetByIndex(index int64) (key []byte, value []byte, err error) {
 	if tree.root == nil {
 		return nil, nil, nil
 	}
-	return tree.getByIndex(tree.root, index, tree.sql.readConnectionFactory())
+	// return tree.getByIndex(tree.root, index, tree.sql.readConnectionFactory())
+	return tree.getByIndex(tree.root, index, tree.sql.hotConnectionFactory)
 }
 
 func (tree *Tree) getByIndex(node *Node, index int64, cf connectionFactory) (key []byte, value []byte, err error) {
@@ -542,7 +548,8 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 		if tree.root == nil {
 			return false, nil
 		}
-		_, val, err = tree.root.get(tree, tree.sql.readConnectionFactory(), key)
+		_, val, err = tree.root.get(tree, tree.sql.hotConnectionFactory, key)
+		// _, val, err = tree.root.get(tree, tree.sql.readConnectionFactory(), key)
 	}
 	if err != nil {
 		return false, err
