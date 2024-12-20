@@ -253,7 +253,8 @@ CREATE TABLE root (
 	node_sequence int, 
 	bytes blob, 
 	checkpoint bool, 
-	PRIMARY KEY (version))`)
+	PRIMARY KEY (version));
+CREATE TABLE shard (id int, orphaned real, PRIMARY KEY (id));`)
 	return err
 }
 
@@ -269,12 +270,26 @@ func (sql *SqliteDb) createTreeShardDb(version int64) (topErr error) {
 	}()
 	err = conn.Exec(`
 CREATE TABLE tree (version int, sequence int, bytes blob, orphaned int);
-CREATE TABLE orphan (version int, sequence int, at int, PRIMARY KEY (version, sequence));
+CREATE TABLE orphan (version int, sequence int, at int);
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
-CREATE TABLE leaf_orphan (version int, sequence int, at int, PRIMARY KEY (version, sequence));
+CREATE TABLE leaf_orphan (version int, sequence int, at int);
 `)
+	// CREATE INDEX idx_leaf_orphan ON leaf_orphan (at);
+	// CREATE INDEX idx_orphan ON orphan (at);
 	if err != nil {
+		return err
+	}
+	rootConn, err := sql.rootConnection()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := rootConn.Close(); err != nil {
+			topErr = errors.Join(topErr, err)
+		}
+	}()
+	if err = rootConn.Exec("INSERT INTO shard (id, orphaned) VALUES (?, ?)", version, 0); err != nil {
 		return err
 	}
 
@@ -293,6 +308,11 @@ CREATE TABLE leaf_orphan (version int, sequence int, at int, PRIMARY KEY (versio
 
 // sharding
 
+func (sql *SqliteDb) updateShard(id int64, orphaned float64) error {
+	// TODO: implement me
+	return nil
+}
+
 func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 	shardID := sql.shards.FindShard(version)
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(shardID))
@@ -303,9 +323,6 @@ func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	// if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
-	// 	return nil, err
-	// }
 	if err = conn.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
 		return nil, err
 	}
@@ -444,8 +461,8 @@ func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Nod
 
 	hasRow, err := conn.queryBranch.Step()
 	if !hasRow {
-		return nil, fmt.Errorf("node not found: %v; shard=%d; path=%s",
-			nodeKey, sql.shards.FindNext(nodeKey.Version()), sql.opts.Path)
+		shardAt := sql.shards.FindShard(nodeKey.Version())
+		return nil, fmt.Errorf("node not found: %v; shard=%d; path=%s", nodeKey, shardAt, sql.opts.Path)
 	}
 	if err != nil {
 		return nil, err

@@ -45,7 +45,6 @@ type Tree struct {
 	metrics          *metrics.TreeMetrics
 	sql              *SqliteDb
 	pool             *NodePool
-	pruneTo          int64
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
 
@@ -59,10 +58,12 @@ type Tree struct {
 	storeLatestLeaves  bool
 	heightFilter       int8
 	metricsProxy       metrics.Proxy
+
 	// pruning config
 	orphanCount         int64
 	pruneRatio          float64
 	minimumKeepVersions int64
+	pruneTo             int64
 
 	// state
 	*writeQueue
@@ -95,7 +96,7 @@ func DefaultTreeOptions() TreeOptions {
 		StateStorage:        true,
 		HeightFilter:        1,
 		EvictionDepth:       -1,
-		PruneRatio:          0.5,
+		PruneRatio:          0.8,
 		MinimumKeepVersions: 100,
 	}
 }
@@ -265,12 +266,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, tree.version, err
 	}
 
-	// if strings.HasSuffix(tree.sql.opts.Path, "ibc") ||
-	// 	strings.HasSuffix(tree.sql.opts.Path, "staking") ||
-	// 	strings.HasSuffix(tree.sql.opts.Path, "wasm") {
-	// 	tree.sql.logger.Info().Int64("size", tree.root.size).Int8("height", tree.root.subtreeHeight).Msg("root")
-	// }
-
+	// TODO
+	// merge this with the pruning logic in other shouldCheckpoint conditional below and/or move to another fn
 	if tree.shouldCheckpoint {
 		if err := tree.sql.writeConn.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
 			return nil, tree.version, err
@@ -279,18 +276,38 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 			return nil, tree.version, err
 		}
 
+		var pruneRatio float64
 		tree.orphanCount += int64(len(tree.branchOrphans))
+		shardID := tree.sql.shards.FindShard(tree.stagedVersion)
 		if tree.stagedRoot != nil {
-			pruneRatio := float64(tree.orphanCount) / float64(tree.stagedRoot.size)
+			pruneRatio = float64(tree.orphanCount) / float64(tree.stagedRoot.size)
 			tree.sql.logger.Info().
 				Int64("orphans", tree.orphanCount).
 				Int64("size", tree.stagedRoot.size).
 				Float64("pruneRatio", pruneRatio).
 				Msg("orphans")
-			maybePruneTo := tree.checkpoints.FindRecent(tree.stagedVersion, tree.minimumKeepVersions)
-			if pruneRatio > tree.pruneRatio && maybePruneTo > 0 {
-				tree.pruneTo = maybePruneTo
+			if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
+				// plan a prune in minimumKeepVersions
+				tree.pruneTo = tree.stagedVersion
+				nextShard := tree.stagedVersion + 1
+				if err := tree.sql.createTreeShardDb(nextShard); err != nil {
+					return nil, tree.version, err
+				}
+				// add next shard to index and factory
+				if err := tree.sql.shards.Add(nextShard); err != nil {
+					return nil, tree.version, err
+				}
+				if err := tree.sql.hotConnectionFactory.addShard(nextShard); err != nil {
+					return nil, tree.version, err
+				}
+				if _, err := tree.sql.resetWriteConnection(); err != nil {
+					return nil, tree.version, err
+				}
+				tree.orphanCount = 0
 			}
+		}
+		if err := tree.sql.updateShard(shardID, pruneRatio); err != nil {
+			return nil, tree.version, err
 		}
 		tree.branchOrphans = nil
 	}
@@ -317,12 +334,11 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	if err := tree.sql.checkPruning(); err != nil {
 		return nil, tree.version, err
 	}
-	if tree.shouldCheckpoint && tree.pruneTo > 0 {
-		if err := tree.sql.beginPrune(tree.pruneTo, tree.stagedVersion, tree.checkpoints.Copy()); err != nil {
-			return nil, tree.version, err
+	if tree.shouldCheckpoint && tree.pruneTo != 0 {
+		if tree.stagedVersion-tree.pruneTo > tree.minimumKeepVersions {
+			tree.sql.beginPrune(tree.pruneTo)
+			tree.pruneTo = 0
 		}
-		tree.orphanCount = 0
-		tree.pruneTo = 0
 	}
 
 	tree.shouldCheckpoint = false

@@ -161,8 +161,10 @@ func testTreeBuild(t *testing.T, multiTree *MultiTree, opts *testutil.TreeBuildO
 func TestTree_Hash(t *testing.T) {
 	var err error
 
-	tmpDir := t.TempDir()
-	t.Logf("levelDb tmpDir: %s\n", tmpDir)
+	// tmpDir := t.TempDir()
+	tmpDir := "/tmp/tree-hash"
+	require.NoError(t, os.RemoveAll(tmpDir))
+	require.NoError(t, os.Mkdir(tmpDir, 0o755))
 
 	require.NoError(t, err)
 	opts := testutil.BigTreeOptions_100_000()
@@ -174,7 +176,7 @@ func TestTree_Hash(t *testing.T) {
 	opts.UntilHash = "0101e1d6f3158dcb7221acd7ed36ce19f2ef26847ffea7ce69232e362539e5cf"
 	treeOpts := TreeOptions{
 		CheckpointInterval: 10, HeightFilter: 1, StateStorage: true, EvictionDepth: 8,
-		PruneRatio: 0.5, MinimumKeepVersions: 100,
+		PruneRatio: 0.5, MinimumKeepVersions: 20,
 	}
 
 	testStart := time.Now()
@@ -613,7 +615,7 @@ func Test_Prune_Logic(t *testing.T) {
 	pool := NewNodePool()
 	tmpDir := "/tmp/prune-logic"
 	require.NoError(t, os.RemoveAll(tmpDir))
-	require.NoError(t, os.Mkdir(tmpDir, 0755))
+	require.NoError(t, os.Mkdir(tmpDir, 0o0755))
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
 	require.NoError(t, err)

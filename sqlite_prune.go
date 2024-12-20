@@ -9,132 +9,166 @@ import (
 )
 
 type pruneResult struct {
-	pruneVersion int64
-	dropped      []int64
-	newShards    *VersionRange
-	err          error
+	pruneTo int64
+	err     error
 }
 
-func (sql *SqliteDb) beginPrune(pruneTo, treeVersion int64, checkpoints *VersionRange) error {
-	pruneVersion := checkpoints.FindPrevious(pruneTo)
-	if pruneVersion == -1 || pruneVersion == checkpoints.First() {
-		sql.logger.Info().Int64("pruneVersion", pruneVersion).Int64("pruneTo", pruneTo).Msg("no pruning required")
-		return nil
-	}
-
+func (sql *SqliteDb) beginPrune(pruneTo int64) {
 	if sql.pruning {
 		sql.logger.Warn().Int64("pruneTo", pruneTo).Msg("pruning already in progress")
-		return nil
 	}
 	sql.pruning = true
-
-	// create next hot shard iff pruning will occur in current hot shard
-	// but pruning rules require this to be so... so always create next hot shard.
-	nextShard := treeVersion + 1
-	if err := sql.createTreeShardDb(nextShard); err != nil {
-		return err
-	}
-	// add next shard to index and factory
-	if err := sql.shards.Add(nextShard); err != nil {
-		return err
-	}
-	if err := sql.hotConnectionFactory.addShard(nextShard); err != nil {
-		return err
-	}
-	if _, err := sql.resetWriteConnection(); err != nil {
-		return err
-	}
-
-	sql.logger.Info().Int64("pruneVersion", pruneVersion).Int64("treeVersion", treeVersion).Msg("prune")
+	sql.logger.Info().Int64("pruneTo", pruneTo).Msg("pruning")
 	go func() {
-		dropped, newShards, err := sql.prune(pruneVersion)
-		sql.pruneCh <- &pruneResult{pruneVersion: pruneVersion, err: err, dropped: dropped, newShards: newShards}
+		// TODO global pruning limit. e.g. 8
+		err := sql.prune(pruneTo)
+		sql.pruneCh <- &pruneResult{pruneTo: pruneTo, err: err}
 	}()
-	return nil
 }
 
-func (sql *SqliteDb) prune(pruneVersion int64) (dropped []int64, newShards *VersionRange, err error) {
+func (sql *SqliteDb) prune(pruneTo int64) error {
 	// create new pruned shard
-	if err = sql.createTreeShardDb(pruneVersion); err != nil {
-		return dropped, newShards, err
+	if err := sql.createTreeShardDb(pruneTo); err != nil {
+		return err
 	}
 	// open new write connection to the pruned shard
-	conn, err := sqlite3.Open(sql.opts.treeConnectionString(pruneVersion))
+	conn, err := sqlite3.Open(sql.opts.treeConnectionString(pruneTo))
 	if err != nil {
-		return dropped, newShards, err
+		return err
 	}
 	err = conn.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
-		return dropped, newShards, err
+		return err
 	}
 	if err = conn.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
-		return dropped, newShards, err
+		return err
 	}
 
-	var (
-		pivot int
-		// shardConn *sqlite3.Conn
-	)
-
-	for i, shard := range sql.shards.versions {
-		if shard > pruneVersion {
-			pivot = i
+	for _, shard := range sql.shards.versions {
+		if shard > pruneTo {
 			break
 		}
-		// shardConn, err = sql.newWriteConnection(shard)
-		// if err != nil {
-		// 	return dropped, newShards, err
-		// }
-		// err = shardConn.Exec("CREATE INDEX leaf_orphan_idx ON leaf_orphan (version, sequence)")
-		// if err != nil {
-		// 	return dropped, newShards, err
-		// }
-		// err = shardConn.Exec("CREATE INDEX branch_orphan_idx ON orphan (version, sequence)")
-		// if err != nil {
-		// 	return dropped, newShards, err
-		// }
-		// if err = shardConn.Close(); err != nil {
-		// 	return dropped, newShards, err
-		// }
-
-		err = conn.Exec(fmt.Sprintf("ATTACH DATABASE ? AS shard_%d", shard), sql.opts.treeConnectionString(shard))
-		if err != nil {
-			return dropped, newShards, err
+		if err := conn.Exec(fmt.Sprintf("ATTACH DATABASE ? AS shard_%d", shard), sql.opts.treeConnectionString(shard)); err != nil {
+			return err
 		}
-		err = conn.Exec(fmt.Sprintf(`
-INSERT INTO main.leaf SELECT l.* FROM shard_%d.leaf as l
-LEFT JOIN shard_%d.leaf_orphan o 
-ON l.version = o.version AND l.sequence = o.sequence
-WHERE o.version IS NULL;`, shard, shard))
-		if err != nil {
-			return dropped, newShards, err
+		if err := sql.pruneShard(shard, pruneTo, conn, false); err != nil {
+			return err
 		}
-		err = conn.Exec(fmt.Sprintf(`
-INSERT INTO main.tree SELECT t.* FROM shard_%d.tree as t
-LEFT JOIN shard_%d.orphan o 
-ON t.version = o.version AND t.sequence = o.sequence
-WHERE o.version IS NULL;`, shard, shard))
+		err = conn.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 		if err != nil {
-			return dropped, newShards, err
+			return err
 		}
-		dropped = append(dropped, shard)
+		if err := sql.pruneShard(shard, pruneTo, conn, true); err != nil {
+			return err
+		}
+		if err := conn.Exec(fmt.Sprintf("DETACH DATABASE shard_%d", shard)); err != nil {
+			return err
+		}
 	}
 
+	err = conn.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+	if err != nil {
+		return err
+	}
 	err = conn.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
 	if err != nil {
-		return dropped, newShards, err
+		return err
 	}
 	err = conn.Exec("CREATE UNIQUE INDEX leaf_idx ON leaf (version, sequence)")
 	if err != nil {
-		return dropped, newShards, err
+		return err
+	}
+	return conn.Close()
+}
+
+func (sql *SqliteDb) pruneShard(shardID, _ int64, conn *sqlite3.Conn, branches bool) error {
+	join := make(map[int64]map[int64]bool)
+
+	orphanQry := fmt.Sprintf("SELECT version, sequence FROM shard_%d.orphan", shardID)
+	treeQry := fmt.Sprintf("SELECT version, sequence, bytes FROM shard_%d.tree", shardID)
+	insertStmt := "INSERT INTO tree (version, sequence, bytes) VALUES (?, ?, ?)"
+	if !branches {
+		orphanQry = fmt.Sprintf("SELECT version, sequence FROM shard_%d.leaf_orphan", shardID)
+		treeQry = fmt.Sprintf("SELECT version, sequence, bytes FROM shard_%d.leaf", shardID)
+		insertStmt = "INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)"
 	}
 
-	newVersions := []int64{pruneVersion}
-	newVersions = append(newVersions, sql.shards.versions[pivot:]...)
-	newShards = &VersionRange{versions: newVersions}
+	q, err := conn.Prepare(orphanQry)
+	if err != nil {
+		return err
+	}
+	var version, sequence int64
+	for {
+		if hasRow, err := q.Step(); err != nil {
+			return err
+		} else if !hasRow {
+			break
+		}
+		if err := q.Scan(&version, &sequence); err != nil {
+			return err
+		}
+		if _, ok := join[version]; !ok {
+			join[version] = make(map[int64]bool)
+		}
+		join[version][sequence] = true
+	}
+	if err := q.Close(); err != nil {
+		return err
+	}
 
-	err = conn.Close()
-	return dropped, newShards, err
+	// insert orphans
+	if err := conn.Begin(); err != nil {
+		return err
+	}
+	q, err = conn.Prepare(treeQry)
+	if err != nil {
+		return err
+	}
+	insert, err := conn.Prepare(insertStmt)
+	if err != nil {
+		return err
+	}
+
+	var (
+		bz []byte
+		i  int
+	)
+	for {
+		if hasRow, err := q.Step(); err != nil {
+			return err
+		} else if !hasRow {
+			break
+		}
+		if err := q.Scan(&version, &sequence, &bz); err != nil {
+			return err
+		}
+		if _, ok := join[version][sequence]; ok {
+			continue
+		}
+		if err := insert.Exec(version, sequence, bz); err != nil {
+			return err
+		}
+		i++
+		if i%200_000 == 0 {
+			if err := conn.Commit(); err != nil {
+				return err
+			}
+			if err := conn.Begin(); err != nil {
+				return err
+			}
+		}
+	}
+
+	if err := conn.Commit(); err != nil {
+		return err
+	}
+	if err := q.Close(); err != nil {
+		return err
+	}
+	if err := insert.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sql *SqliteDb) checkPruning() error {
@@ -143,30 +177,42 @@ func (sql *SqliteDb) checkPruning() error {
 		if res.err != nil {
 			return res.err
 		}
-		if err := sql.hotConnectionFactory.addShard(res.pruneVersion); err != nil {
+		if err := sql.hotConnectionFactory.addShard(res.pruneTo); err != nil {
 			return err
 		}
-		sql.logger.Info().Msgf("dropping %v", res.dropped)
-		for _, v := range res.dropped {
-			if err := sql.hotConnectionFactory.removeShard(v); err != nil {
-				return err
-			}
-			// delete shard files from disk
-			path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
-			sql.logger.Info().Str("path", path).Msg("deleting")
-
-			matches, err := filepath.Glob(path)
-			if err != nil {
-				return err
-			}
-			for _, match := range matches {
-				if err := os.Remove(match); err != nil {
+		newShards := &VersionRange{versions: []int64{res.pruneTo}}
+		var dropped []int64
+		for _, v := range sql.shards.versions {
+			if v > res.pruneTo {
+				err := newShards.Add(v)
+				if err != nil {
 					return err
 				}
+			} else {
+				// TODO
+				// maybe delay this here to wait for open read connections to stale shards to close
+				if err := sql.hotConnectionFactory.removeShard(v); err != nil {
+					return err
+				}
+				// delete shard files from disk
+				path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
+
+				matches, err := filepath.Glob(path)
+				if err != nil {
+					return err
+				}
+				for _, match := range matches {
+					if err := os.Remove(match); err != nil {
+						return err
+					}
+				}
+				dropped = append(dropped, v)
 			}
 		}
-		sql.shards = res.newShards
+		sql.logger.Info().Msgf("dropped %v", dropped)
+		sql.shards = newShards
 		sql.pruning = false
+		// TODO update shards table
 		return nil
 	default:
 		return nil
