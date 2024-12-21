@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 
 	"github.com/cosmos/iavl/v2/metrics"
-	"github.com/dustin/go-humanize"
 	"golang.org/x/exp/slices"
 )
 
@@ -186,10 +185,10 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	mt.shouldCheckpoint = false
 
 	if mt.treeOpts.MetricsProxy != nil {
-		bz := workingBytes.Load()
-		sz := workingSize.Load()
-		fmt.Printf("version=%d work-bytes=%s work-size=%s mem-ceiling=%s\n",
-			version, humanize.IBytes(bz), humanize.Comma(sz), humanize.IBytes(mt.treeOpts.CheckpointMemory))
+		// bz := workingBytes.Load()
+		// sz := workingSize.Load()
+		// fmt.Printf("version=%d work-bytes=%s work-size=%s mem-ceiling=%s\n",
+		// 	version, humanize.IBytes(bz), humanize.Comma(sz), humanize.IBytes(mt.treeOpts.CheckpointMemory))
 		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes.Load()), "iavl_v2", "working_bytes")
 		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), "iavl_v2", "working_size")
 	}

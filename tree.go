@@ -249,7 +249,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	batch := &sqliteBatch{
 		conn:              tree.sql.writeConn,
 		queue:             tree.writeQueue,
-		version:           tree.version,
+		version:           tree.stagedVersion,
 		size:              200_000,
 		logger:            tree.sql.logger,
 		storeLatestLeaves: tree.storeLatestLeaves,
@@ -281,12 +281,14 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		shardID := tree.sql.shards.FindShard(tree.stagedVersion)
 		if tree.stagedRoot != nil {
 			pruneRatio = float64(tree.orphanCount) / float64(tree.stagedRoot.size)
-			tree.sql.logger.Info().
-				Int64("orphans", tree.orphanCount).
-				Int64("size", tree.stagedRoot.size).
-				Float64("pruneRatio", pruneRatio).
-				Msg("orphans")
 			if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
+				tree.sql.logger.Info().
+					Int64("orphans", tree.orphanCount).
+					Int64("size", tree.stagedRoot.size).
+					Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
+					Int64("version", tree.stagedVersion+1).
+					Int64("pruneTo", tree.stagedVersion).
+					Msg("create shard")
 				// plan a prune in minimumKeepVersions
 				tree.pruneTo = tree.stagedVersion
 				nextShard := tree.stagedVersion + 1

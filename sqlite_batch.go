@@ -125,17 +125,17 @@ func (b *sqliteBatch) treeBatchCommit() error {
 		return err
 	}
 
-	if b.treeCount >= b.size {
-		batchSize := b.treeCount % b.size
-		if batchSize == 0 {
-			batchSize = b.size
-		}
-		b.logger.Debug().Msgf("db=tree count=%s dur=%s batch=%d rate=%s",
-			humanize.Comma(b.treeCount),
-			time.Since(b.treeSince).Round(time.Millisecond),
-			batchSize,
-			humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds())))
-	}
+	// if b.treeCount >= b.size {
+	// 	batchSize := b.treeCount % b.size
+	// 	if batchSize == 0 {
+	// 		batchSize = b.size
+	// 	}
+	// 	b.logger.Debug().Msgf("db=tree count=%s dur=%s batch=%d rate=%s",
+	// 		humanize.Comma(b.treeCount),
+	// 		time.Since(b.treeSince).Round(time.Millisecond),
+	// 		batchSize,
+	// 		humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds())))
+	// }
 	return nil
 }
 
@@ -233,11 +233,7 @@ func (b *sqliteBatch) isCheckpoint() bool {
 func (b *sqliteBatch) saveBranches() (n int64, err error) {
 	if b.isCheckpoint() {
 		b.treeCount = 0
-
-		b.logger.Debug().Msgf("checkpoint db=tree version=%d branches=%s orphans=%s",
-			b.version,
-			humanize.Comma(int64(len(b.queue.branches))),
-			humanize.Comma(int64(len(b.queue.branchOrphans))))
+		start := time.Now()
 
 		if err = b.newTreeBatch(); err != nil {
 			return 0, err
@@ -275,6 +271,14 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		if err != nil {
 			return 0, err
 		}
+		b.logger.Debug().
+			Int64("version", b.version).
+			Int("branches", len(b.queue.branches)).
+			Int("orphans", len(b.queue.branchOrphans)).
+			Int64("total", b.treeCount).
+			Dur("took-ms", time.Since(start).Round(time.Millisecond)).
+			Str("node/s", humanize.Comma(int64(float64(b.treeCount)/time.Since(start).Seconds()))).
+			Msg("checkpoint")
 	}
 
 	return b.treeCount, nil

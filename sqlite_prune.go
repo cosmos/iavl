@@ -4,25 +4,61 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 )
 
+var globalPruneLimit chan struct{}
+
+func init() {
+	SetGlobalPruneLimit(2)
+}
+
+func SetGlobalPruneLimit(n int) {
+	globalPruneLimit = make(chan struct{}, n)
+	for i := 0; i < n; i++ {
+		globalPruneLimit <- struct{}{}
+	}
+}
+
+// TODO:
+// count leaf orphans (low priority)
+// global pruning limit (e.g. 2)
+// ensure orphan join is correct... should it be across all shards or just the current shard?
+//  - pretty sure we need all shards
+// consider bringing back at index on orphans and chunking to reduce gc pressure like:
+//  - select * from orphan order by at asc
+//  - accumulate until n rows
+//  - process inserts
+//  - repeat until done
+
 type pruneResult struct {
 	pruneTo int64
+	took    time.Duration
+	wait    time.Duration
 	err     error
 }
+
+type joinTable map[int64]map[int64]bool
 
 func (sql *SqliteDb) beginPrune(pruneTo int64) {
 	if sql.pruning {
 		sql.logger.Warn().Int64("pruneTo", pruneTo).Msg("pruning already in progress")
 	}
 	sql.pruning = true
-	sql.logger.Info().Int64("pruneTo", pruneTo).Msg("pruning")
 	go func() {
-		// TODO global pruning limit. e.g. 8
+		start := time.Now()
+		lock := <-globalPruneLimit
+		wait := time.Since(start)
+		if wait > time.Second*10 {
+			sql.logger.Warn().Str("waited", wait.String()).Msg("prune")
+		}
+		start = time.Now()
 		err := sql.prune(pruneTo)
-		sql.pruneCh <- &pruneResult{pruneTo: pruneTo, err: err}
+		took := time.Since(start)
+		globalPruneLimit <- lock
+		sql.pruneCh <- &pruneResult{pruneTo: pruneTo, err: err, took: took, wait: wait}
 	}()
 }
 
@@ -44,6 +80,8 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 		return err
 	}
 
+	// collect shards
+	pruneShards := make([]int64, 0, len(sql.shards.versions))
 	for _, shard := range sql.shards.versions {
 		if shard > pruneTo {
 			break
@@ -51,25 +89,41 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 		if err := conn.Exec(fmt.Sprintf("ATTACH DATABASE ? AS shard_%d", shard), sql.opts.treeConnectionString(shard)); err != nil {
 			return err
 		}
-		if err := sql.pruneShard(shard, pruneTo, conn, false); err != nil {
+		pruneShards = append(pruneShards, shard)
+	}
+
+	sql.logger.Debug().Int64("pruneTo", pruneTo).Msgf("prune shards=%v", pruneShards)
+
+	// prune branches
+	join, err := sql.orphanJoins(conn, pruneShards, false)
+	if err != nil {
+		return err
+	}
+	for _, shard := range pruneShards {
+		if err := sql.pruneShard(shard, conn, join, false); err != nil {
 			return err
 		}
 		err = conn.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
 		if err != nil {
 			return err
 		}
-		if err := sql.pruneShard(shard, pruneTo, conn, true); err != nil {
+	}
+
+	// prune leaves
+	join, err = sql.orphanJoins(conn, pruneShards, true)
+	if err != nil {
+		return err
+	}
+	for _, shard := range pruneShards {
+		if err := sql.pruneShard(shard, conn, join, true); err != nil {
 			return err
 		}
-		if err := conn.Exec(fmt.Sprintf("DETACH DATABASE shard_%d", shard)); err != nil {
+		err = conn.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
+		if err != nil {
 			return err
 		}
 	}
 
-	err = conn.Exec("PRAGMA wal_checkpoint(TRUNCATE)")
-	if err != nil {
-		return err
-	}
 	err = conn.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
 	if err != nil {
 		return err
@@ -78,49 +132,31 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 	if err != nil {
 		return err
 	}
+
+	// probably unnecessary
+	for _, shard := range pruneShards {
+		if err := conn.Exec(fmt.Sprintf("DETACH DATABASE shard_%d", shard)); err != nil {
+			return err
+		}
+	}
 	return conn.Close()
 }
 
-func (sql *SqliteDb) pruneShard(shardID, _ int64, conn *sqlite3.Conn, branches bool) error {
-	join := make(map[int64]map[int64]bool)
-
-	orphanQry := fmt.Sprintf("SELECT version, sequence FROM shard_%d.orphan", shardID)
+func (sql *SqliteDb) pruneShard(
+	shardID int64, conn *sqlite3.Conn, join joinTable, leaves bool,
+) error {
 	treeQry := fmt.Sprintf("SELECT version, sequence, bytes FROM shard_%d.tree", shardID)
 	insertStmt := "INSERT INTO tree (version, sequence, bytes) VALUES (?, ?, ?)"
-	if !branches {
-		orphanQry = fmt.Sprintf("SELECT version, sequence FROM shard_%d.leaf_orphan", shardID)
+	if leaves {
 		treeQry = fmt.Sprintf("SELECT version, sequence, bytes FROM shard_%d.leaf", shardID)
 		insertStmt = "INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)"
-	}
-
-	q, err := conn.Prepare(orphanQry)
-	if err != nil {
-		return err
-	}
-	var version, sequence int64
-	for {
-		if hasRow, err := q.Step(); err != nil {
-			return err
-		} else if !hasRow {
-			break
-		}
-		if err := q.Scan(&version, &sequence); err != nil {
-			return err
-		}
-		if _, ok := join[version]; !ok {
-			join[version] = make(map[int64]bool)
-		}
-		join[version][sequence] = true
-	}
-	if err := q.Close(); err != nil {
-		return err
 	}
 
 	// insert orphans
 	if err := conn.Begin(); err != nil {
 		return err
 	}
-	q, err = conn.Prepare(treeQry)
+	q, err := conn.Prepare(treeQry)
 	if err != nil {
 		return err
 	}
@@ -130,8 +166,9 @@ func (sql *SqliteDb) pruneShard(shardID, _ int64, conn *sqlite3.Conn, branches b
 	}
 
 	var (
-		bz []byte
-		i  int
+		bz                []byte
+		i                 int
+		version, sequence int64
 	)
 	for {
 		if hasRow, err := q.Step(); err != nil {
@@ -143,6 +180,8 @@ func (sql *SqliteDb) pruneShard(shardID, _ int64, conn *sqlite3.Conn, branches b
 			return err
 		}
 		if _, ok := join[version][sequence]; ok {
+			// maybe save some memory? should be 1:1
+			delete(join[version], sequence)
 			continue
 		}
 		if err := insert.Exec(version, sequence, bz); err != nil {
@@ -169,6 +208,39 @@ func (sql *SqliteDb) pruneShard(shardID, _ int64, conn *sqlite3.Conn, branches b
 		return err
 	}
 	return nil
+}
+
+func (sql *SqliteDb) orphanJoins(conn *sqlite3.Conn, shards []int64, leaves bool) (joinTable, error) {
+	join := joinTable{}
+	orphanQry := "SELECT version, sequence FROM shard_%d.orphan"
+	if leaves {
+		orphanQry = "SELECT version, sequence FROM shard_%d.leaf_orphan"
+	}
+	for _, shard := range shards {
+		q, err := conn.Prepare(fmt.Sprintf(orphanQry, shard))
+		if err != nil {
+			return nil, err
+		}
+		for {
+			if hasRow, err := q.Step(); err != nil {
+				return nil, err
+			} else if !hasRow {
+				break
+			}
+			var version, sequence int64
+			if err := q.Scan(&version, &sequence); err != nil {
+				return nil, err
+			}
+			if _, ok := join[version]; !ok {
+				join[version] = make(map[int64]bool)
+			}
+			join[version][sequence] = true
+		}
+		if err := q.Close(); err != nil {
+			return nil, err
+		}
+	}
+	return join, nil
 }
 
 func (sql *SqliteDb) checkPruning() error {
@@ -209,7 +281,11 @@ func (sql *SqliteDb) checkPruning() error {
 				dropped = append(dropped, v)
 			}
 		}
-		sql.logger.Info().Msgf("dropped %v", dropped)
+		sql.logger.Info().
+			Str("took", res.took.String()).
+			Str("wait", res.wait.String()).
+			Ints64("dropped", dropped).
+			Msg("prune completed")
 		sql.shards = newShards
 		sql.pruning = false
 		// TODO update shards table

@@ -137,7 +137,7 @@ func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
 
 func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
-	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
+	logger := log.With().Str("path", filepath.Base(opts.Path)).Logger()
 
 	if !api.IsFileExistent(opts.Path) {
 		err := os.MkdirAll(opts.Path, 0o755)
@@ -236,7 +236,7 @@ func (sql *SqliteDb) ensureRootDb() (topErr error) {
 		return nil
 	}
 	pageSize := os.Getpagesize()
-	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+	// log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
 	err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 	if err != nil {
 		return err
@@ -294,7 +294,6 @@ CREATE TABLE leaf_orphan (version int, sequence int, at int);
 	}
 
 	pageSize := os.Getpagesize()
-	log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
 	err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 	if err != nil {
 		return err
