@@ -14,10 +14,13 @@ import (
 	zlog "github.com/rs/zerolog/log"
 )
 
-var log = zlog.Output(zerolog.ConsoleWriter{
-	Out:        os.Stderr,
-	TimeFormat: time.Stamp,
-})
+var (
+	log = zlog.Output(zerolog.ConsoleWriter{
+		Out:        os.Stderr,
+		TimeFormat: time.Stamp,
+	})
+	leafSequenceStart = uint32(1 << 31)
+)
 
 type nodeDelete struct {
 	// the sequence in which this deletion was processed
@@ -122,6 +125,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		version:             0,
 		stagedVersion:       1,
 	}
+	tree.resetSequence()
 
 	return tree
 }
@@ -257,62 +261,15 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 	// save
 	saveStart := time.Now()
-	if _, err := batch.saveLeaves(); err != nil {
-		return nil, tree.version, err
-	}
-	if _, err := batch.saveBranches(); err != nil {
+	if err := batch.save(); err != nil {
 		return nil, tree.version, err
 	}
 	if err := tree.sql.SaveRoot(tree.stagedVersion, tree.stagedRoot, tree.shouldCheckpoint); err != nil {
-		return nil, tree.version, err
+		return nil, tree.version, fmt.Errorf("save root failed: %w", err)
 	}
 
-	// TODO
-	// merge this with the pruning logic in other shouldCheckpoint conditional below and/or move to another fn
-	if tree.shouldCheckpoint {
-		if err := tree.sql.writeConn.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
-			return nil, tree.version, err
-		}
-		if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
-			return nil, tree.version, err
-		}
-
-		var pruneRatio float64
-		tree.orphanCount += int64(len(tree.branchOrphans))
-		shardID := tree.sql.shards.FindShard(tree.stagedVersion)
-		if tree.stagedRoot != nil {
-			pruneRatio = float64(tree.orphanCount) / float64(tree.stagedRoot.size)
-			if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
-				tree.sql.logger.Info().
-					Int64("orphans", tree.orphanCount).
-					Int64("size", tree.stagedRoot.size).
-					Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
-					Int64("version", tree.stagedVersion+1).
-					Int64("pruneTo", tree.stagedVersion).
-					Msg("create shard")
-				// plan a prune in minimumKeepVersions
-				tree.pruneTo = tree.stagedVersion
-				nextShard := tree.stagedVersion + 1
-				if err := tree.sql.createTreeShardDb(nextShard); err != nil {
-					return nil, tree.version, err
-				}
-				// add next shard to index and factory
-				if err := tree.sql.shards.Add(nextShard); err != nil {
-					return nil, tree.version, err
-				}
-				if err := tree.sql.hotConnectionFactory.addShard(nextShard); err != nil {
-					return nil, tree.version, err
-				}
-				if _, err := tree.sql.resetWriteConnection(); err != nil {
-					return nil, tree.version, err
-				}
-				tree.orphanCount = 0
-			}
-		}
-		if err := tree.sql.updateShard(shardID, pruneRatio); err != nil {
-			return nil, tree.version, err
-		}
-		tree.branchOrphans = nil
+	if err := tree.preparePruning(); err != nil {
+		return nil, tree.version, fmt.Errorf("preparePruning failed: %w", err)
 	}
 
 	dur := time.Since(saveStart)
@@ -330,13 +287,12 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.leaves = nil
 	tree.branches = nil
 	tree.deletes = nil
-	tree.branchSequence = 0
-	tree.leafSequence = 0
+	tree.resetSequence()
 
 	tree.versionLock.Lock()
 	// prune
 	if err := tree.sql.checkPruning(); err != nil {
-		return nil, tree.version, err
+		return nil, tree.version, fmt.Errorf("pruning failed: %w", err)
 	}
 	if tree.shouldCheckpoint && tree.pruneTo != 0 {
 		if tree.stagedVersion-tree.pruneTo > tree.minimumKeepVersions {
@@ -353,6 +309,56 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.versionLock.Unlock()
 
 	return rootHash, tree.version, nil
+}
+
+func (tree *Tree) preparePruning() error {
+	if !tree.shouldCheckpoint {
+		return nil
+	}
+	if err := tree.sql.writeConn.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		return err
+	}
+	if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
+		return err
+	}
+
+	var pruneRatio float64
+	tree.orphanCount += int64(len(tree.branchOrphans))
+	shardID := tree.sql.shards.FindShard(tree.stagedVersion)
+	if tree.stagedRoot != nil {
+		pruneRatio = float64(tree.orphanCount) / float64(tree.stagedRoot.size)
+		if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
+			tree.sql.logger.Info().
+				Int64("orphans", tree.orphanCount).
+				Int64("size", tree.stagedRoot.size).
+				Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
+				Int64("version", tree.stagedVersion+1).
+				Int64("pruneTo", tree.stagedVersion).
+				Msg("create shard")
+			// plan a prune in minimumKeepVersions
+			tree.pruneTo = tree.stagedVersion
+			nextShard := tree.stagedVersion + 1
+			if err := tree.sql.createTreeShardDb(nextShard); err != nil {
+				return err
+			}
+			// add next shard to index and factory
+			if err := tree.sql.shards.Add(nextShard); err != nil {
+				return err
+			}
+			if err := tree.sql.hotConnectionFactory.addShard(nextShard); err != nil {
+				return err
+			}
+			if _, err := tree.sql.resetWriteConnection(); err != nil {
+				return err
+			}
+			tree.orphanCount = 0
+		}
+	}
+	if err := tree.sql.updateShard(shardID, pruneRatio); err != nil {
+		return err
+	}
+	tree.branchOrphans = nil
+	return nil
 }
 
 func (tree *Tree) evictNodes() error {
@@ -848,15 +854,25 @@ func (tree *Tree) Height() int8 {
 
 func (tree *Tree) nextNodeKey() NodeKey {
 	tree.branchSequence++
+	if tree.branchSequence > leafSequenceStart {
+		panic("branch sequence overflow")
+	}
 	nk := NewNodeKey(tree.stagedVersion, tree.branchSequence)
 	return nk
 }
 
 func (tree *Tree) nextLeafNodeKey() NodeKey {
-	seq := uint32(1 << 31)
 	tree.leafSequence++
-	nk := NewNodeKey(tree.stagedVersion, seq+tree.leafSequence)
+	if tree.leafSequence < leafSequenceStart {
+		panic("leaf sequence underflow")
+	}
+	nk := NewNodeKey(tree.stagedVersion, tree.leafSequence)
 	return nk
+}
+
+func (tree *Tree) resetSequence() {
+	tree.branchSequence = 0
+	tree.leafSequence = leafSequenceStart
 }
 
 func (tree *Tree) mutateNode(node *Node) {
@@ -922,7 +938,7 @@ func (tree *Tree) addDelete(node *Node) {
 		return
 	}
 	del := &nodeDelete{
-		deleteKey: tree.nextNodeKey(),
+		deleteKey: tree.nextLeafNodeKey(),
 		leafKey:   node.key,
 	}
 	tree.deletes = append(tree.deletes, del)
@@ -962,7 +978,6 @@ func (tree *Tree) returnNode(node *Node) {
 }
 
 func (tree *Tree) Close() error {
-	// tree.writerCancel()
 	return tree.sql.Close()
 }
 
@@ -982,7 +997,6 @@ func (tree *Tree) WriteLatestLeaves() (err error) {
 }
 
 func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
-	tree.pruneTo = toVersion
 	return nil
 }
 

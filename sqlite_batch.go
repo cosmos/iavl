@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -282,4 +283,18 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 	}
 
 	return b.treeCount, nil
+}
+
+func (b *sqliteBatch) save() (err error) {
+	_, err = b.saveLeaves()
+	if err != nil {
+		return fmt.Errorf("leaf save err: %w", err)
+	}
+
+	_, err = b.saveBranches()
+	if err != nil {
+		return fmt.Errorf("branch save err: %w", err)
+	}
+
+	return nil
 }

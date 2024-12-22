@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -53,8 +54,9 @@ type SqliteDb struct {
 	metrics *metrics.DbMetrics
 	logger  zerolog.Logger
 
-	pruning bool
-	pruneCh chan *pruneResult
+	pruning       bool
+	pruneCh       chan *pruneResult
+	rootWriteLock sync.Mutex
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -284,10 +286,12 @@ CREATE TABLE leaf_orphan (version int, sequence int, at int);
 	if err != nil {
 		return err
 	}
+	sql.rootWriteLock.Lock()
 	defer func() {
 		if err := rootConn.Close(); err != nil {
 			topErr = errors.Join(topErr, err)
 		}
+		sql.rootWriteLock.Unlock()
 	}()
 	if err = rootConn.Exec("INSERT INTO shard (id, orphaned) VALUES (?, ?)", version, 0); err != nil {
 		return err
@@ -386,7 +390,18 @@ func (sql *SqliteDb) loadShards() error {
 }
 
 func (sql *SqliteDb) Close() error {
-	// TODO
+	if sql.pruning {
+		sql.logger.Warn().Msg("pruning in progress, waiting...")
+		start := time.Now()
+		for sql.pruning {
+			if time.Since(start) > 30*time.Second {
+				return fmt.Errorf("pruning did not complete in 30s")
+			}
+			if err := sql.checkPruning(); err != nil {
+				return err
+			}
+		}
+	}
 	return errors.Join(
 		sql.writeConn.Close(),
 		sql.hotConnectionFactory.close(),
@@ -539,17 +554,20 @@ func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) (top
 	if err != nil {
 		return err
 	}
+	sql.rootWriteLock.Lock()
 	defer func() {
 		if err := conn.Close(); err != nil {
 			topErr = errors.Join(topErr, err)
 		}
+		sql.rootWriteLock.Unlock()
 	}()
 	if node != nil {
 		bz, err := node.Bytes()
 		if err != nil {
 			return err
 		}
-		return conn.Exec("INSERT OR REPLACE INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
+		return conn.Exec(
+			"INSERT OR REPLACE INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
 			version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz, isCheckpoint)
 	}
 	// for an empty root a sentinel is saved
@@ -1001,8 +1019,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 				tree.version = int64(version - 1)
 				tree.stagedVersion = int64(version)
-				tree.branchSequence = 0
-				tree.leafSequence = 0
+				tree.resetSequence()
 				lastVersion = version
 			}
 			if bz != nil {
@@ -1046,8 +1063,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		return err
 	}
 	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
-	tree.branchSequence = 0
-	tree.leafSequence = 0
+	tree.resetSequence()
 	tree.version = toVersion
 	tree.stagedVersion = toVersion + 1
 	tree.root = tree.stagedRoot

@@ -61,14 +61,16 @@ func (sql *SqliteDb) beginPrune(pruneTo int64) {
 }
 
 func (sql *SqliteDb) prune(pruneTo int64) error {
+	sql.logger.Info().Int64("pruneTo", pruneTo).Msg("prune")
+
 	// create new pruned shard
 	if err := sql.createTreeShardDb(pruneTo); err != nil {
-		return err
+		return fmt.Errorf("failed to create pruned shard: %w", err)
 	}
 	// open new write connection to the pruned shard
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(pruneTo))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to open pruned shard: %w", err)
 	}
 	err = conn.Exec("PRAGMA synchronous=OFF;")
 	if err != nil {
@@ -85,12 +87,12 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 			break
 		}
 		if err := conn.Exec(fmt.Sprintf("ATTACH DATABASE ? AS shard_%d", shard), sql.opts.treeConnectionString(shard)); err != nil {
-			return err
+			return fmt.Errorf("failed to attach shard_%d: %w", shard, err)
 		}
 		pruneShards = append(pruneShards, shard)
 	}
 
-	sql.logger.Debug().Int64("pruneTo", pruneTo).Msgf("prune shards=%v", pruneShards)
+	sql.logger.Debug().Int64("pruneTo", pruneTo).Ints64("shards", pruneShards).Msg("prune shards")
 
 	// prune branches
 	join, err := sql.orphanJoins(conn, pruneShards, false)
