@@ -562,7 +562,11 @@ func (node *Node) clone(tree *Tree) *Node {
 	//	size:          node.size,
 	//	subtreeHeight: node.subtreeHeight,
 	//}
-	n.nodeKey = tree.nextNodeKey()
+	if node.isLeaf() {
+		n.nodeKey = tree.nextLeafNodeKey()
+	} else {
+		n.nodeKey = tree.nextNodeKey()
+	}
 	n.key = node.key
 	n.value = node.value
 	n.hash = nil

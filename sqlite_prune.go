@@ -2,8 +2,6 @@ package iavl
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -181,7 +179,7 @@ func (sql *SqliteDb) pruneShard(
 		}
 		if _, ok := join[version][sequence]; ok {
 			// maybe save some memory? should be 1:1
-			delete(join[version], sequence)
+			// delete(join[version], sequence)
 			continue
 		}
 		if err := insert.Exec(version, sequence, bz); err != nil {
@@ -211,7 +209,11 @@ func (sql *SqliteDb) pruneShard(
 }
 
 func (sql *SqliteDb) orphanJoins(conn *sqlite3.Conn, shards []int64, leaves bool) (joinTable, error) {
-	join := joinTable{}
+	var (
+		join  = joinTable{}
+		count int
+		start = time.Now()
+	)
 	orphanQry := "SELECT version, sequence FROM shard_%d.orphan"
 	if leaves {
 		orphanQry = "SELECT version, sequence FROM shard_%d.leaf_orphan"
@@ -227,6 +229,7 @@ func (sql *SqliteDb) orphanJoins(conn *sqlite3.Conn, shards []int64, leaves bool
 			} else if !hasRow {
 				break
 			}
+			count++
 			var version, sequence int64
 			if err := q.Scan(&version, &sequence); err != nil {
 				return nil, err
@@ -240,6 +243,10 @@ func (sql *SqliteDb) orphanJoins(conn *sqlite3.Conn, shards []int64, leaves bool
 			return nil, err
 		}
 	}
+	sql.logger.Debug().
+		Int("count", count).
+		Str("dur", time.Since(start).String()).
+		Msgf("orphan join")
 	return join, nil
 }
 
@@ -267,17 +274,17 @@ func (sql *SqliteDb) checkPruning() error {
 					return err
 				}
 				// delete shard files from disk
-				path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
+				// path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
 
-				matches, err := filepath.Glob(path)
-				if err != nil {
-					return err
-				}
-				for _, match := range matches {
-					if err := os.Remove(match); err != nil {
-						return err
-					}
-				}
+				// matches, err := filepath.Glob(path)
+				// if err != nil {
+				// 	return err
+				// }
+				// for _, match := range matches {
+				// 	if err := os.Remove(match); err != nil {
+				// 		return err
+				// 	}
+				// }
 				dropped = append(dropped, v)
 			}
 		}

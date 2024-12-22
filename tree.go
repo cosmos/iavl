@@ -67,10 +67,11 @@ type Tree struct {
 
 	// state
 	*writeQueue
-	evictions     []*Node
-	sequence      uint32
-	isReplaying   bool
-	evictionDepth int8
+	evictions      []*Node
+	branchSequence uint32
+	leafSequence   uint32
+	isReplaying    bool
+	evictionDepth  int8
 
 	// only allow one save at a time
 	saveLock sync.Mutex
@@ -329,7 +330,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	tree.leaves = nil
 	tree.branches = nil
 	tree.deletes = nil
-	tree.sequence = 0
+	tree.branchSequence = 0
+	tree.leafSequence = 0
 
 	tree.versionLock.Lock()
 	// prune
@@ -616,7 +618,7 @@ func (tree *Tree) set(key []byte, value []byte, cf connectionFactory) (updated b
 	}
 
 	if tree.stagedRoot == nil {
-		tree.stagedRoot = tree.NewNode(key, value)
+		tree.stagedRoot = tree.NewLeafNode(key, value)
 		return updated, nil
 	}
 
@@ -639,7 +641,7 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 			parent.key = node.key
 			parent.subtreeHeight = 1
 			parent.size = 2
-			parent.setLeft(tree.NewNode(key, value))
+			parent.setLeft(tree.NewLeafNode(key, value))
 			parent.setRight(node)
 
 			tree.workingBytes += parent.sizeBytes()
@@ -653,7 +655,7 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 			parent.subtreeHeight = 1
 			parent.size = 2
 			parent.setLeft(node)
-			parent.setRight(tree.NewNode(key, value))
+			parent.setRight(tree.NewLeafNode(key, value))
 
 			tree.workingBytes += parent.sizeBytes()
 			tree.workingSize++
@@ -845,8 +847,15 @@ func (tree *Tree) Height() int8 {
 }
 
 func (tree *Tree) nextNodeKey() NodeKey {
-	tree.sequence++
-	nk := NewNodeKey(tree.stagedVersion, tree.sequence)
+	tree.branchSequence++
+	nk := NewNodeKey(tree.stagedVersion, tree.branchSequence)
+	return nk
+}
+
+func (tree *Tree) nextLeafNodeKey() NodeKey {
+	seq := uint32(1 << 31)
+	tree.leafSequence++
+	nk := NewNodeKey(tree.stagedVersion, seq+tree.leafSequence)
 	return nk
 }
 
@@ -876,8 +885,15 @@ func (tree *Tree) mutateNode(node *Node) {
 func (tree *Tree) stageNode(node *Node) *Node {
 	if node.isDirty(tree) {
 		if node.hash != nil {
+			// TODO debug and write a comment here explaining this weird code path
+			// how can node be dirty but have a non nil hash?
+			// is this only leaf nodes?
 			node.hash = nil
-			node.nodeKey = tree.nextNodeKey()
+			if node.isLeaf() {
+				node.nodeKey = tree.nextLeafNodeKey()
+			} else {
+				node.nodeKey = tree.nextNodeKey()
+			}
 		}
 		return node
 	}
@@ -912,11 +928,11 @@ func (tree *Tree) addDelete(node *Node) {
 	tree.deletes = append(tree.deletes, del)
 }
 
-// NewNode returns a new node from a key, value and version.
-func (tree *Tree) NewNode(key []byte, value []byte) *Node {
+// NewLeafNode returns a new node from a key, value and version.
+func (tree *Tree) NewLeafNode(key []byte, value []byte) *Node {
 	node := tree.pool.Get()
 
-	node.nodeKey = tree.nextNodeKey()
+	node.nodeKey = tree.nextLeafNodeKey()
 
 	node.key = key
 	node.subtreeHeight = 0

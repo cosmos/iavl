@@ -489,10 +489,13 @@ func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Nod
 	return node, nil
 }
 
+func isLeafSeq(seq uint32) bool {
+	return seq&(1<<31) != 0
+}
+
 func (sql *SqliteDb) getRightNode(node *Node, cf connectionFactory) (*Node, error) {
 	var err error
-	// TODO: Experiment with single node table to reduce leaf miss percentage
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+	if isLeafSeq(node.rightNodeKey.Sequence()) {
 		node.rightNode, err = sql.getLeaf(node.rightNodeKey, cf)
 		if err != nil {
 			return nil, err
@@ -513,7 +516,7 @@ func (sql *SqliteDb) getRightNode(node *Node, cf connectionFactory) (*Node, erro
 
 func (sql *SqliteDb) getLeftNode(node *Node, cf connectionFactory) (*Node, error) {
 	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+	if isLeafSeq(node.leftNodeKey.Sequence()) {
 		node.leftNode, err = sql.getLeaf(node.leftNodeKey, cf)
 		if err != nil {
 			return nil, err
@@ -998,7 +1001,8 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 				tree.version = int64(version - 1)
 				tree.stagedVersion = int64(version)
-				tree.sequence = 0
+				tree.branchSequence = 0
+				tree.leafSequence = 0
 				lastVersion = version
 			}
 			if bz != nil {
@@ -1010,9 +1014,9 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				if _, err = tree.Set(node.key, node.hash); err != nil {
 					return err
 				}
-				if sequence != int(tree.sequence) {
+				if sequence != int(tree.leafSequence) {
 					return fmt.Errorf("sequence mismatch version=%d; expected %d got %d; path=%s",
-						version, sequence, tree.sequence, sql.opts.Path)
+						version, sequence, tree.leafSequence, sql.opts.Path)
 				}
 			} else {
 				if _, _, err = tree.Remove(key); err != nil {
@@ -1021,7 +1025,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				deleteSequence := tree.deletes[len(tree.deletes)-1].deleteKey.Sequence()
 				if sequence != int(deleteSequence) {
 					return fmt.Errorf("sequence delete mismatch; version=%d expected %d got %d; path=%s",
-						version, sequence, tree.sequence, sql.opts.Path)
+						version, sequence, tree.leafSequence, sql.opts.Path)
 				}
 			}
 			if count%250_000 == 0 {
@@ -1042,7 +1046,8 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		return err
 	}
 	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
-	tree.sequence = 0
+	tree.branchSequence = 0
+	tree.leafSequence = 0
 	tree.version = toVersion
 	tree.stagedVersion = toVersion + 1
 	tree.root = tree.stagedRoot
