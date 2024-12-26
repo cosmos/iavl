@@ -63,7 +63,8 @@ type Tree struct {
 	metricsProxy       metrics.Proxy
 
 	// pruning config
-	orphanCount         int64
+	orphanBranchCount   int64
+	orphanLeafCount     int64
 	pruneRatio          float64
 	minimumKeepVersions int64
 	pruneTo             int64
@@ -100,7 +101,7 @@ func DefaultTreeOptions() TreeOptions {
 		StateStorage:        true,
 		HeightFilter:        1,
 		EvictionDepth:       -1,
-		PruneRatio:          0.8,
+		PruneRatio:          2,
 		MinimumKeepVersions: 100,
 	}
 }
@@ -233,21 +234,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	}
 	rootHash := tree.computeHash()
 
-	if tree.shouldCheckpoint && tree.sql.writeConn == nil {
-		// TODO: first checkpoint case... i feel this should be elsewhere
-		if tree.checkpoints.Len() == 0 {
-			if err = tree.sql.createTreeShardDb(tree.stagedVersion); err != nil {
-				return nil, tree.version, err
-			}
-			if err = tree.sql.shards.Add(tree.stagedVersion); err != nil {
-				return nil, tree.version, err
-			}
-			if err = tree.sql.hotConnectionFactory.addShard(tree.stagedVersion); err != nil {
-				return nil, tree.version, err
-			}
-		}
-		tree.sql.writeConn, err = tree.sql.newWriteConnection(tree.stagedVersion)
-		if err != nil {
+	if tree.shouldCheckpoint {
+		if err := tree.sql.prepareCheckpoint(tree.checkpoints, tree.stagedVersion); err != nil {
 			return nil, tree.version, err
 		}
 	}
@@ -268,15 +256,14 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, tree.version, fmt.Errorf("save root failed: %w", err)
 	}
 
-	if err := tree.preparePruning(); err != nil {
-		return nil, tree.version, fmt.Errorf("preparePruning failed: %w", err)
+	if err := tree.postCheckpoint(); err != nil {
+		return nil, tree.version, fmt.Errorf("postCheckpoint failed: %w", err)
 	}
 
 	dur := time.Since(saveStart)
 	tree.sql.metrics.WriteDurations = append(tree.sql.metrics.WriteDurations, dur)
 	tree.sql.metrics.WriteTime += dur
 	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
-	//
 
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
 	if err := tree.evictNodes(); err != nil {
@@ -311,7 +298,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	return rootHash, tree.version, nil
 }
 
-func (tree *Tree) preparePruning() error {
+func (tree *Tree) postCheckpoint() error {
 	if !tree.shouldCheckpoint {
 		return nil
 	}
@@ -322,37 +309,36 @@ func (tree *Tree) preparePruning() error {
 		return err
 	}
 
-	var pruneRatio float64
-	tree.orphanCount += int64(len(tree.branchOrphans))
-	shardID := tree.sql.shards.FindShard(tree.stagedVersion)
 	if tree.stagedRoot != nil {
-		pruneRatio = float64(tree.orphanCount) / float64(tree.stagedRoot.size)
-		if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
-			tree.sql.logger.Info().
-				Int64("orphans", tree.orphanCount).
-				Int64("size", tree.stagedRoot.size).
-				Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
-				Int64("version", tree.stagedVersion+1).
-				Int64("pruneTo", tree.stagedVersion).
-				Msg("create shard")
-			// plan a prune in minimumKeepVersions
-			tree.pruneTo = tree.stagedVersion
-			nextShard := tree.stagedVersion + 1
-			if err := tree.sql.createTreeShardDb(nextShard); err != nil {
-				return err
-			}
-			// add next shard to index and factory
-			if err := tree.sql.shards.Add(nextShard); err != nil {
-				return err
-			}
-			if err := tree.sql.hotConnectionFactory.addShard(nextShard); err != nil {
-				return err
-			}
-			if _, err := tree.sql.resetWriteConnection(); err != nil {
-				return err
-			}
-			tree.orphanCount = 0
+		return nil
+	}
+	shardID := tree.sql.shards.FindShard(tree.stagedVersion)
+	pruneRatio := float64(tree.orphanBranchCount) / float64(tree.stagedRoot.size)
+	if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
+		tree.sql.logger.Info().
+			Int64("orphans", tree.orphanBranchCount).
+			Int64("size", tree.stagedRoot.size).
+			Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
+			Int64("version", tree.stagedVersion+1).
+			Int64("pruneTo", tree.stagedVersion).
+			Msg("create shard")
+		// plan a prune in minimumKeepVersions
+		tree.pruneTo = tree.stagedVersion
+		nextShard := tree.stagedVersion + 1
+		if err := tree.sql.createTreeShardDb(nextShard); err != nil {
+			return err
 		}
+		// add next shard to index and factory
+		if err := tree.sql.shards.Add(nextShard); err != nil {
+			return err
+		}
+		if err := tree.sql.hotConnectionFactory.addShard(nextShard); err != nil {
+			return err
+		}
+		if err := tree.sql.resetWriteConnection(); err != nil {
+			return err
+		}
+		tree.orphanBranchCount = 0
 	}
 	if err := tree.sql.updateShard(shardID, pruneRatio); err != nil {
 		return err
@@ -363,7 +349,6 @@ func (tree *Tree) preparePruning() error {
 
 func (tree *Tree) evictNodes() error {
 	for i, node := range tree.evictions {
-		// todo for loop mutating evict flag, is it slower?
 		switch node.evict {
 		case 1:
 			tree.returnNode(node.leftNode)
@@ -761,7 +746,7 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte, cf connectionFactory) 
 ) {
 	if node.isLeaf() {
 		if bytes.Equal(key, node.key) {
-			// we don't create an orphan here because the leaf node is removed
+			tree.addOrphan(node)
 			tree.addDelete(node)
 			tree.returnNode(node)
 			return nil, nil, node.value, true, nil
@@ -927,8 +912,10 @@ func (tree *Tree) addOrphan(node *Node) {
 	}
 	if !node.isLeaf() && node.Version() <= tree.checkpoints.Last() {
 		tree.branchOrphans = append(tree.branchOrphans, node.nodeKey)
+		tree.orphanBranchCount++
 	} else if node.isLeaf() && !node.isDirty(tree) {
 		tree.leafOrphans = append(tree.leafOrphans, node.nodeKey)
+		tree.orphanLeafCount++
 	}
 }
 

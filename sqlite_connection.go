@@ -16,11 +16,6 @@ type sqliteConnection struct {
 	conn        *sqlite3.Conn
 	queryLeaf   *sqlite3.Stmt
 	queryBranch *sqlite3.Stmt
-
-	insertBranchOrphan *sqlite3.Stmt
-	insertLeafOrphan   *sqlite3.Stmt
-
-	main bool
 }
 
 func (s *sqliteConnection) Close() error {

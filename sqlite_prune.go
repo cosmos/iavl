@@ -61,7 +61,8 @@ func (sql *SqliteDb) beginPrune(pruneTo int64) {
 }
 
 func (sql *SqliteDb) prune(pruneTo int64) error {
-	sql.logger.Info().Int64("pruneTo", pruneTo).Msg("prune")
+	logger := sql.logger.With().Int64("pruneTo", pruneTo).Logger()
+	logger.Info().Msg("prune start")
 
 	// create new pruned shard
 	if err := sql.createTreeShardDb(pruneTo); err != nil {
@@ -92,7 +93,7 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 		pruneShards = append(pruneShards, shard)
 	}
 
-	sql.logger.Debug().Int64("pruneTo", pruneTo).Ints64("shards", pruneShards).Msg("prune shards")
+	logger.Info().Ints64("shards", pruneShards).Msg("prune shards")
 
 	// prune branches
 	join, err := sql.orphanJoins(conn, pruneShards, false)
@@ -124,14 +125,18 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 		}
 	}
 
+	start := time.Now()
 	err = conn.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
 	if err != nil {
 		return err
 	}
+	logger.Info().Str("dur", time.Since(start).String()).Msg("create tree index")
+	start = time.Now()
 	err = conn.Exec("CREATE UNIQUE INDEX leaf_idx ON leaf (version, sequence)")
 	if err != nil {
 		return err
 	}
+	logger.Info().Str("dur", time.Since(start).String()).Msg("create leaf index")
 
 	// probably unnecessary
 	for _, shard := range pruneShards {
@@ -152,7 +157,14 @@ func (sql *SqliteDb) pruneShard(
 		insertStmt = "INSERT INTO leaf (version, sequence, bytes) VALUES (?, ?, ?)"
 	}
 
-	// insert orphans
+	var typ string
+	if leaves {
+		typ = "leaf"
+	} else {
+		typ = "branch"
+	}
+	logger := sql.logger.With().Int64("shard", shardID).Str("type", typ).Logger()
+	start := time.Now()
 	if err := conn.Begin(); err != nil {
 		return err
 	}
@@ -207,6 +219,7 @@ func (sql *SqliteDb) pruneShard(
 	if err := insert.Close(); err != nil {
 		return err
 	}
+	logger.Info().Int("count", i).Str("dur", time.Since(start).String()).Msg("prune insert")
 	return nil
 }
 

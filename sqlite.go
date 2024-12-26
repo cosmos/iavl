@@ -309,6 +309,26 @@ CREATE TABLE leaf_orphan (version int, sequence int, at int);
 	return nil
 }
 
+func (sql *SqliteDb) prepareCheckpoint(checkpoints *VersionRange, version int64) error {
+	if len(checkpoints.versions) == 0 {
+		if err := sql.createTreeShardDb(version); err != nil {
+			return err
+		}
+		if err := sql.shards.Add(version); err != nil {
+			return err
+		}
+		if err := sql.hotConnectionFactory.addShard(version); err != nil {
+			return err
+		}
+	}
+	if sql.writeConn == nil {
+		if err := sql.resetWriteConnection(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // sharding
 
 func (sql *SqliteDb) updateShard(id int64, orphaned float64) error {
@@ -332,18 +352,18 @@ func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 	return conn, nil
 }
 
-func (sql *SqliteDb) resetWriteConnection() (*sqlite3.Conn, error) {
+func (sql *SqliteDb) resetWriteConnection() error {
 	if sql.writeConn != nil {
 		if err := sql.writeConn.Close(); err != nil {
-			return nil, err
+			return err
 		}
 	}
 	conn, err := sql.newWriteConnection(sql.shards.Last())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	sql.writeConn = conn
-	return conn, err
+	return err
 }
 
 func (sql *SqliteDb) listShards() ([]int64, error) {
@@ -735,30 +755,6 @@ func (sql *SqliteDb) WarmLeaves() error {
 	if err = stmt.Close(); err != nil {
 		return err
 	}
-	/*
-		 	var kz []byte
-			stmt, err = read.Prepare("SELECT key, value FROM latest")
-			if err != nil {
-				return err
-			}
-			for {
-				ok, err := stmt.Step()
-				if err != nil {
-					return err
-				}
-				if !ok {
-					break
-				}
-				cnt++
-				err = stmt.Scan(&kz, &vz)
-				if err != nil {
-					return err
-				}
-				if cnt%5_000_000 == 0 {
-					sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
-				}
-			}
-	*/
 
 	sql.logger.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
 	return stmt.Close()
@@ -974,12 +970,12 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	if err != nil {
 		return err
 	}
+	lg.Info().Msgf("replaying changelog from=%d to=%d", tree.version, toVersion)
 	cf := sql.readConnectionFactory()
 	for _, v := range versions {
 		if v > toVersion {
 			break
 		}
-		lg.Info().Msgf("ensure leaf_delete_index exists...")
 		if err := writeConn.Exec("CREATE UNIQUE INDEX IF NOT EXISTS leaf_delete_idx ON leaf_delete (version, sequence)"); err != nil {
 			return err
 		}
@@ -987,8 +983,6 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		if err != nil {
 			return err
 		}
-		lg.Info().Msg("...done")
-		lg.Info().Msgf("replaying changelog from=%d to=%d", tree.version, toVersion)
 		q, err := reader.conn.Prepare(`SELECT * FROM (
 		SELECT version, sequence, bytes, null AS key
 	FROM leaf WHERE version > ? AND version <= ?
@@ -1016,7 +1010,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				return err
 			}
 			if version != lastVersion {
-				tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
+				tree.leaves, tree.leafOrphans, tree.deletes = nil, nil, nil
 				tree.version = int64(version - 1)
 				tree.stagedVersion = int64(version)
 				tree.resetSequence()
@@ -1062,7 +1056,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	if err = tree.evictNodes(); err != nil {
 		return err
 	}
-	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
+	tree.leaves, tree.leafOrphans, tree.deletes = nil, nil, nil
 	tree.resetSequence()
 	tree.version = toVersion
 	tree.stagedVersion = toVersion + 1

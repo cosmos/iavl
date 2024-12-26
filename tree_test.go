@@ -503,7 +503,7 @@ func Test_Replay(t *testing.T) {
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100, MinimumKeepVersions: 1000})
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 53, MinimumKeepVersions: 1000})
 
 	// we must buffer all sets/deletes and order them first for replay to work properly.
 	// store v1 and v2 already do this via cachekv write buffering.
