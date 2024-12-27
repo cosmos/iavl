@@ -1,9 +1,12 @@
 # Changelog
 
-## v1.3.4, December 17, 2024 
+## 1.3.5, December 27, 2024
+
+- [#1026](https://github.com/cosmos/iavl/pull/1026)  Remove duplicated rootkey fetch when pruning
+
+## v1.3.4, December 17, 2024
 
 - [#1023](https://github.com/cosmos/iavl/pull/1023) Better lock handling on close
-
 
 ## v1.3.3, December 16, 2024
 
