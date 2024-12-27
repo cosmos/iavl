@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.4 December 27, 2024
+
+- [#1026](https://github.com/cosmos/iavl/pull/1026)  Remove duplicated rootkey fetch when pruning
+
+## v1.2.3, December 16, 2024
+
+### Bug Fixes
+
+- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
+
 ## v1.2.2 November 26, 2024
 
 ### Bug Fixes
