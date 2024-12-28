@@ -477,7 +477,8 @@ func Test_Replay(t *testing.T) {
 		return *(*string)(unsafe.Pointer(&b))
 	}
 	const versions = int64(1_000)
-	hashes := make(map[int64][]byte, versions+1)
+	hashes := make([][]byte, versions+1)
+	orphanCounts := make([]int64, versions+1)
 	gen := bench.ChangesetGenerator{
 		StoreKey:         "replay",
 		Seed:             1,
@@ -503,12 +504,9 @@ func Test_Replay(t *testing.T) {
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 53, MinimumKeepVersions: 1000})
-
-	// we must buffer all sets/deletes and order them first for replay to work properly.
-	// store v1 and v2 already do this via cachekv write buffering.
-	// from cachekv a nil value is treated as a deletion; it is a domain requirement of the SDK that nil values are disallowed
-	// since from the perspective of the cachekv they are indistinguishable from a deletion.
+	tree := NewTree(sql, pool, TreeOptions{
+		StateStorage: true, CheckpointInterval: 53, MinimumKeepVersions: 1000,
+	})
 
 	ingest := func(start, last int64) {
 		for ; itr.Valid(); err = itr.Next() {
@@ -549,12 +547,15 @@ func Test_Replay(t *testing.T) {
 			}
 
 			if len(cache) > 0 {
-				_, v, err := tree.SaveVersion()
+				hash, v, err := tree.SaveVersion()
+				fmt.Printf("version=%d hash=%x orphans=%d\n", v, hash, tree.orphanBranchCount)
 				if hashes[v] == nil {
-					hashes[v] = tree.Hash()
+					hashes[v] = hash
+					orphanCounts[v] = tree.orphanBranchCount
 				} else {
-					fmt.Printf("version=%d, hash=%x\n", v, tree.Hash())
-					require.Equal(t, hashes[v], tree.Hash())
+					require.Equal(t, hashes[v], hash)
+					// this count will desync if check point boundaries are not consistent
+					// require.Equal(t, orphanCounts[v], tree.orphanBranchCount)
 				}
 				require.NoError(t, err)
 			}
@@ -588,10 +589,12 @@ func Test_Replay(t *testing.T) {
 	require.NoError(t, err)
 	tree = NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
 	err = tree.LoadVersion(801)
+	require.Error(t, err) // expected, version too old
+	err = tree.LoadVersion(807)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
 	require.NoError(t, err)
-	ingest(802, 1000)
+	ingest(808, 1000)
 }
 
 func Test_Prune_Logic(t *testing.T) {
@@ -619,7 +622,7 @@ func Test_Prune_Logic(t *testing.T) {
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 20, PruneRatio: 100})
+	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 20, PruneRatio: 0.01})
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)

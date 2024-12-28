@@ -73,6 +73,15 @@ func (r *VersionRange) FindPrevious(version int64) int64 {
 	return vs[high]
 }
 
+func (r *VersionRange) TruncateTo(version int64) {
+	for i, v := range r.versions {
+		if v > version {
+			r.versions = r.versions[:i]
+			return
+		}
+	}
+}
+
 func (r *VersionRange) FindRecent(version, n int64) int64 {
 	v := version
 	for {

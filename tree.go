@@ -74,7 +74,6 @@ type Tree struct {
 	evictions      []*Node
 	branchSequence uint32
 	leafSequence   uint32
-	isReplaying    bool
 	evictionDepth  int8
 
 	// only allow one save at a time
@@ -168,12 +167,20 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 		return err
 	}
 	tree.version = tree.checkpoints.FindPrevious(version)
+	if tree.version == -1 {
+		return fmt.Errorf("version %d too old; prior checkpoint not found", version)
+	}
+	tree.checkpoints.TruncateTo(tree.version)
 
 	tree.root, err = tree.sql.LoadRoot(tree.version)
 	if err != nil {
 		return err
 	}
 	tree.stagedRoot = tree.root
+	tree.orphanBranchCount, tree.orphanLeafCount, err = tree.sql.getCheckpointCounts(tree.version)
+	if err != nil {
+		return err
+	}
 
 	if version > tree.version {
 		var targetHash []byte
@@ -227,18 +234,23 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, 0, err
 	}
 
+	isInitialVersion := tree.checkpoints.Len() == 0
 	if !tree.shouldCheckpoint {
-		tree.shouldCheckpoint = tree.checkpoints.Len() == 0 ||
+		tree.shouldCheckpoint = isInitialVersion ||
 			(tree.checkpointInterval > 0 && tree.stagedVersion-tree.checkpoints.Last() >= tree.checkpointInterval) ||
 			(tree.checkpointMemory > 0 && tree.workingBytes >= tree.checkpointMemory)
 	}
 	rootHash := tree.computeHash()
 
-	if tree.shouldCheckpoint {
-		if err := tree.sql.prepareCheckpoint(tree.checkpoints, tree.stagedVersion); err != nil {
+	if isInitialVersion {
+		if err := tree.sql.createShard(tree.stagedVersion); err != nil {
 			return nil, tree.version, err
 		}
 	}
+	if err := tree.sql.ensureWriteConnection(); err != nil {
+		return nil, tree.version, err
+	}
+
 	batch := &sqliteBatch{
 		conn:              tree.sql.writeConn,
 		queue:             tree.writeQueue,
@@ -308,42 +320,39 @@ func (tree *Tree) postCheckpoint() error {
 	if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
 		return err
 	}
-
-	if tree.stagedRoot != nil {
-		return nil
-	}
-	shardID := tree.sql.shards.FindShard(tree.stagedVersion)
-	pruneRatio := float64(tree.orphanBranchCount) / float64(tree.stagedRoot.size)
-	if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
-		tree.sql.logger.Info().
-			Int64("orphans", tree.orphanBranchCount).
-			Int64("size", tree.stagedRoot.size).
-			Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
-			Int64("version", tree.stagedVersion+1).
-			Int64("pruneTo", tree.stagedVersion).
-			Msg("create shard")
-		// plan a prune in minimumKeepVersions
-		tree.pruneTo = tree.stagedVersion
-		nextShard := tree.stagedVersion + 1
-		if err := tree.sql.createTreeShardDb(nextShard); err != nil {
-			return err
-		}
-		// add next shard to index and factory
-		if err := tree.sql.shards.Add(nextShard); err != nil {
-			return err
-		}
-		if err := tree.sql.hotConnectionFactory.addShard(nextShard); err != nil {
-			return err
-		}
-		if err := tree.sql.resetWriteConnection(); err != nil {
-			return err
-		}
-		tree.orphanBranchCount = 0
-	}
-	if err := tree.sql.updateShard(shardID, pruneRatio); err != nil {
+	// tree.orphanBranchCount += int64(len(tree.branchOrphans))
+	if err := tree.sql.updateShard(tree.stagedVersion, tree.orphanBranchCount, tree.orphanLeafCount); err != nil {
 		return err
 	}
 	tree.branchOrphans = nil
+
+	if tree.stagedRoot == nil {
+		return nil
+	}
+	pruneRatio := float64(tree.orphanBranchCount) / float64(tree.stagedRoot.size)
+	tree.sql.logger.Info().Float64("pruneRatio", pruneRatio).Msg("pruneRatio")
+	if pruneRatio < tree.pruneRatio || tree.pruneTo != 0 {
+		return nil
+	}
+
+	tree.sql.logger.Info().
+		Int64("orphans", tree.orphanBranchCount).
+		Int64("size", tree.stagedRoot.size).
+		Str("pruneRatio", fmt.Sprintf("%.3f", pruneRatio)).
+		Int64("version", tree.stagedVersion+1).
+		Int64("pruneTo", tree.stagedVersion).
+		Msg("create shard")
+	// plan a prune in minimumKeepVersions
+	tree.pruneTo = tree.stagedVersion
+	nextShard := tree.stagedVersion + 1
+	if err := tree.sql.createShard(nextShard); err != nil {
+		return err
+	}
+	if err := tree.sql.resetWriteConnection(); err != nil {
+		return err
+	}
+	tree.orphanBranchCount = 0
+	tree.orphanLeafCount = 0
 	return nil
 }
 
@@ -655,19 +664,15 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 			tree.addOrphan(node)
 			wasDirty := node.isDirty(tree)
 			node = tree.stageNode(node)
-			if tree.isReplaying {
-				node.hash = value
-			} else {
-				if wasDirty {
-					tree.workingBytes -= node.sizeBytes()
-				}
-				node.value = value
-				node._hash()
-				if !tree.storeLeafValues {
-					node.value = nil
-				}
-				tree.workingBytes += node.sizeBytes()
+			if wasDirty {
+				tree.workingBytes -= node.sizeBytes()
 			}
+			node.value = value
+			node._hash()
+			if !tree.storeLeafValues {
+				node.value = nil
+			}
+			tree.workingBytes += node.sizeBytes()
 			return node, true, nil
 		}
 	} else {
@@ -907,9 +912,9 @@ func (tree *Tree) stageNode(node *Node) *Node {
 }
 
 func (tree *Tree) addOrphan(node *Node) {
-	if node.hash == nil {
-		return
-	}
+	// if node.hash == nil {
+	// 	return
+	// }
 	if !node.isLeaf() && node.Version() <= tree.checkpoints.Last() {
 		tree.branchOrphans = append(tree.branchOrphans, node.nodeKey)
 		tree.orphanBranchCount++
@@ -941,14 +946,10 @@ func (tree *Tree) NewLeafNode(key []byte, value []byte) *Node {
 	node.subtreeHeight = 0
 	node.size = 1
 
-	if tree.isReplaying {
-		node.hash = value
-	} else {
-		node.value = value
-		node._hash()
-		if !tree.storeLeafValues {
-			node.value = nil
-		}
+	node.value = value
+	node._hash()
+	if !tree.storeLeafValues {
+		node.value = nil
 	}
 
 	tree.workingBytes += node.sizeBytes()

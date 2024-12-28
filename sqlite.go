@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -54,9 +53,8 @@ type SqliteDb struct {
 	metrics *metrics.DbMetrics
 	logger  zerolog.Logger
 
-	pruning       bool
-	pruneCh       chan *pruneResult
-	rootWriteLock sync.Mutex
+	pruning bool
+	pruneCh chan *pruneResult
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -255,8 +253,8 @@ CREATE TABLE root (
 	node_sequence int, 
 	bytes blob, 
 	checkpoint bool, 
-	PRIMARY KEY (version));
-CREATE TABLE shard (id int, orphaned real, PRIMARY KEY (id));`)
+	pruned bool,
+	PRIMARY KEY (version));`)
 	return err
 }
 
@@ -276,24 +274,13 @@ CREATE TABLE orphan (version int, sequence int, at int);
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
 CREATE TABLE leaf_orphan (version int, sequence int, at int);
+CREATE TABLE checkpoints (version int, branch_orphans int, leaf_orphans int, PRIMARY KEY (version))
 `)
-	// CREATE INDEX idx_leaf_orphan ON leaf_orphan (at);
-	// CREATE INDEX idx_orphan ON orphan (at);
 	if err != nil {
 		return err
 	}
-	rootConn, err := sql.rootConnection()
+	err = conn.Exec("INSERT INTO checkpoints VALUES (?, 0, 0)", version)
 	if err != nil {
-		return err
-	}
-	sql.rootWriteLock.Lock()
-	defer func() {
-		if err := rootConn.Close(); err != nil {
-			topErr = errors.Join(topErr, err)
-		}
-		sql.rootWriteLock.Unlock()
-	}()
-	if err = rootConn.Exec("INSERT INTO shard (id, orphaned) VALUES (?, ?)", version, 0); err != nil {
 		return err
 	}
 
@@ -309,30 +296,18 @@ CREATE TABLE leaf_orphan (version int, sequence int, at int);
 	return nil
 }
 
-func (sql *SqliteDb) prepareCheckpoint(checkpoints *VersionRange, version int64) error {
-	if len(checkpoints.versions) == 0 {
-		if err := sql.createTreeShardDb(version); err != nil {
-			return err
-		}
-		if err := sql.shards.Add(version); err != nil {
-			return err
-		}
-		if err := sql.hotConnectionFactory.addShard(version); err != nil {
-			return err
-		}
-	}
-	if sql.writeConn == nil {
-		if err := sql.resetWriteConnection(); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // sharding
 
-func (sql *SqliteDb) updateShard(id int64, orphaned float64) error {
-	// TODO: implement me
+func (sql *SqliteDb) createShard(version int64) error {
+	if err := sql.createTreeShardDb(version); err != nil {
+		return err
+	}
+	if err := sql.shards.Add(version); err != nil {
+		return err
+	}
+	if err := sql.hotConnectionFactory.addShard(version); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -350,6 +325,13 @@ func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (sql *SqliteDb) ensureWriteConnection() error {
+	if sql.writeConn != nil {
+		return nil
+	}
+	return sql.resetWriteConnection()
 }
 
 func (sql *SqliteDb) resetWriteConnection() error {
@@ -385,6 +367,44 @@ func (sql *SqliteDb) listShards() ([]int64, error) {
 		}
 	}
 	return versions, nil
+}
+
+func (sql *SqliteDb) updateShard(version, branchOrphans, leafOrphans int64) error {
+	return sql.hotConnectionFactory.main.Exec(
+		"INSERT OR REPLACE INTO checkpoints (version, branch_orphans, leaf_orphans) VALUES (?, ?, ?)",
+		version, branchOrphans, leafOrphans,
+	)
+}
+
+func (sql *SqliteDb) getCheckpointCounts(version int64) (branches int64, leaves int64, topErr error) {
+	shardID := sql.shards.FindShard(version)
+	c, err := sql.hotConnectionFactory.make(shardID)
+	if err != nil {
+		return 0, 0, err
+	}
+	q, err := c.conn.Prepare("SELECT branch_orphans, leaf_orphans FROM checkpoints WHERE version = ?")
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() {
+		if err := q.Close(); err != nil {
+			topErr = errors.Join(topErr, err)
+		}
+	}()
+	if err := q.Bind(version); err != nil {
+		return 0, 0, err
+	}
+	ok, err := q.Step()
+	if err != nil {
+		return 0, 0, err
+	}
+	if !ok {
+		return 0, 0, fmt.Errorf("checkpoint not found: %d", version)
+	}
+	if err := q.Scan(&branches, &leaves); err != nil {
+		return 0, 0, err
+	}
+	return branches, leaves, nil
 }
 
 func (sql *SqliteDb) loadShards() error {
@@ -574,12 +594,10 @@ func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) (top
 	if err != nil {
 		return err
 	}
-	sql.rootWriteLock.Lock()
 	defer func() {
 		if err := conn.Close(); err != nil {
 			topErr = errors.Join(topErr, err)
 		}
-		sql.rootWriteLock.Unlock()
 	}()
 	if node != nil {
 		bz, err := node.Bytes()
@@ -587,11 +605,11 @@ func (sql *SqliteDb) SaveRoot(version int64, node *Node, isCheckpoint bool) (top
 			return err
 		}
 		return conn.Exec(
-			"INSERT OR REPLACE INTO root(version, node_version, node_sequence, bytes, checkpoint) VALUES (?, ?, ?, ?, ?)",
+			"INSERT OR REPLACE INTO root(version, node_version, node_sequence, bytes, checkpoint, pruned) VALUES (?, ?, ?, ?, ?, false)",
 			version, node.nodeKey.Version(), int(node.nodeKey.Sequence()), bz, isCheckpoint)
 	}
 	// for an empty root a sentinel is saved
-	return conn.Exec("INSERT OR REPLACE INTO root(version, checkpoint) VALUES (?, ?)", version, isCheckpoint)
+	return conn.Exec("INSERT OR REPLACE INTO root(version, checkpoint, pruned) VALUES (?, ?, false)", version, isCheckpoint)
 }
 
 func (sql *SqliteDb) LoadRoot(version int64) (root *Node, topErr error) {
@@ -683,7 +701,8 @@ func (sql *SqliteDb) loadCheckpointRange() (versionRange *VersionRange, topErr e
 	if err != nil {
 		return nil, err
 	}
-	q, err := conn.Prepare("SELECT version FROM root WHERE checkpoint = true ORDER BY version")
+	q, err := conn.Prepare(
+		"SELECT version FROM root WHERE checkpoint = true AND pruned = false ORDER BY version")
 	if err != nil {
 		return nil, err
 	}
@@ -955,13 +974,11 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		lg          = log.With().Str("path", sql.opts.Path).Logger()
 		since       = time.Now()
 	)
-	tree.isReplaying = true
 	writeConn, err := sql.newWriteConnection(toVersion)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		tree.isReplaying = false
 		if err := writeConn.Close(); err != nil {
 			topErr = errors.Join(topErr, err)
 		}
@@ -984,7 +1001,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 			return err
 		}
 		q, err := reader.conn.Prepare(`SELECT * FROM (
-		SELECT version, sequence, bytes, null AS key
+	SELECT version, sequence, bytes, null AS key
 	FROM leaf WHERE version > ? AND version <= ?
 	UNION
 	SELECT version, sequence, null as bytes, key
@@ -1022,9 +1039,11 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				if err != nil {
 					return err
 				}
-				if _, err = tree.Set(node.key, node.hash); err != nil {
+				replayHash = node.hash
+				if _, err = tree.Set(node.key, node.value); err != nil {
 					return err
 				}
+				replayHash = nil
 				if sequence != int(tree.leafSequence) {
 					return fmt.Errorf("sequence mismatch version=%d; expected %d got %d; path=%s",
 						version, sequence, tree.leafSequence, sql.opts.Path)

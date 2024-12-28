@@ -336,12 +336,16 @@ var (
 			return sha256.New()
 		},
 	}
-	emptyHash = sha256.New().Sum(nil)
+	emptyHash  = sha256.New().Sum(nil)
+	replayHash []byte
 )
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
 func (node *Node) _hash() []byte {
+	if replayHash != nil {
+		node.hash = replayHash
+	}
 	if node.hash != nil {
 		return node.hash
 	}

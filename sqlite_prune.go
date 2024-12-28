@@ -1,7 +1,10 @@
 package iavl
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -283,25 +286,36 @@ func (sql *SqliteDb) checkPruning() error {
 					return err
 				}
 			} else {
-				// TODO
+				// Delete shard:
 				// maybe delay this here to wait for open read connections to stale shards to close
 				if err := sql.hotConnectionFactory.removeShard(v); err != nil {
 					return err
 				}
 				// delete shard files from disk
-				// path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
+				path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
 
-				// matches, err := filepath.Glob(path)
-				// if err != nil {
-				// 	return err
-				// }
-				// for _, match := range matches {
-				// 	if err := os.Remove(match); err != nil {
-				// 		return err
-				// 	}
-				// }
+				matches, err := filepath.Glob(path)
+				if err != nil {
+					return err
+				}
+				for _, match := range matches {
+					if err := os.Remove(match); err != nil {
+						return err
+					}
+				}
 				dropped = append(dropped, v)
 			}
+		}
+		conn, err := sql.rootConnection()
+		if err != nil {
+			return err
+		}
+		defer func() {
+			err = errors.Join(err, conn.Close())
+		}()
+		err = conn.Exec("UPDATE root SET pruned = true WHERE version < ?", res.pruneTo)
+		if err != nil {
+			return err
 		}
 		sql.logger.Info().
 			Str("took", res.took.String()).
