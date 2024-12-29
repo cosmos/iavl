@@ -329,12 +329,23 @@ func (tree *Tree) postCheckpoint() error {
 	if tree.stagedRoot == nil {
 		return nil
 	}
-	pruneRatio := float64(tree.orphanBranchCount) / float64(tree.stagedRoot.size)
-	tree.sql.logger.Info().Float64("pruneRatio", pruneRatio).Msg("pruneRatio")
+	// orphans only:
+	// pruneRatio := float64(tree.orphanBranchCount) / float64(tree.stagedRoot.size)
+	// orphans + leaves:
+	pruneRatio := float64(tree.orphanBranchCount+tree.orphanLeafCount) / float64(tree.stagedRoot.size*2)
+	tree.sql.logger.Info().
+		Float64("pruneRatio", pruneRatio).
+		Int64("branchCount", tree.orphanBranchCount).
+		Int64("leafCount", tree.orphanLeafCount).
+		Msg("prune check")
+
+	// TODO
+	// right now this check is creating a new prune shard by default after genesis (initial checkpoint)
+	// is this what we want? does it work without it?
+	// the fix would be '<='
 	if pruneRatio < tree.pruneRatio || tree.pruneTo != 0 {
 		return nil
 	}
-
 	tree.sql.logger.Info().
 		Int64("orphans", tree.orphanBranchCount).
 		Int64("size", tree.stagedRoot.size).
