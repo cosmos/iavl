@@ -81,6 +81,8 @@ type Tree struct {
 	// synchronize h and h-1 reads to SaveVersion
 	versionLock    sync.RWMutex
 	saveConnection connectionFactory
+	// used during replay to save on hashing leaf nodes
+	replayHash []byte
 }
 
 type TreeOptions struct {
@@ -126,6 +128,9 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		stagedVersion:       1,
 	}
 	tree.resetSequence()
+	if tree.minimumKeepVersions < 1 {
+		tree.minimumKeepVersions = 1
+	}
 
 	return tree
 }
@@ -166,6 +171,12 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 	if err != nil {
 		return err
 	}
+	// initial version case; permit loading an arbitrary version if there are no checkpoints
+	if tree.checkpoints.Len() == 0 {
+		tree.version = version
+		tree.stagedVersion = version + 1
+		return nil
+	}
 	tree.version = tree.checkpoints.FindPrevious(version)
 	if tree.version == -1 {
 		return fmt.Errorf("version %d too old; prior checkpoint not found", version)
@@ -177,7 +188,7 @@ func (tree *Tree) LoadVersion(version int64) (err error) {
 		return err
 	}
 	tree.stagedRoot = tree.root
-	tree.orphanBranchCount, tree.orphanLeafCount, err = tree.sql.getCheckpointCounts(tree.version)
+	tree.pruneTo, tree.orphanBranchCount, tree.orphanLeafCount, err = tree.sql.getCheckpointCounts(tree.version)
 	if err != nil {
 		return err
 	}
@@ -243,7 +254,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 	rootHash := tree.computeHash()
 
 	if isInitialVersion {
-		if err := tree.sql.createShard(tree.stagedVersion); err != nil {
+		if err := tree.sql.createShard(tree.stagedVersion, false); err != nil {
 			return nil, tree.version, err
 		}
 	}
@@ -320,32 +331,36 @@ func (tree *Tree) postCheckpoint() error {
 	if err := tree.checkpoints.Add(tree.stagedVersion); err != nil {
 		return err
 	}
-	// tree.orphanBranchCount += int64(len(tree.branchOrphans))
-	if err := tree.sql.updateShard(tree.stagedVersion, tree.orphanBranchCount, tree.orphanLeafCount); err != nil {
-		return err
-	}
 	tree.branchOrphans = nil
 
+	var size float64
 	if tree.stagedRoot == nil {
-		return nil
+		size = 0
+	} else {
+		size = float64(tree.stagedRoot.size * 2)
 	}
-	// orphans only:
-	// pruneRatio := float64(tree.orphanBranchCount) / float64(tree.stagedRoot.size)
-	// orphans + leaves:
-	pruneRatio := float64(tree.orphanBranchCount+tree.orphanLeafCount) / float64(tree.stagedRoot.size*2)
+	// branches + leaves:
+	pruneRatio := float64(tree.orphanBranchCount+tree.orphanLeafCount) / size
 	tree.sql.logger.Info().
 		Float64("pruneRatio", pruneRatio).
 		Int64("branchCount", tree.orphanBranchCount).
 		Int64("leafCount", tree.orphanLeafCount).
+		Int64("pruneTo", tree.pruneTo).
 		Msg("prune check")
 
-	// TODO
-	// right now this check is creating a new prune shard by default after genesis (initial checkpoint)
-	// is this what we want? does it work without it?
-	// the fix would be '<='
-	if pruneRatio < tree.pruneRatio || tree.pruneTo != 0 {
+	var planPune bool
+	if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
+		// plan a prune in minimumKeepVersions
+		tree.pruneTo = tree.stagedVersion
+		planPune = true
+	}
+	if err := tree.sql.updateShard(tree.stagedVersion, tree.pruneTo, tree.orphanBranchCount, tree.orphanLeafCount); err != nil {
+		return err
+	}
+	if !planPune {
 		return nil
 	}
+
 	tree.sql.logger.Info().
 		Int64("orphans", tree.orphanBranchCount).
 		Int64("size", tree.stagedRoot.size).
@@ -353,10 +368,8 @@ func (tree *Tree) postCheckpoint() error {
 		Int64("version", tree.stagedVersion+1).
 		Int64("pruneTo", tree.stagedVersion).
 		Msg("create shard")
-	// plan a prune in minimumKeepVersions
-	tree.pruneTo = tree.stagedVersion
-	nextShard := tree.stagedVersion + 1
-	if err := tree.sql.createShard(nextShard); err != nil {
+
+	if err := tree.sql.createShard(tree.stagedVersion+1, true); err != nil {
 		return err
 	}
 	if err := tree.sql.resetWriteConnection(); err != nil {
@@ -679,6 +692,9 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 				tree.workingBytes -= node.sizeBytes()
 			}
 			node.value = value
+			if tree.replayHash != nil {
+				node.hash = tree.replayHash
+			}
 			node._hash()
 			if !tree.storeLeafValues {
 				node.value = nil
@@ -958,6 +974,9 @@ func (tree *Tree) NewLeafNode(key []byte, value []byte) *Node {
 	node.size = 1
 
 	node.value = value
+	if tree.replayHash != nil {
+		node.hash = tree.replayHash
+	}
 	node._hash()
 	if !tree.storeLeafValues {
 		node.value = nil

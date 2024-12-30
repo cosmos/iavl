@@ -193,6 +193,56 @@ func TestTree_Hash(t *testing.T) {
 	require.NoError(t, multiTree.Close())
 }
 
+func TestTree_Rehash(t *testing.T) {
+	pool := NewNodePool()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: t.TempDir()})
+	require.NoError(t, err)
+	tree := NewTree(sql, pool, DefaultTreeOptions())
+	opts := testutil.BigTreeOptions_100_000()
+	err = tree.LoadVersion(0)
+	require.NoError(t, err)
+
+	itr := opts.Iterator
+	// save 1 version
+	for ; itr.Valid(); err = itr.Next() {
+		if itr.Version() > 1 {
+			break
+		}
+		changeset := itr.Nodes()
+		for ; changeset.Valid(); err = changeset.Next() {
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			if node.Delete {
+				_, _, err := tree.Remove(node.Key)
+				require.NoError(t, err)
+			} else {
+				_, err := tree.Set(node.Key, node.Value)
+				require.NoError(t, err)
+			}
+		}
+	}
+	_, v, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), v)
+
+	savedHash := make([]byte, 32)
+	n := copy(savedHash, tree.root.hash)
+	require.Equal(t, 32, n)
+	var step func(node *Node)
+	cf := sql.readConnectionFactory()
+	step = func(node *Node) {
+		if node.isLeaf() {
+			return
+		}
+		node.hash = nil
+		step(node.left(tree.sql, cf))
+		step(node.right(tree.sql, cf))
+		node._hash()
+	}
+	step(tree.root)
+	require.Equal(t, savedHash, tree.root.hash)
+}
+
 func TestTree_Build_Load(t *testing.T) {
 	// build the initial version of the tree with periodic checkpoints
 	tmpDir := t.TempDir()
@@ -290,31 +340,6 @@ func TestTree_Import(t *testing.T) {
 	require.NotNil(t, root)
 }
 
-func TestTree_Rehash(t *testing.T) {
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/sqlite/height-zero"})
-	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{})
-	require.NoError(t, tree.LoadVersion(1))
-
-	savedHash := make([]byte, 32)
-	n := copy(savedHash, tree.root.hash)
-	require.Equal(t, 32, n)
-	var step func(node *Node)
-	cf := sql.readConnectionFactory()
-	step = func(node *Node) {
-		if node.isLeaf() {
-			return
-		}
-		node.hash = nil
-		step(node.left(tree.sql, cf))
-		step(node.right(tree.sql, cf))
-		node._hash()
-	}
-	step(tree.root)
-	require.Equal(t, savedHash, tree.root.hash)
-}
-
 func TestTreeSanity(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -325,7 +350,7 @@ func TestTreeSanity(t *testing.T) {
 			name: "sqlite",
 			treeFn: func() *Tree {
 				pool := NewNodePool()
-				sql, err := NewInMemorySqliteDb(pool)
+				sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: t.TempDir()})
 				require.NoError(t, err)
 				return NewTree(sql, pool, TreeOptions{})
 			},
@@ -397,7 +422,6 @@ func Test_TrivialTree(t *testing.T) {
 	os.Mkdir(tmpDir, 0755)
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
-	//sql, err := NewInMemorySqliteDb(pool)
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{})
 
@@ -548,6 +572,8 @@ func Test_Replay(t *testing.T) {
 
 			if len(cache) > 0 {
 				hash, v, err := tree.SaveVersion()
+				require.NoError(t, err)
+				require.NotNil(t, hash)
 				fmt.Printf("version=%d hash=%x orphans=%d\n", v, hash, tree.orphanBranchCount)
 				if hashes[v] == nil {
 					hashes[v] = hash
@@ -557,7 +583,6 @@ func Test_Replay(t *testing.T) {
 					// this count will desync if check point boundaries are not consistent
 					// require.Equal(t, orphanCounts[v], tree.orphanBranchCount)
 				}
-				require.NoError(t, err)
 			}
 		}
 
@@ -588,8 +613,8 @@ func Test_Replay(t *testing.T) {
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 	tree = NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
-	err = tree.LoadVersion(801)
-	require.Error(t, err) // expected, version too old
+	err = tree.LoadVersion(701)
+	require.ErrorContains(t, err, "too old; prior checkpoint not found")
 	err = tree.LoadVersion(807)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()

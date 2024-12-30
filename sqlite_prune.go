@@ -68,8 +68,8 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 	logger.Info().Msg("prune start")
 
 	// create new pruned shard
-	if err := sql.createTreeShardDb(pruneTo); err != nil {
-		return fmt.Errorf("failed to create pruned shard: %w", err)
+	if err := sql.createTreeShardDb(pruneTo, false); err != nil {
+		return fmt.Errorf("failed to create pruned shard %d: %w", pruneTo, err)
 	}
 	// open new write connection to the pruned shard
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(pruneTo))
@@ -140,6 +140,10 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 		return err
 	}
 	logger.Info().Str("dur", time.Since(start).String()).Msg("create leaf index")
+
+	if err := conn.Exec("INSERT INTO checkpoints VALUES (?, 0, 0, 0)", pruneTo); err != nil {
+		return err
+	}
 
 	// probably unnecessary
 	for _, shard := range pruneShards {
@@ -271,7 +275,13 @@ func (sql *SqliteDb) orphanJoins(conn *sqlite3.Conn, shards []int64, leaves bool
 func (sql *SqliteDb) checkPruning() error {
 	select {
 	case res := <-sql.pruneCh:
+		defer func() { sql.pruning = false }()
+
 		if res.err != nil {
+			if errors.Is(res.err, errShardExists) {
+				sql.logger.Warn().Err(res.err).Msg("prune failed")
+				return nil
+			}
 			return res.err
 		}
 		if err := sql.hotConnectionFactory.addShard(res.pruneTo); err != nil {
@@ -291,17 +301,8 @@ func (sql *SqliteDb) checkPruning() error {
 				if err := sql.hotConnectionFactory.removeShard(v); err != nil {
 					return err
 				}
-				// delete shard files from disk
-				path := fmt.Sprintf("%s/tree_%06d*", sql.opts.Path, v)
-
-				matches, err := filepath.Glob(path)
-				if err != nil {
+				if err := sql.deleteShardFiles(v); err != nil {
 					return err
-				}
-				for _, match := range matches {
-					if err := os.Remove(match); err != nil {
-						return err
-					}
 				}
 				dropped = append(dropped, v)
 			}
@@ -313,6 +314,7 @@ func (sql *SqliteDb) checkPruning() error {
 		defer func() {
 			err = errors.Join(err, conn.Close())
 		}()
+		// signal pruned checkpoint
 		err = conn.Exec("UPDATE root SET pruned = true WHERE version < ?", res.pruneTo)
 		if err != nil {
 			return err
@@ -323,10 +325,23 @@ func (sql *SqliteDb) checkPruning() error {
 			Ints64("dropped", dropped).
 			Msg("prune completed")
 		sql.shards = newShards
-		sql.pruning = false
 		// TODO update shards table
 		return nil
 	default:
 		return nil
 	}
+}
+
+func (sql *SqliteDb) deleteShardFiles(v int64) error {
+	path := sql.opts.shardPath(v) + "*"
+	matches, err := filepath.Glob(path)
+	if err != nil {
+		return err
+	}
+	for _, match := range matches {
+		if err := os.Remove(match); err != nil {
+			return err
+		}
+	}
+	return nil
 }

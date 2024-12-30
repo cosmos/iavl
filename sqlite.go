@@ -65,7 +65,7 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 		opts.MmapSize = 8 * 1024 * 1024 * 1024
 	}
 	if opts.WalSize == 0 {
-		opts.WalSize = 1024 * 1024 * 100
+		opts.WalSize = 1024 * 1024 * 250
 	}
 	opts.walPages = opts.WalSize / os.Getpagesize()
 	return opts
@@ -86,8 +86,12 @@ func (opts SqliteDbOptions) hubConnectString() string {
 	return fmt.Sprintf("file:%s/hub.sqlite%s", opts.Path, opts.connArgs())
 }
 
+func (opts SqliteDbOptions) shardPath(version int64) string {
+	return fmt.Sprintf("%s/tree_%06d", opts.Path, version)
+}
+
 func (opts SqliteDbOptions) treeConnectionString(version int64) string {
-	return fmt.Sprintf("file:%s/tree_%06d.sqlite%s", opts.Path, version, opts.connArgs())
+	return fmt.Sprintf("file:%s.sqlite%s", opts.shardPath(version), opts.connArgs())
 }
 
 func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
@@ -258,7 +262,14 @@ CREATE TABLE root (
 	return err
 }
 
-func (sql *SqliteDb) createTreeShardDb(version int64) (topErr error) {
+var errShardExists = errors.New("shard already exists")
+
+func (sql *SqliteDb) createTreeShardDb(version int64, createIndex bool) (topErr error) {
+	dbPath := sql.opts.shardPath(version) + ".sqlite"
+	if api.IsFileExistent(dbPath) {
+		return errShardExists
+	}
+
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(version))
 	if err != nil {
 		return err
@@ -274,14 +285,24 @@ CREATE TABLE orphan (version int, sequence int, at int);
 CREATE TABLE leaf (version int, sequence int, bytes blob, orphaned int);
 CREATE TABLE leaf_delete (version int, sequence int, key blob, PRIMARY KEY (version, sequence));
 CREATE TABLE leaf_orphan (version int, sequence int, at int);
-CREATE TABLE checkpoints (version int, branch_orphans int, leaf_orphans int, PRIMARY KEY (version))
+CREATE TABLE checkpoints (version int, prune_to int, branch_orphans int, leaf_orphans int, PRIMARY KEY (version))
 `)
 	if err != nil {
 		return err
 	}
-	err = conn.Exec("INSERT INTO checkpoints VALUES (?, 0, 0)", version)
-	if err != nil {
-		return err
+	// err = conn.Exec("INSERT INTO checkpoints VALUES (?, 0, 0, 0)", version)
+	// if err != nil {
+	// 	return err
+	// }
+	if createIndex {
+		err = conn.Exec("CREATE UNIQUE INDEX leaf_idx ON leaf (version, sequence)")
+		if err != nil {
+			return err
+		}
+		err = conn.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
+		if err != nil {
+			return err
+		}
 	}
 
 	pageSize := os.Getpagesize()
@@ -297,9 +318,8 @@ CREATE TABLE checkpoints (version int, branch_orphans int, leaf_orphans int, PRI
 }
 
 // sharding
-
-func (sql *SqliteDb) createShard(version int64) error {
-	if err := sql.createTreeShardDb(version); err != nil {
+func (sql *SqliteDb) createShard(version int64, createIndex bool) error {
+	if err := sql.createTreeShardDb(version, createIndex); err != nil {
 		return err
 	}
 	if err := sql.shards.Add(version); err != nil {
@@ -321,7 +341,7 @@ func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err = conn.Exec("PRAGMA wal_autocheckpoint=-1"); err != nil {
+	if err = conn.Exec(fmt.Sprintf("PRAGMA wal_autocheckpoint=%d", sql.opts.walPages)); err != nil {
 		return nil, err
 	}
 	return conn, nil
@@ -369,22 +389,24 @@ func (sql *SqliteDb) listShards() ([]int64, error) {
 	return versions, nil
 }
 
-func (sql *SqliteDb) updateShard(version, branchOrphans, leafOrphans int64) error {
-	return sql.hotConnectionFactory.main.Exec(
-		"INSERT OR REPLACE INTO checkpoints (version, branch_orphans, leaf_orphans) VALUES (?, ?, ?)",
-		version, branchOrphans, leafOrphans,
+func (sql *SqliteDb) updateShard(version, pruneTo, branchOrphans, leafOrphans int64) error {
+	return sql.writeConn.Exec(
+		"INSERT OR REPLACE INTO checkpoints (version, prune_to, branch_orphans, leaf_orphans) VALUES (?, ?, ?, ?)",
+		version, pruneTo, branchOrphans, leafOrphans,
 	)
 }
 
-func (sql *SqliteDb) getCheckpointCounts(version int64) (branches int64, leaves int64, topErr error) {
+func (sql *SqliteDb) getCheckpointCounts(version int64) (pruneTo, branches int64, leaves int64, topErr error) {
 	shardID := sql.shards.FindShard(version)
-	c, err := sql.hotConnectionFactory.make(shardID)
+	_, err := sql.hotConnectionFactory.make(shardID)
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
-	q, err := c.conn.Prepare("SELECT branch_orphans, leaf_orphans FROM checkpoints WHERE version = ?")
+	conn := sql.hotConnectionFactory.main
+	q, err := conn.Prepare(
+		fmt.Sprintf("SELECT prune_to, branch_orphans, leaf_orphans FROM shard_%d.checkpoints WHERE version = ?", shardID))
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	defer func() {
 		if err := q.Close(); err != nil {
@@ -392,19 +414,19 @@ func (sql *SqliteDb) getCheckpointCounts(version int64) (branches int64, leaves 
 		}
 	}()
 	if err := q.Bind(version); err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	ok, err := q.Step()
 	if err != nil {
-		return 0, 0, err
+		return 0, 0, 0, err
 	}
 	if !ok {
-		return 0, 0, fmt.Errorf("checkpoint not found: %d", version)
+		return 0, 0, 0, fmt.Errorf("checkpoint not found: %d shard=%d path=%s", version, shardID, filepath.Base(sql.opts.Path))
 	}
-	if err := q.Scan(&branches, &leaves); err != nil {
-		return 0, 0, err
+	if err := q.Scan(&pruneTo, &branches, &leaves); err != nil {
+		return 0, 0, 0, err
 	}
-	return branches, leaves, nil
+	return pruneTo, branches, leaves, nil
 }
 
 func (sql *SqliteDb) loadShards() error {
@@ -1039,11 +1061,11 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 				if err != nil {
 					return err
 				}
-				replayHash = node.hash
+				tree.replayHash = node.hash
 				if _, err = tree.Set(node.key, node.value); err != nil {
 					return err
 				}
-				replayHash = nil
+				tree.replayHash = nil
 				if sequence != int(tree.leafSequence) {
 					return fmt.Errorf("sequence mismatch version=%d; expected %d got %d; path=%s",
 						version, sequence, tree.leafSequence, sql.opts.Path)
@@ -1070,7 +1092,8 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	}
 	rootHash := tree.computeHash()
 	if !bytes.Equal(targetHash, rootHash) {
-		return fmt.Errorf("root hash mismatch; expected %x got %x", targetHash, rootHash)
+		return fmt.Errorf("root hash mismatch; expected %x got %x; path=%s count=%d",
+			targetHash, rootHash, sql.opts.Path, count)
 	}
 	if err = tree.evictNodes(); err != nil {
 		return err
@@ -1080,8 +1103,8 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	tree.version = toVersion
 	tree.stagedVersion = toVersion + 1
 	tree.root = tree.stagedRoot
-	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v",
-		tree.version, humanize.Comma(count), time.Since(start).Round(time.Millisecond), tree.root)
+	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v hash=%x",
+		tree.version, humanize.Comma(count), time.Since(start).Round(time.Millisecond), tree.root, rootHash)
 	return cf.close()
 }
 

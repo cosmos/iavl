@@ -46,7 +46,7 @@ func newImporter(tree *Tree, version int64) (*Importer, error) {
 	} else if versions.Len() > 0 {
 		return nil, fmt.Errorf("found versions %v, must be empty", versions)
 	}
-	if err := tree.sql.createTreeShardDb(version); err != nil {
+	if err := tree.sql.createTreeShardDb(version, false); err != nil {
 		return nil, err
 	}
 	conn, err := tree.sql.newWriteConnection(version)
