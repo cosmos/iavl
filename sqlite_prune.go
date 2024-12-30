@@ -68,6 +68,9 @@ func (sql *SqliteDb) prune(pruneTo int64) error {
 	logger.Info().Msg("prune start")
 
 	// create new pruned shard
+	if err := sql.lockShard(pruneTo); err != nil {
+		return fmt.Errorf("failed to lock shard %d: %w", pruneTo, err)
+	}
 	if err := sql.createTreeShardDb(pruneTo, false); err != nil {
 		return fmt.Errorf("failed to create pruned shard %d: %w", pruneTo, err)
 	}
@@ -276,7 +279,6 @@ func (sql *SqliteDb) checkPruning() error {
 	select {
 	case res := <-sql.pruneCh:
 		defer func() { sql.pruning = false }()
-
 		if res.err != nil {
 			if errors.Is(res.err, errShardExists) {
 				sql.logger.Warn().Err(res.err).Msg("prune failed")
@@ -284,25 +286,29 @@ func (sql *SqliteDb) checkPruning() error {
 			}
 			return res.err
 		}
-		if err := sql.hotConnectionFactory.addShard(res.pruneTo); err != nil {
+
+		newShards := &VersionRange{versions: []int64{res.pruneTo}}
+		newFactory := sql.hotConnectionFactory.clone()
+		if err := newFactory.addShard(res.pruneTo); err != nil {
 			return err
 		}
-		newShards := &VersionRange{versions: []int64{res.pruneTo}}
+
 		var dropped []int64
 		for _, v := range sql.shards.versions {
 			if v > res.pruneTo {
+				fmt.Printf("adding shard %d %s\n", v, sql.opts.shortPath())
 				err := newShards.Add(v)
 				if err != nil {
 					return err
 				}
 			} else {
+				fmt.Printf("freeing shard %d %s\n", v, sql.opts.shortPath())
 				// Delete shard:
-				// maybe delay this here to wait for open read connections to stale shards to close
-				if err := sql.hotConnectionFactory.removeShard(v); err != nil {
-					return err
+				if err := newFactory.removeShard(v); err != nil {
+					return fmt.Errorf("failed to remove shard %d path=%s: %w", v, sql.opts.shortPath(), err)
 				}
 				if err := sql.deleteShardFiles(v); err != nil {
-					return err
+					return fmt.Errorf("failed to delete shard %d files path=%s: %w", v, sql.opts.shortPath(), err)
 				}
 				dropped = append(dropped, v)
 			}
@@ -314,9 +320,11 @@ func (sql *SqliteDb) checkPruning() error {
 		defer func() {
 			err = errors.Join(err, conn.Close())
 		}()
-		// signal pruned checkpoint
 		err = conn.Exec("UPDATE root SET pruned = true WHERE version < ?", res.pruneTo)
 		if err != nil {
+			return err
+		}
+		if err := sql.unlockShard(res.pruneTo); err != nil {
 			return err
 		}
 		sql.logger.Info().
@@ -324,9 +332,11 @@ func (sql *SqliteDb) checkPruning() error {
 			Str("wait", res.wait.String()).
 			Ints64("dropped", dropped).
 			Msg("prune completed")
+		// TODO
+		// possible race condition, these should be boxed in the same pointer
 		sql.shards = newShards
-		// TODO update shards table
-		return nil
+		sql.hotConnectionFactory = newFactory
+		return err
 	default:
 		return nil
 	}
