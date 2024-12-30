@@ -188,14 +188,14 @@ func convertVarIntToBytes(orig int64, buf [binary.MaxVarintLen64]byte) []byte {
 // a path to the least item.
 func (tree *Tree) PathToLeaf(node *Node, key []byte) (PathToLeaf, *Node, error) {
 	path := new(PathToLeaf)
-	val, err := tree.pathToLeaf(node, key, path)
+	val, err := tree.pathToLeaf(node, key, path, tree.sql.readConnectionFactory())
 	return *path, val, err
 }
 
 // pathToLeaf is a helper which recursively constructs the PathToLeaf.
 // As an optimization the already constructed path is passed in as an argument
 // and is shared among recursive calls.
-func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf) (*Node, error) {
+func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf, cf connectionFactory) (*Node, error) {
 	if node.subtreeHeight == 0 {
 		if bytes.Equal(node.key, key) {
 			return node, nil
@@ -209,7 +209,7 @@ func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf) (*Node, e
 	// already stored in the next ProofInnerNode in PathToLeaf.
 	if bytes.Compare(key, node.key) < 0 {
 		// left side
-		rightNode, err := node.getRightNode(tree)
+		rightNode, err := node.getRightNode(tree.sql, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -223,15 +223,15 @@ func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf) (*Node, e
 		}
 		*path = append(*path, pin)
 
-		leftNode, err := node.getLeftNode(tree)
+		leftNode, err := node.getLeftNode(tree.sql, cf)
 		if err != nil {
 			return nil, err
 		}
-		n, err := tree.pathToLeaf(leftNode, key, path)
+		n, err := tree.pathToLeaf(leftNode, key, path, cf)
 		return n, err
 	}
 	// right side
-	leftNode, err := node.getLeftNode(tree)
+	leftNode, err := node.getLeftNode(tree.sql, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -245,12 +245,12 @@ func (tree *Tree) pathToLeaf(node *Node, key []byte, path *PathToLeaf) (*Node, e
 	}
 	*path = append(*path, pin)
 
-	rightNode, err := node.getRightNode(tree)
+	rightNode, err := node.getRightNode(tree.sql, cf)
 	if err != nil {
 		return nil, err
 	}
 
-	n, err := tree.pathToLeaf(rightNode, key, path)
+	n, err := tree.pathToLeaf(rightNode, key, path, cf)
 	return n, err
 }
 

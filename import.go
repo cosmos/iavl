@@ -33,7 +33,7 @@ type Importer struct {
 	inflightCommit <-chan error
 }
 
-// newImporter creates a new Importer for an empty MutableTree.
+// newImporter creates a new Importer for an empty Tree
 //
 // version should correspond to the version that was initially exported. It must be greater than
 // or equal to the highest ExportNode version number given.
@@ -41,19 +41,17 @@ func newImporter(tree *Tree, version int64) (*Importer, error) {
 	if version < 0 {
 		return nil, errors.New("imported version cannot be negative")
 	}
-	versions, err := tree.sql.loadCheckpointRange()
-	if err != nil {
+	if versions, err := tree.sql.loadCheckpointRange(); err != nil {
 		return nil, err
-	}
-	if versions.Len() > 0 {
+	} else if versions.Len() > 0 {
 		return nil, fmt.Errorf("found versions %v, must be empty", versions)
 	}
-	v, err := tree.sql.nextShard(version)
-	if err != nil {
+	if err := tree.sql.createTreeShardDb(version, false); err != nil {
 		return nil, err
 	}
-	if v != version {
-		return nil, fmt.Errorf("imported version %v is not the next shard", version)
+	conn, err := tree.sql.newWriteConnection(version)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Importer{
@@ -61,7 +59,7 @@ func newImporter(tree *Tree, version int64) (*Importer, error) {
 		version:    version,
 		writeQueue: tree.writeQueue,
 		batch: &sqliteBatch{
-			sql:               tree.sql,
+			conn:              conn,
 			version:           version,
 			storeLatestLeaves: tree.storeLatestLeaves,
 			size:              importBatchSize / 4,

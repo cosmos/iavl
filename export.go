@@ -34,60 +34,62 @@ func (tree *Tree) Export(version int64, order TraverseOrderType) (*Exporter, err
 		errCh: make(chan error),
 	}
 
+	cf := tree.sql.readConnectionFactory()
+
 	go func(traverseOrder TraverseOrderType) {
 		defer close(exporter.out)
 		if traverseOrder == PostOrder {
-			exporter.postOrderNext(root)
+			exporter.postOrderNext(root, cf)
 		} else if traverseOrder == PreOrder {
-			exporter.preOrderNext(root)
+			exporter.preOrderNext(root, cf)
 		}
 	}(order)
 
 	return exporter, nil
 }
 
-func (e *Exporter) postOrderNext(node *Node) {
+func (e *Exporter) postOrderNext(node *Node, cf connectionFactory) {
 	if node.isLeaf() {
 		e.out <- node
 		return
 	}
 
-	left, err := node.getLeftNode(e.tree)
+	left, err := node.getLeftNode(e.tree.sql, cf)
 	if err != nil {
 		e.errCh <- err
 		return
 	}
-	e.postOrderNext(left)
+	e.postOrderNext(left, cf)
 
-	right, err := node.getRightNode(e.tree)
+	right, err := node.getRightNode(e.tree.sql, cf)
 	if err != nil {
 		e.errCh <- err
 		return
 	}
-	e.postOrderNext(right)
+	e.postOrderNext(right, cf)
 
 	e.out <- node
 }
 
-func (e *Exporter) preOrderNext(node *Node) {
+func (e *Exporter) preOrderNext(node *Node, cf connectionFactory) {
 	e.out <- node
 	if node.isLeaf() {
 		return
 	}
 
-	left, err := node.getLeftNode(e.tree)
+	left, err := node.getLeftNode(e.tree.sql, cf)
 	if err != nil {
 		e.errCh <- err
 		return
 	}
-	e.preOrderNext(left)
+	e.preOrderNext(left, cf)
 
-	right, err := node.getRightNode(e.tree)
+	right, err := node.getRightNode(e.tree.sql, cf)
 	if err != nil {
 		e.errCh <- err
 		return
 	}
-	e.preOrderNext(right)
+	e.preOrderNext(right, cf)
 }
 
 func (e *Exporter) Next() (*Node, error) {

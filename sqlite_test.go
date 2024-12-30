@@ -2,7 +2,7 @@ package iavl
 
 import (
 	"fmt"
-	"math/rand"
+	"sync"
 	"testing"
 	"time"
 
@@ -10,6 +10,7 @@ import (
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/rand"
 )
 
 /*
@@ -50,8 +51,7 @@ Reads: 30,000 nodes/sec !!!
 var testDbLocation = "/tmp/sqlite_test"
 
 func TestBuildSqlite(t *testing.T) {
-	//dir := t.TempDir()
-	dir := testDbLocation
+	dir := t.TempDir()
 	t.Logf("using temp dir %s", dir)
 
 	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
@@ -65,20 +65,21 @@ func TestBuildSqlite(t *testing.T) {
 
 	since := time.Now()
 
-	err = sql.leafWrite.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
+	conn, err := sql.rootConnection()
 	require.NoError(t, err)
 
-	err = sql.leafWrite.Exec("CREATE INDEX trie_idx ON node (key)")
-	//err = sql.leafWrite.Exec("CREATE INDEX node_idx ON node (version, seq)")
-	require.NoError(t, err)
-	err = sql.leafWrite.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
+	err = conn.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
 	require.NoError(t, err)
 
-	require.NoError(t, sql.leafWrite.Begin())
+	err = conn.Exec("CREATE INDEX trie_idx ON node (key)")
+	require.NoError(t, err)
+	err = conn.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
+	require.NoError(t, err)
+
+	require.NoError(t, conn.Begin())
 
 	var stmt *sqlite3.Stmt
-	//stmt, err = sql.leafWrite.Prepare("INSERT INTO tree(version, sequence, bytes) VALUES (?, ?, ?)")
-	stmt, err = sql.leafWrite.Prepare("INSERT INTO node(version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version)" +
+	stmt, err = conn.Prepare("INSERT INTO node(version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version)" +
 		"VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
 
 	require.NoError(t, err)
@@ -118,11 +119,11 @@ func TestBuildSqlite(t *testing.T) {
 		)
 
 		if count%batchSize == 0 {
-			err := sql.leafWrite.Commit()
+			err := conn.Commit()
 			require.NoError(t, err)
 			//stmt, err = newBatch()
 			//require.NoError(t, err)
-			require.NoError(t, sql.leafWrite.Begin())
+			require.NoError(t, conn.Begin())
 			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(count)),
 				time.Since(since).Round(time.Millisecond),
@@ -134,113 +135,13 @@ func TestBuildSqlite(t *testing.T) {
 	}
 
 	log.Info().Msg("final commit")
-	require.NoError(t, sql.leafWrite.Commit())
+	require.NoError(t, conn.Commit())
 	log.Info().Msgf("total dur=%s rate=%s",
 		time.Since(startTime).Round(time.Millisecond),
 		humanize.Comma(int64(40_000_000/time.Since(startTime).Seconds())),
 	)
 	require.NoError(t, stmt.Close())
 	require.NoError(t, sql.Close())
-}
-
-func TestReadSqlite_Trie(t *testing.T) {
-	dir := testDbLocation
-	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
-	require.NoError(t, err)
-
-	read, err := sql.getReadConn()
-	require.NoError(t, err)
-
-	query, err := read.Prepare("SELECT version, seq, hash, key, height, size, l_seq, l_version, r_seq, r_version FROM node WHERE key = ?")
-	require.NoError(t, err)
-
-	var hash, key []byte
-	var version, seq, height, size, lSeq, lVersion, rSeq, rVersion int
-
-	i := int64(1)
-	since := time.Now()
-	gen := testutil.OsmoLike()
-	version1 := gen.Iterator.Nodes()
-	for ; version1.Valid(); err = version1.Next() {
-		node := version1.GetNode()
-		require.NoError(t, query.Bind(node.Key))
-		hasRow, err := query.Step()
-		require.NoError(t, err)
-		require.True(t, hasRow)
-		require.NoError(t, query.Scan(&version, &seq, &hash, &key, &height, &size, &lSeq, &lVersion, &rSeq, &rVersion))
-		require.NoError(t, err)
-
-		if i%100_000 == 0 {
-			i++
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
-				humanize.Comma(i),
-				time.Since(since),
-				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))
-			since = time.Now()
-		}
-		require.NoError(t, query.Reset())
-		i++
-	}
-
-}
-
-func TestReadSqlite(t *testing.T) {
-	//pool := NewNodePool()
-	//dir := t.TempDir()
-	var err error
-	dir := testDbLocation
-	t.Logf("using temp dir %s", dir)
-	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
-	require.NoError(t, err)
-
-	var stmt *sqlite3.Stmt
-	//stmt, err = sql.leafWrite.Prepare("SELECT bytes FROM tree WHERE node_key = ?")
-
-	sqlRead, err := sql.getReadConn()
-	require.NoError(t, err)
-	//stmt, err = sqlRead.Prepare("SELECT bytes FROM tree WHERE version = ? AND sequence = ?")
-	stmt, err = sqlRead.Prepare("SELECT hash, key, height, size, l_seq, l_version, r_seq, r_version FROM node WHERE seq = ? AND version = ?")
-	require.NoError(t, err)
-
-	var hash, key []byte
-	var height, size, lSeq, lVersion, rSeq, rVersion int
-
-	since := time.Now()
-	for i := 1; i < 40_000_000; i++ {
-		j := rand.Intn(40_000_000)
-
-		// unstructured leafRead:
-		//nk := NewNodeKey(1, uint32(j))
-		//require.NoError(t, stmt.Bind(1, j))
-		//hasRow, err := stmt.Step()
-		//require.Truef(t, hasRow, "no row for %d", j)
-		//require.NoError(t, err)
-		//nodeBz, err := stmt.ColumnBlob(0)
-		//require.NoError(t, err)
-		//_, err = MakeNode(pool, nk, nodeBz)
-		//require.NoError(t, err)
-
-		// structured leafRead:
-		require.NoError(t, stmt.Bind(j, 1))
-		hasRow, err := stmt.Step()
-		require.NoError(t, err)
-		require.True(t, hasRow)
-		require.NoError(t, stmt.Scan(&hash, &key, &height, &size, &lSeq, &lVersion, &rSeq, &rVersion))
-
-		if i%100_000 == 0 {
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
-				humanize.Comma(int64(i)),
-				time.Since(since),
-				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))
-			since = time.Now()
-		}
-		require.NoError(t, stmt.Reset())
-	}
-
-	//gen := testutil.OsmoLike()
-	//version1 := gen.TreeIterator.Nodes()
-	//var count int
-	//require.Equal(t, int64(1), gen.TreeIterator.Version())
 }
 
 func TestNodeKeyFormat(t *testing.T) {
@@ -293,4 +194,164 @@ func Test_NewSqliteDb(t *testing.T) {
 	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
 	require.NoError(t, err)
 	require.NotNil(t, sql)
+}
+
+func Test_ConcurrentDetach(t *testing.T) {
+	dir := t.TempDir()
+	conn, err := sqlite3.Open(dir + "/one.db")
+	require.NoError(t, err)
+	err = conn.Exec("CREATE TABLE foo (id INTEGER PRIMARY KEY)")
+	require.NoError(t, err)
+	err = conn.Exec("INSERT INTO foo VALUES (4)")
+	require.NoError(t, err)
+
+	conn2, err := sqlite3.Open(dir + "/two.db")
+	require.NoError(t, err)
+	err = conn2.Exec("CREATE TABLE bar (id INTEGER PRIMARY KEY)")
+	require.NoError(t, err)
+	err = conn2.Exec("INSERT INTO bar VALUES (7)")
+	require.NoError(t, err)
+	require.NoError(t, conn2.Close())
+
+	require.NoError(t, conn.Exec("ATTACH DATABASE ? AS two", dir+"/two.db"))
+	err = conn.Exec("SELECT * FROM bar")
+	require.NoError(t, err)
+
+	conn3, err := sqlite3.Open(dir + "/three.db")
+	require.NoError(t, err)
+	err = conn3.Exec("CREATE TABLE bar (id INTEGER PRIMARY KEY)")
+	require.NoError(t, err)
+	err = conn3.Exec("INSERT INTO bar VALUES (8)")
+	require.NoError(t, err)
+	require.NoError(t, conn3.Close())
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		q, err := conn.Prepare("SELECT * FROM bar")
+		require.NoError(t, err)
+		for i := 0; i < 500_000; i++ {
+			hasRow, err := q.Step()
+			require.NoError(t, err)
+			require.True(t, hasRow)
+			var v int
+			err = q.Scan(&v)
+			require.NoError(t, err)
+			require.Equal(t, 7, v)
+			require.NoError(t, q.Reset())
+		}
+	}()
+
+	require.NoError(t, conn.Exec("ATTACH DATABASE ? AS three", dir+"/three.db"))
+	require.Error(t, conn.Exec("DETACH DATABASE ?", dir+"/two.db"))
+
+	wg.Wait()
+}
+
+func Test_ConcurrentQuery(t *testing.T) {
+	dir := t.TempDir()
+	conn, err := sqlite3.Open(dir + "/one.db")
+	require.NoError(t, err)
+	err = conn.Exec("CREATE TABLE foo (id INTEGER PRIMARY KEY)")
+	require.NoError(t, err)
+	for i := 0; i < 100; i++ {
+		err = conn.Exec("INSERT INTO foo VALUES (?)", i)
+		require.NoError(t, err)
+	}
+
+	times := 10
+	errs := make(chan error, times)
+	checkErr := func(err error) {
+		if err != nil {
+			errs <- err
+		}
+	}
+	wg := sync.WaitGroup{}
+
+	for i := 0; i < times; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			q, err := conn.Prepare("SELECT * FROM foo WHERE id = ?")
+			require.NoError(t, err)
+			checkErr(q.Bind(i))
+			hasRow, err := q.Step()
+			checkErr(err)
+			require.True(t, hasRow)
+			var v int
+			err = q.Scan(&v)
+			checkErr(err)
+			require.Equal(t, i, v)
+			checkErr(q.Close())
+		}(i)
+	}
+
+	wg.Wait()
+	close(errs)
+
+	for i := 0; i < times; i++ {
+		err := <-errs
+		if err == nil {
+			require.Fail(t, "expected an error")
+			return
+		}
+	}
+}
+
+func Test_ConcurrentIndexRead(t *testing.T) {
+	dir := t.TempDir()
+	seed := uint64(1234)
+	count := 10_000_000
+	conn, err := sqlite3.Open(dir + "/db.db")
+	require.NoError(t, err)
+	r := rand.New(rand.NewSource(seed))
+	require.NoError(t, conn.Exec("PRAGMA synchronous = OFF"))
+	require.NoError(t, conn.Exec("PRAGMA journal_mode = WAL"))
+	err = conn.Exec("CREATE TABLE foo (id BLOB, val INTEGER)")
+	require.NoError(t, err)
+	err = conn.Exec("CREATE TABLE bar (id BLOB, val INTEGER)")
+	require.NoError(t, err)
+	bz := make([]byte, 32)
+	t.Log("insert 100_000 rows")
+	require.NoError(t, conn.Begin())
+	for i := 0; i < count; i++ {
+		_, err = r.Read(bz)
+		require.NoError(t, err)
+		err = conn.Exec("INSERT INTO foo VALUES (?, ?)", bz, i)
+		require.NoError(t, err)
+		err = conn.Exec("INSERT INTO bar VALUES (?, ?)", bz, i)
+		require.NoError(t, err)
+		if i%100_000 == 0 {
+			require.NoError(t, conn.Commit())
+			require.NoError(t, conn.Begin())
+			t.Log("inserted", i)
+		}
+	}
+	require.NoError(t, conn.Commit())
+	r = rand.New(rand.NewSource(seed))
+	reader, err := sqlite3.Open(dir + "/db.db")
+	require.NoError(t, err)
+	t.Log("query 100_000 rows")
+	stmt, err := reader.Prepare("SELECT val FROM bar WHERE id = ?")
+	require.NoError(t, err)
+	var v int
+	go func(q *sqlite3.Stmt) {
+		for i := 0; i < count; i++ {
+			n, err := r.Read(bz)
+			require.NoError(t, err)
+			require.Equal(t, 32, n)
+			err = q.Bind(bz)
+			require.NoError(t, err)
+			hasRow, err := q.Step()
+			require.NoError(t, err)
+			require.True(t, hasRow)
+			err = q.Scan(&v)
+			require.NoError(t, err)
+			require.Equal(t, i, v)
+			require.NoError(t, q.Reset())
+		}
+	}(stmt)
+	err = conn.Exec("CREATE INDEX foo_idx ON foo (id)")
+	require.NoError(t, err)
 }
