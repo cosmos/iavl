@@ -416,15 +416,22 @@ func (ndb *nodeDB) saveNodeFromPruning(node *Node) error {
 	return ndb.batch.Set(ndb.nodeKey(node.GetKey()), buf.Bytes())
 }
 
+// rootkey cache of two elements, attempting to mimic a direct-mapped cache.
 type rootkeyCache struct {
-	version int64
-	rootKey []byte
+	// initial value is set to {-1, -1}, which is an invalid version for a getrootkey call.
+	versions [2]int64
+	rootKeys [2][]byte
+	next     int
 }
 
 func (rkc *rootkeyCache) getRootKey(ndb *nodeDB, version int64) ([]byte, error) {
-	if rkc.version == version {
-		return rkc.rootKey, nil
+	// Check both cache entries
+	for i := 0; i < 2; i++ {
+		if rkc.versions[i] == version {
+			return rkc.rootKeys[i], nil
+		}
 	}
+
 	rootKey, err := ndb.GetRoot(version)
 	if err != nil {
 		return nil, err
@@ -434,8 +441,18 @@ func (rkc *rootkeyCache) getRootKey(ndb *nodeDB, version int64) ([]byte, error) 
 }
 
 func (rkc *rootkeyCache) setRootKey(version int64, rootKey []byte) {
-	rkc.version = version
-	rkc.rootKey = rootKey
+	// Store in next available slot, cycling between 0 and 1
+	rkc.versions[rkc.next] = version
+	rkc.rootKeys[rkc.next] = rootKey
+	rkc.next = (rkc.next + 1) % 2
+}
+
+func newRootkeyCache() *rootkeyCache {
+	return &rootkeyCache{
+		versions: [2]int64{-1, -1},
+		rootKeys: [2][]byte{},
+		next:     0,
+	}
 }
 
 // deleteVersion deletes a tree version from disk.
@@ -446,7 +463,7 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 		return err
 	}
 
-	if err := ndb.traverseOrphans(version, version+1, func(orphan *Node) error {
+	if err := ndb.traverseOrphansWithRootkeyCache(cache, version, version+1, func(orphan *Node) error {
 		if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
 			// if the orphan is a reformatted root, it can be a legacy root
 			// so it should be removed from the pruning process.
@@ -706,7 +723,7 @@ func (ndb *nodeDB) deleteVersionsTo(toVersion int64) error {
 		ndb.resetLegacyLatestVersion(-1)
 	}
 
-	rootkeyCache := &rootkeyCache{}
+	rootkeyCache := newRootkeyCache()
 	for version := first; version <= toVersion; version++ {
 		if err := ndb.deleteVersion(version, rootkeyCache); err != nil {
 			return err
@@ -1095,7 +1112,12 @@ func isReferenceRoot(bz []byte) (bool, int) {
 // traverseOrphans traverses orphans which removed by the updates of the curVersion in the prevVersion.
 // NOTE: it is used for both legacy and new nodes.
 func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node) error) error {
-	curKey, err := ndb.GetRoot(curVersion)
+	cache := newRootkeyCache()
+	return ndb.traverseOrphansWithRootkeyCache(cache, prevVersion, curVersion, fn)
+}
+
+func (ndb *nodeDB) traverseOrphansWithRootkeyCache(cache *rootkeyCache, prevVersion, curVersion int64, fn func(*Node) error) error {
+	curKey, err := cache.getRootKey(ndb, curVersion)
 	if err != nil {
 		return err
 	}
@@ -1105,7 +1127,7 @@ func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node)
 		return err
 	}
 
-	prevKey, err := ndb.GetRoot(prevVersion)
+	prevKey, err := cache.getRootKey(ndb, prevVersion)
 	if err != nil {
 		return err
 	}
