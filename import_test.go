@@ -14,6 +14,7 @@ func Test_ExportImport(t *testing.T) {
 	var err error
 
 	tmpDir := t.TempDir()
+	t.Logf("tmpDir: %s", tmpDir)
 	require.NoError(t, err)
 	opts := testutil.BigTreeOptions_100_000()
 	opts.Until = 20

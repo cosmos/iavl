@@ -46,7 +46,7 @@ func newImporter(tree *Tree, version int64) (*Importer, error) {
 	} else if versions.Len() > 0 {
 		return nil, fmt.Errorf("found versions %v, must be empty", versions)
 	}
-	if err := tree.sql.createTreeShardDb(version, false); err != nil {
+	if err := tree.sql.createShard(version, false); err != nil {
 		return nil, err
 	}
 	conn, err := tree.sql.newWriteConnection(version)
@@ -236,6 +236,9 @@ func (i *Importer) Commit() error {
 		return err
 	}
 
+	if err := i.batch.conn.Exec("INSERT INTO checkpoints VALUES (?, 0, 0, 0)", i.version); err != nil {
+		return err
+	}
 	err = i.tree.LoadVersion(i.version)
 	if err != nil {
 		return err

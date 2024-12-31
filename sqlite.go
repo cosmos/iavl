@@ -87,11 +87,15 @@ func (opts SqliteDbOptions) hubConnectString() string {
 }
 
 func (opts SqliteDbOptions) shardPath(version int64) string {
-	return fmt.Sprintf("%s/tree_%06d", opts.Path, version)
+	return fmt.Sprintf("%s/tree_%013d", opts.Path, version)
 }
 
 func (opts SqliteDbOptions) treeConnectionString(version int64) string {
 	return fmt.Sprintf("file:%s.sqlite%s", opts.shardPath(version), opts.connArgs())
+}
+
+func (opts SqliteDbOptions) shortPath() string {
+	return filepath.Base(opts.Path)
 }
 
 func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
@@ -262,6 +266,8 @@ CREATE TABLE root (
 	return err
 }
 
+// sharding
+
 var errShardExists = errors.New("shard already exists")
 
 func (sql *SqliteDb) createTreeShardDb(version int64, createIndex bool) (topErr error) {
@@ -290,10 +296,6 @@ CREATE TABLE checkpoints (version int, prune_to int, branch_orphans int, leaf_or
 	if err != nil {
 		return err
 	}
-	// err = conn.Exec("INSERT INTO checkpoints VALUES (?, 0, 0, 0)", version)
-	// if err != nil {
-	// 	return err
-	// }
 	if createIndex {
 		err = conn.Exec("CREATE UNIQUE INDEX leaf_idx ON leaf (version, sequence)")
 		if err != nil {
@@ -317,7 +319,6 @@ CREATE TABLE checkpoints (version int, prune_to int, branch_orphans int, leaf_or
 	return nil
 }
 
-// sharding
 func (sql *SqliteDb) createShard(version int64, createIndex bool) error {
 	if err := sql.createTreeShardDb(version, createIndex); err != nil {
 		return err
@@ -331,8 +332,33 @@ func (sql *SqliteDb) createShard(version int64, createIndex bool) error {
 	return nil
 }
 
+func (sql *SqliteDb) lockShard(version int64) error {
+	lockFile := sql.opts.shardPath(version) + ".lock"
+	if api.IsFileExistent(lockFile) {
+		return nil
+	}
+	f, err := os.Create(lockFile)
+	if err != nil {
+		return err
+	}
+	return f.Close()
+}
+
+func (sql *SqliteDb) unlockShard(version int64) error {
+	lockFile := sql.opts.shardPath(version) + ".lock"
+	return os.Remove(lockFile)
+}
+
+func (sql *SqliteDb) isShardLocked(version int64) bool {
+	lockFile := sql.opts.shardPath(version) + ".lock"
+	return api.IsFileExistent(lockFile)
+}
+
 func (sql *SqliteDb) newWriteConnection(version int64) (*sqlite3.Conn, error) {
 	shardID := sql.shards.FindShard(version)
+	if shardID == -1 {
+		return nil, fmt.Errorf("shard not found version=%d shards=%v", version, sql.shards.versions)
+	}
 	conn, err := sqlite3.Open(sql.opts.treeConnectionString(shardID))
 	if err != nil {
 		return nil, err
@@ -382,6 +408,10 @@ func (sql *SqliteDb) listShards() ([]int64, error) {
 			shardVersion, err := strconv.Atoi(file.Name()[5 : len(file.Name())-7])
 			if err != nil {
 				return nil, err
+			}
+			if sql.isShardLocked(int64(shardVersion)) {
+				sql.logger.Warn().Msgf("shard %d is locked and possibly orphaned", shardVersion)
+				continue
 			}
 			versions = append(versions, int64(shardVersion))
 		}
@@ -464,10 +494,12 @@ func (sql *SqliteDb) Close() error {
 			}
 		}
 	}
-	return errors.Join(
-		sql.writeConn.Close(),
-		sql.hotConnectionFactory.close(),
-	)
+	if sql.writeConn != nil {
+		if err := sql.writeConn.Close(); err != nil {
+			return err
+		}
+	}
+	return sql.hotConnectionFactory.close()
 }
 
 // read API
@@ -679,43 +711,6 @@ func (sql *SqliteDb) LoadRoot(version int64) (root *Node, topErr error) {
 	}
 
 	return root, nil
-}
-
-// lastCheckpoint fetches the last checkpoint version from the shard table previous to the loaded root's version.
-// a return value of zero and nil error indicates no checkpoint was found.
-func (sql *SqliteDb) lastCheckpoint(treeVersion int64) (checkpointVersion int64, topErr error) {
-	conn, err := sql.rootConnection()
-	if err != nil {
-		return 0, err
-	}
-	rootQuery, err := conn.Prepare("SELECT MAX(version) FROM root WHERE checkpoint = true AND version <= ?", treeVersion)
-	if err != nil {
-		return 0, err
-	}
-	defer func() {
-		if err := rootQuery.Close(); err != nil {
-			topErr = errors.Join(err, err)
-		}
-		if err := conn.Close(); err != nil {
-			topErr = errors.Join(err, err)
-		}
-	}()
-
-	hasRow, err := rootQuery.Step()
-	if err != nil {
-		return 0, err
-	}
-	if !hasRow {
-		return 0, nil
-	}
-	err = rootQuery.Scan(&checkpointVersion)
-	if err != nil {
-		return 0, err
-	}
-	if err = rootQuery.Close(); err != nil {
-		return 0, err
-	}
-	return checkpointVersion, nil
 }
 
 func (sql *SqliteDb) loadCheckpointRange() (versionRange *VersionRange, topErr error) {

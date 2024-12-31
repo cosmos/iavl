@@ -416,10 +416,10 @@ func TestTreeSanity(t *testing.T) {
 
 func Test_TrivialTree(t *testing.T) {
 	pool := NewNodePool()
-	// tmpDir := t.TempDir()
-	tmpDir := "/tmp/iavl-v2-trivial-tree"
+	// tmpDir := "/tmp/iavl-v2-trivial-tree"
+	tmpDir := t.TempDir()
 	os.RemoveAll(tmpDir)
-	os.Mkdir(tmpDir, 0755)
+	require.NoError(t, os.Mkdir(tmpDir, 0o0755))
 
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
@@ -446,20 +446,17 @@ func Test_TrivialTree(t *testing.T) {
 		changeset := itr.Nodes()
 		v := itr.Version()
 		fmt.Printf("version=%d\n", v)
-		err = tree.WithSaveConnection(func() error {
-			for ; changeset.Valid(); err = changeset.Next() {
+		for ; changeset.Valid(); err = changeset.Next() {
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			if node.Delete {
+				_, _, err := tree.Remove(node.Key)
 				require.NoError(t, err)
-				node := changeset.GetNode()
-				if node.Delete {
-					_, _, err := tree.Remove(node.Key)
-					require.NoError(t, err)
-				} else {
-					_, err := tree.Set(node.Key, node.Value)
-					require.NoError(t, err)
-				}
+			} else {
+				_, err := tree.Set(node.Key, node.Value)
+				require.NoError(t, err)
 			}
-			return nil
-		})
+		}
 		require.NoError(t, err)
 		_, _, err = tree.SaveVersion()
 		require.NoError(t, err)
@@ -468,7 +465,7 @@ func Test_TrivialTree(t *testing.T) {
 
 func Test_EmptyTree(t *testing.T) {
 	pool := NewNodePool()
-	sql, err := NewInMemorySqliteDb(pool)
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: t.TempDir()})
 	require.NoError(t, err)
 	tree := NewTree(sql, pool, TreeOptions{})
 

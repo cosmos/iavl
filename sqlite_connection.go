@@ -83,7 +83,7 @@ func (f *hotConnectionFactory) make(version int64) (*sqliteConnection, error) {
 	if conn, ok := f.conns[version]; ok {
 		return conn, nil
 	}
-	return nil, fmt.Errorf("no connection for version %d", version)
+	return nil, fmt.Errorf("no connection for version=%d path=%s", version, f.opts.shortPath())
 }
 
 func (f *hotConnectionFactory) addShard(shardID int64) error {
@@ -140,4 +140,12 @@ func (f *hotConnectionFactory) close() error {
 		}
 	}
 	return f.main.Close()
+}
+
+func (f *hotConnectionFactory) clone() *hotConnectionFactory {
+	conns := make(map[int64]*sqliteConnection)
+	for k, v := range f.conns {
+		conns[k] = v
+	}
+	return &hotConnectionFactory{main: f.main, opts: f.opts, conns: conns}
 }

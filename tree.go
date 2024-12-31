@@ -76,11 +76,8 @@ type Tree struct {
 	leafSequence   uint32
 	evictionDepth  int8
 
-	// only allow one save at a time
-	saveLock sync.Mutex
 	// synchronize h and h-1 reads to SaveVersion
-	versionLock    sync.RWMutex
-	saveConnection connectionFactory
+	versionLock sync.RWMutex
 	// used during replay to save on hashing leaf nodes
 	replayHash []byte
 }
@@ -236,10 +233,9 @@ func (tree *Tree) SaveSnapshot() (err error) {
 	return tree.sql.Snapshot(ctx, tree)
 }
 
+// SaveVersion saves the staged version of the tree to storage. It returns the hash of the root node.
+// Not thread-safe.
 func (tree *Tree) SaveVersion() ([]byte, int64, error) {
-	tree.saveLock.Lock()
-	defer tree.saveLock.Unlock()
-
 	var err error
 	if err = tree.sql.closeHangingIterators(); err != nil {
 		return nil, 0, err
@@ -349,7 +345,7 @@ func (tree *Tree) postCheckpoint() error {
 		Msg("prune check")
 
 	var planPune bool
-	if pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
+	if tree.pruneRatio != 0 && pruneRatio > tree.pruneRatio && tree.pruneTo == 0 {
 		// plan a prune in minimumKeepVersions
 		tree.pruneTo = tree.stagedVersion
 		planPune = true
@@ -609,12 +605,7 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
 	}
-	if tree.saveConnection != nil {
-		updated, err = tree.set(key, value, tree.saveConnection)
-	} else {
-		updated, err = tree.set(key, value, tree.sql.hotConnectionFactory)
-	}
-
+	updated, err = tree.set(key, value, tree.sql.hotConnectionFactory)
 	if err != nil {
 		return false, err
 	}
@@ -624,16 +615,6 @@ func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 		tree.metrics.TreeNewNode++
 	}
 	return updated, nil
-}
-
-func (tree *Tree) WithSaveConnection(fn func() error) error {
-	tree.saveLock.Lock()
-	tree.saveConnection = tree.sql.hotConnectionFactory
-	defer func() {
-		tree.saveConnection = nil
-		tree.saveLock.Unlock()
-	}()
-	return fn()
 }
 
 func (tree *Tree) set(key []byte, value []byte, cf connectionFactory) (updated bool, err error) {
@@ -744,9 +725,6 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	}
 	if tree.stagedRoot == nil {
 		return nil, false, nil
-	}
-	if tree.saveConnection != nil {
-		return tree.remove(key, tree.saveConnection)
 	}
 	return tree.remove(key, tree.sql.hotConnectionFactory)
 }
@@ -939,9 +917,6 @@ func (tree *Tree) stageNode(node *Node) *Node {
 }
 
 func (tree *Tree) addOrphan(node *Node) {
-	// if node.hash == nil {
-	// 	return
-	// }
 	if !node.isLeaf() && node.Version() <= tree.checkpoints.Last() {
 		tree.branchOrphans = append(tree.branchOrphans, node.nodeKey)
 		tree.orphanBranchCount++
@@ -1014,7 +989,7 @@ func (tree *Tree) WriteLatestLeaves() (err error) {
 	return tree.sql.WriteLatestLeaves(tree)
 }
 
-func (tree *Tree) DeleteVersionsTo(toVersion int64) error {
+func (tree *Tree) DeleteVersionsTo(_ int64) error {
 	return nil
 }
 

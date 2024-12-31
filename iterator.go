@@ -322,15 +322,9 @@ func (tree *Tree) Iterator(start, end []byte, inclusive bool) (itr Iterator, err
 		}
 		itr = leafItr
 	} else {
-		var cf connectionFactory
-		if tree.saveConnection != nil {
-			cf = tree.saveConnection
-		} else {
-			cf = tree.sql.readConnectionFactory()
-		}
 		itr = &TreeIterator{
 			sql:       tree.sql,
-			cf:        cf,
+			cf:        tree.sql.hotConnectionFactory,
 			start:     start,
 			end:       end,
 			ascending: true,
@@ -365,15 +359,9 @@ func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
 		}
 		itr = leafItr
 	} else {
-		var cf connectionFactory
-		if tree.saveConnection != nil {
-			cf = tree.saveConnection
-		} else {
-			cf = tree.sql.readConnectionFactory()
-		}
 		itr = &TreeIterator{
 			sql:       tree.sql,
-			cf:        cf,
+			cf:        tree.sql.hotConnectionFactory,
 			start:     start,
 			end:       end,
 			ascending: false,
@@ -395,15 +383,9 @@ func (tree *Tree) IterateRecent(version int64, start, end []byte, ascending bool
 	if !ok {
 		return false, nil
 	}
-	var cf connectionFactory
-	if tree.saveConnection != nil {
-		cf = tree.saveConnection
-	} else {
-		cf = tree.sql.readConnectionFactory()
-	}
 	itr := &TreeIterator{
 		sql:       tree.sql,
-		cf:        cf,
+		cf:        tree.sql.hotConnectionFactory,
 		start:     start,
 		end:       end,
 		ascending: ascending,
