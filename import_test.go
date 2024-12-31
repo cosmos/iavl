@@ -14,9 +14,8 @@ func Test_ExportImport(t *testing.T) {
 	var err error
 
 	tmpDir := t.TempDir()
-	t.Logf("tmpDir: %s", tmpDir)
 	require.NoError(t, err)
-	opts := testutil.BigTreeOptions_100_000()
+	opts := testutil.BigTreeOptions100_000()
 	opts.Until = 20
 	opts.UntilHash = "0d4dfc4b6f6194f72da11fa254cf2910e54d330e8a4d6238af40e6b8d35ea77f"
 	treeOpts := TreeOptions{CheckpointInterval: 10, HeightFilter: 1, StateStorage: true, EvictionDepth: 8}
@@ -28,7 +27,8 @@ func Test_ExportImport(t *testing.T) {
 	for _, sk := range storeKeys {
 		require.NoError(t, multiTree.MountTree(sk))
 	}
-	testTreeBuild(t, multiTree, opts)
+	// testTreeBuild(t, multiTree, opts)
+	multiTree.TestBuild(t, opts)
 
 	exported := make(map[string][]*Node)
 

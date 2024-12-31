@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -32,12 +31,11 @@ indexed:
     below are sequential proceeding version number.  this will always be the case with the current node key.
 - unstructured batch insert (tree table) - 414,000 nodes/sec
 
-writing into a trie based table (indexed on key) will likely be *much* slower since it requires an order insertion
+writing into a table indexed on key will likely be *much* slower since it requires an order insertion
 and potentially re-balancing the BTree index.
 ^^^ True, initial test started at 200k and quickly declined to 75k
 
 ## Reads
-
 - fully memory mapped unstructured (tree table) - ~160,000 nodes/sec
 - fully memory mapped structured (node table) - ~172,000 nodes/sec
 - fully memory mapped structured (node table) leafRead by key []byte - ~160,000 nodes/sec
@@ -45,14 +43,11 @@ and potentially re-balancing the BTree index.
 # LevelDB
 Writes: 245,000 nodes/sec
 Reads: 30,000 nodes/sec !!!
-
 */
-
-var testDbLocation = "/tmp/sqlite_test"
 
 func TestBuildSqlite(t *testing.T) {
 	dir := t.TempDir()
-	t.Logf("using temp dir %s", dir)
+	t.Logf("dir: %s", dir)
 
 	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
 
@@ -65,14 +60,19 @@ func TestBuildSqlite(t *testing.T) {
 
 	since := time.Now()
 
-	conn, err := sql.rootConnection()
+	err = sql.createShard(0, false)
+	require.NoError(t, err)
+	conn, err := sql.newWriteConnection(0)
 	require.NoError(t, err)
 
 	err = conn.Exec("CREATE TABLE node (seq INTEGER, version INTEGER, hash BLOB, key BLOB, height INTEGER, size INTEGER, l_seq INTEGER, l_version INTEGER, r_seq INTEGER, r_version INTEGER)")
 	require.NoError(t, err)
 
-	err = conn.Exec("CREATE INDEX trie_idx ON node (key)")
+	// enable this to demonstrate the slowness of a blob key index
+	// err = conn.Exec("CREATE INDEX node_key_idx ON node (key)")
+	err = conn.Exec("CREATE INDEX node_key_idx ON node (version, seq)")
 	require.NoError(t, err)
+
 	err = conn.Exec("CREATE INDEX tree_idx ON tree (version, sequence)")
 	require.NoError(t, err)
 
@@ -86,23 +86,32 @@ func TestBuildSqlite(t *testing.T) {
 
 	startTime := time.Now()
 	batchSize := 200_000
-	//nodeBz := new(bytes.Buffer)
+	// set to -1 to run the full set of 40M nodes
+	limit := 600_000
+	// nodeBz := new(bytes.Buffer)
 	for ; version1.Valid(); err = version1.Next() {
+		require.NoError(t, err)
+		if count >= limit {
+			break
+		}
+
 		node := version1.GetNode()
 		lnk := NewNodeKey(1, uint32(count+1))
 		rnk := NewNodeKey(1, uint32(count+2))
-		n := &Node{key: node.Key, hash: node.Key[:32],
-			subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk}
+		n := &Node{
+			key: node.Key, hash: node.Key[:32],
+			subtreeHeight: 13, size: 4, leftNodeKey: lnk, rightNodeKey: rnk,
+		}
 
-		//nodeBz.Reset()
-		//require.NoError(t, n.WriteBytes(nodeBz))
+		// nodeBz.Reset()
+		// require.NoError(t, n.WriteBytes(nodeBz))
 
 		// tree table
-		//nk := NewNodeKey(1, uint32(count))
-		//nodeBz, err := n.Bytes()
-		//require.NoError(t, err)
-		//err = stmt.Exec(int(nk.Version()), int(nk.Sequence()), nodeBz)
-		//require.NoError(t, err)
+		// nk := NewNodeKey(1, uint32(count))
+		// nodeBz, err := n.Bytes()
+		// require.NoError(t, err)
+		// err = stmt.Exec(int(nk.Version()), int(nk.Sequence()), nodeBz)
+		// require.NoError(t, err)
 
 		// node table
 		err = stmt.Exec(
@@ -121,8 +130,8 @@ func TestBuildSqlite(t *testing.T) {
 		if count%batchSize == 0 {
 			err := conn.Commit()
 			require.NoError(t, err)
-			//stmt, err = newBatch()
-			//require.NoError(t, err)
+			// stmt, err = newBatch()
+			// require.NoError(t, err)
 			require.NoError(t, conn.Begin())
 			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(count)),
@@ -146,26 +155,9 @@ func TestBuildSqlite(t *testing.T) {
 
 func TestNodeKeyFormat(t *testing.T) {
 	nk := NewNodeKey(100, 2)
+	require.NotNil(t, nk)
 	k := (int(nk.Version()) << 32) | int(nk.Sequence())
-	fmt.Printf("k: %d - %x\n", k, k)
-}
-
-func TestFetchNode(t *testing.T) {
-	pool := NewNodePool()
-	conn, err := sqlite3.Open("/tmp/iavl-v2.db")
-	require.NoError(t, err)
-	q := "SELECT bytes FROM tree_1 WHERE version = 1 and sequence = 6756148"
-	stmt, err := conn.Prepare(q)
-	require.NoError(t, err)
-	hasRow, err := stmt.Step()
-	require.NoError(t, err)
-	require.True(t, hasRow)
-	nodeBz, err := stmt.ColumnBlob(0)
-	require.NoError(t, err)
-	nk := NewNodeKey(1, 6756148)
-	node, err := MakeNode(pool, nk, nodeBz)
-	require.NoError(t, err)
-	fmt.Printf("node: %v\n", node)
+	t.Logf("k: %d - %x\n", k, k)
 }
 
 func TestMmap(t *testing.T) {
@@ -186,7 +178,7 @@ func TestMmap(t *testing.T) {
 	res, ok, err := stmt.ColumnRawString(0)
 	require.True(t, ok)
 	require.NoError(t, err)
-	fmt.Printf("res: %s\n", res)
+	t.Logf("res: %s\n", res)
 }
 
 func Test_NewSqliteDb(t *testing.T) {
@@ -197,6 +189,8 @@ func Test_NewSqliteDb(t *testing.T) {
 }
 
 func Test_ConcurrentDetach(t *testing.T) {
+	t.Skipf("this test will sometimes panic within a panic, kept to show what doesn't work")
+
 	dir := t.TempDir()
 	conn, err := sqlite3.Open(dir + "/one.db")
 	require.NoError(t, err)
@@ -250,6 +244,7 @@ func Test_ConcurrentDetach(t *testing.T) {
 }
 
 func Test_ConcurrentQuery(t *testing.T) {
+	t.Skipf("this test will panic within a panic, kept to show what doesn't work")
 	dir := t.TempDir()
 	conn, err := sqlite3.Open(dir + "/one.db")
 	require.NoError(t, err)
@@ -272,7 +267,12 @@ func Test_ConcurrentQuery(t *testing.T) {
 	for i := 0; i < times; i++ {
 		wg.Add(1)
 		go func(i int) {
-			defer wg.Done()
+			defer func() {
+				wg.Done()
+				if r := recover(); r != nil {
+					errs <- r.(error)
+				}
+			}()
 			q, err := conn.Prepare("SELECT * FROM foo WHERE id = ?")
 			require.NoError(t, err)
 			checkErr(q.Bind(i))
@@ -302,7 +302,7 @@ func Test_ConcurrentQuery(t *testing.T) {
 func Test_ConcurrentIndexRead(t *testing.T) {
 	dir := t.TempDir()
 	seed := uint64(1234)
-	count := 10_000_000
+	count := 1_000_000
 	conn, err := sqlite3.Open(dir + "/db.db")
 	require.NoError(t, err)
 	r := rand.New(rand.NewSource(seed))

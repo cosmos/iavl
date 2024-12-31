@@ -56,7 +56,7 @@ func emitCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "emit",
 		Short: "emit generated changesets to disk",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, _ []string) error {
 			itr, err := getChangesetIterator(typ)
 			if err != nil {
 				return err
@@ -77,7 +77,7 @@ func emitCommand() *cobra.Command {
 				if err != nil {
 					log.Fatal().Err(err).Msg("failed to compact")
 				}
-				log.Info().Msgf(stats.Report())
+				log.Info().Msg(stats.Report())
 				wg.Done()
 			}()
 
@@ -148,7 +148,7 @@ func treeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree",
 		Short: "build and save a Tree to disk, taking generated changesets as input",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			multiTree := iavl.NewMultiTree(dbPath, iavl.TreeOptions{StateStorage: true})
 			defer func(mt *iavl.MultiTree) {
 				err := mt.Close()
@@ -232,3 +232,5 @@ func treeCommand() *cobra.Command {
 	cmd.Flags().Int64Var(&limit, "limit", -1, "the version (inclusive) to halt generation at. -1 means no limit")
 	return cmd
 }
+
+// pre-requisites this command

@@ -5,14 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"sync/atomic"
+	"testing"
+	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
+	"github.com/cosmos/iavl/v2/testutil"
+	"github.com/dustin/go-humanize"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 )
 
 // MultiTree encapsulates multiple IAVL trees, each with its own "store key" in the context of the Cosmos SDK.
-// Within IAVL v2 is only used to test the IAVL v2 implementation, and for import/export of IAVL v2 state.
+// cosmossdk.io/store/v2 has a similar construct so this is a stand-in for that for testing and benchmarking.
 type MultiTree struct {
 	Trees map[string]*Tree
 
@@ -233,7 +239,7 @@ func (mt *MultiTree) SnapshotConcurrently() error {
 // it used in testing. App chains should use the store hashing code referenced above instead.
 func (mt *MultiTree) Hash() []byte {
 	var (
-		storeKeys []string
+		storeKeys = make([]string, 0, len(mt.Trees))
 		hashes    []byte
 	)
 	for k := range mt.Trees {
@@ -297,4 +303,135 @@ func (mt *MultiTree) SetInitialVersion(version int64) error {
 		}
 	}
 	return nil
+}
+
+func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) int64 {
+	var (
+		version  int64
+		err      error
+		cnt      = int64(1)
+		memUsage = func() string {
+			var m runtime.MemStats
+			runtime.ReadMemStats(&m)
+			// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+			s := fmt.Sprintf("alloc=%s sys=%s gc=%d",
+				humanize.Bytes(m.HeapAlloc),
+				humanize.Bytes(m.Sys),
+				m.NumGC)
+			return s
+		}
+	)
+
+	// generator
+	itr := opts.Iterator
+	fmt.Printf("Initial memory usage from generators:\n%s\n", memUsage())
+
+	sampleRate := int64(100_000)
+	if opts.SampleRate != 0 {
+		sampleRate = opts.SampleRate
+	}
+
+	since := time.Now()
+	itrStart := time.Now()
+
+	report := func() {
+		dur := time.Since(since)
+
+		var (
+			workingBytes uint64
+			workingSize  int64
+			writeLeaves  int64
+			writeTime    time.Duration
+			hashCount    int64
+		)
+		for _, tr := range mt.Trees {
+			m := tr.sql.metrics
+			workingBytes += tr.workingBytes
+			workingSize += tr.workingSize
+			writeLeaves += m.WriteLeaves
+			writeTime += m.WriteTime
+			hashCount += tr.metrics.TreeHash
+			m.WriteDurations = nil
+			m.WriteLeaves = 0
+			m.WriteTime = 0
+			tr.metrics.TreeHash = 0
+		}
+		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-size=%s work-bytes=%s %s\n",
+			humanize.Comma(cnt),
+			dur.Round(time.Millisecond),
+			humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
+			humanize.Comma(int64(float64(cnt)/time.Since(itrStart).Seconds())),
+			version,
+			humanize.Comma(workingSize),
+			humanize.Bytes(workingBytes),
+			memUsage())
+
+		if writeTime > 0 {
+			fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s hashes=%s\n",
+				humanize.Comma(writeLeaves),
+				humanize.Comma(int64(float64(writeLeaves)/writeTime.Seconds())),
+				time.Duration(int64(writeTime)/writeLeaves),
+				writeTime.Round(time.Millisecond),
+				humanize.Comma(hashCount),
+			)
+		}
+
+		if err := mt.QueryReport(0); err != nil {
+			t.Fatalf("query report err %v", err)
+		}
+
+		fmt.Println()
+
+		since = time.Now()
+	}
+
+	for ; itr.Valid(); err = itr.Next() {
+		require.NoError(t, err)
+		changeset := itr.Nodes()
+		for ; changeset.Valid(); err = changeset.Next() {
+			cnt++
+			require.NoError(t, err)
+			node := changeset.GetNode()
+			key := node.Key
+
+			tree, ok := mt.Trees[node.StoreKey]
+			if !ok {
+				require.NoError(t, mt.MountTree(node.StoreKey))
+				tree = mt.Trees[node.StoreKey]
+			}
+
+			if !node.Delete {
+				_, err = tree.set(key, node.Value, tree.sql.hotConnectionFactory)
+				require.NoError(t, err)
+			} else {
+				_, _, err := tree.remove(key, tree.sql.hotConnectionFactory)
+				require.NoError(t, err)
+			}
+
+			if cnt%sampleRate == 0 {
+				report()
+			}
+		}
+
+		_, version, err = mt.SaveVersionConcurrently()
+		require.NoError(t, err)
+		if version%1000 == 0 {
+			fmt.Printf("version: %d, hash: %x\n", version, mt.Hash())
+		}
+
+		require.NoError(t, err)
+		if version == opts.Until {
+			break
+		}
+	}
+	fmt.Printf("final version: %d, hash: %x\n", version, mt.Hash())
+	for sk, tree := range mt.Trees {
+		fmt.Printf("storekey: %s height: %d, size: %d\n", sk, tree.Height(), tree.Size())
+	}
+	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
+	require.Equal(t, version, opts.Until)
+	if opts.UntilHash != "" {
+		require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", mt.Hash()))
+	}
+	return cnt
 }

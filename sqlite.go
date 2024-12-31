@@ -179,12 +179,8 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		return nil, err
 	}
 
-	// TODO: initial orphan counts
-
 	return sql, nil
 }
-
-// connection management
 
 func (sql *SqliteDb) rootConnection() (*sqlite3.Conn, error) {
 	return sqlite3.Open(sql.opts.rootConnectString())
@@ -244,7 +240,6 @@ func (sql *SqliteDb) ensureRootDb() (topErr error) {
 		return nil
 	}
 	pageSize := os.Getpagesize()
-	// log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
 	err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 	if err != nil {
 		return err
@@ -797,67 +792,7 @@ func (sql *SqliteDb) WarmLeaves() error {
 }
 
 func (sql *SqliteDb) Revert(version int) error {
-	panic("implement me")
-	/*
-		if err := sql.leafWrite.Exec("DELETE FROM leaf WHERE version > ?", version); err != nil {
-			return err
-		}
-		if err := sql.leafWrite.Exec("DELETE FROM leaf_delete WHERE version > ?", version); err != nil {
-			return err
-		}
-		if err := sql.leafWrite.Exec("DELETE FROM leaf_orphan WHERE at > ?", version); err != nil {
-			return err
-		}
-		if err := sql.treeWrite.Exec("DELETE FROM root WHERE version > ?", version); err != nil {
-			return err
-		}
-		if err := sql.treeWrite.Exec("DELETE FROM orphan WHERE at > ?", version); err != nil {
-			return err
-		}
-
-		hasShards, err := sql.isSharded()
-		if err != nil {
-			return err
-		}
-		if hasShards {
-			q, err := sql.treeWrite.Prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'tree_%'")
-			if err != nil {
-				return err
-			}
-			var shards []string
-			for {
-				hasRow, err := q.Step()
-				if err != nil {
-					return err
-				}
-				if !hasRow {
-					break
-				}
-				var shard string
-				err = q.Scan(&shard)
-				if err != nil {
-					return err
-				}
-				shardVersion, err := strconv.Atoi(shard[5:])
-				if err != nil {
-					return err
-				}
-				if shardVersion > version {
-					shards = append(shards, shard)
-				}
-			}
-			if err = q.Close(); err != nil {
-				return err
-			}
-			for _, shard := range shards {
-				if err = sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", shard)); err != nil {
-					return err
-				}
-			}
-		} else {
-		}
-		return nil
-	*/
+	panic("SqliteDb.Revert not implemented")
 }
 
 func (sql *SqliteDb) GetLatestLeaf(key []byte) (val []byte, topErr error) {

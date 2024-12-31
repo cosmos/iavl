@@ -38,12 +38,6 @@ func newReadConnectionFactory(sql *SqliteDb) connectionFactory {
 }
 
 func (f *readConnectionFactory) make(version int64) (*sqliteConnection, error) {
-	// TODO: shard locking?
-	// this code path is used from public Get APIs, therefore it probably needs locking on shards
-	// to coordinate with pruning re-orgs.
-	// OTOH, since pointer writes (*VersionRange) are atomic, and the shardID is immutable, it might be safe to
-	// delay the deletion of a shard until all readers have finished with it; exponential back off on conncection close followed
-	// by shard deletion might be sufficient.
 	shardID := f.sql.shards.FindMemoized(version)
 	if shardID == -1 {
 		return nil, fmt.Errorf("shard not found version=%d shards=%v", version, f.sql.shards.versions)

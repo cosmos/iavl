@@ -53,5 +53,4 @@ func (np *NodePool) syncPut(node *Node) {
 	np.syncPool.Put(node)
 }
 
-func (np *NodePool) Put(_ *Node) {
-}
+func (np *NodePool) Put(_ *Node) {}

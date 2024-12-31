@@ -210,7 +210,6 @@ func Test_Iterator(t *testing.T) {
 				if cnt == 0 {
 					require.Equal(t, tc.expectedStart, itr.Key())
 				}
-				//fmt.Printf("%s %s\n", itr.Key(), itr.Value())
 				require.NoError(t, itr.Error())
 				cnt++
 			}
@@ -306,5 +305,4 @@ func Test_IteratorTree(t *testing.T) {
 			require.NoError(t, itr.Close())
 		})
 	}
-
 }

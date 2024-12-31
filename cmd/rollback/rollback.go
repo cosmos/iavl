@@ -23,7 +23,7 @@ func Command() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rollback",
 		Short: "Rollback IAVL to a previous version",
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, _ []string) error {
 			dbPaths, err := iavl.FindDbsInPath(path)
 			if err != nil {
 				return err

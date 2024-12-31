@@ -62,11 +62,8 @@ func NewTreeBuildOptions() *TreeBuildOptions {
 	var seed int64 = 1234
 	var versions int64 = 10_000_000
 	bankGen := bench.BankLikeGenerator(seed, versions)
-	//bankGen.InitialSize = 10_000
 	lockupGen := bench.LockupLikeGenerator(seed, versions)
-	//lockupGen.InitialSize = 10_000
 	stakingGen := bench.StakingLikeGenerator(seed, versions)
-	//stakingGen.InitialSize = 10_000
 	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{
 		bankGen,
 		lockupGen,
@@ -101,7 +98,7 @@ func BankLockup25_000() TreeBuildOptions {
 	return opts
 }
 
-func BigTreeOptions_100_000() *TreeBuildOptions {
+func BigTreeOptions100_000() *TreeBuildOptions {
 	var seed int64 = 1234
 	var versions int64 = 200_000
 	bankGen := bench.BankLikeGenerator(seed, versions)
@@ -163,10 +160,6 @@ func OsmoLike() *TreeBuildOptions {
 	bankGen2 := bench.BankLikeGenerator(seed+1, versions)
 	bankGen2.InitialSize = initialSize
 	bankGen2.FinalSize = finalSize
-	//lockupGen := bench.LockupLikeGenerator(seed, versions)
-	//lockupGen.InitialSize = initialSize
-	//stakingGen := bench.StakingLikeGenerator(seed, versions)
-	//stakingGen.InitialSize = initialSize
 
 	itr, err := bench.NewChangesetIterators([]bench.ChangesetGenerator{
 		bankGen,
@@ -177,12 +170,9 @@ func OsmoLike() *TreeBuildOptions {
 	}
 
 	opts := &TreeBuildOptions{
-		Iterator: itr,
-		Until:    10_000,
-		// hash for 10k WITHOUT a store key prefix on the key
+		Iterator:  itr,
+		Until:     10_000,
 		UntilHash: "e996df6099bc4b6e8a723dc551af4fa7cfab50e3a182ab1e21f5e90e5e7124cd", // 10000
-		// hash for 10k WITH store key prefix on key
-		//UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // OsmoLike, 10000
 	}
 
 	return opts
@@ -450,11 +440,8 @@ func CompactedChangelogs(logDir string) *TreeBuildOptions {
 		panic(err)
 	}
 	return &TreeBuildOptions{
-		Iterator: itr,
-		Until:    10_000,
-		// hash for 10k WITHOUT a store key prefix on the key
-		UntilHash: "e996df6099bc4b6e8a723dc551af4fa7cfab50e3a182ab1e21f5e90e5e7124cd", // 10000
-		// hash for 10k WITH store key prefix on key
-		//UntilHash: "3b43ef49895a7c483ef4b9a84a1f0ddbe7615c9a65bc533f69bc6bf3eb1b3d6c", // OsmoLike, 10000
+		Iterator:  itr,
+		Until:     10_000,
+		UntilHash: "e996df6099bc4b6e8a723dc551af4fa7cfab50e3a182ab1e21f5e90e5e7124cd",
 	}
 }

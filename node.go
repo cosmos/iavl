@@ -21,7 +21,14 @@ const hashSize = 32
 type NodeKey [12]byte
 
 func (nk NodeKey) Version() int64 {
-	return int64(binary.BigEndian.Uint64(nk[:]))
+	return int64(nk[7]) |
+		int64(nk[6])<<8 |
+		int64(nk[5])<<16 |
+		int64(nk[4])<<24 |
+		int64(nk[3])<<32 |
+		int64(nk[2])<<40 |
+		int64(nk[1])<<48 |
+		int64(nk[0])<<56
 }
 
 func (nk NodeKey) Sequence() uint32 {
@@ -30,7 +37,14 @@ func (nk NodeKey) Sequence() uint32 {
 
 func NewNodeKey(version int64, sequence uint32) NodeKey {
 	var nk NodeKey
-	binary.BigEndian.PutUint64(nk[:], uint64(version))
+	nk[0] = byte(version >> 56)
+	nk[1] = byte(version >> 48)
+	nk[2] = byte(version >> 40)
+	nk[3] = byte(version >> 32)
+	nk[4] = byte(version >> 24)
+	nk[5] = byte(version >> 16)
+	nk[6] = byte(version >> 8)
+	nk[7] = byte(version)
 	binary.BigEndian.PutUint32(nk[8:], sequence)
 	return nk
 }
@@ -341,20 +355,19 @@ var (
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
+func (node *Node) _hash() {
 	if node.hash != nil {
-		return node.hash
+		return
 	}
 
 	h := hashPool.Get().(hash.Hash)
 	if err := node.writeHashBytes(h); err != nil {
-		return nil
+		// should never happen
+		panic(fmt.Errorf("failed to write hash bytes: %w", err))
 	}
 	node.hash = h.Sum(nil)
 	h.Reset()
 	hashPool.Put(h)
-
-	return node.hash
 }
 
 func (node *Node) writeHashBytes(w io.Writer) error {
@@ -537,7 +550,7 @@ func (node *Node) Bytes() ([]byte, error) {
 var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize
 
 func (node *Node) varSize() uint64 {
-	return uint64(len(node.key) + len(node.value))
+	return uint64(len(node.key)) + uint64(len(node.value))
 }
 
 func (node *Node) sizeBytes() uint64 {
@@ -550,18 +563,6 @@ func (node *Node) GetHash() []byte {
 
 func (node *Node) clone(tree *Tree) *Node {
 	n := tree.pool.Get()
-	//return &Node{
-	//	nodeKey:       tree.nextNodeKey(),
-	//	key:           node.key,
-	//	value:         node.value,
-	//	hash:          nil,
-	//	leftNodeKey:   node.leftNodeKey,
-	//	rightNodeKey:  node.rightNodeKey,
-	//	leftNode:      node.leftNode,
-	//	rightNode:     node.rightNode,
-	//	size:          node.size,
-	//	subtreeHeight: node.subtreeHeight,
-	//}
 	if node.isLeaf() {
 		n.nodeKey = tree.nextLeafNodeKey()
 	} else {
