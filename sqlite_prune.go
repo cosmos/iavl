@@ -296,13 +296,11 @@ func (sql *SqliteDb) checkPruning() error {
 		var dropped []int64
 		for _, v := range sql.shards.versions {
 			if v > res.pruneTo {
-				fmt.Printf("adding shard %d %s\n", v, sql.opts.shortPath())
 				err := newShards.Add(v)
 				if err != nil {
 					return err
 				}
 			} else {
-				fmt.Printf("freeing shard %d %s\n", v, sql.opts.shortPath())
 				// Delete shard:
 				if err := newFactory.removeShard(v); err != nil {
 					return fmt.Errorf("failed to remove shard %d path=%s: %w", v, sql.opts.shortPath(), err)
