@@ -83,14 +83,32 @@ type Tree struct {
 }
 
 type TreeOptions struct {
-	CheckpointInterval  int64
-	CheckpointMemory    uint64
-	StateStorage        bool
-	HeightFilter        int8
-	EvictionDepth       int8
-	MetricsProxy        metrics.Proxy
-	PruneRatio          float64
+	// CheckpointInterval is the number of versions between each checkpoint.
+	// In general, a higher value trades performance for longer replay times and space efficiency.
+	CheckpointInterval int64
+
+	// StateStorage is a boolean flag that determines whether to store the leaf values in the tree.
+	// Default true.
+	StateStorage bool
+
+	// When greater than 0, the tree will evict leaf nodes from memory at each SaveVersion call.
+	// When less than 0, the tree will never evict leaf nodes from memory, trading memory for performance.
+	HeightFilter int8
+
+	// EvictionDepth defines the depth of the tree at which eviction will occur on checkpoints.
+	EvictionDepth int8
+
+	// MetricsProxy is a metrics.Proxy that will be used to measure the performance of the tree.
+	MetricsProxy metrics.Proxy
+
+	// PruneRatio is the ratio of orphaned nodes to total nodes at which pruning will occur.
+	// Default 1.
+	PruneRatio float64
+
+	// MinimumKeepVersions is the minimum number of versions to keep in the tree.
 	MinimumKeepVersions int64
+
+	checkpointMemory uint64
 }
 
 func DefaultTreeOptions() TreeOptions {
@@ -99,7 +117,7 @@ func DefaultTreeOptions() TreeOptions {
 		StateStorage:        true,
 		HeightFilter:        1,
 		EvictionDepth:       -1,
-		PruneRatio:          2,
+		PruneRatio:          1,
 		MinimumKeepVersions: 100,
 	}
 }
@@ -112,7 +130,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		metrics:             &metrics.TreeMetrics{},
 		maxWorkingSize:      1.5 * 1024 * 1024 * 1024,
 		checkpointInterval:  opts.CheckpointInterval,
-		checkpointMemory:    opts.CheckpointMemory,
+		checkpointMemory:    opts.checkpointMemory,
 		storeLeafValues:     opts.StateStorage,
 		minimumKeepVersions: opts.MinimumKeepVersions,
 		pruneRatio:          opts.PruneRatio,
