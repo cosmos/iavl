@@ -87,6 +87,8 @@ type Options struct {
 
 	// AsyncPruning is a flag to enable async pruning
 	AsyncPruning bool
+
+	initialVersionSet bool
 }
 
 // DefaultOptions returns the default options for IAVL.
@@ -105,6 +107,7 @@ func SyncOption(sync bool) Option {
 func InitialVersionOption(iv uint64) Option {
 	return func(opts *Options) {
 		opts.InitialVersion = iv
+		opts.initialVersionSet = true
 	}
 }
 

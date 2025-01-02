@@ -283,7 +283,7 @@ func assertEmptyDatabase(t *testing.T, tree *MutableTree) {
 
 	storageVersionValue, err := tree.ndb.db.Get([]byte(firstKey))
 	require.NoError(t, err)
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, fastStorageVersionValue+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), string(storageVersionValue))
 
@@ -347,7 +347,7 @@ func assertMirror(t *testing.T, tree *MutableTree, mirror map[string]string, ver
 
 // Checks that fast node cache matches live state.
 func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	if latestVersion != version {
 		// The fast node cache check should only be done to the latest version
@@ -364,7 +364,7 @@ func assertFastNodeCacheIsLive(t *testing.T, tree *MutableTree, mirror map[strin
 
 // Checks that fast nodes on disk match live state.
 func assertFastNodeDiskIsLive(t *testing.T, tree *MutableTree, mirror map[string]string, version int64) {
-	latestVersion, err := tree.ndb.getLatestVersion()
+	_, latestVersion, err := tree.ndb.getLatestVersion()
 	require.NoError(t, err)
 	if latestVersion != version {
 		// The fast node disk check should only be done to the latest version

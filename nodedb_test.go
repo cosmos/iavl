@@ -87,7 +87,7 @@ func TestSetStorageVersion_Success(t *testing.T) {
 	ndb := newNodeDB(db, 0, DefaultOptions(), NewNopLogger())
 	require.Equal(t, defaultStorageVersionValue, ndb.getStorageVersion())
 
-	latestVersion, err := ndb.getLatestVersion()
+	_, latestVersion, err := ndb.getLatestVersion()
 	require.NoError(t, err)
 
 	err = ndb.SetFastStorageVersionToBatch(latestVersion)
@@ -278,7 +278,7 @@ func TestTraverseNodes(t *testing.T) {
 			return err
 		}
 		if actualNode.String() != node.String() {
-			return fmt.Errorf("found unexpected node")
+			return errors.New("found unexpected node")
 		}
 		count++
 		return nil
@@ -404,7 +404,7 @@ func TestDeleteVersionsFromNoDeadlock(t *testing.T) {
 	err := ndb.SetFastStorageVersionToBatch(ndb.latestVersion)
 	require.NoError(t, err)
 
-	latestVersion, err := ndb.getLatestVersion()
+	_, latestVersion, err := ndb.getLatestVersion()
 	require.NoError(t, err)
 	require.Equal(t, expectedVersion+fastStorageVersionDelimiter+strconv.Itoa(int(latestVersion)), ndb.getStorageVersion())
 	require.NoError(t, ndb.batch.Write())
@@ -444,4 +444,5 @@ func TestCloseNodeDB(t *testing.T) {
 	opts.AsyncPruning = true
 	ndb := newNodeDB(db, 0, opts, NewNopLogger())
 	require.NoError(t, ndb.Close())
+	require.NoError(t, ndb.Close()) // must not block or fail on second call
 }

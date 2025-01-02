@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Bug Fixes
+
+- [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+
 ### Improvements
 
 - [#952](https://github.com/cosmos/iavl/pull/952) Add `DeleteVersionsFrom(int64)` API.
@@ -10,6 +14,7 @@
 - [#965](https://github.com/cosmos/iavl/pull/965) Use expected interface for expected IAVL `Logger`.
 - [#970](https://github.com/cosmos/iavl/pull/970) Close the pruning process when the nodeDB is closed.
 - [#980](https://github.com/cosmos/iavl/pull/980) Use the `sdk/core/store.KVStoreWithBatch` interface instead of `iavl/db.DB` interface
+- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
 
 ## v1.2.0 May 13, 2024
 
