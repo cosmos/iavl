@@ -60,7 +60,7 @@ func TestIterateConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-// TestConcurrency throws "fatal error: concurrent map iteration and map write" and
+// TestIteratorConcurrency throws "fatal error: concurrent map iteration and map write" and
 // also sometimes "fatal error: concurrent map writes" when fast node is enabled
 func TestIteratorConcurrency(t *testing.T) {
 	if testing.Short() {
@@ -1480,6 +1480,30 @@ func TestMutableTreeClose(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, tree.Close())
+}
+
+func TestReferenceRootPruning(t *testing.T) {
+	memDB := dbm.NewMemDB()
+	tree := NewMutableTree(memDB, 0, true, NewNopLogger())
+
+	_, err := tree.Set([]byte("foo"), []byte("bar"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("foo1"), []byte("bar"))
+	require.NoError(t, err)
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	err = tree.DeleteVersionsTo(1)
+	require.NoError(t, err)
+
+	_, err = tree.Set([]byte("foo"), []byte("bar*"))
+	require.NoError(t, err)
 }
 
 func TestMutableTree_InitialVersionZero(t *testing.T) {

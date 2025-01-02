@@ -1,6 +1,8 @@
 package iavl
 
-import "fmt"
+import (
+	"errors"
+)
 
 // TraverseOrderType is the type of the order in which the tree is traversed.
 type TraverseOrderType uint8
@@ -98,4 +100,4 @@ func (e *Exporter) Next() (*SnapshotNode, error) {
 	}
 }
 
-var ErrorExportDone = fmt.Errorf("export done")
+var ErrorExportDone = errors.New("export done")

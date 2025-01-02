@@ -278,7 +278,7 @@ func TestTraverseNodes(t *testing.T) {
 			return err
 		}
 		if actualNode.String() != node.String() {
-			return fmt.Errorf("found unexpected node")
+			return errors.New("found unexpected node")
 		}
 		count++
 		return nil
@@ -444,4 +444,5 @@ func TestCloseNodeDB(t *testing.T) {
 	opts.AsyncPruning = true
 	ndb := newNodeDB(db, 0, opts, NewNopLogger())
 	require.NoError(t, ndb.Close())
+	require.NoError(t, ndb.Close()) // must not block or fail on second call
 }

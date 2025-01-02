@@ -102,7 +102,7 @@ func (node *Node) right(t *Tree) *Node {
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
 func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
-		return nil, fmt.Errorf("leaf node has no left node")
+		return nil, errors.New("leaf node has no left node")
 	}
 	if node.leftNode != nil {
 		return node.leftNode, nil
@@ -117,7 +117,7 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 
 func (node *Node) getRightNode(t *Tree) (*Node, error) {
 	if node.isLeaf() {
-		return nil, fmt.Errorf("leaf node has no right node")
+		return nil, errors.New("leaf node has no right node")
 	}
 	if node.rightNode != nil {
 		return node.rightNode, nil
@@ -158,7 +158,7 @@ func maxInt8(a, b int8) int8 {
 // TODO: optimize balance & rotate
 func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 	if node.hash != nil {
-		return nil, fmt.Errorf("unexpected balance() call on persisted node")
+		return nil, errors.New("unexpected balance() call on persisted node")
 	}
 	balance, err := node.calcBalance(tree)
 	if err != nil {

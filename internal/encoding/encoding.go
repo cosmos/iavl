@@ -113,7 +113,7 @@ func Encode32BytesHash(w io.Writer, bz []byte) error {
 	return err
 }
 
-// encodeBytesSlice length-prefixes the byte slice and returns it.
+// EncodeBytesSlice length-prefixes the byte slice and returns it.
 func EncodeBytesSlice(bz []byte) ([]byte, error) {
 	buf := bufPool.Get().(*bytes.Buffer)
 	buf.Reset()
@@ -127,7 +127,7 @@ func EncodeBytesSlice(bz []byte) ([]byte, error) {
 	return bytesCopy, err
 }
 
-// encodeBytesSize returns the byte size of the given slice including length-prefixing.
+// EncodeBytesSize returns the byte size of the given slice including length-prefixing.
 func EncodeBytesSize(bz []byte) int {
 	return EncodeUvarintSize(uint64(len(bz))) + len(bz)
 }

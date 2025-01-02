@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -99,7 +100,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 		return 0, err
 	}
 	if !hasRow {
-		return 0, fmt.Errorf("no row")
+		return 0, errors.New("no row")
 	}
 	var leafSize int64
 	err = q.Scan(&leafSize)

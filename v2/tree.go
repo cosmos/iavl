@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	"time"
@@ -102,7 +103,7 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 
 func (tree *Tree) LoadVersion(version int64) (err error) {
 	if tree.sql == nil {
-		return fmt.Errorf("sql is nil")
+		return errors.New("sql is nil")
 	}
 
 	tree.workingBytes = 0
