@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"github.com/cosmos/iavl/v2/metrics"
 	"os"
 	"sort"
 	"testing"
@@ -34,6 +35,7 @@ func TestTree_Hash(t *testing.T) {
 	treeOpts := TreeOptions{
 		CheckpointInterval: 10, HeightFilter: 1, StateStorage: true, EvictionDepth: 8,
 		PruneRatio: 0.5, MinimumKeepVersions: 20,
+		MetricsProxy: metrics.NewStructMetrics(),
 	}
 
 	testStart := time.Now()

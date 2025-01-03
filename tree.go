@@ -14,6 +14,8 @@ import (
 	zlog "github.com/rs/zerolog/log"
 )
 
+const metricsNamespace = "iavl_v2"
+
 var (
 	log = zlog.Output(zerolog.ConsoleWriter{
 		Out:        os.Stderr,
@@ -45,7 +47,6 @@ type Tree struct {
 	root         *Node
 	stagedRoot   *Node
 
-	metrics          *metrics.TreeMetrics
 	sql              *SqliteDb
 	pool             *NodePool
 	checkpoints      *VersionRange
@@ -119,15 +120,18 @@ func DefaultTreeOptions() TreeOptions {
 		EvictionDepth:       -1,
 		PruneRatio:          1,
 		MinimumKeepVersions: 100,
+		MetricsProxy:        &metrics.NilMetrics{},
 	}
 }
 
 func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
+	if sql.metrics != nil {
+		opts.MetricsProxy = sql.metrics
+	}
 	tree := &Tree{
 		sql:                 sql,
 		pool:                pool,
 		checkpoints:         &VersionRange{},
-		metrics:             &metrics.TreeMetrics{},
 		maxWorkingSize:      1.5 * 1024 * 1024 * 1024,
 		checkpointInterval:  opts.CheckpointInterval,
 		checkpointMemory:    opts.checkpointMemory,
@@ -161,7 +165,6 @@ func (tree *Tree) ReadonlyClone() (*Tree, error) {
 		sql:                sql,
 		pool:               tree.pool,
 		checkpoints:        &VersionRange{},
-		metrics:            &metrics.TreeMetrics{},
 		maxWorkingSize:     tree.maxWorkingSize,
 		checkpointInterval: tree.checkpointInterval,
 		checkpointMemory:   tree.checkpointMemory,
@@ -297,10 +300,8 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 		return nil, tree.version, fmt.Errorf("postCheckpoint failed: %w", err)
 	}
 
-	dur := time.Since(saveStart)
-	tree.sql.metrics.WriteDurations = append(tree.sql.metrics.WriteDurations, dur)
-	tree.sql.metrics.WriteTime += dur
-	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
+	tree.metricsProxy.MeasureSince(saveStart, metricsNamespace, "db_write")
+	tree.metricsProxy.IncrCounter(float32(len(tree.leaves)), metricsNamespace, "db_write_leaf")
 
 	// now that nodes have been written to storage, we can evict flagged nodes from memory
 	if err := tree.evictNodes(); err != nil {
@@ -539,7 +540,7 @@ func (tree *Tree) GetRecent(version int64, key []byte) (bool, []byte, error) {
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
 	if tree.metricsProxy != nil {
-		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "get")
+		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "get")
 	}
 	var (
 		res []byte
@@ -597,7 +598,7 @@ func (tree *Tree) getByIndex(node *Node, index int64, cf connectionFactory) (key
 
 func (tree *Tree) Has(key []byte) (bool, error) {
 	if tree.metricsProxy != nil {
-		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "has")
+		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "has")
 	}
 	var (
 		err error
@@ -623,16 +624,16 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 // updated, while false means it was a new key.
 func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	if tree.metricsProxy != nil {
-		defer tree.metricsProxy.MeasureSince(time.Now(), "iavl_v2", "set")
+		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "set")
 	}
-	updated, err = tree.set(key, value, tree.connectionFactory())
+	updated, err = tree.set(key, value, tree.sql.hotConnectionFactory)
 	if err != nil {
 		return false, err
 	}
 	if updated {
-		tree.metrics.TreeUpdate++
+		tree.metricsProxy.IncrCounter(1, metricsNamespace, "tree_update")
 	} else {
-		tree.metrics.TreeNewNode++
+		tree.metricsProxy.IncrCounter(1, metricsNamespace, "tree_new_node")
 	}
 	return updated, nil
 }
@@ -660,7 +661,7 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1: // setKey < leafKey
-			tree.metrics.PoolGet += 2
+			tree.metricsProxy.IncrCounter(2, metricsNamespace, "pool_get")
 			parent := tree.pool.Get()
 			parent.nodeKey = tree.nextNodeKey()
 			parent.key = node.key
@@ -673,7 +674,7 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 			tree.workingSize++
 			return parent, false, nil
 		case 1: // setKey > leafKey
-			tree.metrics.PoolGet += 2
+			tree.metricsProxy.IncrCounter(2, metricsNamespace, "pool_get")
 			parent := tree.pool.Get()
 			parent.nodeKey = tree.nextNodeKey()
 			parent.key = key
@@ -746,7 +747,7 @@ func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.stagedRoot == nil {
 		return nil, false, nil
 	}
-	return tree.remove(key, tree.connectionFactory())
+	return tree.remove(key, tree.sql.hotConnectionFactory)
 }
 
 func (tree *Tree) remove(key []byte, cf connectionFactory) ([]byte, bool, error) {
@@ -760,7 +761,7 @@ func (tree *Tree) remove(key []byte, cf connectionFactory) ([]byte, bool, error)
 	if !removed {
 		return nil, false, nil
 	}
-	tree.metrics.TreeDelete++
+	tree.metricsProxy.IncrCounter(1, metricsNamespace, "tree_delete")
 	tree.stagedRoot = newRoot
 	return value, true, nil
 }

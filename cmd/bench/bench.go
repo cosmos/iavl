@@ -46,10 +46,11 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 		RunE: func(_ *cobra.Command, _ []string) error {
 			t := &testing.T{}
 			treeOpts := iavl.DefaultTreeOptions()
-			treeOpts.CheckpointInterval = 50
+			treeOpts.CheckpointInterval = 80
 			treeOpts.StateStorage = true
 			treeOpts.HeightFilter = 1
 			treeOpts.EvictionDepth = 22
+			treeOpts.MetricsProxy = metrics.NewStructMetrics()
 			if usePrometheus {
 				treeOpts.MetricsProxy = newPrometheusMetricsProxy()
 			}

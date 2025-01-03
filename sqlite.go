@@ -27,6 +27,7 @@ type SqliteDbOptions struct {
 	ConnArgs   string
 	ShardTrees bool
 	Readonly   bool
+	Metrics    metrics.Proxy
 
 	walPages int
 }
@@ -50,7 +51,7 @@ type SqliteDb struct {
 
 	shards *VersionRange
 
-	metrics *metrics.DbMetrics
+	metrics metrics.Proxy
 	logger  zerolog.Logger
 
 	pruning bool
@@ -66,6 +67,9 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	}
 	if opts.WalSize == 0 {
 		opts.WalSize = 1024 * 1024 * 250
+	}
+	if opts.Metrics == nil {
+		opts.Metrics = metrics.NilMetrics{}
 	}
 	opts.walPages = opts.WalSize / os.Getpagesize()
 	return opts
@@ -166,8 +170,8 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 		hotConnectionFactory: newHotConnectionFactory(hubConn, opts),
 		iterators:            make(map[int]*sqlite3.Stmt),
 		opts:                 opts,
+		metrics:              opts.Metrics,
 		pool:                 pool,
-		metrics:              &metrics.DbMetrics{},
 		logger:               logger,
 		pruneCh:              make(chan *pruneResult),
 	}
@@ -501,6 +505,10 @@ func (sql *SqliteDb) Close() error {
 
 func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
+	defer func() {
+		sql.metrics.MeasureSince(start, metricsNamespace, "db_get")
+		sql.metrics.IncrCounter(1, metricsNamespace, "db_get_leaf")
+	}()
 	shard := sql.shards.FindShard(nodeKey.Version())
 	conn, err := cf.make(shard)
 	if err != nil {
@@ -533,17 +541,17 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node,
 		return nil, err
 	}
 
-	dur := time.Since(start)
-	sql.metrics.QueryDurations = append(sql.metrics.QueryDurations, dur)
-	sql.metrics.QueryTime += dur
-	sql.metrics.QueryCount++
-	sql.metrics.QueryLeafCount++
-
 	return node, nil
 }
 
 func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
+	defer func() {
+		defer func() {
+			sql.metrics.MeasureSince(start, metricsNamespace, "db_get")
+			sql.metrics.IncrCounter(1, metricsNamespace, "db_get_branch")
+		}()
+	}()
 	shard := sql.shards.FindShard(nodeKey.Version())
 	if cf == nil {
 		return nil, fmt.Errorf("connection factory is nil")
@@ -584,12 +592,6 @@ func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Nod
 		return nil, err
 	}
 
-	dur := time.Since(start)
-	sql.metrics.QueryDurations = append(sql.metrics.QueryDurations, dur)
-	sql.metrics.QueryTime += dur
-	sql.metrics.QueryCount++
-	sql.metrics.QueryBranchCount++
-
 	return node, nil
 }
 
@@ -607,7 +609,7 @@ func (sql *SqliteDb) getRightNode(node *Node, cf connectionFactory) (*Node, erro
 		if node.rightNode != nil {
 			return node.rightNode, nil
 		}
-		sql.metrics.QueryLeafMiss++
+		sql.metrics.IncrCounter(1, metricsNamespace, "leaf_miss")
 	}
 
 	node.rightNode, err = sql.getBranch(node.rightNodeKey, cf)
@@ -628,7 +630,7 @@ func (sql *SqliteDb) getLeftNode(node *Node, cf connectionFactory) (*Node, error
 		if node.leftNode != nil {
 			return node.leftNode, nil
 		}
-		sql.metrics.QueryLeafMiss++
+		sql.metrics.IncrCounter(1, metricsNamespace, "leaf_miss")
 	}
 
 	node.leftNode, err = sql.getBranch(node.leftNodeKey, cf)

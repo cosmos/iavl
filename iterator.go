@@ -70,7 +70,7 @@ func (i *TreeIterator) Valid() bool {
 
 func (i *TreeIterator) Next() {
 	if i.metrics != nil {
-		defer i.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
+		defer i.metrics.MeasureSince(time.Now(), metricsNamespace, "iterator", "next")
 	}
 	if !i.valid {
 		return
@@ -251,7 +251,7 @@ func (l *LeafIterator) Valid() bool {
 
 func (l *LeafIterator) Next() {
 	if l.metrics != nil {
-		defer l.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
+		defer l.metrics.MeasureSince(time.Now(), metricsNamespace, "iterator", "next")
 	}
 	if !l.valid {
 		return
@@ -296,7 +296,7 @@ func (l *LeafIterator) Error() error {
 func (l *LeafIterator) Close() error {
 	if l.valid {
 		if l.metrics != nil {
-			l.metrics.IncrCounter(1, "iavl_v2", "iterator", "close")
+			l.metrics.IncrCounter(1, metricsNamespace, "iterator", "close")
 		}
 		l.valid = false
 		delete(l.sql.iterators, l.itrIdx)
@@ -336,7 +336,7 @@ func (tree *Tree) Iterator(start, end []byte, inclusive bool) (itr Iterator, err
 	}
 
 	if tree.metricsProxy != nil {
-		tree.metricsProxy.IncrCounter(1, "iavl_v2", "iterator", "open")
+		tree.metricsProxy.IncrCounter(1, metricsNamespace, "iterator", "open")
 	}
 	itr.Next()
 	return itr, err
@@ -372,7 +372,7 @@ func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
 		}
 	}
 	if tree.metricsProxy != nil {
-		tree.metricsProxy.IncrCounter(1, "iavl_v2", "iterator", "open")
+		tree.metricsProxy.IncrCounter(1, metricsNamespace, "iterator", "open")
 	}
 	itr.Next()
 	return itr, nil

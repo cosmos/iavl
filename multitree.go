@@ -58,7 +58,9 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 	)
 	for _, dbPath := range paths {
 		cnt++
-		sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath}))
+		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath})
+		sqlOpts.Metrics = treeOpts.MetricsProxy
+		sql, err := NewSqliteDb(pool, sqlOpts)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +95,8 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 
 func (mt *MultiTree) MountTree(storeKey string) error {
 	opts := defaultSqliteDbOptions(SqliteDbOptions{
-		Path: mt.rootPath + "/" + storeKey,
+		Path:    mt.rootPath + "/" + storeKey,
+		Metrics: mt.treeOpts.MetricsProxy,
 	})
 	sql, err := NewSqliteDb(mt.pool, opts)
 	if err != nil {
@@ -111,8 +114,10 @@ func (mt *MultiTree) MountTrees() error {
 	}
 	for _, dbPath := range paths {
 		prefix := filepath.Base(dbPath)
-		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{})
-		sqlOpts.Path = dbPath
+		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{
+			Path:    dbPath,
+			Metrics: mt.treeOpts.MetricsProxy,
+		})
 		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
 		sql, err := NewSqliteDb(mt.pool, sqlOpts)
 		if err != nil {
@@ -195,8 +200,8 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 		// sz := workingSize.Load()
 		// fmt.Printf("version=%d work-bytes=%s work-size=%s mem-ceiling=%s\n",
 		// 	version, humanize.IBytes(bz), humanize.Comma(sz), humanize.IBytes(mt.treeOpts.CheckpointMemory))
-		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes.Load()), "iavl_v2", "working_bytes")
-		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), "iavl_v2", "working_size")
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes.Load()), metricsNamespace, "working_bytes")
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), metricsNamespace, "working_size")
 	}
 
 	if mt.treeOpts.checkpointMemory > 0 && workingBytes.Load() >= mt.treeOpts.checkpointMemory {
@@ -288,10 +293,14 @@ func (mt *MultiTree) WarmLeaves() error {
 }
 
 func (mt *MultiTree) QueryReport(bins int) error {
-	m := &metrics.DbMetrics{}
+	m := metrics.NewStructMetrics()
 	for _, tree := range mt.Trees {
-		m.Add(tree.sql.metrics)
-		tree.sql.metrics.SetQueryZero()
+		sm, ok := tree.metricsProxy.(*metrics.StructMetrics)
+		if !ok {
+			continue
+		}
+		m.Add(sm)
+		sm.SetQueryZero()
 	}
 	return m.QueryReport(bins)
 }
@@ -345,16 +354,16 @@ func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) in
 			hashCount    int64
 		)
 		for _, tr := range mt.Trees {
-			m := tr.sql.metrics
+			sm := tr.metricsProxy.(*metrics.StructMetrics)
 			workingBytes += tr.workingBytes
 			workingSize += tr.workingSize
-			writeLeaves += m.WriteLeaves
-			writeTime += m.WriteTime
-			hashCount += tr.metrics.TreeHash
-			m.WriteDurations = nil
-			m.WriteLeaves = 0
-			m.WriteTime = 0
-			tr.metrics.TreeHash = 0
+			writeLeaves += sm.WriteLeaves
+			writeTime += sm.WriteTime
+			hashCount += sm.TreeHash
+			sm.WriteDurations = nil
+			sm.WriteLeaves = 0
+			sm.WriteTime = 0
+			sm.TreeHash = 0
 		}
 		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-size=%s work-bytes=%s %s\n",
 			humanize.Comma(cnt),
