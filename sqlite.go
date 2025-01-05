@@ -35,7 +35,7 @@ type SqliteDbOptions struct {
 type SqliteDb struct {
 	opts SqliteDbOptions
 
-	pool *NodePool
+	pool NodePool
 
 	// read connection
 	// life cycle: application
@@ -142,12 +142,12 @@ func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 //
 // NewInMemorySqliteDb probably needs deleting now that the file system is a source of truth for shards.
 // Otherwise shard indexing can be pushed into root.db
-func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
+func NewInMemorySqliteDb(pool NodePool) (*SqliteDb, error) {
 	opts := defaultSqliteDbOptions(SqliteDbOptions{ConnArgs: "mode=memory&cache=shared"})
 	return NewSqliteDb(pool, opts)
 }
 
-func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
+func NewSqliteDb(pool NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
 	logger := log.With().Str("path", filepath.Base(opts.Path)).Logger()
 
@@ -547,10 +547,8 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey, cf connectionFactory) (node *Node,
 func (sql *SqliteDb) getBranch(nodeKey NodeKey, cf connectionFactory) (node *Node, topErr error) {
 	start := time.Now()
 	defer func() {
-		defer func() {
-			sql.metrics.MeasureSince(start, metricsNamespace, "db_get")
-			sql.metrics.IncrCounter(1, metricsNamespace, "db_get_branch")
-		}()
+		sql.metrics.MeasureSince(start, metricsNamespace, "db_get")
+		sql.metrics.IncrCounter(1, metricsNamespace, "db_get_branch")
 	}()
 	shard := sql.shards.FindShard(nodeKey.Version())
 	if cf == nil {
@@ -1026,9 +1024,6 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 	if !bytes.Equal(targetHash, rootHash) {
 		return fmt.Errorf("root hash mismatch; expected %x got %x; path=%s count=%d",
 			targetHash, rootHash, sql.opts.Path, count)
-	}
-	if err = tree.evictNodes(); err != nil {
-		return err
 	}
 	tree.leaves, tree.leafOrphans, tree.deletes = nil, nil, nil
 	tree.resetSequence()

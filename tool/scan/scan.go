@@ -6,6 +6,7 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/cosmos/iavl/v2"
+	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/spf13/cobra"
 )
 
@@ -83,7 +84,7 @@ func rootsCommand() *cobra.Command {
 		Use:   "roots",
 		Short: "list roots",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			sql, err := iavl.NewSqliteDb(iavl.NewNodePool(), iavl.SqliteDbOptions{Path: dbPath})
+			sql, err := iavl.NewSqliteDb(iavl.NewNodePool(metrics.NilMetrics{}), iavl.SqliteDbOptions{Path: dbPath})
 			if err != nil {
 				return err
 			}

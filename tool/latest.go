@@ -1,37 +1,26 @@
-package snapshot
+package main
 
 import (
-	"os"
-	"time"
-
 	"github.com/cosmos/iavl/v2"
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
+	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/spf13/cobra"
 )
 
-var log = zlog.Output(zerolog.ConsoleWriter{
-	Out:        os.Stderr,
-	TimeFormat: time.Stamp,
-})
-
-func Command() *cobra.Command {
+func latestCommand() *cobra.Command {
 	var (
-		version int64
 		dbPath  string
+		version int64
 	)
 	cmd := &cobra.Command{
-		Use:   "snapshot",
-		Short: "take a snapshot of the tree at version n and write to SQLite",
+		Use:   "latest",
+		Short: "fill the latest table with the latest version of leaf nodes in a tree",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			paths, err := iavl.FindDbsInPath(dbPath)
 			if err != nil {
 				return err
 			}
-			log.Info().Msgf("found db paths: %v", paths)
-
 			var (
-				pool   = iavl.NewNodePool()
+				pool   = iavl.NewNodePool(metrics.NilMetrics{})
 				done   = make(chan struct{})
 				errors = make(chan error)
 				cnt    = 0
@@ -48,13 +37,13 @@ func Command() *cobra.Command {
 					return err
 				}
 				go func() {
-					snapshotErr := sql.Snapshot(cmd.Context(), tree)
-					if snapshotErr != nil {
-						errors <- snapshotErr
+					fillErr := tree.WriteLatestLeaves()
+					if fillErr != nil {
+						errors <- fillErr
 					}
-					snapshotErr = sql.Close()
-					if snapshotErr != nil {
-						errors <- snapshotErr
+					fillErr = tree.Close()
+					if fillErr != nil {
+						errors <- fillErr
 					}
 					done <- struct{}{}
 				}()
@@ -70,10 +59,13 @@ func Command() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().Int64Var(&version, "version", 0, "version to snapshot")
+	cmd.Flags().StringVar(&dbPath, "db", "", "the path to the db to fill the latest table for")
+	if err := cmd.MarkFlagRequired("db"); err != nil {
+		panic(err)
+	}
+	cmd.Flags().Int64Var(&version, "version", 0, "version to fill from")
 	if err := cmd.MarkFlagRequired("version"); err != nil {
 		panic(err)
 	}
-	cmd.Flags().StringVar(&dbPath, "db", "/tmp", "path to the sqlite database")
 	return cmd
 }

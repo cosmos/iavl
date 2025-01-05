@@ -14,7 +14,7 @@ import (
 	zlog "github.com/rs/zerolog/log"
 )
 
-const metricsNamespace = "iavl_v2"
+const metricsNamespace = "iavl"
 
 var (
 	log = zlog.Output(zerolog.ConsoleWriter{
@@ -48,7 +48,7 @@ type Tree struct {
 	stagedRoot   *Node
 
 	sql              *SqliteDb
-	pool             *NodePool
+	pool             NodePool
 	checkpoints      *VersionRange
 	shouldCheckpoint bool
 
@@ -72,7 +72,6 @@ type Tree struct {
 
 	// state
 	*writeQueue
-	evictions      []*Node
 	branchSequence uint32
 	leafSequence   uint32
 	evictionDepth  int8
@@ -124,8 +123,8 @@ func DefaultTreeOptions() TreeOptions {
 	}
 }
 
-func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
-	if sql.metrics != nil {
+func NewTree(sql *SqliteDb, pool NodePool, opts TreeOptions) *Tree {
+	if sql != nil && sql.metrics != nil {
 		opts.MetricsProxy = sql.metrics
 	}
 	tree := &Tree{
@@ -281,6 +280,7 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	batch := &sqliteBatch{
 		conn:              tree.sql.writeConn,
+		pool:              tree.pool,
 		queue:             tree.writeQueue,
 		version:           tree.stagedVersion,
 		size:              200_000,
@@ -302,11 +302,6 @@ func (tree *Tree) SaveVersion() ([]byte, int64, error) {
 
 	tree.metricsProxy.MeasureSince(saveStart, metricsNamespace, "db_write")
 	tree.metricsProxy.IncrCounter(float32(len(tree.leaves)), metricsNamespace, "db_write_leaf")
-
-	// now that nodes have been written to storage, we can evict flagged nodes from memory
-	if err := tree.evictNodes(); err != nil {
-		return nil, tree.version, err
-	}
 
 	tree.leafOrphans = nil
 	tree.leaves = nil
@@ -395,29 +390,6 @@ func (tree *Tree) postCheckpoint() error {
 	return nil
 }
 
-func (tree *Tree) evictNodes() error {
-	for i, node := range tree.evictions {
-		switch node.evict {
-		case 1:
-			tree.returnNode(node.leftNode)
-			node.leftNode = nil
-		case 2:
-			tree.returnNode(node.rightNode)
-			node.rightNode = nil
-		case 3:
-			tree.returnNode(node.leftNode)
-			node.leftNode = nil
-			tree.returnNode(node.rightNode)
-			node.rightNode = nil
-		default:
-			return fmt.Errorf("unexpected eviction flag %d i=%d", node.evict, i)
-		}
-		node.evict = 0
-	}
-	tree.evictions = nil
-	return nil
-}
-
 // ComputeHash the node and its descendants recursively. This usually mutates all
 // descendant nodes. Returns the tree root node hash.
 // If the tree is empty (i.e. the node is nil), returns the hash of an empty input,
@@ -427,74 +399,78 @@ func (tree *Tree) computeHash() []byte {
 		return sha256.New().Sum(nil)
 	}
 	tree.deepHash(tree.stagedRoot, 0)
+	// never evict root
+	tree.stagedRoot.evict = 0
 	return tree.stagedRoot.hash
 }
 
-func (tree *Tree) deepHash(node *Node, depth int8) {
+func (tree *Tree) deepHash(node *Node, depth int8) (evict bool) {
 	if node == nil {
 		panic(fmt.Sprintf("node is nil; sql.path=%s", tree.sql.opts.Path))
 	}
 	if node.isLeaf() {
 		// new leaves are written every version
-		if node.Version() == tree.stagedVersion {
+		if node.isDirty(tree) {
 			tree.leaves = append(tree.leaves, node)
+			if tree.heightFilter > 0 {
+				node.evict = 1
+				evict = true
+			}
 		}
 
 		// always end recursion at a leaf
-		return
+		return evict
 	}
 
+	var (
+		evictLeft  bool
+		evictRight bool
+	)
 	if node.hash == nil {
 		// When the child is a leaf, this will initiate a leafRead from storage for the sole purpose of producing a hash.
 		// Recall that a terminal tree node may have only updated one leaf this version.
 		// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
 		// format to iavl v0 where left/right hash are stored in the node.
-		tree.deepHash(node.left(tree.sql, tree.sql.hotConnectionFactory), depth+1)
-		tree.deepHash(node.right(tree.sql, tree.sql.hotConnectionFactory), depth+1)
+		evictLeft = tree.deepHash(node.left(tree.sql, tree.sql.hotConnectionFactory), depth+1)
+		evictRight = tree.deepHash(node.right(tree.sql, tree.sql.hotConnectionFactory), depth+1)
 		node._hash()
 	} else if tree.shouldCheckpoint {
 		// when checkpointing traverse the entire tree to accumulate dirty branches and flag for eviction
 		// even if the node hash is already computed
 		if node.leftNode != nil {
-			tree.deepHash(node.leftNode, depth+1)
+			evictLeft = tree.deepHash(node.leftNode, depth+1)
 		}
 		if node.rightNode != nil {
-			tree.deepHash(node.rightNode, depth+1)
-		}
-	}
-
-	// leaf node eviction occurs every version
-	if tree.heightFilter > 0 {
-		novel := node.evict == 0
-		if node.leftNode != nil && node.leftNode.isLeaf() {
-			node.evict++
-		}
-		if node.rightNode != nil && node.rightNode.isLeaf() {
-			node.evict += 2
-		}
-		if novel && node.evict > 0 {
-			tree.evictions = append(tree.evictions, node)
+			evictRight = tree.deepHash(node.rightNode, depth+1)
 		}
 	}
 
 	if tree.shouldCheckpoint {
-		if node.Version() > tree.checkpoints.Last() {
+		dirty := node.isDirty(tree)
+		if dirty {
 			tree.branches = append(tree.branches, node)
 		}
-		// full tree eviction occurs only during checkpoints
 		if depth >= tree.evictionDepth {
-			novel := node.evict == 0
-			if node.leftNode != nil && node.evict%2 == 0 {
-				node.evict++
+			if dirty {
+				node.evict = 1
 			}
-			if node.rightNode != nil && node.evict < 2 {
-				node.evict += 2
-			}
-			if novel && node.evict > 0 {
-				tree.evictions = append(tree.evictions, node)
-			}
+			evict = true
 		}
 	}
+
+	if evictLeft {
+		if node.leftNode.evict < 1 {
+			tree.pool.Put(node.leftNode)
+		}
+		node.leftNode = nil
+	}
+	if evictRight {
+		if node.rightNode.evict < 1 {
+			tree.pool.Put(node.rightNode)
+		}
+		node.rightNode = nil
+	}
+	return evict
 }
 
 func (tree *Tree) getRecentRoot(version int64) (bool, *Node) {
@@ -540,7 +516,8 @@ func (tree *Tree) GetRecent(version int64, key []byte) (bool, []byte, error) {
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
 	if tree.metricsProxy != nil {
-		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "get")
+		start := time.Now()
+		defer tree.metricsProxy.MeasureSince(start, metricsNamespace, "get")
 	}
 	var (
 		res []byte
@@ -598,7 +575,8 @@ func (tree *Tree) getByIndex(node *Node, index int64, cf connectionFactory) (key
 
 func (tree *Tree) Has(key []byte) (bool, error) {
 	if tree.metricsProxy != nil {
-		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "has")
+		start := time.Now()
+		defer tree.metricsProxy.MeasureSince(start, metricsNamespace, "has")
 	}
 	var (
 		err error
@@ -624,9 +602,10 @@ func (tree *Tree) Has(key []byte) (bool, error) {
 // updated, while false means it was a new key.
 func (tree *Tree) Set(key, value []byte) (updated bool, err error) {
 	if tree.metricsProxy != nil {
-		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "set")
+		start := time.Now()
+		defer tree.metricsProxy.MeasureSince(start, metricsNamespace, "set")
 	}
-	updated, err = tree.set(key, value, tree.sql.hotConnectionFactory)
+	updated, err = tree.set(key, value, tree.connectionFactory())
 	if err != nil {
 		return false, err
 	}
@@ -661,7 +640,6 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 	if node.isLeaf() {
 		switch bytes.Compare(key, node.key) {
 		case -1: // setKey < leafKey
-			tree.metricsProxy.IncrCounter(2, metricsNamespace, "pool_get")
 			parent := tree.pool.Get()
 			parent.nodeKey = tree.nextNodeKey()
 			parent.key = node.key
@@ -674,7 +652,6 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 			tree.workingSize++
 			return parent, false, nil
 		case 1: // setKey > leafKey
-			tree.metricsProxy.IncrCounter(2, metricsNamespace, "pool_get")
 			parent := tree.pool.Get()
 			parent.nodeKey = tree.nextNodeKey()
 			parent.key = key
@@ -742,12 +719,13 @@ func (tree *Tree) recursiveSet(node *Node, key, value []byte, cf connectionFacto
 // after this call, since it may point to data stored inside IAVL.
 func (tree *Tree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.metricsProxy != nil {
-		tree.metricsProxy.MeasureSince(time.Now(), "iavL_v2", "remove")
+		start := time.Now()
+		tree.metricsProxy.MeasureSince(start, metricsNamespace, "remove")
 	}
 	if tree.stagedRoot == nil {
 		return nil, false, nil
 	}
-	return tree.remove(key, tree.sql.hotConnectionFactory)
+	return tree.remove(key, tree.connectionFactory())
 }
 
 func (tree *Tree) remove(key []byte, cf connectionFactory) ([]byte, bool, error) {
@@ -898,10 +876,10 @@ func (tree *Tree) mutateNode(node *Node) {
 		return
 	}
 	node.hash = nil
-	node.nodeKey = tree.nextNodeKey()
-
-	if node.isDirty(tree) {
-		return
+	if node.isLeaf() {
+		node.nodeKey = tree.nextLeafNodeKey()
+	} else {
+		node.nodeKey = tree.nextNodeKey()
 	}
 
 	tree.workingSize++
@@ -915,6 +893,11 @@ func (tree *Tree) mutateNode(node *Node) {
 // in order to save GC pressure
 
 func (tree *Tree) stageNode(node *Node) *Node {
+	tree.mutateNode(node)
+	return node
+}
+
+func (tree *Tree) stageNodeOld(node *Node) *Node {
 	if node.isDirty(tree) {
 		if node.hash != nil {
 			// TODO debug and write a comment here explaining this weird code path

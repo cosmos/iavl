@@ -11,6 +11,7 @@ import (
 
 type sqliteBatch struct {
 	queue             *writeQueue
+	pool              NodePool
 	version           int64
 	storeLatestLeaves bool
 	conn              *sqlite3.Conn
@@ -186,6 +187,9 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		if err = b.changelogMaybeCommit(); err != nil {
 			return 0, err
 		}
+		if leaf.evict == 1 {
+			b.pool.Put(leaf)
+		}
 	}
 
 	for _, leafDelete := range b.queue.deletes {
@@ -252,6 +256,9 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 			if err = b.treeMaybeCommit(); err != nil {
 				return 0, err
 			}
+			if b.pool != nil && b.pool.Pooled() && node.evict == 1 {
+				b.pool.Put(node)
+			}
 		}
 
 		for _, orphan := range b.queue.branchOrphans {
@@ -275,6 +282,7 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		b.logger.Debug().
 			Int64("version", b.version).
 			Int("branches", len(b.queue.branches)).
+			Int("leaves", len(b.queue.leaves)).
 			Int("orphans", len(b.queue.branchOrphans)).
 			Int64("total", b.treeCount).
 			Dur("took-ms", time.Since(start).Round(time.Millisecond)).

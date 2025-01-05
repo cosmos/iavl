@@ -27,8 +27,8 @@ func Test_ExportImport(t *testing.T) {
 	for _, sk := range storeKeys {
 		require.NoError(t, multiTree.MountTree(sk))
 	}
-	// testTreeBuild(t, multiTree, opts)
-	multiTree.TestBuild(t, opts)
+	_, err = multiTree.TestBuild(opts)
+	require.NoError(t, err)
 
 	exported := make(map[string][]*Node)
 

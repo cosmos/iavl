@@ -70,7 +70,8 @@ func (i *TreeIterator) Valid() bool {
 
 func (i *TreeIterator) Next() {
 	if i.metrics != nil {
-		defer i.metrics.MeasureSince(time.Now(), metricsNamespace, "iterator", "next")
+		start := time.Now()
+		defer i.metrics.MeasureSince(start, metricsNamespace, "iterator", "next")
 	}
 	if !i.valid {
 		return
@@ -251,7 +252,8 @@ func (l *LeafIterator) Valid() bool {
 
 func (l *LeafIterator) Next() {
 	if l.metrics != nil {
-		defer l.metrics.MeasureSince(time.Now(), metricsNamespace, "iterator", "next")
+		start := time.Now()
+		defer l.metrics.MeasureSince(start, metricsNamespace, "iterator", "next")
 	}
 	if !l.valid {
 		return

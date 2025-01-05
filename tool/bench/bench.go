@@ -1,18 +1,10 @@
 package bench
 
 import (
-	"net/http"
-	"testing"
-	"time"
-
 	"github.com/cosmos/iavl/v2"
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
-	"github.com/stretchr/testify/require"
 )
 
 func Command() *cobra.Command {
@@ -44,28 +36,32 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 `,
 
 		RunE: func(_ *cobra.Command, _ []string) error {
-			t := &testing.T{}
 			treeOpts := iavl.DefaultTreeOptions()
 			treeOpts.CheckpointInterval = 80
 			treeOpts.StateStorage = true
 			treeOpts.HeightFilter = 1
 			treeOpts.EvictionDepth = 22
 			treeOpts.MetricsProxy = metrics.NewStructMetrics()
-			if usePrometheus {
-				treeOpts.MetricsProxy = newPrometheusMetricsProxy()
-			}
 
 			var multiTree *iavl.MultiTree
 			if loadSnapshot {
-				pool := iavl.NewNodePool()
+				pool := iavl.NewNodePool(treeOpts.MetricsProxy)
 				var err error
 				multiTree, err = iavl.ImportMultiTree(pool, 1, dbPath, treeOpts)
-				require.NoError(t, err)
+				if err != nil {
+					return err
+				}
 			} else {
 				multiTree = iavl.NewMultiTree(dbPath, treeOpts)
-				require.NoError(t, multiTree.MountTrees())
-				require.NoError(t, multiTree.LoadVersion(1))
-				require.NoError(t, multiTree.WarmLeaves())
+				if err := multiTree.MountTrees(); err != nil {
+					return err
+				}
+				if err := multiTree.LoadVersion(1); err != nil {
+					return err
+				}
+				if err := multiTree.WarmLeaves(); err != nil {
+					return err
+				}
 			}
 
 			opts := testutil.CompactedChangelogs(changelogPath)
@@ -76,8 +72,8 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 			opts.Until = 500
 			opts.UntilHash = "2670bd5767e70f2bf9e4f723b5f205759e39afdb5d8cfb6b54a4a3ecc27a1377"
 
-			multiTree.TestBuild(t, opts)
-			return nil
+			_, err := multiTree.TestBuild(opts)
+			return err
 		},
 	}
 	cmd.Flags().StringVar(&dbPath, "db", "/tmp/iavl-v2", "the path to the database at version 1")
@@ -93,45 +89,3 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 	}
 	return cmd
 }
-
-var _ metrics.Proxy = &prometheusMetricsProxy{}
-
-type prometheusMetricsProxy struct {
-	workingSize  prometheus.Gauge
-	workingBytes prometheus.Gauge
-}
-
-func newPrometheusMetricsProxy() *prometheusMetricsProxy {
-	p := &prometheusMetricsProxy{}
-	p.workingSize = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "iavl_working_size",
-		Help: "working size",
-	})
-	p.workingBytes = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "iavl_working_bytes",
-		Help: "working bytes",
-	})
-	http.Handle("/metrics", promhttp.Handler())
-	go func() {
-		err := http.ListenAndServe(":2112", nil)
-		if err != nil {
-			panic(err)
-		}
-	}()
-	return p
-}
-
-func (p *prometheusMetricsProxy) IncrCounter(_ float32, _ ...string) {
-}
-
-func (p *prometheusMetricsProxy) SetGauge(val float32, keys ...string) {
-	k := keys[1]
-	switch k {
-	case "working_size":
-		p.workingSize.Set(float64(val))
-	case "working_bytes":
-		p.workingBytes.Set(float64(val))
-	}
-}
-
-func (p *prometheusMetricsProxy) MeasureSince(_ time.Time, _ ...string) {}

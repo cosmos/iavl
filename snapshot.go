@@ -770,7 +770,7 @@ func rehashTree(node *Node) {
 
 type sqliteImport struct {
 	query      *sqlite3.Stmt
-	pool       *NodePool
+	pool       NodePool
 	loadLeaves bool
 
 	i     int64

@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"github.com/cosmos/iavl/v2/metrics"
 	"sync"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ func TestBuildSqlite(t *testing.T) {
 	dir := t.TempDir()
 	t.Logf("dir: %s", dir)
 
-	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
+	sql, err := NewSqliteDb(NewNopNodePool(metrics.NilMetrics{}), SqliteDbOptions{Path: dir})
 
 	require.NoError(t, err)
 
@@ -183,7 +184,7 @@ func TestMmap(t *testing.T) {
 
 func Test_NewSqliteDb(t *testing.T) {
 	dir := t.TempDir()
-	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: dir})
+	sql, err := NewSqliteDb(NewNopNodePool(metrics.NilMetrics{}), SqliteDbOptions{Path: dir})
 	require.NoError(t, err)
 	require.NotNil(t, sql)
 }

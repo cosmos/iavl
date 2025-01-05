@@ -3,25 +3,52 @@ package iavl
 import (
 	"math"
 	"sync"
+
+	"github.com/cosmos/iavl/v2/metrics"
 )
 
-type NodePool struct {
+type NodePool interface {
+	Get() *Node
+	Put(*Node)
+	Pooled() bool
+}
+
+type SyncNodePool struct {
 	syncPool *sync.Pool
+	metrics  metrics.Proxy
 	poolId   uint64
 }
 
-func NewNodePool() *NodePool {
-	np := &NodePool{
+type NopNodePool struct{}
+
+func (np *NopNodePool) Get() *Node {
+	return &Node{}
+}
+
+func (np *NopNodePool) Put(*Node) {}
+
+func (np *NopNodePool) Pooled() bool { return false }
+
+func NewNopNodePool(_ metrics.Proxy) *NopNodePool {
+	return &NopNodePool{}
+}
+
+func NewSyncNodePool(metrics metrics.Proxy) *SyncNodePool {
+	np := &SyncNodePool{
 		syncPool: &sync.Pool{
 			New: func() interface{} {
 				return &Node{}
 			},
 		},
+		metrics: metrics,
 	}
 	return np
 }
 
-func (np *NodePool) syncGet() *Node {
+func (np *SyncNodePool) Pooled() bool { return true }
+
+func (np *SyncNodePool) Get() *Node {
+	np.metrics.IncrCounter(1, metricsNamespace, "pool_get")
 	if np.poolId == math.MaxUint64 {
 		np.poolId = 1
 	} else {
@@ -32,11 +59,8 @@ func (np *NodePool) syncGet() *Node {
 	return n
 }
 
-func (np *NodePool) Get() *Node {
-	return &Node{}
-}
-
-func (np *NodePool) syncPut(node *Node) {
+func (np *SyncNodePool) Put(node *Node) {
+	np.metrics.IncrCounter(1, metricsNamespace, "pool_return")
 	node.leftNodeKey = emptyNodeKey
 	node.rightNodeKey = emptyNodeKey
 	node.rightNode = nil
@@ -48,9 +72,6 @@ func (np *NodePool) syncPut(node *Node) {
 	node.subtreeHeight = 0
 	node.size = 0
 	node.evict = 0
-
 	node.poolID = 0
 	np.syncPool.Put(node)
 }
-
-func (np *NodePool) Put(_ *Node) {}

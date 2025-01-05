@@ -7,13 +7,11 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync/atomic"
-	"testing"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/cosmos/iavl/v2/testutil"
 	"github.com/dustin/go-humanize"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
 )
 
@@ -22,7 +20,6 @@ import (
 type MultiTree struct {
 	Trees map[string]*Tree
 
-	pool             *NodePool
 	rootPath         string
 	treeOpts         TreeOptions
 	shouldCheckpoint bool
@@ -37,12 +34,11 @@ func NewMultiTree(rootPath string, opts TreeOptions) *MultiTree {
 		doneCh:   make(chan saveVersionResult, 1000),
 		errorCh:  make(chan error, 1000),
 		treeOpts: opts,
-		pool:     NewNodePool(),
 		rootPath: rootPath,
 	}
 }
 
-func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOptions) (*MultiTree, error) {
+func ImportMultiTree(version int64, path string, treeOpts TreeOptions) (*MultiTree, error) {
 	mt := NewMultiTree(path, treeOpts)
 	paths, err := FindDbsInPath(path)
 	if err != nil {
@@ -60,6 +56,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 		cnt++
 		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{Path: dbPath})
 		sqlOpts.Metrics = treeOpts.MetricsProxy
+		pool := NewNopNodePool(treeOpts.MetricsProxy)
 		sql, err := NewSqliteDb(pool, sqlOpts)
 		if err != nil {
 			return nil, err
@@ -94,20 +91,26 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 }
 
 func (mt *MultiTree) MountTree(storeKey string) error {
+	mp := metrics.NewStructMetrics()
+	pool := NewSyncNodePool(mp)
+
 	opts := defaultSqliteDbOptions(SqliteDbOptions{
 		Path:    mt.rootPath + "/" + storeKey,
-		Metrics: mt.treeOpts.MetricsProxy,
+		Metrics: mp,
 	})
-	sql, err := NewSqliteDb(mt.pool, opts)
+	sql, err := NewSqliteDb(pool, opts)
 	if err != nil {
 		return err
 	}
-	tree := NewTree(sql, mt.pool, mt.treeOpts)
+	tree := NewTree(sql, pool, mt.treeOpts)
 	mt.Trees[storeKey] = tree
 	return nil
 }
 
 func (mt *MultiTree) MountTrees() error {
+	mp := metrics.NewStructMetrics()
+	pool := NewSyncNodePool(mp)
+
 	paths, err := FindDbsInPath(mt.rootPath)
 	if err != nil {
 		return err
@@ -116,14 +119,14 @@ func (mt *MultiTree) MountTrees() error {
 		prefix := filepath.Base(dbPath)
 		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{
 			Path:    dbPath,
-			Metrics: mt.treeOpts.MetricsProxy,
+			Metrics: mp,
 		})
 		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
-		sql, err := NewSqliteDb(mt.pool, sqlOpts)
+		sql, err := NewSqliteDb(pool, sqlOpts)
 		if err != nil {
 			return err
 		}
-		tree := NewTree(sql, mt.pool, mt.treeOpts)
+		tree := NewTree(sql, pool, mt.treeOpts)
 		mt.Trees[prefix] = tree
 	}
 	return nil
@@ -314,7 +317,7 @@ func (mt *MultiTree) SetInitialVersion(version int64) error {
 	return nil
 }
 
-func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) int64 {
+func (mt *MultiTree) TestBuild(opts *testutil.TreeBuildOptions) (int64, error) {
 	var (
 		version  int64
 		err      error
@@ -329,21 +332,20 @@ func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) in
 				m.NumGC)
 			return s
 		}
+		poolGauge  = int64(0)
+		since      = time.Now()
+		itrStart   = time.Now()
+		itr        = opts.Iterator
+		sampleRate = int64(100_000)
 	)
-
-	// generator
-	itr := opts.Iterator
-	fmt.Printf("Initial memory usage from generators:\n%s\n", memUsage())
-
-	sampleRate := int64(100_000)
 	if opts.SampleRate != 0 {
 		sampleRate = opts.SampleRate
 	}
 
-	since := time.Now()
-	itrStart := time.Now()
+	// generator
+	fmt.Printf("Initial memory usage from generators:\n%s\n", memUsage())
 
-	report := func() {
+	report := func() error {
 		dur := time.Since(since)
 
 		var (
@@ -364,8 +366,12 @@ func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) in
 			sm.WriteLeaves = 0
 			sm.WriteTime = 0
 			sm.TreeHash = 0
+			poolGauge += sm.PoolGet
+			poolGauge -= sm.PoolReturn
+			sm.PoolGet = 0
+			sm.PoolReturn = 0
 		}
-		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-size=%s work-bytes=%s %s\n",
+		fmt.Printf("leaves=%s time=%s last=%s μ=%s version=%d work-size=%s work-bytes=%s pool=%s %s\n",
 			humanize.Comma(cnt),
 			dur.Round(time.Millisecond),
 			humanize.Comma(int64(float64(sampleRate)/time.Since(since).Seconds())),
@@ -373,6 +379,7 @@ func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) in
 			version,
 			humanize.Comma(workingSize),
 			humanize.Bytes(workingBytes),
+			humanize.Comma(poolGauge),
 			memUsage())
 
 		if writeTime > 0 {
@@ -385,62 +392,77 @@ func (mt *MultiTree) TestBuild(t *testing.T, opts *testutil.TreeBuildOptions) in
 			)
 		}
 
-		if err := mt.QueryReport(0); err != nil {
-			t.Fatalf("query report err %v", err)
+		if err = mt.QueryReport(0); err != nil {
+			return err
 		}
 
 		fmt.Println()
 
 		since = time.Now()
+		return nil
 	}
 
 	for ; itr.Valid(); err = itr.Next() {
-		require.NoError(t, err)
+		if err != nil {
+			return 0, err
+		}
 		changeset := itr.Nodes()
 		for ; changeset.Valid(); err = changeset.Next() {
 			cnt++
-			require.NoError(t, err)
 			node := changeset.GetNode()
 			key := node.Key
 
 			tree, ok := mt.Trees[node.StoreKey]
 			if !ok {
-				require.NoError(t, mt.MountTree(node.StoreKey))
+				err = mt.MountTree(node.StoreKey)
+				if err != nil {
+					return 0, err
+				}
 				tree = mt.Trees[node.StoreKey]
 			}
 
 			if !node.Delete {
 				_, err = tree.set(key, node.Value, tree.sql.hotConnectionFactory)
-				require.NoError(t, err)
+				if err != nil {
+					return 0, err
+				}
 			} else {
 				_, _, err := tree.remove(key, tree.sql.hotConnectionFactory)
-				require.NoError(t, err)
+				if err != nil {
+					return 0, err
+				}
 			}
 
 			if cnt%sampleRate == 0 {
-				report()
+				if err := report(); err != nil {
+					return 0, err
+				}
 			}
 		}
 
 		_, version, err = mt.SaveVersionConcurrently()
-		require.NoError(t, err)
+		if err != nil {
+			return 0, err
+		}
 		if version%1000 == 0 {
 			fmt.Printf("version: %d, hash: %x\n", version, mt.Hash())
 		}
-
-		require.NoError(t, err)
 		if version == opts.Until {
 			break
 		}
 	}
 	fmt.Printf("final version: %d, hash: %x\n", version, mt.Hash())
 	for sk, tree := range mt.Trees {
-		fmt.Printf("storekey: %s height: %d, size: %d\n", sk, tree.Height(), tree.Size())
+		fmt.Printf("storekey: %s height: %d, size: %d hash: %x\n", sk, tree.Height(), tree.Size(), tree.Hash())
 	}
 	fmt.Printf("mean leaves/ms %s\n", humanize.Comma(cnt/time.Since(itrStart).Milliseconds()))
-	require.Equal(t, version, opts.Until)
-	if opts.UntilHash != "" {
-		require.Equal(t, opts.UntilHash, fmt.Sprintf("%x", mt.Hash()))
+	if version != opts.Until {
+		return cnt, fmt.Errorf("unexpected; version %d != %d", version, opts.Until)
 	}
-	return cnt
+	if opts.UntilHash != "" {
+		if opts.UntilHash != fmt.Sprintf("%x", mt.Hash()) {
+			return cnt, fmt.Errorf("unexpected; hash %s != %x", opts.UntilHash, mt.Hash())
+		}
+	}
+	return cnt, nil
 }

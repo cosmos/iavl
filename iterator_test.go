@@ -2,6 +2,7 @@ package iavl_test
 
 import (
 	"fmt"
+	"github.com/cosmos/iavl/v2/metrics"
 	"testing"
 
 	"github.com/cosmos/iavl/v2"
@@ -9,7 +10,7 @@ import (
 )
 
 func Test_Iterator(t *testing.T) {
-	pool := iavl.NewNodePool()
+	pool := iavl.NewNopNodePool(metrics.NilMetrics{})
 	sql, err := iavl.NewSqliteDb(pool, iavl.SqliteDbOptions{Path: t.TempDir()})
 	require.NoError(t, err)
 
@@ -223,7 +224,7 @@ func Test_Iterator(t *testing.T) {
 
 func Test_IteratorTree(t *testing.T) {
 	tmpDir := t.TempDir()
-	pool := iavl.NewNodePool()
+	pool := iavl.NewNopNodePool(metrics.NilMetrics{})
 	sql, err := iavl.NewSqliteDb(pool, iavl.SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
 

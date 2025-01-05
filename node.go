@@ -424,7 +424,7 @@ func EncodeBytes(w io.Writer, bz []byte) error {
 }
 
 // MakeNode constructs a *Node from an encoded byte slice.
-func MakeNode(pool *NodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
+func MakeNode(pool NodePool, nodeKey NodeKey, buf []byte) (*Node, error) {
 	// Read node header (height, size, version, key).
 	height, n, err := encoding.DecodeVarint(buf)
 	if err != nil {
@@ -581,7 +581,10 @@ func (node *Node) clone(tree *Tree) *Node {
 }
 
 func (node *Node) isDirty(tree *Tree) bool {
-	return node.Version() == tree.stagedVersion
+	if node.isLeaf() {
+		return node.Version() == tree.stagedVersion
+	}
+	return node.Version() > tree.checkpoints.Last()
 }
 
 func (node *Node) Version() int64 {

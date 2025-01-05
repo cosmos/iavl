@@ -1,11 +1,11 @@
 package main
 
 import (
-	"github.com/cosmos/iavl/v2/cmd/bench"
-	"github.com/cosmos/iavl/v2/cmd/gen"
-	"github.com/cosmos/iavl/v2/cmd/rollback"
-	"github.com/cosmos/iavl/v2/cmd/scan"
-	"github.com/cosmos/iavl/v2/cmd/snapshot"
+	"github.com/cosmos/iavl/v2/tool/bench"
+	"github.com/cosmos/iavl/v2/tool/gen"
+	"github.com/cosmos/iavl/v2/tool/rollback"
+	"github.com/cosmos/iavl/v2/tool/scan"
+	"github.com/cosmos/iavl/v2/tool/snapshot"
 	"github.com/spf13/cobra"
 )
 
