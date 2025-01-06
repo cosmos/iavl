@@ -84,7 +84,7 @@ func rootsCommand() *cobra.Command {
 		Use:   "roots",
 		Short: "list roots",
 		RunE: func(_ *cobra.Command, _ []string) error {
-			sql, err := iavl.NewSqliteDb(iavl.NewNodePool(metrics.NilMetrics{}), iavl.SqliteDbOptions{Path: dbPath})
+			sql, err := iavl.NewSqliteDb(iavl.NewNopNodePool(metrics.NilMetrics{}), iavl.SqliteDbOptions{Path: dbPath})
 			if err != nil {
 				return err
 			}

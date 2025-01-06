@@ -32,7 +32,7 @@ func Command() *cobra.Command {
 			log.Info().Msgf("found db paths: %v", paths)
 
 			var (
-				pool   = iavl.NewNodePool(metrics.NilMetrics{})
+				pool   = iavl.NewNopNodePool(metrics.NilMetrics{})
 				done   = make(chan struct{})
 				errors = make(chan error)
 				cnt    = 0

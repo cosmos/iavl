@@ -45,9 +45,8 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 
 			var multiTree *iavl.MultiTree
 			if loadSnapshot {
-				pool := iavl.NewNodePool(treeOpts.MetricsProxy)
 				var err error
-				multiTree, err = iavl.ImportMultiTree(pool, 1, dbPath, treeOpts)
+				multiTree, err = iavl.ImportMultiTree(1, dbPath, treeOpts)
 				if err != nil {
 					return err
 				}

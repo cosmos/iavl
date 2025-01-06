@@ -31,7 +31,7 @@ func Command() *cobra.Command {
 			}
 			for _, dbPath := range dbPaths {
 				log.Info().Msgf("revert db %s to version %d", dbPath, version)
-				sql, err := iavl.NewSqliteDb(iavl.NewNodePool(metrics.NilMetrics{}), iavl.SqliteDbOptions{Path: dbPath})
+				sql, err := iavl.NewSqliteDb(iavl.NewNopNodePool(metrics.NilMetrics{}), iavl.SqliteDbOptions{Path: dbPath})
 				if err != nil {
 					return err
 				}

@@ -20,7 +20,7 @@ func latestCommand() *cobra.Command {
 				return err
 			}
 			var (
-				pool   = iavl.NewNodePool(metrics.NilMetrics{})
+				pool   = iavl.NewNopNodePool(metrics.NilMetrics{})
 				done   = make(chan struct{})
 				errors = make(chan error)
 				cnt    = 0
