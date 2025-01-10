@@ -123,7 +123,7 @@ func TestBuildSqlite(t *testing.T) {
 			//stmt, err = newBatch()
 			//require.NoError(t, err)
 			require.NoError(t, sql.leafWrite.Begin())
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
+			t.Logf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(count)),
 				time.Since(since).Round(time.Millisecond),
 				humanize.Comma(int64(float64(batchSize)/time.Since(since).Seconds())))
@@ -133,9 +133,9 @@ func TestBuildSqlite(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	log.Info().Msg("final commit")
+	t.Log("final commit")
 	require.NoError(t, sql.leafWrite.Commit())
-	log.Info().Msgf("total dur=%s rate=%s",
+	t.Logf("total dur=%s rate=%s",
 		time.Since(startTime).Round(time.Millisecond),
 		humanize.Comma(int64(40_000_000/time.Since(startTime).Seconds())),
 	)
@@ -172,7 +172,7 @@ func TestReadSqlite_Trie(t *testing.T) {
 
 		if i%100_000 == 0 {
 			i++
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
+			t.Logf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(i),
 				time.Since(since),
 				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))
@@ -228,7 +228,7 @@ func TestReadSqlite(t *testing.T) {
 		require.NoError(t, stmt.Scan(&hash, &key, &height, &size, &lSeq, &lVersion, &rSeq, &rVersion))
 
 		if i%100_000 == 0 {
-			log.Info().Msgf("nodes=%s dur=%s; rate=%s",
+			t.Logf("nodes=%s dur=%s; rate=%s",
 				humanize.Comma(int64(i)),
 				time.Since(since),
 				humanize.Comma(int64(float64(100_000)/time.Since(since).Seconds())))

@@ -6,18 +6,10 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
 )
-
-var log = zlog.Output(zerolog.ConsoleWriter{
-	Out:        os.Stderr,
-	TimeFormat: time.Stamp,
-})
 
 type nodeDelete struct {
 	// the sequence in which this deletion was processed
@@ -491,10 +483,6 @@ func (tree *Tree) recursiveRemove(node *Node, key []byte) (newSelf *Node, newKey
 			return nil, nil, node.value, true, nil
 		}
 		return node, nil, nil, false, nil
-	}
-
-	if err != nil {
-		return nil, nil, nil, false, err
 	}
 
 	// node.key < key; we go to the left to find the key:

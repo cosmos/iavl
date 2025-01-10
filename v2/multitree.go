@@ -9,6 +9,7 @@ import (
 
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/exp/slices"
 )
 
@@ -108,7 +109,6 @@ func (mt *MultiTree) MountTrees() error {
 		prefix := filepath.Base(dbPath)
 		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{})
 		sqlOpts.Path = dbPath
-		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
 		sql, err := NewSqliteDb(mt.pool, sqlOpts)
 		if err != nil {
 			return err
