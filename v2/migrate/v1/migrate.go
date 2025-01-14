@@ -1,4 +1,4 @@
-package v0
+package v1
 
 import (
 	"bytes"
@@ -16,8 +16,8 @@ import (
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "v0",
-		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
+		Use:   "v1",
+		Short: "migrate latest iavl v1 application.db state to iavl v2 in sqlite",
 	}
 	cmd.AddCommand(allCommand(), snapshotCommand(), metadataCommand(), latestVersionCommand())
 	return cmd
@@ -31,16 +31,16 @@ const (
 
 func metadataCommand() *cobra.Command {
 	var (
-		dbv0 string
+		dbv1 string
 		dbv2 string
 	)
 	cmd := &cobra.Command{
-		Use:   "v45-metadata",
-		Short: "migrate CosmosSDK v0.45 store metadata stored in application.db state to iavl v2 in sqlite",
+		Use:   "v1-metadata",
+		Short: "migrate CosmosSDK v1 store metadata stored in application.db state to iavl v2 in sqlite",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log := logz.Logger.With().Str("op", "migrate").Logger()
 
-			v0, err := core.NewReadonlyStore(dbv0)
+			v0, err := core.NewReadonlyStore(dbv1)
 			if err != nil {
 				return err
 			}
@@ -86,9 +86,9 @@ func metadataCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&dbv0, "db-v0", "", "Path to the v0 application.db")
+	cmd.Flags().StringVar(&dbv1, "db-v1", "", "Path to the v1 application.db")
 	cmd.Flags().StringVar(&dbv2, "db-v2", "", "Path to the v2 root")
-	if err := cmd.MarkFlagRequired("db-v0"); err != nil {
+	if err := cmd.MarkFlagRequired("db-v1"); err != nil {
 		panic(err)
 	}
 	if err := cmd.MarkFlagRequired("db-v2"); err != nil {
@@ -142,16 +142,16 @@ func latestVersionCommand() *cobra.Command {
 
 func snapshotCommand() *cobra.Command {
 	var (
-		dbv0         string
+		dbv1         string
 		snapshotPath string
 		storekey     string
 		concurrency  int
 	)
 	cmd := &cobra.Command{
 		Use:   "snapshot",
-		Short: "ingest latest iavl v0 application.db to a pre-order snapshot",
+		Short: "ingest latest iavl v1 application.db to a pre-order snapshot",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rs, err := core.NewReadonlyStore(dbv0)
+			rs, err := core.NewReadonlyStore(dbv1)
 			if err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ func snapshotCommand() *cobra.Command {
 					log := logz.Logger.With().Str("store", sk).Logger()
 					log.Info().Msgf("migrating %s", sk)
 
-					s, err := core.NewReadonlyStore(dbv0)
+					s, err := core.NewReadonlyStore(dbv1)
 					if err != nil {
 						panic(err)
 					}
@@ -249,8 +249,8 @@ func snapshotCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&dbv0, "db-v0", "", "Path to the v0 application.db")
-	if err := cmd.MarkFlagRequired("db-v0"); err != nil {
+	cmd.Flags().StringVar(&dbv1, "db-v1", "", "Path to the v1 application.db")
+	if err := cmd.MarkFlagRequired("db-v1"); err != nil {
 		panic(err)
 	}
 	cmd.Flags().StringVar(&snapshotPath, "snapshot-path", "", "Path to the snapshot")
@@ -265,16 +265,16 @@ func snapshotCommand() *cobra.Command {
 
 func allCommand() *cobra.Command {
 	var (
-		dbv0        string
+		dbv1        string
 		dbv2        string
 		storekey    string
 		concurrency int
 	)
 	cmd := &cobra.Command{
 		Use:   "all",
-		Short: "migrate latest iavl v0 application.db state to iavl v2 in sqlite",
+		Short: "migrate latest iavl v1 application.db state to iavl v2 in sqlite",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			rs, err := core.NewReadonlyStore(dbv0)
+			rs, err := core.NewReadonlyStore(dbv1)
 			if err != nil {
 				return err
 			}
@@ -308,7 +308,7 @@ func allCommand() *cobra.Command {
 					log := logz.Logger.With().Str("store", sk).Logger()
 					log.Info().Msgf("migrating %s", sk)
 
-					s, err := core.NewReadonlyStore(dbv0)
+					s, err := core.NewReadonlyStore(dbv1)
 					if err != nil {
 						panic(err)
 					}
@@ -372,10 +372,10 @@ func allCommand() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&dbv0, "db-v0", "", "Path to the v0 application.db")
+	cmd.Flags().StringVar(&dbv1, "db-v1", "", "Path to the v1 application.db")
 	cmd.Flags().StringVar(&dbv2, "db-v2", "", "Path to the v2 root")
 	cmd.Flags().StringVar(&storekey, "store-key", "", "Store key to migrate")
-	if err := cmd.MarkFlagRequired("db-v0"); err != nil {
+	if err := cmd.MarkFlagRequired("db-v1"); err != nil {
 		panic(err)
 	}
 	if err := cmd.MarkFlagRequired("db-v2"); err != nil {
