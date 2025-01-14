@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
@@ -58,12 +59,14 @@ func (w *sqlWriter) start(ctx context.Context) {
 		err := w.treeLoop(ctx)
 		if err != nil {
 			w.logger.Error("tree loop failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 	go func() {
 		err := w.leafLoop(ctx)
 		if err != nil {
 			w.logger.Error("leaf loop failed", "error", err)
+			os.Exit(1)
 		}
 	}()
 }
