@@ -1,19 +1,13 @@
 package rollback
 
 import (
-	"os"
-	"time"
+	"fmt"
 
 	"github.com/cosmos/iavl/v2"
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-var log = zlog.Output(zerolog.ConsoleWriter{
-	Out:        os.Stderr,
-	TimeFormat: time.Stamp,
-})
+var log = iavl.NewTestLogger()
 
 func Command() *cobra.Command {
 	var (
@@ -29,7 +23,7 @@ func Command() *cobra.Command {
 				return err
 			}
 			for _, dbPath := range dbPaths {
-				log.Info().Msgf("revert db %s to version %d", dbPath, version)
+				log.Info(fmt.Sprintf("revert db %s to version %d", dbPath, version))
 				sql, err := iavl.NewSqliteDb(iavl.NewNodePool(), iavl.SqliteDbOptions{Path: dbPath})
 				if err != nil {
 					return err
