@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	v0 "github.com/cosmos/iavl/v2/migrate/v0"
+	migratev1 "github.com/cosmos/iavl/v2/migrate/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +13,7 @@ func main() {
 		Use:   "migrate",
 		Short: "migrate application.db to IAVL v2",
 	}
-	root.AddCommand(v0.Command())
+	root.AddCommand(migratev1.Command())
 
 	if err := root.Execute(); err != nil {
 		fmt.Printf("Error: %s\n", err.Error())
