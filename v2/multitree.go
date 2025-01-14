@@ -15,6 +15,8 @@ import (
 // MultiTree encapsulates multiple IAVL trees, each with its own "store key" in the context of the Cosmos SDK.
 // Within IAVL v2 is only used to test the IAVL v2 implementation, and for import/export of IAVL v2 state.
 type MultiTree struct {
+	logger Logger
+
 	Trees map[string]*Tree
 
 	pool             *NodePool
@@ -26,7 +28,7 @@ type MultiTree struct {
 	errorCh chan error
 }
 
-func NewMultiTree(rootPath string, opts TreeOptions) *MultiTree {
+func NewMultiTree(logger Logger, rootPath string, opts TreeOptions) *MultiTree {
 	return &MultiTree{
 		Trees:    make(map[string]*Tree),
 		doneCh:   make(chan saveVersionResult, 1000),
@@ -37,8 +39,8 @@ func NewMultiTree(rootPath string, opts TreeOptions) *MultiTree {
 	}
 }
 
-func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOptions) (*MultiTree, error) {
-	mt := NewMultiTree(path, treeOpts)
+func ImportMultiTree(logger Logger, pool *NodePool, version int64, path string, treeOpts TreeOptions) (*MultiTree, error) {
+	mt := NewMultiTree(logger, path, treeOpts)
 	paths, err := FindDbsInPath(path)
 	if err != nil {
 		return nil, err
@@ -78,7 +80,7 @@ func ImportMultiTree(pool *NodePool, version int64, path string, treeOpts TreeOp
 			return nil, err
 		case res := <-done:
 			prefix := filepath.Base(res.path)
-			log.Info().Msgf("imported %s", prefix)
+			logger.Info(fmt.Sprintf("imported %s", prefix))
 			mt.Trees[prefix] = res.tree
 		}
 	}
@@ -108,7 +110,6 @@ func (mt *MultiTree) MountTrees() error {
 		prefix := filepath.Base(dbPath)
 		sqlOpts := defaultSqliteDbOptions(SqliteDbOptions{})
 		sqlOpts.Path = dbPath
-		log.Info().Msgf("mounting %s; opts %v", prefix, sqlOpts)
 		sql, err := NewSqliteDb(mt.pool, sqlOpts)
 		if err != nil {
 			return err
@@ -173,7 +174,7 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 	for i := 0; i < treeCount; i++ {
 		select {
 		case err := <-mt.errorCh:
-			log.Error().Err(err).Msg("failed to save version")
+			mt.logger.Error("failed to save version", "error", err)
 			errs = append(errs, err)
 		case result := <-mt.doneCh:
 			if version != -1 && version != result.version {
@@ -218,7 +219,7 @@ func (mt *MultiTree) SnapshotConcurrently() error {
 	for i := 0; i < treeCount; i++ {
 		select {
 		case err := <-mt.errorCh:
-			log.Error().Err(err).Msg("failed to snapshot")
+			mt.logger.Error("failed to snapshot", "error", err)
 			errs = append(errs, err)
 		case <-mt.doneCh:
 		}
@@ -271,7 +272,7 @@ func (mt *MultiTree) WarmLeaves() error {
 	for i := 0; i < cnt; i++ {
 		select {
 		case err := <-mt.errorCh:
-			log.Error().Err(err).Msg("failed to warm leaves")
+			mt.logger.Error("failed to warm leaves", "error", err)
 			return err
 		case <-mt.doneCh:
 		}

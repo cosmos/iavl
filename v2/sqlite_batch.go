@@ -6,14 +6,13 @@ import (
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/dustin/go-humanize"
-	"github.com/rs/zerolog"
 )
 
 type sqliteBatch struct {
 	tree   *Tree
 	sql    *SqliteDb
 	size   int64
-	logger zerolog.Logger
+	logger Logger
 
 	treeCount int64
 	treeSince time.Time
@@ -126,11 +125,11 @@ func (b *sqliteBatch) treeBatchCommit() error {
 		if batchSize == 0 {
 			batchSize = b.size
 		}
-		b.logger.Debug().Msgf("db=tree count=%s dur=%s batch=%d rate=%s",
+		b.logger.Debug(fmt.Sprintf("db=tree count=%s dur=%s batch=%d rate=%s",
 			humanize.Comma(b.treeCount),
 			time.Since(b.treeSince).Round(time.Millisecond),
 			batchSize,
-			humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds())))
+			humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds()))))
 	}
 	return nil
 }
@@ -245,8 +244,8 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		if err != nil {
 			return 0, err
 		}
-		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d orphans=%s",
-			tree.version, shardID, humanize.Comma(int64(len(tree.branchOrphans))))
+		b.logger.Debug(fmt.Sprintf("checkpoint db=tree version=%d shard=%d orphans=%s",
+			tree.version, shardID, humanize.Comma(int64(len(tree.branchOrphans)))))
 
 		if err = b.newTreeBatch(shardID); err != nil {
 			return 0, err
