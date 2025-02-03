@@ -30,6 +30,7 @@ type TreeMetrics struct {
 	TreeUpdate  int64
 	TreeNewNode int64
 	TreeDelete  int64
+	TreeHash    int64
 }
 
 type DbMetrics struct {

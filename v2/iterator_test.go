@@ -10,7 +10,7 @@ import (
 
 func Test_Iterator(t *testing.T) {
 	pool := iavl.NewNodePool()
-	sql, err := iavl.NewInMemorySqliteDb(pool)
+	sql, err := iavl.NewSqliteDb(pool, iavl.SqliteDbOptions{Path: t.TempDir()})
 	require.NoError(t, err)
 
 	tree := iavl.NewTree(sql, pool, iavl.TreeOptions{StateStorage: false})
@@ -25,6 +25,8 @@ func Test_Iterator(t *testing.T) {
 	set("e", "5")
 	set("f", "6")
 	set("g", "7")
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
 
 	cases := []struct {
 		name          string
@@ -208,7 +210,6 @@ func Test_Iterator(t *testing.T) {
 				if cnt == 0 {
 					require.Equal(t, tc.expectedStart, itr.Key())
 				}
-				//fmt.Printf("%s %s\n", itr.Key(), itr.Value())
 				require.NoError(t, itr.Error())
 				cnt++
 			}
@@ -304,5 +305,4 @@ func Test_IteratorTree(t *testing.T) {
 			require.NoError(t, itr.Close())
 		})
 	}
-
 }
