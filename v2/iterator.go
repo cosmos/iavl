@@ -43,7 +43,9 @@ var (
 )
 
 type TreeIterator struct {
-	tree       *Tree
+	sql *SqliteDb
+	cf  connectionFactory
+
 	start, end []byte // iteration domain
 	ascending  bool   // ascending traversal
 	inclusive  bool   // end key inclusiveness
@@ -68,7 +70,7 @@ func (i *TreeIterator) Valid() bool {
 
 func (i *TreeIterator) Next() {
 	if i.metrics != nil {
-		defer i.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
+		defer i.metrics.MeasureSince(time.Now(), metricsNamespace, "iterator", "next")
 	}
 	if !i.valid {
 		return
@@ -116,7 +118,7 @@ func (i *TreeIterator) stepAscend() {
 			}
 			break
 		}
-		right, err := n.getRightNode(i.tree)
+		right, err := n.getRightNode(i.sql, i.cf)
 		if err != nil {
 			i.err = err
 			i.valid = false
@@ -124,7 +126,7 @@ func (i *TreeIterator) stepAscend() {
 		}
 
 		if bytes.Compare(i.start, n.key) < 0 {
-			left, err := n.getLeftNode(i.tree)
+			left, err := n.getLeftNode(i.sql, i.cf)
 			if err != nil {
 				i.err = err
 				i.valid = false
@@ -167,7 +169,7 @@ func (i *TreeIterator) stepDescend() {
 			}
 			break
 		}
-		left, err := n.getLeftNode(i.tree)
+		left, err := n.getLeftNode(i.sql, i.cf)
 		if err != nil {
 			i.err = err
 			i.valid = false
@@ -175,7 +177,7 @@ func (i *TreeIterator) stepDescend() {
 		}
 
 		if i.end == nil || bytes.Compare(n.key, i.end) <= 0 {
-			right, err := n.getRightNode(i.tree)
+			right, err := n.getRightNode(i.sql, i.cf)
 			if err != nil {
 				i.err = err
 				i.valid = false
@@ -249,7 +251,7 @@ func (l *LeafIterator) Valid() bool {
 
 func (l *LeafIterator) Next() {
 	if l.metrics != nil {
-		defer l.metrics.MeasureSince(time.Now(), "iavl_v2", "iterator", "next")
+		defer l.metrics.MeasureSince(time.Now(), metricsNamespace, "iterator", "next")
 	}
 	if !l.valid {
 		return
@@ -294,7 +296,7 @@ func (l *LeafIterator) Error() error {
 func (l *LeafIterator) Close() error {
 	if l.valid {
 		if l.metrics != nil {
-			l.metrics.IncrCounter(1, "iavl_v2", "iterator", "close")
+			l.metrics.IncrCounter(1, metricsNamespace, "iterator", "close")
 		}
 		l.valid = false
 		delete(l.sql.iterators, l.itrIdx)
@@ -321,7 +323,8 @@ func (tree *Tree) Iterator(start, end []byte, inclusive bool) (itr Iterator, err
 		itr = leafItr
 	} else {
 		itr = &TreeIterator{
-			tree:      tree,
+			sql:       tree.sql,
+			cf:        tree.sql.hotConnectionFactory,
 			start:     start,
 			end:       end,
 			ascending: true,
@@ -333,7 +336,7 @@ func (tree *Tree) Iterator(start, end []byte, inclusive bool) (itr Iterator, err
 	}
 
 	if tree.metricsProxy != nil {
-		tree.metricsProxy.IncrCounter(1, "iavl_v2", "iterator", "open")
+		tree.metricsProxy.IncrCounter(1, metricsNamespace, "iterator", "open")
 	}
 	itr.Next()
 	return itr, err
@@ -357,7 +360,8 @@ func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
 		itr = leafItr
 	} else {
 		itr = &TreeIterator{
-			tree:      tree,
+			sql:       tree.sql,
+			cf:        tree.sql.hotConnectionFactory,
 			start:     start,
 			end:       end,
 			ascending: false,
@@ -368,8 +372,28 @@ func (tree *Tree) ReverseIterator(start, end []byte) (itr Iterator, err error) {
 		}
 	}
 	if tree.metricsProxy != nil {
-		tree.metricsProxy.IncrCounter(1, "iavl_v2", "iterator", "open")
+		tree.metricsProxy.IncrCounter(1, metricsNamespace, "iterator", "open")
 	}
 	itr.Next()
 	return itr, nil
+}
+
+func (tree *Tree) IterateRecent(version int64, start, end []byte, ascending bool) (bool, Iterator) {
+	ok, root := tree.getRecentRoot(version)
+	if !ok {
+		return false, nil
+	}
+	itr := &TreeIterator{
+		sql:       tree.sql,
+		cf:        tree.sql.hotConnectionFactory,
+		start:     start,
+		end:       end,
+		ascending: ascending,
+		inclusive: false,
+		valid:     true,
+		stack:     []*Node{root},
+		metrics:   tree.metricsProxy,
+	}
+	itr.Next()
+	return true, itr
 }
