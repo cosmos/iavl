@@ -28,7 +28,7 @@ var uvarintPool = &sync.Pool{
 	},
 }
 
-// decodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
+// DecodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
 // of input bytes read.
 // Assumes bz will not be mutated.
 func DecodeBytes(bz []byte) ([]byte, int, error) {
@@ -55,7 +55,7 @@ func DecodeBytes(bz []byte) ([]byte, int, error) {
 	return bz[n:end], end, nil
 }
 
-// decodeUvarint decodes a varint-encoded unsigned integer from a byte slice, returning it and the
+// DecodeUvarint decodes a varint-encoded unsigned integer from a byte slice, returning it and the
 // number of bytes decoded.
 func DecodeUvarint(bz []byte) (uint64, int, error) {
 	u, n := binary.Uvarint(bz)
@@ -71,7 +71,7 @@ func DecodeUvarint(bz []byte) (uint64, int, error) {
 	return u, n, nil
 }
 
-// decodeVarint decodes a varint-encoded integer from a byte slice, returning it and the number of
+// DecodeVarint decodes a varint-encoded integer from a byte slice, returning it and the number of
 // bytes decoded.
 func DecodeVarint(bz []byte) (int64, int, error) {
 	i, n := binary.Varint(bz)

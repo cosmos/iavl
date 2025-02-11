@@ -6,7 +6,7 @@ Below is a brief introduction to the tool.
 
 ## Installation
 
-Once this is merged into the offical repo, master, you should be able to do:
+Once this is merged into the official repo, master, you should be able to do:
 
 ```shell
 go get github.com/cosmos/iavl
@@ -42,7 +42,7 @@ Now, if you run `ls -l`, you should see two directories... `bns-a.db` and `bns-b
 iaviewer versions ./bns-a.db ""
 ```
 
-This should print out a list of 20 versions of the code. Note the the iavl tree will persist multiple
+This should print out a list of 20 versions of the code. Note the iavl tree will persist multiple
 historical versions, which is a great aid in forensic queries (thanks Tendermint team!). For the rest
 of the cases, we will consider only the last two versions, 190257 (last one where they match) and 190258
 (where they are different).

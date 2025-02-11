@@ -164,7 +164,7 @@ func (t *traversal) next() (*Node, error) {
 		return node, nil
 	}
 
-	// Keep traversing and expanding the remaning delayed nodes. A-4.
+	// Keep traversing and expanding the remaining delayed nodes. A-4.
 	return t.next()
 }
 
