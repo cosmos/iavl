@@ -69,7 +69,7 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 				treeOpts.MetricsProxy = newPrometheusMetricsProxy()
 			}
 
-			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: true}))
+			logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{AddSource: true, Level: slog.LevelDebug}))
 			var multiTree *iavl.MultiTree
 			if loadSnapshot {
 				var err error
