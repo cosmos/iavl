@@ -32,6 +32,9 @@ type MultiTree struct {
 }
 
 func NewMultiTree(logger Logger, rootPath string, opts TreeOptions) *MultiTree {
+	if opts.MetricsProxy == nil {
+		opts.MetricsProxy = metrics.NilMetrics{}
+	}
 	return &MultiTree{
 		Trees:    make(map[string]*Tree),
 		doneCh:   make(chan saveVersionResult, 1000),
@@ -346,7 +349,10 @@ func (mt *MultiTree) TestBuild(opts *testutil.TreeBuildOptions) (int64, error) {
 			hashCount    int64
 		)
 		for _, tr := range mt.Trees {
-			sm := tr.metricsProxy.(*metrics.StructMetrics)
+			sm, ok := tr.metricsProxy.(*metrics.StructMetrics)
+			if !ok {
+				return nil
+			}
 			workingBytes += tr.workingBytes
 			workingSize += tr.workingSize
 			writeLeaves += sm.WriteLeaves

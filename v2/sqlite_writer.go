@@ -42,9 +42,8 @@ type sqlWriter struct {
 }
 
 func (sql *SqliteDb) newSQLWriter() *sqlWriter {
-	return &sqlWriter{
+	writer := &sqlWriter{
 		sql:         sql,
-		logger:      sql.logger,
 		leafPruneCh: make(chan *pruneSignal),
 		treePruneCh: make(chan *pruneSignal),
 		leafCh:      make(chan *saveSignal),
@@ -52,6 +51,10 @@ func (sql *SqliteDb) newSQLWriter() *sqlWriter {
 		leafResult:  make(chan *saveResult),
 		treeResult:  make(chan *saveResult),
 	}
+	if sql != nil {
+		writer.logger = sql.logger
+	}
+	return writer
 }
 
 func (w *sqlWriter) start(ctx context.Context) {

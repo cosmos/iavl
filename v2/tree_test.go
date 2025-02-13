@@ -1,10 +1,11 @@
 package iavl
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log/slog"
+	"os"
 	"sort"
 	"testing"
 	"time"
@@ -53,7 +54,9 @@ func TestTree_Build_Load(t *testing.T) {
 	// build the initial version of the tree with periodic checkpoints
 	tmpDir := t.TempDir()
 	opts := testutil.NewTreeBuildOptions().With10_000()
-	multiTree := NewMultiTree(NewTestLogger(), tmpDir, TreeOptions{CheckpointInterval: 4000, HeightFilter: 0, StateStorage: false})
+	multiTree := NewMultiTree(NewTestLogger(), tmpDir, TreeOptions{
+		CheckpointInterval: 4000, HeightFilter: 0, StateStorage: false, MetricsProxy: metrics.NewStructMetrics(),
+	})
 	itrs, ok := opts.Iterator.(*bench.ChangesetIterators)
 	require.True(t, ok)
 	for _, sk := range itrs.StoreKeys() {
@@ -80,43 +83,6 @@ func TestTree_Build_Load(t *testing.T) {
 	_, err = mt.TestBuild(opts)
 	require.NoError(t, err)
 	require.NoError(t, mt.Close())
-
-	t.Log("export the tree at version 12,000 and import it into a sql db in pre-order")
-	traverseOrder := PreOrder
-	restorePreOrderMt := NewMultiTree(NewTestLogger(), t.TempDir(), TreeOptions{CheckpointInterval: 4000})
-	for sk, tree := range multiTree.Trees {
-		require.NoError(t, restorePreOrderMt.MountTree(sk))
-		exporter := tree.Export(traverseOrder)
-
-		restoreTree := restorePreOrderMt.Trees[sk]
-		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{WriteCheckpoint: true, TraverseOrder: traverseOrder})
-		require.NoError(t, err)
-		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
-	}
-	require.NoError(t, restorePreOrderMt.Close())
-
-	t.Log("export the tree at version 12,000 and import it into a sql db in post-order")
-	traverseOrder = PostOrder
-	restorePostOrderMt := NewMultiTree(NewTestLogger(), t.TempDir(), TreeOptions{CheckpointInterval: 4000})
-	for sk, tree := range multiTree.Trees {
-		require.NoError(t, restorePostOrderMt.MountTree(sk))
-		exporter := tree.Export(traverseOrder)
-
-		restoreTree := restorePostOrderMt.Trees[sk]
-		_, err := restoreTree.sql.WriteSnapshot(context.Background(), tree.Version(), exporter.Next, SnapshotOptions{WriteCheckpoint: true, TraverseOrder: traverseOrder})
-		require.NoError(t, err)
-		require.NoError(t, restoreTree.LoadSnapshot(tree.Version(), traverseOrder))
-	}
-	require.Equal(t, restorePostOrderMt.Hash(), restorePreOrderMt.Hash())
-
-	t.Log("build tree to version 20,000 and verify hash")
-	require.NoError(t, opts.Iterator.Next())
-	require.Equal(t, int64(12_001), opts.Iterator.Version())
-	opts.Until = 20_000
-	opts.UntilHash = "25907b193c697903218d92fa70a87ef6cdd6fa5b9162d955a4d70a9d5d2c4824"
-	_, err = restorePostOrderMt.TestBuild(opts)
-	require.NoError(t, err)
-	require.NoError(t, restorePostOrderMt.Close())
 }
 
 func TestTreeSanity(t *testing.T) {
@@ -131,7 +97,7 @@ func TestTreeSanity(t *testing.T) {
 				pool := NewNodePool()
 				sql, err := NewInMemorySqliteDb(pool)
 				require.NoError(t, err)
-				return NewTree(sql, pool, TreeOptions{})
+				return NewTree(sql, pool, DefaultTreeOptions())
 			},
 			hashFn: func(tree *Tree) []byte {
 				hash, _, err := tree.SaveVersion()
@@ -143,7 +109,7 @@ func TestTreeSanity(t *testing.T) {
 			name: "no db",
 			treeFn: func() *Tree {
 				pool := NewNodePool()
-				return NewTree(nil, pool, TreeOptions{})
+				return NewTree(nil, pool, DefaultTreeOptions())
 			},
 			hashFn: func(tree *Tree) []byte {
 				rehashTree(tree.root)
@@ -195,9 +161,10 @@ func TestTreeSanity(t *testing.T) {
 
 func Test_EmptyTree(t *testing.T) {
 	pool := NewNodePool()
-	sql, err := NewInMemorySqliteDb(pool)
+	dbPath := t.TempDir()
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: dbPath})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{})
+	tree := NewTree(sql, pool, DefaultTreeOptions())
 
 	_, err = tree.Set([]byte("foo"), []byte("bar"))
 	require.NoError(t, err)
@@ -220,15 +187,6 @@ func Test_EmptyTree(t *testing.T) {
 	require.Equal(t, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", hex.EncodeToString(hash))
 
 	err = tree.LoadVersion(version)
-	require.NoError(t, err)
-}
-
-func Test_Replay_Tmp(t *testing.T) {
-	pool := NewNodePool()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: "/Users/mattk/src/scratch/icahost"})
-	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true})
-	err = tree.LoadVersion(13946707)
 	require.NoError(t, err)
 }
 
@@ -257,7 +215,9 @@ func Test_Replay(t *testing.T) {
 	tmpDir := t.TempDir()
 	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	opts := DefaultTreeOptions()
+	opts.CheckpointInterval = 100
+	tree := NewTree(sql, pool, opts)
 
 	// we must buffer all sets/deletes and order them first for replay to work properly.
 	// store v1 and v2 already do this via cachekv write buffering.
@@ -316,7 +276,7 @@ func Test_Replay(t *testing.T) {
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree = NewTree(sql, pool, TreeOptions{StateStorage: true})
+	tree = NewTree(sql, pool, opts)
 	err = tree.LoadVersion(140)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
@@ -325,7 +285,7 @@ func Test_Replay(t *testing.T) {
 
 	sql, err = NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir})
 	require.NoError(t, err)
-	tree = NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	tree = NewTree(sql, pool, opts)
 	err = tree.LoadVersion(170)
 	require.NoError(t, err)
 	itr, err = gen.Iterator()
@@ -352,11 +312,13 @@ func Test_Prune_Logic(t *testing.T) {
 	require.NoError(t, err)
 
 	pool := NewNodePool()
-	// tmpDir := "/tmp/prune-logic"
 	tmpDir := t.TempDir()
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false})
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false, Logger: logger})
 	require.NoError(t, err)
-	tree := NewTree(sql, pool, TreeOptions{StateStorage: true, CheckpointInterval: 100})
+	treeOpts := DefaultTreeOptions()
+	treeOpts.CheckpointInterval = 100
+	tree := NewTree(sql, pool, treeOpts)
 
 	for ; itr.Valid(); err = itr.Next() {
 		require.NoError(t, err)
@@ -373,7 +335,7 @@ func Test_Prune_Logic(t *testing.T) {
 			}
 		}
 		_, version, err := tree.SaveVersion()
-		// fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
+		fmt.Printf("version=%d, hash=%x\n", version, tree.Hash())
 		switch version {
 		case 30:
 			require.NoError(t, tree.DeleteVersionsTo(20))

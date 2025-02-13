@@ -71,7 +71,9 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	}
 	opts.walPages = opts.WalSize / os.Getpagesize()
 
-	opts.Logger = NewNopLogger()
+	if opts.Logger == nil {
+		opts.Logger = NewNopLogger()
+	}
 
 	return opts
 }
