@@ -4,8 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"log/slog"
-	"os"
 	"sort"
 	"testing"
 	"time"
@@ -313,8 +311,7 @@ func Test_Prune_Logic(t *testing.T) {
 
 	pool := NewNodePool()
 	tmpDir := t.TempDir()
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false, Logger: logger})
+	sql, err := NewSqliteDb(pool, SqliteDbOptions{Path: tmpDir, ShardTrees: false, Logger: NewDebugLogger()})
 	require.NoError(t, err)
 	treeOpts := DefaultTreeOptions()
 	treeOpts.CheckpointInterval = 100

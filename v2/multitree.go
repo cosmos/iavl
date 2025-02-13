@@ -129,6 +129,7 @@ func (mt *MultiTree) newTree(dbPath string) (*Tree, error) {
 	sql, err := NewSqliteDb(pool, defaultSqliteDbOptions(SqliteDbOptions{
 		Path:    dbPath,
 		Metrics: opts.MetricsProxy,
+		Logger:  mt.logger,
 	}))
 	if err != nil {
 		return nil, err
