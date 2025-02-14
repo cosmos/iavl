@@ -456,7 +456,8 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	w.leafCh <- saveSig
 	treeResult := <-w.treeResult
 	leafResult := <-w.leafResult
-	tree.metrics.IncrCounter(float32(len(tree.leaves)), metricsNamespace, "db_write_leaf")
+	tree.metrics.IncrCounter(float32(batch.leafCount), metricsNamespace, "db_write_leaf")
+	tree.metrics.IncrCounter(float32(batch.treeCount), metricsNamespace, "db_write_branch")
 
 	err := errors.Join(treeResult.err, leafResult.err)
 

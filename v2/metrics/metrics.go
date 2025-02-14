@@ -79,6 +79,8 @@ func (s *StructMetrics) IncrCounter(val float32, keys ...string) {
 		s.QueryLeafMiss += int64(val)
 	case "db_write_leaf":
 		s.WriteLeaves += int64(val)
+	case "db_write_branch":
+		s.WriteBranch += int64(val)
 	}
 }
 
@@ -118,6 +120,7 @@ type DbMetrics struct {
 	WriteDurations []time.Duration
 	WriteTime      time.Duration
 	WriteLeaves    int64
+	WriteBranch    int64
 
 	QueryDurations   []time.Duration
 	QueryTime        time.Duration
@@ -192,6 +195,7 @@ func (s *StructMetrics) Add(os *StructMetrics) {
 	s.WriteDurations = append(s.WriteDurations, os.WriteDurations...)
 	s.WriteTime += os.WriteTime
 	s.WriteLeaves += os.WriteLeaves
+	s.WriteBranch += os.WriteBranch
 
 	s.QueryDurations = append(s.QueryDurations, os.QueryDurations...)
 	s.QueryTime += os.QueryTime

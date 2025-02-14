@@ -345,7 +345,7 @@ func (mt *MultiTree) TestBuild(opts *testutil.TreeBuildOptions) (int64, error) {
 		var (
 			workingBytes uint64
 			workingSize  int64
-			writeLeaves  int64
+			writeCount   int64
 			writeTime    time.Duration
 			hashCount    int64
 		)
@@ -356,11 +356,12 @@ func (mt *MultiTree) TestBuild(opts *testutil.TreeBuildOptions) (int64, error) {
 			}
 			workingBytes += tr.workingBytes
 			workingSize += tr.workingSize
-			writeLeaves += sm.WriteLeaves
 			writeTime += sm.WriteTime
+			writeCount += sm.WriteLeaves + sm.WriteBranch
 			hashCount += sm.TreeHash
 			sm.WriteDurations = nil
 			sm.WriteLeaves = 0
+			sm.WriteBranch = 0
 			sm.WriteTime = 0
 			sm.TreeHash = 0
 		}
@@ -376,9 +377,9 @@ func (mt *MultiTree) TestBuild(opts *testutil.TreeBuildOptions) (int64, error) {
 
 		if writeTime > 0 {
 			fmt.Printf("writes: cnt=%s wr/s=%s dur/wr=%s dur=%s hashes=%s\n",
-				humanize.Comma(writeLeaves),
-				humanize.Comma(int64(float64(writeLeaves)/writeTime.Seconds())),
-				time.Duration(int64(writeTime)/writeLeaves),
+				humanize.Comma(writeCount),
+				humanize.Comma(int64(float64(writeCount)/writeTime.Seconds())),
+				time.Duration(int64(writeTime)/writeCount),
 				writeTime.Round(time.Millisecond),
 				humanize.Comma(hashCount),
 			)
