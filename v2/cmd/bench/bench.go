@@ -2,6 +2,8 @@ package bench
 
 import (
 	"net/http"
+	"os"
+	"runtime/pprof"
 	"testing"
 	"time"
 
@@ -30,6 +32,7 @@ func benchCommand() *cobra.Command {
 		changelogPath string
 		loadSnapshot  bool
 		usePrometheus bool
+		cpuProfile    string
 	)
 	cmd := &cobra.Command{
 		Use:   "std",
@@ -44,12 +47,26 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 `,
 
 		RunE: func(_ *cobra.Command, _ []string) error {
+			if cpuProfile != "" {
+				f, err := os.Create(cpuProfile)
+				if err != nil {
+					return err
+				}
+				if err := pprof.StartCPUProfile(f); err != nil {
+					return err
+				}
+				defer func() {
+					pprof.StopCPUProfile()
+					f.Close()
+				}()
+			}
 			t := &testing.T{}
 			treeOpts := iavl.DefaultTreeOptions()
 			treeOpts.CheckpointInterval = 80
 			treeOpts.StateStorage = true
 			treeOpts.HeightFilter = 1
 			treeOpts.EvictionDepth = 22
+			treeOpts.PruneRatio = 0
 			treeOpts.MetricsProxy = metrics.NewStructMetrics()
 			if usePrometheus {
 				treeOpts.MetricsProxy = newPrometheusMetricsProxy()
@@ -84,6 +101,7 @@ $ go run ./cmd snapshot --db /tmp/iavl-v2 --version 1
 	cmd.Flags().StringVar(&changelogPath, "changelog", "/tmp/osmo-like-many/v2", "the path to the changelog")
 	cmd.Flags().BoolVar(&loadSnapshot, "snapshot", false, "load the snapshot at version 1 before running the benchmarks (loads full tree into memory)")
 	cmd.Flags().BoolVar(&usePrometheus, "prometheus", false, "enable prometheus metrics")
+	cmd.Flags().StringVar(&cpuProfile, "cpu-profile", "", "write cpu profile to file")
 
 	if err := cmd.MarkFlagRequired("changelog"); err != nil {
 		panic(err)

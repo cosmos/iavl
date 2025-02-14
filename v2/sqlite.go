@@ -165,6 +165,10 @@ func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	if err != nil {
 		return nil, err
 	}
+	err = hubConn.Exec("PRAGMA journal_mode=WAL;")
+	if err != nil {
+		return nil, err
+	}
 	sql := &SqliteDb{
 		shards:               &VersionRange{},
 		hotConnectionFactory: newHotConnectionFactory(hubConn, opts),

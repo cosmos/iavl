@@ -417,6 +417,7 @@ func (tree *Tree) deepHash(node *Node, depth int8) (evict bool) {
 			node.evict = 1
 			return true
 		}
+		return false
 	}
 
 	var evictLeft, evictRight bool
