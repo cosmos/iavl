@@ -13,30 +13,41 @@ const (
 )
 
 type Exporter struct {
-	tree  *Tree
+	sql   *SqliteDb
 	out   chan *Node
 	errCh chan error
 }
 
-func (tree *Tree) Export(order TraverseOrderType) *Exporter {
+func (tree *Tree) Export(version int64, order TraverseOrderType) (*Exporter, error) {
+	sql := tree.sql
+	root := tree.root
+	if version != tree.Version() {
+		cloned, err := tree.ReadonlyClone()
+		if err != nil {
+			return nil, err
+		}
+		if err = cloned.LoadVersion(version); err != nil {
+			return nil, err
+		}
+		root = cloned.root
+		sql = cloned.sql
+	}
+
 	exporter := &Exporter{
-		tree:  tree,
+		sql:   sql,
 		out:   make(chan *Node),
 		errCh: make(chan error),
 	}
-
 	go func(traverseOrder TraverseOrderType) {
 		defer close(exporter.out)
-		defer close(exporter.errCh)
-
 		if traverseOrder == PostOrder {
-			exporter.postOrderNext(tree.root)
+			exporter.postOrderNext(root)
 		} else if traverseOrder == PreOrder {
-			exporter.preOrderNext(tree.root)
+			exporter.preOrderNext(root)
 		}
 	}(order)
 
-	return exporter
+	return exporter, nil
 }
 
 func (e *Exporter) postOrderNext(node *Node) {
@@ -45,14 +56,14 @@ func (e *Exporter) postOrderNext(node *Node) {
 		return
 	}
 
-	left, err := node.getLeftNode(e.tree)
+	left, err := node.getLeftNode(e.sql)
 	if err != nil {
 		e.errCh <- err
 		return
 	}
 	e.postOrderNext(left)
 
-	right, err := node.getRightNode(e.tree)
+	right, err := node.getRightNode(e.sql)
 	if err != nil {
 		e.errCh <- err
 		return
@@ -68,14 +79,14 @@ func (e *Exporter) preOrderNext(node *Node) {
 		return
 	}
 
-	left, err := node.getLeftNode(e.tree)
+	left, err := node.getLeftNode(e.sql)
 	if err != nil {
 		e.errCh <- err
 		return
 	}
 	e.preOrderNext(left)
 
-	right, err := node.getRightNode(e.tree)
+	right, err := node.getRightNode(e.sql)
 	if err != nil {
 		e.errCh <- err
 		return
@@ -83,21 +94,23 @@ func (e *Exporter) preOrderNext(node *Node) {
 	e.preOrderNext(right)
 }
 
-func (e *Exporter) Next() (*SnapshotNode, error) {
+func (e *Exporter) Next() (*Node, error) {
 	select {
 	case node, ok := <-e.out:
 		if !ok {
 			return nil, ErrorExportDone
 		}
-		return &SnapshotNode{
-			Key:     node.key,
-			Value:   node.value,
-			Version: node.nodeKey.Version(),
-			Height:  node.subtreeHeight,
-		}, nil
+		if node == nil {
+			panic("unexpected nil node")
+		}
+		return node, nil
 	case err := <-e.errCh:
 		return nil, err
 	}
+}
+
+func (e *Exporter) Close() error {
+	return e.sql.Close()
 }
 
 var ErrorExportDone = errors.New("export done")

@@ -23,6 +23,14 @@ type nodeDelete struct {
 	leafKey []byte
 }
 
+type writeQueue struct {
+	branches      []*Node
+	leaves        []*Node
+	branchOrphans []NodeKey
+	leafOrphans   []NodeKey
+	deletes       []*nodeDelete
+}
+
 type Tree struct {
 	version      int64
 	root         *Node
@@ -47,11 +55,7 @@ type Tree struct {
 	metricsProxy       metrics.Proxy
 
 	// state
-	branches       []*Node
-	leaves         []*Node
-	branchOrphans  []NodeKey
-	leafOrphans    []NodeKey
-	deletes        []*nodeDelete
+	writeQueue
 	leafSequence   uint32
 	branchSequence uint32
 	isReplaying    bool
@@ -216,7 +220,7 @@ func (tree *Tree) computeHash() []byte {
 	return tree.root.hash
 }
 
-func (tree *Tree) deepHash(node *Node, depth int8) {
+func (tree *Tree) deepHash(node *Node, depth int8) (evict bool) {
 	if node == nil {
 		panic(fmt.Sprintf("node is nil; sql.path=%s", tree.sql.opts.Path))
 	}
@@ -226,65 +230,58 @@ func (tree *Tree) deepHash(node *Node, depth int8) {
 			tree.leaves = append(tree.leaves, node)
 		}
 		// always end recursion at a leaf
-		return
+		if tree.heightFilter > 0 {
+			node.evict = true
+			return true
+		}
+		return false
 	}
 
+	var evictLeft, evictRight bool
 	if node.hash == nil {
 		// When the child is a leaf, this will initiate a leafRead from storage for the sole purpose of producing a hash.
 		// Recall that a terminal tree node may have only updated one leaf this version.
 		// We can explore storing right/left hash in terminal tree nodes to avoid this, or changing the storage
 		// format to iavl v0 where left/right hash are stored in the node.
-		tree.deepHash(node.left(tree), depth+1)
-		tree.deepHash(node.right(tree), depth+1)
-	}
-
-	if !tree.shouldCheckpoint {
-		// when not checkpointing, end recursion at a node with a hash (node.version < tree.version)
-		if node.hash != nil {
-			return
+		evictLeft = tree.deepHash(node.left(tree), depth+1)
+		evictRight = tree.deepHash(node.right(tree), depth+1)
+		node._hash()
+	} else if tree.shouldCheckpoint && node.Version() > tree.checkpoints.Last() {
+		// when checkpointing traverse the entire tree to accumulate dirty branches and flag for eviction
+		// even if the node hash is already computed
+		if node.leftNode != nil {
+			evictLeft = tree.deepHash(node.leftNode, depth+1)
 		}
-	} else {
-		// otherwise accumulate the branch node for checkpointing
-		tree.branches = append(tree.branches, node)
-
-		// if the node is missing a hash then it's children have already been loaded above.
-		// if the node has a hash then traverse the dirty path.
-		if node.hash != nil {
-			if node.leftNode != nil {
-				tree.deepHash(node.leftNode, depth+1)
-			}
-			if node.rightNode != nil {
-				tree.deepHash(node.rightNode, depth+1)
-			}
+		if node.rightNode != nil {
+			evictRight = tree.deepHash(node.rightNode, depth+1)
 		}
 	}
 
-	node._hash()
-
-	// when heightFilter > 0 remove the leaf nodes from memory.
-	// if the leaf node is not dirty, return it to the pool.
-	// if the leaf node is dirty, it will be written to storage then removed from the pool.
-	if tree.heightFilter > 0 {
-		if node.leftNode != nil && node.leftNode.isLeaf() {
-			if !node.leftNode.dirty {
-				tree.returnNode(node.leftNode)
-			}
-			node.leftNode = nil
-		}
-		if node.rightNode != nil && node.rightNode.isLeaf() {
-			if !node.rightNode.dirty {
-				tree.returnNode(node.rightNode)
-			}
-			node.rightNode = nil
-		}
-	}
-
-	// finally, if checkpointing, remove node's children from memory if we're at the eviction height
 	if tree.shouldCheckpoint {
+		if node.Version() > tree.checkpoints.Last() {
+			tree.branches = append(tree.branches, node)
+		}
+		// full tree eviction occurs only during checkpoints
 		if depth >= tree.evictionDepth {
-			node.evictChildren()
+			node.evict = true
+			evict = true
 		}
 	}
+
+	if evictLeft {
+		if !node.leftNode.dirty {
+			tree.returnNode(node.leftNode)
+		}
+		node.leftNode = nil
+	}
+	if evictRight {
+		if !node.rightNode.dirty {
+			tree.returnNode(node.rightNode)
+		}
+		node.rightNode = nil
+	}
+
+	return evict
 }
 
 func (tree *Tree) Get(key []byte) ([]byte, error) {
@@ -713,4 +710,25 @@ func (tree *Tree) WorkingBytes() uint64 {
 
 func (tree *Tree) SetShouldCheckpoint() {
 	tree.shouldCheckpoint = true
+}
+
+func (tree *Tree) ReadonlyClone() (*Tree, error) {
+	sqlOpts := tree.sql.opts
+	sql, err := NewSqliteDb(tree.pool, sqlOpts)
+	if err != nil {
+		return nil, err
+	}
+	return &Tree{
+		sql:                sql,
+		pool:               tree.pool,
+		checkpoints:        &VersionRange{},
+		maxWorkingSize:     tree.maxWorkingSize,
+		checkpointInterval: tree.checkpointInterval,
+		checkpointMemory:   tree.checkpointMemory,
+		storeLeafValues:    tree.storeLeafValues,
+		storeLatestLeaves:  tree.storeLatestLeaves,
+		heightFilter:       tree.heightFilter,
+		metricsProxy:       tree.metricsProxy,
+		evictionDepth:      tree.evictionDepth,
+	}, nil
 }

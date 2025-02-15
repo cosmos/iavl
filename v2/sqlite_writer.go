@@ -442,14 +442,24 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 
 func (w *sqlWriter) saveTree(tree *Tree) error {
 	defer tree.metrics.MeasureSince(time.Now(), metricsNamespace, "db_write")
+	shardID := int64(-1)
+	if tree.shouldCheckpoint {
+		var err error
+		shardID, err = tree.sql.nextShard(tree.version)
+		if err != nil {
+			return err
+		}
+	}
 	batch := &sqliteBatch{
-		sql:    tree.sql,
-		tree:   tree,
-		size:   200_000,
-		logger: w.sql.logger,
-		// logger: log.With().
-		// 	Str("module", "sqlite-batch").
-		// 	Str("path", tree.sql.opts.Path).Logger(),
+		leafWrite:         w.sql.leafWrite,
+		treeWrite:         w.sql.treeWrite,
+		storeLatestLeaves: tree.storeLatestLeaves,
+		version:           tree.version,
+		writeQueue:        &tree.writeQueue,
+		returnNode:        tree.returnNode,
+		shardID:           shardID,
+		size:              200_000,
+		logger:            w.sql.logger,
 	}
 	saveSig := &saveSignal{batch: batch, root: tree.root, version: tree.version, wantCheckpoint: tree.shouldCheckpoint}
 	w.treeCh <- saveSig
