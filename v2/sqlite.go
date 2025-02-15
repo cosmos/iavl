@@ -745,7 +745,7 @@ func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
 		err = errors.New("not found")
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get right node node_key=%s height=%d path=%s: %w",
+		return nil, fmt.Errorf("failed to get left node node_key=%s height=%d path=%s: %w",
 			node.leftNodeKey, node.subtreeHeight, sql.opts.Path, err)
 	}
 	return node.leftNode, nil

@@ -76,7 +76,7 @@ func DefaultTreeOptions() TreeOptions {
 		CheckpointInterval: 1000,
 		StateStorage:       true,
 		HeightFilter:       1,
-		EvictionDepth:      -1,
+		EvictionDepth:      1,
 		MetricsProxy:       &metrics.NilMetrics{},
 	}
 }
@@ -99,6 +99,9 @@ func NewTree(sql *SqliteDb, pool *NodePool, opts TreeOptions) *Tree {
 		metricsProxy:       opts.MetricsProxy,
 		evictionDepth:      opts.EvictionDepth,
 		leafSequence:       leafSequenceStart,
+	}
+	if tree.evictionDepth < 1 {
+		tree.evictionDepth = 1
 	}
 
 	tree.sqlWriter.start(ctx)
@@ -157,7 +160,7 @@ func (tree *Tree) LoadSnapshot(version int64, traverseOrder TraverseOrderType) (
 	if err != nil {
 		return err
 	}
-	return nil
+	return tree.sql.ResetShardQueries()
 }
 
 func (tree *Tree) SaveSnapshot() (err error) {
@@ -229,12 +232,13 @@ func (tree *Tree) deepHash(node *Node, depth int8) (evict bool) {
 		if node.nodeKey.Version() == tree.version {
 			tree.leaves = append(tree.leaves, node)
 		}
-		// always end recursion at a leaf
+		// evict leaf nodes when height filter enabled
 		if tree.heightFilter > 0 {
 			node.evict = true
 			return true
 		}
 		return false
+		// always end recursion at a leaf
 	}
 
 	var evictLeft, evictRight bool
@@ -259,9 +263,11 @@ func (tree *Tree) deepHash(node *Node, depth int8) (evict bool) {
 
 	if tree.shouldCheckpoint {
 		if node.Version() > tree.checkpoints.Last() {
+			node.dirty = true // may not already be set in the edge of restoring from a snapshot between checkpoints
 			tree.branches = append(tree.branches, node)
 		}
 		// full tree eviction occurs only during checkpoints
+		// never evict root node
 		if depth >= tree.evictionDepth {
 			node.evict = true
 			evict = true
