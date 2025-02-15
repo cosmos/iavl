@@ -309,6 +309,45 @@ func (tree *Tree) Get(key []byte) ([]byte, error) {
 	return res, err
 }
 
+func (tree *Tree) GetWithIndex(key []byte) (int64, []byte, error) {
+	if tree.root == nil {
+		return 0, nil, nil
+	}
+	return tree.root.get(tree, key)
+}
+
+func (tree *Tree) GetByIndex(index int64) (key []byte, value []byte, err error) {
+	if tree.root == nil {
+		return nil, nil, nil
+	}
+	return tree.getByIndex(tree.root, index)
+}
+
+func (tree *Tree) getByIndex(node *Node, index int64) (key []byte, value []byte, err error) {
+	if node.isLeaf() {
+		if index == 0 {
+			return node.key, node.value, nil
+		}
+		return nil, nil, nil
+	}
+
+	leftNode, err := node.getLeftNode(tree.sql)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if index < leftNode.size {
+		return tree.getByIndex(leftNode, index)
+	}
+
+	rightNode, err := node.getRightNode(tree.sql)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return tree.getByIndex(rightNode, index-leftNode.size)
+}
+
 func (tree *Tree) Has(key []byte) (bool, error) {
 	if tree.metricsProxy != nil {
 		defer tree.metricsProxy.MeasureSince(time.Now(), metricsNamespace, "tree_has")
@@ -737,4 +776,16 @@ func (tree *Tree) ReadonlyClone() (*Tree, error) {
 		metricsProxy:       tree.metricsProxy,
 		evictionDepth:      tree.evictionDepth,
 	}, nil
+}
+
+func (tree *Tree) SetInitialVersion(version int64) error {
+	// tree.stagedVersion = version
+	tree.version = version - 1
+	var err error
+	tree.checkpoints, err = tree.sql.loadCheckpointRange()
+	return err
+}
+
+func (tree *Tree) Import(version int64) (*Importer, error) {
+	return newImporter(tree, version)
 }
