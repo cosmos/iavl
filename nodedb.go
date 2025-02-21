@@ -459,31 +459,36 @@ func newRootkeyCache() *rootkeyCache {
 // deletes orphans
 func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 	rootKey, err := cache.getRootKey(ndb, version)
-	if err != nil {
+	if err != nil && err != ErrVersionDoesNotExist {
 		return err
 	}
 
-	if err := ndb.traverseOrphansWithRootkeyCache(cache, version, version+1, func(orphan *Node) error {
-		if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
-			// if the orphan is a reformatted root, it can be a legacy root
-			// so it should be removed from the pruning process.
-			if err := ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash)); err != nil {
-				return err
+	// If rootKey is nil, it indicates that the root is either a dangling reference or does not exist at all.
+	// In this case, we can skip the orphans pruning process since there are no nodes in the current version to be considered orphans.
+	// Otherwise, proceed with pruning the orphans.
+	if rootKey != nil {
+		if err := ndb.traverseOrphansWithRootkeyCache(cache, version, version+1, func(orphan *Node) error {
+			if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
+				// if the orphan is a reformatted root, it can be a legacy root
+				// so it should be removed from the pruning process.
+				if err := ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash)); err != nil {
+					return err
+				}
 			}
+			if orphan.nodeKey.nonce == 1 && orphan.nodeKey.version < version {
+				// if the orphan is referred to the previous root, it should be reformatted
+				// to (version, 0), because the root (version, 1) should be removed but not
+				// applied now due to the batch writing.
+				orphan.nodeKey.nonce = 0
+			}
+			nk := orphan.GetKey()
+			if orphan.isLegacy {
+				return ndb.deleteFromPruning(ndb.legacyNodeKey(nk))
+			}
+			return ndb.deleteFromPruning(ndb.nodeKey(nk))
+		}); err != nil {
+			return err
 		}
-		if orphan.nodeKey.nonce == 1 && orphan.nodeKey.version < version {
-			// if the orphan is referred to the previous root, it should be reformatted
-			// to (version, 0), because the root (version, 1) should be removed but not
-			// applied now due to the batch writing.
-			orphan.nodeKey.nonce = 0
-		}
-		nk := orphan.GetKey()
-		if orphan.isLegacy {
-			return ndb.deleteFromPruning(ndb.legacyNodeKey(nk))
-		}
-		return ndb.deleteFromPruning(ndb.nodeKey(nk))
-	}); err != nil {
-		return err
 	}
 
 	literalRootKey := GetRootKey(version)
