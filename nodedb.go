@@ -407,6 +407,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 	// If rootKey is nil, it indicates that the root is either a dangling reference or does not exist at all.
 	// In this case, we can skip the orphans pruning process since there are no nodes in the current version to be considered orphans.
 	// Otherwise, proceed with pruning the orphans.
+	fmt.Println("rootKey", rootKey)
 	if rootKey != nil {
 		if err := ndb.traverseOrphans(version, version+1, func(orphan *Node) error {
 			if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
