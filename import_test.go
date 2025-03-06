@@ -71,80 +71,6 @@ func ExampleImporter() {
 	}
 }
 
-func TestImporterDataIntegrity(t *testing.T) {
-	// run multiple times to ensure the data integrity
-	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
-
-	// write more than maxBatchSize
-	for i := 0; i < maxBatchSize+1; i++ {
-		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
-		_, err := tree.Set(bz[:], []byte{byte(i)})
-		if err != nil {
-			require.NoError(t, err)
-		}
-	}
-
-	_, version, err := tree.SaveVersion()
-	require.NoError(t, err)
-
-	itree, err := tree.GetImmutable(version)
-	require.NoError(t, err)
-
-	exporter, err := itree.Export()
-	require.NoError(t, err)
-
-	defer exporter.Close()
-	exported := []*ExportNode{}
-	for {
-		var node *ExportNode
-		node, err = exporter.Next()
-		if err == ErrorExportDone {
-			break
-		}
-
-		require.NoError(t, err)
-		exported = append(exported, node)
-	}
-
-	tempDir := t.TempDir()
-	db, err := dbm.NewDB("importer-test", "goleveldb", tempDir)
-	require.NoError(t, err)
-	newTree := NewMutableTree(db, 0, false, NewNopLogger())
-	importer, err := newTree.Import(version)
-	require.NoError(t, err)
-
-	for _, node := range exported {
-		err = importer.Add(node)
-		require.NoError(t, err)
-	}
-	err = importer.Commit()
-	require.NoError(t, err)
-	importer.Close()
-
-	_, version, err = newTree.SaveVersion()
-	require.NoError(t, err)
-	err = newTree.Close()
-	require.NoError(t, err)
-	err = db.Close()
-	require.NoError(t, err)
-
-	// check if the tree is the same
-	db, err = dbm.NewDB("importer-test", "goleveldb", tempDir)
-	require.NoError(t, err)
-	newTree = NewMutableTree(db, 0, false, NewNopLogger())
-	_, err = newTree.LoadVersion(version)
-	require.NoError(t, err)
-	itree, err = newTree.GetImmutable(version)
-	require.NoError(t, err)
-
-	for i := 0; i < maxBatchSize+1; i++ {
-		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
-		value, err := itree.Get(bz[:])
-		require.NoError(t, err)
-		require.Equal(t, []byte{byte(i)}, value)
-	}
-}
-
 func TestImporter_NegativeVersion(t *testing.T) {
 	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 	_, err := tree.Import(-1)
@@ -345,5 +271,77 @@ func benchmarkImport(b *testing.B, nodes int) {
 		}
 		err = importer.Commit()
 		require.NoError(b, err)
+	}
+}
+
+func TestImporterDataIntegrity(t *testing.T) {
+	// run multiple times to ensure the data integrity
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
+
+	// write more than maxBatchSize
+	for i := 0; i < maxBatchSize+1; i++ {
+		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
+		_, err := tree.Set(bz[:], []byte{byte(i)})
+		require.NoError(t, err)
+	}
+
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+
+	itree, err := tree.GetImmutable(version)
+	require.NoError(t, err)
+
+	exporter, err := itree.Export()
+	require.NoError(t, err)
+
+	defer exporter.Close()
+	exported := []*ExportNode{}
+	for {
+		var node *ExportNode
+		node, err = exporter.Next()
+		if err == ErrorExportDone {
+			break
+		}
+
+		require.NoError(t, err)
+		exported = append(exported, node)
+	}
+
+	tempDir := t.TempDir()
+	db, err := dbm.NewDB("importer-test", "goleveldb", tempDir)
+	require.NoError(t, err)
+	newTree := NewMutableTree(db, 0, false, NewNopLogger())
+	importer, err := newTree.Import(version)
+	require.NoError(t, err)
+
+	for _, node := range exported {
+		err = importer.Add(node)
+		require.NoError(t, err)
+	}
+	err = importer.Commit()
+	require.NoError(t, err)
+	importer.Close()
+
+	_, version, err = newTree.SaveVersion()
+	require.NoError(t, err)
+	err = newTree.Close()
+	require.NoError(t, err)
+	err = db.Close()
+	require.NoError(t, err)
+
+	// check if the tree is the same
+	db, err = dbm.NewDB("importer-test", "goleveldb", tempDir)
+	require.NoError(t, err)
+	newTree = NewMutableTree(db, 0, false, NewNopLogger())
+	_, err = newTree.LoadVersion(version)
+	require.NoError(t, err)
+	itree, err = newTree.GetImmutable(version)
+	require.NoError(t, err)
+
+	for i := 0; i < maxBatchSize+1; i++ {
+		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
+		value, err := itree.Get(bz[:])
+		require.NoError(t, err)
+		require.Equal(t, []byte{byte(i)}, value)
 	}
 }
