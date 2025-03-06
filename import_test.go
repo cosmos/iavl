@@ -282,9 +282,7 @@ func TestImporterDataIntegrity(t *testing.T) {
 	for i := 0; i < maxBatchSize+1; i++ {
 		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
 		_, err := tree.Set(bz[:], []byte{byte(i)})
-		if err != nil {
-			require.NoError(t, err)
-		}
+		require.NoError(t, err)
 	}
 
 	_, version, err := tree.SaveVersion()
