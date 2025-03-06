@@ -444,4 +444,5 @@ func TestCloseNodeDB(t *testing.T) {
 	opts.AsyncPruning = true
 	ndb := newNodeDB(db, 0, opts, NewNopLogger())
 	require.NoError(t, ndb.Close())
+	require.NoError(t, ndb.Close()) // must not block or fail on second call
 }

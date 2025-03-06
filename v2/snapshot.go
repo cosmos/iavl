@@ -14,7 +14,6 @@ import (
 	"github.com/dustin/go-humanize"
 	api "github.com/kocubinski/costor-api"
 	"github.com/kocubinski/costor-api/logz"
-	"github.com/rs/zerolog"
 )
 
 type sqliteSnapshot struct {
@@ -35,7 +34,7 @@ type sqliteSnapshot struct {
 	version   int64
 	getLeft   func(*Node) *Node
 	getRight  func(*Node) *Node
-	log       zerolog.Logger
+	log       Logger
 }
 
 func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
@@ -51,7 +50,7 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 		sql:       sql,
 		batchSize: 200_000,
 		version:   version,
-		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
+		log:       sql.logger,
 		getLeft: func(node *Node) *Node {
 			return node.left(tree)
 		},
@@ -68,7 +67,7 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 	if err = snapshot.flush(); err != nil {
 		return err
 	}
-	log.Info().Str("path", sql.opts.Path).Msgf("creating index on snapshot_%d", version)
+	sql.logger.Info(fmt.Sprintf("creating index on snapshot_%d", version), "path", sql.opts.Path)
 	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
 	return err
 }
@@ -89,11 +88,11 @@ func NewIngestSnapshotConnection(snapshotDbPath string) (*sqlite3.Conn, error) {
 	}
 	pageSize := os.Getpagesize()
 	if newDb {
-		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
 		err = conn.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 		if err != nil {
 			return nil, err
 		}
+
 		err = conn.Exec("PRAGMA journal_mode=WAL;")
 		if err != nil {
 			return nil, err
@@ -243,7 +242,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		batchSize: 400_000,
 		version:   version,
 		lastWrite: time.Now(),
-		log:       log.With().Str("path", filepath.Base(sql.opts.Path)).Logger(),
+		log:       sql.logger,
 		writeTree: true,
 	}
 	if opts.WriteCheckpoint {
@@ -277,7 +276,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 
-	var versions []int64
+	var versions []int64 // where is this used?
 	for v := range uniqueVersions {
 		versions = append(versions, v)
 	}
@@ -286,7 +285,7 @@ func (sql *SqliteDb) WriteSnapshot(
 		return nil, err
 	}
 
-	log.Info().Str("path", sql.opts.Path).Msg("creating table indexes")
+	sql.logger.Info("creating table indexes")
 	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
 	if err != nil {
 		return nil, err
@@ -329,7 +328,7 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, traverseOrder Traver
 	defer func(q *sqlite3.Stmt) {
 		err = q.Close()
 		if err != nil {
-			log.Error().Err(err).Msg("error closing import query")
+			sql.logger.Error("error closing import query", "error", err)
 		}
 	}(q)
 
@@ -338,7 +337,7 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, traverseOrder Traver
 		pool:       sql.pool,
 		loadLeaves: loadLeaves,
 		since:      time.Now(),
-		log:        log.With().Str("path", sql.opts.Path).Logger(),
+		log:        sql.logger,
 	}
 	var root *Node
 	if traverseOrder == PostOrder {
@@ -372,7 +371,7 @@ func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, traverseOrder
 	defer func(q *sqlite3.Stmt) {
 		err = q.Close()
 		if err != nil {
-			log.Error().Err(err).Msg("error closing import query")
+			sql.logger.Error("error closing import query", "error", err)
 		}
 	}(q)
 	if err != nil {
@@ -474,7 +473,7 @@ func (snap *sqliteSnapshot) writeStep(node *Node) error {
 func (snap *sqliteSnapshot) flush() error {
 	select {
 	case <-snap.ctx.Done():
-		snap.log.Info().Msgf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal)))
+		snap.log.Info(fmt.Sprintf("snapshot cancelled at ordinal=%s", humanize.Comma(int64(snap.ordinal))))
 		errs := errors.Join(
 			snap.snapshotInsert.Reset(),
 			snap.snapshotInsert.Close(),
@@ -510,12 +509,12 @@ func (snap *sqliteSnapshot) flush() error {
 	default:
 	}
 
-	snap.log.Info().Msgf("flush total=%s size=%s dur=%s wr/s=%s",
+	snap.log.Info(fmt.Sprintf("flush total=%s size=%s dur=%s wr/s=%s",
 		humanize.Comma(int64(snap.ordinal)),
 		humanize.Comma(int64(snap.batchSize)),
 		time.Since(snap.lastWrite).Round(time.Millisecond),
 		humanize.Comma(int64(float64(snap.batchSize)/time.Since(snap.lastWrite).Seconds())),
-	)
+	))
 
 	err := errors.Join(
 		snap.sql.leafWrite.Commit(),
@@ -745,16 +744,16 @@ type sqliteImport struct {
 
 	i     int64
 	since time.Time
-	log   zerolog.Logger
+	log   Logger
 }
 
 func (sqlImport *sqliteImport) queryStepPreOrder() (node *Node, err error) {
 	sqlImport.i++
 	if sqlImport.i%1_000_000 == 0 {
-		sqlImport.log.Debug().Msgf("import: nodes=%s, node/s=%s",
+		sqlImport.log.Debug(fmt.Sprintf("import: nodes=%s, node/s=%s",
 			humanize.Comma(sqlImport.i),
 			humanize.Comma(int64(float64(1_000_000)/time.Since(sqlImport.since).Seconds())),
-		)
+		))
 		sqlImport.since = time.Now()
 	}
 
@@ -799,10 +798,10 @@ func (sqlImport *sqliteImport) queryStepPreOrder() (node *Node, err error) {
 func (sqlImport *sqliteImport) queryStepPostOrder() (node *Node, err error) {
 	sqlImport.i++
 	if sqlImport.i%1_000_000 == 0 {
-		sqlImport.log.Debug().Msgf("import: nodes=%s, node/s=%s",
+		sqlImport.log.Debug(fmt.Sprintf("import: nodes=%s, node/s=%s",
 			humanize.Comma(sqlImport.i),
 			humanize.Comma(int64(float64(1_000_000)/time.Since(sqlImport.since).Seconds())),
-		)
+		))
 		sqlImport.since = time.Now()
 	}
 

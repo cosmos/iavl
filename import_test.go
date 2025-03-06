@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"encoding/binary"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -45,7 +46,7 @@ func ExampleImporter() {
 	for {
 		var node *ExportNode
 		node, err = exporter.Next()
-		if err == ErrorExportDone {
+		if errors.Is(err, ErrorExportDone) {
 			break
 		} else if err != nil {
 			panic(err)
@@ -249,7 +250,7 @@ func benchmarkImport(b *testing.B, nodes int) {
 	require.NoError(b, err)
 	for {
 		item, err := exporter.Next()
-		if err == ErrorExportDone {
+		if errors.Is(err, ErrorExportDone) {
 			break
 		} else if err != nil {
 			b.Error(err)
