@@ -463,6 +463,10 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 		return err
 	}
 
+	if err == ErrVersionDoesNotExist {
+		ndb.logger.Error("Error while pruning, moving on the the next version in the store", "version missing", version, "next version", version+1, "err", err)
+	}
+
 	if rootKey != nil {
 		if err := ndb.traverseOrphansWithRootkeyCache(cache, version, version+1, func(orphan *Node) error {
 			if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
