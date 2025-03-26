@@ -487,7 +487,7 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 				return ndb.deleteFromPruning(ndb.legacyNodeKey(nk))
 			}
 			return ndb.deleteFromPruning(ndb.nodeKey(nk))
-		}); err != nil && err != ErrVersionDoesNotExist {
+		}); err != nil && !errors.Is(err, ErrVersionDoesNotExist) {
 			return err
 		}
 	}
