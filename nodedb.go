@@ -459,11 +459,11 @@ func newRootkeyCache() *rootkeyCache {
 // deletes orphans
 func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 	rootKey, err := cache.getRootKey(ndb, version)
-	if err != nil && err != ErrVersionDoesNotExist {
+	if err != nil && !errors.Is(err, ErrVersionDoesNotExist) {
 		return err
 	}
 
-	if err == ErrVersionDoesNotExist {
+	if errors.Is(err, ErrVersionDoesNotExist) {
 		ndb.logger.Error("Error while pruning, moving on the the next version in the store", "version missing", version, "next version", version+1, "err", err)
 	}
 
@@ -503,7 +503,7 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 
 	// check if the version is referred by the next version
 	nextRootKey, err := cache.getRootKey(ndb, version+1)
-	if err != nil && err != ErrVersionDoesNotExist {
+	if err != nil && !errors.Is(err, ErrVersionDoesNotExist) {
 		return err
 	}
 	if bytes.Equal(literalRootKey, nextRootKey) {
