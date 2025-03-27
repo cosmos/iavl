@@ -64,6 +64,31 @@ type Node struct {
 	poolId uint64
 }
 
+func (node *Node) Version() int64 {
+	return node.nodeKey.Version()
+}
+
+func (node *Node) Key() []byte {
+	return node.key
+}
+
+func (node *Node) Value() []byte {
+	return node.value
+}
+
+func (node *Node) Height() int8 {
+	return node.subtreeHeight
+}
+
+func NewImportNode(key, value []byte, version int64, height int8) *Node {
+	return &Node{
+		nodeKey:       NewNodeKey(version, 0),
+		key:           key,
+		value:         value,
+		subtreeHeight: height,
+	}
+}
+
 func (node *Node) String() string {
 	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolId: %d}",
 		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolId)
@@ -84,7 +109,7 @@ func (node *Node) setRight(rightNode *Node) {
 }
 
 func (node *Node) left(t *Tree) *Node {
-	leftNode, err := node.getLeftNode(t)
+	leftNode, err := node.getLeftNode(t.sql)
 	if err != nil {
 		panic(err)
 	}
@@ -92,7 +117,7 @@ func (node *Node) left(t *Tree) *Node {
 }
 
 func (node *Node) right(t *Tree) *Node {
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql)
 	if err != nil {
 		panic(err)
 	}
@@ -100,7 +125,7 @@ func (node *Node) right(t *Tree) *Node {
 }
 
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
-func (node *Node) getLeftNode(t *Tree) (*Node, error) {
+func (node *Node) getLeftNode(sql *SqliteDb) (*Node, error) {
 	if node.isLeaf() {
 		return nil, errors.New("leaf node has no left node")
 	}
@@ -108,14 +133,14 @@ func (node *Node) getLeftNode(t *Tree) (*Node, error) {
 		return node.leftNode, nil
 	}
 	var err error
-	node.leftNode, err = t.sql.getLeftNode(node)
+	node.leftNode, err = sql.getLeftNode(node)
 	if err != nil {
 		return nil, err
 	}
 	return node.leftNode, nil
 }
 
-func (node *Node) getRightNode(t *Tree) (*Node, error) {
+func (node *Node) getRightNode(sql *SqliteDb) (*Node, error) {
 	if node.isLeaf() {
 		return nil, errors.New("leaf node has no right node")
 	}
@@ -123,7 +148,7 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 		return node.rightNode, nil
 	}
 	var err error
-	node.rightNode, err = t.sql.getRightNode(node)
+	node.rightNode, err = sql.getRightNode(node)
 	if err != nil {
 		return nil, err
 	}
@@ -132,12 +157,12 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 
 // NOTE: mutates height and size
 func (node *Node) calcHeightAndSize(t *Tree) error {
-	leftNode, err := node.getLeftNode(t)
+	leftNode, err := node.getLeftNode(t.sql)
 	if err != nil {
 		return err
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql)
 	if err != nil {
 		return err
 	}
@@ -194,7 +219,7 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 		return newNode, nil
 	}
 	if balance < -1 {
-		rightNode, err := node.getRightNode(tree)
+		rightNode, err := node.getRightNode(tree.sql)
 		if err != nil {
 			return nil, err
 		}
@@ -230,12 +255,12 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 }
 
 func (node *Node) calcBalance(t *Tree) (int, error) {
-	leftNode, err := node.getLeftNode(t)
+	leftNode, err := node.getLeftNode(t.sql)
 	if err != nil {
 		return 0, err
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql)
 	if err != nil {
 		return 0, err
 	}
@@ -308,7 +333,7 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		leftNode, err := node.getLeftNode(t)
+		leftNode, err := node.getLeftNode(t.sql)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -316,7 +341,7 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error
 		return leftNode.get(t, key)
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql)
 	if err != nil {
 		return 0, nil, err
 	}

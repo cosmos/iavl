@@ -116,7 +116,7 @@ func (i *TreeIterator) stepAscend() {
 			}
 			break
 		}
-		right, err := n.getRightNode(i.tree)
+		right, err := n.getRightNode(i.tree.sql)
 		if err != nil {
 			i.err = err
 			i.valid = false
@@ -124,7 +124,7 @@ func (i *TreeIterator) stepAscend() {
 		}
 
 		if bytes.Compare(i.start, n.key) < 0 {
-			left, err := n.getLeftNode(i.tree)
+			left, err := n.getLeftNode(i.tree.sql)
 			if err != nil {
 				i.err = err
 				i.valid = false
@@ -167,7 +167,7 @@ func (i *TreeIterator) stepDescend() {
 			}
 			break
 		}
-		left, err := n.getLeftNode(i.tree)
+		left, err := n.getLeftNode(i.tree.sql)
 		if err != nil {
 			i.err = err
 			i.valid = false
@@ -175,7 +175,7 @@ func (i *TreeIterator) stepDescend() {
 		}
 
 		if i.end == nil || bytes.Compare(n.key, i.end) <= 0 {
-			right, err := n.getRightNode(i.tree)
+			right, err := n.getRightNode(i.tree.sql)
 			if err != nil {
 				i.err = err
 				i.valid = false
