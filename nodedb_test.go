@@ -446,3 +446,43 @@ func TestCloseNodeDB(t *testing.T) {
 	require.NoError(t, ndb.Close())
 	require.NoError(t, ndb.Close()) // must not block or fail on second call
 }
+
+func TestGetFirstNonLegacyVersion(t *testing.T) {
+	db := dbm.NewMemDB()
+	ndb := newNodeDB(db, 0, DefaultOptions(), NewNopLogger())
+
+	// Test case 1: Empty database
+	firstVersion, err := ndb.getFirstNonLegacyVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(0), firstVersion)
+
+	// Test case 2: Database with only legacy versions
+	// Create a legacy version at version 1
+	legacyRoot := GetRootKey(1)
+	require.NoError(t, ndb.batch.Set(ndb.legacyRootKey(1), legacyRoot))
+	require.NoError(t, ndb.batch.Write())
+
+	firstVersion, err = ndb.getFirstNonLegacyVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(0), firstVersion)
+
+	// Test case 3: Database with both legacy and non-legacy versions
+	// Create a non-legacy version at version 2
+	nonLegacyRoot := GetRootKey(2)
+	require.NoError(t, ndb.batch.Set(ndb.nodeKey(nonLegacyRoot), []byte{}))
+	require.NoError(t, ndb.batch.Write())
+
+	firstVersion, err = ndb.getFirstNonLegacyVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), firstVersion)
+
+	// Test case 4: Database with multiple non-legacy versions
+	// Create another non-legacy version at version 3
+	nonLegacyRoot3 := GetRootKey(3)
+	require.NoError(t, ndb.batch.Set(ndb.nodeKey(nonLegacyRoot3), []byte{}))
+	require.NoError(t, ndb.batch.Write())
+
+	firstVersion, err = ndb.getFirstNonLegacyVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(2), firstVersion) // Should still return the first non-legacy version
+}
