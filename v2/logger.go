@@ -1,6 +1,9 @@
 package iavl
 
-import "log/slog"
+import (
+	"log/slog"
+	"os"
+)
 
 // Logger defines basic logger that IAVL expects.
 // It is a subset of the cosmossdk.io/core/log.Logger interface.
@@ -37,6 +40,10 @@ func (l *noopLogger) Debug(string, ...any) {}
 
 func NewTestLogger() Logger {
 	return &testLogger{}
+}
+
+func NewDebugLogger() Logger {
+	return slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 }
 
 type testLogger struct{}
