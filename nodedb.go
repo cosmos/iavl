@@ -783,7 +783,7 @@ func (ndb *nodeDB) getFirstNonLegacyVersion() (int64, error) {
 	ndb.mtx.Unlock()
 
 	// Find the first version
-	_, latestVersion, err := ndb.getLatestVersion()
+  latestVersion, err := ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
 	}
@@ -846,7 +846,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 
 	ndb.resetFirstVersion(latestVersion)
 
-	return latestVersion, nil
+  return latestVersion, nil
 }
 
 func (ndb *nodeDB) resetFirstVersion(version int64) {
