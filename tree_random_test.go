@@ -4,7 +4,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"math/rand"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -95,9 +94,7 @@ func testRandomOperations(t *testing.T, randSeed int64) {
 	}
 
 	// Use the same on-disk database for the entire run.
-	tempdir, err := os.MkdirTemp("", "iavl")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempdir)
+	tempdir := t.TempDir()
 
 	levelDB, err := dbm.NewGoLevelDB("test", tempdir)
 	require.NoError(t, err)
