@@ -208,7 +208,7 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 
 	// otherwise skipFastStorageUpgrade is true or
 	// the cached node was updated later than the current tree. In this case,
-	// we need to use the regular stategy for reading from the current tree to avoid staleness.
+	// we need to use the regular strategy for reading from the current tree to avoid staleness.
 	_, result, err := t.root.get(t, key)
 	return result, err
 }

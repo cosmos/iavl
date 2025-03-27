@@ -974,7 +974,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	batchMock.EXPECT().Write().Return(nil).Times(1)
 	batchMock.EXPECT().Close().Return(nil).Times(1)
 
-	// iterMock is used to mock the underlying db iterator behing fast iterator
+	// iterMock is used to mock the underlying db iterator behind fast iterator
 	// Here, we want to mock the behavior of deleting fast nodes from disk when
 	// force upgrade is detected.
 	iterMock.EXPECT().Valid().Return(true).Times(1)
@@ -994,7 +994,7 @@ func TestFastStorageReUpgradeProtection_ForceUpgradeFirstTime_NoForceSecondTime_
 	iterMock.EXPECT().Next().Return().Times(1)
 	iterMock.EXPECT().Error().Return(nil).Times(1)
 	iterMock.EXPECT().Valid().Return(false).Times(1)
-	// Call Valid after first iteraton
+	// Call Valid after first iteration
 	iterMock.EXPECT().Valid().Return(false).Times(1)
 	iterMock.EXPECT().Close().Return(nil).Times(1)
 
