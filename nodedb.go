@@ -726,7 +726,15 @@ func (ndb *nodeDB) deleteVersionsTo(toVersion int64) error {
 		if err := ndb.deleteLegacyVersions(legacyLatestVersion); err != nil {
 			ndb.logger.Error("Error deleting legacy versions", "err", err)
 		}
-		first = legacyLatestVersion + 1
+		// NOTE: When pruning is broken for legacy versions we need to find the
+		// latest non legacy version in the store
+		// TODO: Make sure legacy pruning works as expected and does not fail
+		firstNonLegacyVersion, err := ndb.getFirstNonLegacyVersion()
+		if err != nil {
+			return err
+		}
+		first = firstNonLegacyVersion
+
 		// reset the legacy latest version forcibly to avoid multiple calls
 		ndb.resetLegacyLatestVersion(-1)
 	}
@@ -766,6 +774,35 @@ func (ndb *nodeDB) legacyNodeKey(nk []byte) []byte {
 
 func (ndb *nodeDB) legacyRootKey(version int64) []byte {
 	return legacyRootKeyFormat.Key(version)
+}
+
+// getFirstNonLegacyVersion binary searches the store for the first non-legacy version
+func (ndb *nodeDB) getFirstNonLegacyVersion() (int64, error) {
+	ndb.mtx.Lock()
+	firstVersion := ndb.firstVersion
+	ndb.mtx.Unlock()
+
+	// Find the first version
+  latestVersion, err := ndb.getLatestVersion()
+	if err != nil {
+		return 0, err
+	}
+	for firstVersion < latestVersion {
+		version := (latestVersion + firstVersion) >> 1
+		has, err := ndb.hasVersion(version)
+		if err != nil {
+			return 0, err
+		}
+		if has {
+			latestVersion = version
+		} else {
+			firstVersion = version + 1
+		}
+	}
+
+	ndb.resetFirstVersion(latestVersion)
+
+	return latestVersion, nil
 }
 
 func (ndb *nodeDB) getFirstVersion() (int64, error) {
@@ -809,7 +846,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 
 	ndb.resetFirstVersion(latestVersion)
 
-	return latestVersion, nil
+  return latestVersion, nil
 }
 
 func (ndb *nodeDB) resetFirstVersion(version int64) {
