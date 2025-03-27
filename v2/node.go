@@ -21,7 +21,14 @@ const hashSize = 32
 type NodeKey [12]byte
 
 func (nk NodeKey) Version() int64 {
-	return int64(binary.BigEndian.Uint64(nk[:]))
+	return int64(nk[7]) |
+		int64(nk[6])<<8 |
+		int64(nk[5])<<16 |
+		int64(nk[4])<<24 |
+		int64(nk[3])<<32 |
+		int64(nk[2])<<40 |
+		int64(nk[1])<<48 |
+		int64(nk[0])<<56
 }
 
 func (nk NodeKey) Sequence() uint32 {
@@ -30,7 +37,14 @@ func (nk NodeKey) Sequence() uint32 {
 
 func NewNodeKey(version int64, sequence uint32) NodeKey {
 	var nk NodeKey
-	binary.BigEndian.PutUint64(nk[:], uint64(version))
+	nk[0] = byte(version >> 56)
+	nk[1] = byte(version >> 48)
+	nk[2] = byte(version >> 40)
+	nk[3] = byte(version >> 32)
+	nk[4] = byte(version >> 24)
+	nk[5] = byte(version >> 16)
+	nk[6] = byte(version >> 8)
+	nk[7] = byte(version)
 	binary.BigEndian.PutUint32(nk[8:], sequence)
 	return nk
 }
@@ -59,14 +73,13 @@ type Node struct {
 	rightNode     *Node
 	subtreeHeight int8
 
-	dirty  bool
-	evict  bool
-	poolId uint64
+	evict  int8
+	poolID uint64
 }
 
 func (node *Node) String() string {
-	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolId: %d}",
-		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolId)
+	return fmt.Sprintf("Node{hash: %x, nodeKey: %s, leftNodeKey: %v, rightNodeKey: %v, size: %d, subtreeHeight: %d, poolID: %d}",
+		node.hash, node.nodeKey, node.leftNodeKey, node.rightNodeKey, node.size, node.subtreeHeight, node.poolID)
 }
 
 func (node *Node) isLeaf() bool {
@@ -83,16 +96,16 @@ func (node *Node) setRight(rightNode *Node) {
 	node.rightNodeKey = rightNode.nodeKey
 }
 
-func (node *Node) left(t *Tree) *Node {
-	leftNode, err := node.getLeftNode(t)
+func (node *Node) left(sql *SqliteDb, cf connectionFactory) *Node {
+	leftNode, err := node.getLeftNode(sql, cf)
 	if err != nil {
 		panic(err)
 	}
 	return leftNode
 }
 
-func (node *Node) right(t *Tree) *Node {
-	rightNode, err := node.getRightNode(t)
+func (node *Node) right(sql *SqliteDb, cf connectionFactory) *Node {
+	rightNode, err := node.getRightNode(sql, cf)
 	if err != nil {
 		panic(err)
 	}
@@ -100,30 +113,30 @@ func (node *Node) right(t *Tree) *Node {
 }
 
 // getLeftNode will never be called on leaf nodes. all tree nodes have 2 children.
-func (node *Node) getLeftNode(t *Tree) (*Node, error) {
+func (node *Node) getLeftNode(sql *SqliteDb, cf connectionFactory) (*Node, error) {
 	if node.isLeaf() {
-		return nil, errors.New("leaf node has no left node")
+		return nil, fmt.Errorf("leaf node has no left node")
 	}
 	if node.leftNode != nil {
 		return node.leftNode, nil
 	}
 	var err error
-	node.leftNode, err = t.sql.getLeftNode(node)
+	node.leftNode, err = sql.getLeftNode(node, cf)
 	if err != nil {
 		return nil, err
 	}
 	return node.leftNode, nil
 }
 
-func (node *Node) getRightNode(t *Tree) (*Node, error) {
+func (node *Node) getRightNode(sql *SqliteDb, cf connectionFactory) (*Node, error) {
 	if node.isLeaf() {
-		return nil, errors.New("leaf node has no right node")
+		return nil, fmt.Errorf("leaf node has no right node")
 	}
 	if node.rightNode != nil {
 		return node.rightNode, nil
 	}
 	var err error
-	node.rightNode, err = t.sql.getRightNode(node)
+	node.rightNode, err = sql.getRightNode(node, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -131,13 +144,13 @@ func (node *Node) getRightNode(t *Tree) (*Node, error) {
 }
 
 // NOTE: mutates height and size
-func (node *Node) calcHeightAndSize(t *Tree) error {
-	leftNode, err := node.getLeftNode(t)
+func (node *Node) calcHeightAndSize(t *Tree, cf connectionFactory) error {
+	leftNode, err := node.getLeftNode(t.sql, cf)
 	if err != nil {
 		return err
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql, cf)
 	if err != nil {
 		return err
 	}
@@ -156,37 +169,37 @@ func maxInt8(a, b int8) int8 {
 
 // NOTE: assumes that node can be modified
 // TODO: optimize balance & rotate
-func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
+func (tree *Tree) balance(node *Node, cf connectionFactory) (newSelf *Node, err error) {
 	if node.hash != nil {
-		return nil, errors.New("unexpected balance() call on persisted node")
+		return nil, fmt.Errorf("unexpected balance() call on persisted node")
 	}
-	balance, err := node.calcBalance(tree)
+	balance, err := node.calcBalance(tree, cf)
 	if err != nil {
 		return nil, err
 	}
 
 	if balance > 1 {
-		lftBalance, err := node.leftNode.calcBalance(tree)
+		lftBalance, err := node.leftNode.calcBalance(tree, cf)
 		if err != nil {
 			return nil, err
 		}
 
 		if lftBalance >= 0 {
 			// Left Left Case
-			newNode, err := tree.rotateRight(node)
+			newNode, err := tree.rotateRight(node, cf)
 			if err != nil {
 				return nil, err
 			}
 			return newNode, nil
 		}
 		// Left Right Case
-		newLeftNode, err := tree.rotateLeft(node.leftNode)
+		newLeftNode, err := tree.rotateLeft(node.leftNode, cf)
 		if err != nil {
 			return nil, err
 		}
 		node.setLeft(newLeftNode)
 
-		newNode, err := tree.rotateRight(node)
+		newNode, err := tree.rotateRight(node, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -194,18 +207,18 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 		return newNode, nil
 	}
 	if balance < -1 {
-		rightNode, err := node.getRightNode(tree)
+		rightNode, err := node.getRightNode(tree.sql, cf)
 		if err != nil {
 			return nil, err
 		}
 
-		rightBalance, err := rightNode.calcBalance(tree)
+		rightBalance, err := rightNode.calcBalance(tree, cf)
 		if err != nil {
 			return nil, err
 		}
 		if rightBalance <= 0 {
 			// Right Right Case
-			newNode, err := tree.rotateLeft(node)
+			newNode, err := tree.rotateLeft(node, cf)
 			if err != nil {
 				return nil, err
 			}
@@ -213,13 +226,13 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 		}
 		// Right Left Case
 		// TODO should be mutate? ref v1 and v0
-		newRightNode, err := tree.rotateRight(rightNode)
+		newRightNode, err := tree.rotateRight(rightNode, cf)
 		if err != nil {
 			return nil, err
 		}
 		node.setRight(newRightNode)
 
-		newNode, err := tree.rotateLeft(node)
+		newNode, err := tree.rotateLeft(node, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -229,13 +242,13 @@ func (tree *Tree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-func (node *Node) calcBalance(t *Tree) (int, error) {
-	leftNode, err := node.getLeftNode(t)
+func (node *Node) calcBalance(t *Tree, cf connectionFactory) (int, error) {
+	leftNode, err := node.getLeftNode(t.sql, cf)
 	if err != nil {
 		return 0, err
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql, cf)
 	if err != nil {
 		return 0, err
 	}
@@ -244,24 +257,23 @@ func (node *Node) calcBalance(t *Tree) (int, error) {
 }
 
 // Rotate right and return the new node and orphan.
-func (tree *Tree) rotateRight(node *Node) (*Node, error) {
+func (tree *Tree) rotateRight(node *Node, cf connectionFactory) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
-	tree.addOrphan(node.left(tree))
-	newNode := node.left(tree)
-	tree.mutateNode(newNode)
+	tree.addOrphan(node.left(tree.sql, cf))
+	newNode := tree.stageNode(node.left(tree.sql, cf))
 
-	node.setLeft(newNode.right(tree))
+	node.setLeft(newNode.right(tree.sql, cf))
 	newNode.setRight(node)
 
-	err = node.calcHeightAndSize(tree)
+	err = node.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
 
-	err = newNode.calcHeightAndSize(tree)
+	err = newNode.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -270,24 +282,23 @@ func (tree *Tree) rotateRight(node *Node) (*Node, error) {
 }
 
 // Rotate left and return the new node and orphan.
-func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
+func (tree *Tree) rotateLeft(node *Node, cf connectionFactory) (*Node, error) {
 	var err error
 	tree.addOrphan(node)
-	tree.mutateNode(node)
+	node = tree.stageNode(node)
 
-	tree.addOrphan(node.right(tree))
-	newNode := node.right(tree)
-	tree.mutateNode(newNode)
+	tree.addOrphan(node.right(tree.sql, cf))
+	newNode := tree.stageNode(node.right(tree.sql, cf))
 
-	node.setRight(newNode.left(tree))
+	node.setRight(newNode.left(tree.sql, cf))
 	newNode.setLeft(node)
 
-	err = node.calcHeightAndSize(tree)
+	err = node.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
 
-	err = newNode.calcHeightAndSize(tree)
+	err = newNode.calcHeightAndSize(tree, cf)
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +306,10 @@ func (tree *Tree) rotateLeft(node *Node) (*Node, error) {
 	return newNode, nil
 }
 
-func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error) {
+func (node *Node) get(t *Tree, cf connectionFactory, key []byte) (index int64, value []byte, err error) {
+	if node == nil {
+		return 0, nil, errors.New("cannot get nil node")
+	}
 	if node.isLeaf() {
 		switch bytes.Compare(node.key, key) {
 		case -1:
@@ -308,20 +322,20 @@ func (node *Node) get(t *Tree, key []byte) (index int64, value []byte, err error
 	}
 
 	if bytes.Compare(key, node.key) < 0 {
-		leftNode, err := node.getLeftNode(t)
+		leftNode, err := node.getLeftNode(t.sql, cf)
 		if err != nil {
 			return 0, nil, err
 		}
 
-		return leftNode.get(t, key)
+		return leftNode.get(t, cf, key)
 	}
 
-	rightNode, err := node.getRightNode(t)
+	rightNode, err := node.getRightNode(t.sql, cf)
 	if err != nil {
 		return 0, nil, err
 	}
 
-	index, value, err = rightNode.get(t, key)
+	index, value, err = rightNode.get(t, cf, key)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -341,20 +355,19 @@ var (
 
 // Computes the hash of the node without computing its descendants. Must be
 // called on nodes which have descendant node hashes already computed.
-func (node *Node) _hash() []byte {
+func (node *Node) _hash() {
 	if node.hash != nil {
-		return node.hash
+		return
 	}
 
 	h := hashPool.Get().(hash.Hash)
 	if err := node.writeHashBytes(h); err != nil {
-		return nil
+		// should never happen
+		panic(fmt.Errorf("failed to write hash bytes: %w", err))
 	}
 	node.hash = h.Sum(nil)
 	h.Reset()
 	hashPool.Put(h)
-
-	return node.hash
 }
 
 func (node *Node) writeHashBytes(w io.Writer) error {
@@ -537,7 +550,7 @@ func (node *Node) Bytes() ([]byte, error) {
 var nodeSize = uint64(unsafe.Sizeof(Node{})) + hashSize
 
 func (node *Node) varSize() uint64 {
-	return uint64(len(node.key) + len(node.value))
+	return uint64(len(node.key)) + uint64(len(node.value))
 }
 
 func (node *Node) sizeBytes() uint64 {
@@ -548,13 +561,50 @@ func (node *Node) GetHash() []byte {
 	return node.hash
 }
 
-func (node *Node) evictChildren() {
-	if node.leftNode != nil {
-		node.leftNode.evict = true
-		node.leftNode = nil
+func (node *Node) clone(tree *Tree) *Node {
+	n := tree.pool.Get()
+	if node.isLeaf() {
+		n.nodeKey = tree.nextLeafNodeKey()
+	} else {
+		n.nodeKey = tree.nextNodeKey()
 	}
-	if node.rightNode != nil {
-		node.rightNode.evict = true
-		node.rightNode = nil
+	n.key = node.key
+	n.value = node.value
+	n.hash = nil
+	n.leftNodeKey = node.leftNodeKey
+	n.rightNodeKey = node.rightNodeKey
+	n.leftNode = node.leftNode
+	n.rightNode = node.rightNode
+	n.size = node.size
+	n.subtreeHeight = node.subtreeHeight
+	return n
+}
+
+func (node *Node) isDirty(tree *Tree) bool {
+	return node.Version() == tree.stagedVersion
+}
+
+func (node *Node) Version() int64 {
+	return node.nodeKey.Version()
+}
+
+func (node *Node) Key() []byte {
+	return node.key
+}
+
+func (node *Node) Value() []byte {
+	return node.value
+}
+
+func (node *Node) Height() int8 {
+	return node.subtreeHeight
+}
+
+func NewImportNode(key, value []byte, version int64, height int8) *Node {
+	return &Node{
+		nodeKey:       NewNodeKey(version, 0),
+		key:           key,
+		value:         value,
+		subtreeHeight: height,
 	}
 }

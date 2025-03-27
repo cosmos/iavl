@@ -1,13 +1,19 @@
 package snapshot
 
 import (
-	"fmt"
+	"os"
+	"time"
 
 	"github.com/cosmos/iavl/v2"
+	"github.com/rs/zerolog"
+	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-var log = iavl.NewTestLogger()
+var log = zlog.Output(zerolog.ConsoleWriter{
+	Out:        os.Stderr,
+	TimeFormat: time.Stamp,
+})
 
 func Command() *cobra.Command {
 	var (
@@ -22,7 +28,7 @@ func Command() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			log.Info(fmt.Sprintf("found db paths: %v", paths))
+			log.Info().Msgf("found db paths: %v", paths)
 
 			var (
 				pool   = iavl.NewNodePool()
