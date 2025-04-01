@@ -1,10 +1,11 @@
 module github.com/cosmos/iavl/cmd
 
-go 1.21
-toolchain go1.23.4
+go 1.23
+
+toolchain go1.23.7
 
 require (
-	cosmossdk.io/core v1.0.0-alpha.6
+	cosmossdk.io/core v1.0.0
 	cosmossdk.io/log v1.3.1
 	github.com/cosmos/iavl v1.2.0
 )
