@@ -301,13 +301,13 @@ func assertOrphans(t *testing.T, tree *MutableTree, expected int) {
 
 // Checks that a version is the maximum mirrored version.
 func assertMaxVersion(t *testing.T, _ *MutableTree, version int64, mirrors map[int64]map[string]string) {
-	max := int64(0)
+	maxVersion := int64(0)
 	for v := range mirrors {
-		if v > max {
-			max = v
+		if v > maxVersion {
+			maxVersion = v
 		}
 	}
-	require.Equal(t, max, version)
+	require.Equal(t, maxVersion, version)
 }
 
 // Checks that a mirror, optionally for a given version, matches the tree contents.
