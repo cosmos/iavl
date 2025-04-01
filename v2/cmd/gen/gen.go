@@ -12,15 +12,10 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/kocubinski/costor-api/compact"
 	"github.com/kocubinski/costor-api/core"
-	"github.com/rs/zerolog"
-	zlog "github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 )
 
-var log = zlog.Output(zerolog.ConsoleWriter{
-	Out:        os.Stderr,
-	TimeFormat: time.Stamp,
-})
+var log = iavl.NewTestLogger()
 
 func Command() *cobra.Command {
 	cmd := &cobra.Command{
@@ -75,9 +70,10 @@ func emitCommand() *cobra.Command {
 			go func() {
 				stats, err := stream.Compact()
 				if err != nil {
-					log.Fatal().Err(err).Msg("failed to compact")
+					log.Error("failed to compact", "error", err)
+					os.Exit(1)
 				}
-				log.Info().Msgf(stats.Report())
+				log.Info(stats.Report())
 				wg.Done()
 			}()
 
@@ -95,13 +91,13 @@ func emitCommand() *cobra.Command {
 
 					if itr.Version() < int64(start) {
 						if cnt%5_000_000 == 0 {
-							log.Info().Msgf("fast forward version=%d nodes=%s", itr.Version(), humanize.Comma(cnt))
+							log.Info(fmt.Sprintf("fast forward version=%d nodes=%s", itr.Version(), humanize.Comma(cnt)))
 						}
 						continue
 					}
 
 					if cnt%500_000 == 0 {
-						log.Info().Msgf("version=%d nodes=%s", itr.Version(), humanize.Comma(cnt))
+						log.Info(fmt.Sprintf("version=%d nodes=%s", itr.Version(), humanize.Comma(cnt)))
 					}
 
 					select {
@@ -148,12 +144,12 @@ func treeCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree",
 		Short: "build and save a Tree to disk, taking generated changesets as input",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			multiTree := iavl.NewMultiTree(dbPath, iavl.TreeOptions{StateStorage: true})
+		RunE: func(_ *cobra.Command, _ []string) error {
+			multiTree := iavl.NewMultiTree(iavl.NewDebugLogger(), dbPath, iavl.DefaultTreeOptions())
 			defer func(mt *iavl.MultiTree) {
 				err := mt.Close()
 				if err != nil {
-					log.Error().Err(err).Msg("failed to close db")
+					log.Error("failed to close db", "error", err)
 				}
 			}(multiTree)
 
@@ -203,12 +199,12 @@ func treeCommand() *cobra.Command {
 
 					i++
 					if i%100_000 == 0 {
-						log.Info().Msgf("leaves=%s dur=%s rate=%s version=%d",
+						log.Info(fmt.Sprintf("leaves=%s dur=%s rate=%s version=%d",
 							humanize.Comma(i),
 							time.Since(start),
 							humanize.Comma(int64(100_000/time.Since(start).Seconds())),
 							itr.Version(),
-						)
+						))
 						start = time.Now()
 					}
 				}
@@ -219,7 +215,7 @@ func treeCommand() *cobra.Command {
 				}
 			}
 
-			log.Info().Msgf("last version=%d hash=%x", lastVersion, lastHash)
+			log.Info(fmt.Sprintf("last version=%d hash=%x", lastVersion, lastHash))
 
 			return nil
 		},
