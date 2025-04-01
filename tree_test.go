@@ -1920,9 +1920,9 @@ func TestWorkingHashWithInitialVersion(t *testing.T) {
 	db := dbm.NewMemDB()
 	defer db.Close()
 
-	initialVersion := int64(100)
+	initialVersion := uint64(100)
 	tree := NewMutableTree(db, 0, false, NewNopLogger())
-	tree.SetInitialVersion(uint64(initialVersion))
+	tree.SetInitialVersion(initialVersion)
 
 	v := tree.WorkingVersion()
 	require.Equal(t, initialVersion, v)
