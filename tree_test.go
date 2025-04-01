@@ -1767,10 +1767,10 @@ func TestNodeCacheStatisic(t *testing.T) {
 	const numKeyVals = 100000
 	testcases := map[string]struct {
 		cacheSize              int
-		expectFastCacheHitCnt  int
-		expectFastCacheMissCnt int
-		expectCacheHitCnt      int
-		expectCacheMissCnt     int
+		expectFastCacheHitCnt  uint64
+		expectFastCacheMissCnt uint64
+		expectCacheHitCnt      uint64
+		expectCacheMissCnt     uint64
 	}{
 		"with_cache": {
 			cacheSize:              numKeyVals,
@@ -1811,10 +1811,10 @@ func TestNodeCacheStatisic(t *testing.T) {
 				require.NotNil(t, val)
 				require.NotEmpty(t, val)
 			}
-			require.Equal(t, tc.expectFastCacheHitCnt, int(stat.GetFastCacheHitCnt()))
-			require.Equal(t, tc.expectFastCacheMissCnt, int(stat.GetFastCacheMissCnt()))
-			require.Equal(t, tc.expectCacheHitCnt, int(stat.GetCacheHitCnt()))
-			require.Equal(t, tc.expectCacheMissCnt, int(stat.GetCacheMissCnt()))
+			require.Equal(t, tc.expectFastCacheHitCnt, stat.GetFastCacheHitCnt())
+			require.Equal(t, tc.expectFastCacheMissCnt, stat.GetFastCacheMissCnt())
+			require.Equal(t, tc.expectCacheHitCnt, stat.GetCacheHitCnt())
+			require.Equal(t, tc.expectCacheMissCnt, stat.GetCacheMissCnt())
 		})
 	}
 }
@@ -1925,7 +1925,7 @@ func TestWorkingHashWithInitialVersion(t *testing.T) {
 	tree.SetInitialVersion(initialVersion)
 
 	v := tree.WorkingVersion()
-	require.Equal(t, initialVersion, v)
+	require.Equal(t, initialVersion, uint64(v)) //nolint: gosec // just for testing
 
 	_, err := tree.Set([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)
@@ -1938,7 +1938,7 @@ func TestWorkingHashWithInitialVersion(t *testing.T) {
 	db = dbm.NewMemDB()
 
 	// without WorkingHash
-	tree = NewMutableTree(db, 0, false, NewNopLogger(), InitialVersionOption(uint64(initialVersion)))
+	tree = NewMutableTree(db, 0, false, NewNopLogger(), InitialVersionOption(initialVersion))
 
 	_, err = tree.Set([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)

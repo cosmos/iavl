@@ -153,7 +153,7 @@ func (tree *MutableTree) WorkingHash() []byte {
 func (tree *MutableTree) WorkingVersion() int64 {
 	version := tree.version + 1
 	if version == 1 && tree.initialVersionSet {
-		version = int64(tree.ndb.opts.InitialVersion)
+		version = int64(tree.ndb.opts.InitialVersion) // nolint:gosec // the integer version is always positive
 	}
 	return version
 }
@@ -450,7 +450,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		return 0, err
 	}
 
-	if firstVersion > 0 && firstVersion < int64(tree.ndb.opts.InitialVersion) {
+	if uint64(firstVersion) > 0 && uint64(firstVersion) < tree.ndb.opts.InitialVersion { // nolint:gosec // the integer version is always positive
 		return firstVersion, fmt.Errorf("initial version set to %v, but found earlier version %v",
 			tree.ndb.opts.InitialVersion, firstVersion)
 	}
