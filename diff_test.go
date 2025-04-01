@@ -46,7 +46,7 @@ func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
 		start, count, step := r.Int63n(1000), r.Int63n(1000), r.Int63n(10)
 		for i := start; i < start+count*step; i += step {
 			value := make([]byte, 8)
-			binary.LittleEndian.PutUint64(value, uint64(i))
+			binary.LittleEndian.PutUint64(value, uint64(i)) // nolint:gosec // testing check
 
 			key := fmt.Sprintf("test-%d", i)
 			items[key] = &KVPair{
