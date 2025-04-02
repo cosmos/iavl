@@ -39,17 +39,17 @@ format:
 
 # look into .golangci.yml for enabling / disabling linters
 golangci_lint_cmd=golangci-lint
-golangci_version=v1.59.1
+golangci_version=v2.0.2
 
 lint:
 	@echo "--> Running linter"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
 	@$(golangci_lint_cmd) run --timeout=10m
 
 lint-fix:
 	@echo "--> Running linter"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(golangci_version)
-	@$(golangci_lint_cmd) run --fix --out-format=tab --issues-exit-code=0
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(golangci_version)
+	@$(golangci_lint_cmd) run --fix --issues-exit-code=0
 
 # bench is the basic tests that shouldn't crash an aws instance
 bench:
