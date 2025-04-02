@@ -5,11 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+<<<<<<< HEAD
+=======
+	"slices"
+	"runtime"
+>>>>>>> 48b7c38 (refactor: replace golang.org/x/exp with stdlib (#1058))
 	"sync/atomic"
 
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
-	"golang.org/x/exp/slices"
 )
 
 // MultiTree encapsulates multiple IAVL trees, each with its own "store key" in the context of the Cosmos SDK.
