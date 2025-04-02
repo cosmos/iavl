@@ -70,7 +70,7 @@ func NewMutableTree(db corestore.KVStoreWithBatch, cacheSize int, skipFastStorag
 // IsEmpty returns whether or not the tree has any keys. Only trees that are
 // not empty can be saved.
 func (tree *MutableTree) IsEmpty() bool {
-	return tree.ImmutableTree.Size() == 0
+	return tree.Size() == 0
 }
 
 // GetLatestVersion returns the latest version of the tree.
@@ -153,7 +153,7 @@ func (tree *MutableTree) WorkingHash() []byte {
 func (tree *MutableTree) WorkingVersion() int64 {
 	version := tree.version + 1
 	if version == 1 && tree.initialVersionSet {
-		version = int64(tree.ndb.opts.InitialVersion)
+		version = int64(tree.ndb.opts.InitialVersion) // nolint:gosec // the integer version is always positive
 	}
 	return version
 }
@@ -258,15 +258,15 @@ func (tree *MutableTree) set(key []byte, value []byte) (updated bool, err error)
 		return updated, fmt.Errorf("attempt to store nil value at key '%s'", key)
 	}
 
-	if tree.ImmutableTree.root == nil {
+	if tree.root == nil {
 		if !tree.skipFastStorageUpgrade {
 			tree.addUnsavedAddition(key, fastnode.NewNode(key, value, tree.version+1))
 		}
-		tree.ImmutableTree.root = NewNode(key, value)
+		tree.root = NewNode(key, value)
 		return updated, nil
 	}
 
-	tree.ImmutableTree.root, updated, err = tree.recursiveSet(tree.ImmutableTree.root, key, value)
+	tree.root, updated, err = tree.recursiveSet(tree.root, key, value)
 	return updated, err
 }
 
@@ -450,7 +450,7 @@ func (tree *MutableTree) LoadVersion(targetVersion int64) (int64, error) {
 		return 0, err
 	}
 
-	if firstVersion > 0 && firstVersion < int64(tree.ndb.opts.InitialVersion) {
+	if uint64(firstVersion) > 0 && uint64(firstVersion) < tree.ndb.opts.InitialVersion { // nolint:gosec // the integer version is always positive
 		return firstVersion, fmt.Errorf("initial version set to %v, but found earlier version %v",
 			tree.ndb.opts.InitialVersion, firstVersion)
 	}
@@ -730,8 +730,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		if (existingRoot == nil && tree.root == nil) || (existingRoot != nil && bytes.Equal(existingRoot.hash, newHash)) { // TODO with WorkingHash
 			tree.version = version
 			tree.root = existingRoot
-			tree.ImmutableTree = tree.ImmutableTree.clone()
-			tree.lastSaved = tree.ImmutableTree.clone()
+			tree.ImmutableTree = tree.clone()
+			tree.lastSaved = tree.clone()
 			return newHash, version, nil
 		}
 
@@ -781,8 +781,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	tree.version = version
 
 	// set new working tree
-	tree.ImmutableTree = tree.ImmutableTree.clone()
-	tree.lastSaved = tree.ImmutableTree.clone()
+	tree.ImmutableTree = tree.clone()
+	tree.lastSaved = tree.clone()
 	if !tree.skipFastStorageUpgrade {
 		tree.unsavedFastNodeAdditions = &sync.Map{}
 		tree.unsavedFastNodeRemovals = &sync.Map{}

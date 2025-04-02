@@ -12,7 +12,6 @@ import (
 	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
 	api "github.com/kocubinski/costor-api"
-	"github.com/rs/zerolog"
 )
 
 const defaultSQLitePath = "/tmp/iavl-v2"
@@ -25,6 +24,9 @@ type SqliteDbOptions struct {
 	CacheSize  int
 	ConnArgs   string
 	ShardTrees bool
+
+	Logger  Logger
+	Metrics metrics.Proxy
 
 	walPages int
 }
@@ -50,8 +52,8 @@ type SqliteDb struct {
 	shards       *VersionRange
 	shardQueries map[int64]*sqlite3.Stmt
 
-	metrics *metrics.DbMetrics
-	logger  zerolog.Logger
+	metrics metrics.Proxy
+	logger  Logger
 }
 
 func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
@@ -64,7 +66,15 @@ func defaultSqliteDbOptions(opts SqliteDbOptions) SqliteDbOptions {
 	if opts.WalSize == 0 {
 		opts.WalSize = 1024 * 1024 * 100
 	}
+	if opts.Metrics == nil {
+		opts.Metrics = metrics.NilMetrics{}
+	}
 	opts.walPages = opts.WalSize / os.Getpagesize()
+
+	if opts.Logger == nil {
+		opts.Logger = NewNopLogger()
+	}
+
 	return opts
 }
 
@@ -84,9 +94,8 @@ func (opts SqliteDbOptions) treeConnectionString() string {
 }
 
 func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
-	logger := log.With().Str("path", opts.Path).Logger()
-	logger.Info().Msgf("calculate mmap size")
-	logger.Info().Msgf("leaf connection string: %s", opts.leafConnectionString())
+	opts.Logger.Info("calculate mmap size")
+	opts.Logger.Info(fmt.Sprintf("leaf connection string: %s", opts.leafConnectionString()))
 	conn, err := sqlite3.Open(opts.leafConnectionString())
 	if err != nil {
 		return 0, err
@@ -114,7 +123,7 @@ func (opts SqliteDbOptions) EstimateMmapSize() (uint64, error) {
 		return 0, err
 	}
 	mmapSize := uint64(float64(leafSize) * 1.3)
-	logger.Info().Msgf("leaf mmap size: %s", humanize.Bytes(mmapSize))
+	opts.Logger.Info(fmt.Sprintf("leaf mmap size: %s", humanize.Bytes(mmapSize)))
 
 	return mmapSize, nil
 }
@@ -126,15 +135,14 @@ func NewInMemorySqliteDb(pool *NodePool) (*SqliteDb, error) {
 
 func NewSqliteDb(pool *NodePool, opts SqliteDbOptions) (*SqliteDb, error) {
 	opts = defaultSqliteDbOptions(opts)
-	logger := log.With().Str("module", "sqlite").Str("path", opts.Path).Logger()
 	sql := &SqliteDb{
 		shards:       &VersionRange{},
 		shardQueries: make(map[int64]*sqlite3.Stmt),
 		iterators:    make(map[int]*sqlite3.Stmt),
 		opts:         opts,
 		pool:         pool,
-		metrics:      &metrics.DbMetrics{},
-		logger:       logger,
+		metrics:      opts.Metrics,
+		logger:       opts.Logger,
 	}
 
 	if !api.IsFileExistent(opts.Path) {
@@ -180,7 +188,7 @@ CREATE TABLE root (
 		}
 
 		pageSize := os.Getpagesize()
-		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+		sql.logger.Info(fmt.Sprintf("setting page size to %s", humanize.Bytes(uint64(pageSize))))
 		err = sql.treeWrite.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 		if err != nil {
 			return err
@@ -210,7 +218,7 @@ CREATE INDEX leaf_orphan_idx ON leaf_orphan (at);`)
 		}
 
 		pageSize := os.Getpagesize()
-		log.Info().Msgf("setting page size to %s", humanize.Bytes(uint64(pageSize)))
+		sql.logger.Info(fmt.Sprintf("setting page size to %s", humanize.Bytes(uint64(pageSize))))
 		err = sql.leafWrite.Exec(fmt.Sprintf("PRAGMA page_size=%d; VACUUM;", pageSize))
 		if err != nil {
 			return err
@@ -302,7 +310,10 @@ func (sql *SqliteDb) getReadConn() (*sqlite3.Conn, error) {
 
 func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 	start := time.Now()
-
+	defer func() {
+		sql.metrics.MeasureSince(start, metricsNamespace, "db_get")
+		sql.metrics.IncrCounter(1, metricsNamespace, "db_get_leaf")
+	}()
 	var err error
 	if sql.queryLeaf == nil {
 		sql.queryLeaf, err = sql.readConn.Prepare("SELECT bytes FROM changelog.leaf WHERE version = ? AND sequence = ?")
@@ -334,17 +345,19 @@ func (sql *SqliteDb) getLeaf(nodeKey NodeKey) (*Node, error) {
 		return nil, err
 	}
 
-	dur := time.Since(start)
-	sql.metrics.QueryDurations = append(sql.metrics.QueryDurations, dur)
-	sql.metrics.QueryTime += dur
-	sql.metrics.QueryCount++
-	sql.metrics.QueryLeafCount++
-
 	return node, nil
 }
 
-func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
+func (sql *SqliteDb) getNode(nodeKey NodeKey) (*Node, error) {
 	start := time.Now()
+	q, err := sql.getShardQuery(nodeKey.Version())
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		sql.metrics.MeasureSince(start, metricsNamespace, "db_get")
+		sql.metrics.IncrCounter(1, metricsNamespace, "db_get_branch")
+	}()
 
 	if err := q.Reset(); err != nil {
 		return nil, err
@@ -374,21 +387,7 @@ func (sql *SqliteDb) getNode(nodeKey NodeKey, q *sqlite3.Stmt) (*Node, error) {
 		return nil, err
 	}
 
-	dur := time.Since(start)
-	sql.metrics.QueryDurations = append(sql.metrics.QueryDurations, dur)
-	sql.metrics.QueryTime += dur
-	sql.metrics.QueryCount++
-	sql.metrics.QueryBranchCount++
-
 	return node, nil
-}
-
-func (sql *SqliteDb) Get(nodeKey NodeKey) (*Node, error) {
-	q, err := sql.getShardQuery(nodeKey.Version())
-	if err != nil {
-		return nil, err
-	}
-	return sql.getNode(nodeKey, q)
 }
 
 func (sql *SqliteDb) Close() error {
@@ -430,7 +429,7 @@ func (sql *SqliteDb) nextShard(version int64) (int64, error) {
 		}
 	}
 
-	sql.logger.Info().Msgf("creating shard %d", version)
+	sql.logger.Info(fmt.Sprintf("creating shard %d", version))
 	err := sql.treeWrite.Exec(fmt.Sprintf("CREATE TABLE tree_%d (version int, sequence int, bytes blob, orphaned bool);", version))
 	if err != nil {
 		return version, err
@@ -598,7 +597,7 @@ func (sql *SqliteDb) getShardQuery(version int64) (*sqlite3.Stmt, error) {
 		return nil, err
 	}
 	sql.shardQueries[v] = q
-	sql.logger.Debug().Msgf("added shard query: %s", sqlQuery)
+	sql.logger.Debug(fmt.Sprintf("added shard query: %s", sqlQuery))
 	return q, nil
 }
 
@@ -676,7 +675,7 @@ func (sql *SqliteDb) WarmLeaves() error {
 			return err
 		}
 		if cnt%5_000_000 == 0 {
-			sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+			sql.logger.Info(fmt.Sprintf("warmed %s leaves", humanize.Comma(cnt)))
 		}
 	}
 	if err = stmt.Close(); err != nil {
@@ -700,28 +699,31 @@ func (sql *SqliteDb) WarmLeaves() error {
 			return err
 		}
 		if cnt%5_000_000 == 0 {
-			sql.logger.Info().Msgf("warmed %s leaves", humanize.Comma(cnt))
+			sql.logger.Info(fmt.Sprintf("warmed %s leaves", humanize.Comma(cnt)))
 		}
 	}
 
-	sql.logger.Info().Msgf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start))
+	sql.logger.Info(fmt.Sprintf("warmed %s leaves in %s", humanize.Comma(cnt), time.Since(start)))
 	return stmt.Close()
 }
 
-func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
-	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
-		node.rightNode, err = sql.getLeaf(node.rightNodeKey)
-		if err != nil {
-			return nil, err
-		}
-		if node.rightNode != nil {
-			return node.rightNode, nil
-		}
-		sql.metrics.QueryLeafMiss++
-	}
+func isLeafSeq(seq uint32) bool {
+	return seq&(1<<31) != 0
+}
 
-	node.rightNode, err = sql.Get(node.rightNodeKey)
+func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
+	if node.isLeaf() {
+		return nil, errors.New("leaf node has no children")
+	}
+	var err error
+	if isLeafSeq(node.rightNodeKey.Sequence()) {
+		node.rightNode, err = sql.getLeaf(node.rightNodeKey)
+	} else {
+		node.rightNode, err = sql.getNode(node.rightNodeKey)
+	}
+	if node.rightNode == nil {
+		err = errors.New("not found")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get right node node_key=%s height=%d path=%s: %w",
 			node.rightNodeKey, node.subtreeHeight, sql.opts.Path, err)
@@ -730,23 +732,23 @@ func (sql *SqliteDb) getRightNode(node *Node) (*Node, error) {
 }
 
 func (sql *SqliteDb) getLeftNode(node *Node) (*Node, error) {
+	if node.isLeaf() {
+		return nil, errors.New("leaf node has no children")
+	}
 	var err error
-	if node.subtreeHeight == 1 || node.subtreeHeight == 2 {
+	if isLeafSeq(node.leftNodeKey.Sequence()) {
 		node.leftNode, err = sql.getLeaf(node.leftNodeKey)
-		if err != nil {
-			return nil, err
-		}
-		if node.leftNode != nil {
-			return node.leftNode, nil
-		}
-		sql.metrics.QueryLeafMiss++
+	} else {
+		node.leftNode, err = sql.getNode(node.leftNodeKey)
 	}
-
-	node.leftNode, err = sql.Get(node.leftNodeKey)
+	if node.leftNode == nil {
+		err = errors.New("not found")
+	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get right node node_key=%s height=%d path=%s: %w",
+			node.leftNodeKey, node.subtreeHeight, sql.opts.Path, err)
 	}
-	return node.leftNode, err
+	return node.leftNode, nil
 }
 
 func (sql *SqliteDb) isSharded() (bool, error) {
@@ -863,7 +865,7 @@ func (sql *SqliteDb) GetLatestLeaf(key []byte) ([]byte, error) {
 
 func (sql *SqliteDb) closeHangingIterators() error {
 	for idx, stmt := range sql.iterators {
-		sql.logger.Warn().Msgf("closing hanging iterator idx=%d", idx)
+		sql.logger.Warn(fmt.Sprintf("closing hanging iterator idx=%d", idx))
 		if err := stmt.Close(); err != nil {
 			return err
 		}
@@ -941,20 +943,20 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		key         []byte
 		count       int64
 		start       = time.Now()
-		lg          = log.With().Str("path", sql.opts.Path).Logger()
 		since       = time.Now()
+		logPath     = []interface{}{"path", sql.opts.Path}
 	)
 	tree.isReplaying = true
 	defer func() {
 		tree.isReplaying = false
 	}()
 
-	lg.Info().Msgf("ensure leaf_delete_index exists...")
+	sql.opts.Logger.Info("ensure leaf_delete_index exists...", logPath...)
 	if err := sql.leafWrite.Exec("CREATE UNIQUE INDEX IF NOT EXISTS leaf_delete_idx ON leaf_delete (version, sequence)"); err != nil {
 		return err
 	}
-	lg.Info().Msg("...done")
-	lg.Info().Msgf("replaying changelog from=%d to=%d", tree.version, toVersion)
+	sql.opts.Logger.Info("...done", logPath...)
+	sql.opts.Logger.Info(fmt.Sprintf("replaying changelog from=%d to=%d", tree.version, toVersion), logPath...)
 	conn, err := sql.getReadConn()
 	if err != nil {
 		return err
@@ -988,7 +990,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		if version-1 != lastVersion {
 			tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
 			tree.version = int64(version - 1)
-			tree.sequence = 0
+			tree.resetSequences()
 			lastVersion = version - 1
 		}
 		if bz != nil {
@@ -1000,9 +1002,9 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 			if _, err = tree.Set(node.key, node.hash); err != nil {
 				return err
 			}
-			if sequence != int(tree.sequence) {
+			if sequence != int(tree.leafSequence) {
 				return fmt.Errorf("sequence mismatch version=%d; expected %d got %d; path=%s",
-					version, sequence, tree.sequence, sql.opts.Path)
+					version, sequence, tree.leafSequence, sql.opts.Path)
 			}
 		} else {
 			if _, _, err = tree.Remove(key); err != nil {
@@ -1011,12 +1013,12 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 			deleteSequence := tree.deletes[len(tree.deletes)-1].deleteKey.Sequence()
 			if sequence != int(deleteSequence) {
 				return fmt.Errorf("sequence delete mismatch; version=%d expected %d got %d; path=%s",
-					version, sequence, tree.sequence, sql.opts.Path)
+					version, sequence, tree.leafSequence, sql.opts.Path)
 			}
 		}
 		if count%250_000 == 0 {
-			lg.Info().Msgf("replayed changelog to version=%d count=%s node/s=%s",
-				version, humanize.Comma(count), humanize.Comma(int64(250_000/time.Since(since).Seconds())))
+			sql.opts.Logger.Info(fmt.Sprintf("replayed changelog to version=%d count=%s node/s=%s",
+				version, humanize.Comma(count), humanize.Comma(int64(250_000/time.Since(since).Seconds()))), logPath)
 			since = time.Now()
 		}
 	}
@@ -1025,10 +1027,10 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		return fmt.Errorf("root hash mismatch; expected %x got %x", targetHash, rootHash)
 	}
 	tree.leaves, tree.branches, tree.leafOrphans, tree.deletes = nil, nil, nil, nil
-	tree.sequence = 0
+	tree.resetSequences()
 	tree.version = toVersion
-	lg.Info().Msgf("replayed changelog to version=%d count=%s dur=%s root=%v",
-		tree.version, humanize.Comma(count), time.Since(start).Round(time.Millisecond), tree.root)
+	sql.opts.Logger.Info(fmt.Sprintf("replayed changelog to version=%d count=%s dur=%s root=%v",
+		tree.version, humanize.Comma(count), time.Since(start).Round(time.Millisecond), tree.root), logPath)
 	return q.Close()
 }
 
@@ -1038,7 +1040,7 @@ func (sql *SqliteDb) WriteLatestLeaves(tree *Tree) (err error) {
 		batchSize    = 200_000
 		count        = 0
 		step         func(node *Node) error
-		lg           = log.With().Str("path", sql.opts.Path).Logger()
+		logPath      = []string{"path", sql.opts.Path}
 		latestInsert *sqlite3.Stmt
 	)
 	prepare := func() error {
@@ -1065,11 +1067,11 @@ func (sql *SqliteDb) WriteLatestLeaves(tree *Tree) (err error) {
 		} else {
 			rate = "n/a"
 		}
-		lg.Info().Msgf("latest flush; count=%s dur=%s wr/s=%s",
+		sql.logger.Info(fmt.Sprintf("latest flush; count=%s dur=%s wr/s=%s",
 			humanize.Comma(int64(count)),
 			time.Since(since).Round(time.Millisecond),
 			rate,
-		)
+		), logPath)
 		since = time.Now()
 		return nil
 	}
@@ -1117,4 +1119,8 @@ func (sql *SqliteDb) WriteLatestLeaves(tree *Tree) (err error) {
 	}
 
 	return latestInsert.Close()
+}
+
+func (sql *SqliteDb) Logger() Logger {
+	return sql.logger
 }

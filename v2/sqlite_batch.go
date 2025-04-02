@@ -5,15 +5,16 @@ import (
 	"time"
 
 	"github.com/bvinc/go-sqlite-lite/sqlite3"
+	"github.com/cosmos/iavl/v2/metrics"
 	"github.com/dustin/go-humanize"
-	"github.com/rs/zerolog"
 )
 
 type sqliteBatch struct {
-	tree   *Tree
-	sql    *SqliteDb
-	size   int64
-	logger zerolog.Logger
+	tree    *Tree
+	sql     *SqliteDb
+	size    int64
+	logger  Logger
+	metrics metrics.Proxy
 
 	treeCount int64
 	treeSince time.Time
@@ -126,11 +127,11 @@ func (b *sqliteBatch) treeBatchCommit() error {
 		if batchSize == 0 {
 			batchSize = b.size
 		}
-		b.logger.Debug().Msgf("db=tree count=%s dur=%s batch=%d rate=%s",
+		b.logger.Debug(fmt.Sprintf("db=tree count=%s dur=%s batch=%d rate=%s",
 			humanize.Comma(b.treeCount),
 			time.Since(b.treeSince).Round(time.Millisecond),
 			batchSize,
-			humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds())))
+			humanize.Comma(int64(float64(batchSize)/time.Since(b.treeSince).Seconds()))))
 	}
 	return nil
 }
@@ -148,8 +149,6 @@ func (b *sqliteBatch) treeMaybeCommit(shardID int64) (err error) {
 }
 
 func (b *sqliteBatch) saveLeaves() (int64, error) {
-	var byteCount int64
-
 	err := b.newChangeLogBatch()
 	if err != nil {
 		return 0, err
@@ -170,7 +169,6 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 		if err != nil {
 			return 0, err
 		}
-		byteCount += int64(len(bz))
 		if err = b.leafInsert.Exec(leaf.nodeKey.Version(), int(leaf.nodeKey.Sequence()), bz); err != nil {
 			return 0, err
 		}
@@ -226,10 +224,10 @@ func (b *sqliteBatch) saveLeaves() (int64, error) {
 
 	err = tree.sql.leafWrite.Exec("CREATE UNIQUE INDEX IF NOT EXISTS leaf_idx ON leaf (version, sequence)")
 	if err != nil {
-		return byteCount, err
+		return b.leafCount, err
 	}
 
-	return byteCount, nil
+	return b.leafCount, nil
 }
 
 func (b *sqliteBatch) isCheckpoint() bool {
@@ -245,8 +243,8 @@ func (b *sqliteBatch) saveBranches() (n int64, err error) {
 		if err != nil {
 			return 0, err
 		}
-		b.logger.Debug().Msgf("checkpoint db=tree version=%d shard=%d orphans=%s",
-			tree.version, shardID, humanize.Comma(int64(len(tree.branchOrphans))))
+		b.logger.Debug(fmt.Sprintf("checkpoint db=tree version=%d shard=%d orphans=%s",
+			tree.version, shardID, humanize.Comma(int64(len(tree.branchOrphans)))))
 
 		if err = b.newTreeBatch(shardID); err != nil {
 			return 0, err
