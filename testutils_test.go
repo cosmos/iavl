@@ -283,7 +283,7 @@ func setupMirrorForIterator(t *testing.T, config *iteratorTestConfig, tree *Muta
 	return mirror
 }
 
-// assertIterator confirms that the iterator returns the expected values desribed by mirror in the same order.
+// assertIterator confirms that the iterator returns the expected values described by mirror in the same order.
 // mirror is a slice containing slices of the form [key, value]. In other words, key at index 0 and value at index 1.
 func assertIterator(t *testing.T, itr corestore.Iterator, mirror [][]string, ascending bool) {
 	startIdx, endIdx := 0, len(mirror)-1
