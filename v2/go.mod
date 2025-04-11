@@ -7,6 +7,7 @@ require (
 	github.com/bvinc/go-sqlite-lite v0.6.1
 	github.com/cosmos/iavl-bench/bench v0.0.4
 	github.com/dustin/go-humanize v1.0.1
+<<<<<<< HEAD
 	github.com/emicklei/dot v1.6.0
 	github.com/kocubinski/costor-api v1.1.1
 	github.com/prometheus/client_golang v1.16.0
@@ -14,6 +15,14 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/exp v0.0.0-20231006140011-7918f672742d
+=======
+	github.com/emicklei/dot v1.8.0
+	github.com/kocubinski/costor-api v1.1.2
+	github.com/prometheus/client_golang v1.21.1
+	github.com/spf13/cobra v1.9.1
+	github.com/stretchr/testify v1.10.0
+	golang.org/x/exp v0.0.0-20231006140011-7918f672742d // indirect
+>>>>>>> 48b7c38 (refactor: replace golang.org/x/exp with stdlib (#1058))
 )
 
 require (
