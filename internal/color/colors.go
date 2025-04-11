@@ -51,9 +51,7 @@ func Cyan(args ...interface{}) string {
 func ColoredBytes(data []byte, textColor, bytesColor func(...interface{}) string) string {
 	colors := os.Getenv("TENDERMINT_IAVL_COLORS_ON")
 	if colors == "" {
-		for _, b := range data {
-			return string(b)
-		}
+		return string(data)
 	}
 	s := ""
 	for _, b := range data {
