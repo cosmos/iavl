@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -23,17 +22,9 @@ const (
 	DefaultCacheSize int = 10000
 )
 
-var cmds = map[string]bool{
-	"data":      true,
-	"data-full": true,
-	"hash":      true,
-	"shape":     true,
-	"versions":  true,
-}
-
 func main() {
 	args := os.Args[1:]
-  
+
 	// If version is the default, we will load the latest version of the tree.
 	version := 0
 	if len(args) >= 4 {
@@ -44,7 +35,6 @@ func main() {
 			return
 		}
 	}
-
 
 	command := ""
 	if len(args) > 0 {
@@ -59,7 +49,7 @@ func main() {
 			return
 		}
 
-		PrintKeys(tree)
+		PrintKeys(tree.ImmutableTree, true)
 		hash := tree.Hash()
 		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
@@ -70,7 +60,7 @@ func main() {
 			return
 		}
 
-		PrintShape(tree)
+		PrintShape(tree.ImmutableTree)
 	case "versions":
 		tree, err := CreateAndLoadTree(args[1], version, []byte(args[2]))
 		if err != nil {
@@ -214,7 +204,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error commit import: %s\n", err)
 			return
 		}
-		importer.Close()
 		fmt.Println("import done")
 	default:
 		fmt.Fprintln(os.Stderr, `Error: Invalid command.
@@ -366,7 +355,7 @@ func CreateTree(dir string, prefix []byte) (*iavl.MutableTree, error) {
 	}
 
 	tree := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
-	return tree, err
+	return tree, nil
 }
 
 // CreateAndLoadTree loads an iavl tree from the directory
@@ -375,7 +364,7 @@ func CreateTree(dir string, prefix []byte) (*iavl.MutableTree, error) {
 func CreateAndLoadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error) {
 	db, err := OpenDB(dir)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if len(prefix) != 0 {
 		db = dbm.NewPrefixDB(db, prefix)
