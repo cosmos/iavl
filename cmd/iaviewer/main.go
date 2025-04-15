@@ -23,9 +23,17 @@ const (
 	DefaultCacheSize int = 10000
 )
 
+var cmds = map[string]bool{
+	"data":      true,
+	"data-full": true,
+	"hash":      true,
+	"shape":     true,
+	"versions":  true,
+}
+
 func main() {
 	args := os.Args[1:]
-
+  
 	// If version is the default, we will load the latest version of the tree.
 	version := 0
 	if len(args) >= 4 {
@@ -367,7 +375,7 @@ func CreateTree(dir string, prefix []byte) (*iavl.MutableTree, error) {
 func CreateAndLoadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error) {
 	db, err := OpenDB(dir)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	if len(prefix) != 0 {
 		db = dbm.NewPrefixDB(db, prefix)
@@ -382,39 +390,60 @@ func CreateAndLoadTree(dir string, version int, prefix []byte) (*iavl.MutableTre
 	return tree, err
 }
 
-func PrintKeys(tree *iavl.MutableTree) {
-	fmt.Println("Printing all keys with hashed values (to detect diff)")
-	tree.Iterate(func(key []byte, value []byte) bool { //nolint:errcheck
-		printKey := parseWeaveKey(key)
-		digest := sha256.Sum256(value)
-		fmt.Printf("  %s\n    %X\n", printKey, digest)
+func PrintKeys(tree *iavl.ImmutableTree, fullValues bool) {
+	valuesLabel := "hashed values"
+	valueToString := func(value []byte) string {
+		return fmt.Sprintf("%X", sha256.Sum256(value))
+	}
+	if fullValues {
+		valuesLabel = "values"
+		valueToString = encodeData
+	}
+	fmt.Printf("Printing all keys with %s (to detect diff)\n", valuesLabel)
+	tree.Iterate(func(key []byte, value []byte) bool {
+		keyStr := parseWeaveKey(key)
+		valueStr := valueToString(value)
+		fmt.Printf("  %s\n    %s\n", keyStr, valueStr)
 		return false
 	})
 }
 
-// parseWeaveKey assumes a separating : where all in front should be ascii,
-// and all afterwards may be ascii or binary
+// parseWeaveKey returns a string representation of a key, splitting on the first ":"
+// into a prefix (presumably an all-ASCII type label) followed by a possibly-binary suffix.
 func parseWeaveKey(key []byte) string {
 	cut := bytes.IndexRune(key, ':')
 	if cut == -1 {
-		return encodeID(key)
+		return encodeData(key)
 	}
 	prefix := key[:cut]
 	id := key[cut+1:]
-	return fmt.Sprintf("%s:%s", encodeID(prefix), encodeID(id))
+	return fmt.Sprintf("%s:%s", encodeData(prefix), encodeData(id))
 }
 
-// casts to a string if it is printable ascii, hex-encodes otherwise
-func encodeID(id []byte) string {
-	for _, b := range id {
+// encodeData returns a printable ASCII representation of its input;
+// hexadecimal if it is not already printable ASCII, otherwise plain
+// or quoted as necessary to avoid misinterpretation.
+func encodeData(src []byte) string {
+	hexConfusable := true
+	forceQuotes := false
+	for _, b := range src {
 		if b < 0x20 || b >= 0x80 {
-			return strings.ToUpper(hex.EncodeToString(id))
+			return fmt.Sprintf("%X", src)
+		}
+		if b < '0' || (b > '9' && b < 'A') || (b > 'F') {
+			hexConfusable = false
+			if b == ' ' || b == '"' || b == '\\' {
+				forceQuotes = true
+			}
 		}
 	}
-	return string(id)
+	if hexConfusable || forceQuotes {
+		return fmt.Sprintf("%q", src)
+	}
+	return string(src)
 }
 
-func PrintShape(tree *iavl.MutableTree) {
+func PrintShape(tree *iavl.ImmutableTree) {
 	// shape := tree.RenderShape("  ", nil)
 	// TODO: handle this error
 	shape, _ := tree.RenderShape("  ", nodeEncoder)
@@ -425,9 +454,6 @@ func nodeEncoder(id []byte, depth int, isLeaf bool) string {
 	prefix := fmt.Sprintf("-%d ", depth)
 	if isLeaf {
 		prefix = fmt.Sprintf("*%d ", depth)
-	}
-	if len(id) == 0 {
-		return fmt.Sprintf("%s<nil>", prefix)
 	}
 	return fmt.Sprintf("%s%s", prefix, parseWeaveKey(id))
 }

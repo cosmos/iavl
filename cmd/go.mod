@@ -1,5 +1,4 @@
 module github.com/cosmos/iavl/cmd
-
 go 1.23
 
 toolchain go1.23.4

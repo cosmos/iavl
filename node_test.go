@@ -167,7 +167,7 @@ func TestNode_validate(t *testing.T) {
 func BenchmarkNode_encodedSize(b *testing.B) {
 	nk := &NodeKey{
 		version: rand.Int63n(10000000),
-		nonce:   uint32(rand.Int31n(10000000)),
+		nonce:   uint32(rand.Int31n(10000000)), //nolint: gosec // used in testing
 	}
 	node := &Node{
 		key:           iavlrand.RandBytes(25),
@@ -188,7 +188,7 @@ func BenchmarkNode_encodedSize(b *testing.B) {
 func BenchmarkNode_WriteBytes(b *testing.B) {
 	nk := &NodeKey{
 		version: rand.Int63n(10000000),
-		nonce:   uint32(rand.Int31n(10000000)),
+		nonce:   uint32(rand.Int31n(10000000)), //nolint: gosec // used in testing
 	}
 	node := &Node{
 		key:           iavlrand.RandBytes(25),
@@ -223,7 +223,7 @@ func BenchmarkNode_HashNode(b *testing.B) {
 		value: iavlrand.RandBytes(100),
 		nodeKey: &NodeKey{
 			version: rand.Int63n(10000000),
-			nonce:   uint32(rand.Int31n(10000000)),
+			nonce:   uint32(rand.Int31n(10000000)), //nolint: gosec // used in testing
 		},
 		subtreeHeight: 0,
 		size:          rand.Int63n(10000000),
