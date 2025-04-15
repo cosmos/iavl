@@ -116,3 +116,61 @@ Indentation also suggests the shape of the tree.
 Note, if anyone wants to improve the visualization, that would be awesome.
 I have no idea how to do this well, but at least text output makes some
 sense and is diff-able.
+
+### Load tree
+
+Loading an avl tree and outputting a hash of a tree of a certain version
+Sometimes the data output is too large and you need to see if the hash of the version tree has changed
+
+```shell
+iaviewer tree-hash .app/data/application.db "s/k:bank/" 3
+```
+
+```shell
+Got version: 3
+Hash: BCDAD9F29C90E67743C89970030FEF656CF81B18368513B61853736AF1903B11
+Size: 3
+```
+
+empty tree: 
+
+```shell
+Got version: 0
+Hash: E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855
+Size: 0
+```
+
+### Delete versions
+
+Delete versions, it is possible to delete versions up to a certain version, no matter which version of the tree we load.
+
+```shell
+iaviewer delete-to .app/data/application.db "s/k:mint/" 4 3
+```
+
+```shell
+Got version: 4
+DeleteVersionsTo 3
+
+```
+
+### Delete tree
+
+Deletion of avl tree
+
+```shell
+iaviewer delete-tree .app/data/application.db "s/k:mint/"
+```
+
+### Export and import tree
+
+Export and import of a tree of a certain version, version.gob file is created during exporting 
+when importing you need to specify the version of the tree, the program will search for the version.gob file
+
+```shell
+iaviewer export .app/data/application.db "s/k:gov/" 5
+```
+
+```shell
+iaviewer import .app/data/application.db "s/k:gov/" 5
+```
