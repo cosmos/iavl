@@ -74,7 +74,7 @@ func TestLazySet(t *testing.T) {
 	for i := 0; i < postVersions; i++ {
 		leafCount := rand.Intn(50)
 		for j := 0; j < leafCount; j++ {
-			_, err = tree.Set([]byte(fmt.Sprintf("key-%d-%d", i, j)), []byte(fmt.Sprintf("value-%d-%d", i, j)))
+			_, err = tree.Set(fmt.Appendf(nil, "key-%d-%d", i, j), fmt.Appendf(nil, "value-%d-%d", i, j))
 			require.NoError(t, err)
 		}
 		_, _, err = tree.SaveVersion()
@@ -157,7 +157,7 @@ func TestDeleteVersions(t *testing.T) {
 	for i := 0; i < postVersions; i++ {
 		leafCount := rand.Intn(10)
 		for j := 0; j < leafCount; j++ {
-			_, err = tree.Set([]byte(fmt.Sprintf("key-%d-%d", i, j)), []byte(fmt.Sprintf("value-%d-%d", i, j)))
+			_, err = tree.Set(fmt.Appendf(nil, "key-%d-%d", i, j), fmt.Appendf(nil, "value-%d-%d", i, j))
 			require.NoError(t, err)
 		}
 		_, _, err = tree.SaveVersion()
@@ -188,7 +188,7 @@ func TestDeleteVersions(t *testing.T) {
 	for i := 0; i < postVersions; i++ {
 		leafCount := rand.Intn(20)
 		for j := 0; j < leafCount; j++ {
-			_, err = tree.Set([]byte(fmt.Sprintf("key-%d-%d", i, j)), []byte(fmt.Sprintf("value-%d-%d", i, j)))
+			_, err = tree.Set(fmt.Appendf(nil, "key-%d-%d", i, j), fmt.Appendf(nil, "value-%d-%d", i, j))
 			require.NoError(t, err)
 		}
 		_, _, err = tree.SaveVersion()
@@ -242,7 +242,7 @@ func TestPruning(t *testing.T) {
 	pruningInterval := int64(20)
 	for i := int64(0); i < toVersion; i++ {
 		for j := 0; j < leavesCount; j++ {
-			_, err := tree.Set([]byte(fmt.Sprintf("key%d", j)), []byte(fmt.Sprintf("value%d", j)))
+			_, err := tree.Set(fmt.Appendf(nil, "key%d", j), fmt.Appendf(nil, "value%d", j))
 			require.NoError(t, err)
 		}
 		_, v, err := tree.SaveVersion()
