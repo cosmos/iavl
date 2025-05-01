@@ -230,9 +230,9 @@ func (iter *Iterator) Next() {
 	node, err := iter.t.next()
 	// If an error occurred or no more nodes, update iterator state accordingly
 	if node == nil || err != nil {
-	    if err != nil {
-	        iter.err = err
-	    }
+		if err != nil {
+			iter.err = err
+		}
 		iter.t = nil
 		iter.valid = false
 		return
