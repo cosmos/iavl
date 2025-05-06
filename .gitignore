@@ -1,4 +1,3 @@
-cmd/legacydump/legacydump
 vendor
 .glide
 *.swp
