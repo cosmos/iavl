@@ -116,7 +116,7 @@ func TestOverflow(t *testing.T) {
 	ao, bo := new(int64), new(int64)
 	kf.Scan(key, ao, bo)
 	assert.Equal(t, a, *ao)
-	assert.Equal(t, int64(b), *bo)
+	assert.Equal(t, int64(b), *bo) // nolint:gosec // false positive
 }
 
 func benchmarkKeyFormatBytes(b *testing.B, kf *KeyFormat, segments ...[]byte) {

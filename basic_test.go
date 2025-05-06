@@ -244,7 +244,7 @@ func TestRemove(_ *testing.T) {
 
 	// insert a bunch of random nodes
 	keys := make([][]byte, size)
-	l := int32(len(keys))
+	l := int32(len(keys)) // nolint:gosec // false positive
 	for i := 0; i < size; i++ {
 		key := iavlrand.RandBytes(keyLen)
 		t1.Set(key, iavlrand.RandBytes(dataLen))
@@ -382,7 +382,7 @@ func TestIterateRange(t *testing.T) {
 	}
 	// test traversing the whole node works... in order
 	viewed := []string{}
-	tree.Iterate(func(key []byte, value []byte) bool {
+	tree.Iterate(func(key []byte, _ []byte) bool {
 		viewed = append(viewed, string(key))
 		return false
 	})

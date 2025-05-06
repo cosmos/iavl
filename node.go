@@ -34,7 +34,7 @@ type NodeKey struct {
 // GetKey returns a byte slice of the NodeKey.
 func (nk *NodeKey) GetKey() []byte {
 	b := make([]byte, 12)
-	binary.BigEndian.PutUint64(b, uint64(nk.version))
+	binary.BigEndian.PutUint64(b, uint64(nk.version)) // nolint:gosec // false positive
 	binary.BigEndian.PutUint32(b[8:], nk.nonce)
 	return b
 }
@@ -42,7 +42,7 @@ func (nk *NodeKey) GetKey() []byte {
 // GetNodeKey returns a NodeKey from a byte slice.
 func GetNodeKey(key []byte) *NodeKey {
 	return &NodeKey{
-		version: int64(binary.BigEndian.Uint64(key)),
+		version: int64(binary.BigEndian.Uint64(key)), // nolint:gosec // false positive
 		nonce:   binary.BigEndian.Uint32(key[8:]),
 	}
 }
@@ -50,7 +50,7 @@ func GetNodeKey(key []byte) *NodeKey {
 // GetRootKey returns a byte slice of the root node key for the given version.
 func GetRootKey(version int64) []byte {
 	b := make([]byte, 12)
-	binary.BigEndian.PutUint64(b, uint64(version))
+	binary.BigEndian.PutUint64(b, uint64(version)) // nolint:gosec // false positive
 	binary.BigEndian.PutUint32(b[8:], 1)
 	return b
 }
@@ -102,7 +102,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 		return nil, fmt.Errorf("decoding node.height, %w", err)
 	}
 	buf = buf[n:]
-	height8 := int8(height)
+	height8 := int8(height) // nolint:gosec // false positive
 	if height != int64(height8) {
 		return nil, errors.New("invalid height, out of int8 range")
 	}
@@ -172,7 +172,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 				return nil, fmt.Errorf("decoding node.leftNodeKey.nonce, %w", err)
 			}
 			buf = buf[n:]
-			leftNodeKey.nonce = uint32(nonce)
+			leftNodeKey.nonce = uint32(nonce) // nolint:gosec // false positive
 			if nonce != int64(leftNodeKey.nonce) {
 				return nil, errors.New("invalid leftNodeKey.nonce, out of int32 range")
 			}
@@ -197,7 +197,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 			if err != nil {
 				return nil, fmt.Errorf("decoding node.rightNodeKey.nonce, %w", err)
 			}
-			rightNodeKey.nonce = uint32(nonce)
+			rightNodeKey.nonce = uint32(nonce) // nolint:gosec // false positive
 			if nonce != int64(rightNodeKey.nonce) {
 				return nil, errors.New("invalid rightNodeKey.nonce, out of int32 range")
 			}
@@ -238,7 +238,7 @@ func MakeLegacyNode(hash, buf []byte) (*Node, error) {
 	buf = buf[n:]
 
 	node := &Node{
-		subtreeHeight: int8(height),
+		subtreeHeight: int8(height), // nolint:gosec // false positive
 		size:          size,
 		nodeKey:       &NodeKey{version: ver},
 		key:           key,

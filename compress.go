@@ -98,7 +98,7 @@ func (i *CompressImporter) Add(node *ExportNode) error {
 func deltaEncode(key, lastKey []byte) []byte {
 	var sizeBuf [binary.MaxVarintLen64]byte
 	shared := diffOffset(lastKey, key)
-	n := binary.PutUvarint(sizeBuf[:], uint64(shared))
+	n := binary.PutUvarint(sizeBuf[:], uint64(shared)) // nolint:gosec // false positive
 	return append(sizeBuf[:n], key[shared:]...)
 }
 

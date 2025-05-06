@@ -51,7 +51,7 @@ func (s *Stats) AddNode(node *iavl.ExportNode) {
 	if node.Height == 0 {
 		s.leafNodes++
 	}
-	s.size += uint64(len(node.Key) + len(node.Value) + 8 + 1)
+	s.size += uint64(len(node.Key) + len(node.Value) + 8 + 1) // nolint:gosec // false positive
 }
 
 func (s *Stats) String() string {
