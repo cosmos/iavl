@@ -49,7 +49,7 @@ func TestIterateConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set(fmt.Appendf(nil, "%d%d", i, j), iavlrand.RandBytes(1))
 				require.NoError(t, err)
 			}(i, j)
 		}
@@ -76,7 +76,7 @@ func TestIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set(fmt.Appendf(nil, "%d%d", i, j), iavlrand.RandBytes(1))
 				require.NoError(t, err)
 			}(i, j)
 		}
@@ -100,7 +100,7 @@ func TestNewIteratorConcurrency(t *testing.T) {
 			wg.Add(1)
 			go func(i, j int) {
 				defer wg.Done()
-				_, err := tree.Set([]byte(fmt.Sprintf("%d%d", i, j)), iavlrand.RandBytes(1))
+				_, err := tree.Set(fmt.Appendf(nil, "%d%d", i, j), iavlrand.RandBytes(1))
 				require.NoError(t, err)
 			}(i, j)
 		}
@@ -203,7 +203,7 @@ func TestTraverse(t *testing.T) {
 	tree := setupMutableTree(false)
 
 	for i := 0; i < 6; i++ {
-		_, err := tree.set([]byte(fmt.Sprintf("k%d", i)), []byte(fmt.Sprintf("v%d", i)))
+		_, err := tree.set(fmt.Appendf(nil, "k%d", i), fmt.Appendf(nil, "v%d", i))
 		require.NoError(t, err)
 	}
 

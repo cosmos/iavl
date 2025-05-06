@@ -1271,7 +1271,7 @@ func TestLoadVersion(t *testing.T) {
 	require.Equal(t, version, int64(0), "expected latest version to be zero")
 
 	for i := 0; i < maxVersions; i++ {
-		tree.Set([]byte(fmt.Sprintf("key_%d", i+1)), []byte(fmt.Sprintf("value_%d", i+1)))
+		tree.Set(fmt.Appendf(nil, "key_%d", i+1), fmt.Appendf(nil, "value_%d", i+1))
 
 		_, _, err = tree.SaveVersion()
 		require.NoError(t, err, "SaveVersion should not fail")
@@ -1282,18 +1282,18 @@ func TestLoadVersion(t *testing.T) {
 	require.NoError(t, err, "unexpected error when lazy loading version")
 	require.Equal(t, version, int64(maxVersions))
 
-	value, err := tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions)))
+	value, err := tree.Get(fmt.Appendf(nil, "key_%d", maxVersions))
 	require.NoError(t, err)
-	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions)), "unexpected value")
+	require.Equal(t, value, fmt.Appendf(nil, "value_%d", maxVersions), "unexpected value")
 
 	// require the ability to load an older version
 	version, err = tree.LoadVersion(int64(maxVersions - 1))
 	require.NoError(t, err, "unexpected error when loading version")
 	require.Equal(t, version, int64(maxVersions))
 
-	value, err = tree.Get([]byte(fmt.Sprintf("key_%d", maxVersions-1)))
+	value, err = tree.Get(fmt.Appendf(nil, "key_%d", maxVersions-1))
 	require.NoError(t, err)
-	require.Equal(t, value, []byte(fmt.Sprintf("value_%d", maxVersions-1)), "unexpected value")
+	require.Equal(t, value, fmt.Appendf(nil, "value_%d", maxVersions-1), "unexpected value")
 
 	// require the inability to load a non-valid version
 	version, err = tree.LoadVersion(int64(maxVersions + 1))

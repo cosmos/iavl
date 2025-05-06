@@ -22,7 +22,7 @@ func TestAsyncPruning(t *testing.T) {
 	keepRecent := int64(300)
 	for i := 0; i < toVersion; i++ {
 		for j := 0; j < keyCount; j++ {
-			_, err := tree.Set([]byte(fmt.Sprintf("key-%d-%d", i, j)), []byte(fmt.Sprintf("value-%d-%d", i, j)))
+			_, err := tree.Set(fmt.Appendf(nil, "key-%d-%d", i, j), fmt.Appendf(nil, "value-%d-%d", i, j))
 			require.NoError(t, err)
 		}
 
