@@ -573,7 +573,7 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		return err
 	}
 	// Delete all legacy roots
-	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, value []byte) error {
+	if err := ndb.traversePrefix(legacyRootKeyFormat.Key(), func(key, _ []byte) error {
 		return ndb.deleteFromPruning(key)
 	}); err != nil {
 		return err
@@ -627,10 +627,9 @@ func (ndb *nodeDB) DeleteVersionsFrom(fromVersion int64) error {
 	}
 
 	// Delete the nodes for new format
-	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, v []byte) error {
+	err = ndb.traverseRange(nodeKeyPrefixFormat.KeyInt64(fromVersion), nodeKeyPrefixFormat.KeyInt64(latest+1), func(k, _ []byte) error {
 		return ndb.batch.Delete(k)
 	})
-
 	if err != nil {
 		return err
 	}
@@ -783,7 +782,7 @@ func (ndb *nodeDB) getFirstNonLegacyVersion() (int64, error) {
 	ndb.mtx.Unlock()
 
 	// Find the first version
-  latestVersion, err := ndb.getLatestVersion()
+	latestVersion, err := ndb.getLatestVersion()
 	if err != nil {
 		return 0, err
 	}
@@ -846,7 +845,7 @@ func (ndb *nodeDB) getFirstVersion() (int64, error) {
 
 	ndb.resetFirstVersion(latestVersion)
 
-  return latestVersion, nil
+	return latestVersion, nil
 }
 
 func (ndb *nodeDB) resetFirstVersion(version int64) {
@@ -1302,7 +1301,7 @@ func (ndb *nodeDB) orphans() ([][]byte, error) {
 
 func (ndb *nodeDB) size() int {
 	size := 0
-	err := ndb.traverse(func(k, v []byte) error {
+	err := ndb.traverse(func(_, _ []byte) error {
 		size++
 		return nil
 	})
@@ -1422,7 +1421,6 @@ func (ndb *nodeDB) String() (string, error) {
 		index++
 		return nil
 	})
-
 	if err != nil {
 		return "", err
 	}

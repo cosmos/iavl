@@ -280,7 +280,7 @@ func TestImporterDataIntegrity(t *testing.T) {
 
 	// write more than maxBatchSize
 	for i := 0; i < maxBatchSize+1; i++ {
-		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
+		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i))) // nolint:gosec // false positive
 		_, err := tree.Set(bz[:], []byte{byte(i)})
 		require.NoError(t, err)
 	}
@@ -339,7 +339,7 @@ func TestImporterDataIntegrity(t *testing.T) {
 	require.NoError(t, err)
 
 	for i := 0; i < maxBatchSize+1; i++ {
-		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i)))
+		bz := sha3.Sum256(binary.BigEndian.AppendUint64([]byte{}, uint64(i))) // nolint:gosec // false positive
 		value, err := itree.Get(bz[:])
 		require.NoError(t, err)
 		require.Equal(t, []byte{byte(i)}, value)

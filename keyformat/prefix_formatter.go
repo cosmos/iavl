@@ -29,7 +29,7 @@ func (f *FastPrefixFormatter) Scan(key []byte, a interface{}) {
 func (f *FastPrefixFormatter) KeyInt64(bz int64) []byte {
 	key := make([]byte, 1+f.length)
 	key[0] = f.prefix
-	binary.BigEndian.PutUint64(key[1:], uint64(bz))
+	binary.BigEndian.PutUint64(key[1:], uint64(bz)) // nolint:gosec // false positive
 	return key
 }
 
