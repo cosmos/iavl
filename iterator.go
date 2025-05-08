@@ -68,12 +68,12 @@ func (nodes *delayedNodes) length() int {
 // next traversal to proceed, or simply discard the `traversal` struct to stop iteration.
 //
 // At the each step of `next`, the `delayedNodes` can have one of the three states:
-// 1. It has length of 0, meaning that their is no more traversable nodes.
+// 1. It has length of 0, meaning that there is no more traversable nodes.
 // 2. It has length of 1, meaning that the traverse is being started from the initial node.
 // 3. It has length of 2>=, meaning that there are delayed nodes to be traversed.
 //
 // When the `delayedNodes` are not empty, `next` retrieves the first `delayedNode` and initially check:
-// 1. If it is not an delayed node (node.delayed == false) it immediately returns it.
+// 1. If it is not a delayed node (node.delayed == false) it immediately returns it.
 //
 // A. If the `node` is a branch node:
 //  1. If the traversal is postorder, then append the current node to the t.delayedNodes,
@@ -164,7 +164,7 @@ func (t *traversal) next() (*Node, error) {
 		return node, nil
 	}
 
-	// Keep traversing and expanding the remaning delayed nodes. A-4.
+	// Keep traversing and expanding the remaining delayed nodes. A-4.
 	return t.next()
 }
 
@@ -255,7 +255,7 @@ func (iter *Iterator) Error() error {
 	return iter.err
 }
 
-// IsFast returnts true if iterator uses fast strategy
+// IsFast returns true if iterator uses fast strategy
 func (iter *Iterator) IsFast() bool {
 	return false
 }
