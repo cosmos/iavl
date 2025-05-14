@@ -1,4 +1,6 @@
+# binary built during testing
 cmd/legacydump/legacydump
+
 vendor
 .glide
 *.swp

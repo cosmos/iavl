@@ -24,10 +24,10 @@ test-short:
 	@go test ./... $(LDFLAGS) -v --race --short
 .PHONY: test-short
 
-cmd/legacydump/legacydump: 
+legacydump:
 	cd cmd/legacydump && go build -o legacydump main.go
 
-test: cmd/legacydump/legacydump
+test: legacydump
 	@echo "--> Running go test"
 	@go test ./... $(LDFLAGS) 
 .PHONY: test
