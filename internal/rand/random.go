@@ -43,7 +43,7 @@ func (r *Rand) init() {
 		seed |= uint64(bz[i])
 		seed <<= 8
 	}
-	r.reset(int64(seed))
+	r.reset(int64(seed)) // nolint:gosec // only used in unsafe rand operations
 }
 
 func (r *Rand) reset(seed int64) {
@@ -110,7 +110,7 @@ MAIN_LOOP:
 }
 
 func (r *Rand) Uint16() uint16 {
-	return uint16(r.Uint32() & (1<<16 - 1))
+	return uint16(r.Uint32() & (1<<16 - 1)) // nolint:gosec // only used in unsafe rand operations
 }
 
 func (r *Rand) Uint32() uint32 {
@@ -128,19 +128,19 @@ func (r *Rand) Uint() uint {
 	r.Lock()
 	i := r.rand.Int()
 	r.Unlock()
-	return uint(i)
+	return uint(i) // nolint:gosec // only used in unsafe rand operations
 }
 
 func (r *Rand) Int16() int16 {
-	return int16(r.Uint32() & (1<<16 - 1))
+	return int16(r.Uint32() & (1<<16 - 1)) // nolint:gosec // only used in unsafe rand operations
 }
 
 func (r *Rand) Int32() int32 {
-	return int32(r.Uint32())
+	return int32(r.Uint32()) // nolint:gosec // only used in unsafe rand operations
 }
 
 func (r *Rand) Int64() int64 {
-	return int64(r.Uint64())
+	return int64(r.Uint64()) // nolint:gosec // only used in unsafe rand operations
 }
 
 func (r *Rand) Int() int {
@@ -193,7 +193,7 @@ func (r *Rand) Float64() float64 {
 }
 
 func (r *Rand) Time() time.Time {
-	return time.Unix(int64(r.Uint64()), 0)
+	return time.Unix(int64(r.Uint64()), 0) // nolint:gosec // only used in unsafe rand operations
 }
 
 // Bytes returns n random bytes generated from the internal

@@ -52,7 +52,7 @@ func (t *ImmutableTree) String() string {
 	return "Tree{" + strings.Join(leaves, ", ") + "}"
 }
 
-// RenderShape provides a nested tree shape, ident is prepended in each level
+// RenderShape provides a nested tree shape, indent is prepended in each level
 // Returns an array of strings, one per line, to join with "\n" or display otherwise
 func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) ([]string, error) {
 	if encoder == nil {
@@ -63,7 +63,7 @@ func (t *ImmutableTree) RenderShape(indent string, encoder NodeEncoder) ([]strin
 
 // NodeEncoder will take an id (hash, or key for leaf nodes), the depth of the node,
 // and whether or not this is a leaf node.
-// It returns the string we wish to print, for iaviwer
+// It returns the string we wish to print, for iavlviewer
 type NodeEncoder func(id []byte, depth int, isLeaf bool) string
 
 // defaultNodeEncoder can encode any node unless the client overrides it
@@ -90,7 +90,6 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 		return []string{here}, nil
 	}
 
-	// recurse on inner node
 	here := fmt.Sprintf("%s%s", prefix, encoder(node.hash, depth, false))
 
 	rightNode, err := node.getRightNode(t)
@@ -108,12 +107,14 @@ func (t *ImmutableTree) renderNode(node *Node, indent string, depth int, encoder
 		return nil, err
 	}
 
-	result, err := t.renderNode(leftNode, indent, depth+1, encoder) // left
+	left, err := t.renderNode(leftNode, indent, depth+1, encoder)
 	if err != nil {
 		return nil, err
 	}
 
-	result = append(result, here)
+	// Return results in topological depth-first pre-order (parent before subtrees).
+	result := []string{here}
+	result = append(result, left...)
 	result = append(result, right...)
 	return result, nil
 }
@@ -325,7 +326,7 @@ func (t *ImmutableTree) nodeSize() int {
 	return int(t.root.size*2 - 1)
 }
 
-// TraverseStateChanges iterate the range of versions, compare each version to it's predecessor to extract the state changes of it.
+// TraverseStateChanges iterate the range of versions, compare each version to its predecessor to extract the state changes of it.
 // endVersion is exclusive.
 func (t *ImmutableTree) TraverseStateChanges(startVersion, endVersion int64, fn func(version int64, changeSet *ChangeSet) error) error {
 	return t.ndb.traverseStateChanges(startVersion, endVersion, fn)

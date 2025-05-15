@@ -155,13 +155,13 @@ func scan(a interface{}, value []byte) {
 	switch v := a.(type) {
 	case *int64:
 		// Negative values will be mapped correctly when read in as uint64 and then type converted
-		*v = int64(binary.BigEndian.Uint64(value))
+		*v = int64(binary.BigEndian.Uint64(value)) // nolint:gosec // the integer is always positive
 	case *uint64:
 		*v = binary.BigEndian.Uint64(value)
 	case *uint32:
 		*v = binary.BigEndian.Uint32(value)
 	case *int32:
-		*v = int32(binary.BigEndian.Uint32(value))
+		*v = int32(binary.BigEndian.Uint32(value)) // nolint:gosec // the integer is always positive
 	case *[]byte:
 		*v = value
 	case *big.Int:
@@ -176,16 +176,16 @@ func format(a interface{}) []byte {
 	case uint64:
 		return formatUint64(v)
 	case int64:
-		return formatUint64(uint64(v))
+		return formatUint64(uint64(v)) // nolint:gosec // the integer version is always positive
 	// Provide formatting from int,uint as a convenience to avoid casting arguments
 	case uint:
 		return formatUint64(uint64(v))
 	case int:
-		return formatUint64(uint64(v))
+		return formatUint64(uint64(v)) // nolint:gosec // the integer version is always positive
 	case uint32:
 		return formatUint32(v)
 	case int32:
-		return formatUint32(uint32(v))
+		return formatUint32(uint32(v)) // nolint:gosec // the integer version is always positive
 	case []byte:
 		return v
 	default:

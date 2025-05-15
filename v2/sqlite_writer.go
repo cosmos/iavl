@@ -42,9 +42,8 @@ type sqlWriter struct {
 }
 
 func (sql *SqliteDb) newSQLWriter() *sqlWriter {
-	return &sqlWriter{
+	writer := &sqlWriter{
 		sql:         sql,
-		logger:      sql.logger,
 		leafPruneCh: make(chan *pruneSignal),
 		treePruneCh: make(chan *pruneSignal),
 		leafCh:      make(chan *saveSignal),
@@ -52,6 +51,10 @@ func (sql *SqliteDb) newSQLWriter() *sqlWriter {
 		leafResult:  make(chan *saveResult),
 		treeResult:  make(chan *saveResult),
 	}
+	if sql != nil {
+		writer.logger = sql.logger
+	}
+	return writer
 }
 
 func (w *sqlWriter) start(ctx context.Context) {
@@ -438,8 +441,7 @@ func (w *sqlWriter) treeLoop(ctx context.Context) error {
 }
 
 func (w *sqlWriter) saveTree(tree *Tree) error {
-	saveStart := time.Now()
-
+	defer tree.metrics.MeasureSince(time.Now(), metricsNamespace, "db_write")
 	batch := &sqliteBatch{
 		sql:    tree.sql,
 		tree:   tree,
@@ -454,10 +456,8 @@ func (w *sqlWriter) saveTree(tree *Tree) error {
 	w.leafCh <- saveSig
 	treeResult := <-w.treeResult
 	leafResult := <-w.leafResult
-	dur := time.Since(saveStart)
-	tree.sql.metrics.WriteDurations = append(tree.sql.metrics.WriteDurations, dur)
-	tree.sql.metrics.WriteTime += dur
-	tree.sql.metrics.WriteLeaves += int64(len(tree.leaves))
+	tree.metrics.IncrCounter(float32(batch.leafCount), metricsNamespace, "db_write_leaf")
+	tree.metrics.IncrCounter(float32(batch.treeCount), metricsNamespace, "db_write_branch")
 
 	err := errors.Join(treeResult.err, leafResult.err)
 

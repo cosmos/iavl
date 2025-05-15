@@ -1442,7 +1442,7 @@ func TestMutableTree_InitialVersion_FirstVersion(t *testing.T) {
 	db := dbm.NewMemDB()
 
 	initialVersion := int64(1000)
-	tree := NewMutableTree(db, 0, true, NewNopLogger(), InitialVersionOption(uint64(initialVersion)))
+	tree := NewMutableTree(db, 0, true, NewNopLogger(), InitialVersionOption(uint64(initialVersion))) // nolint:gosec // the integer version is always positive
 
 	_, err := tree.Set([]byte("hello"), []byte("world"))
 	require.NoError(t, err)
