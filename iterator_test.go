@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"fmt"
 	"math/rand"
 	"sort"
 	"sync"
@@ -380,4 +381,81 @@ func syncMapCount(m *sync.Map) int {
 		return true
 	})
 	return count
+}
+
+func TestIterator_ErrorPropagation(t *testing.T) {
+	// This test verifies that errors from traversal.next() are properly stored in iter.err
+	// We do this by creating a corrupted tree structure that will cause node retrieval errors
+
+	// Create a tree with a single node
+	db := dbm.NewMemDB()
+	tree := NewMutableTree(db, 0, false, NewNopLogger())
+
+	// Add multiple values to ensure we have a non-trivial tree structure
+	for i := 0; i < 10; i++ {
+		key := []byte(fmt.Sprintf("key%d", i))
+		value := []byte(fmt.Sprintf("value%d", i))
+		_, err := tree.Set(key, value)
+		require.NoError(t, err)
+	}
+
+	// Save the version to persist nodes to the database
+	hash, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	require.Equal(t, int64(1), version)
+	require.NotNil(t, hash)
+
+	// Get an immutable tree at this version
+	immutableTree, err := tree.GetImmutable(version)
+	require.NoError(t, err)
+
+	// Create an iterator with normal behavior first to verify it works correctly
+	goodIter := NewIterator(nil, nil, true, immutableTree)
+	require.True(t, goodIter.Valid())
+	require.NoError(t, goodIter.Error())
+
+	// Now corrupt the database by directly writing invalid data
+	// Find a node key that would be accessed during iteration
+	var nodeToCorrupt []byte
+
+	// Create an iteration path that will trigger node retrievals
+	// First, identify a node that will be visited during iteration
+	goodIter.Next() // Move to the first key
+
+	// We'll corrupt a node that would be retrieved in the next iteration
+	nodeToCorrupt = immutableTree.root.leftNodeKey
+	if nodeToCorrupt == nil {
+		nodeToCorrupt = immutableTree.root.rightNodeKey
+	}
+
+	require.NotNil(t, nodeToCorrupt, "Failed to find a node to corrupt")
+
+	// Corrupt the database by writing invalid data to a node key
+	nodeKey := immutableTree.ndb.nodeKey(nodeToCorrupt)
+	err = db.Set(nodeKey, []byte("corrupted data that will cause MakeNode to fail"))
+	require.NoError(t, err)
+
+	// Close the good iterator
+	goodIter.Close()
+
+	// Now create a new iterator that will encounter the corrupted data
+	iter := NewIterator(nil, nil, true, immutableTree)
+	// Depending on iteration order, the corruption might be encountered on initial traversal
+	// or on a subsequent Next() call
+
+	if iter.Valid() {
+		// If valid on first call, try moving to next nodes where it should encounter the corruption
+		iter.Next()
+	}
+
+	// The iterator should now either be invalid with an error, or we need to continue
+	// traversal until encountering the corruption
+	for i := 0; i < 5 && iter.Valid(); i++ {
+		iter.Next()
+	}
+
+	// By now the iterator should have encountered the corruption
+	require.False(t, iter.Valid())
+	require.Error(t, iter.Error())
+	require.Contains(t, iter.Error().Error(), "error reading Node")
 }
