@@ -1,7 +1,6 @@
 module github.com/cosmos/iavl/v2/migrate
 
-go 1.21.0
-toolchain go1.24.1
+go 1.23.0
 
 require (
 	cosmossdk.io/api v0.7.2
@@ -11,9 +10,9 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/kocubinski/costor-api v1.1.2
 	github.com/pkg/errors v0.9.1
-	github.com/spf13/cobra v1.7.0
+	github.com/spf13/cobra v1.9.1
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
-	google.golang.org/protobuf v1.31.0
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
@@ -46,7 +45,7 @@ require (
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
 	github.com/rs/zerolog v1.30.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/spf13/pflag v1.0.6 // indirect
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/exp v0.0.0-20230811145659-89c5cff77bcb // indirect
 	golang.org/x/net v0.38.0 // indirect
