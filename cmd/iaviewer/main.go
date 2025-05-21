@@ -3,18 +3,18 @@ package main
 import (
 	"bytes"
 	"crypto/sha256"
-	"errors"
+	"encoding/gob"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
-	corestore "cosmossdk.io/core/store"
 	"cosmossdk.io/log"
+	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl"
-	dbm "github.com/cosmos/iavl/db"
 )
 
 // TODO: make this configurable?
@@ -22,79 +22,258 @@ const (
 	DefaultCacheSize int = 10000
 )
 
-var cmds = map[string]bool{
-	"data":      true,
-	"data-full": true,
-	"hash":      true,
-	"shape":     true,
-	"versions":  true,
-}
-
 func main() {
 	args := os.Args[1:]
-	if len(args) < 3 || len(args) > 4 || !cmds[args[0]] {
-		fmt.Fprintln(os.Stderr, strings.TrimSpace(`
-Usage: iaviewer <data|data-full|hash|shape|versions> <leveldb dir> <prefix> [version number]
-<prefix> is the prefix of db, and the iavl tree of different modules in cosmos-sdk uses
-different <prefix> to identify, just like "s/k:gov/" represents the prefix of gov module
-`))
-		os.Exit(1)
-	}
 
-	version := int64(0)
+	// If version is the default, we will load the latest version of the tree.
+	version := 0
 	if len(args) >= 4 {
 		var err error
-		version, err = strconv.ParseInt(args[3], 10, 0)
-		assertNoError(err, "Invalid version number")
+		version, err = strconv.Atoi(args[3])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid version number: %s\n", err)
+			return
+		}
 	}
 
-	mutableTree, latestVersion, err := ReadTree(args[1], []byte(args[2]))
-	assertNoError(err, "Error reading database")
-
-	if args[0] == "versions" {
-		PrintVersions(mutableTree)
-		return
+	command := ""
+	if len(args) > 0 {
+		command = args[0]
 	}
 
-	if version == 0 {
-		version = latestVersion
-	}
-	tree, err := mutableTree.GetImmutable(version)
-	assertNoError(err, "Error reading target version")
-	fmt.Printf("Got version: %d\n", tree.Version())
-
-	fullValues := false
-	switch args[0] {
-	case "data-full":
-		fullValues = true
-		fallthrough
+	switch command {
 	case "data":
-		PrintKeys(tree, fullValues)
-		fallthrough
-	case "hash":
+		tree, err := CreateAndLoadTree(args[1], version, []byte(args[2]))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+
+		PrintKeys(tree.ImmutableTree, true)
 		hash := tree.Hash()
 		fmt.Printf("Hash: %X\n", hash)
 		fmt.Printf("Size: %X\n", tree.Size())
 	case "shape":
-		PrintShape(tree)
+		tree, err := CreateAndLoadTree(args[1], version, []byte(args[2]))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+
+		PrintShape(tree.ImmutableTree)
+	case "versions":
+		tree, err := CreateAndLoadTree(args[1], version, []byte(args[2]))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+
+		fmt.Println("Available versions:", tree.AvailableVersions())
+	case "tree-hash":
+		dir, prefix := args[1], args[2]
+		tree, err := CreateAndLoadTree(dir, version, []byte(prefix))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+
+		fmt.Printf("Hash: %X\n", tree.Hash())
+		fmt.Printf("Size: %X\n", tree.Size())
+	case "delete-to":
+		dir, prefix := args[1], args[2]
+		targetVersion := 0
+		if len(args) == 5 {
+			var err error
+			targetVersion, err = strconv.Atoi(args[4])
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Invalid delete version number: %s\n", err)
+				return
+			}
+		}
+
+		tree, err := CreateAndLoadTree(dir, version, []byte(prefix))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+
+		fmt.Println("DeleteVersionsTo", int64(targetVersion))
+		if err := tree.DeleteVersionsTo(int64(targetVersion)); err != nil {
+			fmt.Fprintf(os.Stderr, "Error delete version: %s\n", err)
+		}
+	case "delete-tree":
+		dir, prefix := args[1], args[2]
+
+		db, err := OpenGoLevelDB(dir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error reading data: %s\n", err)
+			return
+		}
+
+		deleteKeysWithPrefix(prefix, db)
+	case "export":
+		dir, prefix := args[1], args[2]
+		tree, err := CreateAndLoadTree(dir, version, []byte(prefix))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+		fmt.Printf("Hash tree: %X\n", tree.Hash())
+
+		exporter, err := tree.Export()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating exporter: %s\n", err)
+			return
+		}
+		defer exporter.Close()
+
+		outFile, err := os.Create(strconv.Itoa(version) + ".gob")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating file: %s\n", err)
+			return
+		}
+		defer outFile.Close()
+
+		encoder := gob.NewEncoder(outFile)
+
+		for {
+			node, err := exporter.Next()
+			if err == iavl.ErrorExportDone {
+				fmt.Println("export done")
+				break
+			} else if err != nil {
+				fmt.Fprintf(os.Stderr, "Error export node: %s\n", err)
+				return
+			}
+
+			if err := encoder.Encode(node); err != nil {
+				fmt.Fprintf(os.Stderr, "Error encode node: %s\n", err)
+				return
+			}
+		}
+	case "import":
+		dir, prefix := args[1], args[2]
+		tree, err := CreateTree(dir, []byte(prefix))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating tree: %s\n", err)
+			return
+		}
+		fmt.Printf("Hash tree: %X\n", tree.Hash())
+
+		importer, err := tree.Import(int64(version))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error creating importer: %s\n", err)
+			return
+		}
+		defer importer.Close()
+
+		inFile, err := os.Open(strconv.Itoa(version) + ".gob")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error open file: %s\n", err)
+			return
+		}
+		defer inFile.Close()
+
+		decoder := gob.NewDecoder(inFile)
+
+		for {
+			node := &iavl.ExportNode{}
+			err := decoder.Decode(node)
+			if err == io.EOF {
+				break
+			} else if err != nil {
+				fmt.Fprintf(os.Stderr, "Error decoding node: %s\n", err)
+				return
+			}
+
+			if node.Key == nil {
+				node.Key = []byte{}
+			}
+			if node.Height == 0 && node.Value == nil {
+				node.Value = []byte{}
+			}
+
+			if err := importer.Add(node); err != nil {
+				fmt.Fprintf(os.Stderr, "Error importing node: %s\n", err)
+				return
+			}
+		}
+
+		err = importer.Commit()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error commit import: %s\n", err)
+			return
+		}
+		fmt.Println("import done")
+	default:
+		fmt.Fprintln(os.Stderr, `Error: Invalid command.
+
+Usage:
+  iaviewer <command> <database_path> [additional parameters]
+
+Available commands:
+  versions      - Show available tree versions
+  data          - Display tree data for a specific version
+  shape         - Show the structure of the IAVL tree
+  tree-hash     - Get the hash of the tree for a specific version
+  delete-to     - Delete versions up to the specified one
+  delete-tree   - Delete the entire tree
+  export        - Export tree data to a file
+  import        - Import tree data from a file
+
+Example usage:
+  iaviewer versions ./bns-a.db ""
+  iaviewer data ./bns-a.db "" 190257
+  iaviewer shape ./bns-a.db "" 190258
+  iaviewer delete-to .app/data/application.db "s/k:mint/" 4 3
+
+For more information, refer to the documentation.`)
+
 	}
 }
 
-func assertNoError(err error, msg string) {
+func deleteKeysWithPrefix(prefix string, db *dbm.GoLevelDB) error {
+	itr, err := db.Iterator(nil, nil)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s: %s\n", msg, err)
-		os.Exit(1)
+		return fmt.Errorf("error creating iterator: %v", err)
 	}
+	defer itr.Close()
+
+	batch := db.NewBatch()
+	defer batch.Close()
+
+	for itr.Valid() {
+		key := itr.Key()
+
+		if bytes.HasPrefix(key, []byte(prefix)) {
+			if err := batch.Delete(key); err != nil {
+				return fmt.Errorf("error deleting key %s: %v", string(key), err)
+			}
+		}
+
+		itr.Next()
+	}
+
+	if err := itr.Error(); err != nil {
+		return fmt.Errorf("error during iteration: %v", err)
+	}
+
+	// Apply batch deletion
+	if err := batch.WriteSync(); err != nil {
+		return fmt.Errorf("error applying deletion: %v", err)
+	}
+
+	return nil
 }
 
-func OpenDB(dir string) (corestore.KVStoreWithBatch, error) {
+func OpenDB(dir string) (dbm.DB, error) {
 	switch {
 	case strings.HasSuffix(dir, ".db"):
 		dir = dir[:len(dir)-3]
 	case strings.HasSuffix(dir, ".db/"):
 		dir = dir[:len(dir)-4]
 	default:
-		return nil, errors.New("database directory must end with .db")
+		return nil, fmt.Errorf("database directory must end with .db")
 	}
 
 	dir, err := filepath.Abs(dir)
@@ -108,14 +287,42 @@ func OpenDB(dir string) (corestore.KVStoreWithBatch, error) {
 		return nil, fmt.Errorf("cannot cut paths on %s", dir)
 	}
 	name := dir[cut+1:]
-	db, err := dbm.NewGoLevelDB(name, dir[:cut])
+	db, err := dbm.NewGoLevelDB(name, dir[:cut], nil)
 	if err != nil {
 		return nil, err
 	}
 	return db, nil
 }
 
-func PrintDBStats(db corestore.KVStoreWithBatch) {
+func OpenGoLevelDB(dir string) (*dbm.GoLevelDB, error) {
+	switch {
+	case strings.HasSuffix(dir, ".db"):
+		dir = dir[:len(dir)-3]
+	case strings.HasSuffix(dir, ".db/"):
+		dir = dir[:len(dir)-4]
+	default:
+		return nil, fmt.Errorf("database directory must end with .db")
+	}
+
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: doesn't work on windows!
+	cut := strings.LastIndex(dir, "/")
+	if cut == -1 {
+		return nil, fmt.Errorf("cannot cut paths on %s", dir)
+	}
+	name := dir[cut+1:]
+	db, err := dbm.NewGoLevelDB(name, dir[:cut], nil)
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
+}
+
+func PrintDBStats(db dbm.DB) {
 	count := 0
 	prefix := map[string]int{}
 	itr, err := db.Iterator(nil, nil)
@@ -138,25 +345,38 @@ func PrintDBStats(db corestore.KVStoreWithBatch) {
 	}
 }
 
-// ReadTree loads an iavl tree from disk, applying the specified prefix if non-empty.
-func ReadTree(dir string, prefix []byte) (tree *iavl.MutableTree, latestVersion int64, err error) {
+func CreateTree(dir string, prefix []byte) (*iavl.MutableTree, error) {
 	db, err := OpenDB(dir)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	if len(prefix) != 0 {
 		db = dbm.NewPrefixDB(db, prefix)
 	}
 
-	tree = iavl.NewMutableTree(db, DefaultCacheSize, true, log.NewLogger(os.Stdout))
-	latestVersion, err = tree.Load()
+	tree := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
+	return tree, nil
+}
+
+// CreateAndLoadTree loads an iavl tree from the directory
+// If version is 0, load latest, otherwise, load named version
+// The prefix represents which iavl tree you want to read. The iaviwer will always set a prefix.
+func CreateAndLoadTree(dir string, version int, prefix []byte) (*iavl.MutableTree, error) {
+	db, err := OpenDB(dir)
 	if err != nil {
-		return nil, 0, err
-	} else if tree.IsEmpty() {
-		return nil, 0, fmt.Errorf("tree is empty")
+		return nil, err
 	}
-	fmt.Printf("Got latest version: %d\n", latestVersion)
-	return tree, latestVersion, err
+	if len(prefix) != 0 {
+		db = dbm.NewPrefixDB(db, prefix)
+	}
+
+	tree := iavl.NewMutableTree(db, DefaultCacheSize, false, log.NewLogger(os.Stdout))
+	latest, err := tree.LoadVersion(int64(version))
+	if version == 0 {
+		version = int(latest)
+	}
+	fmt.Printf("Got version: %d\n", version)
+	return tree, err
 }
 
 func PrintKeys(tree *iavl.ImmutableTree, fullValues bool) {
@@ -225,12 +445,4 @@ func nodeEncoder(id []byte, depth int, isLeaf bool) string {
 		prefix = fmt.Sprintf("*%d ", depth)
 	}
 	return fmt.Sprintf("%s%s", prefix, parseWeaveKey(id))
-}
-
-func PrintVersions(tree *iavl.MutableTree) {
-	versions := tree.AvailableVersions()
-	fmt.Println("Available versions:")
-	for _, v := range versions {
-		fmt.Printf("  %d\n", v)
-	}
 }
