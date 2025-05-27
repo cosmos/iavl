@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"bytes"
 	"encoding/binary"
 	"math"
 	"testing"
@@ -85,4 +86,53 @@ func TestDecodeBytes(t *testing.T) {
 func TestDecodeBytes_invalidVarint(t *testing.T) {
 	_, _, err := DecodeBytes([]byte{0xff})
 	require.Error(t, err)
+}
+
+func TestEncode32BytesHash(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       []byte
+		expectErr   bool
+		expectedOut []byte
+	}{
+		{
+			name:      "valid 32-byte hash",
+			input:     bytes.Repeat([]byte{0xAB}, 32),
+			expectErr: false,
+			// Expected output: 1-byte length prefix (0x20), then the 32-byte hash
+			expectedOut: append([]byte{0x20}, bytes.Repeat([]byte{0xAB}, 32)...),
+		},
+		{
+			name:      "too short (31 bytes)",
+			input:     bytes.Repeat([]byte{0xAB}, 31),
+			expectErr: true,
+		},
+		{
+			name:      "too long (33 bytes)",
+			input:     bytes.Repeat([]byte{0xAB}, 33),
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := Encode32BytesHash(&buf, tc.input)
+
+			if tc.expectErr {
+				if err == nil {
+					t.Errorf("expected error but got nil")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if !bytes.Equal(buf.Bytes(), tc.expectedOut) {
+				t.Errorf("unexpected output:\n  got:  %x\n  want: %x", buf.Bytes(), tc.expectedOut)
+			}
+		})
+	}
 }
