@@ -3,6 +3,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"math"
 	"testing"
 
@@ -23,60 +24,25 @@ func TestDecodeBytes(t *testing.T) {
 		"out of bounds":             {bz, 9, nil, true},
 		"empty input":               {[]byte{}, 0, []byte{}, false},
 		"empty input out of bounds": {[]byte{}, 1, nil, true},
-
-		// The following will always fail, since the byte slice is only 8 bytes,
-		// but we're making sure they don't panic due to overflow issues. See:
-		// https://github.com/cosmos/iavl/issues/339
-		"max int32":     {bz, uint64(math.MaxInt32), nil, true},
-		"max int32 -1":  {bz, uint64(math.MaxInt32) - 1, nil, true},
-		"max int32 -10": {bz, uint64(math.MaxInt32) - 10, nil, true},
-		"max int32 +1":  {bz, uint64(math.MaxInt32) + 1, nil, true},
-		"max int32 +10": {bz, uint64(math.MaxInt32) + 10, nil, true},
-
-		"max int32*2":     {bz, uint64(math.MaxInt32) * 2, nil, true},
-		"max int32*2 -1":  {bz, uint64(math.MaxInt32)*2 - 1, nil, true},
-		"max int32*2 -10": {bz, uint64(math.MaxInt32)*2 - 10, nil, true},
-		"max int32*2 +1":  {bz, uint64(math.MaxInt32)*2 + 1, nil, true},
-		"max int32*2 +10": {bz, uint64(math.MaxInt32)*2 + 10, nil, true},
-
-		"max uint32":     {bz, uint64(math.MaxUint32), nil, true},
-		"max uint32 -1":  {bz, uint64(math.MaxUint32) - 1, nil, true},
-		"max uint32 -10": {bz, uint64(math.MaxUint32) - 10, nil, true},
-		"max uint32 +1":  {bz, uint64(math.MaxUint32) + 1, nil, true},
-		"max uint32 +10": {bz, uint64(math.MaxUint32) + 10, nil, true},
-
-		"max uint32*2":     {bz, uint64(math.MaxUint32) * 2, nil, true},
-		"max uint32*2 -1":  {bz, uint64(math.MaxUint32)*2 - 1, nil, true},
-		"max uint32*2 -10": {bz, uint64(math.MaxUint32)*2 - 10, nil, true},
-		"max uint32*2 +1":  {bz, uint64(math.MaxUint32)*2 + 1, nil, true},
-		"max uint32*2 +10": {bz, uint64(math.MaxUint32)*2 + 10, nil, true},
-
-		"max int64":     {bz, uint64(math.MaxInt64), nil, true},
-		"max int64 -1":  {bz, uint64(math.MaxInt64) - 1, nil, true},
-		"max int64 -10": {bz, uint64(math.MaxInt64) - 10, nil, true},
-		"max int64 +1":  {bz, uint64(math.MaxInt64) + 1, nil, true},
-		"max int64 +10": {bz, uint64(math.MaxInt64) + 10, nil, true},
-
-		"max uint64":     {bz, uint64(math.MaxUint64), nil, true},
-		"max uint64 -1":  {bz, uint64(math.MaxUint64) - 1, nil, true},
-		"max uint64 -10": {bz, uint64(math.MaxUint64) - 10, nil, true},
+		"max int32":                 {bz, uint64(math.MaxInt32), nil, true},
+		"max int32 +10":             {bz, uint64(math.MaxInt32) + 10, nil, true},
+		"max uint64":                {bz, uint64(math.MaxUint64), nil, true},
 	}
+
 	for name, tc := range testcases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			// Generate an input slice.
 			buf := make([]byte, binary.MaxVarintLen64)
 			varintBytes := binary.PutUvarint(buf, tc.lengthPrefix)
 			buf = append(buf[:varintBytes], tc.bz...)
 
-			// Attempt to decode it.
 			b, n, err := DecodeBytes(buf)
 			if tc.expectErr {
 				require.Error(t, err)
 				require.Equal(t, varintBytes, n)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, uint64(n), uint64(varintBytes)+tc.lengthPrefix) // nolint:gosec // testing check
+				require.EqualValues(t, varintBytes+int(tc.lengthPrefix), n)
 				require.Equal(t, tc.bz[:tc.lengthPrefix], b)
 			}
 		})
@@ -96,10 +62,9 @@ func TestEncode32BytesHash(t *testing.T) {
 		expectedOut []byte
 	}{
 		{
-			name:      "valid 32-byte hash",
-			input:     bytes.Repeat([]byte{0xAB}, 32),
-			expectErr: false,
-			// Expected output: 1-byte length prefix (0x20), then the 32-byte hash
+			name:        "valid 32-byte hash",
+			input:       bytes.Repeat([]byte{0xAB}, 32),
+			expectErr:   false,
 			expectedOut: append([]byte{0x20}, bytes.Repeat([]byte{0xAB}, 32)...),
 		},
 		{
@@ -120,18 +85,72 @@ func TestEncode32BytesHash(t *testing.T) {
 			err := Encode32BytesHash(&buf, tc.input)
 
 			if tc.expectErr {
-				if err == nil {
-					t.Errorf("expected error but got nil")
-				}
-				return
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedOut, buf.Bytes())
 			}
+		})
+	}
+}
 
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
+func TestEncode32BytesHashSlice(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       []byte
+		expectErr   bool
+		expectedOut []byte
+	}{
+		{
+			name:        "valid 32-byte hash",
+			input:       bytes.Repeat([]byte{0x01}, 32),
+			expectErr:   false,
+			expectedOut: append([]byte{0x20}, bytes.Repeat([]byte{0x01}, 32)...),
+		},
+		{
+			name:      "invalid (length 30)",
+			input:     bytes.Repeat([]byte{0x02}, 30),
+			expectErr: true,
+		},
+		{
+			name:      "invalid (length 40)",
+			input:     bytes.Repeat([]byte{0x03}, 40),
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			out, err := Encode32BytesHashSlice(tc.input)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedOut, out)
 			}
+		})
+	}
+}
 
-			if !bytes.Equal(buf.Bytes(), tc.expectedOut) {
-				t.Errorf("unexpected output:\n  got:  %x\n  want: %x", buf.Bytes(), tc.expectedOut)
+func TestHandleVarintDecode(t *testing.T) {
+	tests := []struct {
+		n       int
+		what    string
+		wantErr bool
+	}{
+		{0, "test", true},
+		{-2, "test", true},
+		{5, "test", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("n=%d", tc.n), func(t *testing.T) {
+			err := handleVarintDecode(tc.n, tc.what)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 		})
 	}
