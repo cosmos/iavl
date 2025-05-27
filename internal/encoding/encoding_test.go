@@ -42,7 +42,7 @@ func TestDecodeBytes(t *testing.T) {
 				require.Equal(t, varintBytes, n)
 			} else {
 				require.NoError(t, err)
-				require.EqualValues(t, varintBytes+int(tc.lengthPrefix), n)
+				require.EqualValues(t, varintBytes+int(tc.lengthPrefix), n) // nolint:gosec // testing code
 				require.Equal(t, tc.bz[:tc.lengthPrefix], b)
 			}
 		})
