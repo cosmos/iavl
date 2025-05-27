@@ -53,4 +53,4 @@ require (
 	google.golang.org/protobuf v1.36.6 // indirect
 )
 
-replace github.com/cosmos/iavl => ../.
+replace github.com/cosmos/iavl => ./../..

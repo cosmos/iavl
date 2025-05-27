@@ -13,9 +13,9 @@ all: lint test install
 
 install:
 ifeq ($(COLORS_ON),)
-	cd cmd && go mod tidy && go install ./iaviewer
+	@cd cmd/iaviewer && go mod tidy && go install .
 else
-	cd cmd && go mod tidy && go install $(CMDFLAGS) ./iaviewer
+	@cd cmd/iaviewer && go mod tidy && go install $(CMDFLAGS) .
 endif
 .PHONY: install
 
@@ -25,7 +25,7 @@ test-short:
 .PHONY: test-short
 
 legacydump:
-	cd cmd/legacydump && go build -o legacydump main.go
+	@cd cmd/legacydump && go build -o legacydump main.go
 
 test: legacydump
 	@echo "--> Running go test"
