@@ -32,14 +32,9 @@ test: legacydump
 	@go test ./... $(LDFLAGS) 
 .PHONY: test
 
-format:
-	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
-	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -format
-.PHONY: format
-
 # look into .golangci.yml for enabling / disabling linters
 golangci_lint_cmd=golangci-lint
-golangci_version=v2.0.2
+golangci_version=v2.1.6
 
 lint:
 	@echo "--> Running linter"
