@@ -1,7 +1,6 @@
 package iavl
 
 import (
-	"errors"
 	"math/rand"
 	"sort"
 	"sync"
@@ -381,13 +380,6 @@ func syncMapCount(m *sync.Map) int {
 		return true
 	})
 	return count
-}
-
-// mockNodeDB always returns an error for GetNode
-type mockNodeDB struct{}
-
-func (m *mockNodeDB) GetNode(_ []byte) (*Node, error) {
-	return nil, errors.New("mock nodeDB error")
 }
 
 func TestIterator_Next_ErrorHandling(t *testing.T) {
