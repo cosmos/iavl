@@ -3,6 +3,7 @@ package encoding
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math/bits"
@@ -37,17 +38,6 @@ func writeBytes(w io.Writer, b []byte) error {
 	return err
 }
 
-func handleVarintDecode(n int, what string) error {
-	switch {
-	case n == 0:
-		return fmt.Errorf("buffer too small decoding %s", what)
-	case n < 0:
-		return fmt.Errorf("EOF decoding %s", what)
-	default:
-		return nil
-	}
-}
-
 // DecodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
 // of input bytes read. Assumes bz will not be mutated.
 func DecodeBytes(bz []byte) ([]byte, int, error) {
@@ -56,12 +46,17 @@ func DecodeBytes(bz []byte) ([]byte, int, error) {
 		return nil, n, err
 	}
 	size := int(s)
+	// Check for overflow or negative sizes.
 	if s >= uint64(^uint(0)>>1) || size < 0 {
 		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", s)
 	}
 	end := n + size
-	if end < n || len(bz) < end {
+	// Check for overflow of end index.
+	if end < n {
 		return nil, n, fmt.Errorf("invalid out of range length %v decoding []byte", size)
+	}
+	if len(bz) < end {
+		return nil, n, fmt.Errorf("insufficient bytes decoding []byte of length %v", size)
 	}
 	return bz[n:end], end, nil
 }
@@ -69,12 +64,14 @@ func DecodeBytes(bz []byte) ([]byte, int, error) {
 // DecodeUvarint decodes a varint-encoded unsigned integer from a byte slice.
 func DecodeUvarint(bz []byte) (uint64, int, error) {
 	u, n := binary.Uvarint(bz)
-	err := handleVarintDecode(n, "uvarint")
-	if err != nil {
-		if n < 0 {
-			n = -n
-		}
-		return u, n, err
+	if n == 0 {
+		// buf too small
+		return u, n, errors.New("buffer too small")
+	} else if n < 0 {
+		// value larger than 64 bits (overflow)
+		// and -n is the number of bytes read
+		n = -n
+		return u, n, errors.New("EOF decoding uvarint")
 	}
 	return u, n, nil
 }
@@ -82,12 +79,11 @@ func DecodeUvarint(bz []byte) (uint64, int, error) {
 // DecodeVarint decodes a varint-encoded integer from a byte slice.
 func DecodeVarint(bz []byte) (int64, int, error) {
 	i, n := binary.Varint(bz)
-	err := handleVarintDecode(n, "varint")
-	if err != nil {
-		if n < 0 {
-			n = -n
-		}
-		return i, n, err
+	if n == 0 {
+		return i, n, errors.New("buffer too small")
+	} else if n < 0 {
+		n = -n
+		return i, n, errors.New("EOF decoding varint")
 	}
 	return i, n, nil
 }
@@ -169,11 +165,16 @@ func EncodeVarint(w io.Writer, i int64) error {
 }
 
 func fVarintEncode(bw io.ByteWriter, x int64) error {
+	// Firstly convert it into a uvarint
 	ux := uint64(x) << 1
 	if x < 0 {
 		ux = ^ux
 	}
 	for ux >= 0x80 {
+		// Convert it into a byte then toggle the
+		// 7th bit to indicate that more bytes coming.
+		// byte(x & 0x7f) is redundant but useful for illustrative
+		// purposes when translating to other languages
 		if err := bw.WriteByte(byte(ux&0x7f) | 0x80); err != nil {
 			return err
 		}

@@ -1,12 +1,12 @@
-package encoding
+package encoding_test
 
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"math"
 	"testing"
 
+	"github.com/cosmos/iavl/internal/encoding"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,7 +36,7 @@ func TestDecodeBytes(t *testing.T) {
 			varintBytes := binary.PutUvarint(buf, tc.lengthPrefix)
 			buf = append(buf[:varintBytes], tc.bz...)
 
-			b, n, err := DecodeBytes(buf)
+			b, n, err := encoding.DecodeBytes(buf)
 			if tc.expectErr {
 				require.Error(t, err)
 				require.Equal(t, varintBytes, n)
@@ -50,7 +50,7 @@ func TestDecodeBytes(t *testing.T) {
 }
 
 func TestDecodeBytes_invalidVarint(t *testing.T) {
-	_, _, err := DecodeBytes([]byte{0xff})
+	_, _, err := encoding.DecodeBytes([]byte{0xff})
 	require.Error(t, err)
 }
 
@@ -82,7 +82,7 @@ func TestEncode32BytesHash(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			err := Encode32BytesHash(&buf, tc.input)
+			err := encoding.Encode32BytesHash(&buf, tc.input)
 
 			if tc.expectErr {
 				require.Error(t, err)
@@ -121,7 +121,7 @@ func TestEncode32BytesHashSlice(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			out, err := Encode32BytesHashSlice(tc.input)
+			out, err := encoding.Encode32BytesHashSlice(tc.input)
 
 			if tc.expectErr {
 				require.Error(t, err)
@@ -133,25 +133,49 @@ func TestEncode32BytesHashSlice(t *testing.T) {
 	}
 }
 
-func TestHandleVarintDecode(t *testing.T) {
-	tests := []struct {
-		n       int
-		what    string
-		wantErr bool
-	}{
-		{0, "test", true},
-		{-2, "test", true},
-		{5, "test", false},
-	}
+func TestEncodeBytesSliceAndSize(t *testing.T) {
+	input := []byte("hello world")
+	out, err := encoding.EncodeBytesSlice(input)
+	require.NoError(t, err)
 
-	for _, tc := range tests {
-		t.Run(fmt.Sprintf("n=%d", tc.n), func(t *testing.T) {
-			err := handleVarintDecode(tc.n, tc.what)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
-		})
-	}
+	size := encoding.EncodeBytesSize(input)
+	require.Equal(t, len(out), size)
+}
+
+func TestEncodeUvarintAndSize(t *testing.T) {
+	var buf bytes.Buffer
+	u := uint64(123456)
+	err := encoding.EncodeUvarint(&buf, u)
+	require.NoError(t, err)
+
+	expectedSize := encoding.EncodeUvarintSize(u)
+	require.Equal(t, expectedSize, buf.Len())
+}
+
+func TestEncodeVarintAndSize(t *testing.T) {
+	var buf bytes.Buffer
+	i := int64(-78910)
+	err := encoding.EncodeVarint(&buf, i)
+	require.NoError(t, err)
+
+	expectedSize := encoding.EncodeVarintSize(i)
+	require.Equal(t, expectedSize, buf.Len())
+}
+
+func TestDecodeUvarint(t *testing.T) {
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, 1000)
+	val, read, err := encoding.DecodeUvarint(buf[:n])
+	require.NoError(t, err)
+	require.Equal(t, uint64(1000), val)
+	require.Equal(t, n, read)
+}
+
+func TestDecodeVarint(t *testing.T) {
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutVarint(buf, -12345)
+	val, read, err := encoding.DecodeVarint(buf[:n])
+	require.NoError(t, err)
+	require.Equal(t, int64(-12345), val)
+	require.Equal(t, n, read)
 }
