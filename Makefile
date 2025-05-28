@@ -25,7 +25,7 @@ test-short:
 .PHONY: test-short
 
 legacydump:
-	cd cmd/legacydump && go build -o legacydump main.go
+	@cd cmd/legacydump && go build -o legacydump main.go
 
 test: legacydump
 	@echo "--> Running go test"
