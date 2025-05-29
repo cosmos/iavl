@@ -322,3 +322,18 @@ func Test_ConcurrentIndexRead(t *testing.T) {
 	err = conn.Exec("CREATE INDEX foo_idx ON foo (id)")
 	require.NoError(t, err)
 }
+
+func TestImportMostRecentSnapshotEmptyPath(t *testing.T) {
+	// Create a db with empty path
+	sql, err := NewSqliteDb(NewNodePool(), SqliteDbOptions{Path: ""})
+	require.NoError(t, err)
+
+	// Attempt to import snapshot from an empty path
+	root, version, err := sql.ImportMostRecentSnapshot(1, PreOrder, false)
+
+	// Verify that we get the expected error about no prior snapshot found
+	require.Error(t, err)
+	require.Nil(t, root)
+	require.Equal(t, int64(0), version)
+	require.Contains(t, err.Error(), "no prior snapshot found")
+}
