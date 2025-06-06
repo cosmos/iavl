@@ -40,7 +40,7 @@ func testBatchWithFlusher(t *testing.T) {
 
 	batchWithFlusher := NewBatchWithFlusher(db, DefaultOptions().FlushThreshold)
 
-	// we'll try to to commit 10MBs (1000 * 10KBs each entries) of data into the db
+	// we'll try to commit 10MBs (1000 * 10KBs each entries) of data into the db
 	for keyNonce := uint16(0); keyNonce < 1000; keyNonce++ {
 		// each value is 10 KBs of zero bytes
 		key := makeKey(keyNonce)
