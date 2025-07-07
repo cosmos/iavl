@@ -5,12 +5,13 @@ import (
 	"math/rand"
 	"testing"
 
+	corestore "cosmossdk.io/core/store"
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/stretchr/testify/require"
 )
 
 type MockDBBatch struct {
-	dbm.Batch
+	corestore.Batch
 
 	// simulate low level system error
 	err error
@@ -38,14 +39,14 @@ type MockDB struct {
 	errors map[int]error
 }
 
-func (db *MockDB) NewBatch() dbm.Batch {
+func (db *MockDB) NewBatch() corestore.Batch {
 	err, _ := db.errors[db.batchIndex]
 	batch := &MockDBBatch{Batch: db.DB.NewBatch(), err: err}
 	db.batchIndex++
 	return batch
 }
 
-func (db *MockDB) NewBatchWithSize(size int) dbm.Batch {
+func (db *MockDB) NewBatchWithSize(size int) corestore.Batch {
 	return db.NewBatch()
 }
 
