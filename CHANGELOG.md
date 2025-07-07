@@ -5,7 +5,7 @@
 ### Bug Fixes
 
 - [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
-- [#]() nodedb latest version should not set to a partial committed version.
+- [#1107](https://github.com/cosmos/iavl/pull/1107) nodedb latest version should not set to a partial committed version.
 
 ### Improvements
 
