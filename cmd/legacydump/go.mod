@@ -1,6 +1,6 @@
 module github.com/cosmos/iavl/cmd/legacydump
 
-go 1.20
+go 1.24
 
 require (
 	github.com/cometbft/cometbft-db v0.7.0
