@@ -913,13 +913,17 @@ func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
 	}
 	defer itr.Close()
 
-	if itr.Valid() {
+	for ; itr.Valid(); itr.Next() {
 		k := itr.Key()
 		var nk []byte
 		nodeKeyFormat.Scan(k, &nk)
-		latestVersion = GetNodeKey(nk).version
-		ndb.resetLatestVersion(latestVersion)
-		return true, latestVersion, nil
+		nodeKey := GetNodeKey(nk)
+		if bytes.Equal(nk, GetRootKey(nodeKey.version)) {
+			// only find the latest version when we find the root node
+			latestVersion = nodeKey.version
+			ndb.resetLatestVersion(latestVersion)
+			return true, latestVersion, nil
+		}
 	}
 
 	if err := itr.Error(); err != nil {
