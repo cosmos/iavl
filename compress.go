@@ -3,6 +3,8 @@ package iavl
 import (
 	"encoding/binary"
 	"fmt"
+	"math/bits"
+	"unsafe"
 )
 
 type NodeExporter interface {
@@ -120,14 +122,23 @@ func deltaDecode(key, lastKey []byte) ([]byte, error) {
 }
 
 // diffOffset returns the index of first byte that's different in two bytes slice.
+// Uses word-at-a-time comparison for better performance on longer slices.
 func diffOffset(a, b []byte) int {
-	var off int
-	var l int
-	if len(a) < len(b) {
-		l = len(a)
-	} else {
-		l = len(b)
+	l := min(len(a), len(b))
+
+	// Compare 8 bytes at a time for longer slices
+	off := 0
+	for ; off+8 <= l; off += 8 {
+		av := *(*uint64)(unsafe.Pointer(&a[off]))
+		bv := *(*uint64)(unsafe.Pointer(&b[off]))
+		if av != bv {
+			// Find the first differing byte within this 8-byte word
+			xor := av ^ bv
+			return off + bits.TrailingZeros64(xor)/8
+		}
 	}
+
+	// Handle remaining bytes
 	for ; off < l; off++ {
 		if a[off] != b[off] {
 			break
@@ -137,8 +148,5 @@ func diffOffset(a, b []byte) int {
 }
 
 func maxInt64(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
+	return max(a, b)
 }
