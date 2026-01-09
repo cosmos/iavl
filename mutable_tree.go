@@ -802,13 +802,15 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	}
 
 	rootNode := tree.root
-	span.SetAttributes(
-		attribute.Int64("size", rootNode.size),
-		attribute.Int64("height", int64(rootNode.subtreeHeight)),
-		attribute.Int64("version", version),
-		attribute.Int64("new_leaves", int64(numNewLeaves)),
-		attribute.Int64("new_branches", int64(numNewBranches)),
-	)
+	if rootNode != nil {
+		span.SetAttributes(
+			attribute.Int64("size", rootNode.size),
+			attribute.Int64("height", int64(rootNode.subtreeHeight)),
+			attribute.Int64("version", version),
+			attribute.Int64("new_leaves", int64(numNewLeaves)),
+			attribute.Int64("new_branches", int64(numNewBranches)),
+		)
+	}
 
 	return tree.Hash(), version, nil
 }
