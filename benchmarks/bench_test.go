@@ -74,7 +74,7 @@ func runKnownQueriesFast(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	isFastCacheEnabled, err := t.IsFastCacheEnabled() // to ensure fast storage is enabled
 	require.NoError(b, err)
 	require.True(b, isFastCacheEnabled)
-	l := int32(len(keys))
+	l := int32(len(keys)) // nolint:gosec // false positive
 	for i := 0; i < b.N; i++ {
 		q := keys[mrand.Int31n(l)]
 		_, err := t.Get(q)
@@ -116,7 +116,7 @@ func runKnownQueriesSlow(b *testing.B, t *iavl.MutableTree, keys [][]byte) {
 	require.NoError(b, err)
 	require.False(b, isFastCacheEnabled)
 	b.StartTimer()
-	l := int32(len(keys))
+	l := int32(len(keys)) // nolint:gosec // false positive
 	for i := 0; i < b.N; i++ {
 		q := keys[mrand.Int31n(l)]
 		index, value, err := itree.GetWithIndex(q)
@@ -173,7 +173,7 @@ func iterate(b *testing.B, itr dbm.Iterator, expectedSize int) {
 // }
 
 func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
-	l := int32(len(keys))
+	l := int32(len(keys)) // nolint:gosec // false positive
 	for i := 1; i <= b.N; i++ {
 		key := keys[mrand.Int31n(l)]
 		_, err := t.Set(key, randBytes(dataLen))
@@ -202,7 +202,7 @@ func runUpdate(b *testing.B, t *iavl.MutableTree, dataLen, blockSize int, keys [
 
 // runBlock measures time for an entire block, not just one tx
 func runBlock(b *testing.B, t *iavl.MutableTree, keyLen, dataLen, blockSize int, keys [][]byte) *iavl.MutableTree {
-	l := int32(len(keys))
+	l := int32(len(keys)) // nolint:gosec // false positive
 
 	// XXX: This was adapted to work with VersionedTree but needs to be re-thought.
 
@@ -347,7 +347,6 @@ func runBenchmarks(b *testing.B, benchmarks []benchmark) {
 		)
 		if bb.dbType != "nodb" {
 			d, err = dbm.NewDB("test", bb.dbType, dirName)
-
 			if err != nil {
 				if strings.Contains(err.Error(), "unknown db_backend") {
 					// As an exception to run benchmarks: if the error is about cleveldb, or rocksdb,

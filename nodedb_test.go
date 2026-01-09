@@ -20,7 +20,7 @@ func BenchmarkNodeKey(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		nk := &NodeKey{
 			version: int64(i),
-			nonce:   uint32(i),
+			nonce:   uint32(i), // nolint:gosec // false positive
 		}
 		ndb.nodeKey(nk.GetKey())
 	}

@@ -30,7 +30,7 @@ func TestDiffRoundTrip(t *testing.T) {
 	// extract change sets from db
 	var extractChangeSets []*ChangeSet
 	tree2 := NewImmutableTree(db, 0, true, NewNopLogger())
-	err := tree2.TraverseStateChanges(0, math.MaxInt64, func(version int64, changeSet *ChangeSet) error {
+	err := tree2.TraverseStateChanges(0, math.MaxInt64, func(_ int64, changeSet *ChangeSet) error {
 		extractChangeSets = append(extractChangeSets, changeSet)
 		return nil
 	})
@@ -46,7 +46,7 @@ func genChangeSets(r *rand.Rand, n int) []*ChangeSet {
 		start, count, step := r.Int63n(1000), r.Int63n(1000), r.Int63n(10)
 		for i := start; i < start+count*step; i += step {
 			value := make([]byte, 8)
-			binary.LittleEndian.PutUint64(value, uint64(i))
+			binary.LittleEndian.PutUint64(value, uint64(i)) // nolint:gosec // false positive
 
 			key := fmt.Sprintf("test-%d", i)
 			items[key] = &KVPair{

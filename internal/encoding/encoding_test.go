@@ -75,7 +75,7 @@ func TestDecodeBytes(t *testing.T) {
 				require.Equal(t, varintBytes, n)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, uint64(n), uint64(varintBytes)+tc.lengthPrefix)
+				require.Equal(t, uint64(n), uint64(varintBytes)+tc.lengthPrefix) // nolint:gosec // false positive
 				require.Equal(t, tc.bz[:tc.lengthPrefix], b)
 			}
 		})
