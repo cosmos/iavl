@@ -141,9 +141,12 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 
 	// Check the cache.
 	if cachedNode := ndb.nodeCache.Get(nk); cachedNode != nil {
+		ndb.opts.Stat.IncCacheHitCnt()
 		nodeCacheHitCounter.Add(context.Background(), 1)
 		return cachedNode.(*Node), nil
 	}
+
+	ndb.opts.Stat.IncCacheMissCnt()
 
 	start := time.Now()
 	defer func() {
