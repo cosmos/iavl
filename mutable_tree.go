@@ -1045,8 +1045,9 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 // NOTE: This function clears leftNode/rightNode recursively and calls _hash() on the given node.
 //
 // Returns:
-//   newLeaves:   count of newly created or mutated leaf nodes persisted in this call
-//   newBranches: count of newly created or mutated inner (branch) nodes persisted in this call
+//
+// newLeaves:   count of newly created or mutated leaf nodes persisted in this call
+// newBranches: count of newly created or mutated inner (branch) nodes persisted in this call
 func (tree *MutableTree) saveNewNodes(version int64) (newLeaves int, newBranches int, err error) {
 	nonce := uint32(0)
 	newNodes := make([]*Node, 0)
