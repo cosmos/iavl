@@ -2,14 +2,17 @@ package iavl
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"sort"
 	"sync"
+	"time"
 
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
 	ibytes "github.com/cosmos/iavl/internal/bytes"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var (
@@ -139,7 +142,9 @@ func (tree *MutableTree) Hash() []byte {
 }
 
 // WorkingHash returns the hash of the current working tree.
-func (tree *MutableTree) WorkingHash() []byte {
+func (tree *MutableTree) WorkingHash(ctx context.Context) []byte {
+	_, span := tracer.Start(ctx, "MutableTree.WorkingHash")
+	defer span.End()
 	return tree.root.hashWithCount(tree.WorkingVersion())
 }
 
@@ -161,6 +166,8 @@ func (tree *MutableTree) String() (string, error) {
 // to slices stored within IAVL. It returns true when an existing value was
 // updated, while false means it was a new key.
 func (tree *MutableTree) Set(key, value []byte) (updated bool, err error) {
+	start := time.Now()
+	defer recordOperationTiming(start, "Set")
 	updated, err = tree.set(key, value)
 	if err != nil {
 		return false, err
@@ -174,7 +181,8 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	if tree.root == nil {
 		return nil, nil
 	}
-
+	start := time.Now()
+	defer recordOperationTiming(start, "Get")
 	if !tree.skipFastStorageUpgrade {
 		if fastNode, ok := tree.unsavedFastNodeAdditions.Load(ibytes.UnsafeBytesToStr(key)); ok {
 			return fastNode.(*fastnode.Node).GetValue(), nil
@@ -337,6 +345,8 @@ func (tree *MutableTree) Remove(key []byte) ([]byte, bool, error) {
 	if tree.root == nil {
 		return nil, false, nil
 	}
+	start := time.Now()
+	defer recordOperationTiming(start, "Remove")
 	newRoot, _, value, removed, err := tree.recursiveRemove(tree.root, key)
 	if err != nil {
 		return nil, false, err
@@ -705,6 +715,8 @@ func (tree *MutableTree) UnsetCommitting() {
 // SaveVersion saves a new tree version to disk, based on the current state of
 // the tree. Returns the hash and new version number.
 func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
+	ctx, span := tracer.Start(context.Background(), "MutableTree.SaveVersion")
+	defer span.End()
 	version := tree.WorkingVersion()
 
 	if tree.VersionExists(version) {
@@ -722,7 +734,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			}
 		}
 
-		newHash := tree.WorkingHash()
+		newHash := tree.WorkingHash(ctx)
 
 		if (existingRoot == nil && tree.root == nil) || (existingRoot != nil && bytes.Equal(existingRoot.hash, newHash)) { // TODO with WorkingHash
 			tree.version = version
@@ -743,6 +755,8 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 			return nil, version, err
 		}
 	}
+
+	numNewLeaves, numNewBranches := 0, 0
 	// save new nodes
 	if tree.root == nil {
 		if err := tree.ndb.SaveEmptyRoot(version); err != nil {
@@ -751,7 +765,7 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	} else {
 		if tree.root.nodeKey != nil {
 			// it means there are no updated nodes
-			if err := tree.ndb.SaveRoot(version, tree.root.nodeKey); err != nil {
+			if err := tree.ndb.SaveRoot(ctx, version, tree.root.nodeKey); err != nil {
 				return nil, 0, err
 			}
 			// it means the reference node is a legacy node
@@ -764,7 +778,9 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 				}
 			}
 		} else {
-			if err := tree.saveNewNodes(version); err != nil {
+			var err error
+			numNewLeaves, numNewBranches, err = tree.saveNewNodes(version)
+			if err != nil {
 				return nil, 0, err
 			}
 		}
@@ -783,6 +799,17 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 	if !tree.skipFastStorageUpgrade {
 		tree.unsavedFastNodeAdditions = &sync.Map{}
 		tree.unsavedFastNodeRemovals = &sync.Map{}
+	}
+
+	rootNode := tree.root
+	if rootNode != nil {
+		span.SetAttributes(
+			attribute.Int64("size", rootNode.size),
+			attribute.Int64("height", int64(rootNode.subtreeHeight)),
+			attribute.Int64("version", version),
+			attribute.Int64("new_leaves", int64(numNewLeaves)),
+			attribute.Int64("new_branches", int64(numNewBranches)),
+		)
 	}
 
 	return tree.Hash(), version, nil
@@ -1015,33 +1042,49 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 	return node, nil
 }
 
-// saveNewNodes save new created nodes by the changes of the working tree.
-// NOTE: This function clears leftNode/rigthNode recursively and
-// calls _hash() on the given node.
-func (tree *MutableTree) saveNewNodes(version int64) error {
+// saveNewNodes saves newly created or mutated nodes (i.e. nodes receiving a new versioned key)
+// from the working tree.
+// NOTE: This function clears leftNode/rightNode recursively and calls _hash() on the given node.
+//
+// Returns:
+//
+// newLeaves:   count of newly created or mutated leaf nodes persisted in this call
+// newBranches: count of newly created or mutated inner (branch) nodes persisted in this call
+func (tree *MutableTree) saveNewNodes(version int64) (newLeaves int, newBranches int, err error) {
 	nonce := uint32(0)
 	newNodes := make([]*Node, 0)
+
 	var recursiveAssignKey func(*Node) ([]byte, error)
 	recursiveAssignKey = func(node *Node) ([]byte, error) {
+		// If a node already has a key, we treat it as not-new for this save.
+		// (It may have been persisted already or not mutated in the current working tree.)
 		if node.nodeKey != nil {
 			return node.GetKey(), nil
 		}
+
+		// This node is "new" for this save: either newly created or mutated (new version).
+		if node.subtreeHeight > 0 {
+			newBranches++
+		} else {
+			newLeaves++
+		}
+
 		nonce++
 		node.nodeKey = &NodeKey{
 			version: version,
 			nonce:   nonce,
 		}
 
-		var err error
-		// the inner nodes should have two children.
+		var e error
+		// Inner nodes should have two children.
 		if node.subtreeHeight > 0 {
-			node.leftNodeKey, err = recursiveAssignKey(node.leftNode)
-			if err != nil {
-				return nil, err
+			node.leftNodeKey, e = recursiveAssignKey(node.leftNode)
+			if e != nil {
+				return nil, e
 			}
-			node.rightNodeKey, err = recursiveAssignKey(node.rightNode)
-			if err != nil {
-				return nil, err
+			node.rightNodeKey, e = recursiveAssignKey(node.rightNode)
+			if e != nil {
+				return nil, e
 			}
 		}
 
@@ -1051,18 +1094,18 @@ func (tree *MutableTree) saveNewNodes(version int64) error {
 		return node.nodeKey.GetKey(), nil
 	}
 
-	if _, err := recursiveAssignKey(tree.root); err != nil {
-		return err
+	if _, err = recursiveAssignKey(tree.root); err != nil {
+		return 0, 0, err
 	}
 
 	for _, node := range newNodes {
 		if err := tree.ndb.SaveNode(node); err != nil {
-			return err
+			return 0, 0, err
 		}
 		node.leftNode, node.rightNode = nil, nil
 	}
 
-	return nil
+	return newLeaves, newBranches, nil
 }
 
 // SaveChangeSet saves a ChangeSet to the tree.

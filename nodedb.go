@@ -142,11 +142,17 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	// Check the cache.
 	if cachedNode := ndb.nodeCache.Get(nk); cachedNode != nil {
 		ndb.opts.Stat.IncCacheHitCnt()
+		nodeCacheHitCounter.Add(context.Background(), 1)
 		return cachedNode.(*Node), nil
 	}
 
 	ndb.opts.Stat.IncCacheMissCnt()
 
+	start := time.Now()
+	defer func() {
+		latencyMs := time.Since(start).Milliseconds()
+		nodeReadLatency.Record(context.Background(), latencyMs)
+	}()
 	// Doesn't exist, load.
 	isLegcyNode := len(nk) == hashSize
 	var nodeKey []byte
@@ -1020,7 +1026,9 @@ func (ndb *nodeDB) SaveEmptyRoot(version int64) error {
 }
 
 // SaveRoot saves the root when no updates.
-func (ndb *nodeDB) SaveRoot(version int64, nk *NodeKey) error {
+func (ndb *nodeDB) SaveRoot(ctx context.Context, version int64, nk *NodeKey) error {
+	_, span := tracer.Start(ctx, "nodedb.SaveRoot")
+	defer span.End()
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	return ndb.batch.Set(nodeKeyFormat.Key(GetRootKey(version)), nodeKeyFormat.Key(nk.GetKey()))

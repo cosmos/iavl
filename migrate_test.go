@@ -87,6 +87,7 @@ func TestLazySet(t *testing.T) {
 	_, err = tree.LoadVersion(int64(legacyVersion))
 	require.NoError(t, err)
 }
+
 func TestLegacyReferenceNode(t *testing.T) {
 	legacyVersion := 20
 	dbDir := fmt.Sprintf("./legacy-%s-%d", dbType, legacyVersion)
