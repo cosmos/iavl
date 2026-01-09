@@ -1,6 +1,6 @@
 module github.com/cosmos/iavl
 
-go 1.20
+go 1.24.0
 
 require (
 	cosmossdk.io/log v1.3.1
@@ -9,7 +9,9 @@ require (
 	github.com/emicklei/dot v1.4.2
 	github.com/golang/mock v1.6.0
 	github.com/google/btree v1.1.2
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
+	go.opentelemetry.io/otel v1.39.0
+	go.opentelemetry.io/otel/metric v1.39.0
 	golang.org/x/crypto v0.12.0
 	google.golang.org/protobuf v1.30.0
 )
@@ -17,7 +19,7 @@ require (
 require (
 	github.com/DataDog/zstd v1.4.5 // indirect
 	github.com/HdrHistogram/hdrhistogram-go v1.1.2 // indirect
-	github.com/cespare/xxhash/v2 v2.1.2 // indirect
+	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/errors v1.8.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
 	github.com/cockroachdb/pebble v0.0.0-20220817183557-09c6e030a677 // indirect
@@ -26,6 +28,8 @@ require (
 	github.com/cosmos/gogoproto v1.4.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
+	github.com/go-logr/logr v1.4.3 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.15.9 // indirect
@@ -37,13 +41,15 @@ require (
 	github.com/onsi/gomega v1.26.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/rogpeppe/go-internal v1.9.0 // indirect
+	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/rs/zerolog v1.32.0 // indirect
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
+	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/otel/trace v1.39.0 // indirect
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/sys v0.15.0 // indirect
+	golang.org/x/sys v0.26.0 // indirect
 	gonum.org/v1/gonum v0.11.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

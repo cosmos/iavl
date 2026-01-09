@@ -3,6 +3,7 @@ package iavl
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"flag"
 	"fmt"
@@ -1935,7 +1936,7 @@ func TestWorkingHashWithInitialVersion(t *testing.T) {
 	_, err = tree.Set([]byte("key1"), []byte("value1"))
 	require.NoError(t, err)
 
-	workingHash := tree.WorkingHash()
+	workingHash := tree.WorkingHash(context.Background())
 	commitHash, _, err := tree.SaveVersion()
 	require.NoError(t, err)
 	require.Equal(t, commitHash, workingHash)

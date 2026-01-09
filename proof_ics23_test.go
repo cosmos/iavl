@@ -2,6 +2,7 @@ package iavl
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	mrand "math/rand"
 	"sort"
@@ -38,7 +39,7 @@ func TestGetMembership(t *testing.T) {
 			proof, err := tree.GetMembershipProof(key)
 			require.NoError(t, err, "Creating Proof: %+v", err)
 
-			root := tree.WorkingHash()
+			root := tree.WorkingHash(context.Background())
 			valid := ics23.VerifyMembership(ics23.IavlSpec, root, proof, key, val)
 			require.True(t, valid, "Membership Proof Invalid")
 		})
@@ -64,7 +65,7 @@ func TestGetNonMembership(t *testing.T) {
 		proof, err := tree.GetNonMembershipProof(key)
 		require.NoError(t, err, "Creating Proof: %+v", err)
 
-		root := tree.WorkingHash()
+		root := tree.WorkingHash(context.Background())
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		require.True(t, valid, "Non Membership Proof Invalid")
 	}
@@ -117,7 +118,7 @@ func BenchmarkGetNonMembership(b *testing.B) {
 		require.NoError(b, err, "Creating Proof: %+v", err)
 
 		b.StopTimer()
-		root := tree.WorkingHash()
+		root := tree.WorkingHash(context.Background())
 		valid := ics23.VerifyNonMembership(ics23.IavlSpec, root, proof, key)
 		require.True(b, valid)
 		b.StartTimer()
