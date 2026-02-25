@@ -1145,6 +1145,18 @@ func (ndb *nodeDB) decrVersionReaders(version int64) {
 	}
 }
 
+func (ndb *nodeDB) evictChildrenIfNoVersionReaders(version int64, node *Node) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+
+	if ndb.versionReaders[version] > 0 {
+		return
+	}
+
+	node.leftNode = nil
+	node.rightNode = nil
+}
+
 func isReferenceRoot(bz []byte) (bool, int) {
 	if bz[0] == nodeKeyFormat.Prefix()[0] {
 		return true, len(bz)
