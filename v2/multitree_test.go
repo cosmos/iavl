@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/bvinc/go-sqlite-lite/sqlite3"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,15 +24,20 @@ func newTestMultiTree(t *testing.T, storeKeys ...string) *MultiTree {
 	return mt
 }
 
-func createRootTable(t *testing.T, tree *Tree) {
+func tableSchema(t *testing.T, conn *sqlite3.Conn, tableName string) string {
 	t.Helper()
-	require.NoError(t, tree.sql.treeWrite.Exec(fmt.Sprintf(`CREATE TABLE %s (
-version int,
-node_version int,
-node_sequence int,
-bytes blob,
-checkpoint bool,
-PRIMARY KEY (version))`, RootTableName)))
+	stmt, err := conn.Prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name=?")
+	require.NoError(t, err)
+	defer stmt.Close()
+
+	require.NoError(t, stmt.Bind(tableName))
+	hasRow, err := stmt.Step()
+	require.NoError(t, err)
+	require.True(t, hasRow)
+
+	var sql string
+	require.NoError(t, stmt.Scan(&sql))
+	return sql
 }
 
 func TestSaveVersionConcurrentlySingleError(t *testing.T) {
@@ -59,13 +65,14 @@ func TestSaveVersionConcurrentlySequentialCalls(t *testing.T) {
 
 	broken := mt.Trees["b"]
 	require.NotNil(t, broken)
+	rootSchema := tableSchema(t, broken.sql.treeWrite, RootTableName)
 	require.NoError(t, broken.sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE %s", RootTableName)))
 
 	_, version, err := mt.SaveVersionConcurrently()
 	require.Error(t, err)
 	require.Equal(t, int64(1), version)
 
-	createRootTable(t, broken)
+	require.NoError(t, broken.sql.treeWrite.Exec(rootSchema))
 
 	_, version, err = mt.SaveVersionConcurrently()
 	require.NoError(t, err)
@@ -99,7 +106,7 @@ func TestSnapshotConcurrentlyError(t *testing.T) {
 	broken := mt.Trees["b"]
 	require.NotNil(t, broken)
 	require.NoError(t, broken.sql.leafWrite.Exec(
-		fmt.Sprintf("CREATE TABLE %s (ordinal int, version int, sequence int, bytes blob)",
+		fmt.Sprintf("CREATE TABLE %s (x int)",
 			SnapshotTableName(0),
 		),
 	))
