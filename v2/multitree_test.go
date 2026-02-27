@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -24,13 +25,13 @@ func newTestMultiTree(t *testing.T, storeKeys ...string) *MultiTree {
 
 func createRootTable(t *testing.T, tree *Tree) {
 	t.Helper()
-	require.NoError(t, tree.sql.treeWrite.Exec(`CREATE TABLE root (
+	require.NoError(t, tree.sql.treeWrite.Exec(fmt.Sprintf(`CREATE TABLE %s (
 version int,
 node_version int,
 node_sequence int,
 bytes blob,
 checkpoint bool,
-PRIMARY KEY (version))`))
+PRIMARY KEY (version))`, RootTableName)))
 }
 
 func TestSaveVersionConcurrentlySingleError(t *testing.T) {
@@ -39,7 +40,7 @@ func TestSaveVersionConcurrentlySingleError(t *testing.T) {
 	// Break one tree so that only one goroutine returns an error.
 	broken := mt.Trees["b"]
 	require.NotNil(t, broken)
-	require.NoError(t, broken.sql.treeWrite.Exec("DROP TABLE root"))
+	require.NoError(t, broken.sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE %s", RootTableName)))
 
 	_, version, err := mt.SaveVersionConcurrently()
 	require.Error(t, err)
@@ -58,7 +59,7 @@ func TestSaveVersionConcurrentlySequentialCalls(t *testing.T) {
 
 	broken := mt.Trees["b"]
 	require.NotNil(t, broken)
-	require.NoError(t, broken.sql.treeWrite.Exec("DROP TABLE root"))
+	require.NoError(t, broken.sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE %s", RootTableName)))
 
 	_, version, err := mt.SaveVersionConcurrently()
 	require.Error(t, err)
@@ -77,7 +78,7 @@ func TestSaveVersionConcurrentlyAllErrors(t *testing.T) {
 	mt := newTestMultiTree(t, "a", "b")
 
 	for _, tree := range mt.Trees {
-		require.NoError(t, tree.sql.treeWrite.Exec("DROP TABLE root"))
+		require.NoError(t, tree.sql.treeWrite.Exec(fmt.Sprintf("DROP TABLE %s", RootTableName)))
 	}
 
 	_, version, err := mt.SaveVersionConcurrently()
@@ -98,7 +99,9 @@ func TestSnapshotConcurrentlyError(t *testing.T) {
 	broken := mt.Trees["b"]
 	require.NotNil(t, broken)
 	require.NoError(t, broken.sql.leafWrite.Exec(
-		"CREATE TABLE snapshot_0 (ordinal int, version int, sequence int, bytes blob)",
+		fmt.Sprintf("CREATE TABLE %s (ordinal int, version int, sequence int, bytes blob)",
+			SnapshotTableName(0),
+		),
 	))
 
 	err := mt.SnapshotConcurrently()
@@ -116,7 +119,7 @@ func TestWarmLeavesCollectsAllErrors(t *testing.T) {
 	mt := newTestMultiTree(t, "a", "b")
 
 	for _, tree := range mt.Trees {
-		require.NoError(t, tree.sql.leafWrite.Exec("DROP TABLE leaf"))
+		require.NoError(t, tree.sql.leafWrite.Exec(fmt.Sprintf("DROP TABLE %s", LeafTableName)))
 	}
 
 	err := mt.WarmLeaves()
