@@ -1,6 +1,7 @@
 package iavl
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
@@ -194,6 +195,16 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 			// then the regular node is not in the tree either because fast node
 			// represents live state.
 			if t.version == t.ndb.latestVersion {
+				// INSTRUMENTATION: verify tree traversal also returns nil
+				_, treeVal, treeErr := t.root.get(t, key)
+				if treeErr == nil && treeVal != nil {
+					panic(fmt.Sprintf(
+						"IAVL FAST NODE BUG [latestVersion nil]: "+
+							"key=%X version=%d latestVersion=%d "+
+							"fastNode=nil treeVal=%X",
+						key, t.version, t.ndb.latestVersion, treeVal,
+					))
+				}
 				return nil, nil
 			}
 
@@ -202,7 +213,19 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		}
 
 		if fastNode.GetVersionLastUpdatedAt() <= t.version {
-			return fastNode.GetValue(), nil
+			// INSTRUMENTATION: verify tree traversal returns same value
+			fastVal := fastNode.GetValue()
+			_, treeVal, treeErr := t.root.get(t, key)
+			if treeErr == nil && !bytes.Equal(fastVal, treeVal) {
+				panic(fmt.Sprintf(
+					"IAVL FAST NODE BUG [value mismatch]: "+
+						"key=%X version=%d fastNodeVersion=%d "+
+						"fastVal=%X treeVal=%X",
+					key, t.version, fastNode.GetVersionLastUpdatedAt(),
+					fastVal, treeVal,
+				))
+			}
+			return fastVal, nil
 		}
 	}
 
