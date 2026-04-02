@@ -47,10 +47,15 @@ func DeserializeNode(key []byte, buf []byte) (*Node, error) {
 		return nil, fmt.Errorf("decoding fastnode.value, %w", err)
 	}
 
+	keyCopy := make([]byte, len(key))
+	copy(keyCopy, key)
+	valCopy := make([]byte, len(val))
+	copy(valCopy, val)
+
 	fastNode := &Node{
-		key:                  key,
+		key:                  keyCopy,
 		versionLastUpdatedAt: ver,
-		value:                val,
+		value:                valCopy,
 	}
 
 	return fastNode, nil
