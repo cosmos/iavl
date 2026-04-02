@@ -2,8 +2,6 @@ package cache
 
 import (
 	"container/list"
-
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 // Node represents a node eligible for caching.
@@ -106,7 +104,7 @@ func (c *lruCache) Remove(key []byte) Node {
 
 func (c *lruCache) remove(e *list.Element) Node {
 	removed := c.ll.Remove(e).(Node)
-	delete(c.dict, ibytes.UnsafeBytesToStr(removed.GetKey()))
+	delete(c.dict, string(removed.GetKey()))
 	return removed
 }
 

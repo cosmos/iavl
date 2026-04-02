@@ -22,10 +22,14 @@ var _ cache.Node = (*Node)(nil)
 
 // NewNode returns a new fast node from a value and version.
 func NewNode(key []byte, value []byte, version int64) *Node {
+	keyCopy := make([]byte, len(key))
+	copy(keyCopy, key)
+	valCopy := make([]byte, len(value))
+	copy(valCopy, value)
 	return &Node{
-		key:                  key,
+		key:                  keyCopy,
 		versionLastUpdatedAt: version,
-		value:                value,
+		value:                valCopy,
 	}
 }
 
@@ -43,10 +47,15 @@ func DeserializeNode(key []byte, buf []byte) (*Node, error) {
 		return nil, fmt.Errorf("decoding fastnode.value, %w", err)
 	}
 
+	keyCopy := make([]byte, len(key))
+	copy(keyCopy, key)
+	valCopy := make([]byte, len(val))
+	copy(valCopy, val)
+
 	fastNode := &Node{
-		key:                  key,
+		key:                  keyCopy,
 		versionLastUpdatedAt: ver,
-		value:                val,
+		value:                valCopy,
 	}
 
 	return fastNode, nil
