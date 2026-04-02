@@ -22,8 +22,10 @@ var _ cache.Node = (*Node)(nil)
 
 // NewNode returns a new fast node from a value and version.
 func NewNode(key []byte, value []byte, version int64) *Node {
+	keyCopy := make([]byte, len(key))
+	copy(keyCopy, key)
 	return &Node{
-		key:                  key,
+		key:                  keyCopy,
 		versionLastUpdatedAt: version,
 		value:                value,
 	}
