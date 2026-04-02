@@ -9,7 +9,6 @@ import (
 
 	dbm "github.com/cosmos/iavl/db"
 	"github.com/cosmos/iavl/fastnode"
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 var (
@@ -176,7 +175,7 @@ func (tree *MutableTree) Get(key []byte) ([]byte, error) {
 	}
 
 	if !tree.skipFastStorageUpgrade {
-		if fastNode, ok := tree.unsavedFastNodeAdditions.Load(ibytes.UnsafeBytesToStr(key)); ok {
+		if fastNode, ok := tree.unsavedFastNodeAdditions.Load(string(key)); ok {
 			return fastNode.(*fastnode.Node).GetValue(), nil
 		}
 		// check if node was deleted
@@ -844,7 +843,7 @@ func (tree *MutableTree) saveFastNodeAdditions() error {
 
 // addUnsavedRemoval adds a removal to the unsaved removals map
 func (tree *MutableTree) addUnsavedRemoval(key []byte) {
-	skey := ibytes.UnsafeBytesToStr(key)
+	skey := string(key)
 	tree.unsavedFastNodeAdditions.Delete(skey)
 	tree.unsavedFastNodeRemovals.Store(skey, true)
 }
@@ -858,7 +857,7 @@ func (tree *MutableTree) saveFastNodeRemovals() error {
 	sort.Strings(keysToSort)
 
 	for _, key := range keysToSort {
-		if err := tree.ndb.DeleteFastNode(ibytes.UnsafeStrToBytes(key)); err != nil {
+		if err := tree.ndb.DeleteFastNode([]byte(key)); err != nil {
 			return err
 		}
 	}

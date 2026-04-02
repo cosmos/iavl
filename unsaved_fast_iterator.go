@@ -9,7 +9,6 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 
 	"github.com/cosmos/iavl/fastnode"
-	ibytes "github.com/cosmos/iavl/internal/bytes"
 )
 
 var (
@@ -141,7 +140,7 @@ func (iter *UnsavedFastIterator) Next() {
 	}
 
 	diskKey := iter.fastIterator.Key()
-	diskKeyStr := ibytes.UnsafeBytesToStr(diskKey)
+	diskKeyStr := string(diskKey)
 	if iter.fastIterator.Valid() && iter.nextUnsavedNodeIdx < len(iter.unsavedFastNodesToSort) {
 		value, ok := iter.unsavedFastNodeRemovals.Load(diskKeyStr)
 		if ok && value != nil {
