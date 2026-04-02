@@ -87,10 +87,12 @@ type nodeDB struct {
 	latestVersion       int64                      // Latest version of nodeDB.
 	pruneVersion        int64                      // Version to prune up to.
 	legacyLatestVersion int64                      // Latest version of nodeDB in legacy format.
-	nodeCache           cache.Cache                // Cache for nodes in the regular tree that consists of key-value pairs at any version.
-	fastNodeCache       cache.Cache                // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
-	isCommitting        bool                       // Flag to indicate that the nodeDB is committing.
-	chCommitting        chan struct{}              // Channel to signal that the committing is done.
+	nodeCache                cache.Cache                // Cache for nodes in the regular tree that consists of key-value pairs at any version.
+	fastNodeCache            cache.Cache                // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
+	pendingFastNodeAdditions []*fastnode.Node           // Fast nodes to add to cache after batch commit.
+	pendingFastNodeRemovals  []string                   // Fast node keys to remove from cache after batch commit.
+	isCommitting             bool                       // Flag to indicate that the nodeDB is committing.
+	chCommitting             chan struct{}              // Channel to signal that the committing is done.
 }
 
 func newNodeDB(db corestore.KVStoreWithBatch, cacheSize int, opts Options, lg Logger) *nodeDB {
@@ -375,7 +377,7 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
 	if shouldAddToCache {
-		ndb.fastNodeCache.Add(node)
+		ndb.pendingFastNodeAdditions = append(ndb.pendingFastNodeAdditions, node)
 	}
 	return nil
 }
@@ -754,7 +756,7 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
-	ndb.fastNodeCache.Remove(key)
+	ndb.pendingFastNodeRemovals = append(ndb.pendingFastNodeRemovals, string(key))
 	return nil
 }
 
@@ -1124,6 +1126,18 @@ func (ndb *nodeDB) Commit() error {
 	if err != nil {
 		return fmt.Errorf("failed to write batch, %w", err)
 	}
+
+	// Apply pending fast node cache updates now that the batch is committed.
+	// This ensures the cache and DB are never inconsistent, preventing
+	// concurrent reads from repopulating the cache with stale DB values.
+	for _, node := range ndb.pendingFastNodeAdditions {
+		ndb.fastNodeCache.Add(node)
+	}
+	ndb.pendingFastNodeAdditions = nil
+	for _, key := range ndb.pendingFastNodeRemovals {
+		ndb.fastNodeCache.Remove([]byte(key))
+	}
+	ndb.pendingFastNodeRemovals = nil
 
 	return nil
 }
