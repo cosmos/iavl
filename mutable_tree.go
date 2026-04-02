@@ -820,7 +820,7 @@ func (tree *MutableTree) getUnsavedFastNodeRemovals() map[string]interface{} {
 
 // addUnsavedAddition stores an addition into the unsaved additions map
 func (tree *MutableTree) addUnsavedAddition(key []byte, node *fastnode.Node) {
-	skey := ibytes.UnsafeBytesToStr(key)
+	skey := string(key)
 	tree.unsavedFastNodeRemovals.Delete(skey)
 	tree.unsavedFastNodeAdditions.Store(skey, node)
 }
