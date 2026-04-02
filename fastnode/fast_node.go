@@ -24,10 +24,12 @@ var _ cache.Node = (*Node)(nil)
 func NewNode(key []byte, value []byte, version int64) *Node {
 	keyCopy := make([]byte, len(key))
 	copy(keyCopy, key)
+	valCopy := make([]byte, len(value))
+	copy(valCopy, value)
 	return &Node{
 		key:                  keyCopy,
 		versionLastUpdatedAt: version,
-		value:                value,
+		value:                valCopy,
 	}
 }
 
