@@ -671,7 +671,11 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error)
 
 			if isFastCacheEnabled {
 				fastNode, _ := tree.ndb.GetFastNode(key)
-				if fastNode == nil && version == tree.ndb.latestVersion {
+				_, latestVersion, latestErr := tree.ndb.getLatestVersion()
+				if latestErr != nil {
+					return nil, latestErr
+				}
+				if fastNode == nil && version == latestVersion {
 					return nil, nil
 				}
 

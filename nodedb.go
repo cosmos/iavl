@@ -76,7 +76,7 @@ type nodeDB struct {
 	cancel context.CancelFunc
 	logger Logger
 
-	mtx                      sync.Mutex                 // Read/write lock.
+	mtx                      sync.RWMutex               // Read/write lock.
 	done                     chan struct{}              // Channel to signal that the pruning process is done.
 	db                       corestore.KVStoreWithBatch // Persistent node storage.
 	batch                    corestore.Batch            // Batched writing buffer.
@@ -295,8 +295,8 @@ func (ndb *nodeDB) UnsetCommitting() {
 
 // IsCommitting returns true if the nodeDB is committing, false otherwise.
 func (ndb *nodeDB) IsCommitting() bool {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	ndb.mtx.RLock()
+	defer ndb.mtx.RUnlock()
 	return ndb.isCommitting
 }
 
@@ -331,6 +331,8 @@ func (ndb *nodeDB) SetFastStorageVersionToBatch(latestVersion int64) error {
 }
 
 func (ndb *nodeDB) getStorageVersion() string {
+	ndb.mtx.RLock()
+	defer ndb.mtx.RUnlock()
 	return ndb.storageVersion
 }
 
@@ -902,9 +904,9 @@ func (ndb *nodeDB) resetLegacyLatestVersion(version int64) {
 }
 
 func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
-	ndb.mtx.Lock()
+	ndb.mtx.RLock()
 	latestVersion := ndb.latestVersion
-	ndb.mtx.Unlock()
+	ndb.mtx.RUnlock()
 
 	if latestVersion > 0 {
 		return true, latestVersion, nil

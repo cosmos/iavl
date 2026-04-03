@@ -194,7 +194,11 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 			// If the tree is of the latest version and fast node is not in the tree
 			// then the regular node is not in the tree either because fast node
 			// represents live state.
-			if t.version == t.ndb.latestVersion {
+			_, latestVersion, latestErr := t.ndb.getLatestVersion()
+			if latestErr != nil {
+				return nil, latestErr
+			}
+			if t.version == latestVersion {
 				return nil, nil
 			}
 
