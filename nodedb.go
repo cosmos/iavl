@@ -377,6 +377,8 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
 	if shouldAddToCache {
+		// defer adding the node to the cache until after commit, to ensure
+		// that we do not have a period where the tree and the cache differ
 		ndb.pendingFastNodeAdditions = append(ndb.pendingFastNodeAdditions, node)
 	}
 	return nil
@@ -756,6 +758,8 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
+	// defer removing the node from the cache until after commit, to ensure
+	// that we do not have a period where the tree and the cache differ
 	ndb.pendingFastNodeRemovals = append(ndb.pendingFastNodeRemovals, key)
 	return nil
 }
