@@ -948,6 +948,12 @@ func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
 	// return -1, nil
 }
 
+func (ndb *nodeDB) getCachedLatestVersion() int64 {
+	ndb.mtx.RLock()
+	defer ndb.mtx.RUnlock()
+	return ndb.latestVersion
+}
+
 func (ndb *nodeDB) resetLatestVersion(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
