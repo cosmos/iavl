@@ -1127,9 +1127,6 @@ func (ndb *nodeDB) Commit() error {
 		return fmt.Errorf("failed to write batch, %w", err)
 	}
 
-	// Apply pending fast node cache updates now that the batch is committed.
-	// This ensures the cache and DB are never inconsistent, preventing
-	// concurrent reads from repopulating the cache with stale DB values.
 	for _, node := range ndb.pendingFastNodeAdditions {
 		ndb.fastNodeCache.Add(node)
 	}
