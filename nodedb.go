@@ -76,21 +76,21 @@ type nodeDB struct {
 	cancel context.CancelFunc
 	logger Logger
 
-	mtx                 sync.Mutex                 // Read/write lock.
-	done                chan struct{}              // Channel to signal that the pruning process is done.
-	db                  corestore.KVStoreWithBatch // Persistent node storage.
-	batch               corestore.Batch            // Batched writing buffer.
-	opts                Options                    // Options to customize for pruning/writing
-	versionReaders      map[int64]uint32           // Number of active version readers
-	storageVersion      string                     // Storage version
-	firstVersion        int64                      // First version of nodeDB.
-	latestVersion       int64                      // Latest version of nodeDB.
-	pruneVersion        int64                      // Version to prune up to.
-	legacyLatestVersion int64                      // Latest version of nodeDB in legacy format.
+	mtx                      sync.Mutex                 // Read/write lock.
+	done                     chan struct{}              // Channel to signal that the pruning process is done.
+	db                       corestore.KVStoreWithBatch // Persistent node storage.
+	batch                    corestore.Batch            // Batched writing buffer.
+	opts                     Options                    // Options to customize for pruning/writing
+	versionReaders           map[int64]uint32           // Number of active version readers
+	storageVersion           string                     // Storage version
+	firstVersion             int64                      // First version of nodeDB.
+	latestVersion            int64                      // Latest version of nodeDB.
+	pruneVersion             int64                      // Version to prune up to.
+	legacyLatestVersion      int64                      // Latest version of nodeDB in legacy format.
 	nodeCache                cache.Cache                // Cache for nodes in the regular tree that consists of key-value pairs at any version.
 	fastNodeCache            cache.Cache                // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	pendingFastNodeAdditions []*fastnode.Node           // Fast nodes to add to cache after batch commit.
-	pendingFastNodeRemovals  []string                   // Fast node keys to remove from cache after batch commit.
+	pendingFastNodeRemovals  [][]byte                   // Fast node keys to remove from cache after batch commit.
 	isCommitting             bool                       // Flag to indicate that the nodeDB is committing.
 	chCommitting             chan struct{}              // Channel to signal that the committing is done.
 }
@@ -756,7 +756,7 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
-	ndb.pendingFastNodeRemovals = append(ndb.pendingFastNodeRemovals, string(key))
+	ndb.pendingFastNodeRemovals = append(ndb.pendingFastNodeRemovals, key)
 	return nil
 }
 
@@ -1135,7 +1135,7 @@ func (ndb *nodeDB) Commit() error {
 	}
 	ndb.pendingFastNodeAdditions = nil
 	for _, key := range ndb.pendingFastNodeRemovals {
-		ndb.fastNodeCache.Remove([]byte(key))
+		ndb.fastNodeCache.Remove(key)
 	}
 	ndb.pendingFastNodeRemovals = nil
 
