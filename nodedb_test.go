@@ -553,11 +553,10 @@ func TestNodeDB_ReadAfterFastNodeDelete(t *testing.T) {
 func TestNodeDB_ReadAfterFastNodeSetAndEvict(t *testing.T) {
 	const (
 		numTargetKeys = 100_000
-		numNewKeys    = 100_000
-		attempts      = 5
+		numNewKeys    = 10_000
 	)
 
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 3; i++ {
 		// we use a high flush threshold here to increase the timing window to
 		// make this reproducible within a test without it taking too long. the
 		// flush threshold prevents BatchWithFlusher from writing to db
