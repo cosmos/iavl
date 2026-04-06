@@ -3,7 +3,10 @@ package iavl
 import (
 	"errors"
 	"fmt"
+	"math/rand"
+	"runtime"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -485,4 +488,149 @@ func TestGetFirstNonLegacyVersion(t *testing.T) {
 	firstVersion, err = ndb.getFirstNonLegacyVersion()
 	require.NoError(t, err)
 	require.Equal(t, int64(2), firstVersion) // Should still return the first non-legacy version
+}
+
+// TestNodeDB_ReadAfterFastNodeDelete is a regression test for a race condition
+// when a delete operation followed by a concurrent read repopulates the cache
+// with the old DB value.
+func TestNodeDB_ReadAfterFastNodeDelete(t *testing.T) {
+	attempts := 10_000
+	for i := 0; i < attempts; i++ {
+		tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
+
+		key := []byte("alice-balance")
+		_, err := tree.Set(key, []byte("100"))
+		require.NoError(t, err)
+		// a second key to keep tree root non-nil after removing the target
+		_, err = tree.Set([]byte("bob-balance"), []byte("200"))
+		require.NoError(t, err)
+
+		// save version and snapshot
+		_, version, err := tree.SaveVersion()
+		require.NoError(t, err)
+		snapshot, err := tree.GetImmutable(version)
+		require.NoError(t, err)
+
+		// delete the key
+		_, removed, err := tree.Remove(key)
+		require.NoError(t, err)
+		require.True(t, removed)
+
+		// simulate rpc queries, concurrent reads query for the deleted key,
+		// repopulating the cache with stale data
+		done := make(chan struct{})
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-done:
+					return
+				default:
+					_, _ = snapshot.Get(key)
+				}
+			}
+		}()
+
+		// save the version, we should never see the deleted key now
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+
+		close(done)
+		wg.Wait()
+
+		got, err := tree.Get(key)
+		require.NoError(t, err)
+		require.Nilf(t, got,
+			"iteration %d: deleted key should be nil after SaveVersion, got %s", i, got)
+	}
+}
+
+// TestNodeDB_ReadAfterFastNodeSetAndEvict is a regression test for a race
+// condition when a set operation followed by LRU eviction during followed by a
+// concurrent read repopulates the cache with the old DB value.
+func TestNodeDB_ReadAfterFastNodeSetAndEvict(t *testing.T) {
+	const (
+		numTargetKeys = 100_000
+		numNewKeys    = 10_000
+	)
+
+	for i := 0; i < 3; i++ {
+		// we use a high flush threshold here to increase the timing window to
+		// make this reproducible within a test without it taking too long. the
+		// flush threshold prevents BatchWithFlusher from writing to db
+		// mid-loop during saveFastNodeAdditions
+		opts := []Option{FlushThresholdOption(1 << 30)}
+		tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger(), opts...)
+
+		// fill the fast node cache with 100k keys (max size is hardcoded to
+		// 100k)
+		targetKeys := make([][]byte, numTargetKeys)
+		for j := range numTargetKeys {
+			targetKeys[j] = []byte(fmt.Sprintf("target-%04d", j))
+			_, err := tree.Set(targetKeys[j], []byte("old"))
+			require.NoError(t, err)
+		}
+
+		// save version and snapshot
+		_, version, err := tree.SaveVersion()
+		require.NoError(t, err)
+		snapshot, err := tree.GetImmutable(version)
+		require.NoError(t, err)
+
+		// set all keys to new value
+		for _, key := range targetKeys {
+			_, err = tree.Set(key, []byte("new"))
+			require.NoError(t, err)
+		}
+
+		for j := 0; j < numNewKeys; j++ {
+			// note that we save keys in lexographical order, so we need the
+			// pad keys to sort after the target keys so (pad keys start with
+			// z), that way we save target keys, and then zapds evict them from
+			// the cache
+			_, err = tree.Set([]byte(fmt.Sprintf("zpad-%06d", j)), []byte("x"))
+			require.NoError(t, err)
+		}
+
+		// simulate rpc queries, concurrent reads query for target keys. this
+		// will cause fast node cache misses for target keys that were evicted,
+		// and bring back up stale values from the tree back into the cache.
+		done := make(chan struct{})
+		var wg sync.WaitGroup
+		for g := 0; g < runtime.NumCPU(); g++ {
+			wg.Add(1)
+			go func(seed int) {
+				defer wg.Done()
+				rng := rand.New(rand.NewSource(int64(seed)))
+				for {
+					select {
+					case <-done:
+						return
+					default:
+						_, _ = snapshot.Get(targetKeys[rng.Intn(numTargetKeys)])
+					}
+				}
+			}(g)
+		}
+
+		// save the tree, all sets should now persist and we should never see
+		// 'old' values for target keys
+		_, _, err = tree.SaveVersion()
+		require.NoError(t, err)
+
+		close(done)
+		wg.Wait()
+
+		// check all target keys, ensure that they have the updated value
+		for _, key := range targetKeys {
+			got, err := tree.Get(key)
+			require.NoError(t, err)
+			require.Equalf(
+				t, "new", string(got),
+				"iteration %d, key %s: expected new, got %s (stale cache)", i, key, got,
+			)
+		}
+	}
 }
