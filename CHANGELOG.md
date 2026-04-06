@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.7, April 6, 2026
+
+### Bug Fixes
+
+- [#1142](https://github.com/cosmos/iavl/pull/1142) Fix race between updating fast node cache and db commit in `NodeDB`.
+
+### Improvements
+
+- [#1134](https://github.com/cosmos/iavl/pull/1134) Add open telemetry metric support.
+
 ## 1.2.6, March 27, 2025
 
 ### Bug Fixes 
