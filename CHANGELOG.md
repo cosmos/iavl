@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.8, April 6, 2026
+
+### Bug Fixes 
+
+- [#1151](https://github.com/cosmos/iavl/pull/1151) Revert adding open telemetry metric support.
+
 ## 1.2.7, April 6, 2026
 
 ### Bug Fixes
