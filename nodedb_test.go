@@ -567,7 +567,7 @@ func TestNodeDB_ReadAfterFastNodeSetAndEvict(t *testing.T) {
 		// fill the fast node cache with 100k keys (max size is hardcoded to
 		// 100k)
 		targetKeys := make([][]byte, numTargetKeys)
-		for j := range numTargetKeys {
+		for j := 0; j < numTargetKeys; j++ {
 			targetKeys[j] = []byte(fmt.Sprintf("target-%04d", j))
 			_, err := tree.Set(targetKeys[j], []byte("old"))
 			require.NoError(t, err)
