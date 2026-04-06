@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.6, March 27, 2025
+
+### Bug Fixes 
+
+- [#1067](https://github.com/cosmos/iavl/pull/1067) Fix get latest version in store after legacy pruning fails.
+
 ## 1.2.5, March 26, 2025
 
 ### Bug Fixes
