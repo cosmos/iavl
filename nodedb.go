@@ -76,6 +76,7 @@ type nodeDB struct {
 	cancel context.CancelFunc
 	logger Logger
 
+<<<<<<< HEAD
 	mtx                 sync.Mutex       // Read/write lock.
 	done                chan struct{}    // Channel to signal that the pruning process is done.
 	db                  dbm.DB           // Persistent node storage.
@@ -91,6 +92,25 @@ type nodeDB struct {
 	fastNodeCache       cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	isCommitting        bool             // Flag to indicate that the nodeDB is committing.
 	chCommitting        chan struct{}    // Channel to signal that the committing is done.
+=======
+	mtx                      sync.RWMutex               // Read/write lock.
+	done                     chan struct{}              // Channel to signal that the pruning process is done.
+	db                       corestore.KVStoreWithBatch // Persistent node storage.
+	batch                    corestore.Batch            // Batched writing buffer.
+	opts                     Options                    // Options to customize for pruning/writing
+	versionReaders           map[int64]uint32           // Number of active version readers
+	storageVersion           string                     // Storage version
+	firstVersion             int64                      // First version of nodeDB.
+	latestVersion            int64                      // Latest version of nodeDB.
+	pruneVersion             int64                      // Version to prune up to.
+	legacyLatestVersion      int64                      // Latest version of nodeDB in legacy format.
+	nodeCache                cache.Cache                // Cache for nodes in the regular tree that consists of key-value pairs at any version.
+	fastNodeCache            cache.Cache                // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
+	pendingFastNodeAdditions []*fastnode.Node           // Fast nodes to add to cache after batch commit.
+	pendingFastNodeRemovals  [][]byte                   // Fast node keys to remove from cache after batch commit.
+	isCommitting             bool                       // Flag to indicate that the nodeDB is committing.
+	chCommitting             chan struct{}              // Channel to signal that the committing is done.
+>>>>>>> 146f723 (fix(nodedb): fix race between updating fast node cache and db commit (#1142))
 }
 
 func newNodeDB(db dbm.DB, cacheSize int, opts Options, lg Logger) *nodeDB {
@@ -299,8 +319,8 @@ func (ndb *nodeDB) UnsetCommitting() {
 
 // IsCommitting returns true if the nodeDB is committing, false otherwise.
 func (ndb *nodeDB) IsCommitting() bool {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
+	ndb.mtx.RLock()
+	defer ndb.mtx.RUnlock()
 	return ndb.isCommitting
 }
 
@@ -335,6 +355,8 @@ func (ndb *nodeDB) SetFastStorageVersionToBatch(latestVersion int64) error {
 }
 
 func (ndb *nodeDB) getStorageVersion() string {
+	ndb.mtx.RLock()
+	defer ndb.mtx.RUnlock()
 	return ndb.storageVersion
 }
 
@@ -381,7 +403,9 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
 	if shouldAddToCache {
-		ndb.fastNodeCache.Add(node)
+		// defer adding the node to the cache until after commit, to ensure
+		// that we do not have a period where the tree and the cache differ
+		ndb.pendingFastNodeAdditions = append(ndb.pendingFastNodeAdditions, node)
 	}
 	return nil
 }
@@ -761,7 +785,9 @@ func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
-	ndb.fastNodeCache.Remove(key)
+	// defer removing the node from the cache until after commit, to ensure
+	// that we do not have a period where the tree and the cache differ
+	ndb.pendingFastNodeRemovals = append(ndb.pendingFastNodeRemovals, key)
 	return nil
 }
 
@@ -902,10 +928,15 @@ func (ndb *nodeDB) resetLegacyLatestVersion(version int64) {
 	ndb.legacyLatestVersion = version
 }
 
+<<<<<<< HEAD
 func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	ndb.mtx.Lock()
+=======
+func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
+	ndb.mtx.RLock()
+>>>>>>> 146f723 (fix(nodedb): fix race between updating fast node cache and db commit (#1142))
 	latestVersion := ndb.latestVersion
-	ndb.mtx.Unlock()
+	ndb.mtx.RUnlock()
 
 	if latestVersion > 0 {
 		return latestVersion, nil
@@ -944,6 +975,12 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	}
 
 	return 0, nil
+}
+
+func (ndb *nodeDB) getCachedLatestVersion() int64 {
+	ndb.mtx.RLock()
+	defer ndb.mtx.RUnlock()
+	return ndb.latestVersion
 }
 
 func (ndb *nodeDB) resetLatestVersion(version int64) {
@@ -1131,6 +1168,15 @@ func (ndb *nodeDB) Commit() error {
 	if err != nil {
 		return fmt.Errorf("failed to write batch, %w", err)
 	}
+
+	for _, node := range ndb.pendingFastNodeAdditions {
+		ndb.fastNodeCache.Add(node)
+	}
+	ndb.pendingFastNodeAdditions = nil
+	for _, key := range ndb.pendingFastNodeRemovals {
+		ndb.fastNodeCache.Remove(key)
+	}
+	ndb.pendingFastNodeRemovals = nil
 
 	return nil
 }
