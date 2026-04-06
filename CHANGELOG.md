@@ -17,6 +17,7 @@
 ### Bug Fixes
 
 - [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+- [#1142](https://github.com/cosmos/iavl/pull/1142) Fix race between updating fast node cache and db commit in `NodeDB`.
 
 ## v1.3.0, July 31, 2024
 
