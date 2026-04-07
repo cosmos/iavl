@@ -380,3 +380,31 @@ func syncMapCount(m *sync.Map) int {
 	})
 	return count
 }
+
+func TestIterator_Next_ErrorHandling(t *testing.T) {
+	db := dbm.NewMemDB()
+	ndb := newNodeDB(db, 0, DefaultOptions(), NewNopLogger())
+	tree := &ImmutableTree{ndb: ndb}
+
+	// Create a branch node with a left child key that does not exist in the DB
+	node := &Node{
+		key:           []byte("err"),
+		leftNodeKey:   []byte("missing"), // triggers GetNode error
+		rightNodeKey:  nil,
+		subtreeHeight: 1,
+	}
+	tree.root = node
+
+	iter := &Iterator{
+		start: nil,
+		end:   nil,
+		valid: true,
+		t:     node.newTraversal(tree, nil, nil, true, false, false),
+	}
+
+	iter.Next()
+
+	require.False(t, iter.Valid(), "iterator should be invalid after error")
+	require.Error(t, iter.Error(), "iterator should have error set")
+	require.Contains(t, iter.Error().Error(), "node does not have a nodeKey")
+}
