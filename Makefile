@@ -24,22 +24,26 @@ test-short:
 	@go test ./... $(LDFLAGS) -v --race --short
 .PHONY: test-short
 
+<<<<<<< HEAD
 cmd/legacydump/legacydump: 
 	cd cmd/legacydump && go build -o legacydump main.go
+=======
+legacydump:
+	@cd cmd/legacydump && go build -o legacydump main.go
+>>>>>>> 0e4c40f (chore: clean up repo (#1100))
 
 test: cmd/legacydump/legacydump
 	@echo "--> Running go test"
 	@go test ./... $(LDFLAGS) 
 .PHONY: test
 
-format:
-	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
-	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -format
-.PHONY: format
-
 # look into .golangci.yml for enabling / disabling linters
 golangci_lint_cmd=golangci-lint
+<<<<<<< HEAD
 golangci_version=v1.59.1
+=======
+golangci_version=v2.1.6
+>>>>>>> 0e4c40f (chore: clean up repo (#1100))
 
 lint:
 	@echo "--> Running linter"
