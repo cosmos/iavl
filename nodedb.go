@@ -470,7 +470,7 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 	}
 
 	if errors.Is(err, ErrVersionDoesNotExist) {
-		ndb.logger.Error("Error while pruning, moving on the the next version in the store", "version missing", version, "next version", version+1, "err", err)
+		ndb.logger.Error("Error while pruning, moving on the next version in the store", "version missing", version, "next version", version+1, "err", err)
 	}
 
 	if rootKey != nil {
