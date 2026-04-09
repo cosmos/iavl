@@ -34,7 +34,7 @@ func (t *ImmutableTree) GetWithIndex(key []byte) (int64, []byte, error) {
 }
 ```
 
-Get by index will return both the key and the value. The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0. It's neighbor has index 1 and so on.
+Get by index will return both the key and the value. The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0. Its neighbor has index 1 and so on.
 
 ```golang
 // GetByIndex gets the key and value at the specified index.
@@ -54,7 +54,7 @@ Thus the callback is useful both as a way to run some logic on every key-value p
 
 The `IterateRange` functions allow users to iterate over a specific range and specify if the iteration should be in ascending or descending order.
 
-The API's for Iteration functions are shown below.
+The APIs for iteration functions are shown below.
 
 ```golang
 // Iterate iterates over all keys of the tree, in order.
