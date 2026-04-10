@@ -1030,7 +1030,7 @@ func (tree *MutableTree) balance(node *Node) (newSelf *Node, err error) {
 }
 
 // saveNewNodes save new created nodes by the changes of the working tree.
-// NOTE: This function clears leftNode/rigthNode recursively and
+// NOTE: This function clears leftNode/rightNode recursively and
 // calls _hash() on the given node.
 func (tree *MutableTree) saveNewNodes(version int64) error {
 	nonce := uint32(0)
