@@ -79,7 +79,7 @@ We can migrate nodes through the following steps:
 
 The current pruning strategies allows for intermediate versions to exist. With the adoption of this ADR we are migrating to allowing only versions to exist between a range (50-100 instead of 1,25,50-100).
 
-Here we are introducing a new way how to get orphaned nodes which remove in the `n+1`th version updates without storing orphanes in the storage.
+Here we are introducing a new way how to get orphaned nodes which remove in the `n+1`th version updates without storing orphans in the storage.
 
 When we want to remove the `n+1`th version
 
