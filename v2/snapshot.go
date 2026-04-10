@@ -40,7 +40,9 @@ type sqliteSnapshot struct {
 func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 	version := tree.version
 	err := sql.leafWrite.Exec(
-		fmt.Sprintf("CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);", version))
+		fmt.Sprintf("CREATE TABLE %s (ordinal int, version int, sequence int, bytes blob);",
+			SnapshotTableName(version),
+		))
 	if err != nil {
 		return err
 	}
@@ -67,8 +69,11 @@ func (sql *SqliteDb) Snapshot(ctx context.Context, tree *Tree) error {
 	if err = snapshot.flush(); err != nil {
 		return err
 	}
-	sql.logger.Info(fmt.Sprintf("creating index on snapshot_%d", version), "path", sql.opts.Path)
-	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
+	sql.logger.Info(fmt.Sprintf("creating index on %s", SnapshotIndexName(version)), "path", sql.opts.Path)
+	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX %s ON %s (ordinal);",
+		SnapshotIndexName(version),
+		SnapshotTableName(version),
+	))
 	return err
 }
 
@@ -251,7 +256,9 @@ func (sql *SqliteDb) WriteSnapshot(
 		}
 	}
 	err := snap.sql.leafWrite.Exec(
-		fmt.Sprintf(`CREATE TABLE snapshot_%d (ordinal int, version int, sequence int, bytes blob);`, version))
+		fmt.Sprintf(`CREATE TABLE %s (ordinal int, version int, sequence int, bytes blob);`,
+			SnapshotTableName(version),
+		))
 	if err != nil {
 		return nil, err
 	}
@@ -286,7 +293,10 @@ func (sql *SqliteDb) WriteSnapshot(
 	}
 
 	sql.logger.Info("creating table indexes")
-	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX snapshot_%d_idx ON snapshot_%d (ordinal);", version, version))
+	err = sql.leafWrite.Exec(fmt.Sprintf("CREATE INDEX %s ON %s (ordinal);",
+		SnapshotIndexName(version),
+		SnapshotTableName(version),
+	))
 	if err != nil {
 		return nil, err
 	}
@@ -318,9 +328,13 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, traverseOrder Traver
 
 	var q *sqlite3.Stmt
 	if traverseOrder == PostOrder {
-		q, err = read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal DESC", version))
+		q, err = read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM %s ORDER BY ordinal DESC",
+			SnapshotTableName(version),
+		))
 	} else if traverseOrder == PreOrder {
-		q, err = read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM snapshot_%d ORDER BY ordinal ASC", version))
+		q, err = read.Prepare(fmt.Sprintf("SELECT version, sequence, bytes FROM %s ORDER BY ordinal ASC",
+			SnapshotTableName(version),
+		))
 	}
 	if err != nil {
 		return nil, err
@@ -541,8 +555,9 @@ func (snap *sqliteSnapshot) prepareWrite() error {
 	}
 
 	snap.snapshotInsert, err = snap.sql.leafWrite.Prepare(
-		fmt.Sprintf("INSERT INTO snapshot_%d (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);",
-			snap.version))
+		fmt.Sprintf("INSERT INTO %s (ordinal, version, sequence, bytes) VALUES (?, ?, ?, ?);",
+			SnapshotTableName(snap.version),
+		))
 
 	if snap.writeTree {
 		err = snap.sql.treeWrite.Begin()

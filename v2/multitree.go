@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"slices"
 	"runtime"
-	"sync/atomic"
 	"time"
 
 	"github.com/cosmos/iavl/v2/metrics"
@@ -26,9 +25,6 @@ type MultiTree struct {
 	rootPath         string
 	treeOpts         TreeOptions
 	shouldCheckpoint bool
-
-	doneCh  chan saveVersionResult
-	errorCh chan error
 }
 
 func NewMultiTree(logger Logger, rootPath string, opts TreeOptions) *MultiTree {
@@ -37,8 +33,6 @@ func NewMultiTree(logger Logger, rootPath string, opts TreeOptions) *MultiTree {
 	}
 	return &MultiTree{
 		Trees:    make(map[string]*Tree),
-		doneCh:   make(chan saveVersionResult, 1000),
-		errorCh:  make(chan error, 1000),
 		treeOpts: opts,
 		pool:     NewNodePool(),
 		rootPath: rootPath,
@@ -161,26 +155,30 @@ func (mt *MultiTree) SaveVersion() ([]byte, int64, error) {
 	return mt.Hash(), version, nil
 }
 
-type saveVersionResult struct {
-	version int64
-	hash    []byte
-}
-
 func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
+	type saveResult struct {
+		version      int64
+		hash         []byte
+		err          error
+		workingSize  int64
+		workingBytes uint64
+	}
 	treeCount := 0
-	var workingSize atomic.Int64
-	var workingBytes atomic.Uint64
+	var workingSize int64
+	var workingBytes uint64
+	results := make(chan saveResult, len(mt.Trees))
 	for _, tree := range mt.Trees {
 		treeCount++
 		go func(t *Tree) {
 			t.shouldCheckpoint = mt.shouldCheckpoint
 			h, v, err := t.SaveVersion()
-			workingSize.Add(t.workingSize)
-			workingBytes.Add(t.workingBytes)
-			if err != nil {
-				mt.errorCh <- err
+			results <- saveResult{
+				version:      v,
+				hash:         h,
+				err:          err,
+				workingSize:  t.workingSize,
+				workingBytes: t.workingBytes,
 			}
-			mt.doneCh <- saveVersionResult{version: v, hash: h}
 		}(tree)
 	}
 
@@ -189,17 +187,19 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 		version = int64(-1)
 	)
 	for i := 0; i < treeCount; i++ {
-		select {
-		case err := <-mt.errorCh:
-			mt.logger.Error("failed to save version", "error", err)
-			errs = append(errs, err)
-		case result := <-mt.doneCh:
-			if version != -1 && version != result.version {
-				errs = append(errs, fmt.Errorf("unexpected; trees are at different versions: %d != %d",
-					version, result.version))
-			}
-			version = result.version
+		result := <-results
+		if result.err != nil {
+			mt.logger.Error("failed to save version", "error", result.err)
+			errs = append(errs, result.err)
+			continue
 		}
+		if version != -1 && version != result.version {
+			errs = append(errs, fmt.Errorf("unexpected; trees are at different versions: %d != %d",
+				version, result.version))
+		}
+		version = result.version
+		workingSize += result.workingSize
+		workingBytes += result.workingBytes
 	}
 	mt.shouldCheckpoint = false
 
@@ -208,11 +208,11 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 		// sz := workingSize.Load()
 		// fmt.Printf("version=%d work-bytes=%s work-size=%s mem-ceiling=%s\n",
 		// 	version, humanize.IBytes(bz), humanize.Comma(sz), humanize.IBytes(mt.treeOpts.CheckpointMemory))
-		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes.Load()), "iavl_v2", "working_bytes")
-		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize.Load()), "iavl_v2", "working_size")
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingBytes), "iavl_v2", "working_bytes")
+		mt.treeOpts.MetricsProxy.SetGauge(float32(workingSize), "iavl_v2", "working_size")
 	}
 
-	if mt.treeOpts.CheckpointMemory > 0 && workingBytes.Load() >= mt.treeOpts.CheckpointMemory {
+	if mt.treeOpts.CheckpointMemory > 0 && workingBytes >= mt.treeOpts.CheckpointMemory {
 		mt.shouldCheckpoint = true
 	}
 
@@ -221,24 +221,20 @@ func (mt *MultiTree) SaveVersionConcurrently() ([]byte, int64, error) {
 
 func (mt *MultiTree) SnapshotConcurrently() error {
 	treeCount := 0
+	results := make(chan error, len(mt.Trees))
 	for _, tree := range mt.Trees {
 		treeCount++
 		go func(t *Tree) {
-			if err := t.SaveSnapshot(); err != nil {
-				mt.errorCh <- err
-			} else {
-				mt.doneCh <- saveVersionResult{}
-			}
+			results <- t.SaveSnapshot()
 		}(tree)
 	}
 
 	var errs []error
 	for i := 0; i < treeCount; i++ {
-		select {
-		case err := <-mt.errorCh:
+		err := <-results
+		if err != nil {
 			mt.logger.Error("failed to snapshot", "error", err)
 			errs = append(errs, err)
-		case <-mt.doneCh:
 		}
 	}
 	return errors.Join(errs...)
@@ -275,26 +271,23 @@ func (mt *MultiTree) Close() error {
 }
 
 func (mt *MultiTree) WarmLeaves() error {
-	var cnt int
+	treeCount := 0
+	results := make(chan error, len(mt.Trees))
 	for _, tree := range mt.Trees {
-		cnt++
+		treeCount++
 		go func(t *Tree) {
-			if err := t.sql.WarmLeaves(); err != nil {
-				mt.errorCh <- err
-			} else {
-				mt.doneCh <- saveVersionResult{}
-			}
+			results <- t.sql.WarmLeaves()
 		}(tree)
 	}
-	for i := 0; i < cnt; i++ {
-		select {
-		case err := <-mt.errorCh:
+	var errs []error
+	for i := 0; i < treeCount; i++ {
+		err := <-results
+		if err != nil {
 			mt.logger.Error("failed to warm leaves", "error", err)
-			return err
-		case <-mt.doneCh:
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func (mt *MultiTree) QueryReport(bins int) error {
