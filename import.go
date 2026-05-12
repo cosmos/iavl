@@ -131,6 +131,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 		return fmt.Errorf("node version %v can't be greater than import version %v",
 			exportNode.Version, i.version)
 	}
+	if exportNode.Version < 0 {
+		return fmt.Errorf("node version %v can't be less than 0", exportNode.Version)
+	}
 
 	node := &Node{
 		key:           exportNode.Key,
