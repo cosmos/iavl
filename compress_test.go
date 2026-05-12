@@ -29,7 +29,7 @@ func TestDeltaDecode_SharedExceedsLastKey(t *testing.T) {
 	lastKey := []byte("ab")
 
 	var buf [binary.MaxVarintLen64]byte
-	n := binary.PutUvarint(buf[:], uint64(len(lastKey)+1))
+	n := binary.PutUvarint(buf[:], uint64(len(lastKey)+1)) //nolint: gosec
 	encoded := append(buf[:n], 'c')
 
 	_, err := deltaDecode(encoded, lastKey)
