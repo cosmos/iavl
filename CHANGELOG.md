@@ -4,9 +4,40 @@
 
 ### Bug Fixes
 
-- [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+### Improvements
+
+## v1.3.6, April 6, 2026
+
+### Bug Fixes 
+
 - [#1142](https://github.com/cosmos/iavl/pull/1142) Fix race between updating fast node cache and db commit in `NodeDB`.
 - [#1153](https://github.com/cosmos/iavl/pull/1153) Improve `Importer` validation and validate bounds in `CompressImporter` and `deltaDecoder`.
+
+## v1.3.5, December 27, 2024
+
+### Improvements
+
+- [#1026](https://github.com/cosmos/iavl/pull/1026)  Remove duplicated rootkey fetch when pruning
+
+## v1.3.4, December 17, 2024
+
+### Bug Fixes
+
+- [#1023](https://github.com/cosmos/iavl/pull/1023) Better lock handling on close
+
+## v1.3.3, December 16, 2024
+
+### Improvements
+
+- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
+
+## v1.3.2, November 26, 2024
+
+### Bug Fixes
+
+- [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+
+## v1.3.0, July 31, 2024
 
 ### Improvements
 
@@ -16,7 +47,6 @@
 - [#965](https://github.com/cosmos/iavl/pull/965) Use expected interface for expected IAVL `Logger`.
 - [#970](https://github.com/cosmos/iavl/pull/970) Close the pruning process when the nodeDB is closed.
 - [#980](https://github.com/cosmos/iavl/pull/980) Use the `sdk/core/store.KVStoreWithBatch` interface instead of `iavl/db.DB` interface
-- [#1018](https://github.com/cosmos/iavl/pull/1018) Cache first version for legacy versions, fix performance regression after upgrade.
 
 ## v1.2.0 May 13, 2024
 
