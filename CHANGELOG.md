@@ -1,11 +1,16 @@
 # Changelog
 
+## 1.3.7, May 18, 2026
+
+### Bug Fixes
+ 
+- [#1153](https://github.com/cosmos/iavl/pull/1153) Improve `Importer` validation and validate bounds in `CompressImporter` and `deltaDecoder`.
+
 ## 1.3.6, April 6, 2026
 
 ### Bug Fixes 
 
 - [#1142](https://github.com/cosmos/iavl/pull/1142) Fix race between updating fast node cache and db commit in `NodeDB`.
-- [#1153](https://github.com/cosmos/iavl/pull/1153) Improve `Importer` validation and validate bounds in `CompressImporter` and `deltaDecoder`.
 
 ## 1.3.5, December 27, 2024
 
