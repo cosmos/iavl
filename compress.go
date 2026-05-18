@@ -80,6 +80,12 @@ func (i *CompressImporter) Add(node *ExportNode) error {
 		i.minKeyStack = append(i.minKeyStack, key)
 		i.versionStack = append(i.versionStack, node.Version)
 	} else {
+		if len(i.minKeyStack) < 2 {
+			return fmt.Errorf("invalid node order: branch node requires two children on min-key stack, found %d", len(i.minKeyStack))
+		}
+		if len(i.versionStack) < 2 {
+			return fmt.Errorf("invalid node order: branch node requires two children on version stack, found %d", len(i.versionStack))
+		}
 		// use the min-key in right branch as the node key
 		node.Key = i.minKeyStack[len(i.minKeyStack)-1]
 		// leave the min-key in left branch in the stack
@@ -111,6 +117,10 @@ func deltaDecode(key, lastKey []byte) ([]byte, error) {
 	key = key[n:]
 	if shared == 0 {
 		return key, nil
+	}
+
+	if shared > uint64(len(lastKey)) {
+		return nil, fmt.Errorf("shared prefix length %d exceeds previous key length %d", shared, len(lastKey))
 	}
 
 	newKey := make([]byte, shared+uint64(len(key)))

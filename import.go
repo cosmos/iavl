@@ -27,7 +27,7 @@ type Importer struct {
 	batch     store.Batch
 	batchSize uint32
 	stack     []*Node
-	nonces    []uint32
+	nonces    map[int64]uint32
 
 	// inflightCommit tracks a batch commit, if any.
 	inflightCommit <-chan error
@@ -53,7 +53,7 @@ func newImporter(tree *MutableTree, version int64) (*Importer, error) {
 		version: version,
 		batch:   tree.ndb.db.NewBatch(),
 		stack:   make([]*Node, 0, 8),
-		nonces:  make([]uint32, version+1),
+		nonces:  make(map[int64]uint32),
 	}, nil
 }
 
@@ -130,6 +130,9 @@ func (i *Importer) Add(exportNode *ExportNode) error {
 	if exportNode.Version > i.version {
 		return fmt.Errorf("node version %v can't be greater than import version %v",
 			exportNode.Version, i.version)
+	}
+	if exportNode.Version < 0 {
+		return fmt.Errorf("node version %v can't be less than 0", exportNode.Version)
 	}
 
 	node := &Node{
