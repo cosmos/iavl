@@ -1,12 +1,8 @@
 package iavl
 
 import (
-<<<<<<< HEAD
 	"encoding/binary"
-=======
-	"errors"
 	"math"
->>>>>>> 0b9d3da (fix: improve importer validation and validate bounds in compress importer and delta decoder (#1153))
 	"testing"
 
 	"github.com/stretchr/testify/assert"
