@@ -1,7 +1,12 @@
 package iavl
 
 import (
+<<<<<<< HEAD
 	"encoding/binary"
+=======
+	"errors"
+	"math"
+>>>>>>> 0b9d3da (fix: improve importer validation and validate bounds in compress importer and delta decoder (#1153))
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -75,6 +80,26 @@ func TestImporter_NegativeVersion(t *testing.T) {
 	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 	_, err := tree.Import(-1)
 	require.Error(t, err)
+}
+
+func TestImporter_Add_NegativeNodeVersion(t *testing.T) {
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
+	importer, err := tree.Import(1)
+	require.NoError(t, err)
+	defer importer.Close()
+
+	node := &ExportNode{Key: []byte("key"), Value: []byte("value"), Version: -1, Height: 0}
+	require.Error(t, importer.Add(node))
+}
+
+func TestImporter_LargeVersion(t *testing.T) {
+	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
+	importer, err := tree.Import(math.MaxInt64)
+	require.NoError(t, err)
+	defer importer.Close()
+
+	node := &ExportNode{Key: []byte("key"), Value: []byte("value"), Version: math.MaxInt64, Height: 0}
+	require.NoError(t, importer.Add(node))
 }
 
 func TestImporter_NotEmpty(t *testing.T) {

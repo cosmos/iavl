@@ -4,7 +4,12 @@
 
 ### Bug Fixes 
 
+<<<<<<< HEAD
 - [#1151](https://github.com/cosmos/iavl/pull/1151) Revert adding open telemetry metric support.
+=======
+- [#1142](https://github.com/cosmos/iavl/pull/1142) Fix race between updating fast node cache and db commit in `NodeDB`.
+- [#1153](https://github.com/cosmos/iavl/pull/1153) Improve `Importer` validation and validate bounds in `CompressImporter` and `deltaDecoder`.
+>>>>>>> 0b9d3da (fix: improve importer validation and validate bounds in compress importer and delta decoder (#1153))
 
 ## 1.2.7, April 6, 2026
 
