@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.7, May 18, 2026
+
+### Bug Fixes
+ 
+- [#1153](https://github.com/cosmos/iavl/pull/1153) Improve `Importer` validation and validate bounds in `CompressImporter` and `deltaDecoder`.
+
 ## 1.3.6, April 6, 2026
 
 ### Bug Fixes 
