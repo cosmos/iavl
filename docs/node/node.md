@@ -8,7 +8,7 @@ The Node struct stores a node in the IAVL tree.
 // NodeKey represents a key of node in the DB.
 type NodeKey struct {
 	version int64	// version of the IAVL that this node was first added in
-	nonce   int32	// local nonce for the same version
+	nonce   uint32	// local nonce for the same version
 }
 
 // Node represents a node in a Tree.
