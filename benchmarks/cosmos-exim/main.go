@@ -126,7 +126,6 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 		if err != nil {
 			return 0, nil, err
 		}
-		defer exporter.Close()
 		for {
 			node, err := exporter.Next()
 			if errors.Is(err, iavl.ErrorExportDone) {
@@ -137,6 +136,7 @@ func runExport(dbPath string) (int64, map[string][]*iavl.ExportNode, error) {
 			export = append(export, node)
 			stats.AddNode(node)
 		}
+		exporter.Close()
 		stats.AddDurationSince(start)
 		fmt.Printf("%-13v: %v\n", name, stats.String())
 		totalStats.Add(stats)
@@ -173,7 +173,6 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		if err != nil {
 			return err
 		}
-		defer importer.Close()
 		for _, node := range exports[name] {
 			err = importer.Add(node)
 			if err != nil {
@@ -185,6 +184,7 @@ func runImport(version int64, exports map[string][]*iavl.ExportNode) error {
 		if err != nil {
 			return err
 		}
+		importer.Close()
 		stats.AddDurationSince(start)
 		fmt.Printf("%-12v: %v\n", name, stats.String())
 		totalStats.Add(stats)
