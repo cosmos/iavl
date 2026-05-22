@@ -28,6 +28,22 @@ var uvarintPool = &sync.Pool{
 	},
 }
 
+// uvarintSizeTable maps bits.Len64 (0-64) to varint encoded size (1-10).
+// This replaces the division by 7 with a simple lookup.
+var uvarintSizeTable = [65]int{
+	1,                   // 0 bits (handled separately, but included for safety)
+	1, 1, 1, 1, 1, 1, 1, // 1-7 bits -> 1 byte
+	2, 2, 2, 2, 2, 2, 2, // 8-14 bits -> 2 bytes
+	3, 3, 3, 3, 3, 3, 3, // 15-21 bits -> 3 bytes
+	4, 4, 4, 4, 4, 4, 4, // 22-28 bits -> 4 bytes
+	5, 5, 5, 5, 5, 5, 5, // 29-35 bits -> 5 bytes
+	6, 6, 6, 6, 6, 6, 6, // 36-42 bits -> 6 bytes
+	7, 7, 7, 7, 7, 7, 7, // 43-49 bits -> 7 bytes
+	8, 8, 8, 8, 8, 8, 8, // 50-56 bits -> 8 bytes
+	9, 9, 9, 9, 9, 9, 9, // 57-63 bits -> 9 bytes
+	10,                  // 64 bits -> 10 bytes
+}
+
 // decodeBytes decodes a varint length-prefixed byte slice, returning it along with the number
 // of input bytes read.
 // Assumes bz will not be mutated.
@@ -146,11 +162,12 @@ func EncodeUvarint(w io.Writer, u uint64) error {
 }
 
 // EncodeUvarintSize returns the byte size of the given integer as a varint.
+// Uses a lookup table to avoid division.
 func EncodeUvarintSize(u uint64) int {
 	if u == 0 {
 		return 1
 	}
-	return (bits.Len64(u) + 6) / 7
+	return uvarintSizeTable[bits.Len64(u)]
 }
 
 // EncodeVarint writes a varint-encoded integer to an io.Writer.
@@ -178,11 +195,8 @@ func EncodeVarint(w io.Writer, i int64) error {
 }
 
 func fVarintEncode(bw io.ByteWriter, x int64) error {
-	// Firstly convert it into a uvarint
-	ux := uint64(x) << 1
-	if x < 0 {
-		ux = ^ux
-	}
+	// Branchless zigzag encoding: convert signed to unsigned
+	ux := uint64(x<<1) ^ uint64(x>>63)
 	for ux >= 0x80 { // While there are 7 or more bits in the value, keep going
 		// Convert it into a byte then toggle the
 		// 7th bit to indicate that more bytes coming.
@@ -198,10 +212,11 @@ func fVarintEncode(bw io.ByteWriter, x int64) error {
 }
 
 // EncodeVarintSize returns the byte size of the given integer as a varint.
+// Uses branchless zigzag encoding for better performance.
 func EncodeVarintSize(i int64) int {
-	ux := uint64(i) << 1
-	if i < 0 {
-		ux = ^ux
-	}
+	// Branchless zigzag encoding: for i >= 0, ux = i << 1
+	// For i < 0, ux = ^(i << 1). The expression i >> 63 gives 0 for
+	// non-negative and -1 (all 1s) for negative, enabling branchless XOR.
+	ux := uint64(i<<1) ^ uint64(i>>63)
 	return EncodeUvarintSize(ux)
 }
