@@ -10,11 +10,11 @@ DRAFT
 
 ## Abstract
 
-This ADR proposes a cleanup of the API to make more understandable and maintainable the codebase of `iavl`.
+This ADR proposes a cleanup of the API to make the `iavl` codebase more understandable and maintainable.
 
 There is a lot of legacy code in the SDK that is not used anymore and can be removed. See the [Discussion](https://github.com/cosmos/iavl/issues/737) for more details.
 
-There are some proposals for the speedup of the `Commit` by the async writes. See the [Discussion](https://github.com/cosmos/cosmos-sdk/issues/16173) for more details.
+There are some proposals to speed up the `Commit` with async writes. See the [Discussion](https://github.com/cosmos/cosmos-sdk/issues/16173) for more details.
 
 ## Context
 

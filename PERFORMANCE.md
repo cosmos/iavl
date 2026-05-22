@@ -100,7 +100,7 @@ Some links for thought:
 
 ## Backend implementation
 
-Storing each link in the tree in leveldb treats each node as an isolated item.  Since we know some usage patterns (when a parent is hit, very likely one child will be hit), we could try to organize the memory and disk location of the nodes ourselves to make it more efficient.  Or course, this could be a long, slippery slope.
+Storing each link in the tree in leveldb treats each node as an isolated item.  Since we know some usage patterns (when a parent is hit, very likely one child will be hit), we could try to organize the memory and disk location of the nodes ourselves to make it more efficient.  Of course, this could be a long, slippery slope.
 
 Inspired by the [Array representation](http://www.cse.hut.fi/en/research/SVG/TRAKLA2/tutorials/heap_tutorial/taulukkona.html) link above, we could consider other layouts for the nodes. For example, rather than store them alone, or the entire tree in one big array, the nodes could be placed in groups of 15 based on the parent (parent and 3 generations of children).  Then we have 4 levels before jumping to another location.  Maybe we just store this larger chunk as one leveldb location, or really try to do the mmap ourselves...
 

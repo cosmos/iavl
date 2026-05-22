@@ -164,7 +164,7 @@ func (t *ImmutableTree) Export() (*Exporter, error) {
 // IAVL.
 //
 // The index is the index in the list of leaf nodes sorted lexicographically by key. The leftmost leaf has index 0.
-// It's neighbor has index 1 and so on.
+// Its neighbor has index 1 and so on.
 func (t *ImmutableTree) GetWithIndex(key []byte) (int64, []byte, error) {
 	if t.root == nil {
 		return 0, nil, nil
