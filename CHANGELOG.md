@@ -36,6 +36,7 @@
 ### Bug Fixes
 
 - [#1007](https://github.com/cosmos/iavl/pull/1007) Add the extra check for the reformatted root node in `GetNode`
+- [#1106](https://github.com/cosmos/iavl/pull/1106) Fix unlock of unlocked mutex panic.
 
 ## v1.3.0, July 31, 2024
 
