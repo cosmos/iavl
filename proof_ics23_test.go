@@ -227,7 +227,7 @@ func BuildTree(size int, cacheSize int) (itree *MutableTree, keys [][]byte, err 
 
 // sink is kept as a global to ensure that value checks and assignments to it can't be
 // optimized away, and this will help us ensure that benchmarks successfully run.
-var sink interface{}
+var sink any
 
 func BenchmarkConvertLeafOp(b *testing.B) {
 	versions := []int64{
