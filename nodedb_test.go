@@ -41,7 +41,7 @@ func BenchmarkTreeString(b *testing.B) {
 	if sink == nil {
 		b.Fatal("Benchmark did not run")
 	}
-	sink = (interface{})(nil)
+	sink = (any)(nil)
 }
 
 func TestNewNoDbStorage_StorageVersionInDb_Success(t *testing.T) {
