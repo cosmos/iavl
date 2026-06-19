@@ -52,6 +52,11 @@ func NewKeyFormat(prefix byte, layout ...int) *KeyFormat {
 
 // Format the byte segments into the key format - will panic if the segment lengths do not match the layout.
 func (kf *KeyFormat) KeyBytes(segments ...[]byte) []byte {
+	if len(segments) > len(kf.layout) {
+		panic(fmt.Errorf("keyFormat.KeyBytes() is provided with %d segments but format only has %d segments",
+			len(segments), len(kf.layout)))
+	}
+
 	keyLen := kf.length
 	// In case segments length is less than layouts length,
 	// we don't have to allocate the whole kf.length, just
