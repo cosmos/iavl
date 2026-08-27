@@ -3,6 +3,7 @@ package iavl
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/rand"
 	"runtime"
@@ -44,6 +45,19 @@ func b2i(bz []byte) int {
 // Construct a MutableTree
 func getTestTree(cacheSize int) *MutableTree {
 	return NewMutableTree(dbm.NewMemDB(), cacheSize, false, NewNopLogger())
+}
+
+// unreadableDB fails to read one key: a storage error, not a missing node.
+type unreadableDB struct {
+	dbm.DB
+	key []byte
+}
+
+func (d *unreadableDB) Get(key []byte) ([]byte, error) {
+	if bytes.Equal(key, d.key) {
+		return nil, errors.New("simulated read error")
+	}
+	return d.DB.Get(key)
 }
 
 // Convenience for a new node
