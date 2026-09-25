@@ -101,7 +101,15 @@ func (tree *MutableTree) VersionExists(version int64) bool {
 		return false
 	}
 
-	return firstVersion <= version && version <= latestVersion
+	if version < firstVersion || version > latestVersion {
+		return false
+	}
+
+	// A failed or interrupted commit can flush nodes for a version before its
+	// root is written. The highest node key therefore does not prove that the
+	// version was committed.
+	has, err := tree.ndb.hasVersion(version)
+	return err == nil && has
 }
 
 // AvailableVersions returns all available versions in ascending order
