@@ -746,7 +746,7 @@ func (ndb *nodeDB) deleteVersionsTo(toVersion int64) error {
 	rootkeyCache := newRootkeyCache()
 	for version := first; version <= toVersion; version++ {
 		if err := ndb.deleteVersion(version, rootkeyCache); err != nil {
-			return err
+			return fmt.Errorf("deleting version %d: %w", version, err)
 		}
 		ndb.resetFirstVersion(version + 1)
 	}
@@ -1213,6 +1213,11 @@ func (ndb *nodeDB) traverseOrphansWithRootkeyCache(cache *rootkeyCache, prevVers
 				curIter.Next(false)
 			}
 		}
+		// Without the current version, shared subtrees cannot be told from
+		// orphans, and every remaining node would be passed to fn as one.
+		if err := curIter.Error(); err != nil {
+			return fmt.Errorf("traversing version %d: %w", curVersion, err)
+		}
 		pNode := prevIter.GetNode()
 
 		if orgNode != nil && bytes.Equal(pNode.hash, orgNode.hash) {
@@ -1225,6 +1230,9 @@ func (ndb *nodeDB) traverseOrphansWithRootkeyCache(cache *rootkeyCache, prevVers
 			}
 			prevIter.Next(false)
 		}
+	}
+	if err := prevIter.Error(); err != nil {
+		return fmt.Errorf("traversing version %d: %w", prevVersion, err)
 	}
 
 	return nil
