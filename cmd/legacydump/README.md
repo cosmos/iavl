@@ -10,7 +10,7 @@ It takes 5 arguments:
     - dbtype: the type of database to use. 
     - dbdir: the directory to store the database.
     - `random` or `sequential`: The `sequential` option will generate the tree from `1` to `version` in order and delete versions from `1` to `removal version`. The `random` option will delete `removal version` versions randomly.
-    - version: the upto number of versions to generate.
+    - version: the number of versions to generate.
     - removal version: the number of versions to remove.
 
 ```shell

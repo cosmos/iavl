@@ -72,7 +72,7 @@ After each set, the current working tree has its height and size recalculated. I
 
 ### Remove
 
-Remove is another recursive function to remove a key-value pair from the IAVL pair. If the key that is trying to be removed does not exist, Remove is a no-op.
+Remove is another recursive function to remove a key-value pair from the IAVL tree. If the key that is trying to be removed does not exist, Remove is a no-op.
 
 Remove recurses down the IAVL tree in the same way that Set does until it reaches a leaf node. If the leaf node's key is equal to the remove key, the node is removed, and all of its parents are recursively updated. If not, the remove call does nothing.
 
