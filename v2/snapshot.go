@@ -363,6 +363,11 @@ func (sql *SqliteDb) ImportSnapshotFromTable(version int64, traverseOrder Traver
 }
 
 func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, traverseOrder TraverseOrderType, loadLeaves bool) (*Node, int64, error) {
+	// First check if we need to find the database paths
+	if sql.opts.Path == "" {
+		return nil, 0, fmt.Errorf("database path is empty")
+	}
+
 	read, err := sql.getReadConn()
 	if err != nil {
 		return nil, 0, err
@@ -414,6 +419,8 @@ func (sql *SqliteDb) ImportMostRecentSnapshot(targetVersion int64, traverseOrder
 	return root, version, err
 }
 
+// FindDbsInPath finds all database directories in the given path that contain a changelog.sqlite file.
+// This function is used by various commands to locate IAVL databases.
 func FindDbsInPath(path string) ([]string, error) {
 	var paths []string
 	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
@@ -430,9 +437,6 @@ func FindDbsInPath(path string) ([]string, error) {
 	}
 	return paths, nil
 }
-
-// TODO
-// merge these two functions
 
 func (snap *sqliteSnapshot) writeStep(node *Node) error {
 	snap.ordinal++
