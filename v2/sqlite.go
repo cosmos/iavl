@@ -944,7 +944,7 @@ func (sql *SqliteDb) replayChangelog(tree *Tree, toVersion int64, targetHash []b
 		count       int64
 		start       = time.Now()
 		since       = time.Now()
-		logPath     = []interface{}{"path", sql.opts.Path}
+		logPath     = []any{"path", sql.opts.Path}
 	)
 	tree.isReplaying = true
 	defer func() {

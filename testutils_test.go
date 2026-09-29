@@ -47,7 +47,7 @@ func getTestTree(cacheSize int) *MutableTree {
 }
 
 // Convenience for a new node
-func N(l, r interface{}) *Node {
+func N(l, r any) *Node {
 	var left, right *Node
 	if _, ok := l.(*Node); ok {
 		left = l.(*Node)
