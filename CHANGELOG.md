@@ -4,6 +4,8 @@
 
 ### Bug Fixes
 
+- Return a clear `KeyFormat.KeyBytes` panic when too many segments are provided.
+
 ### Improvements
 
 ## v1.3.6, April 6, 2026
