@@ -311,8 +311,7 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		node.leftNode = nil
-		node.rightNode = nil
+		tree.ndb.evictChildrenIfNoVersionReaders(tree.version, node)
 	}
 
 	return &Node{
