@@ -58,10 +58,11 @@ func (b *BatchWithFlusher) Set(key, value []byte) error {
 	}
 	if batchSizeAfter > b.flushThreshold {
 		b.mtx.Unlock()
-		if err := b.Write(); err != nil {
+		err := b.Write()
+		b.mtx.Lock()
+		if err != nil {
 			return err
 		}
-		b.mtx.Lock()
 	}
 	return b.batch.Set(key, value)
 }
@@ -80,10 +81,11 @@ func (b *BatchWithFlusher) Delete(key []byte) error {
 	}
 	if batchSizeAfter > b.flushThreshold {
 		b.mtx.Unlock()
-		if err := b.Write(); err != nil {
+		err := b.Write()
+		b.mtx.Lock()
+		if err != nil {
 			return err
 		}
-		b.mtx.Lock()
 	}
 	return b.batch.Delete(key)
 }
