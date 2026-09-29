@@ -30,7 +30,7 @@ New node structure
 ```go
 type NodeKey struct {
 	version int64
-	nonce   int32
+	nonce   uint32
 }
 
 type Node struct {
