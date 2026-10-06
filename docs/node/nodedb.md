@@ -12,7 +12,7 @@ It marshals and saves any new node that has been created under: `n|node.nodeKey.
 
 ### Deleting Versions
 
-When a version `v` is deleted, all nodes which removed in the current version will be safely deleted and uncached from the storage. `nodeDB` will keep the range of versions [`fromVersion`, `toVersion`]. There are two apis to delete versions:
+When a version `v` is deleted, all nodes which were removed in the current version will be safely deleted and uncached from the storage. `nodeDB` will keep the range of versions [`fromVersion`, `toVersion`]. There are two APIs to delete versions:
 
 #### DeleteVersionsFrom
 
@@ -114,7 +114,7 @@ func (ndb *nodeDB) deleteVersion(version int64) error {
 The traverseOrphans algorithm is shown below:
 
 ```golang
-// traverseOrphans traverses orphans which removed by the updates of the version (n+1).
+// traverseOrphans traverses orphans that were removed by the updates of the version (n+1).
 func (ndb *nodeDB) traverseOrphans(version int64, fn func(*Node) error) error {
 	curKey, err := ndb.GetRoot(version + 1)
 	if err != nil {

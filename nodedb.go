@@ -1175,7 +1175,7 @@ func isReferenceRoot(bz []byte) (bool, int) {
 	return false, 0
 }
 
-// traverseOrphans traverses orphans which removed by the updates of the curVersion in the prevVersion.
+// traverseOrphans traverses orphans that were removed by the updates of the curVersion in the prevVersion.
 // NOTE: it is used for both legacy and new nodes.
 func (ndb *nodeDB) traverseOrphans(prevVersion, curVersion int64, fn func(*Node) error) error {
 	cache := newRootkeyCache()
