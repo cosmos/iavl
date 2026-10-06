@@ -174,7 +174,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 			buf = buf[n:]
 			leftNodeKey.nonce = uint32(nonce) // nolint:gosec // we perform the check in the line below
 			if nonce != int64(leftNodeKey.nonce) {
-				return nil, errors.New("invalid leftNodeKey.nonce, out of int32 range")
+				return nil, errors.New("invalid leftNodeKey.nonce, out of uint32 range")
 			}
 			node.leftNodeKey = leftNodeKey.GetKey()
 		}
@@ -199,7 +199,7 @@ func MakeNode(nk, buf []byte) (*Node, error) {
 			}
 			rightNodeKey.nonce = uint32(nonce) // nolint:gosec // we perform the check in the line below
 			if nonce != int64(rightNodeKey.nonce) {
-				return nil, errors.New("invalid rightNodeKey.nonce, out of int32 range")
+				return nil, errors.New("invalid rightNodeKey.nonce, out of uint32 range")
 			}
 			node.rightNodeKey = rightNodeKey.GetKey()
 		}
