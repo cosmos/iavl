@@ -206,6 +206,10 @@ CREATE TABLE root (
 	if err != nil {
 		return err
 	}
+	hasRow, err = q.Step()
+	if err != nil {
+		return err
+	}
 	if !hasRow {
 		err = sql.leafWrite.Exec(`
 CREATE TABLE latest (key blob, value blob, PRIMARY KEY (key));
