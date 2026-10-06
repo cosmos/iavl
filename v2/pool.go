@@ -17,7 +17,7 @@ type NodePool struct {
 func NewNodePool() *NodePool {
 	np := &NodePool{
 		syncPool: &sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				return &Node{}
 			},
 		},
