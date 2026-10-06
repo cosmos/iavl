@@ -9,14 +9,26 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"math"
+	"sync"
 
 	"github.com/cosmos/iavl/cache"
 
 	"github.com/cosmos/iavl/internal/color"
 	"github.com/cosmos/iavl/internal/encoding"
 )
+
+// sha256Pool is a pool for sha256.Hash objects to reduce allocations.
+var sha256Pool = sync.Pool{
+	New: func() any {
+		return sha256.New()
+	},
+}
+
+// emptyHash is the hash of an empty input, computed once.
+var emptyHash = sha256.New().Sum(nil)
 
 const (
 	// ModeLegacyLeftNode is the mode for legacy left child in the node encoding/decoding.
@@ -428,11 +440,14 @@ func (node *Node) _hash(version int64) []byte {
 		return node.hash
 	}
 
-	h := sha256.New()
+	h := sha256Pool.Get().(hash.Hash)
+	h.Reset()
 	if err := node.writeHashBytes(h, version); err != nil {
+		sha256Pool.Put(h)
 		return nil
 	}
 	node.hash = h.Sum(nil)
+	sha256Pool.Put(h)
 
 	return node.hash
 }
@@ -443,19 +458,22 @@ func (node *Node) _hash(version int64) []byte {
 // to conform with RFC-6962.
 func (node *Node) hashWithCount(version int64) []byte {
 	if node == nil {
-		return sha256.New().Sum(nil)
+		return emptyHash
 	}
 	if node.hash != nil {
 		return node.hash
 	}
 
-	h := sha256.New()
+	h := sha256Pool.Get().(hash.Hash)
+	h.Reset()
 	if err := node.writeHashBytesRecursively(h, version); err != nil {
 		// writeHashBytesRecursively doesn't return an error unless h.Write does,
 		// and hash.Hash.Write doesn't.
+		sha256Pool.Put(h)
 		panic(err)
 	}
 	node.hash = h.Sum(nil)
+	sha256Pool.Put(h)
 
 	return node.hash
 }
