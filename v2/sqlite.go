@@ -14,7 +14,19 @@ import (
 	api "github.com/kocubinski/costor-api"
 )
 
-const defaultSQLitePath = "/tmp/iavl-v2"
+const (
+	defaultSQLitePath = "/tmp/iavl-v2"
+	RootTableName     = "root"
+	LeafTableName     = "leaf"
+)
+
+func SnapshotTableName(version int64) string {
+	return fmt.Sprintf("snapshot_%d", version)
+}
+
+func SnapshotIndexName(version int64) string {
+	return fmt.Sprintf("%s_idx", SnapshotTableName(version))
+}
 
 type SqliteDbOptions struct {
 	Path       string
