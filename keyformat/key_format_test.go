@@ -62,6 +62,18 @@ func TestKeyFormatBytes(t *testing.T) {
 	}
 }
 
+func TestKeyFormatBytesPanicsWithTooManySegments(t *testing.T) {
+	kf := NewKeyFormat(byte('e'))
+
+	assert.PanicsWithError(
+		t,
+		"keyFormat.KeyBytes() is provided with 1 segments but format only has 0 segments",
+		func() {
+			kf.KeyBytes([]byte{1})
+		},
+	)
+}
+
 func TestKeyFormat(t *testing.T) {
 	kf := NewKeyFormat(byte('e'), 8, 8, 8)
 	key := []byte{'e', 0, 0, 0, 0, 0, 0, 0, 100, 0, 0, 0, 0, 0, 0, 0, 200, 0, 0, 0, 0, 0, 0, 1, 144}
