@@ -302,6 +302,9 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 	var err error
 	leftNode := node.leftNode
 	rightNode := node.rightNode
+	// A persisted node is shared with every ImmutableTree reading its version,
+	// such as a concurrent Exporter, so it is not written here. Its child
+	// pointers were already cleared when it was saved, in saveNewNodes.
 	if node.nodeKey != nil {
 		leftNode, err = node.getLeftNode(tree.ImmutableTree)
 		if err != nil {
@@ -311,8 +314,6 @@ func (node *Node) clone(tree *MutableTree) (*Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		node.leftNode = nil
-		node.rightNode = nil
 	}
 
 	return &Node{
