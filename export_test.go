@@ -322,6 +322,48 @@ func TestExporter_Close(t *testing.T) {
 	exporter.Close()
 }
 
+// TestExporter_ConcurrentSet exports a version while the next one is written,
+// as the Cosmos SDK's state sync snapshots do. With a node cache the exporter
+// and the writer share the persisted nodes, so under -race this fails if
+// cloning a persisted node writes to it.
+func TestExporter_ConcurrentSet(t *testing.T) {
+	tree := NewMutableTree(dbm.NewMemDB(), 1000, false, NewNopLogger())
+	for i := 0; i < 256; i++ {
+		_, err := tree.Set([]byte{byte(i)}, []byte{byte(i)})
+		require.NoError(t, err)
+	}
+	_, version, err := tree.SaveVersion()
+	require.NoError(t, err)
+	itree, err := tree.GetImmutable(version)
+	require.NoError(t, err)
+
+	exporter, err := itree.Export()
+	require.NoError(t, err)
+	defer exporter.Close()
+
+	for i := 0; i < 256; i++ {
+		_, err := tree.Set([]byte{byte(i)}, []byte{byte(i), 1})
+		require.NoError(t, err)
+	}
+	_, _, err = tree.SaveVersion()
+	require.NoError(t, err)
+
+	newTree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
+	importer, err := newTree.Import(version)
+	require.NoError(t, err)
+	defer importer.Close()
+	for {
+		node, err := exporter.Next()
+		if errors.Is(err, ErrorExportDone) {
+			break
+		}
+		require.NoError(t, err)
+		require.NoError(t, importer.Add(node))
+	}
+	require.NoError(t, importer.Commit())
+	require.Equal(t, itree.Hash(), newTree.Hash())
+}
+
 func TestExporter_DeleteVersionErrors(t *testing.T) {
 	tree := NewMutableTree(dbm.NewMemDB(), 0, false, NewNopLogger())
 
