@@ -88,6 +88,14 @@ type Options struct {
 	// AsyncPruning is a flag to enable async pruning
 	AsyncPruning bool
 
+	// CacheValueSizeLimit is the maximum value size, in bytes, allowed in node
+	// and fast node caches. Zero disables the limit.
+	CacheValueSizeLimit int
+
+	// FastNodeCacheSize is the maximum number of entries in the fast node cache.
+	// Zero uses the default size.
+	FastNodeCacheSize int
+
 	initialVersionSet bool
 }
 
@@ -129,5 +137,21 @@ func FlushThresholdOption(ft int) Option {
 func AsyncPruningOption(asyncPruning bool) Option {
 	return func(opts *Options) {
 		opts.AsyncPruning = asyncPruning
+	}
+}
+
+// CacheValueSizeLimitOption keeps leaves and fast nodes whose value exceeds limit bytes out of the caches.
+// Zero disables the limit.
+func CacheValueSizeLimitOption(limit int) Option {
+	return func(opts *Options) {
+		opts.CacheValueSizeLimit = limit
+	}
+}
+
+// FastNodeCacheSizeOption sets the maximum number of entries in the fast node cache.
+// Zero selects the default.
+func FastNodeCacheSizeOption(size int) Option {
+	return func(opts *Options) {
+		opts.FastNodeCacheSize = size
 	}
 }

@@ -36,7 +36,7 @@ const (
 	// Using semantic versioning: https://semver.org/
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
-	fastNodeCacheSize          = 100000
+	defaultFastNodeCacheSize   = 100000
 )
 
 var (
@@ -103,6 +103,11 @@ func newNodeDB(db corestore.KVStoreWithBatch, cacheSize int, opts Options, lg Lo
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
+	fastNodeCacheSize := opts.FastNodeCacheSize
+	if fastNodeCacheSize <= 0 {
+		fastNodeCacheSize = defaultFastNodeCacheSize
+	}
+
 	ndb := &nodeDB{
 		ctx:                 ctx,
 		cancel:              cancel,
@@ -134,6 +139,25 @@ func newNodeDB(db corestore.KVStoreWithBatch, cacheSize int, opts Options, lg Lo
 // It is used for both formats of nodes: legacy and new.
 // `legacy`: nk is the hash of the node. `new`: <version><nonce>.
 func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
+	return ndb.getNode(nk, false)
+}
+
+// cacheable reports whether a value of the given size may be held in the caches.
+func (ndb *nodeDB) cacheable(valueLen int) bool {
+	limit := ndb.opts.CacheValueSizeLimit
+	return limit <= 0 || valueLen <= limit
+}
+
+// evictNode drops a node from the node cache. Used by pruning once a node is deleted.
+func (ndb *nodeDB) evictNode(nk []byte) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	ndb.nodeCache.Remove(nk)
+}
+
+// getNode is GetNode. During pruning, it peeks without refreshing LRU
+// order and skips caching misses to avoid evicting frequently accessed nodes.
+func (ndb *nodeDB) getNode(nk []byte, pruning bool) (*Node, error) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
@@ -142,7 +166,13 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	}
 
 	// Check the cache.
-	if cachedNode := ndb.nodeCache.Get(nk); cachedNode != nil {
+	var cachedNode cache.Node
+	if pruning {
+		cachedNode = ndb.nodeCache.Peek(nk)
+	} else {
+		cachedNode = ndb.nodeCache.Get(nk)
+	}
+	if cachedNode != nil {
 		ndb.opts.Stat.IncCacheHitCnt()
 		return cachedNode.(*Node), nil
 	}
@@ -192,7 +222,9 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 		}
 	}
 
-	ndb.nodeCache.Add(node)
+	if !pruning && (!node.isLeaf() || ndb.cacheable(len(node.value))) {
+		ndb.nodeCache.Add(node)
+	}
 
 	return node, nil
 }
@@ -229,7 +261,9 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
 	}
-	ndb.fastNodeCache.Add(fastNode)
+	if ndb.cacheable(len(fastNode.GetValue())) {
+		ndb.fastNodeCache.Add(fastNode)
+	}
 	return fastNode, nil
 }
 
@@ -255,7 +289,9 @@ func (ndb *nodeDB) SaveNode(node *Node) error {
 	}
 
 	ndb.logger.Debug("BATCH SAVE", "node", node)
-	ndb.nodeCache.Add(node)
+	if !node.isLeaf() || ndb.cacheable(len(node.value)) {
+		ndb.nodeCache.Add(node)
+	}
 	return nil
 }
 
@@ -381,7 +417,12 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 	if shouldAddToCache {
 		// defer adding the node to the cache until after commit, to ensure
 		// that we do not have a period where the tree and the cache differ
-		ndb.pendingFastNodeAdditions = append(ndb.pendingFastNodeAdditions, node)
+		if ndb.cacheable(len(node.GetValue())) {
+			ndb.pendingFastNodeAdditions = append(ndb.pendingFastNodeAdditions, node)
+		} else {
+			// too large to cache so make sure no stale smaller value stays cached.
+			ndb.pendingFastNodeRemovals = append(ndb.pendingFastNodeRemovals, node.GetKey())
+		}
 	}
 	return nil
 }
@@ -475,9 +516,12 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 
 	if rootKey != nil {
 		if err := ndb.traverseOrphansWithRootkeyCache(cache, version, version+1, func(orphan *Node) error {
+			// evict before nodeKey is rewritten below, while the cache key still matches.
+			ndb.evictNode(orphan.GetKey())
 			if orphan.nodeKey.nonce == 0 && !orphan.isLegacy {
 				// if the orphan is a reformatted root, it can be a legacy root
 				// so it should be removed from the pruning process.
+				ndb.evictNode(orphan.hash)
 				if err := ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash)); err != nil {
 					return err
 				}
@@ -502,6 +546,7 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 	if rootKey == nil || !bytes.Equal(rootKey, literalRootKey) {
 		// if the root key is not matched with the literal root key, it means the given root
 		// is a reference root to the previous version.
+		ndb.evictNode(literalRootKey)
 		if err := ndb.deleteFromPruning(ndb.nodeKey(literalRootKey)); err != nil {
 			return err
 		}
@@ -513,10 +558,11 @@ func (ndb *nodeDB) deleteVersion(version int64, cache *rootkeyCache) error {
 		return err
 	}
 	if bytes.Equal(literalRootKey, nextRootKey) {
-		root, err := ndb.GetNode(nextRootKey)
+		root, err := ndb.getNode(nextRootKey, true)
 		if err != nil {
 			return err
 		}
+		ndb.evictNode(nextRootKey)
 		// ensure that the given version is not included in the root search
 		if err := ndb.deleteFromPruning(ndb.nodeKey(literalRootKey)); err != nil {
 			return err
@@ -559,6 +605,7 @@ func (ndb *nodeDB) deleteLegacyNodes(version int64, nk []byte) error {
 func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 	// Delete the last version for the legacyLastVersion
 	if err := ndb.traverseOrphans(legacyLatestVersion, legacyLatestVersion+1, func(orphan *Node) error {
+		ndb.evictNode(orphan.hash)
 		return ndb.deleteFromPruning(ndb.legacyNodeKey(orphan.hash))
 	}); err != nil {
 		return err
@@ -572,6 +619,7 @@ func (ndb *nodeDB) deleteLegacyVersions(legacyLatestVersion int64) error {
 		var fromVersion, toVersion int64
 		legacyOrphanKeyFormat.Scan(key, &toVersion, &fromVersion)
 		if (fromVersion <= legacyLatestVersion && toVersion < legacyLatestVersion) || fromVersion > legacyLatestVersion {
+			ndb.evictNode(value)
 			return ndb.deleteFromPruning(ndb.legacyNodeKey(value))
 		}
 		return nil
@@ -1188,7 +1236,7 @@ func (ndb *nodeDB) traverseOrphansWithRootkeyCache(cache *rootkeyCache, prevVers
 		return err
 	}
 
-	curIter, err := NewNodeIterator(curKey, ndb)
+	curIter, err := newNodeIterator(curKey, ndb, true)
 	if err != nil {
 		return err
 	}
@@ -1197,7 +1245,7 @@ func (ndb *nodeDB) traverseOrphansWithRootkeyCache(cache *rootkeyCache, prevVers
 	if err != nil {
 		return err
 	}
-	prevIter, err := NewNodeIterator(prevKey, ndb)
+	prevIter, err := newNodeIterator(prevKey, ndb, true)
 	if err != nil {
 		return err
 	}

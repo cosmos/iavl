@@ -23,6 +23,9 @@ type Cache interface {
 	// Returns Node for the key, if exists. nil otherwise.
 	Get(key []byte) Node
 
+	// Peek is like Get but does not refresh the entry's LRU position.
+	Peek(key []byte) Node
+
 	// Has returns true if node with key exists in cache, false otherwise.
 	Has(key []byte) bool
 
@@ -82,6 +85,13 @@ func (c *lruCache) Add(node Node) Node {
 func (c *lruCache) Get(key []byte) Node {
 	if ele, hit := c.dict[string(key)]; hit {
 		c.ll.MoveToFront(ele)
+		return ele.Value.(Node)
+	}
+	return nil
+}
+
+func (c *lruCache) Peek(key []byte) Node {
+	if ele, hit := c.dict[string(key)]; hit {
 		return ele.Value.(Node)
 	}
 	return nil
