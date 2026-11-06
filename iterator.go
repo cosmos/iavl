@@ -268,26 +268,30 @@ type NodeIterator struct {
 	nodesToVisit []*Node
 	ndb          *nodeDB
 	err          error
+	pruning      bool // read through the node cache without refreshing or populating it
 }
 
 // NewNodeIterator returns a new NodeIterator to traverse the tree of the root node.
 func NewNodeIterator(rootKey []byte, ndb *nodeDB) (*NodeIterator, error) {
+	return newNodeIterator(rootKey, ndb, false)
+}
+
+func newNodeIterator(rootKey []byte, ndb *nodeDB, pruning bool) (*NodeIterator, error) {
+	iter := &NodeIterator{nodesToVisit: []*Node{}, ndb: ndb, pruning: pruning}
 	if len(rootKey) == 0 {
-		return &NodeIterator{
-			nodesToVisit: []*Node{},
-			ndb:          ndb,
-		}, nil
+		return iter, nil
 	}
 
-	node, err := ndb.GetNode(rootKey)
+	node, err := iter.getNode(rootKey)
 	if err != nil {
 		return nil, err
 	}
+	iter.nodesToVisit = append(iter.nodesToVisit, node)
+	return iter, nil
+}
 
-	return &NodeIterator{
-		nodesToVisit: []*Node{node},
-		ndb:          ndb,
-	}, nil
+func (iter *NodeIterator) getNode(nk []byte) (*Node, error) {
+	return iter.ndb.getNode(nk, iter.pruning)
 }
 
 // GetNode returns the current visiting node.
@@ -322,14 +326,14 @@ func (iter *NodeIterator) Next(isSkipped bool) {
 		return
 	}
 
-	rightNode, err := iter.ndb.GetNode(node.rightNodeKey)
+	rightNode, err := iter.getNode(node.rightNodeKey)
 	if err != nil {
 		iter.err = err
 		return
 	}
 	iter.nodesToVisit = append(iter.nodesToVisit, rightNode)
 
-	leftNode, err := iter.ndb.GetNode(node.leftNodeKey)
+	leftNode, err := iter.getNode(node.leftNodeKey)
 	if err != nil {
 		iter.err = err
 		return

@@ -307,3 +307,14 @@ func randBytes(length int) []byte {
 	rand.Read(key) //nolint:errcheck
 	return key
 }
+
+func TestPeekDoesNotRefreshRecency(t *testing.T) {
+	c := cache.New(2)
+	c.Add(&testNode{key: []byte("a")})
+	c.Add(&testNode{key: []byte("b")})
+	require.NotNil(t, c.Peek([]byte("a")))
+	require.Nil(t, c.Peek([]byte("zz")))
+	// "a" is still the oldest, so adding "c" evicts it.
+	evicted := c.Add(&testNode{key: []byte("c")})
+	require.Equal(t, []byte("a"), evicted.GetKey())
+}
