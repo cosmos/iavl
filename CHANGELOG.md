@@ -1,10 +1,14 @@
 # Changelog
 
-## 1.2.9, May 18, 2026
+## 1.2.9, November 13, 2026
 
 ### Bug Fixes 
 
 - [#1153](https://github.com/cosmos/iavl/pull/1153) Improve `Importer` validation and validate bounds in `CompressImporter` and `deltaDecoder`.
+
+### Dependencies
+
+- [#1168](https://github.com/cosmos/iavl/pull/1168) Bump `golang.org/x/crypto` to v0.59.0, `golang.org/x/sys` to v0.50.0 and `google.golang.org/protobuf` to v1.36.12. Go 1.26 is now required.
 
 ## 1.2.8, April 6, 2026
 
