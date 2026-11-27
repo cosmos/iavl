@@ -669,7 +669,7 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error)
 
 			if isFastCacheEnabled {
 				fastNode, _ := tree.ndb.GetFastNode(key)
-				if fastNode == nil && version == tree.ndb.getCachedLatestVersion() {
+				if fastNode == nil && tree.ndb.fastIndexAtVersion(version) {
 					return nil, nil
 				}
 
@@ -770,11 +770,10 @@ func (tree *MutableTree) SaveVersion() ([]byte, int64, error) {
 		}
 	}
 
-	if err := tree.ndb.Commit(); err != nil {
+	if err := tree.ndb.commitVersion(version); err != nil {
 		return nil, version, err
 	}
 
-	tree.ndb.resetLatestVersion(version)
 	tree.version = version
 
 	// set new working tree
