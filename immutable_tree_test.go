@@ -54,21 +54,26 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 		return got
 	}
 
-	readAfterEarlyFlush := func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+	// readOnceFastNodesAreInDB reads the previous version after the next version's fast nodes reached the DB,
+	// through the batch's flush threshold or writeBatch, and before the next version is saved.
+	readOnceFastNodesAreInDB := func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads, writeBatch func() error) treeReads {
 		additions, removals := tree.getUnsavedFastNodeAdditions(), tree.getUnsavedFastNodeRemovals()
-		// SaveVersion starts here, and the low threshold makes the batch flush every fast node change at once.
+		// SaveVersion starts here.
 		require.NoError(t, tree.saveFastNodeVersion(tree.WorkingVersion()))
+		if writeBatch != nil {
+			require.NoError(t, writeBatch())
+		}
 		for key := range additions {
 			value, err := db.Get(fastKeyFormat.KeyBytes([]byte(key)))
 			require.NoError(t, err)
 			node, err := fastnode.DeserializeNode([]byte(key), value)
 			require.NoError(t, err)
-			require.Equal(t, tree.WorkingVersion(), node.GetVersionLastUpdatedAt(), "fast node of %q was not flushed before the commit", key)
+			require.Equal(t, tree.WorkingVersion(), node.GetVersionLastUpdatedAt(), "fast node of %q did not reach the DB before the save", key)
 		}
 		for key := range removals {
 			value, err := db.Get(fastKeyFormat.KeyBytes([]byte(key)))
 			require.NoError(t, err)
-			require.Nil(t, value, "fast node removal of %q was not flushed before the commit", key)
+			require.Nil(t, value, "fast node removal of %q did not reach the DB before the save", key)
 		}
 
 		got := readPrevious()
@@ -85,6 +90,11 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 		_, _, err := tree.SaveVersion()
 		require.NoError(t, err)
 		return got
+	}
+
+	// A threshold of one byte makes the batch flush every fast node change at once.
+	readAfterEarlyFlush := func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+		return readOnceFastNodesAreInDB(t, db, tree, readPrevious, nil)
 	}
 
 	testCases := []struct {
@@ -113,6 +123,16 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			opts:           []Option{FlushThresholdOption(1)},
 			remove:         []string{removedKey},
 			readDuringSave: readAfterEarlyFlush,
+		},
+		{
+			name:   "pruning commits the batch while the next version is being saved",
+			set:    map[string]string{updatedKey: "2", addedKey: "2"},
+			remove: []string{removedKey},
+			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+				// DeleteVersionsTo may run beside SaveVersion, and commits the batch the two share.
+				prune := func() error { return tree.DeleteVersionsTo(0) }
+				return readOnceFastNodesAreInDB(t, db, tree, readPrevious, prune)
+			},
 		},
 		{
 			name:   "next version commits between the version check and the fast iterator snapshot",
@@ -274,10 +294,15 @@ func iterateAll(tree *ImmutableTree) (map[string]string, error) {
 	return all, itr.Error()
 }
 
-// goroutineBlockedIn reports whether some goroutine waits on a sync.RWMutex inside fn.
+// goroutineBlockedIn reports whether some goroutine is in a sync.RWMutex call made from fn.
 func goroutineBlockedIn(fn string) bool {
 	buf := make([]byte, 1<<20)
-	buf = buf[:runtime.Stack(buf, true)]
+	n := runtime.Stack(buf, true)
+	for n == len(buf) { // truncated
+		buf = make([]byte, 2*len(buf))
+		n = runtime.Stack(buf, true)
+	}
+	buf = buf[:n]
 	for _, stack := range bytes.Split(buf, []byte("\n\n")) {
 		if bytes.Contains(stack, []byte(fn)) && bytes.Contains(stack, []byte("sync.(*RWMutex)")) {
 			return true

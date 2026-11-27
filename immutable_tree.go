@@ -191,8 +191,7 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		}
 
 		if fastNode == nil {
-			// A missing fast node means a missing key only if the fast index holds
-			// this version, checked after the read because a commit may run beside it.
+			// A missing fast node means a missing key only if the fast index still holds this version after the read.
 			if t.ndb.fastIndexAtVersion(t.version) {
 				return nil, nil
 			}
@@ -253,7 +252,7 @@ func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (corestore.I
 
 		if isFastCacheEnabled {
 			fastItr := NewFastIterator(start, end, ascending, t.ndb)
-			// Check again now that the iterator holds its DB snapshot: a commit may have run since the first check.
+			// Checked after the iterator took its DB snapshot, because the next version may have started saving since.
 			if t.ndb.fastIndexAtVersion(t.version) {
 				return fastItr, nil
 			}
