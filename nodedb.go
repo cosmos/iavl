@@ -37,8 +37,7 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
-	// fastIndexDirty is the fast index version while fast node changes are uncommitted:
-	// the batch may flush them to the DB before the commit.
+	// fastIndexDirty marks fast node changes that resetLatestVersion has not published; the batch may flush them early.
 	fastIndexDirty int64 = -1
 )
 
@@ -955,13 +954,13 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 	return 0, nil
 }
 
-// fastIndexAtVersion reports whether the fast index holds exactly the state of version.
-// Fast nodes are not versioned, so call it after the read it guards, not before.
-// It takes no lock, so the caller may hold an open DB iterator, which blocks a MemDB commit.
+// fastIndexAtVersion must run after the read it guards, because fast nodes are not versioned.
+// It takes no lock: the caller may hold an open DB iterator, which blocks a MemDB commit.
 func (ndb *nodeDB) fastIndexAtVersion(version int64) bool {
 	return ndb.fastIndexVersion.Load() == version
 }
 
+// resetLatestVersion also publishes version as the state the fast index holds.
 func (ndb *nodeDB) resetLatestVersion(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
@@ -1132,23 +1131,12 @@ func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Itera
 	return ndb.db.ReverseIterator(startFormatted, endFormatted)
 }
 
-// Write to disk.
+// Commit writes the batch to disk. A dirty fast index stays dirty, because the batch may hold
+// fast nodes of a version that is still being saved; resetLatestVersion publishes it.
 func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	return ndb.commitUnlocked(ndb.latestVersion)
-}
 
-// commitVersion writes to disk and moves the latest version under one lock,
-// so no reader finds the fast nodes of version under the previous latest version.
-func (ndb *nodeDB) commitVersion(version int64) error {
-	ndb.mtx.Lock()
-	defer ndb.mtx.Unlock()
-	return ndb.commitUnlocked(version)
-}
-
-// commitUnlocked writes the batch, then publishes version as the latest version and the fast index version.
-func (ndb *nodeDB) commitUnlocked(version int64) error {
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
@@ -1167,8 +1155,6 @@ func (ndb *nodeDB) commitUnlocked(version int64) error {
 		ndb.fastNodeCache.Remove(key)
 	}
 	ndb.pendingFastNodeRemovals = nil
-	ndb.latestVersion = version
-	ndb.fastIndexVersion.Store(version)
 
 	return nil
 }

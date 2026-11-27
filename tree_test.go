@@ -1398,6 +1398,10 @@ func TestLoadVersionForOverwriting(t *testing.T) {
 		require.False(exist, "versions more than 50 should have been deleted")
 	}
 
+	rolledBack, err := tree.GetImmutable(int64(maxLength / 2))
+	require.NoError(err)
+	requireFastIterator(t, rolledBack, "the rebuilt fast index must serve the latest version")
+
 	tree.Set([]byte("key49"), []byte("value49 different"))
 	_, _, err = tree.SaveVersion()
 	require.NoError(err, "SaveVersion should not fail, overwrite was allowed")
