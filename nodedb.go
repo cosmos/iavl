@@ -95,7 +95,7 @@ type nodeDB struct {
 	fastNodeCache            cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	pendingFastNodeAdditions []*fastnode.Node // Fast nodes to add to cache after batch commit.
 	pendingFastNodeRemovals  [][]byte         // Fast node keys to remove from cache after batch commit.
-	fastIndexVersion         atomic.Int64     // Version whose state the fast index holds exactly, or fastIndexDirty. Written under mtx.
+	fastIndexVersion         atomic.Int64     // Version that readers may serve from the fast index, or fastIndexDirty. Written under mtx.
 	isCommitting             bool             // Flag to indicate that the nodeDB is committing.
 	chCommitting             chan struct{}    // Channel to signal that the committing is done.
 }
@@ -202,7 +202,7 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	return node, nil
 }
 
-// GetFastNode sets keyMissing when the key has no fast node and the fast index holds version, so the key does not
+// GetFastNode sets keyMissing when the key has no fast node and the fast index serves version, so the key does not
 // exist at version. Both are read under one lock, so no fast node change can land between them.
 func (ndb *nodeDB) GetFastNode(key []byte, version int64) (fastNode *fastnode.Node, keyMissing bool, err error) {
 	if !ndb.hasUpgradedToFastStorage() {
@@ -974,7 +974,7 @@ func (ndb *nodeDB) setLoadedLatestVersion(version int64) {
 	}
 }
 
-// resetLatestVersion also publishes version as the state the fast index holds.
+// resetLatestVersion also publishes version as the one readers may serve from the fast index.
 func (ndb *nodeDB) resetLatestVersion(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
