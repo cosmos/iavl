@@ -95,7 +95,7 @@ type nodeDB struct {
 	fastNodeCache            cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	pendingFastNodeAdditions []*fastnode.Node // Fast nodes to add to cache after batch commit.
 	pendingFastNodeRemovals  [][]byte         // Fast node keys to remove from cache after batch commit.
-	fastIndexVersion         atomic.Int64     // Version whose state the fast index holds exactly, or fastIndexDirty. Written under mtx, read without it.
+	fastIndexVersion         atomic.Int64     // Version whose state the fast index holds exactly, or fastIndexDirty. Written under mtx; atomic so it can also be read without it.
 	isCommitting             bool             // Flag to indicate that the nodeDB is committing.
 	chCommitting             chan struct{}    // Channel to signal that the committing is done.
 }
@@ -202,21 +202,23 @@ func (ndb *nodeDB) GetNode(nk []byte) (*Node, error) {
 	return node, nil
 }
 
-func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
+// GetFastNode sets keyMissing when the key has no fast node and the fast index holds version, so the key does not
+// exist at version. Both are read under one lock, so no fast node change can land between them.
+func (ndb *nodeDB) GetFastNode(key []byte, version int64) (fastNode *fastnode.Node, keyMissing bool, err error) {
 	if !ndb.hasUpgradedToFastStorage() {
-		return nil, errors.New("storage version is not fast")
+		return nil, false, errors.New("storage version is not fast")
 	}
 
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 
 	if len(key) == 0 {
-		return nil, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
+		return nil, false, fmt.Errorf("nodeDB.GetFastNode() requires key, len(key) equals 0")
 	}
 
 	if cachedFastNode := ndb.fastNodeCache.Get(key); cachedFastNode != nil {
 		ndb.opts.Stat.IncFastCacheHitCnt()
-		return cachedFastNode.(*fastnode.Node), nil
+		return cachedFastNode.(*fastnode.Node), false, nil
 	}
 
 	ndb.opts.Stat.IncFastCacheMissCnt()
@@ -224,18 +226,18 @@ func (ndb *nodeDB) GetFastNode(key []byte) (*fastnode.Node, error) {
 	// Doesn't exist, load.
 	buf, err := ndb.db.Get(ndb.fastNodeKey(key))
 	if err != nil {
-		return nil, fmt.Errorf("can't get FastNode %X: %w", key, err)
+		return nil, false, fmt.Errorf("can't get FastNode %X: %w", key, err)
 	}
 	if buf == nil {
-		return nil, nil
+		return nil, ndb.fastIndexVersion.Load() == version, nil
 	}
 
-	fastNode, err := fastnode.DeserializeNode(key, buf)
+	fastNode, err = fastnode.DeserializeNode(key, buf)
 	if err != nil {
-		return nil, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
+		return nil, false, fmt.Errorf("error reading FastNode. bytes: %x, error: %w", buf, err)
 	}
 	ndb.fastNodeCache.Add(fastNode)
-	return fastNode, nil
+	return fastNode, false, nil
 }
 
 // SaveNode saves a node to disk.
@@ -934,7 +936,7 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		var nk []byte
 		nodeKeyFormat.Scan(k, &nk)
 		latestVersion = GetNodeKey(nk).version
-		ndb.resetLatestVersion(latestVersion)
+		ndb.setLoadedLatestVersion(latestVersion)
 		return latestVersion, nil
 	}
 
@@ -948,17 +950,28 @@ func (ndb *nodeDB) getLatestVersion() (int64, error) {
 		return 0, err
 	}
 	if latestVersion > 0 {
-		ndb.resetLatestVersion(latestVersion)
+		ndb.setLoadedLatestVersion(latestVersion)
 		return latestVersion, nil
 	}
 
 	return 0, nil
 }
 
-// fastIndexAtVersion must run after the read it guards, because fast nodes are not versioned.
-// It takes no lock: the caller may hold an open DB iterator, which blocks a MemDB commit.
+// fastIndexAtVersion must run after the fast iterator it guards is open, because fast nodes are not versioned.
+// It takes no lock: an open DB iterator blocks a MemDB commit.
 func (ndb *nodeDB) fastIndexAtVersion(version int64) bool {
 	return ndb.fastIndexVersion.Load() == version
+}
+
+// setLoadedLatestVersion sets the latest version found in the DB. A dirty fast index stays dirty,
+// because that version may still be being saved.
+func (ndb *nodeDB) setLoadedLatestVersion(version int64) {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	ndb.latestVersion = version
+	if ndb.fastIndexVersion.Load() != fastIndexDirty {
+		ndb.fastIndexVersion.Store(version)
+	}
 }
 
 // resetLatestVersion also publishes version as the state the fast index holds.
