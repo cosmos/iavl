@@ -4,6 +4,8 @@
 
 ### Bug Fixes
 
+- [#1174](https://github.com/cosmos/iavl/pull/1174) Rebuild the fast index from the latest version when an older version is loaded.
+
 ### Improvements
 
 ## v1.3.6, April 6, 2026

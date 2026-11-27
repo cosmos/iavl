@@ -867,6 +867,9 @@ func TestUpgradeStorageToFast_DbErrorEnableFastStorage_Failure(t *testing.T) {
 	tree := NewMutableTree(dbMock, 0, false, NewNopLogger())
 	require.NotNil(t, tree)
 
+	// Pretend that we called Load and have the latest state in the tree
+	tree.version = 1
+
 	isFastCacheEnabled, err := tree.IsFastCacheEnabled()
 	require.NoError(t, err)
 	require.False(t, isFastCacheEnabled)
@@ -1241,6 +1244,111 @@ func TestUpgradeStorageToFast_Delete_Stale_Success(t *testing.T) {
 				i++
 			}
 			require.Equal(t, len(mirror), i)
+		})
+	}
+}
+
+func TestUpgradeStorageToFast_OlderVersionLoaded(t *testing.T) {
+	version1 := map[string]string{"a": "1", "b": "1"}
+	version2 := map[string]string{"a": "2", "c": "2"}
+
+	testCases := []struct {
+		name                     string
+		fastNodesSavedInVersion1 bool
+		overwrite                bool
+	}{
+		{"fast storage never enabled", false, false},
+		{"fast index left at version 1", true, false},
+		{"fast storage never enabled, overwriting", false, true},
+		{"fast index left at version 1, overwriting", true, true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := dbm.NewMemDB()
+
+			saveVersion := func(saveFastNodes bool, change func(tree *MutableTree)) {
+				tree := NewMutableTree(db, 0, !saveFastNodes, NewNopLogger())
+				_, err := tree.Load()
+				require.NoError(t, err)
+				change(tree)
+				_, _, err = tree.SaveVersion()
+				require.NoError(t, err)
+			}
+			saveVersion(tc.fastNodesSavedInVersion1, func(tree *MutableTree) {
+				for key, value := range version1 {
+					_, err := tree.Set([]byte(key), []byte(value))
+					require.NoError(t, err)
+				}
+			})
+			// Version 2 is saved without fast nodes, so the fast index needs a rebuild on the next load.
+			saveVersion(false, func(tree *MutableTree) {
+				_, err := tree.Set([]byte("a"), []byte("2"))
+				require.NoError(t, err)
+				_, removed, err := tree.Remove([]byte("b"))
+				require.NoError(t, err)
+				require.True(t, removed)
+				_, err = tree.Set([]byte("c"), []byte("2"))
+				require.NoError(t, err)
+			})
+
+			requireContent := func(tree *ImmutableTree, wantFastIndex bool, want map[string]string) {
+				t.Helper()
+
+				itr, err := tree.Iterator(nil, nil, true)
+				require.NoError(t, err)
+				defer itr.Close()
+				_, isFast := itr.(*FastIterator)
+				require.Equal(t, wantFastIndex, isFast)
+
+				got := map[string]string{}
+				for ; itr.Valid(); itr.Next() {
+					got[string(itr.Key())] = string(itr.Value())
+				}
+				require.NoError(t, itr.Error())
+				require.Equal(t, want, got)
+
+				for _, key := range []string{"a", "b", "c"} {
+					value, err := tree.Get([]byte(key))
+					require.NoError(t, err)
+					wantValue, ok := want[key]
+					require.Equal(t, ok, value != nil, key)
+					require.Equal(t, wantValue, string(value), key)
+				}
+			}
+
+			tree := NewMutableTree(db, 0, false, NewNopLogger())
+			isUpgradeable, err := tree.IsUpgradeable()
+			require.NoError(t, err)
+			require.True(t, isUpgradeable)
+
+			latestVersion, wantLatest := int64(2), version2
+			if tc.overwrite {
+				// Version 2 is deleted, which leaves version 1 as the latest.
+				require.NoError(t, tree.LoadVersionForOverwriting(1))
+				latestVersion, wantLatest = 1, version1
+			} else {
+				_, err = tree.LoadVersion(1)
+				require.NoError(t, err)
+				requireContent(tree.ImmutableTree, false, version1)
+			}
+			latest, err := tree.GetImmutable(latestVersion)
+			require.NoError(t, err)
+			requireContent(latest, true, wantLatest)
+
+			// The rebuilt index is stored as the latest version's, so a later load does not rebuild it.
+			reopened := NewMutableTree(db, 0, false, NewNopLogger())
+			isUpgradeable, err = reopened.IsUpgradeable()
+			require.NoError(t, err)
+			require.False(t, isUpgradeable)
+			_, err = reopened.Load()
+			require.NoError(t, err)
+			requireContent(reopened.ImmutableTree, true, wantLatest)
+
+			// A fast node may answer for versions from its own onwards, so it must carry the version it was built from.
+			value, err := reopened.GetVersioned([]byte("a"), 1)
+			require.NoError(t, err)
+			require.Equal(t, version1["a"], string(value))
 		})
 	}
 }

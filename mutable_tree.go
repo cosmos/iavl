@@ -589,24 +589,30 @@ func (tree *MutableTree) enableFastStorageAndCommitIfNotEnabled() (bool, error) 
 }
 
 func (tree *MutableTree) enableFastStorageAndCommit() error {
-	var err error
+	_, latestVersion, err := tree.ndb.getLatestVersion()
+	if err != nil {
+		return err
+	}
 
-	itr := NewIterator(nil, nil, true, tree.ImmutableTree)
+	// The fast index serves the latest version only, and LoadVersion of an older version leaves the tree at that older one.
+	latest := tree.ImmutableTree
+	if tree.version != latestVersion {
+		if latest, err = tree.GetImmutable(latestVersion); err != nil {
+			return err
+		}
+	}
+
+	itr := NewIterator(nil, nil, true, latest)
 	defer itr.Close()
 	var upgradedFastNodes uint64
 	for ; itr.Valid(); itr.Next() {
 		upgradedFastNodes++
-		if err = tree.ndb.SaveFastNodeNoCache(fastnode.NewNode(itr.Key(), itr.Value(), tree.version)); err != nil {
+		if err = tree.ndb.SaveFastNodeNoCache(fastnode.NewNode(itr.Key(), itr.Value(), latestVersion)); err != nil {
 			return err
 		}
 	}
 
 	if err = itr.Error(); err != nil {
-		return err
-	}
-
-	_, latestVersion, err := tree.ndb.getLatestVersion()
-	if err != nil {
 		return err
 	}
 
