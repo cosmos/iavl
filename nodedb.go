@@ -95,7 +95,7 @@ type nodeDB struct {
 	fastNodeCache            cache.Cache      // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	pendingFastNodeAdditions []*fastnode.Node // Fast nodes to add to cache after batch commit.
 	pendingFastNodeRemovals  [][]byte         // Fast node keys to remove from cache after batch commit.
-	fastIndexVersion         atomic.Int64     // Version whose state the fast index holds exactly, or fastIndexDirty. Written under mtx; atomic so it can also be read without it.
+	fastIndexVersion         atomic.Int64     // Version whose state the fast index holds exactly, or fastIndexDirty. Written under mtx.
 	isCommitting             bool             // Flag to indicate that the nodeDB is committing.
 	chCommitting             chan struct{}    // Channel to signal that the committing is done.
 }
@@ -1145,8 +1145,8 @@ func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (dbm.Itera
 	return ndb.db.ReverseIterator(startFormatted, endFormatted)
 }
 
-// Commit writes the batch to disk. A dirty fast index stays dirty, because the batch may hold
-// fast nodes of a version that is still being saved; resetLatestVersion publishes it.
+// Write to disk. A dirty fast index stays dirty, because the batch may hold fast nodes of a version
+// that is still being saved; resetLatestVersion publishes it.
 func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()

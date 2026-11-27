@@ -158,6 +158,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			readDuringSave: func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				return readAfterEarlyFlush(t, db, tree, func() treeReads {
 					// A zero latest version is loaded from the DB by the next read. That load must not publish the dirty fast index.
+					// Zeroed directly: the public API cannot reset the latest version while a save is in progress.
 					tree.ndb.mtx.Lock()
 					tree.ndb.latestVersion = 0
 					tree.ndb.mtx.Unlock()
@@ -281,7 +282,8 @@ func iterateAll(tree *ImmutableTree) (map[string]string, error) {
 	return all, itr.Error()
 }
 
-// goroutineBlockedIn reports whether some goroutine is in a sync.RWMutex call made from fn.
+// goroutineBlockedIn reports whether some goroutine is in a sync.RWMutex call made from fn, a frame name as
+// runtime.Stack prints it. A renamed frame never matches, so the caller times out instead of passing.
 func goroutineBlockedIn(fn string) bool {
 	buf := make([]byte, 1<<20)
 	n := runtime.Stack(buf, true)
