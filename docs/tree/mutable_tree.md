@@ -339,7 +339,7 @@ If the tree's root is empty, then there are no nodes to save. Then the `nodeDB` 
 
 If the root is not empty. Then `SaveVersion` will iterate the tree and save new nodes (which the node key is `nil`) to the `nodeDB`. 
 
-`SaveVersion` also calls `nodeDB.Commit`, this ensures that any batched writes from the last save gets committed to the appropriate databases.
+`SaveVersion` then calls `nodeDB.commitVersion`, which writes the batched changes to the database and moves the `nodeDB`'s latest version under one lock. Fast nodes are not versioned, so a reader of the previous version leaves the fast index as soon as the first fast node change of the new version enters the batch.
 
 `tree.version` gets incremented and it will set the lastSaved `ImmutableTree` to the current working tree, and clone the tree to allow for future updates on the next working tree. 
 

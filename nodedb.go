@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	corestore "cosmossdk.io/core/store"
@@ -37,6 +38,9 @@ const (
 	defaultStorageVersionValue = "1.0.0"
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
+	// fastIndexDirty is the fast index version while fast node changes are uncommitted:
+	// the batch may flush them to the DB before the commit.
+	fastIndexDirty int64 = -1
 )
 
 var (
@@ -91,7 +95,7 @@ type nodeDB struct {
 	fastNodeCache            cache.Cache                // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	pendingFastNodeAdditions []*fastnode.Node           // Fast nodes to add to cache after batch commit.
 	pendingFastNodeRemovals  [][]byte                   // Fast node keys to remove from cache after batch commit.
-	fastIndexDirty           bool                       // Fast node changes are in the batch, which may flush them to the DB before the commit.
+	fastIndexVersion         atomic.Int64               // Version whose state the fast index holds exactly, or fastIndexDirty. Written under mtx, read without it.
 	isCommitting             bool                       // Flag to indicate that the nodeDB is committing.
 	chCommitting             chan struct{}              // Channel to signal that the committing is done.
 }
@@ -376,7 +380,7 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 		return fmt.Errorf("error while writing fastnode bytes. Err: %w", err)
 	}
 
-	ndb.fastIndexDirty = true
+	ndb.fastIndexVersion.Store(fastIndexDirty)
 	if err := ndb.batch.Set(ndb.fastNodeKey(node.GetKey()), buf.Bytes()); err != nil {
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
@@ -759,7 +763,7 @@ func (ndb *nodeDB) deleteVersionsTo(toVersion int64) error {
 func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	ndb.fastIndexDirty = true
+	ndb.fastIndexVersion.Store(fastIndexDirty)
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
@@ -953,16 +957,16 @@ func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
 
 // fastIndexAtVersion reports whether the fast index holds exactly the state of version.
 // Fast nodes are not versioned, so call it after the read it guards, not before.
+// It takes no lock, so the caller may hold an open DB iterator, which blocks a MemDB commit.
 func (ndb *nodeDB) fastIndexAtVersion(version int64) bool {
-	ndb.mtx.RLock()
-	defer ndb.mtx.RUnlock()
-	return ndb.latestVersion == version && !ndb.fastIndexDirty
+	return ndb.fastIndexVersion.Load() == version
 }
 
 func (ndb *nodeDB) resetLatestVersion(version int64) {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
 	ndb.latestVersion = version
+	ndb.fastIndexVersion.Store(version)
 }
 
 // hasVersion checks if the given version exists.
@@ -1133,7 +1137,7 @@ func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (corestore
 func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	return ndb.commitUnlocked()
+	return ndb.commitUnlocked(ndb.latestVersion)
 }
 
 // commitVersion writes to disk and moves the latest version under one lock,
@@ -1141,14 +1145,11 @@ func (ndb *nodeDB) Commit() error {
 func (ndb *nodeDB) commitVersion(version int64) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
-	if err := ndb.commitUnlocked(); err != nil {
-		return err
-	}
-	ndb.latestVersion = version
-	return nil
+	return ndb.commitUnlocked(version)
 }
 
-func (ndb *nodeDB) commitUnlocked() error {
+// commitUnlocked writes the batch, then publishes version as the latest version and the fast index version.
+func (ndb *nodeDB) commitUnlocked(version int64) error {
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
@@ -1167,7 +1168,8 @@ func (ndb *nodeDB) commitUnlocked() error {
 		ndb.fastNodeCache.Remove(key)
 	}
 	ndb.pendingFastNodeRemovals = nil
-	ndb.fastIndexDirty = false
+	ndb.latestVersion = version
+	ndb.fastIndexVersion.Store(version)
 
 	return nil
 }
