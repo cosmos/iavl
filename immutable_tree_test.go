@@ -150,17 +150,17 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			},
 		},
 		{
-			name:   "version check waits for the batch write",
+			name:   "reader checks the latest version after the batch write and before it moves",
 			set:    map[string]string{updatedKey: "2", addedKey: "2"},
 			remove: []string{removedKey},
 			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				done := make(chan treeReads, 1)
-				// Runs inside the commit, so the reader cannot pass the version check before the batch is written.
+				// Started inside the batch write, so the reader gets nodeDB's lock after the write and before the latest version moves.
 				startRead := func() {
 					go func() { done <- readPrevious() }()
 					require.Eventually(t, func() bool {
 						return goroutineBlockedIn("(*nodeDB).getLatestVersion")
-					}, timeout, time.Millisecond, "reader never reached the latest version check")
+					}, timeout, time.Millisecond, "reader never waited for the latest version")
 				}
 				db.onWrite.Store(&startRead)
 
