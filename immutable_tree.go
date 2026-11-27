@@ -191,10 +191,9 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		}
 
 		if fastNode == nil {
-			// If the tree is of the latest version and fast node is not in the tree
-			// then the regular node is not in the tree either because fast node
-			// represents live state.
-			if t.version == t.ndb.getCachedLatestVersion() {
+			// A missing fast node means a missing key only if the fast index holds
+			// this version, checked after the read because a commit may run beside it.
+			if t.ndb.fastIndexAtVersion(t.version) {
 				return nil, nil
 			}
 
@@ -253,7 +252,14 @@ func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (corestore.I
 		}
 
 		if isFastCacheEnabled {
-			return NewFastIterator(start, end, ascending, t.ndb), nil
+			fastItr := NewFastIterator(start, end, ascending, t.ndb)
+			// Check again now that the iterator holds its DB snapshot: a commit may have run since the first check.
+			if t.ndb.fastIndexAtVersion(t.version) {
+				return fastItr, nil
+			}
+			if err := fastItr.Close(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return NewIterator(start, end, ascending, t), nil

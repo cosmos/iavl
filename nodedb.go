@@ -91,6 +91,7 @@ type nodeDB struct {
 	fastNodeCache            cache.Cache                // Cache for nodes in the fast index that represents only key-value pairs at the latest version.
 	pendingFastNodeAdditions []*fastnode.Node           // Fast nodes to add to cache after batch commit.
 	pendingFastNodeRemovals  [][]byte                   // Fast node keys to remove from cache after batch commit.
+	fastIndexDirty           bool                       // Fast node changes are in the batch, which may flush them to the DB before the commit.
 	isCommitting             bool                       // Flag to indicate that the nodeDB is committing.
 	chCommitting             chan struct{}              // Channel to signal that the committing is done.
 }
@@ -375,6 +376,7 @@ func (ndb *nodeDB) saveFastNodeUnlocked(node *fastnode.Node, shouldAddToCache bo
 		return fmt.Errorf("error while writing fastnode bytes. Err: %w", err)
 	}
 
+	ndb.fastIndexDirty = true
 	if err := ndb.batch.Set(ndb.fastNodeKey(node.GetKey()), buf.Bytes()); err != nil {
 		return fmt.Errorf("error while writing key/val to nodedb batch. Err: %w", err)
 	}
@@ -757,6 +759,7 @@ func (ndb *nodeDB) deleteVersionsTo(toVersion int64) error {
 func (ndb *nodeDB) DeleteFastNode(key []byte) error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	ndb.fastIndexDirty = true
 	if err := ndb.batch.Delete(ndb.fastNodeKey(key)); err != nil {
 		return err
 	}
@@ -948,10 +951,12 @@ func (ndb *nodeDB) getLatestVersion() (bool, int64, error) {
 	// return -1, nil
 }
 
-func (ndb *nodeDB) getCachedLatestVersion() int64 {
+// fastIndexAtVersion reports whether the fast index holds exactly the state of version.
+// Fast nodes are not versioned, so call it after the read it guards, not before.
+func (ndb *nodeDB) fastIndexAtVersion(version int64) bool {
 	ndb.mtx.RLock()
 	defer ndb.mtx.RUnlock()
-	return ndb.latestVersion
+	return ndb.latestVersion == version && !ndb.fastIndexDirty
 }
 
 func (ndb *nodeDB) resetLatestVersion(version int64) {
@@ -1128,7 +1133,22 @@ func (ndb *nodeDB) getFastIterator(start, end []byte, ascending bool) (corestore
 func (ndb *nodeDB) Commit() error {
 	ndb.mtx.Lock()
 	defer ndb.mtx.Unlock()
+	return ndb.commitUnlocked()
+}
 
+// commitVersion writes to disk and moves the latest version under one lock,
+// so no reader finds the fast nodes of version under the previous latest version.
+func (ndb *nodeDB) commitVersion(version int64) error {
+	ndb.mtx.Lock()
+	defer ndb.mtx.Unlock()
+	if err := ndb.commitUnlocked(); err != nil {
+		return err
+	}
+	ndb.latestVersion = version
+	return nil
+}
+
+func (ndb *nodeDB) commitUnlocked() error {
 	var err error
 	if ndb.opts.Sync {
 		err = ndb.batch.WriteSync()
@@ -1147,6 +1167,7 @@ func (ndb *nodeDB) Commit() error {
 		ndb.fastNodeCache.Remove(key)
 	}
 	ndb.pendingFastNodeRemovals = nil
+	ndb.fastIndexDirty = false
 
 	return nil
 }
