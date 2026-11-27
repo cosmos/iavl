@@ -183,17 +183,15 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 	if !t.skipFastStorageUpgrade {
 		// attempt to get a FastNode directly from db/cache.
 		// if call fails, fall back to the original IAVL logic in place.
-		fastNode, err := t.ndb.GetFastNode(key)
+		fastNode, keyMissing, err := t.ndb.GetFastNode(key, t.version)
 		if err != nil {
 			_, result, err := t.root.get(t, key)
 			return result, err
 		}
 
 		if fastNode == nil {
-			// If the tree is of the latest version and fast node is not in the tree
-			// then the regular node is not in the tree either because fast node
-			// represents live state.
-			if t.version == t.ndb.getCachedLatestVersion() {
+			// Without a fast node, the key is missing only if the fast index serves this version.
+			if keyMissing {
 				return nil, nil
 			}
 
@@ -252,7 +250,14 @@ func (t *ImmutableTree) Iterator(start, end []byte, ascending bool) (dbm.Iterato
 		}
 
 		if isFastCacheEnabled {
-			return NewFastIterator(start, end, ascending, t.ndb), nil
+			fastItr := NewFastIterator(start, end, ascending, t.ndb)
+			// Checked after the iterator took its DB snapshot, because the next version may have started saving since.
+			if t.ndb.fastIndexAtVersion(t.version) {
+				return fastItr, nil
+			}
+			if err := fastItr.Close(); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return NewIterator(start, end, ascending, t), nil

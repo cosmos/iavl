@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Bug Fixes
+
+- [#1172](https://github.com/cosmos/iavl/pull/1172) Stop readers of the latest version from seeing the next version's fast nodes during `SaveVersion`.
+
 ## 1.2.9, November 13, 2026
 
 ### Bug Fixes 

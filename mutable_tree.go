@@ -612,7 +612,12 @@ func (tree *MutableTree) enableFastStorageAndCommit() error {
 		return err
 	}
 
-	return tree.ndb.Commit()
+	if err = tree.ndb.Commit(); err != nil {
+		return err
+	}
+	// The rebuild left the fast index dirty, and nothing else publishes it until the next SaveVersion.
+	tree.ndb.resetLatestVersion(latestVersion)
+	return nil
 }
 
 // GetImmutable loads an ImmutableTree at a given version for querying. The returned tree is
@@ -668,8 +673,8 @@ func (tree *MutableTree) GetVersioned(key []byte, version int64) ([]byte, error)
 			}
 
 			if isFastCacheEnabled {
-				fastNode, _ := tree.ndb.GetFastNode(key)
-				if fastNode == nil && version == tree.ndb.getCachedLatestVersion() {
+				fastNode, keyMissing, _ := tree.ndb.GetFastNode(key, version)
+				if keyMissing {
 					return nil, nil
 				}
 
