@@ -39,6 +39,7 @@ const (
 	fastStorageVersionValue    = "1.1.0"
 	fastNodeCacheSize          = 100000
 	// fastIndexDirty marks fast node changes that resetLatestVersion has not published; the batch may flush them early.
+	// A failed SaveVersion leaves the index dirty until the next one succeeds, so readers use the tree meanwhile.
 	fastIndexDirty int64 = -1
 )
 
