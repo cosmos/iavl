@@ -191,7 +191,7 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 		}
 
 		if fastNode == nil {
-			// Without a fast node, the key is missing only if the fast index holds this version.
+			// Without a fast node, the key is missing only if the fast index serves this version.
 			if keyMissing {
 				return nil, nil
 			}

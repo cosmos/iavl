@@ -76,6 +76,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			require.Nil(t, value, "fast node removal of %q did not reach the DB before the save", key)
 		}
 
+		requireMissAnsweredByFastIndex(t, tree.ImmutableTree, false, "a miss must read the tree while the next version is being saved")
 		got := readPrevious()
 		versioned := map[string]string{}
 		for _, key := range keys {
@@ -226,6 +227,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			previous, err := tree.GetImmutable(1)
 			require.NoError(t, err)
 			requireFastIterator(t, previous, "the previous version must start on the fast path")
+			requireMissAnsweredByFastIndex(t, previous, true, "the previous version must start on the fast path")
 
 			nextState := maps.Clone(previousState)
 			for key, value := range tc.set {
@@ -250,6 +252,8 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, treeReads{iterated: nextState, fetched: nextState}, read(next))
 			requireFastIterator(t, next, "the saved version must be back on the fast path")
+			requireMissAnsweredByFastIndex(t, next, true, "the saved version must be back on the fast path")
+			requireMissAnsweredByFastIndex(t, previous, false, "the fast index no longer holds the previous version")
 		})
 	}
 }
@@ -267,6 +271,16 @@ func requireFastIterator(t *testing.T, tree *ImmutableTree, msg string) {
 	require.NoError(t, err)
 	require.IsType(t, &FastIterator{}, itr, msg)
 	require.NoError(t, itr.Close())
+}
+
+// requireMissAnsweredByFastIndex checks whether Get of a key without a fast node may skip the tree read.
+func requireMissAnsweredByFastIndex(t *testing.T, tree *ImmutableTree, want bool, msg string) {
+	t.Helper()
+	// A key no test sets in any version.
+	fastNode, keyMissing, err := tree.ndb.GetFastNode([]byte("missing"), tree.version)
+	require.NoError(t, err)
+	require.Nil(t, fastNode)
+	require.Equal(t, want, keyMissing, msg)
 }
 
 func iterateAll(tree *ImmutableTree) (map[string]string, error) {
