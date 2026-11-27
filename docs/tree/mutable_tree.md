@@ -341,6 +341,8 @@ If the root is not empty. Then `SaveVersion` will iterate the tree and save new 
 
 `SaveVersion` also calls `nodeDB.Commit`, this ensures that any batched writes from the last save gets committed to the appropriate databases.
 
+Fast nodes are not versioned, and the batch may flush them to the database before the commit. So from the first fast node change of the new version until `SaveVersion` moves the latest version, an iterator or a missed `Get` on the previous version reads the tree instead of the fast index.
+
 `tree.version` gets incremented and it will set the lastSaved `ImmutableTree` to the current working tree, and clone the tree to allow for future updates on the next working tree. 
 
 Lastly, it returns the tree's hash, the latest version, and nil for error.
