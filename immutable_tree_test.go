@@ -56,7 +56,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 
 	// readOnceFastNodesAreInDB reads the previous version after the next version's fast nodes reached the DB,
 	// through the batch's flush threshold or writeBatch, and before the next version is saved.
-	readOnceFastNodesAreInDB := func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads, writeBatch func() error) treeReads {
+	readOnceFastNodesAreInDB := func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads, writeBatch func() error) treeReads {
 		additions, removals := tree.getUnsavedFastNodeAdditions(), tree.getUnsavedFastNodeRemovals()
 		// SaveVersion starts here.
 		require.NoError(t, tree.saveFastNodeVersion(tree.WorkingVersion()))
@@ -93,7 +93,8 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 	}
 
 	// A threshold of one byte makes the batch flush every fast node change at once.
-	readAfterEarlyFlush := func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+	flushEarly := []Option{FlushThresholdOption(1)}
+	readAfterEarlyFlush := func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 		return readOnceFastNodesAreInDB(t, db, tree, readPrevious, nil)
 	}
 
@@ -103,24 +104,24 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 		set    map[string]string // keys the next version adds or updates
 		remove []string          // keys the next version removes
 		// readDuringSave saves the next version and returns what a reader of the previous version saw on the way.
-		readDuringSave func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads
+		readDuringSave func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads
 	}{
 		{
 			name:           "added, updated and removed fast nodes are flushed before the commit",
-			opts:           []Option{FlushThresholdOption(1)},
+			opts:           flushEarly,
 			set:            map[string]string{updatedKey: "2", addedKey: "2"},
 			remove:         []string{removedKey},
 			readDuringSave: readAfterEarlyFlush,
 		},
 		{
 			name:           "only added and updated fast nodes are flushed before the commit",
-			opts:           []Option{FlushThresholdOption(1)},
+			opts:           flushEarly,
 			set:            map[string]string{updatedKey: "2", addedKey: "2"},
 			readDuringSave: readAfterEarlyFlush,
 		},
 		{
 			name:           "only a removed fast node is flushed before the commit",
-			opts:           []Option{FlushThresholdOption(1)},
+			opts:           flushEarly,
 			remove:         []string{removedKey},
 			readDuringSave: readAfterEarlyFlush,
 		},
@@ -128,7 +129,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			name:   "pruning commits the batch while the next version is being saved",
 			set:    map[string]string{updatedKey: "2", addedKey: "2"},
 			remove: []string{removedKey},
-			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+			readDuringSave: func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				// DeleteVersionsTo may run beside SaveVersion, and commits the batch the two share.
 				prune := func() error { return tree.DeleteVersionsTo(0) }
 				return readOnceFastNodesAreInDB(t, db, tree, readPrevious, prune)
@@ -138,7 +139,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			name:   "next version commits between the version check and the fast iterator snapshot",
 			set:    map[string]string{updatedKey: "2", addedKey: "2"},
 			remove: []string{removedKey},
-			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+			readDuringSave: func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				save := func() {
 					_, _, err := tree.SaveVersion()
 					require.NoError(t, err)
@@ -151,38 +152,25 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 			},
 		},
 		{
-			name:   "reader checks the latest version after the batch write and before it moves",
+			name:   "latest version is loaded from the DB while the next version is being saved",
+			opts:   flushEarly,
 			set:    map[string]string{updatedKey: "2", addedKey: "2"},
 			remove: []string{removedKey},
-			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
-				done := make(chan treeReads, 1)
-				// Started inside the batch write, so the reader gets nodeDB's lock after the write and before the latest version moves.
-				startRead := func() {
-					go func() { done <- readPrevious() }()
-					require.Eventually(t, func() bool {
-						return goroutineBlockedIn("(*nodeDB).getLatestVersion")
-					}, timeout, time.Millisecond, "reader never waited for the latest version")
-				}
-				db.onWrite.Store(&startRead)
-
-				_, _, err := tree.SaveVersion()
-				require.NoError(t, err)
-				require.Nil(t, db.onWrite.Load(), "SaveVersion wrote no batch")
-
-				select {
-				case got := <-done:
-					return got
-				case <-time.After(timeout):
-					require.FailNow(t, "reader did not finish after SaveVersion")
-					return treeReads{}
-				}
+			readDuringSave: func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+				return readAfterEarlyFlush(t, db, tree, func() treeReads {
+					// A zero latest version is loaded from the DB by the next read. That load must not publish the dirty fast index.
+					tree.ndb.mtx.Lock()
+					tree.ndb.latestVersion = 0
+					tree.ndb.mtx.Unlock()
+					return readPrevious()
+				})
 			},
 		},
 		{
 			name:   "next version starts committing while the fast iterator is open",
 			set:    map[string]string{updatedKey: "2", addedKey: "2"},
 			remove: []string{removedKey},
-			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+			readDuringSave: func(t *testing.T, db *iteratorHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				saved := make(chan error, 1)
 				// The open iterator blocks MemDB's batch write, so the commit holds nodeDB's lock until the reader closes it.
 				startSave := func() {
@@ -220,7 +208,7 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			db := &commitHookDB{KVStoreWithBatch: dbm.NewMemDB()}
+			db := &iteratorHookDB{KVStoreWithBatch: dbm.NewMemDB()}
 			tree := NewMutableTree(db, 0, false, NewNopLogger(), tc.opts...)
 			for key, value := range previousState {
 				_, err := tree.Set([]byte(key), []byte(value))
@@ -311,23 +299,13 @@ func goroutineBlockedIn(fn string) bool {
 	return false
 }
 
-type commitHookDB struct {
+type iteratorHookDB struct {
 	corestore.KVStoreWithBatch
-	// onWrite runs once after the next batch write, while nodeDB still holds its lock.
-	onWrite atomic.Pointer[func()]
 	// beforeFastIterator and afterFastIterator run once, around the opening of the next fast node iterator.
 	beforeFastIterator, afterFastIterator atomic.Pointer[func()]
 }
 
-func (db *commitHookDB) NewBatch() corestore.Batch {
-	return &commitHookBatch{Batch: db.KVStoreWithBatch.NewBatch(), db: db}
-}
-
-func (db *commitHookDB) NewBatchWithSize(size int) corestore.Batch {
-	return &commitHookBatch{Batch: db.KVStoreWithBatch.NewBatchWithSize(size), db: db}
-}
-
-func (db *commitHookDB) Iterator(start, end []byte) (corestore.Iterator, error) {
+func (db *iteratorHookDB) Iterator(start, end []byte) (corestore.Iterator, error) {
 	if !bytes.HasPrefix(start, fastKeyFormat.Key()) {
 		return db.KVStoreWithBatch.Iterator(start, end)
 	}
@@ -335,27 +313,6 @@ func (db *commitHookDB) Iterator(start, end []byte) (corestore.Iterator, error) 
 	itr, err := db.KVStoreWithBatch.Iterator(start, end)
 	runOnce(&db.afterFastIterator)
 	return itr, err
-}
-
-type commitHookBatch struct {
-	corestore.Batch
-	db *commitHookDB
-}
-
-func (b *commitHookBatch) Write() error {
-	if err := b.Batch.Write(); err != nil {
-		return err
-	}
-	runOnce(&b.db.onWrite)
-	return nil
-}
-
-func (b *commitHookBatch) WriteSync() error {
-	if err := b.Batch.WriteSync(); err != nil {
-		return err
-	}
-	runOnce(&b.db.onWrite)
-	return nil
 }
 
 func runOnce(hook *atomic.Pointer[func()]) {

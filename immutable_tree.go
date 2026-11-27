@@ -184,15 +184,15 @@ func (t *ImmutableTree) Get(key []byte) ([]byte, error) {
 	if !t.skipFastStorageUpgrade {
 		// attempt to get a FastNode directly from db/cache.
 		// if call fails, fall back to the original IAVL logic in place.
-		fastNode, err := t.ndb.GetFastNode(key)
+		fastNode, keyMissing, err := t.ndb.GetFastNode(key, t.version)
 		if err != nil {
 			_, result, err := t.root.get(t, key)
 			return result, err
 		}
 
 		if fastNode == nil {
-			// A missing fast node means a missing key only if the fast index still holds this version after the read.
-			if t.ndb.fastIndexAtVersion(t.version) {
+			// Without a fast node, the key is missing only if the fast index holds this version.
+			if keyMissing {
 				return nil, nil
 			}
 
