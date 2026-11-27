@@ -2,6 +2,8 @@ package iavl
 
 import (
 	"bytes"
+	"fmt"
+	"maps"
 	"runtime"
 	"sync/atomic"
 	"testing"
@@ -11,70 +13,126 @@ import (
 	"github.com/stretchr/testify/require"
 
 	dbm "github.com/cosmos/iavl/db"
+	"github.com/cosmos/iavl/fastnode"
 )
 
 func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
-	const timeout = 10 * time.Second
-
-	var (
-		removedKey = []byte("b")
-		addedKey   = []byte("d")
+	const (
+		timeout    = 10 * time.Second
+		updatedKey = "key000"
+		removedKey = "key001"
+		addedKey   = "new"
 	)
-	previousState := treeReads{all: map[string]string{"a": "1", "b": "1", "c": "1"}, removed: []byte("1")}
-	nextState := treeReads{all: map[string]string{"a": "2", "c": "1", "d": "2"}, added: []byte("2")}
+
+	// More keys than a MemDB iterator buffers, so an open fast iterator holds MemDB's lock until it is closed.
+	previousState := make(map[string]string, 100)
+	for i := range 100 {
+		previousState[fmt.Sprintf("key%03d", i)] = "1"
+	}
+	keys := make([]string, 0, len(previousState)+1)
+	keys = append(keys, addedKey)
+	for key := range previousState {
+		keys = append(keys, key)
+	}
 
 	read := func(tree *ImmutableTree) treeReads {
-		var got treeReads
-		got.all, got.err = iterateAll(tree)
-		if got.err != nil {
+		got := treeReads{fetched: map[string]string{}}
+		if got.iterated, got.err = iterateAll(tree); got.err != nil {
 			return got
 		}
-		if got.removed, got.err = tree.Get(removedKey); got.err != nil {
-			return got
+		for _, key := range keys {
+			value, err := tree.Get([]byte(key))
+			if err != nil {
+				got.err = err
+				return got
+			}
+			if value != nil {
+				got.fetched[key] = string(value)
+			}
 		}
-		got.added, got.err = tree.Get(addedKey)
+		return got
+	}
+
+	readAfterEarlyFlush := func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+		additions, removals := tree.getUnsavedFastNodeAdditions(), tree.getUnsavedFastNodeRemovals()
+		// SaveVersion starts here, and the low threshold makes the batch flush every fast node change at once.
+		require.NoError(t, tree.saveFastNodeVersion(tree.WorkingVersion()))
+		for key := range additions {
+			value, err := db.Get(fastKeyFormat.KeyBytes([]byte(key)))
+			require.NoError(t, err)
+			node, err := fastnode.DeserializeNode([]byte(key), value)
+			require.NoError(t, err)
+			require.Equal(t, tree.WorkingVersion(), node.GetVersionLastUpdatedAt(), "fast node of %q was not flushed before the commit", key)
+		}
+		for key := range removals {
+			value, err := db.Get(fastKeyFormat.KeyBytes([]byte(key)))
+			require.NoError(t, err)
+			require.Nil(t, value, "fast node removal of %q was not flushed before the commit", key)
+		}
+
+		got := readPrevious()
+		versioned := map[string]string{}
+		for _, key := range keys {
+			value, err := tree.GetVersioned([]byte(key), tree.Version())
+			require.NoError(t, err)
+			if value != nil {
+				versioned[key] = string(value)
+			}
+		}
+		assert.Equal(t, previousState, versioned, "GetVersioned of the previous version")
+
+		_, _, err := tree.SaveVersion()
+		require.NoError(t, err)
 		return got
 	}
 
 	testCases := []struct {
-		name string
-		opts []Option
+		name   string
+		opts   []Option
+		set    map[string]string // keys the next version adds or updates
+		remove []string          // keys the next version removes
 		// readDuringSave saves the next version and returns what a reader of the previous version saw on the way.
 		readDuringSave func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads
 	}{
 		{
-			name: "fast nodes of the next version are flushed before the commit",
-			opts: []Option{FlushThresholdOption(1)},
-			readDuringSave: func(t *testing.T, _ *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
-				// SaveVersion starts here, and the low threshold makes the batch flush every fast node change at once.
-				require.NoError(t, tree.saveFastNodeVersion(tree.WorkingVersion()))
-
-				got := readPrevious()
-				value, err := tree.GetVersioned(removedKey, tree.Version())
-				require.NoError(t, err)
-				assert.Equal(t, previousState.removed, value)
-
-				_, _, err = tree.SaveVersion()
-				require.NoError(t, err)
-				return got
-			},
+			name:           "added, updated and removed fast nodes are flushed before the commit",
+			opts:           []Option{FlushThresholdOption(1)},
+			set:            map[string]string{updatedKey: "2", addedKey: "2"},
+			remove:         []string{removedKey},
+			readDuringSave: readAfterEarlyFlush,
 		},
 		{
-			name: "next version commits between the version check and the fast iterator snapshot",
+			name:           "only added and updated fast nodes are flushed before the commit",
+			opts:           []Option{FlushThresholdOption(1)},
+			set:            map[string]string{updatedKey: "2", addedKey: "2"},
+			readDuringSave: readAfterEarlyFlush,
+		},
+		{
+			name:           "only a removed fast node is flushed before the commit",
+			opts:           []Option{FlushThresholdOption(1)},
+			remove:         []string{removedKey},
+			readDuringSave: readAfterEarlyFlush,
+		},
+		{
+			name:   "next version commits between the version check and the fast iterator snapshot",
+			set:    map[string]string{updatedKey: "2", addedKey: "2"},
+			remove: []string{removedKey},
 			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				save := func() {
 					_, _, err := tree.SaveVersion()
 					require.NoError(t, err)
 				}
-				db.onFastIterator.Store(&save)
+				db.beforeFastIterator.Store(&save)
 
 				got := readPrevious()
-				require.Nil(t, db.onFastIterator.Load(), "the read opened no fast iterator")
+				require.Nil(t, db.beforeFastIterator.Load(), "the read opened no fast iterator")
 				return got
 			},
 		},
 		{
-			name: "version check waits for the batch write",
+			name:   "version check waits for the batch write",
+			set:    map[string]string{updatedKey: "2", addedKey: "2"},
+			remove: []string{removedKey},
 			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
 				done := make(chan treeReads, 1)
 				// Runs inside the commit, so the reader cannot pass the version check before the batch is written.
@@ -99,13 +157,51 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 				}
 			},
 		},
+		{
+			name:   "next version starts committing while the fast iterator is open",
+			set:    map[string]string{updatedKey: "2", addedKey: "2"},
+			remove: []string{removedKey},
+			readDuringSave: func(t *testing.T, db *commitHookDB, tree *MutableTree, readPrevious func() treeReads) treeReads {
+				saved := make(chan error, 1)
+				// The open iterator blocks MemDB's batch write, so the commit holds nodeDB's lock until the reader closes it.
+				startSave := func() {
+					go func() {
+						_, _, err := tree.SaveVersion()
+						saved <- err
+					}()
+					assert.Eventually(t, func() bool {
+						return goroutineBlockedIn("(*memDBBatch).Write")
+					}, timeout, time.Millisecond, "SaveVersion never reached the batch write")
+				}
+				db.afterFastIterator.Store(&startSave)
+
+				done := make(chan treeReads, 1)
+				go func() { done <- readPrevious() }()
+
+				var got treeReads
+				select {
+				case got = <-done:
+				case <-time.After(timeout):
+					require.FailNow(t, "the reader and SaveVersion deadlocked")
+				}
+				require.Nil(t, db.afterFastIterator.Load(), "the read opened no fast iterator")
+
+				select {
+				case err := <-saved:
+					require.NoError(t, err)
+				case <-time.After(timeout):
+					require.FailNow(t, "SaveVersion did not finish after the read")
+				}
+				return got
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			db := &commitHookDB{DB: dbm.NewMemDB()}
 			tree := NewMutableTree(db, 0, false, NewNopLogger(), tc.opts...)
-			for key, value := range previousState.all {
+			for key, value := range previousState {
 				_, err := tree.Set([]byte(key), []byte(value))
 				require.NoError(t, err)
 			}
@@ -119,39 +215,48 @@ func TestReadPreviousVersionDuringSaveVersion(t *testing.T) {
 
 			previous, err := tree.GetImmutable(1)
 			require.NoError(t, err)
-			isFast, err := previous.IsFastCacheEnabled()
-			require.NoError(t, err)
-			require.True(t, isFast, "the previous version must start on the fast path")
+			requireFastIterator(t, previous, "the previous version must start on the fast path")
 
-			for key, value := range nextState.all {
+			nextState := maps.Clone(previousState)
+			for key, value := range tc.set {
 				_, err := tree.Set([]byte(key), []byte(value))
 				require.NoError(t, err)
+				nextState[key] = value
 			}
-			_, removed, err := tree.Remove(removedKey)
-			require.NoError(t, err)
-			require.True(t, removed)
+			for _, key := range tc.remove {
+				_, removed, err := tree.Remove([]byte(key))
+				require.NoError(t, err)
+				require.True(t, removed)
+				delete(nextState, key)
+			}
 
+			wantPrevious := treeReads{iterated: previousState, fetched: previousState}
 			got := tc.readDuringSave(t, db, tree, func() treeReads { return read(previous) })
-			require.Equal(t, previousState, got)
+			require.Equal(t, wantPrevious, got)
 			require.Equal(t, int64(2), tree.Version())
-			require.Equal(t, previousState, read(previous))
+			require.Equal(t, wantPrevious, read(previous))
 
 			next, err := tree.GetImmutable(2)
 			require.NoError(t, err)
-			require.Equal(t, nextState, read(next))
-			itr, err := next.Iterator(nil, nil, true)
-			require.NoError(t, err)
-			require.IsType(t, &FastIterator{}, itr, "the saved version must be back on the fast path")
-			require.NoError(t, itr.Close())
+			require.Equal(t, treeReads{iterated: nextState, fetched: nextState}, read(next))
+			requireFastIterator(t, next, "the saved version must be back on the fast path")
 		})
 	}
 }
 
+// treeReads holds what a reader saw. Both maps equal the version's state when the reads are consistent.
 type treeReads struct {
-	all     map[string]string
-	removed []byte // value of the key the next version removes
-	added   []byte // value of the key the next version adds
-	err     error
+	iterated map[string]string
+	fetched  map[string]string // Get of every key the test uses, missing keys left out
+	err      error
+}
+
+func requireFastIterator(t *testing.T, tree *ImmutableTree, msg string) {
+	t.Helper()
+	itr, err := tree.Iterator(nil, nil, true)
+	require.NoError(t, err)
+	require.IsType(t, &FastIterator{}, itr, msg)
+	require.NoError(t, itr.Close())
 }
 
 func iterateAll(tree *ImmutableTree) (map[string]string, error) {
@@ -184,8 +289,8 @@ type commitHookDB struct {
 	dbm.DB
 	// onWrite runs once after the next batch write, while nodeDB still holds its lock.
 	onWrite atomic.Pointer[func()]
-	// onFastIterator runs once before the next fast node iterator opens.
-	onFastIterator atomic.Pointer[func()]
+	// beforeFastIterator and afterFastIterator run once, around the opening of the next fast node iterator.
+	beforeFastIterator, afterFastIterator atomic.Pointer[func()]
 }
 
 func (db *commitHookDB) NewBatch() dbm.Batch {
@@ -197,10 +302,13 @@ func (db *commitHookDB) NewBatchWithSize(size int) dbm.Batch {
 }
 
 func (db *commitHookDB) Iterator(start, end []byte) (dbm.Iterator, error) {
-	if bytes.HasPrefix(start, fastKeyFormat.Key()) {
-		runOnce(&db.onFastIterator)
+	if !bytes.HasPrefix(start, fastKeyFormat.Key()) {
+		return db.DB.Iterator(start, end)
 	}
-	return db.DB.Iterator(start, end)
+	runOnce(&db.beforeFastIterator)
+	itr, err := db.DB.Iterator(start, end)
+	runOnce(&db.afterFastIterator)
+	return itr, err
 }
 
 type commitHookBatch struct {
